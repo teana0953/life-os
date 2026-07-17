@@ -1,6 +1,7 @@
 .devloop/
 .dart_tool/
 build/
+.actionlint/
 .flutter-plugins*
 *.iml
 .idea/

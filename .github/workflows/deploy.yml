@@ -1,0 +1,36 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.4
+          channel: stable
+
+      - run: flutter pub get
+
+      - run: flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+
+      # Account is inferred from the API token; do not pass accountId (see
+      # design.md / life-os-backend's CD workflow for the same pattern).
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy build/web --project-name=life-os
