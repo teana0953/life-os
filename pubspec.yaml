@@ -71,6 +71,15 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
+  # Design-system rounded font: Quicksand (SIL OFL 1.1), bundled offline for
+  # test reliability. License: assets/fonts/OFL.txt.
+  fonts:
+    - family: Quicksand
+      fonts:
+        - asset: assets/fonts/Quicksand-VariableFont_wght.ttf
+        - asset: assets/fonts/Quicksand-VariableFont_wght.ttf
+          weight: 700
+
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
