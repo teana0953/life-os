@@ -174,6 +174,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The themed home screen's "Your spaces" grid can push the sign-out
+      // button below the fold on the default test viewport; scroll it into
+      // view before tapping.
+      await tester.ensureVisible(find.byKey(const Key('sign-out-button')));
       await tester.tap(find.byKey(const Key('sign-out-button')));
       await tester.pumpAndSettle();
 

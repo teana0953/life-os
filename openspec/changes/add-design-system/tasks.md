@@ -17,9 +17,9 @@
 ## 4. 畫面重構(behavior 不變)
 
 - [x] 4.1 `LoginScreen`:套主題化元件(brand + mascot、卡片、圓角輸入、pill 主按鈕、錯誤態、loading);**responsive**——卡片置中 `maxWidth`≈420,寬螢幕不拉滿;不硬編碼顏色;既有 widget 測試維持綠(更新定位不改行為)
-- [ ] 4.2 `HomeScreen`:套主題化(問候 header、profile 卡、Signed-in pill、Your spaces grid 示意);**responsive** grid 欄數隨寬度(手機 1–2、桌機多欄),內容置中限寬;既有測試維持綠
+- [x] 4.2 `HomeScreen`:套主題化(問候 header、profile 卡、Signed-in pill、Your spaces grid 示意);**responsive** grid 欄數隨寬度(手機 1–2、桌機多欄),內容置中限寬;既有測試維持綠
 
 ## 5. Responsive 測試 + 收尾
 
-- [ ] 5.1 responsive 測試:用 `tester.binding.setSurfaceSize` 在窄(如 360×800)與寬(如 1200×800)兩尺寸下,驗登入卡限寬 / home grid 欄數不同,且無 overflow(pump 後無 exception)
+- [x] 5.1 responsive 測試:用 `tester.binding.setSurfaceSize` 在窄(如 360×800)與寬(如 1200×800)兩尺寸下,驗登入卡限寬 / home grid 欄數不同,且無 overflow(pump 後無 exception)
 - [ ] 5.2 repo `CLAUDE.md` 補「設計系統」節(token 位置、元件慣例、responsive 斷點、新畫面如何沿用 theme);`flutter analyze` 無 issue、`flutter test` 全綠
