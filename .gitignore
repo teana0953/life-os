@@ -1,0 +1,9 @@
+.devloop/
+.dart_tool/
+build/
+.flutter-plugins*
+*.iml
+.idea/
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
+lib/firebase_options.dart
