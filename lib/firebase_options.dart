@@ -39,14 +39,14 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'placeholder',
-    appId: 'placeholder',
-    messagingSenderId: 'placeholder',
-    projectId: 'placeholder',
-    authDomain: 'placeholder',
-    storageBucket: 'placeholder',
+    apiKey: 'AIzaSyCwUTvwQ9fjsaeRBsdJq4R0swy4jpoyJxo',
+    appId: '1:931962540008:web:d34ecdddd357eb1da29e5d',
+    messagingSenderId: '931962540008',
+    projectId: 'life-os-96406',
+    authDomain: 'life-os-96406.firebaseapp.com',
+    storageBucket: 'life-os-96406.firebasestorage.app',
+    measurementId: 'G-K5GZ70X7BX',
   );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'placeholder',
     appId: 'placeholder',
