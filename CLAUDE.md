@@ -105,3 +105,56 @@ events speculatively (YAGNI).
 - `android/app/google-services.json` and
   `ios/Runner/GoogleService-Info.plist` remain gitignored (web-first;
   add them only when Android/iOS builds are needed).
+
+## Design system
+
+A Chiikawa-inspired cute pastel design language, applied via a single
+Material 3 theme (light + dark, following `ThemeMode.system`). See
+`openspec/changes/add-design-system/design.md` for the full token
+rationale.
+
+- **Tokens**: `lib/shared/theme/app_colors.dart` — raw color constants
+  (Hachiware blue primary, blush pink / Usagi yellow accents, cream
+  ground, soft-brown ink/outline, sage/honey/error semantic colors).
+  Never reference these hex values directly from a screen; go through
+  the theme.
+- **Theme**: `lib/shared/theme/app_theme.dart` — `lightTheme` and
+  `darkTheme` (`ThemeData`, `useMaterial3: true`) with an explicit
+  `ColorScheme` and component themes (`CardThemeData`,
+  `InputDecorationTheme`, `FilledButtonThemeData`,
+  `OutlinedButtonThemeData`, `TextTheme`). Use the `*ThemeData` types,
+  not the deprecated non-`Data` aliases (e.g. `CardTheme`) — Flutter
+  3.35's `ThemeData` constructor expects `*Data` and the old aliases
+  trip `flutter analyze`.
+- **Toy-ledge shadow**: the soft, downward-offset "step" shadow under
+  cards/buttons is *not* `elevation` (which is symmetric). Use
+  `ledgeShadow(outlineColor)` from `app_theme.dart` inside a
+  `BoxDecoration.boxShadow` on a wrapping `Container`.
+- **Mascot**: `lib/shared/widgets/mascot.dart` — an original
+  `CustomPaint` round face (not a reproduction of any existing
+  character), themed from `Theme.of(context).colorScheme`. Sized via
+  the `size` constructor parameter.
+- **Font**: Quicksand (SIL OFL 1.1), bundled offline at
+  `assets/fonts/Quicksand-VariableFont_wght.ttf` and registered as the
+  `Quicksand` family in `pubspec.yaml` (license: `assets/fonts/OFL.txt`).
+  Bundled rather than fetched at runtime so it works offline and in
+  tests. Applied via `ThemeData.fontFamily`, not per-widget.
+- **Screens**: derive all colors, shapes, and text styles from
+  `Theme.of(context)` — never hard-code a `Color(...)` or use
+  `Colors.*` in presentation code.
+- **Responsive breakpoints**: phone `< 600`, tablet `600–899`, desktop
+  `>= 900` (logical pixels, via `LayoutBuilder`/`MediaQuery`). Sign-in
+  centers its card with a `maxWidth` of ~420 that shrinks on narrower
+  viewports instead of stretching edge-to-edge. Home centers its
+  content in a `maxWidth` of 960 and the "Your spaces" grid uses
+  `SliverGridDelegateWithFixedCrossAxisCount` with 2 columns on phone,
+  3 on tablet, 4 on desktop.
+- **New screens**: use `TextField` (not `TextFormField`) for consistency
+  with existing widget tests that assert on `TextField.enabled`; wrap
+  primary content in a themed `Container`/`Card` with the standard
+  20–22px corner radius and 2px outline border; use `FilledButton` for
+  primary actions (pill shape + ledge shadow come from the theme) and
+  `OutlinedButton` for secondary actions. Test responsive layout with
+  `tester.binding.setSurfaceSize(...)`, and always
+  `addTearDown(() => tester.binding.setSurfaceSize(null))` to avoid
+  leaking the size into later tests.

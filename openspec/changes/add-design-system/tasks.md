@@ -22,4 +22,4 @@
 ## 5. Responsive 測試 + 收尾
 
 - [x] 5.1 responsive 測試:用 `tester.binding.setSurfaceSize` 在窄(如 360×800)與寬(如 1200×800)兩尺寸下,驗登入卡限寬 / home grid 欄數不同,且無 overflow(pump 後無 exception)
-- [ ] 5.2 repo `CLAUDE.md` 補「設計系統」節(token 位置、元件慣例、responsive 斷點、新畫面如何沿用 theme);`flutter analyze` 無 issue、`flutter test` 全綠
+- [x] 5.2 repo `CLAUDE.md` 補「設計系統」節(token 位置、元件慣例、responsive 斷點、新畫面如何沿用 theme);`flutter analyze` 無 issue、`flutter test` 全綠
