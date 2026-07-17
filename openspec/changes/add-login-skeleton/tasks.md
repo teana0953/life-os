@@ -29,6 +29,6 @@
 
 ## 6. 組裝與收尾
 
-- [ ] 6.1 `main.dart` composition root:`Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`、手動注入 adapters→use case→controller、runApp
-- [ ] 6.2 `flutter analyze` 無 issue、`flutter test` 全綠(gate)
-- [ ] 6.3 README:專案簡介、使用者前置(flutterfire configure、啟用 Email/Password、建測試用戶)、`flutter run -d chrome --dart-define=API_BASE_URL=...` 跑法
+- [x] 6.1 `main.dart` composition root:`Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`、手動注入 adapters→use case→controller、runApp
+- [x] 6.2 `flutter analyze` 無 issue、`flutter test` 全綠(gate)
+- [x] 6.3 README:專案簡介、使用者前置(flutterfire configure、啟用 Email/Password、建測試用戶)、`flutter run -d chrome --dart-define=API_BASE_URL=...` 跑法
