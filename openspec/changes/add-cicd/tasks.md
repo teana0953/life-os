@@ -16,8 +16,8 @@
 
 ## 4. 文件
 
-- [ ] 4.1 README 補 CI/CD 章節:pipeline 行為、所需 `CLOUDFLARE_API_TOKEN` secret(Pages:Edit、**限單一帳號**)+ `API_BASE_URL` variable、Cloudflare Pages 專案需先建;**部署後登入的兩個前置**:設後端 `ALLOWED_WEB_ORIGIN`(CORS)+ Firebase Authorized domains 加 Pages 網域
+- [x] 4.1 README 補 CI/CD 章節:pipeline 行為、所需 `CLOUDFLARE_API_TOKEN` secret(Pages:Edit、**限單一帳號**)+ `API_BASE_URL` variable、Cloudflare Pages 專案需先建;**部署後登入的兩個前置**:設後端 `ALLOWED_WEB_ORIGIN`(CORS)+ Firebase Authorized domains 加 Pages 網域
 
 ## 5. 靜態驗證
 
-- [ ] 5.1 對兩個 workflow 跑 `actionlint` 通過;確認 `flutter analyze`、`flutter test` 維持全綠(gate 全綠)
+- [x] 5.1 對兩個 workflow 跑 `actionlint` 通過;確認 `flutter analyze`、`flutter test` 維持全綠(gate 全綠)
