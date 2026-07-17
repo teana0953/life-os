@@ -62,7 +62,8 @@ Set these under the repo's **Settings → Secrets and variables → Actions**:
 
 | Secret | Used for |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | Deploy authentication (Cloudflare dashboard → API Tokens → needs Pages:Edit). Must be scoped to a **single** Cloudflare account — the Pages project's account is inferred from this token (no separate account-id input), and a token that can see multiple accounts makes the non-interactive deploy fail with "More than one account". |
+| `CLOUDFLARE_API_TOKEN` | Deploy authentication (Cloudflare dashboard → API Tokens → needs **Cloudflare Pages: Edit**). |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id. Required: `wrangler pages deploy` resolves the account via the user-level `/memberships` endpoint, which an account-scoped token cannot access (error 9106), so the account id must be passed explicitly. |
 
 **Variables** (tab: Variables):
 

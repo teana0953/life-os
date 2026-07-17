@@ -27,10 +27,13 @@ jobs:
 
       - run: flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
 
-      # Account is inferred from the API token; do not pass accountId (see
-      # design.md / life-os-backend's CD workflow for the same pattern).
+      # Pages deploy must be given the account id explicitly. Unlike Workers
+      # deploy, `wrangler pages deploy` resolves the account via the user-level
+      # /memberships endpoint, which an account-scoped API token cannot access
+      # (Cloudflare error 9106). Passing accountId skips that lookup.
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=life-os
