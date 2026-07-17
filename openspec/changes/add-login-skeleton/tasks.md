@@ -21,7 +21,7 @@
 ## 4. Firebase 實作與組裝
 
 - [ ] 4.1 `FirebaseAuthService` 實作 `AuthService`(包 firebase_auth;錯誤轉友善訊息、不洩內部)
-- [ ] 4.2 `main.dart` composition root:`Firebase.initializeApp`、注入 FirebaseAuthService + HttpApiClient、runApp;`firebase_options.dart` 缺席時給清楚說明(gitignored,由使用者 flutterfire configure 產生)
+- [ ] 4.2 `main.dart` composition root:`Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`、注入 FirebaseAuthService + HttpApiClient、runApp。`firebase_options.dart` 為 check-in 的 placeholder(見 1.3),使用者以 `flutterfire configure` 覆蓋成真值
 
 ## 5. Gate 與收尾
 
