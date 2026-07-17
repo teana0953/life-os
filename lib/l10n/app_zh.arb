@@ -28,5 +28,8 @@
   "errorSomethingWentWrong": "發生錯誤，請再試一次。",
   "authErrorGeneric": "發生錯誤，請再試一次。",
   "retry": "重試",
-  "switchLanguage": "切換語言"
+  "switchLanguage": "切換語言",
+  "followSystemLanguage": "跟隨系統",
+  "languageEnglish": "English",
+  "languageTraditionalChinese": "繁體中文"
 }

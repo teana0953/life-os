@@ -94,4 +94,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get switchLanguage => 'Switch language';
+
+  @override
+  String get followSystemLanguage => 'Follow system';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageTraditionalChinese => '繁體中文';
 }

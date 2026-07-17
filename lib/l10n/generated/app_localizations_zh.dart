@@ -91,6 +91,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get switchLanguage => '切換語言';
+
+  @override
+  String get followSystemLanguage => '跟隨系統';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageTraditionalChinese => '繁體中文';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -180,4 +189,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get switchLanguage => '切換語言';
+
+  @override
+  String get followSystemLanguage => '跟隨系統';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageTraditionalChinese => '繁體中文';
 }

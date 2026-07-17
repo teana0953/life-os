@@ -262,24 +262,28 @@ void main() {
       },
     );
 
-    testWidgets('tapping the language switcher toggles the locale', (
-      tester,
-    ) async {
-      final repository = FakeAuthRepository();
-      final controller = LoginController(SignIn(repository));
-      await pumpLoginScreen(tester, controller);
+    testWidgets(
+      'selecting Traditional Chinese from the language switcher menu '
+      'changes the locale',
+      (tester) async {
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller);
 
-      final en = lookupAppLocalizations(const Locale('en'));
-      final zhHant = lookupAppLocalizations(
-        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-      );
-      expect(find.text(en.welcomeBack), findsOneWidget);
+        final en = lookupAppLocalizations(const Locale('en'));
+        final zhHant = lookupAppLocalizations(
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        expect(find.text(en.welcomeBack), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('language-switcher')));
-      await tester.pump();
+        await tester.tap(find.byKey(const Key('language-switcher')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('language-option-zh')));
+        await tester.pumpAndSettle();
 
-      expect(find.text(zhHant.welcomeBack), findsOneWidget);
-      expect(find.text(en.welcomeBack), findsNothing);
-    });
+        expect(find.text(zhHant.welcomeBack), findsOneWidget);
+        expect(find.text(en.welcomeBack), findsNothing);
+      },
+    );
   });
 }

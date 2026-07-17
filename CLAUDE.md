@@ -200,8 +200,9 @@ Chinese** (`zh-Hant`) via Flutter's official `gen_l10n` toolchain. See
   `shared_preferences`; `lib/app.dart` rebuilds `MaterialApp` from it via
   `AnimatedBuilder` and falls back to English when the system locale isn't
   supported. `LanguageSwitcher` (`lib/shared/i18n/language_switcher.dart`)
-  is the reusable icon button (shown on sign-in and home) that toggles
-  between English and Traditional Chinese through the controller.
+  is the reusable chip control (shown on sign-in and home) that shows the
+  current language and opens a menu with three options — follow system,
+  English, and Traditional Chinese — through the controller.
 - **Testing**: widget tests wrap the widget under test in a `MaterialApp`
   with `AppLocalizations.localizationsDelegates`/`supportedLocales` and a
   fixed `locale` (see `test/support/l10n_test_app.dart`'s `l10nTestApp`

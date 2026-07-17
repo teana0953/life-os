@@ -139,5 +139,20 @@
   "switchLanguage": "Switch language",
   "@switchLanguage": {
     "description": "Tooltip/accessible label for the language switcher control."
+  },
+
+  "followSystemLanguage": "Follow system",
+  "@followSystemLanguage": {
+    "description": "Language switcher menu option that reverts to following the device's system language."
+  },
+
+  "languageEnglish": "English",
+  "@languageEnglish": {
+    "description": "Language switcher menu option label for English; also shown as the current-language indicator when English is active."
+  },
+
+  "languageTraditionalChinese": "繁體中文",
+  "@languageTraditionalChinese": {
+    "description": "Language switcher menu option label for Traditional Chinese; also shown as the current-language indicator when Traditional Chinese is active."
   }
 }

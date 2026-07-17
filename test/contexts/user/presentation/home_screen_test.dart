@@ -186,41 +186,45 @@ void main() {
       },
     );
 
-    testWidgets('tapping the language switcher toggles the locale', (
-      tester,
-    ) async {
-      final profileRepository = FakeProfileRepository()
-        ..profileToReturn = UserProfile(
-          id: 'user-1',
-          firebaseUid: 'firebase-abc',
-          email: 'test@example.com',
-          displayName: 'Test User',
-          createdAt: '2026-01-01T00:00:00.000Z',
+    testWidgets(
+      'selecting Traditional Chinese from the language switcher menu '
+      'changes the locale',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
         );
-      final authRepository = FakeAuthRepository();
-      final controller = HomeController(
-        GetProfile(profileRepository),
-        SignOut(authRepository),
-      );
-      await controller.load('token-123');
-      await pumpHomeScreen(
-        tester,
-        controller,
-        clock: () => DateTime(2026, 1, 1, 8),
-      );
+        await controller.load('token-123');
+        await pumpHomeScreen(
+          tester,
+          controller,
+          clock: () => DateTime(2026, 1, 1, 8),
+        );
 
-      final en = lookupAppLocalizations(const Locale('en'));
-      final zhHant = lookupAppLocalizations(
-        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-      );
-      expect(find.text(en.greetingMorning), findsOneWidget);
+        final en = lookupAppLocalizations(const Locale('en'));
+        final zhHant = lookupAppLocalizations(
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        expect(find.text(en.greetingMorning), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('language-switcher')));
-      await tester.pump();
+        await tester.tap(find.byKey(const Key('language-switcher')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('language-option-zh')));
+        await tester.pumpAndSettle();
 
-      expect(find.text(zhHant.greetingMorning), findsOneWidget);
-      expect(find.text(en.greetingMorning), findsNothing);
-    });
+        expect(find.text(zhHant.greetingMorning), findsOneWidget);
+        expect(find.text(en.greetingMorning), findsNothing);
+      },
+    );
   });
 
   group('HomeScreen greeting', () {

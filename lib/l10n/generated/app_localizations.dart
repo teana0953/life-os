@@ -266,6 +266,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Switch language'**
   String get switchLanguage;
+
+  /// Language switcher menu option that reverts to following the device's system language.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow system'**
+  String get followSystemLanguage;
+
+  /// Language switcher menu option label for English; also shown as the current-language indicator when English is active.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// Language switcher menu option label for Traditional Chinese; also shown as the current-language indicator when Traditional Chinese is active.
+  ///
+  /// In en, this message translates to:
+  /// **'繁體中文'**
+  String get languageTraditionalChinese;
 }
 
 class _AppLocalizationsDelegate
