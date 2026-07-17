@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/i18n/language_switcher.dart';
+import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/mascot.dart';
 import 'login_controller.dart';
@@ -11,8 +14,13 @@ const _cardPadding = 24.0;
 
 class LoginScreen extends StatefulWidget {
   final LoginController controller;
+  final LocaleController localeController;
 
-  const LoginScreen({super.key, required this.controller});
+  const LoginScreen({
+    super.key,
+    required this.controller,
+    required this.localeController,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -44,10 +52,23 @@ class _LoginScreenState extends State<LoginScreen> {
     widget.controller.submit(_emailController.text, _passwordController.text);
   }
 
+  String? _errorText(AppLocalizations loc) {
+    return switch (widget.controller.error) {
+      null => null,
+      LoginError.invalidCredentials => loc.errorIncorrectCredentials,
+      LoginError.invalidEmail => loc.errorInvalidEmail,
+      LoginError.accountDisabled => loc.errorAccountDisabled,
+      LoginError.tooManyRequests => loc.errorTooManyRequests,
+      LoginError.unknown => loc.errorSignInFailed,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoading = widget.controller.isLoading;
     final theme = Theme.of(context);
+    final loc = AppLocalizations.of(context)!;
+    final errorText = _errorText(loc);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -57,101 +78,112 @@ class _LoginScreenState extends State<LoginScreen> {
               final cardWidth = constraints.maxWidth < _cardMaxWidth
                   ? constraints.maxWidth
                   : _cardMaxWidth;
-              return Center(
-                child: SingleChildScrollView(
-                  child: SizedBox(
-                    key: const Key('login-card'),
-                    width: cardWidth,
-                    child: Container(
-                      padding: const EdgeInsets.all(_cardPadding),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: theme.colorScheme.outline,
-                          width: 2,
-                        ),
-                        boxShadow: ledgeShadow(theme.colorScheme.outline),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Center(child: Mascot(size: 72)),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Welcome back',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Sign in to Life OS',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+              return Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: LanguageSwitcher(controller: widget.localeController),
+                  ),
+                  Center(
+                    child: SingleChildScrollView(
+                      child: SizedBox(
+                        key: const Key('login-card'),
+                        width: cardWidth,
+                        child: Container(
+                          padding: const EdgeInsets.all(_cardPadding),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: theme.colorScheme.outline,
+                              width: 2,
                             ),
+                            boxShadow: ledgeShadow(theme.colorScheme.outline),
                           ),
-                          const SizedBox(height: 24),
-                          TextField(
-                            key: const Key('email-field'),
-                            controller: _emailController,
-                            enabled: !isLoading,
-                            keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [
-                              AutofillHints.username,
-                              AutofillHints.email,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Center(child: Mascot(size: 72)),
+                              const SizedBox(height: 16),
+                              Text(
+                                loc.welcomeBack,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                loc.signInSubtitle,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              TextField(
+                                key: const Key('email-field'),
+                                controller: _emailController,
+                                enabled: !isLoading,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [
+                                  AutofillHints.username,
+                                  AutofillHints.email,
+                                ],
+                                textInputAction: TextInputAction.next,
+                                onSubmitted: (_) => FocusScope.of(
+                                  context,
+                                ).requestFocus(_passwordFocusNode),
+                                decoration: InputDecoration(
+                                  labelText: loc.emailLabel,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                key: const Key('password-field'),
+                                controller: _passwordController,
+                                focusNode: _passwordFocusNode,
+                                enabled: !isLoading,
+                                obscureText: true,
+                                autofillHints: const [AutofillHints.password],
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => _submit(),
+                                decoration: InputDecoration(
+                                  labelText: loc.passwordLabel,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (errorText != null)
+                                Text(
+                                  errorText,
+                                  key: const Key('error-message'),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: theme.colorScheme.error),
+                                ),
+                              const SizedBox(height: 16),
+                              FilledButton(
+                                key: const Key('submit-button'),
+                                onPressed: isLoading ? null : _submit,
+                                child: isLoading
+                                    ? Semantics(
+                                        label: loc.signingIn,
+                                        child: SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: theme.colorScheme.onPrimary,
+                                          ),
+                                        ),
+                                      )
+                                    : Text(loc.signInButton),
+                              ),
                             ],
-                            textInputAction: TextInputAction.next,
-                            onSubmitted: (_) => FocusScope.of(
-                              context,
-                            ).requestFocus(_passwordFocusNode),
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                            ),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            key: const Key('password-field'),
-                            controller: _passwordController,
-                            focusNode: _passwordFocusNode,
-                            enabled: !isLoading,
-                            obscureText: true,
-                            autofillHints: const [AutofillHints.password],
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _submit(),
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (widget.controller.errorMessage != null)
-                            Text(
-                              widget.controller.errorMessage!,
-                              key: const Key('error-message'),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: theme.colorScheme.error),
-                            ),
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            key: const Key('submit-button'),
-                            onPressed: isLoading ? null : _submit,
-                            child: isLoading
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: theme.colorScheme.onPrimary,
-                                    ),
-                                  )
-                                : const Text('Sign in'),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               );
             },
           ),

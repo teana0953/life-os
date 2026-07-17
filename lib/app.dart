@@ -1,11 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
+import 'l10n/generated/app_localizations.dart';
+import 'shared/i18n/locale_controller.dart';
 import 'shared/theme/app_theme.dart';
+
+/// The locales the app ships translations for. `zh-Hant` uses
+/// [Locale.fromSubtags] with `scriptCode` (not [Locale.new] with a
+/// `countryCode`, which 'Hant' is not) so it matches the system locale and
+/// the generated `AppLocalizations` correctly.
+const supportedLocales = [
+  Locale('en'),
+  Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+];
+
+/// Resolves an OS-reported [locale] against [supportedLocales], falling
+/// back to English when there is no supported match.
+Locale resolveLocale(Locale? locale, Iterable<Locale> supportedLocales) {
+  if (locale != null) {
+    for (final candidate in supportedLocales) {
+      if (candidate.languageCode == locale.languageCode &&
+          candidate.scriptCode == locale.scriptCode) {
+        return candidate;
+      }
+    }
+    for (final candidate in supportedLocales) {
+      if (candidate.languageCode == locale.languageCode) return candidate;
+    }
+  }
+  return const Locale('en');
+}
 
 /// MaterialApp + auth-state routing: shows [LoginScreen] when there is no
 /// authenticated user and [HomeScreen] when there is, driven by
@@ -14,12 +43,14 @@ class App extends StatefulWidget {
   final AuthRepository authRepository;
   final LoginController loginController;
   final HomeController homeController;
+  final LocaleController localeController;
 
   const App({
     super.key,
     required this.authRepository,
     required this.loginController,
     required this.homeController,
+    required this.localeController,
   });
 
   @override
@@ -38,48 +69,68 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
-      home: StreamBuilder<bool>(
-        stream: _authStateChanges,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Scaffold(
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Something went wrong. Please try again.',
-                      key: Key('auth-error-message'),
+    return AnimatedBuilder(
+      animation: widget.localeController,
+      builder: (context, _) {
+        return MaterialApp(
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: ThemeMode.system,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: supportedLocales,
+          locale: widget.localeController.locale,
+          localeResolutionCallback: (locale, supported) =>
+              resolveLocale(locale, supported),
+          home: StreamBuilder<bool>(
+            stream: _authStateChanges,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                final loc = AppLocalizations.of(context)!;
+                return Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.authErrorGeneric,
+                          key: const Key('auth-error-message'),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          key: const Key('auth-retry-button'),
+                          onPressed: _retryAuthStateChanges,
+                          child: Text(loc.retry),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: const Key('auth-retry-button'),
-                      onPressed: _retryAuthStateChanges,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (snapshot.data == true) {
-            return _AuthenticatedHome(
-              authRepository: widget.authRepository,
-              homeController: widget.homeController,
-            );
-          }
-          return LoginScreen(controller: widget.loginController);
-        },
-      ),
+                  ),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.data == true) {
+                return _AuthenticatedHome(
+                  authRepository: widget.authRepository,
+                  homeController: widget.homeController,
+                  localeController: widget.localeController,
+                );
+              }
+              return LoginScreen(
+                controller: widget.loginController,
+                localeController: widget.localeController,
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -87,10 +138,12 @@ class _AppState extends State<App> {
 class _AuthenticatedHome extends StatefulWidget {
   final AuthRepository authRepository;
   final HomeController homeController;
+  final LocaleController localeController;
 
   const _AuthenticatedHome({
     required this.authRepository,
     required this.homeController,
+    required this.localeController,
   });
 
   @override
@@ -111,6 +164,9 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
 
   @override
   Widget build(BuildContext context) {
-    return HomeScreen(controller: widget.homeController);
+    return HomeScreen(
+      controller: widget.homeController,
+      localeController: widget.localeController,
+    );
   }
 }

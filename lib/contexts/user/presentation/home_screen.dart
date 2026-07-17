@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/i18n/language_switcher.dart';
+import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/mascot.dart';
 import 'home_controller.dart';
-
-/// Illustrative-only preview names for the "Your spaces" grid — future
-/// modules (Health, Finance, ...) are out of scope for this design-system
-/// change; these are placeholders, not real navigation targets.
-const _spacePreviewNames = ['Health', 'Finance', 'Tasks', 'Journal'];
 
 const _contentMaxWidth = 960.0;
 
@@ -17,10 +15,33 @@ int _spacesCrossAxisCount(double width) {
   return 2;
 }
 
+/// Time-of-day period the home screen's greeting is based on.
+enum GreetingPeriod { morning, afternoon, evening }
+
+/// Buckets [time] into a [GreetingPeriod]. Takes a [DateTime] directly
+/// (rather than reading `DateTime.now()` itself) so callers can inject a
+/// fixed clock and keep tests deterministic.
+GreetingPeriod greetingPeriodFor(DateTime time) {
+  if (time.hour < 12) return GreetingPeriod.morning;
+  if (time.hour < 18) return GreetingPeriod.afternoon;
+  return GreetingPeriod.evening;
+}
+
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
+  final LocaleController localeController;
 
-  const HomeScreen({super.key, required this.controller});
+  /// Returns the current time, used to pick the home screen's time-of-day
+  /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
+  /// avoid time-of-day flakiness.
+  final DateTime Function() clock;
+
+  const HomeScreen({
+    super.key,
+    required this.controller,
+    required this.localeController,
+    this.clock = DateTime.now,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -46,18 +67,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = widget.controller;
     return Scaffold(
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final contentWidth = constraints.maxWidth < _contentMaxWidth
-                ? constraints.maxWidth
-                : _contentMaxWidth;
-            return Center(
-              child: SizedBox(
-                width: contentWidth,
-                child: _buildBody(context, controller, contentWidth),
-              ),
-            );
-          },
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth = constraints.maxWidth < _contentMaxWidth
+                    ? constraints.maxWidth
+                    : _contentMaxWidth;
+                return Center(
+                  child: SizedBox(
+                    width: contentWidth,
+                    child: _buildBody(context, controller, contentWidth),
+                  ),
+                );
+              },
+            ),
+            Align(
+              alignment: Alignment.topRight,
+              child: LanguageSwitcher(controller: widget.localeController),
+            ),
+          ],
         ),
       ),
     );
@@ -69,11 +98,23 @@ class _HomeScreenState extends State<HomeScreen> {
     double contentWidth,
   ) {
     final theme = Theme.of(context);
+    final loc = AppLocalizations.of(context)!;
     switch (controller.status) {
       case HomeStatus.loading:
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
         final profile = controller.profile!;
+        final spacePreviewNames = [
+          loc.spaceHealth,
+          loc.spaceFinance,
+          loc.spaceTasks,
+          loc.spaceJournal,
+        ];
+        final greeting = switch (greetingPeriodFor(widget.clock())) {
+          GreetingPeriod.morning => loc.greetingMorning,
+          GreetingPeriod.afternoon => loc.greetingAfternoon,
+          GreetingPeriod.evening => loc.greetingEvening,
+        };
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -82,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Center(child: Mascot(size: 64)),
               const SizedBox(height: 12),
               Text(
-                'Welcome back',
+                greeting,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineMedium,
               ),
@@ -123,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        'Signed in',
+                        loc.signedIn,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onPrimary,
                         ),
@@ -133,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text('Your spaces', style: theme.textTheme.titleLarge),
+              Text(loc.yourSpaces, style: theme.textTheme.titleLarge),
               const SizedBox(height: 12),
               GridView.builder(
                 key: const Key('spaces-grid'),
@@ -145,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.2,
                 ),
-                itemCount: _spacePreviewNames.length,
+                itemCount: spacePreviewNames.length,
                 itemBuilder: (context, index) => Container(
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -153,25 +194,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: theme.colorScheme.outline, width: 2),
                   ),
-                  child: Text(_spacePreviewNames[index]),
+                  child: Text(spacePreviewNames[index]),
                 ),
               ),
               const SizedBox(height: 24),
               FilledButton(
                 key: const Key('sign-out-button'),
                 onPressed: controller.signOut,
-                child: const Text('Sign out'),
+                child: Text(loc.signOut),
               ),
             ],
           ),
         );
       case HomeStatus.error:
+        final errorText = controller.error == ProfileError.fetchFailed
+            ? loc.errorProfileLoadFailed
+            : loc.errorSomethingWentWrong;
         return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                controller.errorMessage ?? 'Something went wrong.',
+                errorText,
                 key: const Key('error-message'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: theme.colorScheme.error),
@@ -180,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
               FilledButton(
                 key: const Key('sign-out-button'),
                 onPressed: controller.signOut,
-                child: const Text('Sign out'),
+                child: Text(loc.signOut),
               ),
             ],
           ),
@@ -190,15 +234,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                controller.errorMessage ?? 'Please sign in again.',
-                textAlign: TextAlign.center,
-              ),
+              Text(loc.pleaseSignInAgain, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton(
                 key: const Key('sign-in-again-button'),
                 onPressed: controller.signOut,
-                child: const Text('Sign in again'),
+                child: Text(loc.signInAgain),
               ),
             ],
           ),

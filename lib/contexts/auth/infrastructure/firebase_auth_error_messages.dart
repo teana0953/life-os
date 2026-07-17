@@ -1,18 +1,21 @@
-/// Maps a `firebase_auth` `FirebaseAuthException.code` to a user-facing
-/// message, without leaking internal error detail.
-String friendlyAuthErrorMessage(String code) {
+import '../domain/auth_exceptions.dart';
+
+/// Maps a `firebase_auth` `FirebaseAuthException.code` to a typed
+/// [AuthFailureCode], without leaking internal error detail. Presentation
+/// maps the code to a localized message.
+AuthFailureCode authFailureCodeFor(String code) {
   switch (code) {
     case 'invalid-credential':
     case 'wrong-password':
     case 'user-not-found':
-      return 'Incorrect email or password.';
+      return AuthFailureCode.invalidCredentials;
     case 'invalid-email':
-      return 'That email address is invalid.';
+      return AuthFailureCode.invalidEmail;
     case 'user-disabled':
-      return 'This account has been disabled.';
+      return AuthFailureCode.accountDisabled;
     case 'too-many-requests':
-      return 'Too many attempts. Please try again later.';
+      return AuthFailureCode.tooManyRequests;
     default:
-      return 'Sign-in failed. Please try again.';
+      return AuthFailureCode.unknown;
   }
 }

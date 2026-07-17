@@ -1,41 +1,52 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/infrastructure/firebase_auth_error_messages.dart';
 
 void main() {
-  group('friendlyAuthErrorMessage', () {
-    test('maps invalid-credential to a friendly message', () {
+  group('authFailureCodeFor', () {
+    test('maps invalid-credential to invalidCredentials', () {
       expect(
-        friendlyAuthErrorMessage('invalid-credential'),
-        'Incorrect email or password.',
+        authFailureCodeFor('invalid-credential'),
+        AuthFailureCode.invalidCredentials,
       );
     });
 
-    test('maps wrong-password to a friendly message', () {
+    test('maps wrong-password to invalidCredentials', () {
       expect(
-        friendlyAuthErrorMessage('wrong-password'),
-        'Incorrect email or password.',
+        authFailureCodeFor('wrong-password'),
+        AuthFailureCode.invalidCredentials,
       );
     });
 
-    test('maps user-not-found to a friendly message', () {
+    test('maps user-not-found to invalidCredentials', () {
       expect(
-        friendlyAuthErrorMessage('user-not-found'),
-        'Incorrect email or password.',
+        authFailureCodeFor('user-not-found'),
+        AuthFailureCode.invalidCredentials,
       );
     });
 
-    test('maps invalid-email to a friendly message', () {
+    test('maps invalid-email to invalidEmail', () {
+      expect(authFailureCodeFor('invalid-email'), AuthFailureCode.invalidEmail);
+    });
+
+    test('maps user-disabled to accountDisabled', () {
       expect(
-        friendlyAuthErrorMessage('invalid-email'),
-        'That email address is invalid.',
+        authFailureCodeFor('user-disabled'),
+        AuthFailureCode.accountDisabled,
       );
     });
 
-    test('falls back to a generic message for unknown codes, without leaking the code', () {
-      final message = friendlyAuthErrorMessage('internal-error-xyz');
+    test('maps too-many-requests to tooManyRequests', () {
+      expect(
+        authFailureCodeFor('too-many-requests'),
+        AuthFailureCode.tooManyRequests,
+      );
+    });
 
-      expect(message, 'Sign-in failed. Please try again.');
-      expect(message, isNot(contains('internal-error-xyz')));
+    test('falls back to unknown for unrecognized codes, without leaking the code', () {
+      final code = authFailureCodeFor('internal-error-xyz');
+
+      expect(code, AuthFailureCode.unknown);
     });
   });
 }

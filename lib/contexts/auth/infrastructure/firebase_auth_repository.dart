@@ -6,8 +6,8 @@ import 'firebase_auth_error_messages.dart';
 
 /// [AuthRepository] driven adapter backed by `firebase_auth`.
 ///
-/// Firebase error codes are translated to user-facing messages via
-/// [friendlyAuthErrorMessage] — internal detail is never surfaced.
+/// Firebase error codes are translated to typed [AuthFailureCode]s via
+/// [authFailureCodeFor] — internal detail is never surfaced.
 class FirebaseAuthRepository implements AuthRepository {
   final firebase_auth.FirebaseAuth _auth;
 
@@ -21,7 +21,7 @@ class FirebaseAuthRepository implements AuthRepository {
         password: password,
       );
     } on firebase_auth.FirebaseAuthException catch (e) {
-      throw AuthFailure(friendlyAuthErrorMessage(e.code));
+      throw AuthFailure(authFailureCodeFor(e.code));
     }
   }
 

@@ -12,7 +12,11 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/l10n_test_app.dart';
 
 class FakeAuthRepository implements AuthRepository {
   static const validEmail = 'user@example.com';
@@ -28,7 +32,7 @@ class FakeAuthRepository implements AuthRepository {
   @override
   Future<void> signIn(String email, String password) async {
     if (email != validEmail || password != validPassword) {
-      throw const AuthFailure('Incorrect email or password.');
+      throw const AuthFailure(AuthFailureCode.invalidCredentials);
     }
     _isAuthenticated = true;
     _controller.add(true);
@@ -83,6 +87,29 @@ final _testProfile = UserProfile(
   createdAt: '2026-01-01T00:00:00.000Z',
 );
 
+/// Pumps [App], wiring in a [LocaleController] (defaulting to a fresh one
+/// that follows the system locale, or [localeController] if provided).
+/// Returns the [LocaleController] used, so tests can drive it directly.
+Future<LocaleController> pumpApp(
+  WidgetTester tester, {
+  required AuthRepository authRepository,
+  required LoginController loginController,
+  required HomeController homeController,
+  LocaleController? localeController,
+}) async {
+  final resolvedLocaleController =
+      localeController ?? await testLocaleController();
+  await tester.pumpWidget(
+    App(
+      authRepository: authRepository,
+      loginController: loginController,
+      homeController: homeController,
+      localeController: resolvedLocaleController,
+    ),
+  );
+  return resolvedLocaleController;
+}
+
 void main() {
   group('App auth-state routing', () {
     testWidgets('starts unauthenticated shows the login screen', (
@@ -90,14 +117,13 @@ void main() {
     ) async {
       final authRepository = FakeAuthRepository();
       final profileRepository = FakeProfileRepository(_testProfile);
-      await tester.pumpWidget(
-        App(
-          authRepository: authRepository,
-          loginController: LoginController(SignIn(authRepository)),
-          homeController: HomeController(
-            GetProfile(profileRepository),
-            SignOut(authRepository),
-          ),
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
         ),
       );
       await tester.pump();
@@ -110,14 +136,13 @@ void main() {
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
-        await tester.pumpWidget(
-          App(
-            authRepository: authRepository,
-            loginController: LoginController(SignIn(authRepository)),
-            homeController: HomeController(
-              GetProfile(profileRepository),
-              SignOut(authRepository),
-            ),
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
           ),
         );
         await tester.pumpAndSettle();
@@ -132,14 +157,13 @@ void main() {
     ) async {
       final authRepository = FakeAuthRepository();
       final profileRepository = FakeProfileRepository(_testProfile);
-      await tester.pumpWidget(
-        App(
-          authRepository: authRepository,
-          loginController: LoginController(SignIn(authRepository)),
-          homeController: HomeController(
-            GetProfile(profileRepository),
-            SignOut(authRepository),
-          ),
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
         ),
       );
       await tester.pump();
@@ -162,14 +186,13 @@ void main() {
     testWidgets('sign-out returns to the login screen', (tester) async {
       final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
       final profileRepository = FakeProfileRepository(_testProfile);
-      await tester.pumpWidget(
-        App(
-          authRepository: authRepository,
-          loginController: LoginController(SignIn(authRepository)),
-          homeController: HomeController(
-            GetProfile(profileRepository),
-            SignOut(authRepository),
-          ),
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
         ),
       );
       await tester.pumpAndSettle();
@@ -191,14 +214,13 @@ void main() {
       (tester) async {
         final authRepository = ErroringAuthRepository();
         final profileRepository = FakeProfileRepository(_testProfile);
-        await tester.pumpWidget(
-          App(
-            authRepository: authRepository,
-            loginController: LoginController(SignIn(authRepository)),
-            homeController: HomeController(
-              GetProfile(profileRepository),
-              SignOut(authRepository),
-            ),
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
           ),
         );
         await tester.pump();
@@ -215,14 +237,13 @@ void main() {
       (tester) async {
         final authRepository = FakeAuthRepository();
         final profileRepository = FakeProfileRepository(_testProfile);
-        await tester.pumpWidget(
-          App(
-            authRepository: authRepository,
-            loginController: LoginController(SignIn(authRepository)),
-            homeController: HomeController(
-              GetProfile(profileRepository),
-              SignOut(authRepository),
-            ),
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
           ),
         );
         await tester.pump();
@@ -243,5 +264,112 @@ void main() {
         expect(materialApp.themeMode, ThemeMode.system);
       },
     );
+  });
+
+  group('App i18n', () {
+    testWidgets('unsupported system locale falls back to English', (
+      tester,
+    ) async {
+      tester.platformDispatcher.localeTestValue = const Locale('fr');
+      tester.platformDispatcher.localesTestValue = const [Locale('fr')];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+      final authRepository = ErroringAuthRepository();
+      final profileRepository = FakeProfileRepository(_testProfile);
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('supported zh-Hant system locale shows Traditional Chinese', (
+      tester,
+    ) async {
+      const zhHant = Locale.fromSubtags(
+        languageCode: 'zh',
+        scriptCode: 'Hant',
+      );
+      tester.platformDispatcher.localeTestValue = zhHant;
+      tester.platformDispatcher.localesTestValue = [zhHant];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+      final authRepository = ErroringAuthRepository();
+      final profileRepository = FakeProfileRepository(_testProfile);
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('重試'), findsOneWidget);
+    });
+
+    testWidgets(
+      'switching the locale via the controller updates the UI immediately',
+      (tester) async {
+        final authRepository = ErroringAuthRepository();
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final localeController = await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('Retry'), findsOneWidget);
+
+        await localeController.setLocale(
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        await tester.pump();
+
+        expect(find.text('重試'), findsOneWidget);
+        expect(find.text('Retry'), findsNothing);
+      },
+    );
+
+    testWidgets('a persisted language choice overrides the system locale', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'locale_language_code': 'zh'});
+      final prefs = await SharedPreferences.getInstance();
+      final localeController = LocaleController(prefs);
+      tester.platformDispatcher.localeTestValue = const Locale('en');
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+
+      final authRepository = ErroringAuthRepository();
+      final profileRepository = FakeProfileRepository(_testProfile);
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        ),
+        localeController: localeController,
+      );
+      await tester.pump();
+
+      expect(find.text('重試'), findsOneWidget);
+    });
   });
 }

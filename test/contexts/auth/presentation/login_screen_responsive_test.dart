@@ -6,6 +6,8 @@ import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
 
+import '../../../support/l10n_test_app.dart';
+
 class _FakeAuthRepository implements AuthRepository {
   @override
   Future<void> signIn(String email, String password) async {}
@@ -28,10 +30,11 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
   addTearDown(tester.view.reset);
 
   final controller = LoginController(SignIn(_FakeAuthRepository()));
+  final localeController = await testLocaleController();
   await tester.pumpWidget(
-    MaterialApp(
+    l10nTestApp(
       theme: lightTheme,
-      home: LoginScreen(controller: controller),
+      home: LoginScreen(controller: controller, localeController: localeController),
     ),
   );
   await tester.pump();

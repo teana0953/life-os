@@ -7,6 +7,11 @@ import '../domain/user_profile.dart';
 
 enum HomeStatus { loading, loaded, error, needsReauth }
 
+/// Reasons loading the profile can fail, as understood by [HomeScreen].
+/// [HomeController] has no [BuildContext] and so cannot hold a localized
+/// message directly — [HomeScreen] maps this to text at build time.
+enum ProfileError { fetchFailed, unknown }
+
 /// Drives [HomeScreen]: loads the profile via [GetProfile] and exposes
 /// sign-out via [SignOut].
 class HomeController extends ChangeNotifier {
@@ -17,11 +22,11 @@ class HomeController extends ChangeNotifier {
 
   HomeStatus status = HomeStatus.loading;
   UserProfile? profile;
-  String? errorMessage;
+  ProfileError? error;
 
   Future<void> load(String idToken) async {
     status = HomeStatus.loading;
-    errorMessage = null;
+    error = null;
     notifyListeners();
 
     try {
@@ -29,13 +34,12 @@ class HomeController extends ChangeNotifier {
       status = HomeStatus.loaded;
     } on ReauthenticationRequired {
       status = HomeStatus.needsReauth;
-      errorMessage = 'Please sign in again.';
-    } on ProfileFetchFailure catch (e) {
+    } on ProfileFetchFailure {
       status = HomeStatus.error;
-      errorMessage = e.message;
+      error = ProfileError.fetchFailed;
     } catch (_) {
       status = HomeStatus.error;
-      errorMessage = 'Something went wrong. Please try again.';
+      error = ProfileError.unknown;
     }
     notifyListeners();
   }
