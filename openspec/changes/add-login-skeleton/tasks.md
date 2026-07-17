@@ -14,7 +14,7 @@
 
 ## 3. auth context — domain/application(TDD)
 
-- [ ] 3.1 `AuthRepository` port(`signIn(email,pw)`、`signOut()`、`idToken()`、`authStateChanges`)+ `SignIn`/`SignOut` use case;注入 fake repository 測試(成功、帳密錯→可辨識錯誤)
+- [x] 3.1 `AuthRepository` port(`signIn(email,pw)`、`signOut()`、`idToken()`、`authStateChanges`)+ `SignIn`/`SignOut` use case;注入 fake repository 測試(成功、帳密錯→可辨識錯誤)
 
 ## 4. Infrastructure(driven adapters)
 
