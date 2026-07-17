@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
+import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
@@ -17,9 +20,44 @@ class FakeAuthRepository implements AuthRepository {
     receivedEmail = email;
     receivedPassword = password;
     if (email != validEmail || password != validPassword) {
-      throw Exception('Incorrect email or password.');
+      throw const AuthFailure('Incorrect email or password.');
     }
   }
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() async => null;
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+}
+
+/// Throws an unrecognized exception type, simulating an unexpected failure
+/// (e.g. a network error) that is not a known [AuthFailure].
+class UnknownErrorAuthRepository implements AuthRepository {
+  @override
+  Future<void> signIn(String email, String password) async {
+    throw Exception('SocketException: Connection refused at 10.0.0.5:443');
+  }
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() async => null;
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+}
+
+/// Never completes sign-in, letting a test observe the loading state.
+class HangingAuthRepository implements AuthRepository {
+  final Completer<void> signInCompleter = Completer<void>();
+
+  @override
+  Future<void> signIn(String email, String password) => signInCompleter.future;
 
   @override
   Future<void> signOut() async {}
@@ -91,6 +129,88 @@ void main() {
         // Stays on the login screen.
         expect(find.byKey(const Key('email-field')), findsOneWidget);
         expect(find.byKey(const Key('password-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'unexpected errors show a generic message without leaking the '
+      'original exception text',
+      (tester) async {
+        final repository = UnknownErrorAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller);
+
+        await tester.enterText(
+          find.byKey(const Key('email-field')),
+          'user@example.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('password-field')),
+          'some-password',
+        );
+        await tester.tap(find.byKey(const Key('submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('error-message')), findsOneWidget);
+        expect(find.textContaining('10.0.0.5'), findsNothing);
+        expect(find.textContaining('SocketException'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'pressing enter in the password field submits the login form',
+      (tester) async {
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller);
+
+        await tester.enterText(
+          find.byKey(const Key('email-field')),
+          FakeAuthRepository.validEmail,
+        );
+        await tester.tap(find.byKey(const Key('password-field')));
+        await tester.enterText(
+          find.byKey(const Key('password-field')),
+          FakeAuthRepository.validPassword,
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+
+        expect(repository.receivedEmail, FakeAuthRepository.validEmail);
+        expect(repository.receivedPassword, FakeAuthRepository.validPassword);
+        expect(find.byKey(const Key('error-message')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'text fields are disabled while a sign-in request is in flight',
+      (tester) async {
+        final repository = HangingAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller);
+
+        await tester.enterText(
+          find.byKey(const Key('email-field')),
+          'user@example.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('password-field')),
+          'some-password',
+        );
+        await tester.tap(find.byKey(const Key('submit-button')));
+        await tester.pump();
+
+        final emailField = tester.widget<TextField>(
+          find.byKey(const Key('email-field')),
+        );
+        final passwordField = tester.widget<TextField>(
+          find.byKey(const Key('password-field')),
+        );
+        expect(emailField.enabled, isFalse);
+        expect(passwordField.enabled, isFalse);
+
+        repository.signInCompleter.complete();
+        await tester.pumpAndSettle();
       },
     );
   });

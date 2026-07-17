@@ -30,9 +30,12 @@ class HomeController extends ChangeNotifier {
     } on ReauthenticationRequired {
       status = HomeStatus.needsReauth;
       errorMessage = 'Please sign in again.';
-    } catch (e) {
+    } on ProfileFetchFailure catch (e) {
       status = HomeStatus.error;
-      errorMessage = e.toString();
+      errorMessage = e.message;
+    } catch (_) {
+      status = HomeStatus.error;
+      errorMessage = 'Something went wrong. Please try again.';
     }
     notifyListeners();
   }

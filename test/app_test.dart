@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/app.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
+import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
@@ -26,7 +27,7 @@ class FakeAuthRepository implements AuthRepository {
   @override
   Future<void> signIn(String email, String password) async {
     if (email != validEmail || password != validPassword) {
-      throw Exception('Incorrect email or password.');
+      throw const AuthFailure('Incorrect email or password.');
     }
     _isAuthenticated = true;
     _controller.add(true);
@@ -47,6 +48,21 @@ class FakeAuthRepository implements AuthRepository {
     yield _isAuthenticated;
     yield* _controller.stream;
   }
+}
+
+class ErroringAuthRepository implements AuthRepository {
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() async => null;
+
+  @override
+  Stream<bool> get authStateChanges =>
+      Stream<bool>.error(Exception('boom: internal stream detail'));
 }
 
 class FakeProfileRepository implements ProfileRepository {
@@ -163,5 +179,28 @@ void main() {
       expect(authRepository.signOutCalled, isTrue);
       expect(find.byKey(const Key('email-field')), findsOneWidget);
     });
+
+    testWidgets(
+      'auth stream error shows a recoverable error screen instead of an '
+      'infinite spinner',
+      (tester) async {
+        final authRepository = ErroringAuthRepository();
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await tester.pumpWidget(
+          App(
+            authRepository: authRepository,
+            loginController: LoginController(SignIn(authRepository)),
+            homeController: HomeController(
+              GetProfile(profileRepository),
+              SignOut(authRepository),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byKey(const Key('auth-retry-button')), findsOneWidget);
+      },
+    );
   });
 }

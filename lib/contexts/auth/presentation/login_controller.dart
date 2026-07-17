@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../application/sign_in.dart';
+import '../domain/auth_exceptions.dart';
 
 /// Drives [LoginScreen]: submits credentials via [SignIn] and tracks
 /// loading/error state.
@@ -28,8 +29,7 @@ class LoginController extends ChangeNotifier {
   }
 
   String _friendlyMessage(Object error) {
-    const prefix = 'Exception: ';
-    final text = error.toString();
-    return text.startsWith(prefix) ? text.substring(prefix.length) : text;
+    if (error is AuthFailure) return error.message;
+    return 'Sign-in failed. Please try again.';
   }
 }

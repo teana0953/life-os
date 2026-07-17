@@ -26,8 +26,14 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  late final Stream<bool> _authStateChanges = widget.authRepository
+  late Stream<bool> _authStateChanges = widget.authRepository
       .authStateChanges;
+
+  void _retryAuthStateChanges() {
+    setState(() {
+      _authStateChanges = widget.authRepository.authStateChanges;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +41,27 @@ class _AppState extends State<App> {
       home: StreamBuilder<bool>(
         stream: _authStateChanges,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Something went wrong. Please try again.',
+                      key: Key('auth-error-message'),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      key: const Key('auth-retry-button'),
+                      onPressed: _retryAuthStateChanges,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (!snapshot.hasData) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),

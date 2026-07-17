@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
+import '../domain/auth_exceptions.dart';
 import '../domain/auth_repository.dart';
 import 'firebase_auth_error_messages.dart';
 
@@ -20,7 +21,7 @@ class FirebaseAuthRepository implements AuthRepository {
         password: password,
       );
     } on firebase_auth.FirebaseAuthException catch (e) {
-      throw Exception(friendlyAuthErrorMessage(e.code));
+      throw AuthFailure(friendlyAuthErrorMessage(e.code));
     }
   }
 

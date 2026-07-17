@@ -92,6 +92,26 @@ void main() {
     );
 
     testWidgets(
+      'unexpected errors show a generic message without leaking the '
+      'original exception text',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..errorToThrow = Exception(
+            'SocketException: Connection refused at 10.0.0.5:443',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+
+        expect(controller.errorMessage, isNot(contains('10.0.0.5')));
+        expect(controller.errorMessage, isNot(contains('SocketException')));
+      },
+    );
+
+    testWidgets(
       '401 shows a "sign in again" exit rather than a dead end',
       (tester) async {
         final profileRepository = FakeProfileRepository()

@@ -68,5 +68,83 @@ void main() {
         throwsA(isA<ProfileFetchFailure>()),
       );
     });
+
+    test(
+      'wraps network exceptions from the client in ProfileFetchFailure '
+      'without leaking the original exception text',
+      () async {
+        final client = MockClient((request) async {
+          throw http.ClientException(
+            'Connection refused at 10.0.0.5:443 (internal-host)',
+          );
+        });
+        final repository = HttpProfileRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        try {
+          await repository.getProfile('token-123');
+          fail('expected ProfileFetchFailure');
+        } catch (e) {
+          expect(e, isA<ProfileFetchFailure>());
+          expect(
+            (e as ProfileFetchFailure).message,
+            isNot(contains('10.0.0.5')),
+          );
+          expect(e.message, isNot(contains('Connection refused')));
+        }
+      },
+    );
+
+    test(
+      'wraps a non-JSON response body in ProfileFetchFailure without '
+      'leaking the parser error text',
+      () async {
+        final client = MockClient((request) async {
+          return http.Response('not valid json {{{', 200);
+        });
+        final repository = HttpProfileRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        try {
+          await repository.getProfile('token-123');
+          fail('expected ProfileFetchFailure');
+        } catch (e) {
+          expect(e, isA<ProfileFetchFailure>());
+          expect(
+            (e as ProfileFetchFailure).message,
+            isNot(contains('FormatException')),
+          );
+        }
+      },
+    );
+
+    test(
+      'wraps a 200 response missing required profile fields in '
+      'ProfileFetchFailure without leaking the cast error text',
+      () async {
+        final client = MockClient((request) async {
+          return http.Response(jsonEncode({'id': 'user-1'}), 200);
+        });
+        final repository = HttpProfileRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        try {
+          await repository.getProfile('token-123');
+          fail('expected ProfileFetchFailure');
+        } catch (e) {
+          expect(e, isA<ProfileFetchFailure>());
+          expect(
+            (e as ProfileFetchFailure).message,
+            isNot(contains('type \'Null\'')),
+          );
+        }
+      },
+    );
   });
 }

@@ -14,25 +14,37 @@ class HttpProfileRepository implements ProfileRepository {
 
   HttpProfileRepository({required this.baseUrl, required this.client});
 
+  static const _genericFailureMessage =
+      'Unable to load your profile. Please try again.';
+
   @override
   Future<UserProfile> getProfile(String idToken) async {
-    final response = await client.get(
-      Uri.parse('$baseUrl/api/me'),
-      headers: {'Authorization': 'Bearer $idToken'},
-    );
-
-    if (response.statusCode == 200) {
-      return UserProfile.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
+    final http.Response response;
+    try {
+      response = await client.get(
+        Uri.parse('$baseUrl/api/me'),
+        headers: {'Authorization': 'Bearer $idToken'},
       );
+    } catch (_) {
+      throw const ProfileFetchFailure(_genericFailureMessage);
     }
 
     if (response.statusCode == 401) {
       throw const ReauthenticationRequired();
     }
 
-    throw ProfileFetchFailure(
-      'Failed to load profile (status ${response.statusCode}).',
-    );
+    if (response.statusCode != 200) {
+      throw ProfileFetchFailure(
+        'Failed to load profile (status ${response.statusCode}).',
+      );
+    }
+
+    try {
+      return UserProfile.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      throw const ProfileFetchFailure(_genericFailureMessage);
+    }
   }
 }

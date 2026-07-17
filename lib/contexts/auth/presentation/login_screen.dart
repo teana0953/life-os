@@ -14,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -26,13 +27,19 @@ class _LoginScreenState extends State<LoginScreen> {
     widget.controller.removeListener(_onControllerChanged);
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   void _onControllerChanged() => setState(() {});
 
+  void _submit() {
+    widget.controller.submit(_emailController.text, _passwordController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLoading = widget.controller.isLoading;
     return Scaffold(
       appBar: AppBar(title: const Text('Sign in')),
       body: Padding(
@@ -43,12 +50,26 @@ class _LoginScreenState extends State<LoginScreen> {
             TextField(
               key: const Key('email-field'),
               controller: _emailController,
+              enabled: !isLoading,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) =>
+                  FocusScope.of(context).requestFocus(_passwordFocusNode),
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             TextField(
               key: const Key('password-field'),
               controller: _passwordController,
+              focusNode: _passwordFocusNode,
+              enabled: !isLoading,
               obscureText: true,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
               decoration: const InputDecoration(labelText: 'Password'),
             ),
             const SizedBox(height: 16),
@@ -61,13 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               key: const Key('submit-button'),
-              onPressed: widget.controller.isLoading
-                  ? null
-                  : () => widget.controller.submit(
-                      _emailController.text,
-                      _passwordController.text,
-                    ),
-              child: widget.controller.isLoading
+              onPressed: isLoading ? null : _submit,
+              child: isLoading
                   ? const CircularProgressIndicator()
                   : const Text('Sign in'),
             ),
