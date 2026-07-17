@@ -8,11 +8,11 @@
 
 ## 2. Mascot
 
-- [ ] 2.1 `lib/shared/widgets/mascot.dart`:原創圓萌小臉 widget(腮紅、圓眼),尺寸可調;非 Chiikawa 角色本尊。widget 測試能 render
+- [x] 2.1 `lib/shared/widgets/mascot.dart`:原創圓萌小臉 widget(腮紅、圓眼),尺寸可調;非 Chiikawa 角色本尊。widget 測試能 render
 
 ## 3. App 接線
 
-- [ ] 3.1 `lib/app.dart`:`MaterialApp` 加 `theme`/`darkTheme`/`themeMode: ThemeMode.system`;既有 auth-state 路由與錯誤畫面改用主題色;既有測試維持綠(必要時更新 widget 定位但保留行為斷言)
+- [x] 3.1 `lib/app.dart`:`MaterialApp` 加 `theme`/`darkTheme`/`themeMode: ThemeMode.system`;既有 auth-state 路由與錯誤畫面改用主題色;既有測試維持綠(必要時更新 widget 定位但保留行為斷言)
 
 ## 4. 畫面重構(behavior 不變)
 

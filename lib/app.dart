@@ -5,6 +5,7 @@ import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
+import 'shared/theme/app_theme.dart';
 
 /// MaterialApp + auth-state routing: shows [LoginScreen] when there is no
 /// authenticated user and [HomeScreen] when there is, driven by
@@ -38,6 +39,9 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.system,
       home: StreamBuilder<bool>(
         stream: _authStateChanges,
         builder: (context, snapshot) {
@@ -52,7 +56,7 @@ class _AppState extends State<App> {
                       key: Key('auth-error-message'),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
+                    FilledButton(
                       key: const Key('auth-retry-button'),
                       onPressed: _retryAuthStateChanges,
                       child: const Text('Retry'),
