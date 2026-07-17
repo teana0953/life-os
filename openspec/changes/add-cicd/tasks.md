@@ -2,17 +2,17 @@
 
 ## 1. Gate 工具
 
-- [ ] 1.1 加入 `actionlint` 到 gate:`scripts/lint-actions.sh`(下載官方 binary 到 gitignored 目錄跑,同後端做法)+ `Makefile`/README 記錄;確認本地可跑並抓得到壞 workflow(red→green 驗一次)
+- [x] 1.1 加入 `actionlint` 到 gate:`scripts/lint-actions.sh`(下載官方 binary 到 gitignored 目錄跑,同後端做法)+ `Makefile`/README 記錄;確認本地可跑並抓得到壞 workflow(red→green 驗一次)
 
 ## 2. CI workflow
 
-- [ ] 2.1 `.github/workflows/ci.yml`:觸發 `pull_request` + 非 main `push`;`concurrency`(group 依 ref、cancel-in-progress)、`permissions: contents: read`;job = checkout → `subosito/flutter-action`(Flutter 3.35.x)→ `flutter pub get` → `flutter analyze` → `flutter test` → `flutter build web`(對應 ci-cd「Continuous integration」)
+- [x] 2.1 `.github/workflows/ci.yml`:觸發 `pull_request` + 非 main `push`;`concurrency`(group 依 ref、cancel-in-progress)、`permissions: contents: read`;job = checkout → `subosito/flutter-action`(Flutter 3.35.x)→ `flutter pub get` → `flutter analyze` → `flutter test` → `flutter build web`(對應 ci-cd「Continuous integration」)
 
 ## 3. CD workflow
 
-- [ ] 3.1 `.github/workflows/deploy.yml`:觸發 `push` 到 `main`;`concurrency` 序列化 `deploy-main`;`permissions: contents: read`;checkout → flutter-action → `flutter pub get`
-- [ ] 3.2 build 步驟:`flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}`;build 失敗即中止後續(對應「Build failure aborts deploy」)
-- [ ] 3.3 deploy 步驟:`cloudflare/wrangler-action`,`apiToken` 取自 secret(**不傳 accountId**,account 由 token 推斷),command `pages deploy build/web --project-name=<pages 專案名>`(對應「Deploy to Pages」「Account inferred from token」)
+- [x] 3.1 `.github/workflows/deploy.yml`:觸發 `push` 到 `main`;`concurrency` 序列化 `deploy-main`;`permissions: contents: read`;checkout → flutter-action → `flutter pub get`
+- [x] 3.2 build 步驟:`flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}`;build 失敗即中止後續(對應「Build failure aborts deploy」)
+- [x] 3.3 deploy 步驟:`cloudflare/wrangler-action`,`apiToken` 取自 secret(**不傳 accountId**,account 由 token 推斷),command `pages deploy build/web --project-name=<pages 專案名>`(對應「Deploy to Pages」「Account inferred from token」)
 
 ## 4. 文件
 
