@@ -12,6 +12,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/shared/theme/app_colors.dart';
 
 class FakeAuthRepository implements AuthRepository {
   static const validEmail = 'user@example.com';
@@ -173,6 +174,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The themed home screen's "Your spaces" grid can push the sign-out
+      // button below the fold on the default test viewport; scroll it into
+      // view before tapping.
+      await tester.ensureVisible(find.byKey(const Key('sign-out-button')));
       await tester.tap(find.byKey(const Key('sign-out-button')));
       await tester.pumpAndSettle();
 
@@ -200,6 +205,42 @@ void main() {
 
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(find.byKey(const Key('auth-retry-button')), findsOneWidget);
+      },
+    );
+  });
+
+  group('App theming', () {
+    testWidgets(
+      'wires light/dark Material 3 themes and follows the system',
+      (tester) async {
+        final authRepository = FakeAuthRepository();
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await tester.pumpWidget(
+          App(
+            authRepository: authRepository,
+            loginController: LoginController(SignIn(authRepository)),
+            homeController: HomeController(
+              GetProfile(profileRepository),
+              SignOut(authRepository),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final materialApp = tester.widget<MaterialApp>(
+          find.byType(MaterialApp),
+        );
+
+        expect(materialApp.theme!.useMaterial3, isTrue);
+        expect(materialApp.theme!.colorScheme.primary, hachiwareBlue);
+        expect(materialApp.theme!.colorScheme.brightness, Brightness.light);
+        expect(materialApp.darkTheme!.useMaterial3, isTrue);
+        expect(materialApp.darkTheme!.colorScheme.primary, hachiwareBlue);
+        expect(
+          materialApp.darkTheme!.colorScheme.brightness,
+          Brightness.dark,
+        );
+        expect(materialApp.themeMode, ThemeMode.system);
       },
     );
   });
