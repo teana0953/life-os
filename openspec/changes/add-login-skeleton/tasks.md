@@ -23,9 +23,9 @@
 
 ## 5. Presentation(TDD widget 測試,注入 fake)
 
-- [ ] 5.1 `LoginScreen` + `LoginController`:email/密碼欄 + 登入鈕 + 錯誤訊息;widget 測試——正確帳密 → SignIn → 進 home;帳密錯 → 顯示錯誤、停在登入頁(對應 spec「Email/password sign-in」)
-- [ ] 5.2 `HomeScreen` + `HomeController`:顯示 profile(email/id)+ 登出鈕;widget 測試——顯示注入的 profile;`/api/me` 失敗 → 錯誤狀態 + 可登出;401 → 重新登入出口(對應 spec「Profile 顯示/失敗」)
-- [ ] 5.3 `app.dart` auth-state 路由:依 `authStateChanges` — 未登入 → LoginScreen、已登入 → GetProfile → HomeScreen;widget 測試涵蓋兩起始狀態與登出回登入頁(對應 spec「Sign-out」「Auth-state routing」)
+- [x] 5.1 `LoginScreen` + `LoginController`:email/密碼欄 + 登入鈕 + 錯誤訊息;widget 測試——正確帳密 → SignIn → 進 home;帳密錯 → 顯示錯誤、停在登入頁(對應 spec「Email/password sign-in」)
+- [x] 5.2 `HomeScreen` + `HomeController`:顯示 profile(email/id)+ 登出鈕;widget 測試——顯示注入的 profile;`/api/me` 失敗 → 錯誤狀態 + 可登出;401 → 重新登入出口(對應 spec「Profile 顯示/失敗」)
+- [x] 5.3 `app.dart` auth-state 路由:依 `authStateChanges` — 未登入 → LoginScreen、已登入 → GetProfile → HomeScreen;widget 測試涵蓋兩起始狀態與登出回登入頁(對應 spec「Sign-out」「Auth-state routing」)
 
 ## 6. 組裝與收尾
 
