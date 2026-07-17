@@ -16,7 +16,7 @@
 
 ## 4. 畫面重構(behavior 不變)
 
-- [ ] 4.1 `LoginScreen`:套主題化元件(brand + mascot、卡片、圓角輸入、pill 主按鈕、錯誤態、loading);**responsive**——卡片置中 `maxWidth`≈420,寬螢幕不拉滿;不硬編碼顏色;既有 widget 測試維持綠(更新定位不改行為)
+- [x] 4.1 `LoginScreen`:套主題化元件(brand + mascot、卡片、圓角輸入、pill 主按鈕、錯誤態、loading);**responsive**——卡片置中 `maxWidth`≈420,寬螢幕不拉滿;不硬編碼顏色;既有 widget 測試維持綠(更新定位不改行為)
 - [ ] 4.2 `HomeScreen`:套主題化(問候 header、profile 卡、Signed-in pill、Your spaces grid 示意);**responsive** grid 欄數隨寬度(手機 1–2、桌機多欄),內容置中限寬;既有測試維持綠
 
 ## 5. Responsive 測試 + 收尾
