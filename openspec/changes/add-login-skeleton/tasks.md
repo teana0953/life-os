@@ -9,8 +9,8 @@
 
 ## 2. user context — domain/application(TDD,純 Dart 單元測試)
 
-- [ ] 2.1 `UserProfile` entity(`id`、`firebase_uid`、`email` nullable、`display_name` nullable、`created_at`)+ `fromJson` 對齊後端形狀;先寫測試
-- [ ] 2.2 `ProfileRepository` port(`getProfile(idToken) → UserProfile`)+ `GetProfile` use case;注入 fake repository 測試
+- [x] 2.1 `UserProfile` entity(`id`、`firebase_uid`、`email` nullable、`display_name` nullable、`created_at`)+ `fromJson` 對齊後端形狀;先寫測試
+- [x] 2.2 `ProfileRepository` port(`getProfile(idToken) → UserProfile`)+ `GetProfile` use case;注入 fake repository 測試
 
 ## 3. auth context — domain/application(TDD)
 
