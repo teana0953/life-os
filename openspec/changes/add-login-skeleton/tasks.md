@@ -2,10 +2,10 @@
 
 ## 1. 專案骨架
 
-- [ ] 1.1 `flutter create`(web + mobile 平台)於 `life-os`;`pubspec.yaml` 加 `firebase_core`、`firebase_auth`、`http`;確認 `flutter pub get`、`flutter analyze` 乾淨
-- [ ] 1.2 建立 context-first 結構(`lib/contexts/auth/{domain,application,infrastructure,presentation}`、`lib/contexts/user/{...}`、`lib/shared/`);`shared/config.dart` 以 `--dart-define=API_BASE_URL` 讀取(預設線上 workers.dev)
-- [ ] 1.3 commit 可編譯的 placeholder `lib/firebase_options.dart`(佔位值,不 gitignore),讓 analyze/test 通過;**移除 `flutter create` 預設的 `test/widget_test.dart`**(它 import main.dart 會編譯失敗)
-- [ ] 1.4 `life-os/CLAUDE.md`:架構慣例(Clean Arch + DDD、hexagonal 命名、context-first、依賴朝內、新 context 樣板、port 在 domain / driven adapter = 技術前綴+port 名),對齊後端
+- [x] 1.1 `flutter create`(web + mobile 平台)於 `life-os`;`pubspec.yaml` 加 `firebase_core`、`firebase_auth`、`http`;確認 `flutter pub get`、`flutter analyze` 乾淨
+- [x] 1.2 建立 context-first 結構(`lib/contexts/auth/{domain,application,infrastructure,presentation}`、`lib/contexts/user/{...}`、`lib/shared/`);`shared/config.dart` 以 `--dart-define=API_BASE_URL` 讀取(預設線上 workers.dev)
+- [x] 1.3 commit 可編譯的 placeholder `lib/firebase_options.dart`(佔位值,不 gitignore),讓 analyze/test 通過;**移除 `flutter create` 預設的 `test/widget_test.dart`**(它 import main.dart 會編譯失敗)
+- [x] 1.4 `life-os/CLAUDE.md`:架構慣例(Clean Arch + DDD、hexagonal 命名、context-first、依賴朝內、新 context 樣板、port 在 domain / driven adapter = 技術前綴+port 名),對齊後端
 
 ## 2. user context — domain/application(TDD,純 Dart 單元測試)
 
