@@ -18,8 +18,8 @@
 
 ## 4. Infrastructure(driven adapters)
 
-- [ ] 4.1 `HttpProfileRepository` 實作 `ProfileRepository`:打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`;200 解析 UserProfile、**401 拋「需重新登入」錯誤**、其他非 200 拋一般錯誤(unit 測試注入 mock http client)
-- [ ] 4.2 `FirebaseAuthRepository` 實作 `AuthRepository`(包 firebase_auth;錯誤轉友善訊息、不洩內部)
+- [x] 4.1 `HttpProfileRepository` 實作 `ProfileRepository`:打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`;200 解析 UserProfile、**401 拋「需重新登入」錯誤**、其他非 200 拋一般錯誤(unit 測試注入 mock http client)
+- [x] 4.2 `FirebaseAuthRepository` 實作 `AuthRepository`(包 firebase_auth;錯誤轉友善訊息、不洩內部)
 
 ## 5. Presentation(TDD widget 測試,注入 fake)
 

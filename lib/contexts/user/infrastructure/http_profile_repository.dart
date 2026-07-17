@@ -1,0 +1,38 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../domain/profile_exceptions.dart';
+import '../domain/profile_repository.dart';
+import '../domain/user_profile.dart';
+
+/// [ProfileRepository] driven adapter backed by the `GET /api/me` HTTP
+/// endpoint.
+class HttpProfileRepository implements ProfileRepository {
+  final String baseUrl;
+  final http.Client client;
+
+  HttpProfileRepository({required this.baseUrl, required this.client});
+
+  @override
+  Future<UserProfile> getProfile(String idToken) async {
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/me'),
+      headers: {'Authorization': 'Bearer $idToken'},
+    );
+
+    if (response.statusCode == 200) {
+      return UserProfile.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+
+    if (response.statusCode == 401) {
+      throw const ReauthenticationRequired();
+    }
+
+    throw ProfileFetchFailure(
+      'Failed to load profile (status ${response.statusCode}).',
+    );
+  }
+}
