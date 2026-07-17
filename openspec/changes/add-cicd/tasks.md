@@ -16,7 +16,7 @@
 
 ## 4. 文件
 
-- [ ] 4.1 README 補 CI/CD 章節:pipeline 行為、所需 `CLOUDFLARE_API_TOKEN` secret(Pages:Edit)+ `API_BASE_URL` variable、Cloudflare Pages 專案需先建、Pages 網址確定後要設後端 `ALLOWED_WEB_ORIGIN`(CORS)
+- [ ] 4.1 README 補 CI/CD 章節:pipeline 行為、所需 `CLOUDFLARE_API_TOKEN` secret(Pages:Edit、**限單一帳號**)+ `API_BASE_URL` variable、Cloudflare Pages 專案需先建;**部署後登入的兩個前置**:設後端 `ALLOWED_WEB_ORIGIN`(CORS)+ Firebase Authorized domains 加 Pages 網域
 
 ## 5. 靜態驗證
 

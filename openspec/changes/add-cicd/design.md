@@ -33,6 +33,15 @@ Android/iOS 打包上架、Pages 自訂網域、預覽部署(preview per-PR)、e
 | `API_BASE_URL` | variable | build web 時注入的後端網址(`https://life-os-backend.playground-92f.workers.dev`) |
 
 > Cloudflare Pages 專案需先建立(dashboard 或首次 `wrangler pages deploy` 建),`--project-name` 對上。
+> `CLOUDFLARE_API_TOKEN` 需**限定單一帳號**(不傳 accountId 靠 token 推斷帳號;token 若能看到多帳號,非互動模式會報「More than one account」)。
+
+## 部署後登入的兩個前置(Pages 網址確定後,你來設)
+
+Flutter web 部署到 Pages 後,登入要能通需要**兩處**都放行該 origin:
+1. **後端 CORS**:設 `ALLOWED_WEB_ORIGIN` = Pages 網址(前置後端 change 已讓它可配置)。
+2. **Firebase Authorized domains**:Firebase Console → Authentication → Settings → Authorized domains 加入 Pages 網域,否則 Firebase 登入會被擋。
+
+(deploy 本身不受這兩者影響;只影響部署後的「登入」。)
 
 ## 架構決策
 
