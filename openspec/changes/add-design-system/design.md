@@ -56,6 +56,15 @@ Flutter theme(light/dark token + 元件主題)、字體 bundle、mascot widget�
 - `flutter build web` 成功;實跑 Chrome 截圖 light + dark,對照 mockup 方向(粉彩、柔棕描邊、圓角、mascot、responsive 在窄/寬皆正常)。
 - 既有登入端到端不受影響(behavior 不變)。
 
+## 實作注意(proposal review 收斂)
+
+- **Flutter 3.35 型別**:元件主題用 `CardThemeData`、`DialogThemeData` 等 `*Data` 型別(不是 `CardTheme`),否則 `flutter analyze` 會出 deprecation 警告、gate 掛。
+- **ledge 玩具陰影**:`ButtonStyle`/`CardThemeData` 的 `elevation` 只給對稱陰影;方向性「小台階」需在元件外包一層自訂 `BoxShadow`(offset 往下)或用 `Container` decoration,別假設 elevation 能做到。
+- **保留 `TextField`**:`login_screen_test.dart` 以 `tester.widget<TextField>` 斷言 loading 時 disabled,restyle 時輸入框維持 `TextField`(勿換 `TextFormField`),否則測試破。
+- **responsive 測試**:`tester.binding.setSurfaceSize(...)` 後務必 `addTearDown(() => tester.binding.setSurfaceSize(null))` 復原,避免尺寸外洩使其他測試 flaky;grid 欄數斷言鎖明確可觀察屬性(如 `SliverGridDelegateWithFixedCrossAxisCount.crossAxisCount` 或渲染出的 tile 數/位置)。
+- **字體離線 fallback**:優先 bundle OFL .ttf;若 loop 無網路取不到字檔,允許 fallback 到系統圓體並在 code/README 註記,QA 對字體採軟性驗收(不因字體 block)。
+- **AA 對比**:粉彩按鈕一律深墨文字;此項以手動 QA(Chrome 目視/截圖)驗,spec 情境標明為手動驗收,不強求自動化對比測試。
+
 ## 驗收標準
 1. `flutter analyze` 無 issue、`flutter test` 全綠、web build 成功。
 2. 登入/home 呈現 Chiikawa 可愛風(對照 mockup),亮暗跟隨系統。
