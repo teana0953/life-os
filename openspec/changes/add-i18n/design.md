@@ -49,6 +49,18 @@ i18n 基礎(gen_l10n、ARB en/繁中、delegates、supportedLocales)、LocaleCon
 ### 不包含
 未來模組(不存在)的翻譯、RTL(en/繁中皆 LTR)、複雜 ICU 複數規則(除時段問候外從簡)、日文/簡中(之後加 locale 即可,架構已支援)。
 
+## 實作注意(proposal review 收斂)
+
+- **Controller 錯誤 API 改型別化**:controller(ChangeNotifier)沒有 BuildContext、拿不到 AppLocalizations,所以**不能持有已本地化的 String**。改成 controller 持有**錯誤種類**(enum,如 `LoginError { invalidCredentials, network, unknown }`、home 的 `ProfileError { fetchFailed, reauthRequired }`),**由 screen 在 build 時**用 `AppLocalizations` 把 enum 映射成本地化文字。`friendlyAuthErrorMessage`(infra,回英文字串)重構成回傳/丟出**帶 code 的 `AuthFailure`**,presentation 對 code 做本地化。
+- **測試遷移範圍(明列)**:
+  - `firebase_auth_error_messages_test.dart`:目前斷言英文回傳,重構成 code/enum 後改斷言 code 對應(或移除、改在 presentation 驗本地化)。
+  - `http_profile_repository_test.dart`:斷言 `ProfileFetchFailure` **訊息不外洩內部細節**——這是**真實安全性質**,重構後(即使訊息改由 presentation 本地化)infra 端**仍不得帶原始例外文字**,此測試等價保留。
+  - login/app/home 測試中以字串建構 `AuthFailure`/`ProfileFetchFailure` 的 fake:改成用新的型別/code 建構。
+  - `find.text('英文')` 的 widget 測試:pump 時包 `AppLocalizations.localizationsDelegates` + 固定 `locale: Locale('en')`,用 `AppLocalizations` 的字串斷言(或改 key 定位)。
+- **gen_l10n 產出模式**:用 `synthetic-package: false`(synthetic 模式已棄用)——產出的 `AppLocalizations` 進 source(指定 `output-dir`,**進 git**、import 路徑為該 source),非 synthetic import。design 前述「不進 git」據此修正。
+- **zh-Hant locale 寫法**:`supportedLocales` 與比對用 `Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant')`,**不要** `Locale('zh','Hant')`('Hant' 會被當 countryCode 導致永遠 fallback en)。ARB 檔名 `app_zh_Hant.arb` 正確。
+- **時段問候**:引入 `DateTime.now()` 會使 home 測試時間相依而 flaky。做法:把「時鐘」設計成可注入(或問候文字改非時段相依),測試固定時間或只驗語言。
+
 ## 驗收標準
 1. `flutter analyze` 無 issue、`flutter test` 全綠(含遷移 + 新 i18n 測試)、web build 成功。
 2. 系統為繁中 → app 顯示繁中;為其他 → 英文;程式內切換即時生效並重開後記住。
