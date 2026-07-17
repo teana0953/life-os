@@ -2,9 +2,9 @@
 
 ## 1. Theme 基礎
 
-- [ ] 1.1 `assets/fonts/`:bundle 一個圓潤 OFL 字體(Baloo 2 或 Quicksand),`pubspec.yaml` 註冊 font family + assets;授權/來源註明。若無法取得字體檔,fallback 用系統字並在 design 註記(但優先 bundle)
-- [ ] 1.2 `lib/shared/theme/app_colors.dart`:定義亮/暗 token 常數(primary Hachiware 藍、pink、yellow、cream ground、soft-brown ink/outline、sage/honey/error 語意色),對齊 design.md 的 hex
-- [ ] 1.3 `lib/shared/theme/app_theme.dart`:`lightTheme`/`darkTheme`(Material 3、`useMaterial3: true`),明確 `ColorScheme` + 元件主題(`FilledButtonTheme`/`OutlinedButtonTheme` pill+描邊+ledge 陰影、`InputDecorationTheme` 圓角描邊、`CardTheme` 圓角描邊、`TextTheme` 圓體字級);先寫測試(theme 存在、primary 色、useMaterial3)
+- [x] 1.1 `assets/fonts/`:bundle 一個圓潤 OFL 字體(Baloo 2 或 Quicksand),`pubspec.yaml` 註冊 font family + assets;授權/來源註明。若無法取得字體檔,fallback 用系統字並在 design 註記(但優先 bundle)
+- [x] 1.2 `lib/shared/theme/app_colors.dart`:定義亮/暗 token 常數(primary Hachiware 藍、pink、yellow、cream ground、soft-brown ink/outline、sage/honey/error 語意色),對齊 design.md 的 hex
+- [x] 1.3 `lib/shared/theme/app_theme.dart`:`lightTheme`/`darkTheme`(Material 3、`useMaterial3: true`),明確 `ColorScheme` + 元件主題(`FilledButtonTheme`/`OutlinedButtonTheme` pill+描邊+ledge 陰影、`InputDecorationTheme` 圓角描邊、`CardTheme` 圓角描邊、`TextTheme` 圓體字級);先寫測試(theme 存在、primary 色、useMaterial3)
 
 ## 2. Mascot
 
