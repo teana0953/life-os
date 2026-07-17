@@ -6,4 +6,5 @@ build/
 .idea/
 ios/Runner/GoogleService-Info.plist
 android/app/google-services.json
-lib/firebase_options.dart
+# NOTE: lib/firebase_options.dart is intentionally committed — Firebase web
+# config (apiKey, appId, ...) is a public client identifier, not a secret.

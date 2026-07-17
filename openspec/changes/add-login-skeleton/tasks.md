@@ -4,12 +4,13 @@
 
 - [ ] 1.1 `flutter create`(web + mobile 平台)於 `life-os`;`pubspec.yaml` 加 `firebase_core`、`firebase_auth`、`http`;確認 `flutter pub get`、`flutter analyze` 乾淨
 - [ ] 1.2 建立目錄結構(`lib/auth`、`lib/api`、`lib/ui`、`test/`);`API_BASE_URL` 以 `--dart-define` 讀取(預設線上 workers.dev)
+- [ ] 1.3 commit 可編譯的 placeholder `lib/firebase_options.dart`(佔位值,不 gitignore),讓 analyze/test 通過;**移除 `flutter create` 預設的 `test/widget_test.dart`**(它 import main.dart 會編譯失敗)
 
 ## 2. Ports 與 model(TDD)
 
 - [ ] 2.1 `AuthService` 抽象(port):`signIn(email,pw)`、`signOut()`、`idToken()`、`authStateChanges`;定義好簽章
-- [ ] 2.2 `ApiClient` 抽象(port)+ `UserProfile` model(id、email、displayName);先寫測試
-- [ ] 2.3 `HttpApiClient` 實作:打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`;200 解析成 UserProfile、非 200 拋可辨識錯誤(unit 測試注入 mock http,對應 spec「Profile 載入/失敗」)
+- [ ] 2.2 `ApiClient` 抽象(port)+ `UserProfile` model,欄位對齊後端 JSON:`id`、`firebase_uid`、`email`(nullable)、`display_name`(nullable)、`created_at`;先寫測試
+- [ ] 2.3 `HttpApiClient` 實作:打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`;200 解析成 UserProfile、**401 拋可辨識的「需重新登入」錯誤**、其他非 200 拋一般錯誤(unit 測試注入 mock http,對應 spec「Profile 載入/失敗」)
 
 ## 3. UI(TDD widget 測試,注入 fake)
 
