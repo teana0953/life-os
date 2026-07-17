@@ -25,7 +25,9 @@ ThemeData get lightTheme => _buildTheme(
         onSecondary: onPrimaryLight,
         tertiary: usagiYellowLight,
         onTertiary: onPrimaryLight,
-        error: softError,
+        // `softError` is a pastel meant for borders/fills; error *text*
+        // (login/home error messages) needs the deeper AA-safe red.
+        error: errorTextLight,
         onError: onPrimaryLight,
         surface: surfaceLight,
         onSurface: inkLight,
@@ -102,6 +104,11 @@ ThemeData _buildTheme({
       style: FilledButton.styleFrom(
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
+        // Themed disabled state (soft primary tint + outline ink) instead
+        // of Material's default onSurface-grey fallback, so it stays
+        // visually consistent with the rest of the palette.
+        disabledBackgroundColor: colorScheme.primary.withValues(alpha: 0.18),
+        disabledForegroundColor: outline,
         minimumSize: const Size(64, 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         shape: RoundedRectangleBorder(

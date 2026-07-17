@@ -26,7 +26,9 @@ const surfaceDark = Color(0xFF2E2721);
 // Ink (text) — soft brown, never pure black/white.
 const inkLight = Color(0xFF5A4A3E);
 const inkDark = Color(0xFFF3E9DC);
-const mutedInkLight = Color(0xFF96836F);
+// Darkened from #96836F so subtitles/labels clear AA contrast (>= 4.5:1)
+// on light surfaces; was ~3.58:1.
+const mutedInkLight = Color(0xFF7C6952);
 const mutedInkDark = Color(0xFFB6A695);
 
 // Outline — soft brown border, echoes the hand-drawn line.
@@ -37,3 +39,6 @@ const outlineDark = Color(0xFF463A31);
 const sageSuccess = Color(0xFF8FC79A);
 const honeyWarning = Color(0xFFE0A94E);
 const softError = Color(0xFFE98A94);
+// Deeper AA-safe red for error *text* on light surfaces — `softError` is a
+// pastel meant for borders/fills, not foreground text (~2.2-2.4:1 there).
+const errorTextLight = Color(0xFFB4453D);
