@@ -12,12 +12,12 @@
 
 ### 包含(life-os)
 
-1. **Flutter 專案骨架**:`flutter create`(web + 保留 mobile),`firebase_core` + `firebase_auth` + `http` 依賴。
-2. **AuthService**(port + 實作 + fake):`signIn(email, pw)`、`signOut()`、`idToken()`、`authStateChanges`。Firebase 實作包 `firebase_auth`;測試用 fake。
-3. **ApiClient**(port + 實作 + fake):`getMe(idToken) → UserProfile`,打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`。baseUrl 由 `--dart-define=API_BASE_URL` 注入(預設線上 workers.dev)。**`UserProfile` 對齊後端 `/api/me` 實際回傳形狀**:JSON keys `id`、`firebase_uid`、`email`、`display_name`、`created_at`(snake_case);email/display_name 可為 null。
-4. **UI**:`LoginScreen`(email/密碼欄 + 登入鈕 + 錯誤訊息)、`HomeScreen`(顯示 profile:email/id + 登出鈕)。
-5. **App 路由**:依 `authStateChanges` — 未登入 → LoginScreen;已登入 → 抓 `/api/me` → HomeScreen。
-6. **composition root**(`main.dart`):Firebase init + 手動注入 FirebaseAuthService / HttpApiClient。
+1. **Flutter 專案骨架**:`flutter create`(web + 保留 mobile),`firebase_core` + `firebase_auth` + `http` 依賴;`life-os` 根目錄 `CLAUDE.md` 寫入架構慣例(對齊後端)。
+2. **auth context**:`AuthRepository` port(`signIn`/`signOut`/`idToken`/`authStateChanges`)+ `FirebaseAuthRepository` driven adapter + `SignIn`/`SignOut` use case + fake(測試)。
+3. **user context**:`ProfileRepository` port(`getProfile(idToken) → UserProfile`)+ `HttpProfileRepository` driven adapter(打 `GET {baseUrl}/api/me` 帶 `Authorization: Bearer`)+ `GetProfile` use case + `UserProfile` entity(對齊後端形狀)+ fake。baseUrl 由 `--dart-define=API_BASE_URL` 注入(預設線上 workers.dev)。
+4. **presentation**:`LoginScreen` + `LoginController`(email/密碼 + 錯誤)、`HomeScreen` + `HomeController`(profile:email/id + 登出)。
+5. **App 路由**(`app.dart`):依 `AuthRepository.authStateChanges` — 未登入 → LoginScreen;已登入 → GetProfile → HomeScreen。
+6. **composition root**(`main.dart`):Firebase init + 手動注入 adapters 到 use case、use case 到 controller。
 
 ### 前置依賴(life-os-backend,另一小改動走後端 CI/CD)
 
@@ -48,26 +48,54 @@
 2. **啟用 Email/Password 登入**:Firebase Console → Authentication → Sign-in method → 開啟 Email/Password。
 3. **建一個測試用戶**:Firebase Console → Authentication → Users → 新增一個 email/密碼帳號,供 QA 登入測試。
 
-## 架構
+## 架構:Clean Architecture + DDD(hexagonal 命名、context-first,對齊後端)
+
+與 `life-os-backend/CLAUDE.md` 同一套慣例:上層按 bounded context 分,context 內分
+`domain`(entity + port)/`application`(use case)/`infrastructure`(driven adapter)/
+`presentation`(畫面 + controller)。依賴只朝內;presentation 透過 use case、use case 依賴
+domain port;infrastructure 實作 port;`main.dart` 為 composition root 手動 DI。
+戰術模式保持輕量(entity + port + 薄 use case;不做 value object/domain event,YAGNI)。
 
 ```
 lib/
-  main.dart                 # composition root:Firebase init + DI + runApp
-  app.dart                  # MaterialApp + authStateChanges 路由
-  auth/
-    auth_service.dart        # abstract AuthService(port)
-    firebase_auth_service.dart
-  api/
-    api_client.dart          # abstract ApiClient(port)+ UserProfile model
-    http_api_client.dart
-  ui/
-    login_screen.dart
-    home_screen.dart
+  main.dart                              # composition root:Firebase init + DI + runApp
+  app.dart                               # MaterialApp + auth-state 路由
+  shared/
+    config.dart                          # API_BASE_URL(--dart-define)
+  contexts/
+    auth/
+      domain/
+        auth_repository.dart              # port:signIn/signOut/idToken/authStateChanges
+      application/
+        sign_in.dart                      # use case
+        sign_out.dart                     # use case
+      infrastructure/
+        firebase_auth_repository.dart     # driven adapter(firebase_auth)
+      presentation/
+        login_controller.dart            # ChangeNotifier,呼叫 use case
+        login_screen.dart
+    user/
+      domain/
+        user_profile.dart                 # entity
+        profile_repository.dart           # port:getProfile(idToken)
+      application/
+        get_profile.dart                  # use case
+      infrastructure/
+        http_profile_repository.dart      # driven adapter(http → /api/me)
+      presentation/
+        home_controller.dart
+        home_screen.dart
 test/
-  ...(widget/unit 測試,注入 fake)
+  ...(widget/unit 測試,注入 fake repository)
 ```
 
-分層原則:UI 依賴 port(AuthService/ApiClient 抽象),不直接碰 firebase_auth/http;實作在邊界類別;`main.dart` 組裝。與後端 hexagonal 精神一致。
+命名慣例(同後端):port 放 `domain/`、以能力命名(`AuthRepository`、`ProfileRepository`);
+driven adapter = 技術前綴 + port 名(`FirebaseAuthRepository`、`HttpProfileRepository`)。
+`UserProfile` 對齊後端 `/api/me` 形狀:`id`、`firebase_uid`、`email`(nullable)、
+`display_name`(nullable)、`created_at`。
+
+測試原則:presentation/use case 測試注入 fake repository,不碰真 firebase_auth/http,
+永不呼叫 `Firebase.initializeApp`。
 
 ## 錯誤處理
 
