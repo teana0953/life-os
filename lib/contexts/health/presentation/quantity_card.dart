@@ -305,32 +305,9 @@ class _QuantityStepper extends StatelessWidget {
   const _QuantityStepper({required this.value, required this.onChanged});
 
   Future<void> _editValue(BuildContext context) async {
-    final editText = TextEditingController(text: _formatPortion(value));
     final result = await showDialog<double>(
       context: context,
-      builder: (dialogContext) {
-        final loc = AppLocalizations.of(dialogContext)!;
-        return AlertDialog(
-          title: Text(loc.dietQuantityLabel),
-          content: TextField(
-            key: const Key('quantity-edit-field'),
-            controller: editText,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onSubmitted: (v) =>
-                Navigator.of(dialogContext).pop(double.tryParse(v)),
-          ),
-          actions: [
-            TextButton(
-              key: const Key('quantity-edit-confirm'),
-              onPressed: () => Navigator.of(
-                dialogContext,
-              ).pop(double.tryParse(editText.text)),
-              child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _QuantityEditDialog(initial: value),
     );
     if (result != null) onChanged(result);
   }
@@ -342,8 +319,7 @@ class _QuantityStepper extends StatelessWidget {
       children: [
         IconButton(
           key: const Key('quantity-decrement'),
-          onPressed: () =>
-              onChanged((value - 0.5).clamp(0.0, double.infinity)),
+          onPressed: () => onChanged((value - 0.5).clamp(0.0, double.infinity)),
           icon: const Icon(Icons.remove),
         ),
         InkWell(
@@ -351,13 +327,68 @@ class _QuantityStepper extends StatelessWidget {
           onTap: () => _editValue(context),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(_formatPortion(value), style: theme.textTheme.titleLarge),
+            child: Text(
+              _formatPortion(value),
+              style: theme.textTheme.titleLarge,
+            ),
           ),
         ),
         IconButton(
           key: const Key('quantity-increment'),
           onPressed: () => onChanged(value + 0.5),
           icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dialog for typing an exact quantity. A `StatefulWidget` so its
+/// `TextEditingController` is owned and disposed by the framework when the
+/// dialog closes — avoiding a per-open leak and the teardown-timing issues of
+/// disposing it manually after `showDialog` returns.
+class _QuantityEditDialog extends StatefulWidget {
+  final double initial;
+
+  const _QuantityEditDialog({required this.initial});
+
+  @override
+  State<_QuantityEditDialog> createState() => _QuantityEditDialogState();
+}
+
+class _QuantityEditDialogState extends State<_QuantityEditDialog> {
+  late final TextEditingController _text;
+
+  @override
+  void initState() {
+    super.initState();
+    _text = TextEditingController(text: _formatPortion(widget.initial));
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(loc.dietQuantityLabel),
+      content: TextField(
+        key: const Key('quantity-edit-field'),
+        controller: _text,
+        autofocus: true,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onSubmitted: (v) => Navigator.of(context).pop(double.tryParse(v)),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('quantity-edit-confirm'),
+          onPressed: () =>
+              Navigator.of(context).pop(double.tryParse(_text.text)),
+          child: Text(MaterialLocalizations.of(context).okButtonLabel),
         ),
       ],
     );

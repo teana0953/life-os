@@ -369,6 +369,30 @@ abstract class AppLocalizations {
   /// **'Vegetable'**
   String get dietCategoryVeg;
 
+  /// One-glyph icon label for the staple food group (shown on the target stepper).
+  ///
+  /// In en, this message translates to:
+  /// **'S'**
+  String get dietCategoryIconStaple;
+
+  /// One-glyph icon label for the meat/protein food group.
+  ///
+  /// In en, this message translates to:
+  /// **'M'**
+  String get dietCategoryIconMeat;
+
+  /// One-glyph icon label for the fruit food group.
+  ///
+  /// In en, this message translates to:
+  /// **'F'**
+  String get dietCategoryIconFruit;
+
+  /// One-glyph icon label for the vegetable food group.
+  ///
+  /// In en, this message translates to:
+  /// **'V'**
+  String get dietCategoryIconVeg;
+
   /// Shows portions logged against a category's target, e.g. '9 of 12'.
   ///
   /// In en, this message translates to:
