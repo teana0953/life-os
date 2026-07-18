@@ -107,6 +107,9 @@ class _DietShellScreenState extends State<DietShellScreen> {
               controller: widget.dailyTargetController,
               idToken: idToken,
               day: _day,
+              // Refresh Today's portion progress after the target changes,
+              // so switching back to Today reflects the new target.
+              onSaved: () => widget.todayController.load(idToken, _day),
             ),
     ];
 

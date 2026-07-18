@@ -11,11 +11,16 @@ class DailyTargetScreen extends StatefulWidget {
   final String idToken;
   final String day;
 
+  /// Called after the target is saved successfully, so a caller can refresh
+  /// views that depend on the target (e.g. reload Today's portion progress).
+  final VoidCallback? onSaved;
+
   const DailyTargetScreen({
     super.key,
     required this.controller,
     required this.idToken,
     required this.day,
+    this.onSaved,
   });
 
   @override
@@ -104,7 +109,13 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
               key: const Key('save-target-button'),
               onPressed: controller.status == DailyTargetStatus.saving
                   ? null
-                  : () => controller.save(widget.idToken, widget.day),
+                  : () async {
+                      final saved = await controller.save(
+                        widget.idToken,
+                        widget.day,
+                      );
+                      if (saved) widget.onSaved?.call();
+                    },
               child: Text(loc.dietSaveTargetButton),
             ),
             const SizedBox(height: 24),

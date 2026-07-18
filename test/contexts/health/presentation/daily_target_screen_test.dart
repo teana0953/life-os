@@ -101,5 +101,33 @@ void main() {
       final loc = lookupAppLocalizations(const Locale('en'));
       expect(find.text(loc.dietRemainingOfCategory(3)), findsOneWidget);
     });
+
+    testWidgets('calls onSaved after a successful save', (tester) async {
+      final repository = FakeDailyTargetRepository()
+        ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+      await controller.load('token-123', '2026-07-18');
+      var savedCalled = false;
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: DailyTargetScreen(
+            controller: controller,
+            idToken: 'token-123',
+            day: '2026-07-18',
+            onSaved: () => savedCalled = true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('save-target-button')));
+      await tester.pumpAndSettle();
+
+      expect(savedCalled, isTrue);
+    });
   });
 }
