@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
@@ -9,6 +10,7 @@ import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/theme/theme_controller.dart';
 
 /// The locales the app ships translations for. `zh-Hant` uses
 /// [Locale.fromSubtags] with `scriptCode` (not [Locale.new] with a
@@ -44,6 +46,8 @@ class App extends StatefulWidget {
   final LoginController loginController;
   final HomeController homeController;
   final LocaleController localeController;
+  final ThemeController themeController;
+  final SignOut signOut;
 
   const App({
     super.key,
@@ -51,6 +55,8 @@ class App extends StatefulWidget {
     required this.loginController,
     required this.homeController,
     required this.localeController,
+    required this.themeController,
+    required this.signOut,
   });
 
   @override
@@ -70,12 +76,15 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: widget.localeController,
+      animation: Listenable.merge([
+        widget.localeController,
+        widget.themeController,
+      ]),
       builder: (context, _) {
         return MaterialApp(
           theme: lightTheme,
           darkTheme: darkTheme,
-          themeMode: ThemeMode.system,
+          themeMode: widget.themeController.themeMode,
           localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -121,6 +130,8 @@ class _AppState extends State<App> {
                   authRepository: widget.authRepository,
                   homeController: widget.homeController,
                   localeController: widget.localeController,
+                  themeController: widget.themeController,
+                  signOut: widget.signOut,
                 );
               }
               return LoginScreen(
@@ -139,11 +150,15 @@ class _AuthenticatedHome extends StatefulWidget {
   final AuthRepository authRepository;
   final HomeController homeController;
   final LocaleController localeController;
+  final ThemeController themeController;
+  final SignOut signOut;
 
   const _AuthenticatedHome({
     required this.authRepository,
     required this.homeController,
     required this.localeController,
+    required this.themeController,
+    required this.signOut,
   });
 
   @override
@@ -167,6 +182,8 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
     return HomeScreen(
       controller: widget.homeController,
       localeController: widget.localeController,
+      themeController: widget.themeController,
+      signOut: widget.signOut,
     );
   }
 }

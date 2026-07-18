@@ -15,6 +15,7 @@ import 'contexts/user/presentation/home_controller.dart';
 import 'firebase_options.dart';
 import 'shared/config.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,12 +27,12 @@ Future<void> main() async {
     client: http.Client(),
   );
 
+  final signOut = SignOut(authRepository);
   final loginController = LoginController(SignIn(authRepository));
-  final homeController = HomeController(
-    GetProfile(profileRepository),
-    SignOut(authRepository),
-  );
-  final localeController = LocaleController(await SharedPreferences.getInstance());
+  final homeController = HomeController(GetProfile(profileRepository), signOut);
+  final prefs = await SharedPreferences.getInstance();
+  final localeController = LocaleController(prefs);
+  final themeController = ThemeController(prefs);
 
   runApp(
     App(
@@ -39,6 +40,8 @@ Future<void> main() async {
       loginController: loginController,
       homeController: homeController,
       localeController: localeController,
+      themeController: themeController,
+      signOut: signOut,
     ),
   );
 }
