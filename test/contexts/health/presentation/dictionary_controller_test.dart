@@ -12,12 +12,16 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   List<FoodItem> favoritesToReturn = [];
   List<FoodItem> searchResultsToReturn = [];
   Object? loadErrorToThrow;
+  Object? searchErrorToThrow;
+  Object? toggleErrorToThrow;
   String? favoritedId;
   String? unfavoritedId;
 
   @override
-  Future<List<FoodItem>> search(String idToken, String query) async =>
-      searchResultsToReturn;
+  Future<List<FoodItem>> search(String idToken, String query) async {
+    if (searchErrorToThrow != null) throw searchErrorToThrow!;
+    return searchResultsToReturn;
+  }
 
   @override
   Future<List<FoodItem>> listFavorites(String idToken) async {
@@ -27,11 +31,13 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
   @override
   Future<void> favorite(String idToken, String foodItemId) async {
+    if (toggleErrorToThrow != null) throw toggleErrorToThrow!;
     favoritedId = foodItemId;
   }
 
   @override
   Future<void> unfavorite(String idToken, String foodItemId) async {
+    if (toggleErrorToThrow != null) throw toggleErrorToThrow!;
     unfavoritedId = foodItemId;
   }
 }
@@ -109,6 +115,42 @@ void main() {
       await controller.search('');
       expect(controller.results, isEmpty);
     });
+
+    test('a successful empty response shows no results without an error', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..searchResultsToReturn = [];
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.search('no-matches');
+
+      expect(controller.results, isEmpty);
+      expect(controller.status, DictionaryStatus.loaded);
+      expect(controller.error, isNull);
+    });
+
+    test('sets error status on DietFetchFailure, distinct from no results', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..searchErrorToThrow = const DietFetchFailure('server error');
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.search('飯');
+
+      expect(controller.status, DictionaryStatus.error);
+      expect(controller.error, DictionaryError.fetchFailed);
+    });
+
+    test('sets needsReauth status on DietReauthenticationRequired', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..searchErrorToThrow = const DietReauthenticationRequired();
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.search('飯');
+
+      expect(controller.status, DictionaryStatus.needsReauth);
+    });
   });
 
   group('DictionaryController.toggleFavorite', () {
@@ -130,6 +172,29 @@ void main() {
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: true);
 
       expect(repository.unfavoritedId, 'rice-1');
+    });
+
+    test('sets error status on DietFetchFailure without crashing', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..toggleErrorToThrow = const DietFetchFailure('server error');
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
+
+      expect(controller.status, DictionaryStatus.error);
+      expect(controller.error, DictionaryError.fetchFailed);
+    });
+
+    test('sets needsReauth status on DietReauthenticationRequired', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..toggleErrorToThrow = const DietReauthenticationRequired();
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
+
+      expect(controller.status, DictionaryStatus.needsReauth);
     });
   });
 }

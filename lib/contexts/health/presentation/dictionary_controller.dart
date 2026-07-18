@@ -67,8 +67,16 @@ class DictionaryController extends ChangeNotifier {
     if (idToken == null) return;
     try {
       results = await _search(idToken, query);
+      status = DictionaryStatus.loaded;
+      error = null;
+    } on DietReauthenticationRequired {
+      status = DictionaryStatus.needsReauth;
+    } on DietFetchFailure {
+      status = DictionaryStatus.error;
+      error = DictionaryError.fetchFailed;
     } catch (_) {
-      results = [];
+      status = DictionaryStatus.error;
+      error = DictionaryError.unknown;
     }
     notifyListeners();
   }
@@ -76,12 +84,24 @@ class DictionaryController extends ChangeNotifier {
   Future<void> toggleFavorite(FoodItem item, {required bool isFavorite}) async {
     final idToken = _idToken;
     if (idToken == null) return;
-    if (isFavorite) {
-      await _unfavoriteFood(idToken, item.id);
-    } else {
-      await _favoriteFood(idToken, item.id);
+    try {
+      if (isFavorite) {
+        await _unfavoriteFood(idToken, item.id);
+      } else {
+        await _favoriteFood(idToken, item.id);
+      }
+      favorites = await _listFavorites(idToken);
+      status = DictionaryStatus.loaded;
+      error = null;
+    } on DietReauthenticationRequired {
+      status = DictionaryStatus.needsReauth;
+    } on DietFetchFailure {
+      status = DictionaryStatus.error;
+      error = DictionaryError.fetchFailed;
+    } catch (_) {
+      status = DictionaryStatus.error;
+      error = DictionaryError.unknown;
     }
-    favorites = await _listFavorites(idToken);
     notifyListeners();
   }
 }

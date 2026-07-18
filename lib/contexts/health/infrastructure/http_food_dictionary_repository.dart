@@ -53,7 +53,9 @@ class HttpFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<List<FoodItem>> search(String idToken, String query) async {
     final response = await _send(
       () => client.get(
-        Uri.parse('$baseUrl/api/food-items?q=$query'),
+        Uri.parse(
+          '$baseUrl/api/food-items',
+        ).replace(queryParameters: {'q': query}),
         headers: _headers(idToken),
       ),
     );

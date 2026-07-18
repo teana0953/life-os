@@ -45,6 +45,31 @@ void main() {
       expect(items.single.name, '飯/1碗');
     });
 
+    test(
+      'search percent-encodes the query so spaces and reserved characters '
+      '(&, #) are not misinterpreted as URL syntax',
+      () async {
+        Uri? capturedUri;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          return http.Response(
+            jsonEncode(<Map<String, dynamic>>[]),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        });
+        final repository = HttpFoodDictionaryRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        const query = '雞胸肉 & 沙拉#1';
+        await repository.search('token-123', query);
+
+        expect(capturedUri!.queryParameters, {'q': query});
+      },
+    );
+
     test('listFavorites GETs {baseUrl}/api/food-items/favorites', () async {
       Uri? capturedUri;
       final client = MockClient((request) async {
