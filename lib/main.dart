@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'contexts/auth/application/sign_in.dart';
@@ -13,6 +14,7 @@ import 'contexts/user/infrastructure/http_profile_repository.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'firebase_options.dart';
 import 'shared/config.dart';
+import 'shared/i18n/locale_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,12 +31,14 @@ Future<void> main() async {
     GetProfile(profileRepository),
     SignOut(authRepository),
   );
+  final localeController = LocaleController(await SharedPreferences.getInstance());
 
   runApp(
     App(
       authRepository: authRepository,
       loginController: loginController,
       homeController: homeController,
+      localeController: localeController,
     ),
   );
 }

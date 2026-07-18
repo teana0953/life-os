@@ -7,6 +7,9 @@ import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+
+import '../../../support/l10n_test_app.dart';
 
 class FakeAuthRepository implements AuthRepository {
   static const validEmail = 'user@example.com';
@@ -20,7 +23,7 @@ class FakeAuthRepository implements AuthRepository {
     receivedEmail = email;
     receivedPassword = password;
     if (email != validEmail || password != validPassword) {
-      throw const AuthFailure('Incorrect email or password.');
+      throw const AuthFailure(AuthFailureCode.invalidCredentials);
     }
   }
 
@@ -71,10 +74,16 @@ class HangingAuthRepository implements AuthRepository {
 
 Future<void> pumpLoginScreen(
   WidgetTester tester,
-  LoginController controller,
-) {
-  return tester.pumpWidget(
-    MaterialApp(home: LoginScreen(controller: controller)),
+  LoginController controller, {
+  Locale locale = const Locale('en'),
+}) async {
+  final localeController = await testLocaleController();
+  await tester.pumpWidget(
+    l10nTestApp(
+      locale: locale,
+      localeController: localeController,
+      home: LoginScreen(controller: controller, localeController: localeController),
+    ),
   );
 }
 
@@ -123,12 +132,51 @@ void main() {
 
         expect(find.byKey(const Key('error-message')), findsOneWidget);
         expect(
-          find.text('Incorrect email or password.'),
+          find.text(
+            lookupAppLocalizations(const Locale('en')).errorIncorrectCredentials,
+          ),
           findsOneWidget,
         );
         // Stays on the login screen.
         expect(find.byKey(const Key('email-field')), findsOneWidget);
         expect(find.byKey(const Key('password-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'rejected credentials show the error message in Traditional Chinese '
+      'when that is the active locale',
+      (tester) async {
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(
+          tester,
+          controller,
+          locale: const Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
+          ),
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('email-field')),
+          'user@example.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('password-field')),
+          'wrong-password',
+        );
+        await tester.tap(find.byKey(const Key('submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            lookupAppLocalizations(
+              const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+            ).errorIncorrectCredentials,
+          ),
+          findsOneWidget,
+        );
       },
     );
 
@@ -211,6 +259,30 @@ void main() {
 
         repository.signInCompleter.complete();
         await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'selecting Traditional Chinese from the language switcher menu '
+      'changes the locale',
+      (tester) async {
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller);
+
+        final en = lookupAppLocalizations(const Locale('en'));
+        final zhHant = lookupAppLocalizations(
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        expect(find.text(en.welcomeBack), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('language-switcher')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('language-option-zh')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(zhHant.welcomeBack), findsOneWidget);
+        expect(find.text(en.welcomeBack), findsNothing);
       },
     );
   });

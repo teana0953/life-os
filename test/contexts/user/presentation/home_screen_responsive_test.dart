@@ -9,6 +9,8 @@ import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
 
+import '../../../support/l10n_test_app.dart';
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -46,8 +48,12 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
     SignOut(_FakeAuthRepository()),
   );
   await controller.load('token-123');
+  final localeController = await testLocaleController();
   await tester.pumpWidget(
-    MaterialApp(theme: lightTheme, home: HomeScreen(controller: controller)),
+    l10nTestApp(
+      theme: lightTheme,
+      home: HomeScreen(controller: controller, localeController: localeController),
+    ),
   );
   await tester.pump();
   return controller;

@@ -8,6 +8,9 @@ import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+
+import '../../../support/l10n_test_app.dart';
 
 class FakeProfileRepository implements ProfileRepository {
   UserProfile? profileToReturn;
@@ -38,9 +41,23 @@ class FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
-Future<void> pumpHomeScreen(WidgetTester tester, HomeController controller) {
-  return tester.pumpWidget(
-    MaterialApp(home: HomeScreen(controller: controller)),
+Future<void> pumpHomeScreen(
+  WidgetTester tester,
+  HomeController controller, {
+  DateTime Function()? clock,
+  Locale locale = const Locale('en'),
+}) async {
+  final localeController = await testLocaleController();
+  await tester.pumpWidget(
+    l10nTestApp(
+      locale: locale,
+      localeController: localeController,
+      home: HomeScreen(
+        controller: controller,
+        localeController: localeController,
+        clock: clock ?? DateTime.now,
+      ),
+    ),
   );
 }
 
@@ -92,7 +109,39 @@ void main() {
     );
 
     testWidgets(
-      'unexpected errors show a generic message without leaking the '
+      'shows the profile-load error message in Traditional Chinese when '
+      'that is the active locale',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..errorToThrow = const ProfileFetchFailure('server error');
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(
+          tester,
+          controller,
+          locale: const Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
+          ),
+        );
+
+        expect(
+          find.text(
+            lookupAppLocalizations(
+              const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+            ).errorProfileLoadFailed,
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'unexpected errors set a generic, untyped error without leaking the '
       'original exception text',
       (tester) async {
         final profileRepository = FakeProfileRepository()
@@ -106,8 +155,9 @@ void main() {
         );
         await controller.load('token-123');
 
-        expect(controller.errorMessage, isNot(contains('10.0.0.5')));
-        expect(controller.errorMessage, isNot(contains('SocketException')));
+        // The error is a typed enum, not a string — it structurally cannot
+        // leak exception text.
+        expect(controller.error, ProfileError.unknown);
       },
     );
 
@@ -135,5 +185,110 @@ void main() {
         expect(authRepository.signOutCalled, isTrue);
       },
     );
+
+    testWidgets(
+      'selecting Traditional Chinese from the language switcher menu '
+      'changes the locale',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(
+          tester,
+          controller,
+          clock: () => DateTime(2026, 1, 1, 8),
+        );
+
+        final en = lookupAppLocalizations(const Locale('en'));
+        final zhHant = lookupAppLocalizations(
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        expect(find.text(en.greetingMorning), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('language-switcher')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('language-option-zh')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(zhHant.greetingMorning), findsOneWidget);
+        expect(find.text(en.greetingMorning), findsNothing);
+      },
+    );
+  });
+
+  group('HomeScreen greeting', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    testWidgets('shows a morning greeting before noon', (tester) async {
+      final controller = await loadedController();
+      await pumpHomeScreen(
+        tester,
+        controller,
+        clock: () => DateTime(2026, 1, 1, 8),
+      );
+
+      expect(
+        find.text(lookupAppLocalizations(const Locale('en')).greetingMorning),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows an afternoon greeting from noon until evening', (
+      tester,
+    ) async {
+      final controller = await loadedController();
+      await pumpHomeScreen(
+        tester,
+        controller,
+        clock: () => DateTime(2026, 1, 1, 14),
+      );
+
+      expect(
+        find.text(
+          lookupAppLocalizations(const Locale('en')).greetingAfternoon,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows an evening greeting after 6pm', (tester) async {
+      final controller = await loadedController();
+      await pumpHomeScreen(
+        tester,
+        controller,
+        clock: () => DateTime(2026, 1, 1, 20),
+      );
+
+      expect(
+        find.text(lookupAppLocalizations(const Locale('en')).greetingEvening),
+        findsOneWidget,
+      );
+    });
   });
 }

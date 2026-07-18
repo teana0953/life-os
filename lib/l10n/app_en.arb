@@ -1,0 +1,158 @@
+{
+  "@@locale": "en",
+
+  "welcomeBack": "Welcome back",
+  "@welcomeBack": {
+    "description": "Heading shown on the sign-in card."
+  },
+
+  "signInSubtitle": "Sign in to Life OS",
+  "@signInSubtitle": {
+    "description": "Subtitle shown under the sign-in heading."
+  },
+
+  "emailLabel": "Email",
+  "@emailLabel": {
+    "description": "Label for the email text field on the sign-in screen."
+  },
+
+  "passwordLabel": "Password",
+  "@passwordLabel": {
+    "description": "Label for the password text field on the sign-in screen."
+  },
+
+  "signInButton": "Sign in",
+  "@signInButton": {
+    "description": "Label for the sign-in submit button."
+  },
+
+  "signingIn": "Signing in…",
+  "@signingIn": {
+    "description": "Accessible label announced while a sign-in request is in flight."
+  },
+
+  "errorIncorrectCredentials": "Incorrect email or password.",
+  "@errorIncorrectCredentials": {
+    "description": "Shown when sign-in is rejected for invalid/unknown credentials."
+  },
+
+  "errorInvalidEmail": "That email address is invalid.",
+  "@errorInvalidEmail": {
+    "description": "Shown when the entered email address is malformed."
+  },
+
+  "errorAccountDisabled": "This account has been disabled.",
+  "@errorAccountDisabled": {
+    "description": "Shown when sign-in is rejected because the account is disabled."
+  },
+
+  "errorTooManyRequests": "Too many attempts. Please try again later.",
+  "@errorTooManyRequests": {
+    "description": "Shown when sign-in is rate-limited."
+  },
+
+  "errorSignInFailed": "Sign-in failed. Please try again.",
+  "@errorSignInFailed": {
+    "description": "Generic sign-in failure message for unrecognized errors."
+  },
+
+  "greetingMorning": "Good morning",
+  "@greetingMorning": {
+    "description": "Home screen greeting shown before noon."
+  },
+
+  "greetingAfternoon": "Good afternoon",
+  "@greetingAfternoon": {
+    "description": "Home screen greeting shown from noon until evening."
+  },
+
+  "greetingEvening": "Good evening",
+  "@greetingEvening": {
+    "description": "Home screen greeting shown in the evening."
+  },
+
+  "yourSpaces": "Your spaces",
+  "@yourSpaces": {
+    "description": "Heading above the home screen's grid of space previews."
+  },
+
+  "spaceHealth": "Health",
+  "@spaceHealth": {
+    "description": "Illustrative placeholder name for a future module preview tile."
+  },
+
+  "spaceFinance": "Finance",
+  "@spaceFinance": {
+    "description": "Illustrative placeholder name for a future module preview tile."
+  },
+
+  "spaceTasks": "Tasks",
+  "@spaceTasks": {
+    "description": "Illustrative placeholder name for a future module preview tile."
+  },
+
+  "spaceJournal": "Journal",
+  "@spaceJournal": {
+    "description": "Illustrative placeholder name for a future module preview tile."
+  },
+
+  "signedIn": "Signed in",
+  "@signedIn": {
+    "description": "Badge shown next to the signed-in user's profile summary."
+  },
+
+  "signOut": "Sign out",
+  "@signOut": {
+    "description": "Label for the sign-out button."
+  },
+
+  "signInAgain": "Sign in again",
+  "@signInAgain": {
+    "description": "Label for the button shown when re-authentication is required."
+  },
+
+  "pleaseSignInAgain": "Please sign in again.",
+  "@pleaseSignInAgain": {
+    "description": "Message shown when the backend requires re-authentication (HTTP 401)."
+  },
+
+  "errorProfileLoadFailed": "Unable to load your profile. Please try again.",
+  "@errorProfileLoadFailed": {
+    "description": "Shown when the profile fails to load."
+  },
+
+  "errorSomethingWentWrong": "Something went wrong. Please try again.",
+  "@errorSomethingWentWrong": {
+    "description": "Generic failure message for unrecognized errors."
+  },
+
+  "authErrorGeneric": "Something went wrong. Please try again.",
+  "@authErrorGeneric": {
+    "description": "Shown when the authentication state stream itself fails."
+  },
+
+  "retry": "Retry",
+  "@retry": {
+    "description": "Label for the retry button shown after an auth stream error."
+  },
+
+  "switchLanguage": "Switch language",
+  "@switchLanguage": {
+    "description": "Tooltip/accessible label for the language switcher control."
+  },
+
+  "followSystemLanguage": "Follow system",
+  "@followSystemLanguage": {
+    "description": "Language switcher menu option that reverts to following the device's system language."
+  },
+
+  "languageEnglish": "English",
+  "@languageEnglish": {
+    "description": "Language switcher menu option label for English; also shown as the current-language indicator when English is active."
+  },
+
+  "languageTraditionalChinese": "繁體中文",
+  "@languageTraditionalChinese": {
+    "description": "Language switcher menu option label for Traditional Chinese; also shown as the current-language indicator when Traditional Chinese is active."
+  }
+}
