@@ -66,11 +66,11 @@ DailyTargetWithRemaining _target({double baseStaple = 0, double loggedStaple = 9
 
 void main() {
   group('DailyTargetScreen', () {
-    testWidgets('setting the staple target to 12 shows 3 remaining', (
+    testWidgets('tapping the staple increment control raises the draft and remaining computes', (
       tester,
     ) async {
       final repository = FakeDailyTargetRepository()
-        ..targetToReturn = _target(baseStaple: 0, loggedStaple: 9);
+        ..targetToReturn = _target(baseStaple: 11.5, loggedStaple: 9);
       final controller = DailyTargetController(
         GetDailyTargetWithRemaining(repository),
         SetDailyTarget(repository),
@@ -89,11 +89,11 @@ void main() {
       );
       await tester.pump();
 
-      await tester.enterText(
-        find.byKey(const Key('daily-target-staple-field')),
-        '12',
-      );
+      await tester.tap(find.byKey(const Key('daily-target-staple-increment')));
       await tester.pump();
+
+      expect(controller.draftBaseStaple, 12);
+
       await tester.tap(find.byKey(const Key('save-target-button')));
       await tester.pumpAndSettle();
 

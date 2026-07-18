@@ -170,6 +170,93 @@ Future<void> _pumpToday(
 
 void main() {
   group('TodayScreen', () {
+    testWidgets('renders each meal group time using the injected local-time conversion', (
+      tester,
+    ) async {
+      // Two entries out of listed order; the earlier one (00:10 UTC) must
+      // win as the group's time, not entries.first (09:00 UTC).
+      final dayLog = DayDietLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          {
+            'meal': 'breakfast',
+            'entries': [
+              _entryJson(meal: 'breakfast', eatenAt: '2026-07-18T09:00:00.000Z'),
+              _entryJson(meal: 'breakfast', eatenAt: '2026-07-18T00:10:00.000Z'),
+            ],
+          },
+        ],
+        'totals': {'carbG': 20, 'proteinG': 4, 'fatG': 2, 'sugarG': 0, 'fiberG': 0, 'kcal': 120},
+      });
+      final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = TodayController(
+        GetDayDietLog(dietLogRepository),
+        GetDailyTargetWithRemaining(targetRepository),
+      );
+      await controller.load('token-123', '2026-07-18');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: TodayScreen(
+            controller: controller,
+            signOut: SignOut(FakeAuthRepository()),
+            // Simulate a local timezone 8 hours ahead of UTC, independent of
+            // the host machine's real timezone: a naive implementation that
+            // skips `.toLocal()` (or uses `entries.first` instead of `min`)
+            // would show 09:00 or 00:10 instead of 08:10.
+            toLocalTime: (utc) => utc.add(const Duration(hours: 8)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('08:10'), findsOneWidget);
+    });
+
+    testWidgets('shows meal cards labeled with an emoji per standard meal, and a fallback for snacks', (
+      tester,
+    ) async {
+      final dayLog = DayDietLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          {
+            'meal': 'breakfast',
+            'entries': [_entryJson(meal: 'breakfast', eatenAt: '2026-07-18T08:00:00.000Z')],
+          },
+          {
+            'meal': 'lunch',
+            'entries': [_entryJson(meal: 'lunch', eatenAt: '2026-07-18T12:30:00.000Z')],
+          },
+          {
+            'meal': 'dinner',
+            'entries': [_entryJson(meal: 'dinner', eatenAt: '2026-07-18T18:00:00.000Z')],
+          },
+          {
+            'meal': 'snack',
+            'entries': [_entryJson(meal: 'snack', eatenAt: '2026-07-18T15:00:00.000Z')],
+          },
+        ],
+        'totals': {'carbG': 40, 'proteinG': 8, 'fatG': 4, 'sugarG': 0, 'fiberG': 0, 'kcal': 240},
+      });
+      final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = TodayController(
+        GetDayDietLog(dietLogRepository),
+        GetDailyTargetWithRemaining(targetRepository),
+      );
+      await controller.load('token-123', '2026-07-18');
+
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpToday(tester, controller);
+
+      expect(find.text('🌅'), findsOneWidget);
+      expect(find.text('🍱'), findsOneWidget);
+      expect(find.text('🌙'), findsOneWidget);
+      expect(find.text('🍎'), findsOneWidget);
+    });
+
     testWidgets('shows meals in eaten order: breakfast before lunch', (
       tester,
     ) async {
