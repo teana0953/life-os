@@ -224,4 +224,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorDietLoadFailed =>
       'Unable to load your diet data. Please try again.';
+
+  @override
+  String get dietManualEntryAffordance => 'Can\'t find it? Log manually';
+
+  @override
+  String get dietManualEntryTitle => 'Log food manually';
+
+  @override
+  String get dietManualEntryNameLabel => 'Name (optional)';
+
+  @override
+  String get dietManualEntryFallbackName => 'Manual entry';
+
+  @override
+  String get dietManualEntryAllZeroError =>
+      'Enter at least one portion before saving.';
 }

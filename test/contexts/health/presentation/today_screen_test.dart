@@ -10,6 +10,7 @@ import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -29,6 +30,18 @@ class FakeDietLogRepository implements DietLogRepository {
     double? quantity,
     double? grams,
     DateTime? eatenAt,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
   }) async {
     throw UnimplementedError();
   }
@@ -85,11 +98,19 @@ class FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
-Map<String, dynamic> _entryJson({required String meal, required String eatenAt}) => {
+Map<String, dynamic> _entryJson({
+  required String meal,
+  required String eatenAt,
+  String? name = 'food',
+  double staple = 1,
+  double meat = 0,
+  double fruit = 0,
+  double veg = 0,
+}) => {
   'id': 'entry-$meal',
   'day': '2026-07-18',
   'meal': meal,
-  'name': 'food',
+  'name': name,
   'photo_ref': null,
   'source': 'dict',
   'unclassified': false,
@@ -99,10 +120,10 @@ Map<String, dynamic> _entryJson({required String meal, required String eatenAt})
   'sugar_g': 0,
   'fiber_g': 0,
   'kcal': 60,
-  'staple': 1,
-  'meat': 0,
-  'fruit': 0,
-  'veg': 0,
+  'staple': staple,
+  'meat': meat,
+  'fruit': fruit,
+  'veg': veg,
   'eaten_at': eatenAt,
   'logged_at': eatenAt,
 };
@@ -185,6 +206,79 @@ void main() {
       ).dietProgressOfTarget(9, 12);
       expect(find.text(expected), findsOneWidget);
     });
+
+    testWidgets(
+      'a logged food shows a "meat 1" portion pill and no lone "0" staple value',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'breakfast',
+              'entries': [
+                _entryJson(
+                  meal: 'breakfast',
+                  eatenAt: '2026-07-18T08:00:00.000Z',
+                  name: '蛋',
+                  staple: 0,
+                  meat: 1,
+                ),
+              ],
+            },
+          ],
+          'totals': {'carbG': 10, 'proteinG': 2, 'fatG': 1, 'sugarG': 0, 'fiberG': 0, 'kcal': 60},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text('${loc.dietCategoryMeat} 1'), findsOneWidget);
+        expect(find.text('${loc.dietCategoryStaple} 0'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a nameless (manual) entry shows a localized fallback title instead of a blank one',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'breakfast',
+              'entries': [
+                _entryJson(
+                  meal: 'breakfast',
+                  eatenAt: '2026-07-18T08:00:00.000Z',
+                  name: null,
+                  staple: 0,
+                  meat: 1,
+                ),
+              ],
+            },
+          ],
+          'totals': {'carbG': 10, 'proteinG': 2, 'fatG': 1, 'sugarG': 0, 'fiberG': 0, 'kcal': 60},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietManualEntryFallbackName), findsOneWidget);
+      },
+    );
 
     testWidgets('shows an error state and a sign-out option when loading fails', (
       tester,

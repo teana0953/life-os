@@ -220,6 +220,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
+
+  @override
+  String get dietManualEntryAffordance => '找不到? 手動輸入';
+
+  @override
+  String get dietManualEntryTitle => '手動記錄飲食';
+
+  @override
+  String get dietManualEntryNameLabel => '名稱（選填）';
+
+  @override
+  String get dietManualEntryFallbackName => '手動記錄';
+
+  @override
+  String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -438,4 +453,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
+
+  @override
+  String get dietManualEntryAffordance => '找不到? 手動輸入';
+
+  @override
+  String get dietManualEntryTitle => '手動記錄飲食';
+
+  @override
+  String get dietManualEntryNameLabel => '名稱（選填）';
+
+  @override
+  String get dietManualEntryFallbackName => '手動記錄';
+
+  @override
+  String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
 }

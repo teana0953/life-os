@@ -113,5 +113,35 @@ void main() {
 
       expect(selected?.id, 'rice-1');
     });
+
+    testWidgets(
+      'shows a manual-entry affordance that calls onManualEntry when tapped',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        final controller = _controller(repository);
+        await controller.load('token-123');
+        var tapped = false;
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DictionaryScreen(
+              controller: controller,
+              onManualEntry: () => tapped = true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final affordance = find.byKey(const Key('dictionary-manual-entry-button'));
+        expect(affordance, findsOneWidget);
+        expect(find.text(loc.dietManualEntryAffordance), findsOneWidget);
+
+        await tester.tap(affordance);
+        await tester.pump();
+
+        expect(tapped, isTrue);
+      },
+    );
   });
 }

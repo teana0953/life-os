@@ -494,6 +494,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your diet data. Please try again.'**
   String get errorDietLoadFailed;
+
+  /// Button at the bottom of the dictionary screen that opens the manual food-entry screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t find it? Log manually'**
+  String get dietManualEntryAffordance;
+
+  /// Screen title for logging a food not in the dictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Log food manually'**
+  String get dietManualEntryTitle;
+
+  /// Label for the optional name text field on the manual-entry screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get dietManualEntryNameLabel;
+
+  /// Fallback title shown on Today for a manually-logged entry that has no name.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual entry'**
+  String get dietManualEntryFallbackName;
+
+  /// Shown on the manual-entry screen when the user tries to save with all portions at zero.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least one portion before saving.'**
+  String get dietManualEntryAllZeroError;
 }
 
 class _AppLocalizationsDelegate

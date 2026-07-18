@@ -336,5 +336,30 @@
   "errorDietLoadFailed": "Unable to load your diet data. Please try again.",
   "@errorDietLoadFailed": {
     "description": "Shown when diet data (today's log, dictionary, or target) fails to load."
+  },
+
+  "dietManualEntryAffordance": "Can't find it? Log manually",
+  "@dietManualEntryAffordance": {
+    "description": "Button at the bottom of the dictionary screen that opens the manual food-entry screen."
+  },
+
+  "dietManualEntryTitle": "Log food manually",
+  "@dietManualEntryTitle": {
+    "description": "Screen title for logging a food not in the dictionary."
+  },
+
+  "dietManualEntryNameLabel": "Name (optional)",
+  "@dietManualEntryNameLabel": {
+    "description": "Label for the optional name text field on the manual-entry screen."
+  },
+
+  "dietManualEntryFallbackName": "Manual entry",
+  "@dietManualEntryFallbackName": {
+    "description": "Fallback title shown on Today for a manually-logged entry that has no name."
+  },
+
+  "dietManualEntryAllZeroError": "Enter at least one portion before saving.",
+  "@dietManualEntryAllZeroError": {
+    "description": "Shown on the manual-entry screen when the user tries to save with all portions at zero."
   }
 }

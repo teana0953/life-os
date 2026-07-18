@@ -16,11 +16,15 @@ import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
+import 'package:life_os/contexts/health/application/log_manual_entry.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
 import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/log_entry_screen.dart';
+import 'package:life_os/contexts/health/presentation/manual_entry_controller.dart';
+import 'package:life_os/contexts/health/presentation/manual_entry_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
@@ -74,8 +78,43 @@ class FakeDietLogRepository implements DietLogRepository {
     });
   }
 
+  int getDayLogCallCount = 0;
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
+  }) async {
+    return FoodEntry.fromJson({
+      'id': 'manual-entry-1',
+      'day': day,
+      'meal': meal,
+      'name': name,
+      'photo_ref': null,
+      'source': 'manual',
+      'unclassified': false,
+      'carb_g': 0,
+      'protein_g': 0,
+      'fat_g': 0,
+      'sugar_g': 0,
+      'fiber_g': 0,
+      'kcal': 0,
+      'staple': portions.staple,
+      'meat': portions.meat,
+      'fruit': portions.fruit,
+      'veg': portions.veg,
+      'eaten_at': eatenAt.toUtc().toIso8601String(),
+      'logged_at': eatenAt.toUtc().toIso8601String(),
+    });
+  }
+
   @override
   Future<DayDietLog> getDayLog(String idToken, String day) async {
+    getDayLogCallCount++;
     return DayDietLog.fromJson({
       'day': day,
       'meals': [],
@@ -148,7 +187,7 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> unfavorite(String idToken, String foodItemId) async {}
 }
 
-Future<void> _pumpShell(WidgetTester tester) async {
+Future<FakeDietLogRepository> _pumpShell(WidgetTester tester) async {
   final dietLogRepository = FakeDietLogRepository();
   final dailyTargetRepository = FakeDailyTargetRepository();
   final foodDictionaryRepository = FakeFoodDictionaryRepository();
@@ -174,11 +213,15 @@ Future<void> _pumpShell(WidgetTester tester) async {
         logEntryController: LogEntryController(
           LogFoodFromDictionary(dietLogRepository),
         ),
+        manualEntryController: ManualEntryController(
+          LogManualEntry(dietLogRepository),
+        ),
         clock: () => DateTime.utc(2026, 7, 18, 9),
       ),
     ),
   );
   await tester.pumpAndSettle();
+  return dietLogRepository;
 }
 
 void main() {
@@ -227,5 +270,44 @@ void main() {
 
       expect(find.byType(LogEntryScreen), findsOneWidget);
     });
+
+    testWidgets(
+      'the manual-entry affordance on Dictionary opens the manual-entry screen',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.text(loc.dietTabDictionary));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ManualEntryScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'saving a manual entry reloads Today',
+      (tester) async {
+        final dietLogRepository = await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
+
+        await tester.tap(find.text(loc.dietTabDictionary));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('manual-portion-staple-field')),
+          '1',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('manual-save-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ManualEntryScreen), findsNothing);
+        expect(dietLogRepository.getDayLogCallCount, greaterThan(loadsBeforeSave));
+      },
+    );
   });
 }

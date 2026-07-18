@@ -10,10 +10,15 @@ class DictionaryScreen extends StatefulWidget {
   final DictionaryController controller;
   final ValueChanged<FoodItem>? onSelectItem;
 
+  /// Called when the user taps the "can't find it? log manually"
+  /// affordance at the bottom of the screen (D1 in design.md).
+  final VoidCallback? onManualEntry;
+
   const DictionaryScreen({
     super.key,
     required this.controller,
     this.onSelectItem,
+    this.onManualEntry,
   });
 
   @override
@@ -98,6 +103,15 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             },
           ),
         ),
+        if (widget.onManualEntry != null)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextButton(
+              key: const Key('dictionary-manual-entry-button'),
+              onPressed: widget.onManualEntry,
+              child: Text(loc.dietManualEntryAffordance),
+            ),
+          ),
       ],
     );
   }

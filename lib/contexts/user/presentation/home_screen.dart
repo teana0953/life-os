@@ -11,6 +11,7 @@ import '../../health/presentation/daily_target_controller.dart';
 import '../../health/presentation/dictionary_controller.dart';
 import '../../health/presentation/diet_shell_screen.dart';
 import '../../health/presentation/log_entry_controller.dart';
+import '../../health/presentation/manual_entry_controller.dart';
 import '../../health/presentation/today_controller.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'home_controller.dart';
@@ -45,6 +46,7 @@ class HomeScreen extends StatefulWidget {
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
   final LogEntryController healthLogEntryController;
+  final ManualEntryController healthManualEntryController;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -62,6 +64,7 @@ class HomeScreen extends StatefulWidget {
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
     required this.healthLogEntryController,
+    required this.healthManualEntryController,
     this.clock = DateTime.now,
   });
 
@@ -105,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
           dictionaryController: widget.healthDictionaryController,
           dailyTargetController: widget.healthDailyTargetController,
           logEntryController: widget.healthLogEntryController,
+          manualEntryController: widget.healthManualEntryController,
           signOut: widget.signOut,
         ),
       ),
