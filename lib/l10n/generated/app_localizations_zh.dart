@@ -235,6 +235,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
+
+  @override
+  String get dietTabAll => '全部';
+
+  @override
+  String get dietSearchAllPrompt => '搜尋食物以查看結果';
+
+  @override
+  String dietBasisEquals(String unit) {
+    return '$unit ＝';
+  }
+
+  @override
+  String dietPreviewMathLabel(double base, double quantity) {
+    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String baseString = baseNumberFormat.format(base);
+    final intl.NumberFormat quantityNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String quantityString = quantityNumberFormat.format(quantity);
+
+    return '$baseString × $quantityString';
+  }
+
+  @override
+  String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -468,4 +495,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
+
+  @override
+  String get dietTabAll => '全部';
+
+  @override
+  String get dietSearchAllPrompt => '搜尋食物以查看結果';
+
+  @override
+  String dietBasisEquals(String unit) {
+    return '$unit ＝';
+  }
+
+  @override
+  String dietPreviewMathLabel(double base, double quantity) {
+    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String baseString = baseNumberFormat.format(base);
+    final intl.NumberFormat quantityNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String quantityString = quantityNumberFormat.format(quantity);
+
+    return '$baseString × $quantityString';
+  }
+
+  @override
+  String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
 }

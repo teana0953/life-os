@@ -27,7 +27,11 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> favorite(String idToken, String foodItemId) async {}
 
   @override
-  Future<void> unfavorite(String idToken, String foodItemId) async {}
+  Future<void> unfavorite(String idToken, String foodItemId) async {
+    favoritesToReturn = favoritesToReturn
+        .where((f) => f.id != foodItemId)
+        .toList();
+  }
 }
 
 FoodItem _item(String id, String name) => FoodItem.fromJson({
@@ -85,11 +89,84 @@ void main() {
       );
       await tester.pump();
 
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(find.text(loc.dietTabAll));
+      await tester.pump();
       await tester.enterText(find.byKey(const Key('dictionary-search-field')), '飯');
       await tester.pumpAndSettle();
 
       expect(find.text('飯/1碗'), findsOneWidget);
     });
+
+    testWidgets('dictionary row shows a portion pill for the item', (
+      tester,
+    ) async {
+      final repository = FakeFoodDictionaryRepository()
+        ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await tester.pumpWidget(
+        l10nTestApp(home: DictionaryScreen(controller: controller)),
+      );
+      await tester.pump();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text('${loc.dietCategoryStaple} 4'), findsOneWidget);
+    });
+
+    testWidgets('tapping the heart toggles the favorite off', (tester) async {
+      final repository = FakeFoodDictionaryRepository()
+        ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await tester.pumpWidget(
+        l10nTestApp(home: DictionaryScreen(controller: controller)),
+      );
+      await tester.pump();
+
+      expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.text('飯/1碗'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.favorite));
+      await tester.pumpAndSettle();
+
+      expect(find.text('飯/1碗'), findsNothing);
+    });
+
+    testWidgets(
+      'the All tab shows a search prompt before any query, and the Favorites tab shows the favorites list',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+        final controller = _controller(repository);
+        await controller.load('token-123');
+
+        await tester.pumpWidget(
+          l10nTestApp(home: DictionaryScreen(controller: controller)),
+        );
+        await tester.pump();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // Default landing tab is Favorites: the list isn't empty.
+        expect(find.text('飯/1碗'), findsOneWidget);
+        expect(find.byKey(const Key('dictionary-search-prompt')), findsNothing);
+
+        await tester.tap(find.text(loc.dietTabAll));
+        await tester.pump();
+
+        expect(find.byKey(const Key('dictionary-search-prompt')), findsOneWidget);
+        expect(find.text('飯/1碗'), findsNothing);
+
+        await tester.tap(find.text(loc.dietFavoritesTitle));
+        await tester.pump();
+
+        expect(find.text('飯/1碗'), findsOneWidget);
+        expect(find.byKey(const Key('dictionary-search-prompt')), findsNothing);
+      },
+    );
 
     testWidgets('tapping an item calls onSelectItem', (tester) async {
       final repository = FakeFoodDictionaryRepository()

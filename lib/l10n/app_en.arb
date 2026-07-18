@@ -361,5 +361,37 @@
   "dietManualEntryAllZeroError": "Enter at least one portion before saving.",
   "@dietManualEntryAllZeroError": {
     "description": "Shown on the manual-entry screen when the user tries to save with all portions at zero."
+  },
+
+  "dietTabAll": "All",
+  "@dietTabAll": {
+    "description": "Segmented control label for showing all dictionary search results, as opposed to favorites."
+  },
+
+  "dietSearchAllPrompt": "Search for a food to see results",
+  "@dietSearchAllPrompt": {
+    "description": "Shown in the All tab of the dictionary before the user has typed a search query."
+  },
+
+  "dietBasisEquals": "{unit} ＝",
+  "@dietBasisEquals": {
+    "description": "Prefix shown before the dictionary-basis portion pills on the quantity card, e.g. '1碗 ＝' (unit equals) before the portions it's worth.",
+    "placeholders": {
+      "unit": {"type": "String"}
+    }
+  },
+
+  "dietPreviewMathLabel": "{base} × {quantity}",
+  "@dietPreviewMathLabel": {
+    "description": "Shows the dictionary base portion value times the entered quantity beneath the preview pills, e.g. '4 × 1.5'.",
+    "placeholders": {
+      "base": {"type": "double", "format": "decimalPattern"},
+      "quantity": {"type": "double", "format": "decimalPattern"}
+    }
+  },
+
+  "dietBonusNote": "✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).",
+  "@dietBonusNote": {
+    "description": "Muted, non-editable note on the daily target screen about a future exercise-based bonus."
   }
 }

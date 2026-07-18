@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/theme/app_theme.dart';
+import 'category_progress_bar.dart';
 import 'daily_target_controller.dart';
 import 'portion_stepper.dart';
 
@@ -75,62 +76,139 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text(loc.dietSetTargetTitle, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 16),
-            PortionStepper(
-              label: loc.dietCategoryStaple,
-              value: controller.draftBaseStaple,
-              onChanged: controller.setDraftBaseStaple,
-              color: dietColors?.staple,
-              decrementKey: const Key('daily-target-staple-decrement'),
-              incrementKey: const Key('daily-target-staple-increment'),
-            ),
-            const SizedBox(height: 12),
-            PortionStepper(
-              label: loc.dietCategoryMeat,
-              value: controller.draftBaseMeat,
-              onChanged: controller.setDraftBaseMeat,
-              color: dietColors?.meat,
-              decrementKey: const Key('daily-target-meat-decrement'),
-              incrementKey: const Key('daily-target-meat-increment'),
-            ),
-            const SizedBox(height: 12),
-            PortionStepper(
-              label: loc.dietCategoryFruit,
-              value: controller.draftBaseFruit,
-              onChanged: controller.setDraftBaseFruit,
-              color: dietColors?.fruit,
-              decrementKey: const Key('daily-target-fruit-decrement'),
-              incrementKey: const Key('daily-target-fruit-increment'),
-            ),
-            const SizedBox(height: 12),
-            PortionStepper(
-              label: loc.dietCategoryVeg,
-              value: controller.draftBaseVeg,
-              onChanged: controller.setDraftBaseVeg,
-              color: dietColors?.veg,
-              decrementKey: const Key('daily-target-veg-decrement'),
-              incrementKey: const Key('daily-target-veg-increment'),
+            _TargetSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(loc.dietSetTargetTitle, style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 16),
+                  PortionStepper(
+                    label: loc.dietCategoryStaple,
+                    value: controller.draftBaseStaple,
+                    onChanged: controller.setDraftBaseStaple,
+                    color: dietColors?.staple,
+                    leadingIcon: _CategoryIconChip(
+                      letter: loc.dietCategoryStaple.substring(0, 1),
+                      color: dietColors?.staple,
+                    ),
+                    decrementKey: const Key('daily-target-staple-decrement'),
+                    incrementKey: const Key('daily-target-staple-increment'),
+                  ),
+                  const SizedBox(height: 12),
+                  PortionStepper(
+                    label: loc.dietCategoryMeat,
+                    value: controller.draftBaseMeat,
+                    onChanged: controller.setDraftBaseMeat,
+                    color: dietColors?.meat,
+                    leadingIcon: _CategoryIconChip(
+                      letter: loc.dietCategoryMeat.substring(0, 1),
+                      color: dietColors?.meat,
+                    ),
+                    decrementKey: const Key('daily-target-meat-decrement'),
+                    incrementKey: const Key('daily-target-meat-increment'),
+                  ),
+                  const SizedBox(height: 12),
+                  PortionStepper(
+                    label: loc.dietCategoryFruit,
+                    value: controller.draftBaseFruit,
+                    onChanged: controller.setDraftBaseFruit,
+                    color: dietColors?.fruit,
+                    leadingIcon: _CategoryIconChip(
+                      letter: loc.dietCategoryFruit.substring(0, 1),
+                      color: dietColors?.fruit,
+                    ),
+                    decrementKey: const Key('daily-target-fruit-decrement'),
+                    incrementKey: const Key('daily-target-fruit-increment'),
+                  ),
+                  const SizedBox(height: 12),
+                  PortionStepper(
+                    label: loc.dietCategoryVeg,
+                    value: controller.draftBaseVeg,
+                    onChanged: controller.setDraftBaseVeg,
+                    color: dietColors?.veg,
+                    leadingIcon: _CategoryIconChip(
+                      letter: loc.dietCategoryVeg.substring(0, 1),
+                      color: dietColors?.veg,
+                    ),
+                    decrementKey: const Key('daily-target-veg-decrement'),
+                    incrementKey: const Key('daily-target-veg-increment'),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc.dietBonusNote,
+                    key: const Key('daily-target-bonus-note'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    key: const Key('save-target-button'),
+                    onPressed: controller.status == DailyTargetStatus.saving
+                        ? null
+                        : () async {
+                            final saved = await controller.save(
+                              widget.idToken,
+                              widget.day,
+                            );
+                            if (saved) widget.onSaved?.call();
+                          },
+                    child: Text(loc.dietSaveTargetButton),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
-            FilledButton(
-              key: const Key('save-target-button'),
-              onPressed: controller.status == DailyTargetStatus.saving
-                  ? null
-                  : () async {
-                      final saved = await controller.save(
-                        widget.idToken,
-                        widget.day,
-                      );
-                      if (saved) widget.onSaved?.call();
-                    },
-              child: Text(loc.dietSaveTargetButton),
+            _TargetSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CategoryProgressBar(
+                    key: const Key('daily-target-staple-progress'),
+                    label: loc.dietCategoryStaple,
+                    logged: target.logged.staple,
+                    effective: target.effective.staple,
+                    color: dietColors?.staple,
+                    trailingLabel: loc.dietRemainingOfCategory(
+                      target.remaining.staple,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  CategoryProgressBar(
+                    key: const Key('daily-target-meat-progress'),
+                    label: loc.dietCategoryMeat,
+                    logged: target.logged.meat,
+                    effective: target.effective.meat,
+                    color: dietColors?.meat,
+                    trailingLabel: loc.dietRemainingOfCategory(
+                      target.remaining.meat,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  CategoryProgressBar(
+                    key: const Key('daily-target-fruit-progress'),
+                    label: loc.dietCategoryFruit,
+                    logged: target.logged.fruit,
+                    effective: target.effective.fruit,
+                    color: dietColors?.fruit,
+                    trailingLabel: loc.dietRemainingOfCategory(
+                      target.remaining.fruit,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  CategoryProgressBar(
+                    key: const Key('daily-target-veg-progress'),
+                    label: loc.dietCategoryVeg,
+                    logged: target.logged.veg,
+                    effective: target.effective.veg,
+                    color: dietColors?.veg,
+                    trailingLabel: loc.dietRemainingOfCategory(
+                      target.remaining.veg,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-            _RemainingRow(label: loc.dietCategoryStaple, remaining: target.remaining.staple, loc: loc),
-            _RemainingRow(label: loc.dietCategoryMeat, remaining: target.remaining.meat, loc: loc),
-            _RemainingRow(label: loc.dietCategoryFruit, remaining: target.remaining.fruit, loc: loc),
-            _RemainingRow(label: loc.dietCategoryVeg, remaining: target.remaining.veg, loc: loc),
           ],
         ),
       ),
@@ -138,28 +216,51 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
   }
 }
 
-class _RemainingRow extends StatelessWidget {
-  final String label;
-  final double remaining;
-  final AppLocalizations loc;
+/// Rounded, outlined, ledge-shadowed card wrapper shared by the target and
+/// today/remaining sections (D3 in design.md).
+class _TargetSectionCard extends StatelessWidget {
+  final Widget child;
 
-  const _RemainingRow({
-    required this.label,
-    required this.remaining,
-    required this.loc,
-  });
+  const _TargetSectionCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(loc.dietRemainingOfCategory(remaining)),
-        ],
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outline, width: 2),
+        boxShadow: ledgeShadow(theme.colorScheme.outline),
       ),
+      child: child,
+    );
+  }
+}
+
+/// A small rounded category-color chip labeled with the category's initial
+/// (derived from its localized name, e.g. "S" for Staple/"主" for 主食),
+/// used as a [PortionStepper.leadingIcon].
+class _CategoryIconChip extends StatelessWidget {
+  final String letter;
+  final Color? color;
+
+  const _CategoryIconChip({required this.letter, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color ?? theme.colorScheme.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: theme.colorScheme.outline, width: 2),
+      ),
+      child: Text(letter, style: theme.textTheme.bodyMedium),
     );
   }
 }

@@ -102,6 +102,67 @@ void main() {
       expect(find.text(loc.dietRemainingOfCategory(3)), findsOneWidget);
     });
 
+    testWidgets(
+      'staple target 12 / logged 9 shows the bar ~3/4 filled and "3 remaining"',
+      (tester) async {
+        final repository = FakeDailyTargetRepository()
+          ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+        final controller = DailyTargetController(
+          GetDailyTargetWithRemaining(repository),
+          SetDailyTarget(repository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DailyTargetScreen(
+              controller: controller,
+              idToken: 'token-123',
+              day: '2026-07-18',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        const barKey = Key('daily-target-staple-progress');
+        final fill = tester.widget<FractionallySizedBox>(
+          find.descendant(
+            of: find.byKey(barKey),
+            matching: find.byType(FractionallySizedBox),
+          ),
+        );
+        expect(fill.widthFactor, closeTo(0.75, 0.0001));
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietRemainingOfCategory(3)), findsOneWidget);
+      },
+    );
+
+    testWidgets('shows the muted bonus note', (tester) async {
+      final repository = FakeDailyTargetRepository()
+        ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+      await controller.load('token-123', '2026-07-18');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: DailyTargetScreen(
+            controller: controller,
+            idToken: 'token-123',
+            day: '2026-07-18',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.byKey(const Key('daily-target-bonus-note')), findsOneWidget);
+      expect(find.text(loc.dietBonusNote), findsOneWidget);
+    });
+
     testWidgets('calls onSaved after a successful save', (tester) async {
       final repository = FakeDailyTargetRepository()
         ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);

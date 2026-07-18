@@ -14,12 +14,19 @@ class CategoryProgressBar extends StatelessWidget {
   final double effective;
   final Color? color;
 
+  /// Optional trailing label shown instead of the default "used / target"
+  /// text (D3 in design.md) — e.g. a "3 remaining" phrasing. Defaults to
+  /// `null`, which preserves the original used/target text, so existing
+  /// call sites are unaffected.
+  final String? trailingLabel;
+
   const CategoryProgressBar({
     super.key,
     required this.label,
     required this.logged,
     required this.effective,
     required this.color,
+    this.trailingLabel,
   });
 
   @override
@@ -36,7 +43,7 @@ class CategoryProgressBar extends StatelessWidget {
           children: [
             Text(label, style: theme.textTheme.bodyMedium),
             Text(
-              loc.dietProgressOfTarget(logged, effective),
+              trailingLabel ?? loc.dietProgressOfTarget(logged, effective),
               style: theme.textTheme.bodyMedium,
             ),
           ],
