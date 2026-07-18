@@ -128,23 +128,48 @@ void main() {
     );
 
     testWidgets(
-      'blocks saving all-zero portions and shows the guard message',
+      'portion fields start empty (no 0 to delete) and clearing sends 0',
       (tester) async {
         final repository = FakeDietLogRepository();
         final controller = ManualEntryController(LogManualEntry(repository));
         controller.start(clock: () => DateTime(2026, 7, 18, 9, 5));
-        var saved = false;
-        await _pumpScreen(tester, controller, onSaved: () => saved = true);
+        await _pumpScreen(tester, controller);
 
-        await tester.tap(find.byKey(const Key('manual-save-button')));
-        await tester.pumpAndSettle();
+        final staple = tester.widget<TextField>(
+          find.byKey(const Key('manual-portion-staple-field')),
+        );
+        expect(staple.controller?.text, '');
 
-        final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.text(loc.dietManualEntryAllZeroError), findsOneWidget);
-        expect(repository.receivedPortions, isNull);
-        expect(saved, isFalse);
+        await tester.enterText(
+          find.byKey(const Key('manual-portion-meat-field')),
+          '2',
+        );
+        expect(controller.meat, 2);
+        await tester.enterText(
+          find.byKey(const Key('manual-portion-meat-field')),
+          '',
+        );
+        expect(controller.meat, 0);
       },
     );
+
+    testWidgets('blocks saving all-zero portions and shows the guard message', (
+      tester,
+    ) async {
+      final repository = FakeDietLogRepository();
+      final controller = ManualEntryController(LogManualEntry(repository));
+      controller.start(clock: () => DateTime(2026, 7, 18, 9, 5));
+      var saved = false;
+      await _pumpScreen(tester, controller, onSaved: () => saved = true);
+
+      await tester.tap(find.byKey(const Key('manual-save-button')));
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.dietManualEntryAllZeroError), findsOneWidget);
+      expect(repository.receivedPortions, isNull);
+      expect(saved, isFalse);
+    });
 
     testWidgets('the eaten-at time is editable', (tester) async {
       final repository = FakeDietLogRepository();
@@ -160,7 +185,9 @@ void main() {
       controller.setEatenAt(DateTime(2026, 7, 18, 7, 15));
       await tester.pump();
 
-      final updated = tester.widget<Text>(find.byKey(const Key('eaten-at-text')));
+      final updated = tester.widget<Text>(
+        find.byKey(const Key('eaten-at-text')),
+      );
       expect(updated.data, '07:15');
     });
   });
