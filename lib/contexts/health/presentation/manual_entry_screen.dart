@@ -10,6 +10,11 @@ String _formatPortion(double value) {
       : value.toStringAsFixed(2);
 }
 
+/// A portion value's initial field text: empty for zero (so the user doesn't
+/// have to delete a "0" before typing), the formatted number otherwise.
+String _portionFieldText(double value) =>
+    value == 0 ? '' : _formatPortion(value);
+
 String _formatTime(DateTime time) {
   final local = time.toLocal();
   final hour = local.hour.toString().padLeft(2, '0');
@@ -64,10 +69,14 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     widget.controller.addListener(_onControllerChanged);
     final controller = widget.controller;
     _nameText = TextEditingController(text: controller.name);
-    _stapleText = TextEditingController(text: _formatPortion(controller.staple));
-    _meatText = TextEditingController(text: _formatPortion(controller.meat));
-    _fruitText = TextEditingController(text: _formatPortion(controller.fruit));
-    _vegText = TextEditingController(text: _formatPortion(controller.veg));
+    _stapleText = TextEditingController(
+      text: _portionFieldText(controller.staple),
+    );
+    _meatText = TextEditingController(text: _portionFieldText(controller.meat));
+    _fruitText = TextEditingController(
+      text: _portionFieldText(controller.fruit),
+    );
+    _vegText = TextEditingController(text: _portionFieldText(controller.veg));
     _snackLabelText = TextEditingController(text: controller.snackLabel);
   }
 
@@ -129,7 +138,9 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               TextField(
                 key: const Key('manual-name-field'),
                 controller: _nameText,
-                decoration: InputDecoration(labelText: loc.dietManualEntryNameLabel),
+                decoration: InputDecoration(
+                  labelText: loc.dietManualEntryNameLabel,
+                ),
                 onChanged: controller.setName,
               ),
               const SizedBox(height: 12),
@@ -175,45 +186,59 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               TextField(
                 key: const Key('manual-portion-staple-field'),
                 controller: _stapleText,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: loc.dietCategoryStaple),
-                onChanged: (value) {
-                  final parsed = double.tryParse(value);
-                  if (parsed != null) controller.setPortion('staple', parsed);
-                },
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: loc.dietCategoryStaple,
+                  hintText: '0',
+                ),
+                onChanged: (value) => controller.setPortion(
+                  'staple',
+                  double.tryParse(value) ?? 0,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('manual-portion-meat-field'),
                 controller: _meatText,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: loc.dietCategoryMeat),
-                onChanged: (value) {
-                  final parsed = double.tryParse(value);
-                  if (parsed != null) controller.setPortion('meat', parsed);
-                },
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: loc.dietCategoryMeat,
+                  hintText: '0',
+                ),
+                onChanged: (value) =>
+                    controller.setPortion('meat', double.tryParse(value) ?? 0),
               ),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('manual-portion-fruit-field'),
                 controller: _fruitText,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: loc.dietCategoryFruit),
-                onChanged: (value) {
-                  final parsed = double.tryParse(value);
-                  if (parsed != null) controller.setPortion('fruit', parsed);
-                },
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: loc.dietCategoryFruit,
+                  hintText: '0',
+                ),
+                onChanged: (value) =>
+                    controller.setPortion('fruit', double.tryParse(value) ?? 0),
               ),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('manual-portion-veg-field'),
                 controller: _vegText,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: loc.dietCategoryVeg),
-                onChanged: (value) {
-                  final parsed = double.tryParse(value);
-                  if (parsed != null) controller.setPortion('veg', parsed);
-                },
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: loc.dietCategoryVeg,
+                  hintText: '0',
+                ),
+                onChanged: (value) =>
+                    controller.setPortion('veg', double.tryParse(value) ?? 0),
               ),
               const SizedBox(height: 12),
               Row(
