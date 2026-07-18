@@ -9,6 +9,21 @@ import 'contexts/auth/application/sign_in.dart';
 import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
+import 'contexts/health/application/favorite_food.dart';
+import 'contexts/health/application/get_day_diet_log.dart';
+import 'contexts/health/application/get_daily_target_with_remaining.dart';
+import 'contexts/health/application/list_favorites.dart';
+import 'contexts/health/application/log_food_from_dictionary.dart';
+import 'contexts/health/application/search_dictionary.dart';
+import 'contexts/health/application/set_daily_target.dart';
+import 'contexts/health/application/unfavorite_food.dart';
+import 'contexts/health/infrastructure/http_daily_target_repository.dart';
+import 'contexts/health/infrastructure/http_diet_log_repository.dart';
+import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
+import 'contexts/health/presentation/daily_target_controller.dart';
+import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/log_entry_controller.dart';
+import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
 import 'contexts/user/presentation/home_controller.dart';
@@ -34,6 +49,37 @@ Future<void> main() async {
   final localeController = LocaleController(prefs);
   final themeController = ThemeController(prefs);
 
+  final httpClient = http.Client();
+  final foodDictionaryRepository = HttpFoodDictionaryRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final dietLogRepository = HttpDietLogRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final dailyTargetRepository = HttpDailyTargetRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final healthTodayController = TodayController(
+    GetDayDietLog(dietLogRepository),
+    GetDailyTargetWithRemaining(dailyTargetRepository),
+  );
+  final healthDictionaryController = DictionaryController(
+    SearchDictionary(foodDictionaryRepository),
+    ListFavorites(foodDictionaryRepository),
+    FavoriteFood(foodDictionaryRepository),
+    UnfavoriteFood(foodDictionaryRepository),
+  );
+  final healthDailyTargetController = DailyTargetController(
+    GetDailyTargetWithRemaining(dailyTargetRepository),
+    SetDailyTarget(dailyTargetRepository),
+  );
+  final healthLogEntryController = LogEntryController(
+    LogFoodFromDictionary(dietLogRepository),
+  );
+
   runApp(
     App(
       authRepository: authRepository,
@@ -42,6 +88,10 @@ Future<void> main() async {
       localeController: localeController,
       themeController: themeController,
       signOut: signOut,
+      healthTodayController: healthTodayController,
+      healthDictionaryController: healthDictionaryController,
+      healthDailyTargetController: healthDailyTargetController,
+      healthLogEntryController: healthLogEntryController,
     ),
   );
 }

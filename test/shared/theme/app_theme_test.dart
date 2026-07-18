@@ -112,4 +112,43 @@ void main() {
       expect(disabledFg, outlineLight);
     });
   });
+
+  group('DietCategoryColors', () {
+    test('is registered on the light theme with the light palette', () {
+      final colors = lightTheme.extension<DietCategoryColors>();
+      expect(colors, isNotNull);
+      expect(colors!.staple, dietStapleLight);
+      expect(colors.meat, dietMeatLight);
+      expect(colors.fruit, dietFruitLight);
+      expect(colors.veg, dietVegLight);
+    });
+
+    test('is registered on the dark theme with the dark palette', () {
+      final colors = darkTheme.extension<DietCategoryColors>();
+      expect(colors, isNotNull);
+      expect(colors!.staple, dietStapleDark);
+      expect(colors.meat, dietMeatDark);
+      expect(colors.fruit, dietFruitDark);
+      expect(colors.veg, dietVegDark);
+    });
+
+    test('lerp interpolates between two instances', () {
+      const a = DietCategoryColors(
+        staple: Color(0xFF000000),
+        meat: Color(0xFF000000),
+        fruit: Color(0xFF000000),
+        veg: Color(0xFF000000),
+      );
+      const b = DietCategoryColors(
+        staple: Color(0xFFFFFFFF),
+        meat: Color(0xFFFFFFFF),
+        fruit: Color(0xFFFFFFFF),
+        veg: Color(0xFFFFFFFF),
+      );
+
+      final result = a.lerp(b, 1.0);
+
+      expect(result.staple, const Color(0xFFFFFFFF));
+    });
+  });
 }

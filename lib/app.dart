@@ -5,6 +5,10 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/health/presentation/daily_target_controller.dart';
+import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/log_entry_controller.dart';
+import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -48,6 +52,10 @@ class App extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final SignOut signOut;
+  final TodayController healthTodayController;
+  final DictionaryController healthDictionaryController;
+  final DailyTargetController healthDailyTargetController;
+  final LogEntryController healthLogEntryController;
 
   const App({
     super.key,
@@ -57,6 +65,10 @@ class App extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.signOut,
+    required this.healthTodayController,
+    required this.healthDictionaryController,
+    required this.healthDailyTargetController,
+    required this.healthLogEntryController,
   });
 
   @override
@@ -132,6 +144,10 @@ class _AppState extends State<App> {
                   localeController: widget.localeController,
                   themeController: widget.themeController,
                   signOut: widget.signOut,
+                  healthTodayController: widget.healthTodayController,
+                  healthDictionaryController: widget.healthDictionaryController,
+                  healthDailyTargetController: widget.healthDailyTargetController,
+                  healthLogEntryController: widget.healthLogEntryController,
                 );
               }
               return LoginScreen(
@@ -152,6 +168,10 @@ class _AuthenticatedHome extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final SignOut signOut;
+  final TodayController healthTodayController;
+  final DictionaryController healthDictionaryController;
+  final DailyTargetController healthDailyTargetController;
+  final LogEntryController healthLogEntryController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -159,6 +179,10 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.signOut,
+    required this.healthTodayController,
+    required this.healthDictionaryController,
+    required this.healthDailyTargetController,
+    required this.healthLogEntryController,
   });
 
   @override
@@ -184,6 +208,11 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       localeController: widget.localeController,
       themeController: widget.themeController,
       signOut: widget.signOut,
+      authRepository: widget.authRepository,
+      healthTodayController: widget.healthTodayController,
+      healthDictionaryController: widget.healthDictionaryController,
+      healthDailyTargetController: widget.healthDailyTargetController,
+      healthLogEntryController: widget.healthLogEntryController,
     );
   }
 }

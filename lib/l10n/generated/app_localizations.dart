@@ -326,6 +326,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Language'**
   String get languageSectionTitle;
+
+  /// Diet shell bottom navigation label and screen title for the Today section.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dietTabToday;
+
+  /// Diet shell bottom navigation label and screen title for the food dictionary section.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictionary'**
+  String get dietTabDictionary;
+
+  /// Diet shell bottom navigation label and screen title for the daily target section.
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get dietTabTarget;
+
+  /// Food group category label for staple foods.
+  ///
+  /// In en, this message translates to:
+  /// **'Staple'**
+  String get dietCategoryStaple;
+
+  /// Food group category label for meat/protein foods.
+  ///
+  /// In en, this message translates to:
+  /// **'Meat'**
+  String get dietCategoryMeat;
+
+  /// Food group category label for fruit.
+  ///
+  /// In en, this message translates to:
+  /// **'Fruit'**
+  String get dietCategoryFruit;
+
+  /// Food group category label for vegetables.
+  ///
+  /// In en, this message translates to:
+  /// **'Vegetable'**
+  String get dietCategoryVeg;
+
+  /// Shows portions logged against a category's target, e.g. '9 of 12'.
+  ///
+  /// In en, this message translates to:
+  /// **'{logged} of {target}'**
+  String dietProgressOfTarget(double logged, double target);
+
+  /// Shows portions remaining for a category against its target.
+  ///
+  /// In en, this message translates to:
+  /// **'{remaining} remaining'**
+  String dietRemainingOfCategory(double remaining);
+
+  /// Meal chip label for breakfast.
+  ///
+  /// In en, this message translates to:
+  /// **'Breakfast'**
+  String get dietMealBreakfast;
+
+  /// Meal chip label for lunch.
+  ///
+  /// In en, this message translates to:
+  /// **'Lunch'**
+  String get dietMealLunch;
+
+  /// Meal chip label for dinner.
+  ///
+  /// In en, this message translates to:
+  /// **'Dinner'**
+  String get dietMealDinner;
+
+  /// Meal chip label that switches the entry to a custom-labeled snack.
+  ///
+  /// In en, this message translates to:
+  /// **'Add snack'**
+  String get dietAddSnack;
+
+  /// Hint text for the custom snack label text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Snack name'**
+  String get dietSnackLabelHint;
+
+  /// Hint text for the food dictionary search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Search food'**
+  String get dietSearchFoodHint;
+
+  /// Heading above the list of favorite dictionary items.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get dietFavoritesTitle;
+
+  /// Label for the quantity amount text field on the log-entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity'**
+  String get dietQuantityLabel;
+
+  /// Label for the gram amount text field on the log-entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'Grams'**
+  String get dietGramsLabel;
+
+  /// Label for the toggle that switches the log-entry card's amount input from unit quantity to grams.
+  ///
+  /// In en, this message translates to:
+  /// **'Use grams'**
+  String get dietUseGramsLabel;
+
+  /// Label for the eaten-at time picker on the log-entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'Eaten at'**
+  String get dietEatenAtLabel;
+
+  /// Label for the button that saves a logged food entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get dietSaveEntryButton;
+
+  /// Heading above the live portion preview on the log-entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get dietPreviewTitle;
+
+  /// Screen title for logging a food entry from the dictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Log food'**
+  String get dietLogEntryTitle;
+
+  /// Heading above the daily target editing fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Set daily target'**
+  String get dietSetTargetTitle;
+
+  /// Label for the button that saves the daily target.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get dietSaveTargetButton;
+
+  /// Tooltip/accessible label for the button that marks a dictionary item as a favorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite'**
+  String get dietFavoriteTooltip;
+
+  /// Tooltip/accessible label for the button that unmarks a dictionary item as a favorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfavorite'**
+  String get dietUnfavoriteTooltip;
+
+  /// Shown when diet data (today's log, dictionary, or target) fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your diet data. Please try again.'**
+  String get errorDietLoadFailed;
 }
 
 class _AppLocalizationsDelegate

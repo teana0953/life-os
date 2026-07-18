@@ -16,6 +16,64 @@ const _pillRadius = 999.0;
 const _borderWidth = 2.0;
 const _fontFamily = 'Quicksand';
 
+/// Per-food-group colors for the diet module (staple/meat/fruit/veg),
+/// registered as a `ThemeData.extensions` entry on both themes. Screens read
+/// it via `Theme.of(context).extension<DietCategoryColors>()` rather than
+/// hard-coding the raw tokens from `app_colors.dart`.
+class DietCategoryColors extends ThemeExtension<DietCategoryColors> {
+  final Color staple;
+  final Color meat;
+  final Color fruit;
+  final Color veg;
+
+  const DietCategoryColors({
+    required this.staple,
+    required this.meat,
+    required this.fruit,
+    required this.veg,
+  });
+
+  @override
+  DietCategoryColors copyWith({
+    Color? staple,
+    Color? meat,
+    Color? fruit,
+    Color? veg,
+  }) {
+    return DietCategoryColors(
+      staple: staple ?? this.staple,
+      meat: meat ?? this.meat,
+      fruit: fruit ?? this.fruit,
+      veg: veg ?? this.veg,
+    );
+  }
+
+  @override
+  DietCategoryColors lerp(ThemeExtension<DietCategoryColors>? other, double t) {
+    if (other is! DietCategoryColors) return this;
+    return DietCategoryColors(
+      staple: Color.lerp(staple, other.staple, t)!,
+      meat: Color.lerp(meat, other.meat, t)!,
+      fruit: Color.lerp(fruit, other.fruit, t)!,
+      veg: Color.lerp(veg, other.veg, t)!,
+    );
+  }
+}
+
+const _dietCategoryColorsLight = DietCategoryColors(
+  staple: dietStapleLight,
+  meat: dietMeatLight,
+  fruit: dietFruitLight,
+  veg: dietVegLight,
+);
+
+const _dietCategoryColorsDark = DietCategoryColors(
+  staple: dietStapleDark,
+  meat: dietMeatDark,
+  fruit: dietFruitDark,
+  veg: dietVegDark,
+);
+
 ThemeData get lightTheme => _buildTheme(
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
@@ -38,6 +96,7 @@ ThemeData get lightTheme => _buildTheme(
       scaffoldBackground: groundLight,
       ink: inkLight,
       outline: outlineLight,
+      dietCategoryColors: _dietCategoryColorsLight,
     );
 
 ThemeData get darkTheme => _buildTheme(
@@ -60,6 +119,7 @@ ThemeData get darkTheme => _buildTheme(
       scaffoldBackground: groundDark,
       ink: inkDark,
       outline: outlineDark,
+      dietCategoryColors: _dietCategoryColorsDark,
     );
 
 ThemeData _buildTheme({
@@ -67,6 +127,7 @@ ThemeData _buildTheme({
   required Color scaffoldBackground,
   required Color ink,
   required Color outline,
+  required DietCategoryColors dietCategoryColors,
 }) {
   final textTheme = _textTheme(ink);
   return ThemeData(
@@ -75,6 +136,7 @@ ThemeData _buildTheme({
     scaffoldBackgroundColor: scaffoldBackground,
     fontFamily: _fontFamily,
     textTheme: textTheme,
+    extensions: [dietCategoryColors],
     cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,

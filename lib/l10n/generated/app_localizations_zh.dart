@@ -121,6 +121,105 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get languageSectionTitle => '語言';
+
+  @override
+  String get dietTabToday => '今日';
+
+  @override
+  String get dietTabDictionary => '食物字典';
+
+  @override
+  String get dietTabTarget => '目標';
+
+  @override
+  String get dietCategoryStaple => '主食';
+
+  @override
+  String get dietCategoryMeat => '肉類';
+
+  @override
+  String get dietCategoryFruit => '水果';
+
+  @override
+  String get dietCategoryVeg => '蔬菜';
+
+  @override
+  String dietProgressOfTarget(double logged, double target) {
+    final intl.NumberFormat loggedNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String loggedString = loggedNumberFormat.format(logged);
+    final intl.NumberFormat targetNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String targetString = targetNumberFormat.format(target);
+
+    return '$loggedString / $targetString';
+  }
+
+  @override
+  String dietRemainingOfCategory(double remaining) {
+    final intl.NumberFormat remainingNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String remainingString = remainingNumberFormat.format(remaining);
+
+    return '剩餘 $remainingString';
+  }
+
+  @override
+  String get dietMealBreakfast => '早餐';
+
+  @override
+  String get dietMealLunch => '午餐';
+
+  @override
+  String get dietMealDinner => '晚餐';
+
+  @override
+  String get dietAddSnack => '新增點心';
+
+  @override
+  String get dietSnackLabelHint => '點心名稱';
+
+  @override
+  String get dietSearchFoodHint => '搜尋食物';
+
+  @override
+  String get dietFavoritesTitle => '常用食物';
+
+  @override
+  String get dietQuantityLabel => '份量';
+
+  @override
+  String get dietGramsLabel => '公克';
+
+  @override
+  String get dietUseGramsLabel => '使用公克';
+
+  @override
+  String get dietEatenAtLabel => '食用時間';
+
+  @override
+  String get dietSaveEntryButton => '儲存';
+
+  @override
+  String get dietPreviewTitle => '預覽';
+
+  @override
+  String get dietLogEntryTitle => '記錄飲食';
+
+  @override
+  String get dietSetTargetTitle => '設定每日目標';
+
+  @override
+  String get dietSaveTargetButton => '儲存';
+
+  @override
+  String get dietFavoriteTooltip => '加入常用';
+
+  @override
+  String get dietUnfavoriteTooltip => '移除常用';
+
+  @override
+  String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -240,4 +339,103 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get languageSectionTitle => '語言';
+
+  @override
+  String get dietTabToday => '今日';
+
+  @override
+  String get dietTabDictionary => '食物字典';
+
+  @override
+  String get dietTabTarget => '目標';
+
+  @override
+  String get dietCategoryStaple => '主食';
+
+  @override
+  String get dietCategoryMeat => '肉類';
+
+  @override
+  String get dietCategoryFruit => '水果';
+
+  @override
+  String get dietCategoryVeg => '蔬菜';
+
+  @override
+  String dietProgressOfTarget(double logged, double target) {
+    final intl.NumberFormat loggedNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String loggedString = loggedNumberFormat.format(logged);
+    final intl.NumberFormat targetNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String targetString = targetNumberFormat.format(target);
+
+    return '$loggedString / $targetString';
+  }
+
+  @override
+  String dietRemainingOfCategory(double remaining) {
+    final intl.NumberFormat remainingNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String remainingString = remainingNumberFormat.format(remaining);
+
+    return '剩餘 $remainingString';
+  }
+
+  @override
+  String get dietMealBreakfast => '早餐';
+
+  @override
+  String get dietMealLunch => '午餐';
+
+  @override
+  String get dietMealDinner => '晚餐';
+
+  @override
+  String get dietAddSnack => '新增點心';
+
+  @override
+  String get dietSnackLabelHint => '點心名稱';
+
+  @override
+  String get dietSearchFoodHint => '搜尋食物';
+
+  @override
+  String get dietFavoritesTitle => '常用食物';
+
+  @override
+  String get dietQuantityLabel => '份量';
+
+  @override
+  String get dietGramsLabel => '公克';
+
+  @override
+  String get dietUseGramsLabel => '使用公克';
+
+  @override
+  String get dietEatenAtLabel => '食用時間';
+
+  @override
+  String get dietSaveEntryButton => '儲存';
+
+  @override
+  String get dietPreviewTitle => '預覽';
+
+  @override
+  String get dietLogEntryTitle => '記錄飲食';
+
+  @override
+  String get dietSetTargetTitle => '設定每日目標';
+
+  @override
+  String get dietSaveTargetButton => '儲存';
+
+  @override
+  String get dietFavoriteTooltip => '加入常用';
+
+  @override
+  String get dietUnfavoriteTooltip => '移除常用';
+
+  @override
+  String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 }

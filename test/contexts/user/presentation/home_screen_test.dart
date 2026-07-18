@@ -2,6 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/health/application/favorite_food.dart';
+import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
+import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
+import 'package:life_os/contexts/health/application/list_favorites.dart';
+import 'package:life_os/contexts/health/application/log_food_from_dictionary.dart';
+import 'package:life_os/contexts/health/application/search_dictionary.dart';
+import 'package:life_os/contexts/health/application/set_daily_target.dart';
+import 'package:life_os/contexts/health/application/unfavorite_food.dart';
+import 'package:life_os/contexts/health/domain/daily_target.dart';
+import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/day_diet_log.dart';
+import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
+import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
+import 'package:life_os/contexts/health/domain/food_entry.dart';
+import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
+import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
+import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
+import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
+import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
@@ -44,6 +64,77 @@ class FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
+class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
+  @override
+  Future<List<FoodItem>> search(String idToken, String query) async => [];
+
+  @override
+  Future<List<FoodItem>> listFavorites(String idToken) async => [];
+
+  @override
+  Future<void> favorite(String idToken, String foodItemId) async {}
+
+  @override
+  Future<void> unfavorite(String idToken, String foodItemId) async {}
+}
+
+class _FakeDietLogRepository implements DietLogRepository {
+  @override
+  Future<FoodEntry> logFromDictionary(
+    String idToken, {
+    required String day,
+    required String meal,
+    required String foodItemId,
+    double? quantity,
+    double? grams,
+    DateTime? eatenAt,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<DayDietLog> getDayLog(String idToken, String day) async {
+    return DayDietLog.fromJson({
+      'day': day,
+      'meals': [],
+      'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
+    });
+  }
+
+  @override
+  Future<void> deleteEntry(String idToken, String entryId) async {}
+}
+
+class _FakeDailyTargetRepository implements DailyTargetRepository {
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    return DailyTargetWithRemaining.fromJson({
+      'day': day,
+      'base': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'bonus': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'effective': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'logged': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'remaining': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+    });
+  }
+
+  @override
+  Future<DailyTarget> setTarget(
+    String idToken, {
+    required String day,
+    required double baseStaple,
+    required double baseMeat,
+    required double baseFruit,
+    required double baseVeg,
+    double? bonusStaple,
+    double? bonusMeat,
+    double? bonusFruit,
+    double? bonusVeg,
+  }) async {
+    throw UnimplementedError();
+  }
+}
+
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -55,9 +146,13 @@ Future<void> pumpHomeScreen(
   HomeController controller, {
   DateTime Function()? clock,
   Locale locale = const Locale('en'),
+  AuthRepository? authRepository,
 }) async {
   final localeController = await testLocaleController();
   final themeController = await testThemeController();
+  final dietLogRepository = _FakeDietLogRepository();
+  final dailyTargetRepository = _FakeDailyTargetRepository();
+  final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -67,6 +162,24 @@ Future<void> pumpHomeScreen(
         localeController: localeController,
         themeController: themeController,
         signOut: SignOut(FakeAuthRepository()),
+        authRepository: authRepository ?? FakeAuthRepository(),
+        healthTodayController: TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(dailyTargetRepository),
+        ),
+        healthDictionaryController: DictionaryController(
+          SearchDictionary(foodDictionaryRepository),
+          ListFavorites(foodDictionaryRepository),
+          FavoriteFood(foodDictionaryRepository),
+          UnfavoriteFood(foodDictionaryRepository),
+        ),
+        healthDailyTargetController: DailyTargetController(
+          GetDailyTargetWithRemaining(dailyTargetRepository),
+          SetDailyTarget(dailyTargetRepository),
+        ),
+        healthLogEntryController: LogEntryController(
+          LogFoodFromDictionary(dietLogRepository),
+        ),
         clock: clock ?? DateTime.now,
       ),
     ),
@@ -75,26 +188,57 @@ Future<void> pumpHomeScreen(
 
 void main() {
   group('HomeScreen', () {
-    testWidgets('shows the loaded profile email and id', (tester) async {
-      final profileRepository = FakeProfileRepository()
-        ..profileToReturn = UserProfile(
-          id: 'user-1',
-          firebaseUid: 'firebase-abc',
-          email: 'test@example.com',
-          displayName: 'Test User',
-          createdAt: '2026-01-01T00:00:00.000Z',
+    testWidgets(
+      'shows the loaded profile email and does not show the internal id',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
         );
-      final authRepository = FakeAuthRepository();
-      final controller = HomeController(
-        GetProfile(profileRepository),
-        SignOut(authRepository),
-      );
-      await controller.load('token-123');
-      await pumpHomeScreen(tester, controller);
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller);
 
-      expect(find.text('test@example.com'), findsOneWidget);
-      expect(find.text('user-1'), findsOneWidget);
-    });
+        expect(find.text('test@example.com'), findsOneWidget);
+        expect(find.text('user-1'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'tapping the health tile navigates to the DietShellScreen',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller, authRepository: authRepository);
+
+        expect(find.byType(DietShellScreen), findsNothing);
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DietShellScreen), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'shows an error state and a sign-out option when the profile request fails',

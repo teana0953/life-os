@@ -124,4 +124,104 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get languageSectionTitle => 'Language';
+
+  @override
+  String get dietTabToday => 'Today';
+
+  @override
+  String get dietTabDictionary => 'Dictionary';
+
+  @override
+  String get dietTabTarget => 'Target';
+
+  @override
+  String get dietCategoryStaple => 'Staple';
+
+  @override
+  String get dietCategoryMeat => 'Meat';
+
+  @override
+  String get dietCategoryFruit => 'Fruit';
+
+  @override
+  String get dietCategoryVeg => 'Vegetable';
+
+  @override
+  String dietProgressOfTarget(double logged, double target) {
+    final intl.NumberFormat loggedNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String loggedString = loggedNumberFormat.format(logged);
+    final intl.NumberFormat targetNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String targetString = targetNumberFormat.format(target);
+
+    return '$loggedString of $targetString';
+  }
+
+  @override
+  String dietRemainingOfCategory(double remaining) {
+    final intl.NumberFormat remainingNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String remainingString = remainingNumberFormat.format(remaining);
+
+    return '$remainingString remaining';
+  }
+
+  @override
+  String get dietMealBreakfast => 'Breakfast';
+
+  @override
+  String get dietMealLunch => 'Lunch';
+
+  @override
+  String get dietMealDinner => 'Dinner';
+
+  @override
+  String get dietAddSnack => 'Add snack';
+
+  @override
+  String get dietSnackLabelHint => 'Snack name';
+
+  @override
+  String get dietSearchFoodHint => 'Search food';
+
+  @override
+  String get dietFavoritesTitle => 'Favorites';
+
+  @override
+  String get dietQuantityLabel => 'Quantity';
+
+  @override
+  String get dietGramsLabel => 'Grams';
+
+  @override
+  String get dietUseGramsLabel => 'Use grams';
+
+  @override
+  String get dietEatenAtLabel => 'Eaten at';
+
+  @override
+  String get dietSaveEntryButton => 'Save';
+
+  @override
+  String get dietPreviewTitle => 'Preview';
+
+  @override
+  String get dietLogEntryTitle => 'Log food';
+
+  @override
+  String get dietSetTargetTitle => 'Set daily target';
+
+  @override
+  String get dietSaveTargetButton => 'Save';
+
+  @override
+  String get dietFavoriteTooltip => 'Favorite';
+
+  @override
+  String get dietUnfavoriteTooltip => 'Unfavorite';
+
+  @override
+  String get errorDietLoadFailed =>
+      'Unable to load your diet data. Please try again.';
 }
