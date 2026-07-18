@@ -42,3 +42,15 @@ const softError = Color(0xFFE98A94);
 // Deeper AA-safe red for error *text* on light surfaces — `softError` is a
 // pastel meant for borders/fills, not foreground text (~2.2-2.4:1 there).
 const errorTextLight = Color(0xFFB4453D);
+
+// Diet category colors (staple/meat/fruit/veg) — exposed via the
+// `DietCategoryColors` ThemeExtension in `app_theme.dart`, never referenced
+// directly from screens.
+const dietStapleLight = usagiYellowLight;
+const dietStapleDark = usagiYellowDark;
+const dietMeatLight = blushPinkLight;
+const dietMeatDark = blushPinkDark;
+const dietFruitLight = Color(0xFFF7B98C);
+const dietFruitDark = Color(0xFFE0A374);
+const dietVegLight = Color(0xFFA8D5B0);
+const dietVegDark = Color(0xFF7FAF8C);

@@ -189,5 +189,152 @@
   "languageSectionTitle": "Language",
   "@languageSectionTitle": {
     "description": "Heading for the language section of the settings page."
+  },
+
+  "dietTabToday": "Today",
+  "@dietTabToday": {
+    "description": "Diet shell bottom navigation label and screen title for the Today section."
+  },
+
+  "dietTabDictionary": "Dictionary",
+  "@dietTabDictionary": {
+    "description": "Diet shell bottom navigation label and screen title for the food dictionary section."
+  },
+
+  "dietTabTarget": "Target",
+  "@dietTabTarget": {
+    "description": "Diet shell bottom navigation label and screen title for the daily target section."
+  },
+
+  "dietCategoryStaple": "Staple",
+  "@dietCategoryStaple": {
+    "description": "Food group category label for staple foods."
+  },
+
+  "dietCategoryMeat": "Meat",
+  "@dietCategoryMeat": {
+    "description": "Food group category label for meat/protein foods."
+  },
+
+  "dietCategoryFruit": "Fruit",
+  "@dietCategoryFruit": {
+    "description": "Food group category label for fruit."
+  },
+
+  "dietCategoryVeg": "Vegetable",
+  "@dietCategoryVeg": {
+    "description": "Food group category label for vegetables."
+  },
+
+  "dietProgressOfTarget": "{logged} of {target}",
+  "@dietProgressOfTarget": {
+    "description": "Shows portions logged against a category's target, e.g. '9 of 12'.",
+    "placeholders": {
+      "logged": {"type": "double", "format": "decimalPattern"},
+      "target": {"type": "double", "format": "decimalPattern"}
+    }
+  },
+
+  "dietRemainingOfCategory": "{remaining} remaining",
+  "@dietRemainingOfCategory": {
+    "description": "Shows portions remaining for a category against its target.",
+    "placeholders": {
+      "remaining": {"type": "double", "format": "decimalPattern"}
+    }
+  },
+
+  "dietMealBreakfast": "Breakfast",
+  "@dietMealBreakfast": {
+    "description": "Meal chip label for breakfast."
+  },
+
+  "dietMealLunch": "Lunch",
+  "@dietMealLunch": {
+    "description": "Meal chip label for lunch."
+  },
+
+  "dietMealDinner": "Dinner",
+  "@dietMealDinner": {
+    "description": "Meal chip label for dinner."
+  },
+
+  "dietAddSnack": "Add snack",
+  "@dietAddSnack": {
+    "description": "Meal chip label that switches the entry to a custom-labeled snack."
+  },
+
+  "dietSnackLabelHint": "Snack name",
+  "@dietSnackLabelHint": {
+    "description": "Hint text for the custom snack label text field."
+  },
+
+  "dietSearchFoodHint": "Search food",
+  "@dietSearchFoodHint": {
+    "description": "Hint text for the food dictionary search field."
+  },
+
+  "dietFavoritesTitle": "Favorites",
+  "@dietFavoritesTitle": {
+    "description": "Heading above the list of favorite dictionary items."
+  },
+
+  "dietQuantityLabel": "Quantity",
+  "@dietQuantityLabel": {
+    "description": "Label for the quantity amount text field on the log-entry card."
+  },
+
+  "dietGramsLabel": "Grams",
+  "@dietGramsLabel": {
+    "description": "Label for the gram amount text field on the log-entry card."
+  },
+
+  "dietUseGramsLabel": "Use grams",
+  "@dietUseGramsLabel": {
+    "description": "Label for the toggle that switches the log-entry card's amount input from unit quantity to grams."
+  },
+
+  "dietEatenAtLabel": "Eaten at",
+  "@dietEatenAtLabel": {
+    "description": "Label for the eaten-at time picker on the log-entry card."
+  },
+
+  "dietSaveEntryButton": "Save",
+  "@dietSaveEntryButton": {
+    "description": "Label for the button that saves a logged food entry."
+  },
+
+  "dietPreviewTitle": "Preview",
+  "@dietPreviewTitle": {
+    "description": "Heading above the live portion preview on the log-entry card."
+  },
+
+  "dietLogEntryTitle": "Log food",
+  "@dietLogEntryTitle": {
+    "description": "Screen title for logging a food entry from the dictionary."
+  },
+
+  "dietSetTargetTitle": "Set daily target",
+  "@dietSetTargetTitle": {
+    "description": "Heading above the daily target editing fields."
+  },
+
+  "dietSaveTargetButton": "Save",
+  "@dietSaveTargetButton": {
+    "description": "Label for the button that saves the daily target."
+  },
+
+  "dietFavoriteTooltip": "Favorite",
+  "@dietFavoriteTooltip": {
+    "description": "Tooltip/accessible label for the button that marks a dictionary item as a favorite."
+  },
+
+  "dietUnfavoriteTooltip": "Unfavorite",
+  "@dietUnfavoriteTooltip": {
+    "description": "Tooltip/accessible label for the button that unmarks a dictionary item as a favorite."
+  },
+
+  "errorDietLoadFailed": "Unable to load your diet data. Please try again.",
+  "@errorDietLoadFailed": {
+    "description": "Shown when diet data (today's log, dictionary, or target) fails to load."
   }
 }

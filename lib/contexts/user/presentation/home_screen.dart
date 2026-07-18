@@ -6,6 +6,12 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
+import '../../auth/domain/auth_repository.dart';
+import '../../health/presentation/daily_target_controller.dart';
+import '../../health/presentation/dictionary_controller.dart';
+import '../../health/presentation/diet_shell_screen.dart';
+import '../../health/presentation/log_entry_controller.dart';
+import '../../health/presentation/today_controller.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'home_controller.dart';
 
@@ -34,6 +40,11 @@ class HomeScreen extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final SignOut signOut;
+  final AuthRepository authRepository;
+  final TodayController healthTodayController;
+  final DictionaryController healthDictionaryController;
+  final DailyTargetController healthDailyTargetController;
+  final LogEntryController healthLogEntryController;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -46,6 +57,11 @@ class HomeScreen extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.signOut,
+    required this.authRepository,
+    required this.healthTodayController,
+    required this.healthDictionaryController,
+    required this.healthDailyTargetController,
+    required this.healthLogEntryController,
     this.clock = DateTime.now,
   });
 
@@ -74,6 +90,21 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => SettingsScreen(
           themeController: widget.themeController,
           localeController: widget.localeController,
+          signOut: widget.signOut,
+        ),
+      ),
+    );
+  }
+
+  void _openHealth(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DietShellScreen(
+          authRepository: widget.authRepository,
+          todayController: widget.healthTodayController,
+          dictionaryController: widget.healthDictionaryController,
+          dailyTargetController: widget.healthDailyTargetController,
+          logEntryController: widget.healthLogEntryController,
           signOut: widget.signOut,
         ),
       ),
@@ -169,12 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(profile.email ?? '', style: theme.textTheme.bodyLarge),
-                          Text(
-                            profile.id,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -212,15 +237,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   childAspectRatio: 1.2,
                 ),
                 itemCount: spacePreviewNames.length,
-                itemBuilder: (context, index) => Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: theme.colorScheme.outline, width: 2),
-                  ),
-                  child: Text(spacePreviewNames[index]),
-                ),
+                itemBuilder: (context, index) {
+                  final tile = Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: theme.colorScheme.outline, width: 2),
+                    ),
+                    child: Text(spacePreviewNames[index]),
+                  );
+                  if (index != 0) return tile;
+                  return Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      key: const Key('health-tile'),
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _openHealth(context),
+                      child: tile,
+                    ),
+                  );
+                },
               ),
             ],
           ),

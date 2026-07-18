@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+
+import '../../../l10n/generated/app_localizations.dart';
+import '../domain/food_item.dart';
+import 'dictionary_controller.dart';
+
+/// Dictionary section: search the food dictionary, view/toggle favorites,
+/// and pick an item to log via [onSelectItem].
+class DictionaryScreen extends StatefulWidget {
+  final DictionaryController controller;
+  final ValueChanged<FoodItem>? onSelectItem;
+
+  const DictionaryScreen({
+    super.key,
+    required this.controller,
+    this.onSelectItem,
+  });
+
+  @override
+  State<DictionaryScreen> createState() => _DictionaryScreenState();
+}
+
+class _DictionaryScreenState extends State<DictionaryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    if (controller.status == DictionaryStatus.loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final showingSearch = controller.query.isNotEmpty;
+    final items = showingSearch ? controller.results : controller.favorites;
+
+    return Scaffold(body: SafeArea(child: _buildList(loc, theme, controller, items)));
+  }
+
+  Widget _buildList(
+    AppLocalizations loc,
+    ThemeData theme,
+    DictionaryController controller,
+    List<FoodItem> items,
+  ) {
+    final showingSearch = controller.query.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            key: const Key('dictionary-search-field'),
+            decoration: InputDecoration(hintText: loc.dietSearchFoodHint),
+            onChanged: controller.search,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            showingSearch ? loc.dietTabDictionary : loc.dietFavoritesTitle,
+            style: theme.textTheme.titleLarge,
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final isFavorite = controller.favorites.any((f) => f.id == item.id);
+              return ListTile(
+                title: Text(item.name),
+                onTap: () => widget.onSelectItem?.call(item),
+                trailing: IconButton(
+                  tooltip: isFavorite
+                      ? loc.dietUnfavoriteTooltip
+                      : loc.dietFavoriteTooltip,
+                  icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+                  onPressed: () =>
+                      controller.toggleFavorite(item, isFavorite: isFavorite),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
