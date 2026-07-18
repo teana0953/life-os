@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/infrastructure/http_diet_log_repository.dart';
 
 Map<String, dynamic> _entryJson() => {
@@ -94,6 +95,87 @@ void main() {
         'grams': 33.0,
         'eaten_at': '2026-07-18T12:30:00.000Z',
       });
+    });
+
+    test(
+      'logManualEntry POSTs {baseUrl}/api/diet-entries with portions, name, and eaten_at, no food_item_id',
+      () async {
+        Uri? capturedUri;
+        Map<String, dynamic>? capturedBody;
+        String? capturedAuthHeader;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          capturedAuthHeader = request.headers['Authorization'];
+          capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(jsonEncode(_entryJson()), 201, headers: {'content-type': 'application/json'});
+        });
+        final repository = HttpDietLogRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        final entry = await repository.logManualEntry(
+          'token-123',
+          day: '2026-07-18',
+          meal: 'lunch',
+          name: '蛋',
+          portions: const Portions(staple: 0, meat: 1, fruit: 0, veg: 0),
+          eatenAt: DateTime.utc(2026, 7, 18, 12, 30),
+        );
+
+        expect(capturedUri, Uri.parse('https://example.test/api/diet-entries'));
+        expect(capturedAuthHeader, 'Bearer token-123');
+        expect(capturedBody, {
+          'day': '2026-07-18',
+          'meal': 'lunch',
+          'name': '蛋',
+          'portions': {'staple': 0.0, 'meat': 1.0, 'fruit': 0.0, 'veg': 0.0},
+          'eaten_at': '2026-07-18T12:30:00.000Z',
+        });
+        expect(capturedBody!.containsKey('food_item_id'), isFalse);
+        expect(entry.staple, 6);
+      },
+    );
+
+    test('logManualEntry omits name when not given', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_entryJson()), 201, headers: {'content-type': 'application/json'});
+      });
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.logManualEntry(
+        'token-123',
+        day: '2026-07-18',
+        meal: 'lunch',
+        portions: const Portions(staple: 2, meat: 0, fruit: 0, veg: 0),
+        eatenAt: DateTime.utc(2026, 7, 18, 12, 30),
+      );
+
+      expect(capturedBody!.containsKey('name'), isFalse);
+    });
+
+    test('logManualEntry throws DietReauthenticationRequired on 401', () async {
+      final client = MockClient((request) async => http.Response('Unauthorized', 401));
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.logManualEntry(
+          'expired-token',
+          day: '2026-07-18',
+          meal: 'lunch',
+          portions: const Portions(staple: 1, meat: 0, fruit: 0, veg: 0),
+          eatenAt: DateTime.utc(2026, 7, 18, 12, 30),
+        ),
+        throwsA(isA<DietReauthenticationRequired>()),
+      );
     });
 
     test('getDayLog GETs {baseUrl}/api/diet-entries?day=', () async {

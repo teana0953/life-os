@@ -14,6 +14,7 @@ import 'contexts/health/application/get_day_diet_log.dart';
 import 'contexts/health/application/get_daily_target_with_remaining.dart';
 import 'contexts/health/application/list_favorites.dart';
 import 'contexts/health/application/log_food_from_dictionary.dart';
+import 'contexts/health/application/log_manual_entry.dart';
 import 'contexts/health/application/search_dictionary.dart';
 import 'contexts/health/application/set_daily_target.dart';
 import 'contexts/health/application/unfavorite_food.dart';
@@ -23,6 +24,7 @@ import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/log_entry_controller.dart';
+import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
@@ -79,6 +81,9 @@ Future<void> main() async {
   final healthLogEntryController = LogEntryController(
     LogFoodFromDictionary(dietLogRepository),
   );
+  final healthManualEntryController = ManualEntryController(
+    LogManualEntry(dietLogRepository),
+  );
 
   runApp(
     App(
@@ -92,6 +97,7 @@ Future<void> main() async {
       healthDictionaryController: healthDictionaryController,
       healthDailyTargetController: healthDailyTargetController,
       healthLogEntryController: healthLogEntryController,
+      healthManualEntryController: healthManualEntryController,
     ),
   );
 }

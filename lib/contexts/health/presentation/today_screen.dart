@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/daily_target.dart';
+import 'portion_pills.dart';
 import 'today_controller.dart';
 
 /// Maps a raw meal value to its localized label; falls back to the raw
@@ -137,8 +138,17 @@ class _TodayScreenState extends State<TodayScreen> {
               const SizedBox(height: 8),
               for (final entry in meal.entries)
                 ListTile(
-                  title: Text(entry.name ?? ''),
-                  trailing: Text(entry.staple.toString()),
+                  title: Text(
+                    entry.name?.isNotEmpty == true
+                        ? entry.name!
+                        : loc.dietManualEntryFallbackName,
+                  ),
+                  trailing: PortionPills(
+                    staple: entry.staple,
+                    meat: entry.meat,
+                    fruit: entry.fruit,
+                    veg: entry.veg,
+                  ),
                 ),
               const SizedBox(height: 16),
             ],

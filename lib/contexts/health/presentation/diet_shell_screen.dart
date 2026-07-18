@@ -10,6 +10,8 @@ import 'dictionary_controller.dart';
 import 'dictionary_screen.dart';
 import 'log_entry_controller.dart';
 import 'log_entry_screen.dart';
+import 'manual_entry_controller.dart';
+import 'manual_entry_screen.dart';
 import 'today_controller.dart';
 import 'today_screen.dart';
 
@@ -29,6 +31,7 @@ class DietShellScreen extends StatefulWidget {
   final DictionaryController dictionaryController;
   final DailyTargetController dailyTargetController;
   final LogEntryController logEntryController;
+  final ManualEntryController manualEntryController;
   final SignOut? signOut;
 
   /// Returns the current time, used to resolve "today" and to default the
@@ -43,6 +46,7 @@ class DietShellScreen extends StatefulWidget {
     required this.dictionaryController,
     required this.dailyTargetController,
     required this.logEntryController,
+    required this.manualEntryController,
     this.signOut,
     this.clock = DateTime.now,
   });
@@ -86,6 +90,22 @@ class _DietShellScreenState extends State<DietShellScreen> {
     );
   }
 
+  void _openManualEntry() {
+    final idToken = _idToken;
+    if (idToken == null) return;
+    widget.manualEntryController.start(clock: widget.clock);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ManualEntryScreen(
+          controller: widget.manualEntryController,
+          idToken: idToken,
+          day: _day,
+          onSaved: () => widget.todayController.load(idToken, _day),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -100,6 +120,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
       DictionaryScreen(
         controller: widget.dictionaryController,
         onSelectItem: _openLogEntry,
+        onManualEntry: _openManualEntry,
       ),
       idToken == null
           ? const Center(child: CircularProgressIndicator())

@@ -7,6 +7,7 @@ import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/application/log_food_from_dictionary.dart';
+import 'package:life_os/contexts/health/application/log_manual_entry.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
@@ -17,9 +18,11 @@ import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
+import 'package:life_os/contexts/health/presentation/manual_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
@@ -56,6 +59,18 @@ class _FakeDietLogRepository implements DietLogRepository {
     double? quantity,
     double? grams,
     DateTime? eatenAt,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
   }) async {
     throw UnimplementedError();
   }
@@ -171,6 +186,9 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
         ),
         healthLogEntryController: LogEntryController(
           LogFoodFromDictionary(dietLogRepository),
+        ),
+        healthManualEntryController: ManualEntryController(
+          LogManualEntry(dietLogRepository),
         ),
       ),
     ),

@@ -8,6 +8,7 @@ import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/log_entry_controller.dart';
+import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
@@ -56,6 +57,7 @@ class App extends StatefulWidget {
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
   final LogEntryController healthLogEntryController;
+  final ManualEntryController healthManualEntryController;
 
   const App({
     super.key,
@@ -69,6 +71,7 @@ class App extends StatefulWidget {
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
     required this.healthLogEntryController,
+    required this.healthManualEntryController,
   });
 
   @override
@@ -148,6 +151,7 @@ class _AppState extends State<App> {
                   healthDictionaryController: widget.healthDictionaryController,
                   healthDailyTargetController: widget.healthDailyTargetController,
                   healthLogEntryController: widget.healthLogEntryController,
+                  healthManualEntryController: widget.healthManualEntryController,
                 );
               }
               return LoginScreen(
@@ -172,6 +176,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
   final LogEntryController healthLogEntryController;
+  final ManualEntryController healthManualEntryController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -183,6 +188,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
     required this.healthLogEntryController,
+    required this.healthManualEntryController,
   });
 
   @override
@@ -213,6 +219,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthDictionaryController: widget.healthDictionaryController,
       healthDailyTargetController: widget.healthDailyTargetController,
       healthLogEntryController: widget.healthLogEntryController,
+      healthManualEntryController: widget.healthManualEntryController,
     );
   }
 }

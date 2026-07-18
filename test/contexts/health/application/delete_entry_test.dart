@@ -3,6 +3,7 @@ import 'package:life_os/contexts/health/application/delete_entry.dart';
 import 'package:life_os/contexts/health/domain/day_diet_log.dart';
 import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 
 class FakeDietLogRepository implements DietLogRepository {
   String? receivedIdToken;
@@ -17,6 +18,18 @@ class FakeDietLogRepository implements DietLogRepository {
     double? quantity,
     double? grams,
     DateTime? eatenAt,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
   }) async {
     throw UnimplementedError();
   }

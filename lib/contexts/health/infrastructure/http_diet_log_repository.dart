@@ -6,6 +6,7 @@ import '../domain/day_diet_log.dart';
 import '../domain/diet_exceptions.dart';
 import '../domain/diet_log_repository.dart';
 import '../domain/food_entry.dart';
+import '../domain/portions.dart';
 
 /// [DietLogRepository] driven adapter backed by the `/api/diet-entries`
 /// HTTP endpoints.
@@ -53,6 +54,46 @@ class HttpDietLogRepository implements DietLogRepository {
       if (quantity != null) 'quantity': quantity,
       if (grams != null) 'grams': grams,
       if (eatenAt != null) 'eaten_at': eatenAt.toUtc().toIso8601String(),
+    };
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/diet-entries'),
+        headers: _headers(idToken),
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode != 201) {
+      throw DietFetchFailure(
+        'Failed to log the food entry (status ${response.statusCode}).',
+      );
+    }
+    try {
+      return FoodEntry.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    } catch (_) {
+      throw const DietFetchFailure(_genericFailureMessage);
+    }
+  }
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
+  }) async {
+    final body = <String, dynamic>{
+      'day': day,
+      'meal': meal,
+      if (name != null) 'name': name,
+      'portions': {
+        'staple': portions.staple,
+        'meat': portions.meat,
+        'fruit': portions.fruit,
+        'veg': portions.veg,
+      },
+      'eaten_at': eatenAt.toUtc().toIso8601String(),
     };
     final response = await _send(
       () => client.post(

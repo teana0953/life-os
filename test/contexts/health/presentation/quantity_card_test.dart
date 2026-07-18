@@ -5,6 +5,7 @@ import 'package:life_os/contexts/health/domain/day_diet_log.dart';
 import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/quantity_card.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -50,6 +51,18 @@ class FakeDietLogRepository implements DietLogRepository {
       'eaten_at': (eatenAt ?? DateTime.now()).toUtc().toIso8601String(),
       'logged_at': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  @override
+  Future<FoodEntry> logManualEntry(
+    String idToken, {
+    required String day,
+    required String meal,
+    String? name,
+    required Portions portions,
+    required DateTime eatenAt,
+  }) async {
+    throw UnimplementedError();
   }
 
   @override

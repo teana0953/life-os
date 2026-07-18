@@ -66,5 +66,10 @@
   "dietSaveTargetButton": "儲存",
   "dietFavoriteTooltip": "加入常用",
   "dietUnfavoriteTooltip": "移除常用",
-  "errorDietLoadFailed": "無法載入飲食資料，請再試一次。"
+  "errorDietLoadFailed": "無法載入飲食資料，請再試一次。",
+  "dietManualEntryAffordance": "找不到? 手動輸入",
+  "dietManualEntryTitle": "手動記錄飲食",
+  "dietManualEntryNameLabel": "名稱（選填）",
+  "dietManualEntryFallbackName": "手動記錄",
+  "dietManualEntryAllZeroError": "儲存前請至少輸入一項份量。"
 }
