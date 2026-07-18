@@ -19,7 +19,7 @@ The app has no settings page — language switching is a chip on the login/home 
 
 ### Modified Capabilities
 
-(none at spec-behavior level — `login-flow`, `i18n`, and `design-system` behaviors are unchanged; the language switch and sign-out relocate into settings.)
+- `login-flow`: the standard (loaded-state) sign-out moves into the settings page, while the home screen's error / re-authentication states keep their direct sign-out / sign-in-again recovery exits (delta clarifies sign-out placement). `i18n` and `design-system` behaviors are unchanged; the loaded-state language switch relocates into settings, the login language chip stays.
 
 ## Impact
 

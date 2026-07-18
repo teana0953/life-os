@@ -22,8 +22,13 @@
 - 有標題列 + 返回;套用設計系統(Chiikawa 可愛風、卡片/圓角、亮暗)。
 
 ### 導覽 / 入口調整
-- **home**:header 加一個**設定 icon**(齒輪)→ `Navigator.push` 到 SettingsScreen;home 原本的語言 chip 與登出移進設定頁(home 保持乾淨)。
+- **home(loaded 正常狀態)**:header 加**設定 icon**(齒輪)→ `Navigator.push` 到 SettingsScreen;**只有此狀態**的語言 chip 與「標準登出」移進設定頁(home loaded 保持乾淨)。
+- **home 的 error / needsReauth 狀態**:⚠️ **保留原本的登出/「重新登入」按鈕不動**——它們是**復原出口**(profile 載入失敗、401),由 login-flow spec(`error state offers sign-out`)與 CLAUDE.md(`401 surfaces a sign in again exit`)保障。**不可**把這兩個狀態的出口拆掉改走設定頁(profile 都載不出來、設定頁也依賴登入態)。這兩個狀態的既有測試維持綠。
 - **login**:**保留**語言 chip(登入前選語言;設定頁是登入後才進得去)。
+
+### DI 接線 + 測試 harness(review 提醒)
+- SettingsScreen 需要 ThemeController + LocaleController + SignOut use case。注入路徑:`App` → `_AuthenticatedHome` → `HomeScreen` 建構子加必填參數,`Navigator.push` 時傳進 SettingsScreen。
+- 連帶影響:`test/support` 的 `pumpApp`/`pumpHomeScreen` 等 harness 與所有引用它們的 app_test/home_screen_test 都要更新建構子參數(範圍**不只**「existing home tests」)。
 
 ## 本地化
 新增 ARB key(en + 繁中):設定、主題、系統、亮、暗、語言、登出 等標題/選項字串;home 的設定 icon tooltip。

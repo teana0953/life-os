@@ -16,8 +16,8 @@
 
 ## 4. home 導覽 + 搬移
 
-- [ ] 4.1 `home_screen.dart`:header 加設定 icon(齒輪)→ `Navigator.push` SettingsScreen;**移除 home 的語言 chip 與登出**(改在設定頁);login 的語言 chip 保留不動
-- [ ] 4.2 導覽/遷移測試:點 home 設定 icon → 進 SettingsScreen;既有 home 測試中「語言 chip / 登出在 home」的斷言改為「在設定頁」;app/home 行為保留
+- [ ] 4.1 `home_screen.dart`:**loaded 正常狀態** header 加設定 icon(齒輪)→ `Navigator.push` SettingsScreen;僅移除 **loaded 狀態**的語言 chip 與標準登出(改在設定頁)。⚠️ **error 狀態的登出按鈕、needsReauth 的「重新登入」按鈕保留不動**(復原出口,對應 login-flow spec);login 語言 chip 保留。DI:`App`→`_AuthenticatedHome`→`HomeScreen`→SettingsScreen 傳入 ThemeController/LocaleController/SignOut
+- [ ] 4.2 導覽/遷移測試:點 home(loaded)設定 icon → 進 SettingsScreen;既有 home 測試中「loaded 狀態語言 chip / 標準登出在 home」的斷言改為「在設定頁」;**error/needsReauth 的登出/重新登入測試維持綠不改**;更新 `pumpApp`/`pumpHomeScreen` harness 的新建構子參數
 
 ## 5. 收尾
 
