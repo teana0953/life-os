@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/i18n/language_switcher.dart';
 import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/mascot.dart';
+import '../../auth/application/sign_out.dart';
+import '../../settings/presentation/settings_screen.dart';
 import 'home_controller.dart';
 
 const _contentMaxWidth = 960.0;
@@ -30,6 +32,8 @@ GreetingPeriod greetingPeriodFor(DateTime time) {
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
   final LocaleController localeController;
+  final ThemeController themeController;
+  final SignOut signOut;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -40,6 +44,8 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.localeController,
+    required this.themeController,
+    required this.signOut,
     this.clock = DateTime.now,
   });
 
@@ -62,9 +68,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(
+          themeController: widget.themeController,
+          localeController: widget.localeController,
+          signOut: widget.signOut,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -82,10 +101,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-            Align(
-              alignment: Alignment.topRight,
-              child: LanguageSwitcher(controller: widget.localeController),
-            ),
+            if (controller.status == HomeStatus.loaded)
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  key: const Key('settings-icon-button'),
+                  icon: const Icon(Icons.settings),
+                  tooltip: loc.settingsIconTooltip,
+                  onPressed: () => _openSettings(context),
+                ),
+              ),
           ],
         ),
       ),
@@ -196,12 +221,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(spacePreviewNames[index]),
                 ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                key: const Key('sign-out-button'),
-                onPressed: controller.signOut,
-                child: Text(loc.signOut),
               ),
             ],
           ),
