@@ -14,6 +14,7 @@ import '../../../support/l10n_test_app.dart';
 class FakeDietLogRepository implements DietLogRepository {
   double? receivedQuantity;
   double? receivedGrams;
+  DateTime? receivedEatenAt;
 
   @override
   Future<FoodEntry> logFromDictionary(
@@ -27,6 +28,7 @@ class FakeDietLogRepository implements DietLogRepository {
   }) async {
     receivedQuantity = quantity;
     receivedGrams = grams;
+    receivedEatenAt = eatenAt;
     return FoodEntry.fromJson({
       'id': 'entry-1',
       'day': day,
@@ -93,12 +95,21 @@ FoodItem _rice50g() => FoodItem.fromJson({
   'base_grams': 50,
 });
 
+Future<TimeOfDay?> _defaultPickTime(
+  BuildContext context,
+  TimeOfDay initialTime,
+) {
+  return showTimePicker(context: context, initialTime: initialTime);
+}
+
 Future<void> _pumpCard(
   WidgetTester tester,
   LogEntryController controller, {
   String idToken = 'token-123',
   String day = '2026-07-18',
   VoidCallback? onSaved,
+  Future<TimeOfDay?> Function(BuildContext, TimeOfDay) pickTime =
+      _defaultPickTime,
 }) async {
   await tester.pumpWidget(
     l10nTestApp(
@@ -109,6 +120,7 @@ Future<void> _pumpCard(
             idToken: idToken,
             day: day,
             onSaved: onSaved,
+            pickTime: pickTime,
           ),
         ),
       ),
@@ -224,5 +236,68 @@ void main() {
 
       expect(find.byKey(const Key('snack-label-field')), findsOneWidget);
     });
+
+    testWidgets('shows the eaten-at time defaulted from the clock', (
+      tester,
+    ) async {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(_riceBowl(), clock: () => DateTime(2026, 7, 18, 9, 5));
+      await _pumpCard(tester, controller);
+
+      final eatenAtText = tester.widget<Text>(
+        find.byKey(const Key('eaten-at-text')),
+      );
+      expect(eatenAtText.data, '09:05');
+    });
+
+    testWidgets('tapping the eaten-at control opens a time picker', (
+      tester,
+    ) async {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(_riceBowl(), clock: () => DateTime(2026, 7, 18, 9, 5));
+      await _pumpCard(tester, controller);
+
+      await tester.tap(find.byKey(const Key('eaten-at-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+      'choosing a time updates the displayed eaten-at and the value passed to save',
+      (tester) async {
+        final repository = FakeDietLogRepository();
+        final controller = LogEntryController(
+          LogFoodFromDictionary(repository),
+        );
+        controller.start(_riceBowl(), clock: () => DateTime(2026, 7, 18, 9, 5));
+        await _pumpCard(
+          tester,
+          controller,
+          pickTime: (context, initialTime) async =>
+              const TimeOfDay(hour: 7, minute: 15),
+        );
+
+        await tester.tap(find.byKey(const Key('eaten-at-button')));
+        await tester.pumpAndSettle();
+
+        final eatenAtText = tester.widget<Text>(
+          find.byKey(const Key('eaten-at-text')),
+        );
+        expect(eatenAtText.data, '07:15');
+
+        await tester.tap(find.byKey(const Key('save-entry-button')));
+        await tester.pumpAndSettle();
+
+        expect(repository.receivedEatenAt, DateTime(2026, 7, 18, 7, 15));
+      },
+    );
   });
 }

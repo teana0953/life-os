@@ -17,6 +17,14 @@ String _formatTime(DateTime time) {
   return '$hour:$minute';
 }
 
+/// Default [QuantityCard.pickTime]: the platform time picker.
+Future<TimeOfDay?> _showTimePicker(
+  BuildContext context,
+  TimeOfDay initialTime,
+) {
+  return showTimePicker(context: context, initialTime: initialTime);
+}
+
 /// Card for logging a dictionary item: meal selection (incl. a custom
 /// snack label), unit-quantity/grams amount with a live portion preview
 /// (D2 in design.md), an eaten-at time, and save.
@@ -25,6 +33,8 @@ class QuantityCard extends StatefulWidget {
   final String idToken;
   final String day;
   final VoidCallback? onSaved;
+  final Future<TimeOfDay?> Function(BuildContext context, TimeOfDay initialTime)
+  pickTime;
 
   const QuantityCard({
     super.key,
@@ -32,6 +42,7 @@ class QuantityCard extends StatefulWidget {
     required this.idToken,
     required this.day,
     this.onSaved,
+    this.pickTime = _showTimePicker,
   });
 
   @override
@@ -66,6 +77,25 @@ class _QuantityCardState extends State<QuantityCard> {
   }
 
   void _onControllerChanged() => setState(() {});
+
+  Future<void> _pickEatenAt() async {
+    final controller = widget.controller;
+    final current = controller.eatenAt.toLocal();
+    final picked = await widget.pickTime(
+      context,
+      TimeOfDay.fromDateTime(current),
+    );
+    if (picked == null) return;
+    controller.setEatenAt(
+      DateTime(
+        current.year,
+        current.month,
+        current.day,
+        picked.hour,
+        picked.minute,
+      ),
+    );
+  }
 
   Future<void> _save() async {
     final saved = await widget.controller.save(widget.idToken, widget.day);
@@ -163,8 +193,25 @@ class _QuantityCardState extends State<QuantityCard> {
             },
           ),
         const SizedBox(height: 12),
-        Text(loc.dietEatenAtLabel, style: theme.textTheme.bodyMedium),
-        Text(_formatTime(controller.eatenAt), key: const Key('eaten-at-text')),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                loc.dietEatenAtLabel,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+            OutlinedButton.icon(
+              key: const Key('eaten-at-button'),
+              onPressed: _pickEatenAt,
+              icon: const Icon(Icons.access_time),
+              label: Text(
+                _formatTime(controller.eatenAt),
+                key: const Key('eaten-at-text'),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Text(loc.dietPreviewTitle, style: theme.textTheme.titleLarge),
         const SizedBox(height: 8),
