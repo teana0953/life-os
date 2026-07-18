@@ -6,9 +6,12 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
+import 'package:life_os/contexts/settings/presentation/settings_screen.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/theme/theme_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -41,6 +44,12 @@ class FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
+Future<ThemeController> testThemeController() async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  return ThemeController(prefs);
+}
+
 Future<void> pumpHomeScreen(
   WidgetTester tester,
   HomeController controller, {
@@ -48,6 +57,7 @@ Future<void> pumpHomeScreen(
   Locale locale = const Locale('en'),
 }) async {
   final localeController = await testLocaleController();
+  final themeController = await testThemeController();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -55,6 +65,8 @@ Future<void> pumpHomeScreen(
       home: HomeScreen(
         controller: controller,
         localeController: localeController,
+        themeController: themeController,
+        signOut: SignOut(FakeAuthRepository()),
         clock: clock ?? DateTime.now,
       ),
     ),
@@ -187,8 +199,7 @@ void main() {
     );
 
     testWidgets(
-      'selecting Traditional Chinese from the language switcher menu '
-      'changes the locale',
+      'tapping the settings icon navigates to the SettingsScreen',
       (tester) async {
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
@@ -204,25 +215,39 @@ void main() {
           SignOut(authRepository),
         );
         await controller.load('token-123');
-        await pumpHomeScreen(
-          tester,
-          controller,
-          clock: () => DateTime(2026, 1, 1, 8),
-        );
+        await pumpHomeScreen(tester, controller);
 
-        final en = lookupAppLocalizations(const Locale('en'));
-        final zhHant = lookupAppLocalizations(
-          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-        );
-        expect(find.text(en.greetingMorning), findsOneWidget);
+        expect(find.byType(SettingsScreen), findsNothing);
 
-        await tester.tap(find.byKey(const Key('language-switcher')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('language-option-zh')));
+        await tester.tap(find.byKey(const Key('settings-icon-button')));
         await tester.pumpAndSettle();
 
-        expect(find.text(zhHant.greetingMorning), findsOneWidget);
-        expect(find.text(en.greetingMorning), findsNothing);
+        expect(find.byType(SettingsScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'no longer shows a language chip or sign-out button directly on the '
+      'loaded home screen (moved into settings)',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller);
+
+        expect(find.byKey(const Key('language-switcher')), findsNothing);
+        expect(find.byKey(const Key('sign-out-button')), findsNothing);
       },
     );
   });

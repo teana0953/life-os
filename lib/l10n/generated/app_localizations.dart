@@ -284,6 +284,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'繁體中文'**
   String get languageTraditionalChinese;
+
+  /// Title of the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Tooltip/accessible label for the gear icon on the home screen that opens the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsIconTooltip;
+
+  /// Heading for the theme section of the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get themeSectionTitle;
+
+  /// Theme option that follows the operating system's light/dark setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow system'**
+  String get themeSystem;
+
+  /// Theme option for the light theme.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// Theme option for the dark theme.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// Heading for the language section of the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get languageSectionTitle;
 }
 
 class _AppLocalizationsDelegate

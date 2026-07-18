@@ -100,6 +100,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get languageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsTitle => '設定';
+
+  @override
+  String get settingsIconTooltip => '設定';
+
+  @override
+  String get themeSectionTitle => '主題';
+
+  @override
+  String get themeSystem => '跟隨系統';
+
+  @override
+  String get themeLight => '淺色';
+
+  @override
+  String get themeDark => '深色';
+
+  @override
+  String get languageSectionTitle => '語言';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -198,4 +219,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get languageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsTitle => '設定';
+
+  @override
+  String get settingsIconTooltip => '設定';
+
+  @override
+  String get themeSectionTitle => '主題';
+
+  @override
+  String get themeSystem => '跟隨系統';
+
+  @override
+  String get themeLight => '淺色';
+
+  @override
+  String get themeDark => '深色';
+
+  @override
+  String get languageSectionTitle => '語言';
 }

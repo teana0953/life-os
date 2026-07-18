@@ -8,6 +8,8 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
+import 'package:life_os/shared/theme/theme_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -49,10 +51,17 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   );
   await controller.load('token-123');
   final localeController = await testLocaleController();
+  SharedPreferences.setMockInitialValues({});
+  final themeController = ThemeController(await SharedPreferences.getInstance());
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,
-      home: HomeScreen(controller: controller, localeController: localeController),
+      home: HomeScreen(
+        controller: controller,
+        localeController: localeController,
+        themeController: themeController,
+        signOut: SignOut(_FakeAuthRepository()),
+      ),
     ),
   );
   await tester.pump();

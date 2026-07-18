@@ -14,6 +14,7 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
+import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/l10n_test_app.dart';
@@ -87,6 +88,14 @@ final _testProfile = UserProfile(
   createdAt: '2026-01-01T00:00:00.000Z',
 );
 
+/// Builds a fresh [ThemeController] backed by an empty, mocked
+/// [SharedPreferences] instance (so it defaults to [ThemeMode.system]).
+Future<ThemeController> testThemeController() async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  return ThemeController(prefs);
+}
+
 /// Pumps [App], wiring in a [LocaleController] (defaulting to a fresh one
 /// that follows the system locale, or [localeController] if provided).
 /// Returns the [LocaleController] used, so tests can drive it directly.
@@ -96,15 +105,22 @@ Future<LocaleController> pumpApp(
   required LoginController loginController,
   required HomeController homeController,
   LocaleController? localeController,
+  ThemeController? themeController,
+  SignOut? signOut,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
+  final resolvedThemeController =
+      themeController ?? await testThemeController();
+  final resolvedSignOut = signOut ?? SignOut(authRepository);
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
       loginController: loginController,
       homeController: homeController,
       localeController: resolvedLocaleController,
+      themeController: resolvedThemeController,
+      signOut: resolvedSignOut,
     ),
   );
   return resolvedLocaleController;
@@ -183,30 +199,36 @@ void main() {
       expect(find.text('user-1'), findsOneWidget);
     });
 
-    testWidgets('sign-out returns to the login screen', (tester) async {
-      final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
-      final profileRepository = FakeProfileRepository(_testProfile);
-      await pumpApp(
-        tester,
-        authRepository: authRepository,
-        loginController: LoginController(SignIn(authRepository)),
-        homeController: HomeController(
-          GetProfile(profileRepository),
-          SignOut(authRepository),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'sign-out from settings returns to the login screen',
+      (tester) async {
+        final authRepository = FakeAuthRepository(
+          initiallyAuthenticated: true,
+        );
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      // The themed home screen's "Your spaces" grid can push the sign-out
-      // button below the fold on the default test viewport; scroll it into
-      // view before tapping.
-      await tester.ensureVisible(find.byKey(const Key('sign-out-button')));
-      await tester.tap(find.byKey(const Key('sign-out-button')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('settings-icon-button')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('settings-sign-out-button')),
+        );
+        await tester.tap(find.byKey(const Key('settings-sign-out-button')));
+        await tester.pumpAndSettle();
 
-      expect(authRepository.signOutCalled, isTrue);
-      expect(find.byKey(const Key('email-field')), findsOneWidget);
-    });
+        expect(authRepository.signOutCalled, isTrue);
+        expect(find.byKey(const Key('email-field')), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'auth stream error shows a recoverable error screen instead of an '
@@ -262,6 +284,40 @@ void main() {
           Brightness.dark,
         );
         expect(materialApp.themeMode, ThemeMode.system);
+      },
+    );
+
+    testWidgets(
+      'themeMode follows the injected ThemeController and updates the '
+      'MaterialApp on change',
+      (tester) async {
+        final authRepository = FakeAuthRepository();
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final themeController = await testThemeController();
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          themeController: themeController,
+        );
+        await tester.pump();
+
+        expect(
+          tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+          ThemeMode.system,
+        );
+
+        await themeController.setThemeMode(ThemeMode.dark);
+        await tester.pump();
+
+        expect(
+          tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+          ThemeMode.dark,
+        );
       },
     );
   });

@@ -200,9 +200,13 @@ Chinese** (`zh-Hant`) via Flutter's official `gen_l10n` toolchain. See
   `shared_preferences`; `lib/app.dart` rebuilds `MaterialApp` from it via
   `AnimatedBuilder` and falls back to English when the system locale isn't
   supported. `LanguageSwitcher` (`lib/shared/i18n/language_switcher.dart`)
-  is the reusable chip control (shown on sign-in and home) that shows the
-  current language and opens a menu with three options — follow system,
-  English, and Traditional Chinese — through the controller.
+  is the reusable chip control, shown pre-auth on the sign-in screen (a
+  logged-out user has no settings page to reach), that shows the current
+  language and opens a menu with three options — follow system, English,
+  and Traditional Chinese — through the controller. Post-auth, language
+  selection lives in the settings page instead (see "Settings / Theme"
+  below) as inline option rows sharing the same `LocaleController`, not the
+  chip widget itself.
 - **Testing**: widget tests wrap the widget under test in a `MaterialApp`
   with `AppLocalizations.localizationsDelegates`/`supportedLocales` and a
   fixed `locale` (see `test/support/l10n_test_app.dart`'s `l10nTestApp`
@@ -211,3 +215,62 @@ Chinese** (`zh-Hant`) via Flutter's official `gen_l10n` toolchain. See
   copy changes. The home screen's time-of-day greeting takes an injectable
   `clock` (`DateTime Function()`, default `DateTime.now`) so tests can pin
   the time instead of depending on the real clock.
+
+## Settings / Theme
+
+A dedicated settings page (reachable only once authenticated) centralizes
+theme, language, and sign-out. See
+`openspec/changes/add-settings/design.md` for the full rationale.
+
+- **ThemeController**: `lib/shared/theme/theme_controller.dart` — mirrors
+  `LocaleController`. A `ChangeNotifier` holding a `ThemeMode` (`system`,
+  `light`, or `dark`; defaults to `system`), persisted via
+  `shared_preferences` (`ThemeMode.name`/`ThemeMode.values.byName` round-trip
+  the enum to/from the stored string, so unlike `LocaleController` it needs
+  no manual string-to-enum switch). `setThemeMode` updates the field,
+  notifies listeners, then persists.
+- **Wiring**: `lib/app.dart`'s `MaterialApp.themeMode` follows
+  `themeController.themeMode`, rebuilt via
+  `AnimatedBuilder(animation: Listenable.merge([localeController,
+  themeController]))` alongside the existing locale wiring.
+  `lib/main.dart` constructs one `ThemeController` (and one `LocaleController`)
+  from the same `SharedPreferences` instance and passes it down.
+- **DI path**: `SettingsScreen` needs `ThemeController` + `LocaleController`
+  + the auth context's `SignOut` use case. These are threaded through
+  `App` → `_AuthenticatedHome` → `HomeScreen` as required constructor
+  parameters (not pulled out of `HomeController`, which only exposes
+  `signOut()` bound to its own internal `SignOut` instance) — `main.dart`
+  builds a single `SignOut` and passes it to both `HomeController` and
+  `App`/`SettingsScreen`. `HomeScreen`'s settings gear icon (loaded state
+  only, `Key('settings-icon-button')`) does
+  `Navigator.push(MaterialPageRoute(builder: (_) => SettingsScreen(...)))`.
+- **SettingsScreen**: `lib/contexts/settings/presentation/settings_screen.dart`
+  — a thin, presentation-only context (no `domain`/`application`/
+  `infrastructure`; it orchestrates existing shared controllers and the
+  auth context's use case, per the "keep the tactical pattern set
+  lightweight" rule above). Three sections — Theme, Language, Sign out —
+  each rendered as a titled, rounded/outlined card
+  (`_SettingsSection`) containing selectable rows built with the private
+  `_OptionRow<T>` widget (a `ListTile` with a filled/outline circle icon
+  indicating the current selection). **Not** `RadioListTile`: its
+  `groupValue`/`onChanged` are deprecated as of Flutter 3.35 (trips
+  `flutter analyze`) in favor of a `RadioGroup` ancestor API this app
+  doesn't otherwise need. Adding a new setting item: add rows/a new
+  `_SettingsSection` in `settings_screen.dart`, add any new ARB strings
+  first (see i18n rules above), and keep it presentation-only — new
+  business logic belongs in its owning context's `application`/`domain`,
+  not here.
+- **Sign-out-and-close**: `SettingsScreen`'s sign-out button awaits
+  `signOut()`, then pops itself via `Navigator.canPop`/`pop` if it was
+  pushed on top of `HomeScreen`. This is required, not cosmetic: the auth
+  state stream flips `App`'s `home:` to `LoginScreen` on sign-out, but
+  `MaterialApp`'s root `Navigator` doesn't auto-discard routes pushed on
+  top of that root — without the pop, a pushed `SettingsScreen` would stay
+  on screen over a now-stale `HomeScreen` after sign-out.
+- **Recovery exits stay on `HomeScreen`, not settings**: the home screen's
+  `error` state (`Key('sign-out-button')`) and `needsReauth` state
+  (`Key('sign-in-again-button')`) keep their own direct sign-out buttons —
+  these are unreachable-otherwise recovery exits (profile failed to load /
+  401), and `SettingsScreen` requires a loaded profile to reach. Only the
+  `loaded` state's sign-out (and, pre-this-change, its language chip) moved
+  into settings.
