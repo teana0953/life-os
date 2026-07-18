@@ -184,7 +184,16 @@ void main() {
 
       expect(find.text(en.settingsTitle), findsOneWidget);
       expect(find.text(en.themeSectionTitle), findsOneWidget);
-      expect(find.text(en.themeSystem), findsOneWidget);
+      // themeSystem and followSystemLanguage share the same "Follow system"
+      // copy, so scope this assertion to the theme row to disambiguate it
+      // from the language section's identical-text row.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('theme-option-system')),
+          matching: find.text(en.themeSystem),
+        ),
+        findsOneWidget,
+      );
       expect(find.text(en.themeLight), findsOneWidget);
       expect(find.text(en.themeDark), findsOneWidget);
       expect(find.text(en.languageSectionTitle), findsOneWidget);
@@ -201,7 +210,16 @@ void main() {
 
       expect(find.text(zh.settingsTitle), findsOneWidget);
       expect(find.text(zh.themeSectionTitle), findsOneWidget);
-      expect(find.text(zh.themeSystem), findsOneWidget);
+      // themeSystem and followSystemLanguage share the same "跟隨系統"
+      // copy, so scope this assertion to the theme row to disambiguate it
+      // from the language section's identical-text row.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('theme-option-system')),
+          matching: find.text(zh.themeSystem),
+        ),
+        findsOneWidget,
+      );
       expect(find.text(zh.themeLight), findsOneWidget);
       expect(find.text(zh.themeDark), findsOneWidget);
       expect(find.text(zh.languageSectionTitle), findsOneWidget);

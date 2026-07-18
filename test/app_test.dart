@@ -88,9 +88,8 @@ final _testProfile = UserProfile(
   createdAt: '2026-01-01T00:00:00.000Z',
 );
 
-/// Pumps [App], wiring in a [LocaleController] (defaulting to a fresh one
-/// that follows the system locale, or [localeController] if provided).
-/// Returns the [LocaleController] used, so tests can drive it directly.
+/// Builds a fresh [ThemeController] backed by an empty, mocked
+/// [SharedPreferences] instance (so it defaults to [ThemeMode.system]).
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();

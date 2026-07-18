@@ -306,7 +306,7 @@ abstract class AppLocalizations {
   /// Theme option that follows the operating system's light/dark setting.
   ///
   /// In en, this message translates to:
-  /// **'System'**
+  /// **'Follow system'**
   String get themeSystem;
 
   /// Theme option for the light theme.

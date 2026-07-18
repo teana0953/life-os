@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/locale_controller.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../auth/application/sign_out.dart';
 
@@ -125,8 +126,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                FilledButton(
+                OutlinedButton(
                   key: const Key('settings-sign-out-button'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.error,
+                      width: 2,
+                    ),
+                  ),
                   onPressed: () => _signOut(context),
                   child: Text(loc.signOut),
                 ),
@@ -154,6 +162,7 @@ class _SettingsSection extends StatelessWidget {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.colorScheme.outline, width: 2),
+        boxShadow: ledgeShadow(theme.colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

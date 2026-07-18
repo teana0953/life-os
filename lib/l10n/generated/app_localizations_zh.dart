@@ -111,13 +111,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeSectionTitle => '主題';
 
   @override
-  String get themeSystem => '系統';
+  String get themeSystem => '跟隨系統';
 
   @override
-  String get themeLight => '亮';
+  String get themeLight => '淺色';
 
   @override
-  String get themeDark => '暗';
+  String get themeDark => '深色';
 
   @override
   String get languageSectionTitle => '語言';
@@ -230,13 +230,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get themeSectionTitle => '主題';
 
   @override
-  String get themeSystem => '系統';
+  String get themeSystem => '跟隨系統';
 
   @override
-  String get themeLight => '亮';
+  String get themeLight => '淺色';
 
   @override
-  String get themeDark => '暗';
+  String get themeDark => '深色';
 
   @override
   String get languageSectionTitle => '語言';
