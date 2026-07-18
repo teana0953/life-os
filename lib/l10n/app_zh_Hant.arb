@@ -31,5 +31,12 @@
   "switchLanguage": "切換語言",
   "followSystemLanguage": "跟隨系統",
   "languageEnglish": "English",
-  "languageTraditionalChinese": "繁體中文"
+  "languageTraditionalChinese": "繁體中文",
+  "settingsTitle": "設定",
+  "settingsIconTooltip": "設定",
+  "themeSectionTitle": "主題",
+  "themeSystem": "系統",
+  "themeLight": "亮",
+  "themeDark": "暗",
+  "languageSectionTitle": "語言"
 }

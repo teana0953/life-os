@@ -154,5 +154,40 @@
   "languageTraditionalChinese": "繁體中文",
   "@languageTraditionalChinese": {
     "description": "Language switcher menu option label for Traditional Chinese; also shown as the current-language indicator when Traditional Chinese is active."
+  },
+
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the settings page."
+  },
+
+  "settingsIconTooltip": "Settings",
+  "@settingsIconTooltip": {
+    "description": "Tooltip/accessible label for the gear icon on the home screen that opens the settings page."
+  },
+
+  "themeSectionTitle": "Theme",
+  "@themeSectionTitle": {
+    "description": "Heading for the theme section of the settings page."
+  },
+
+  "themeSystem": "System",
+  "@themeSystem": {
+    "description": "Theme option that follows the operating system's light/dark setting."
+  },
+
+  "themeLight": "Light",
+  "@themeLight": {
+    "description": "Theme option for the light theme."
+  },
+
+  "themeDark": "Dark",
+  "@themeDark": {
+    "description": "Theme option for the dark theme."
+  },
+
+  "languageSectionTitle": "Language",
+  "@languageSectionTitle": {
+    "description": "Heading for the language section of the settings page."
   }
 }

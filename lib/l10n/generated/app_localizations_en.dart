@@ -103,4 +103,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get languageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsIconTooltip => 'Settings';
+
+  @override
+  String get themeSectionTitle => 'Theme';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get languageSectionTitle => 'Language';
 }
