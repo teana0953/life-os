@@ -80,7 +80,10 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(loc.dietSetTargetTitle, style: theme.textTheme.titleLarge),
+                  Text(
+                    loc.dietSetTargetTitle,
+                    style: theme.textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 16),
                   PortionStepper(
                     label: loc.dietCategoryStaple,
@@ -88,7 +91,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     onChanged: controller.setDraftBaseStaple,
                     color: dietColors?.staple,
                     leadingIcon: _CategoryIconChip(
-                      letter: loc.dietCategoryStaple.substring(0, 1),
+                      letter: loc.dietCategoryIconStaple,
                       color: dietColors?.staple,
                     ),
                     decrementKey: const Key('daily-target-staple-decrement'),
@@ -101,7 +104,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     onChanged: controller.setDraftBaseMeat,
                     color: dietColors?.meat,
                     leadingIcon: _CategoryIconChip(
-                      letter: loc.dietCategoryMeat.substring(0, 1),
+                      letter: loc.dietCategoryIconMeat,
                       color: dietColors?.meat,
                     ),
                     decrementKey: const Key('daily-target-meat-decrement'),
@@ -114,7 +117,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     onChanged: controller.setDraftBaseFruit,
                     color: dietColors?.fruit,
                     leadingIcon: _CategoryIconChip(
-                      letter: loc.dietCategoryFruit.substring(0, 1),
+                      letter: loc.dietCategoryIconFruit,
                       color: dietColors?.fruit,
                     ),
                     decrementKey: const Key('daily-target-fruit-decrement'),
@@ -127,7 +130,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     onChanged: controller.setDraftBaseVeg,
                     color: dietColors?.veg,
                     leadingIcon: _CategoryIconChip(
-                      letter: loc.dietCategoryVeg.substring(0, 1),
+                      letter: loc.dietCategoryIconVeg,
                       color: dietColors?.veg,
                     ),
                     decrementKey: const Key('daily-target-veg-decrement'),

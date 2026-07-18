@@ -147,6 +147,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietCategoryVeg => 'Vegetable';
 
   @override
+  String get dietCategoryIconStaple => 'S';
+
+  @override
+  String get dietCategoryIconMeat => 'M';
+
+  @override
+  String get dietCategoryIconFruit => 'F';
+
+  @override
+  String get dietCategoryIconVeg => 'V';
+
+  @override
   String dietProgressOfTarget(double logged, double target) {
     final intl.NumberFormat loggedNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);

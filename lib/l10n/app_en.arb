@@ -226,6 +226,23 @@
     "description": "Food group category label for vegetables."
   },
 
+  "dietCategoryIconStaple": "S",
+  "@dietCategoryIconStaple": {
+    "description": "One-glyph icon label for the staple food group (shown on the target stepper)."
+  },
+  "dietCategoryIconMeat": "M",
+  "@dietCategoryIconMeat": {
+    "description": "One-glyph icon label for the meat/protein food group."
+  },
+  "dietCategoryIconFruit": "F",
+  "@dietCategoryIconFruit": {
+    "description": "One-glyph icon label for the fruit food group."
+  },
+  "dietCategoryIconVeg": "V",
+  "@dietCategoryIconVeg": {
+    "description": "One-glyph icon label for the vegetable food group."
+  },
+
   "dietProgressOfTarget": "{logged} of {target}",
   "@dietProgressOfTarget": {
     "description": "Shows portions logged against a category's target, e.g. '9 of 12'.",

@@ -144,6 +144,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietCategoryVeg => '蔬菜';
 
   @override
+  String get dietCategoryIconStaple => '主';
+
+  @override
+  String get dietCategoryIconMeat => '肉';
+
+  @override
+  String get dietCategoryIconFruit => '果';
+
+  @override
+  String get dietCategoryIconVeg => '菜';
+
+  @override
   String dietProgressOfTarget(double logged, double target) {
     final intl.NumberFormat loggedNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);
@@ -402,6 +414,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietCategoryVeg => '蔬菜';
+
+  @override
+  String get dietCategoryIconStaple => '主';
+
+  @override
+  String get dietCategoryIconMeat => '肉';
+
+  @override
+  String get dietCategoryIconFruit => '果';
+
+  @override
+  String get dietCategoryIconVeg => '菜';
 
   @override
   String dietProgressOfTarget(double logged, double target) {
