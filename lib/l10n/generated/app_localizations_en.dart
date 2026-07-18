@@ -240,4 +240,32 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dietManualEntryAllZeroError =>
       'Enter at least one portion before saving.';
+
+  @override
+  String get dietTabAll => 'All';
+
+  @override
+  String get dietSearchAllPrompt => 'Search for a food to see results';
+
+  @override
+  String dietBasisEquals(String unit) {
+    return '$unit ＝';
+  }
+
+  @override
+  String dietPreviewMathLabel(double base, double quantity) {
+    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String baseString = baseNumberFormat.format(base);
+    final intl.NumberFormat quantityNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String quantityString = quantityNumberFormat.format(quantity);
+
+    return '$baseString × $quantityString';
+  }
+
+  @override
+  String get dietBonusNote =>
+      '✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).';
 }

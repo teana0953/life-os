@@ -14,6 +14,12 @@ class PortionStepper extends StatelessWidget {
   final Key? decrementKey;
   final Key? incrementKey;
 
+  /// Optional leading category chip (D3 in design.md), e.g. a rounded icon
+  /// labeled with the category's initial. Defaults to `null`, in which case
+  /// the small color dot renders as before — additive, existing call sites
+  /// are unaffected.
+  final Widget? leadingIcon;
+
   const PortionStepper({
     super.key,
     required this.label,
@@ -22,6 +28,7 @@ class PortionStepper extends StatelessWidget {
     required this.color,
     this.decrementKey,
     this.incrementKey,
+    this.leadingIcon,
   });
 
   static String _format(double value) => value == value.roundToDouble()
@@ -40,7 +47,7 @@ class PortionStepper extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(radius: 6, backgroundColor: color),
+          leadingIcon ?? CircleAvatar(radius: 6, backgroundColor: color),
           const SizedBox(width: 12),
           Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
           IconButton(

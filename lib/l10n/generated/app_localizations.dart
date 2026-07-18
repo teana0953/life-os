@@ -524,6 +524,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter at least one portion before saving.'**
   String get dietManualEntryAllZeroError;
+
+  /// Segmented control label for showing all dictionary search results, as opposed to favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get dietTabAll;
+
+  /// Shown in the All tab of the dictionary before the user has typed a search query.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a food to see results'**
+  String get dietSearchAllPrompt;
+
+  /// Prefix shown before the dictionary-basis portion pills on the quantity card, e.g. '1碗 ＝' (unit equals) before the portions it's worth.
+  ///
+  /// In en, this message translates to:
+  /// **'{unit} ＝'**
+  String dietBasisEquals(String unit);
+
+  /// Shows the dictionary base portion value times the entered quantity beneath the preview pills, e.g. '4 × 1.5'.
+  ///
+  /// In en, this message translates to:
+  /// **'{base} × {quantity}'**
+  String dietPreviewMathLabel(double base, double quantity);
+
+  /// Muted, non-editable note on the daily target screen about a future exercise-based bonus.
+  ///
+  /// In en, this message translates to:
+  /// **'✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).'**
+  String get dietBonusNote;
 }
 
 class _AppLocalizationsDelegate

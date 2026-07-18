@@ -97,5 +97,45 @@ void main() {
 
       expect(find.text('11.5'), findsOneWidget);
     });
+
+    testWidgets('shows the default color dot when no leadingIcon is given', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 1,
+              color: Colors.amber,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CircleAvatar), findsOneWidget);
+    });
+
+    testWidgets('renders an optional leadingIcon instead of the color dot', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 1,
+              color: Colors.amber,
+              onChanged: (_) {},
+              leadingIcon: const Icon(Icons.eco, key: Key('leading-icon')),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('leading-icon')), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsNothing);
+    });
   });
 }

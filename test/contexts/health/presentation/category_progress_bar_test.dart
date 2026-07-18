@@ -91,5 +91,38 @@ void main() {
       );
       expect(fill.widthFactor, 0.0);
     });
+
+    testWidgets(
+      'an optional trailingLabel replaces the used/target text but the fill still reflects logged/effective',
+      (tester) async {
+        const barKey = Key('progress-bar');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: CategoryProgressBar(
+                key: barKey,
+                label: 'Staple',
+                logged: 9,
+                effective: 12,
+                color: Colors.amber,
+                trailingLabel: '3 remaining',
+              ),
+            ),
+          ),
+        );
+
+        final fill = tester.widget<FractionallySizedBox>(
+          find.descendant(
+            of: find.byKey(barKey),
+            matching: find.byType(FractionallySizedBox),
+          ),
+        );
+        expect(fill.widthFactor, closeTo(0.75, 0.0001));
+        expect(find.text('3 remaining'), findsOneWidget);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietProgressOfTarget(9, 12)), findsNothing);
+      },
+    );
   });
 }

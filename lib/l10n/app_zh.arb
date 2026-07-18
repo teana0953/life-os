@@ -71,5 +71,10 @@
   "dietManualEntryTitle": "手動記錄飲食",
   "dietManualEntryNameLabel": "名稱（選填）",
   "dietManualEntryFallbackName": "手動記錄",
-  "dietManualEntryAllZeroError": "儲存前請至少輸入一項份量。"
+  "dietManualEntryAllZeroError": "儲存前請至少輸入一項份量。",
+  "dietTabAll": "全部",
+  "dietSearchAllPrompt": "搜尋食物以查看結果",
+  "dietBasisEquals": "{unit} ＝",
+  "dietPreviewMathLabel": "{base} × {quantity}",
+  "dietBonusNote": "✳️ 運動後可加成份數（之後串運動模組）"
 }

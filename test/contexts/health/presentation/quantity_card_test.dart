@@ -142,6 +142,17 @@ Future<void> _pumpCard(
   await tester.pump();
 }
 
+/// Types [value] into the quantity stepper's numeric-entry dialog (opened by
+/// tapping the value) and confirms it — the D2 tap-to-type path that keeps
+/// arbitrary decimals (e.g. 1.25) reachable.
+Future<void> _typeQuantity(WidgetTester tester, String value) async {
+  await tester.tap(find.byKey(const Key('quantity-value')));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const Key('quantity-edit-field')), value);
+  await tester.tap(find.byKey(const Key('quantity-edit-confirm')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('QuantityCard', () {
     testWidgets('preview scales with quantity — 飯/1碗 x1.5 -> 6 staple', (
@@ -153,13 +164,56 @@ void main() {
       controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
       await _pumpCard(tester, controller);
 
-      await tester.enterText(find.byKey(const Key('quantity-field')), '1.5');
-      await tester.pump();
+      await _typeQuantity(tester, '1.5');
 
+      final loc = lookupAppLocalizations(const Locale('en'));
       expect(
         find.descendant(
           of: find.byKey(const Key('preview-row')),
-          matching: find.text('6'),
+          matching: find.text('${loc.dietCategoryStaple} 6'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('preview-math-label')),
+        findsOneWidget,
+      );
+      expect(find.text(loc.dietPreviewMathLabel(4, 1.5)), findsOneWidget);
+    });
+
+    testWidgets('a typed 1.25 is accepted with no precision lost', (
+      tester,
+    ) async {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
+      await _pumpCard(tester, controller);
+
+      await _typeQuantity(tester, '1.25');
+
+      expect(controller.quantity, 1.25);
+      expect(find.text('1.25'), findsOneWidget);
+    });
+
+    testWidgets('stepping the quantity by 0.5 updates the preview', (
+      tester,
+    ) async {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
+      await _pumpCard(tester, controller);
+
+      await tester.tap(find.byKey(const Key('quantity-increment')));
+      await tester.pump();
+
+      expect(controller.quantity, 1.5);
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('preview-row')),
+          matching: find.text('${loc.dietCategoryStaple} 6'),
         ),
         findsOneWidget,
       );
@@ -174,8 +228,8 @@ void main() {
       controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
       await _pumpCard(tester, controller);
 
-      expect(find.byKey(const Key('use-grams-switch')), findsNothing);
-      expect(find.byKey(const Key('quantity-field')), findsOneWidget);
+      expect(find.byKey(const Key('use-grams-toggle')), findsNothing);
+      expect(find.byKey(const Key('quantity-value')), findsOneWidget);
       expect(find.byKey(const Key('grams-field')), findsNothing);
     });
 
@@ -188,7 +242,7 @@ void main() {
       controller.start(_rice50g(), clock: () => DateTime.utc(2026, 7, 18));
       await _pumpCard(tester, controller);
 
-      expect(find.byKey(const Key('use-grams-switch')), findsOneWidget);
+      expect(find.byKey(const Key('use-grams-toggle')), findsOneWidget);
     });
 
     testWidgets('previews via grams — 33g of 飯/50g -> ~0.66 staple', (
@@ -200,7 +254,13 @@ void main() {
       controller.start(_rice50g(), clock: () => DateTime.utc(2026, 7, 18));
       await _pumpCard(tester, controller);
 
-      await tester.tap(find.byKey(const Key('use-grams-switch')));
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('use-grams-toggle')),
+          matching: find.text(loc.dietGramsLabel),
+        ),
+      );
       await tester.pump();
       await tester.enterText(find.byKey(const Key('grams-field')), '33');
       await tester.pump();
@@ -208,7 +268,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const Key('preview-row')),
-          matching: find.text('0.66'),
+          matching: find.text('${loc.dietCategoryStaple} 0.66'),
         ),
         findsOneWidget,
       );
@@ -223,8 +283,7 @@ void main() {
       var saved = false;
       await _pumpCard(tester, controller, onSaved: () => saved = true);
 
-      await tester.enterText(find.byKey(const Key('quantity-field')), '1.5');
-      await tester.pump();
+      await _typeQuantity(tester, '1.5');
       await tester.tap(find.byKey(const Key('save-entry-button')));
       await tester.pumpAndSettle();
 
@@ -312,5 +371,83 @@ void main() {
         expect(repository.receivedEatenAt, DateTime(2026, 7, 18, 7, 15));
       },
     );
+
+    testWidgets(
+      'shows a dictionary-basis line from the unit segment after / in the name',
+      (tester) async {
+        final controller = LogEntryController(
+          LogFoodFromDictionary(FakeDietLogRepository()),
+        );
+        controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
+        await _pumpCard(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.byKey(const Key('quantity-basis-line')), findsOneWidget);
+        expect(find.text(loc.dietBasisEquals('1碗')), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('quantity-basis-line')),
+            matching: find.text('${loc.dietCategoryStaple} 4'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('skips the basis line when the name has no / unit segment', (
+      tester,
+    ) async {
+      final noSlashItem = FoodItem.fromJson({
+        'id': 'apple-1',
+        'owner_user_id': null,
+        'name': '蘋果',
+        'carb_g': 20,
+        'protein_g': 0,
+        'fat_g': 0,
+        'sugar_g': 15,
+        'fiber_g': 2,
+        'kcal': 80,
+        'staple': 0,
+        'meat': 0,
+        'fruit': 1,
+        'veg': 0,
+        'base_grams': null,
+      });
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(noSlashItem, clock: () => DateTime.utc(2026, 7, 18));
+      await _pumpCard(tester, controller);
+
+      expect(find.byKey(const Key('quantity-basis-line')), findsNothing);
+    });
+
+    testWidgets('skips the basis line when the item has no portions', (
+      tester,
+    ) async {
+      final zeroPortionItem = FoodItem.fromJson({
+        'id': 'water-1',
+        'owner_user_id': null,
+        'name': '水/1杯',
+        'carb_g': 0,
+        'protein_g': 0,
+        'fat_g': 0,
+        'sugar_g': 0,
+        'fiber_g': 0,
+        'kcal': 0,
+        'staple': 0,
+        'meat': 0,
+        'fruit': 0,
+        'veg': 0,
+        'base_grams': null,
+      });
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+      controller.start(zeroPortionItem, clock: () => DateTime.utc(2026, 7, 18));
+      await _pumpCard(tester, controller);
+
+      expect(find.byKey(const Key('quantity-basis-line')), findsNothing);
+    });
   });
 }

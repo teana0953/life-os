@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/theme/app_theme.dart';
+import '../domain/food_item.dart';
+import '../domain/portion_preview.dart';
 import 'log_entry_controller.dart';
+import 'portion_pills.dart';
 
 String _formatPortion(double value) {
   return value == value.roundToDouble()
@@ -15,6 +17,37 @@ String _formatTime(DateTime time) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
+}
+
+/// Extracts the dictionary-basis unit from an item's name, e.g.
+/// `飯/1碗` -> `1碗`. Returns `null` when the name has no `/` unit segment.
+String? _unitSegment(String name) {
+  final slash = name.indexOf('/');
+  if (slash == -1 || slash == name.length - 1) return null;
+  return name.substring(slash + 1);
+}
+
+/// The first non-zero food-group portion on [item] (staple, meat, fruit,
+/// veg, in that order), used as the base value in the preview's
+/// "base × quantity" math label. Returns `null` when every group is zero.
+double? _firstNonZeroPortion(FoodItem item) {
+  if (item.staple != 0) return item.staple;
+  if (item.meat != 0) return item.meat;
+  if (item.fruit != 0) return item.fruit;
+  if (item.veg != 0) return item.veg;
+  return null;
+}
+
+/// The quantity actually applied to the preview: the entered unit quantity,
+/// or the grams-derived quantity when in grams mode (mirrors
+/// `LogEntryController.preview`'s own resolution, for display only).
+double? _effectiveQuantity(LogEntryController controller) {
+  final item = controller.item;
+  if (item == null) return null;
+  if (controller.useGrams) {
+    return quantityFromGrams(controller.grams, item.baseGrams);
+  }
+  return controller.quantity;
 }
 
 /// Default [QuantityCard.pickTime]: the platform time picker.
@@ -50,7 +83,6 @@ class QuantityCard extends StatefulWidget {
 }
 
 class _QuantityCardState extends State<QuantityCard> {
-  late final TextEditingController _quantityText;
   late final TextEditingController _gramsText;
   late final TextEditingController _snackLabelText;
 
@@ -58,9 +90,6 @@ class _QuantityCardState extends State<QuantityCard> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
-    _quantityText = TextEditingController(
-      text: _formatPortion(widget.controller.quantity),
-    );
     _gramsText = TextEditingController(
       text: _formatPortion(widget.controller.grams),
     );
@@ -70,7 +99,6 @@ class _QuantityCardState extends State<QuantityCard> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
-    _quantityText.dispose();
     _gramsText.dispose();
     _snackLabelText.dispose();
     super.dispose();
@@ -110,15 +138,42 @@ class _QuantityCardState extends State<QuantityCard> {
 
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final dietColors = theme.extension<DietCategoryColors>();
     final preview = controller.preview;
     final isSnack = controller.meal == snackMealValue;
+
+    final basisUnit = _unitSegment(item.name);
+    final hasBasisPortions =
+        item.staple != 0 || item.meat != 0 || item.fruit != 0 || item.veg != 0;
+    final showBasisLine = basisUnit != null && hasBasisPortions;
+
+    final previewBase = _firstNonZeroPortion(item);
+    final previewQuantity = _effectiveQuantity(controller);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(item.name, style: theme.textTheme.titleLarge),
+        if (showBasisLine) ...[
+          const SizedBox(height: 8),
+          Row(
+            key: const Key('quantity-basis-line'),
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                loc.dietBasisEquals(basisUnit),
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(width: 8),
+              PortionPills(
+                staple: item.staple,
+                meat: item.meat,
+                fruit: item.fruit,
+                veg: item.veg,
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -160,26 +215,23 @@ class _QuantityCardState extends State<QuantityCard> {
         ],
         const SizedBox(height: 12),
         if (item.baseGrams != null)
-          Row(
-            children: [
-              Text(loc.dietUseGramsLabel),
-              Switch(
-                key: const Key('use-grams-switch'),
-                value: controller.useGrams,
-                onChanged: (value) => controller.setUseGrams(value),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SegmentedButton<bool>(
+              key: const Key('use-grams-toggle'),
+              segments: [
+                ButtonSegment(value: false, label: Text(loc.dietQuantityLabel)),
+                ButtonSegment(value: true, label: Text(loc.dietGramsLabel)),
+              ],
+              selected: {controller.useGrams},
+              onSelectionChanged: (selection) =>
+                  controller.setUseGrams(selection.first),
+            ),
           ),
         if (!controller.useGrams)
-          TextField(
-            key: const Key('quantity-field'),
-            controller: _quantityText,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: loc.dietQuantityLabel),
-            onChanged: (value) {
-              final parsed = double.tryParse(value);
-              if (parsed != null) controller.setQuantity(parsed);
-            },
+          _QuantityStepper(
+            value: controller.quantity,
+            onChanged: controller.setQuantity,
           )
         else
           TextField(
@@ -215,34 +267,23 @@ class _QuantityCardState extends State<QuantityCard> {
         const SizedBox(height: 12),
         Text(loc.dietPreviewTitle, style: theme.textTheme.titleLarge),
         const SizedBox(height: 8),
-        if (preview != null)
-          Wrap(
+        if (preview != null) ...[
+          PortionPills(
             key: const Key('preview-row'),
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              _PreviewChip(
-                label: loc.dietCategoryStaple,
-                value: preview.staple,
-                color: dietColors?.staple,
-              ),
-              _PreviewChip(
-                label: loc.dietCategoryMeat,
-                value: preview.meat,
-                color: dietColors?.meat,
-              ),
-              _PreviewChip(
-                label: loc.dietCategoryFruit,
-                value: preview.fruit,
-                color: dietColors?.fruit,
-              ),
-              _PreviewChip(
-                label: loc.dietCategoryVeg,
-                value: preview.veg,
-                color: dietColors?.veg,
-              ),
-            ],
+            staple: preview.staple,
+            meat: preview.meat,
+            fruit: preview.fruit,
+            veg: preview.veg,
           ),
+          if (previewBase != null && previewQuantity != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              loc.dietPreviewMathLabel(previewBase, previewQuantity),
+              key: const Key('preview-math-label'),
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ],
         const SizedBox(height: 20),
         FilledButton(
           key: const Key('save-entry-button'),
@@ -254,30 +295,71 @@ class _QuantityCardState extends State<QuantityCard> {
   }
 }
 
-class _PreviewChip extends StatelessWidget {
-  final String label;
+/// An editable quantity stepper (D2 in design.md): −/+ buttons adjust the
+/// value by 0.5, and tapping the value itself opens numeric entry, so a
+/// non-0.5 decimal (e.g. 1.25) stays reachable without precision loss.
+class _QuantityStepper extends StatelessWidget {
   final double value;
-  final Color? color;
+  final ValueChanged<double> onChanged;
 
-  const _PreviewChip({required this.label, required this.value, this.color});
+  const _QuantityStepper({required this.value, required this.onChanged});
+
+  Future<void> _editValue(BuildContext context) async {
+    final editText = TextEditingController(text: _formatPortion(value));
+    final result = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        final loc = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(loc.dietQuantityLabel),
+          content: TextField(
+            key: const Key('quantity-edit-field'),
+            controller: editText,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onSubmitted: (v) =>
+                Navigator.of(dialogContext).pop(double.tryParse(v)),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('quantity-edit-confirm'),
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(double.tryParse(editText.text)),
+              child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+            ),
+          ],
+        );
+      },
+    );
+    if (result != null) onChanged(result);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outline, width: 2),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: theme.textTheme.bodyMedium),
-          Text(_formatPortion(value), style: theme.textTheme.titleLarge),
-        ],
-      ),
+    return Row(
+      children: [
+        IconButton(
+          key: const Key('quantity-decrement'),
+          onPressed: () =>
+              onChanged((value - 0.5).clamp(0.0, double.infinity)),
+          icon: const Icon(Icons.remove),
+        ),
+        InkWell(
+          key: const Key('quantity-value'),
+          onTap: () => _editValue(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(_formatPortion(value), style: theme.textTheme.titleLarge),
+          ),
+        ),
+        IconButton(
+          key: const Key('quantity-increment'),
+          onPressed: () => onChanged(value + 0.5),
+          icon: const Icon(Icons.add),
+        ),
+      ],
     );
   }
 }

@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../domain/food_item.dart';
 import 'dictionary_controller.dart';
+import 'portion_pills.dart';
+
+/// Which list the dictionary screen is currently showing (D1 in design.md):
+/// an explicit tab replacing the old implicit "empty query -> favorites"
+/// switch. The controller's `query`/`results`/`favorites` state is
+/// untouched — this only selects which existing list to display.
+enum _DictionaryTab { all, favorites }
 
 /// Dictionary section: search the food dictionary, view/toggle favorites,
 /// and pick an item to log via [onSelectItem].
@@ -26,6 +33,9 @@ class DictionaryScreen extends StatefulWidget {
 }
 
 class _DictionaryScreenState extends State<DictionaryScreen> {
+  // Default landing tab is Favorites, so the initial screen isn't empty.
+  _DictionaryTab _tab = _DictionaryTab.favorites;
+
   @override
   void initState() {
     super.initState();
@@ -50,22 +60,41 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final showingSearch = controller.query.isNotEmpty;
-    final items = showingSearch ? controller.results : controller.favorites;
-
-    return Scaffold(body: SafeArea(child: _buildList(loc, theme, controller, items)));
+    return Scaffold(body: SafeArea(child: _buildList(loc, theme, controller)));
   }
 
   Widget _buildList(
     AppLocalizations loc,
     ThemeData theme,
     DictionaryController controller,
-    List<FoodItem> items,
   ) {
-    final showingSearch = controller.query.isNotEmpty;
+    final showingFavorites = _tab == _DictionaryTab.favorites;
+    final items = showingFavorites ? controller.favorites : controller.results;
+    final showAllPrompt = !showingFavorites && controller.query.isEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: SegmentedButton<_DictionaryTab>(
+            key: const Key('dictionary-tab-selector'),
+            segments: [
+              ButtonSegment(
+                value: _DictionaryTab.all,
+                label: Text(loc.dietTabAll),
+              ),
+              ButtonSegment(
+                value: _DictionaryTab.favorites,
+                icon: const Icon(Icons.favorite),
+                label: Text(loc.dietFavoritesTitle),
+              ),
+            ],
+            selected: {_tab},
+            onSelectionChanged: (selection) =>
+                setState(() => _tab = selection.first),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: TextField(
@@ -74,35 +103,56 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             onChanged: controller.search,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            showingSearch ? loc.dietTabDictionary : loc.dietFavoritesTitle,
-            style: theme.textTheme.titleLarge,
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final isFavorite = controller.favorites.any((f) => f.id == item.id);
-              return ListTile(
-                title: Text(item.name),
-                onTap: () => widget.onSelectItem?.call(item),
-                trailing: IconButton(
-                  tooltip: isFavorite
-                      ? loc.dietUnfavoriteTooltip
-                      : loc.dietFavoriteTooltip,
-                  icon: Icon(isFavorite ? Icons.star : Icons.star_border),
-                  onPressed: () =>
-                      controller.toggleFavorite(item, isFavorite: isFavorite),
+        if (showAllPrompt)
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  loc.dietSearchAllPrompt,
+                  key: const Key('dictionary-search-prompt'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
                 ),
-              );
-            },
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final isFavorite = controller.favorites.any(
+                  (f) => f.id == item.id,
+                );
+                return ListTile(
+                  title: Text(item.name),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: PortionPills(
+                      staple: item.staple,
+                      meat: item.meat,
+                      fruit: item.fruit,
+                      veg: item.veg,
+                    ),
+                  ),
+                  onTap: () => widget.onSelectItem?.call(item),
+                  trailing: IconButton(
+                    tooltip: isFavorite
+                        ? loc.dietUnfavoriteTooltip
+                        : loc.dietFavoriteTooltip,
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                    ),
+                    onPressed: () =>
+                        controller.toggleFavorite(item, isFavorite: isFavorite),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
         if (widget.onManualEntry != null)
           Padding(
             padding: const EdgeInsets.all(16),
