@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../application/favorite_food.dart';
@@ -14,19 +16,24 @@ enum DictionaryStatus { loading, loaded, error, needsReauth }
 enum DictionaryError { fetchFailed, unknown }
 
 /// Drives the Dictionary section: favorites (shown by default), search
-/// results, and favoriting/unfavoriting.
+/// results, and favoriting/unfavoriting. Search is debounced (D4 in
+/// design.md): a keystroke resets a timer and the request only fires once
+/// it settles, so typing no longer issues one request per keystroke.
 class DictionaryController extends ChangeNotifier {
   final SearchDictionary _search;
   final ListFavorites _listFavorites;
   final FavoriteFood _favoriteFood;
   final UnfavoriteFood _unfavoriteFood;
+  final Duration _searchDebounce;
+  Timer? _debounceTimer;
 
   DictionaryController(
     this._search,
     this._listFavorites,
     this._favoriteFood,
-    this._unfavoriteFood,
-  );
+    this._unfavoriteFood, {
+    Duration searchDebounce = const Duration(milliseconds: 300),
+  }) : _searchDebounce = searchDebounce;
 
   DictionaryStatus status = DictionaryStatus.loading;
   List<FoodItem> favorites = [];
@@ -58,6 +65,7 @@ class DictionaryController extends ChangeNotifier {
 
   Future<void> search(String query) async {
     this.query = query;
+    _debounceTimer?.cancel();
     if (query.isEmpty) {
       results = [];
       notifyListeners();
@@ -65,20 +73,26 @@ class DictionaryController extends ChangeNotifier {
     }
     final idToken = _idToken;
     if (idToken == null) return;
-    try {
-      results = await _search(idToken, query);
-      status = DictionaryStatus.loaded;
-      error = null;
-    } on DietReauthenticationRequired {
-      status = DictionaryStatus.needsReauth;
-    } on DietFetchFailure {
-      status = DictionaryStatus.error;
-      error = DictionaryError.fetchFailed;
-    } catch (_) {
-      status = DictionaryStatus.error;
-      error = DictionaryError.unknown;
-    }
-    notifyListeners();
+
+    final completer = Completer<void>();
+    _debounceTimer = Timer(_searchDebounce, () async {
+      try {
+        results = await _search(idToken, query);
+        status = DictionaryStatus.loaded;
+        error = null;
+      } on DietReauthenticationRequired {
+        status = DictionaryStatus.needsReauth;
+      } on DietFetchFailure {
+        status = DictionaryStatus.error;
+        error = DictionaryError.fetchFailed;
+      } catch (_) {
+        status = DictionaryStatus.error;
+        error = DictionaryError.unknown;
+      }
+      notifyListeners();
+      completer.complete();
+    });
+    return completer.future;
   }
 
   Future<void> toggleFavorite(FoodItem item, {required bool isFavorite}) async {
@@ -103,5 +117,11 @@ class DictionaryController extends ChangeNotifier {
       error = DictionaryError.unknown;
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 }

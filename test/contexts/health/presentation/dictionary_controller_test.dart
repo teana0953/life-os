@@ -59,12 +59,26 @@ FoodItem _item(String id, String name) => FoodItem.fromJson({
   'base_grams': null,
 });
 
-DictionaryController _controller(FakeFoodDictionaryRepository repository) {
+class _CountingFoodDictionaryRepository extends FakeFoodDictionaryRepository {
+  int searchCallCount = 0;
+
+  @override
+  Future<List<FoodItem>> search(String idToken, String query) async {
+    searchCallCount++;
+    return super.search(idToken, query);
+  }
+}
+
+DictionaryController _controller(
+  FakeFoodDictionaryRepository repository, {
+  Duration searchDebounce = Duration.zero,
+}) {
   return DictionaryController(
     SearchDictionary(repository),
     ListFavorites(repository),
     FavoriteFood(repository),
     UnfavoriteFood(repository),
+    searchDebounce: searchDebounce,
   );
 }
 
@@ -150,6 +164,43 @@ void main() {
       await controller.search('飯');
 
       expect(controller.status, DictionaryStatus.needsReauth);
+    });
+
+    test('debounces rapid keystrokes into a single request for the final query', () async {
+      final repository = _CountingFoodDictionaryRepository()
+        ..searchResultsToReturn = [_item('rice-1', '飯/1碗')];
+      final controller = _controller(
+        repository,
+        searchDebounce: const Duration(milliseconds: 20),
+      );
+      await controller.load('token-123');
+
+      // Rapid keystrokes: none of these should fire a request before the
+      // debounce settles, and only the final query should ever be sent.
+      controller.search('飯');
+      controller.search('飯/');
+      final last = controller.search('飯/1');
+
+      await last;
+
+      expect(repository.searchCallCount, 1);
+      expect(controller.results.single.name, '飯/1碗');
+    });
+
+    test('dispose leaves no pending debounce timer', () async {
+      final repository = _CountingFoodDictionaryRepository();
+      final controller = _controller(
+        repository,
+        searchDebounce: const Duration(milliseconds: 20),
+      );
+      await controller.load('token-123');
+
+      controller.search('飯');
+      controller.dispose();
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(repository.searchCallCount, 0);
     });
   });
 

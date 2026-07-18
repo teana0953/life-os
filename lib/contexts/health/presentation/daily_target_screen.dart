@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/theme/app_theme.dart';
 import 'daily_target_controller.dart';
+import 'portion_stepper.dart';
 
 /// Target section: edit the day's per-category base portion targets and
 /// view the remaining portions against what has been logged.
@@ -76,33 +77,40 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
           children: [
             Text(loc.dietSetTargetTitle, style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            _TargetField(
-              fieldKey: const Key('daily-target-staple-field'),
+            PortionStepper(
               label: loc.dietCategoryStaple,
               value: controller.draftBaseStaple,
               onChanged: controller.setDraftBaseStaple,
               color: dietColors?.staple,
+              decrementKey: const Key('daily-target-staple-decrement'),
+              incrementKey: const Key('daily-target-staple-increment'),
             ),
-            _TargetField(
-              fieldKey: const Key('daily-target-meat-field'),
+            const SizedBox(height: 12),
+            PortionStepper(
               label: loc.dietCategoryMeat,
               value: controller.draftBaseMeat,
               onChanged: controller.setDraftBaseMeat,
               color: dietColors?.meat,
+              decrementKey: const Key('daily-target-meat-decrement'),
+              incrementKey: const Key('daily-target-meat-increment'),
             ),
-            _TargetField(
-              fieldKey: const Key('daily-target-fruit-field'),
+            const SizedBox(height: 12),
+            PortionStepper(
               label: loc.dietCategoryFruit,
               value: controller.draftBaseFruit,
               onChanged: controller.setDraftBaseFruit,
               color: dietColors?.fruit,
+              decrementKey: const Key('daily-target-fruit-decrement'),
+              incrementKey: const Key('daily-target-fruit-increment'),
             ),
-            _TargetField(
-              fieldKey: const Key('daily-target-veg-field'),
+            const SizedBox(height: 12),
+            PortionStepper(
               label: loc.dietCategoryVeg,
               value: controller.draftBaseVeg,
               onChanged: controller.setDraftBaseVeg,
               color: dietColors?.veg,
+              decrementKey: const Key('daily-target-veg-decrement'),
+              incrementKey: const Key('daily-target-veg-increment'),
             ),
             const SizedBox(height: 20),
             FilledButton(
@@ -151,67 +159,6 @@ class _RemainingRow extends StatelessWidget {
           Text(label),
           Text(loc.dietRemainingOfCategory(remaining)),
         ],
-      ),
-    );
-  }
-}
-
-class _TargetField extends StatefulWidget {
-  final Key fieldKey;
-  final String label;
-  final double value;
-  final ValueChanged<double> onChanged;
-  final Color? color;
-
-  const _TargetField({
-    required this.fieldKey,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    required this.color,
-  });
-
-  @override
-  State<_TargetField> createState() => _TargetFieldState();
-}
-
-class _TargetFieldState extends State<_TargetField> {
-  late final TextEditingController _text;
-
-  @override
-  void initState() {
-    super.initState();
-    _text = TextEditingController(text: _format(widget.value));
-  }
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  static String _format(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        key: widget.fieldKey,
-        controller: _text,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: widget.label,
-          prefixIcon: Padding(
-            padding: const EdgeInsets.all(14),
-            child: CircleAvatar(radius: 6, backgroundColor: widget.color),
-          ),
-        ),
-        onChanged: (value) {
-          final parsed = double.tryParse(value);
-          if (parsed != null) widget.onChanged(parsed);
-        },
       ),
     );
   }
