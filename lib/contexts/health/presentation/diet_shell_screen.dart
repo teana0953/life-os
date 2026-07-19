@@ -272,8 +272,9 @@ class _DietShellScreenState extends State<DietShellScreen> {
 }
 
 /// Day-navigation header shown above the Today section (D3 in design.md):
-/// `‹ label ›` plus a calendar entry point. [onNext] is `null` to disable
-/// the "next day" control when the viewed day is today.
+/// `‹ label ›`, where the label itself is the calendar entry point.
+/// [onNext] is `null` to disable the "next day" control when the viewed day
+/// is today.
 class _DayNavBar extends StatelessWidget {
   final String label;
   final VoidCallback onPrevious;
@@ -300,11 +301,24 @@ class _DayNavBar extends StatelessWidget {
           icon: const Icon(Icons.chevron_left),
         ),
         Expanded(
-          child: Text(
-            label,
-            key: const Key('day-nav-label'),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge,
+          child: Tooltip(
+            message: loc.dietCalendarOpenTooltip,
+            child: Semantics(
+              button: true,
+              child: InkWell(
+                key: const Key('day-nav-label'),
+                onTap: onOpenCalendar,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         IconButton(
@@ -312,12 +326,6 @@ class _DayNavBar extends StatelessWidget {
           tooltip: loc.dietDayNextTooltip,
           onPressed: onNext,
           icon: const Icon(Icons.chevron_right),
-        ),
-        IconButton(
-          key: const Key('day-nav-calendar'),
-          tooltip: loc.dietCalendarOpenTooltip,
-          onPressed: onOpenCalendar,
-          icon: const Icon(Icons.calendar_month),
         ),
       ],
     );
