@@ -168,6 +168,35 @@ void main() {
       );
     });
 
+    testWidgets(
+      'opening the dialog on a 0 value shows an empty field with a 0 hint '
+      '(no 0 to delete first)',
+      (tester) async {
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: PortionStepper(
+                label: 'Staple',
+                value: 0,
+                color: Colors.amber,
+                onChanged: (_) {},
+                valueKey: const Key('value'),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('value')));
+        await tester.pumpAndSettle();
+
+        final field = tester.widget<TextField>(
+          find.byKey(const Key('portion-edit-field')),
+        );
+        expect(field.controller!.text, isEmpty);
+        expect(field.decoration!.hintText, '0');
+      },
+    );
+
     testWidgets('confirming a valid typed value fires onChanged with it', (
       tester,
     ) async {

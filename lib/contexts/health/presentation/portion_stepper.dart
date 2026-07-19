@@ -117,8 +117,11 @@ class _PortionEditDialogState extends State<_PortionEditDialog> {
   @override
   void initState() {
     super.initState();
+    // Show an empty field (with a "0" hint) instead of a literal "0", so the
+    // user can type straight away without first deleting the 0 — matching the
+    // food-entry portion fields (portion_form_fields.dart).
     _text = TextEditingController(
-      text: PortionStepper._format(widget.initial),
+      text: widget.initial == 0 ? '' : PortionStepper._format(widget.initial),
     );
   }
 
@@ -137,6 +140,7 @@ class _PortionEditDialogState extends State<_PortionEditDialog> {
         controller: _text,
         autofocus: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(hintText: '0'),
         onSubmitted: (v) => Navigator.of(context).pop(double.tryParse(v)),
       ),
       actions: [
