@@ -137,5 +137,155 @@ void main() {
       expect(find.byKey(const Key('leading-icon')), findsOneWidget);
       expect(find.byType(CircleAvatar), findsNothing);
     });
+
+    testWidgets('tapping the value opens an edit dialog titled with the label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 4,
+              color: Colors.amber,
+              onChanged: (_) {},
+              valueKey: const Key('value'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('portion-edit-field')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Staple'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('confirming a valid typed value fires onChanged with it', (
+      tester,
+    ) async {
+      double? reported;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 4,
+              color: Colors.amber,
+              onChanged: (v) => reported = v,
+              valueKey: const Key('value'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('portion-edit-field')),
+        '2.5',
+      );
+      await tester.tap(find.byKey(const Key('portion-edit-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(reported, 2.5);
+    });
+
+    testWidgets('confirming a negative typed value clamps to 0', (
+      tester,
+    ) async {
+      double? reported;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 4,
+              color: Colors.amber,
+              onChanged: (v) => reported = v,
+              valueKey: const Key('value'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('portion-edit-field')), '-3');
+      await tester.tap(find.byKey(const Key('portion-edit-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(reported, 0);
+    });
+
+    testWidgets('confirming non-numeric input is ignored (no onChanged)', (
+      tester,
+    ) async {
+      double? reported;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 4,
+              color: Colors.amber,
+              onChanged: (v) => reported = v,
+              valueKey: const Key('value'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('portion-edit-field')),
+        'abc',
+      );
+      await tester.tap(find.byKey(const Key('portion-edit-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(reported, isNull);
+      expect(find.byKey(const Key('portion-edit-field')), findsNothing);
+    });
+
+    testWidgets('the edit dialog can be opened, cancelled, and reopened '
+        'without leaking its text controller', (tester) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: PortionStepper(
+              label: 'Staple',
+              value: 4,
+              color: Colors.amber,
+              onChanged: (_) {},
+              valueKey: const Key('value'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+      // Dismiss via the barrier instead of confirming, mirroring a cancel.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('portion-edit-field')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('value')));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('portion-edit-field')),
+      );
+      expect(field.controller?.text, '4');
+    });
   });
 }
