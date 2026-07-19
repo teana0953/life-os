@@ -472,7 +472,14 @@ void main() {
           loc.dietDayNextTooltip,
         );
         expect(
-          tester.widget<IconButton>(find.byKey(const Key('day-nav-calendar'))).tooltip,
+          tester
+              .widget<Tooltip>(
+                find.ancestor(
+                  of: find.byKey(const Key('day-nav-label')),
+                  matching: find.byType(Tooltip),
+                ),
+              )
+              .message,
           loc.dietCalendarOpenTooltip,
         );
       },
@@ -545,7 +552,7 @@ void main() {
           ..loggedDaysToReturn = ['2026-07-15'];
         await _pumpShell(tester, dietLogRepository: dietLogRepository);
 
-        await tester.tap(find.byKey(const Key('day-nav-calendar')));
+        await tester.tap(find.byKey(const Key('day-nav-label')));
         await tester.pumpAndSettle();
 
         expect(dietLogRepository.receivedMonth, '2026-07');
@@ -571,7 +578,7 @@ void main() {
     ) async {
       final dietLogRepository = await _pumpShell(tester);
 
-      await tester.tap(find.byKey(const Key('day-nav-calendar')));
+      await tester.tap(find.byKey(const Key('day-nav-label')));
       await tester.pumpAndSettle();
       final daysBefore = dietLogRepository.receivedDays.length;
 
@@ -591,7 +598,7 @@ void main() {
         ..loggedDaysError = Exception('boom');
       await _pumpShell(tester, dietLogRepository: dietLogRepository);
 
-      await tester.tap(find.byKey(const Key('day-nav-calendar')));
+      await tester.tap(find.byKey(const Key('day-nav-label')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('calendar-day-2026-07-10')), findsOneWidget);
@@ -610,7 +617,7 @@ void main() {
         await tester.tap(find.byKey(const Key('day-nav-previous')));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const Key('day-nav-calendar')));
+        await tester.tap(find.byKey(const Key('day-nav-label')));
         await tester.pumpAndSettle();
 
         final theme = Theme.of(
@@ -638,7 +645,7 @@ void main() {
       (tester) async {
         await _pumpShell(tester);
 
-        await tester.tap(find.byKey(const Key('day-nav-calendar')));
+        await tester.tap(find.byKey(const Key('day-nav-label')));
         await tester.pumpAndSettle();
 
         final theme = Theme.of(
@@ -658,7 +665,7 @@ void main() {
     ) async {
       await _pumpShell(tester);
 
-      await tester.tap(find.byKey(const Key('day-nav-calendar')));
+      await tester.tap(find.byKey(const Key('day-nav-label')));
       await tester.pumpAndSettle();
 
       final context = tester.element(find.byKey(const Key('calendar-weekday-0')));
@@ -675,7 +682,7 @@ void main() {
       await _pumpShell(tester);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.byKey(const Key('day-nav-calendar')));
+      await tester.tap(find.byKey(const Key('day-nav-label')));
       await tester.pumpAndSettle();
 
       expect(
