@@ -42,6 +42,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorSignInFailed => '登入失敗，請再試一次。';
 
   @override
+  String get registerTitle => '建立帳號';
+
+  @override
+  String get registerSubtitle => '開始使用 Life OS';
+
+  @override
+  String get confirmPasswordLabel => '確認密碼';
+
+  @override
+  String get registerButton => '註冊';
+
+  @override
+  String get signingUp => '註冊中…';
+
+  @override
+  String get errorPasswordMismatch => '兩次密碼不一致';
+
+  @override
+  String get errorEmailAlreadyInUse => '這個電子郵件已被使用';
+
+  @override
+  String get errorWeakPassword => '密碼強度不足（至少 6 個字元）';
+
+  @override
+  String get noAccountLink => '還沒有帳號？註冊';
+
+  @override
+  String get haveAccountLink => '已有帳號？登入';
+
+  @override
   String get greetingMorning => '早安';
 
   @override
@@ -360,6 +390,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorSignInFailed => '登入失敗，請再試一次。';
+
+  @override
+  String get registerTitle => '建立帳號';
+
+  @override
+  String get registerSubtitle => '開始使用 Life OS';
+
+  @override
+  String get confirmPasswordLabel => '確認密碼';
+
+  @override
+  String get registerButton => '註冊';
+
+  @override
+  String get signingUp => '註冊中…';
+
+  @override
+  String get errorPasswordMismatch => '兩次密碼不一致';
+
+  @override
+  String get errorEmailAlreadyInUse => '這個電子郵件已被使用';
+
+  @override
+  String get errorWeakPassword => '密碼強度不足（至少 6 個字元）';
+
+  @override
+  String get noAccountLink => '還沒有帳號？註冊';
+
+  @override
+  String get haveAccountLink => '已有帳號？登入';
 
   @override
   String get greetingMorning => '早安';

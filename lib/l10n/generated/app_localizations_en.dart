@@ -43,6 +43,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorSignInFailed => 'Sign-in failed. Please try again.';
 
   @override
+  String get registerTitle => 'Create account';
+
+  @override
+  String get registerSubtitle => 'Get started with Life OS';
+
+  @override
+  String get confirmPasswordLabel => 'Confirm password';
+
+  @override
+  String get registerButton => 'Register';
+
+  @override
+  String get signingUp => 'Signing up…';
+
+  @override
+  String get errorPasswordMismatch => 'Passwords don\'t match';
+
+  @override
+  String get errorEmailAlreadyInUse => 'This email is already in use';
+
+  @override
+  String get errorWeakPassword =>
+      'Password is too weak (at least 6 characters)';
+
+  @override
+  String get noAccountLink => 'No account? Register';
+
+  @override
+  String get haveAccountLink => 'Have an account? Sign in';
+
+  @override
   String get greetingMorning => 'Good morning';
 
   @override

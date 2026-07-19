@@ -6,70 +6,87 @@ import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../application/sign_up.dart';
-import 'login_controller.dart';
-import 'register_screen.dart';
+import 'register_controller.dart';
 
-/// Card width above which the sign-in card stops growing (design.md:
-/// centered, bounded-width card on wide/desktop viewports).
+/// Card width above which the register card stops growing (mirrors
+/// [LoginScreen]'s `_cardMaxWidth`).
 const _cardMaxWidth = 420.0;
 const _cardPadding = 24.0;
 
-class LoginScreen extends StatefulWidget {
-  final LoginController controller;
-  final LocaleController localeController;
+class RegisterScreen extends StatefulWidget {
   final SignUp signUp;
+  final LocaleController localeController;
 
-  const LoginScreen({
+  const RegisterScreen({
     super.key,
-    required this.controller,
-    required this.localeController,
     required this.signUp,
+    required this.localeController,
   });
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
+  late final RegisterController _controller;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
+  final _confirmPasswordFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onControllerChanged);
+    _controller = RegisterController(widget.signUp);
+    _controller.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
     super.dispose();
   }
 
-  void _onControllerChanged() => setState(() {});
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+    // Registration succeeded: authStateChanges only swaps the app's bottom
+    // route, it doesn't discard routes pushed on top of it, so this screen
+    // must pop itself (see design.md D4).
+    if (_controller.succeeded && Navigator.canPop(context)) {
+      Navigator.of(context).pop();
+    }
+  }
 
   void _submit() {
-    widget.controller.submit(_emailController.text, _passwordController.text);
+    _controller.submit(
+      _emailController.text,
+      _passwordController.text,
+      _confirmPasswordController.text,
+    );
   }
 
   String? _errorText(AppLocalizations loc) {
-    return switch (widget.controller.error) {
+    return switch (_controller.error) {
       null => null,
-      LoginError.invalidCredentials => loc.errorIncorrectCredentials,
-      LoginError.invalidEmail => loc.errorInvalidEmail,
-      LoginError.accountDisabled => loc.errorAccountDisabled,
-      LoginError.tooManyRequests => loc.errorTooManyRequests,
-      LoginError.unknown => loc.errorSignInFailed,
+      RegisterError.emailAlreadyInUse => loc.errorEmailAlreadyInUse,
+      RegisterError.weakPassword => loc.errorWeakPassword,
+      RegisterError.invalidEmail => loc.errorInvalidEmail,
+      RegisterError.passwordMismatch => loc.errorPasswordMismatch,
+      RegisterError.unknown => loc.errorSomethingWentWrong,
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = widget.controller.isLoading;
+    final isLoading = _controller.isLoading;
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     final errorText = _errorText(loc);
@@ -91,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Center(
                     child: SingleChildScrollView(
                       child: SizedBox(
-                        key: const Key('login-card'),
+                        key: const Key('register-card'),
                         width: cardWidth,
                         child: Container(
                           padding: const EdgeInsets.all(_cardPadding),
@@ -111,13 +128,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               const Center(child: Mascot(size: 72)),
                               const SizedBox(height: 16),
                               Text(
-                                loc.welcomeBack,
+                                loc.registerTitle,
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.headlineMedium,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                loc.signInSubtitle,
+                                loc.registerSubtitle,
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
@@ -148,11 +165,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                 focusNode: _passwordFocusNode,
                                 enabled: !isLoading,
                                 obscureText: true,
-                                autofillHints: const [AutofillHints.password],
+                                autofillHints: const [AutofillHints.newPassword],
+                                textInputAction: TextInputAction.next,
+                                onSubmitted: (_) => FocusScope.of(
+                                  context,
+                                ).requestFocus(_confirmPasswordFocusNode),
+                                decoration: InputDecoration(
+                                  labelText: loc.passwordLabel,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                key: const Key('confirm-password-field'),
+                                controller: _confirmPasswordController,
+                                focusNode: _confirmPasswordFocusNode,
+                                enabled: !isLoading,
+                                obscureText: true,
+                                autofillHints: const [AutofillHints.newPassword],
                                 textInputAction: TextInputAction.done,
                                 onSubmitted: (_) => _submit(),
                                 decoration: InputDecoration(
-                                  labelText: loc.passwordLabel,
+                                  labelText: loc.confirmPasswordLabel,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -169,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onPressed: isLoading ? null : _submit,
                                 child: isLoading
                                     ? Semantics(
-                                        label: loc.signingIn,
+                                        label: loc.signingUp,
                                         child: SizedBox(
                                           height: 20,
                                           width: 20,
@@ -179,25 +212,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         ),
                                       )
-                                    : Text(loc.signInButton),
+                                    : Text(loc.registerButton),
                               ),
                               const SizedBox(height: 8),
                               TextButton(
-                                key: const Key('register-link'),
+                                key: const Key('sign-in-link'),
                                 onPressed: isLoading
                                     ? null
                                     : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => RegisterScreen(
-                                              signUp: widget.signUp,
-                                              localeController:
-                                                  widget.localeController,
-                                            ),
-                                          ),
-                                        );
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.of(context).pop();
+                                        }
                                       },
-                                child: Text(loc.noAccountLink),
+                                child: Text(loc.haveAccountLink),
                               ),
                             ],
                           ),

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/app.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
+import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
@@ -205,6 +206,12 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> signUp(String email, String password) async {
+    _isAuthenticated = true;
+    _controller.add(true);
+  }
+
+  @override
   Future<void> signOut() async {
     signOutCalled = true;
     _isAuthenticated = false;
@@ -224,6 +231,9 @@ class FakeAuthRepository implements AuthRepository {
 class ErroringAuthRepository implements AuthRepository {
   @override
   Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
 
   @override
   Future<void> signOut() async {}
@@ -272,12 +282,14 @@ Future<LocaleController> pumpApp(
   LocaleController? localeController,
   ThemeController? themeController,
   SignOut? signOut,
+  SignUp? signUp,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
   final resolvedThemeController =
       themeController ?? await testThemeController();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
+  final resolvedSignUp = signUp ?? SignUp(authRepository);
   final health = testHealthControllers();
   await tester.pumpWidget(
     App(
@@ -287,6 +299,7 @@ Future<LocaleController> pumpApp(
       localeController: resolvedLocaleController,
       themeController: resolvedThemeController,
       signOut: resolvedSignOut,
+      signUp: resolvedSignUp,
       healthTodayController: health.today,
       healthDictionaryController: health.dictionary,
       healthDailyTargetController: health.dailyTarget,

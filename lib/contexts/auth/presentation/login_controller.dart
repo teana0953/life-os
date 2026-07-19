@@ -46,6 +46,11 @@ class LoginController extends ChangeNotifier {
         AuthFailureCode.invalidEmail => LoginError.invalidEmail,
         AuthFailureCode.accountDisabled => LoginError.accountDisabled,
         AuthFailureCode.tooManyRequests => LoginError.tooManyRequests,
+        // The sign-in flow never produces these (sign-up-only failures),
+        // but the switch is exhaustive over AuthFailureCode so both must be
+        // covered.
+        AuthFailureCode.emailAlreadyInUse => LoginError.unknown,
+        AuthFailureCode.weakPassword => LoginError.unknown,
         AuthFailureCode.unknown => LoginError.unknown,
       };
     }

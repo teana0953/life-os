@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'contexts/auth/application/sign_out.dart';
+import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
@@ -55,6 +56,7 @@ class App extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final SignOut signOut;
+  final SignUp signUp;
   final TodayController healthTodayController;
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
@@ -71,6 +73,7 @@ class App extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.signOut,
+    required this.signUp,
     required this.healthTodayController,
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
@@ -165,6 +168,7 @@ class _AppState extends State<App> {
               return LoginScreen(
                 controller: widget.loginController,
                 localeController: widget.localeController,
+                signUp: widget.signUp,
               );
             },
           ),

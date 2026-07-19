@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'contexts/auth/application/sign_in.dart';
 import 'contexts/auth/application/sign_out.dart';
+import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/health/application/delete_entry.dart';
@@ -49,6 +50,7 @@ Future<void> main() async {
   );
 
   final signOut = SignOut(authRepository);
+  final signUp = SignUp(authRepository);
   final loginController = LoginController(SignIn(authRepository));
   final homeController = HomeController(GetProfile(profileRepository), signOut);
   final prefs = await SharedPreferences.getInstance();
@@ -102,6 +104,7 @@ Future<void> main() async {
       localeController: localeController,
       themeController: themeController,
       signOut: signOut,
+      signUp: signUp,
       healthTodayController: healthTodayController,
       healthDictionaryController: healthDictionaryController,
       healthDailyTargetController: healthDailyTargetController,

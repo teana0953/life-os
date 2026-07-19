@@ -15,6 +15,10 @@ AuthFailureCode authFailureCodeFor(String code) {
       return AuthFailureCode.accountDisabled;
     case 'too-many-requests':
       return AuthFailureCode.tooManyRequests;
+    case 'email-already-in-use':
+      return AuthFailureCode.emailAlreadyInUse;
+    case 'weak-password':
+      return AuthFailureCode.weakPassword;
     default:
       return AuthFailureCode.unknown;
   }
