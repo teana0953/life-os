@@ -142,9 +142,19 @@ class FakeDietLogRepository implements DietLogRepository {
       'meals': entry == null
           ? []
           : [
-              {'meal': 'breakfast', 'entries': [entry]},
+              {
+                'meal': 'breakfast',
+                'entries': [entry],
+              },
             ],
-      'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
+      'totals': {
+        'carbG': 0,
+        'proteinG': 0,
+        'fatG': 0,
+        'sugarG': 0,
+        'fiberG': 0,
+        'kcal': 0,
+      },
     });
   }
 
@@ -182,7 +192,9 @@ class FakeDietLogRepository implements DietLogRepository {
       'meat': portions?.meat ?? 0,
       'fruit': portions?.fruit ?? 0,
       'veg': portions?.veg ?? 0,
-      'eaten_at': (eatenAt ?? DateTime.utc(2026, 7, 18, 8)).toUtc().toIso8601String(),
+      'eaten_at': (eatenAt ?? DateTime.utc(2026, 7, 18, 8))
+          .toUtc()
+          .toIso8601String(),
       'logged_at': DateTime.utc(2026, 7, 18, 8, 1).toIso8601String(),
     });
   }
@@ -288,7 +300,8 @@ Future<FakeDietLogRepository> _pumpShell(
   FakeDietLogRepository? dietLogRepository,
   Locale locale = const Locale('en'),
 }) async {
-  final resolvedDietLogRepository = dietLogRepository ?? FakeDietLogRepository();
+  final resolvedDietLogRepository =
+      dietLogRepository ?? FakeDietLogRepository();
   final dailyTargetRepository = FakeDailyTargetRepository();
   final foodDictionaryRepository = FakeFoodDictionaryRepository();
 
@@ -385,36 +398,38 @@ void main() {
 
         await tester.tap(find.text(loc.dietTabDictionary));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
+        await tester.tap(
+          find.byKey(const Key('dictionary-manual-entry-button')),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(ManualEntryScreen), findsOneWidget);
       },
     );
 
-    testWidgets(
-      'saving a manual entry reloads Today',
-      (tester) async {
-        final dietLogRepository = await _pumpShell(tester);
-        final loc = lookupAppLocalizations(const Locale('en'));
-        final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
+    testWidgets('saving a manual entry reloads Today', (tester) async {
+      final dietLogRepository = await _pumpShell(tester);
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
-        await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const Key('manual-portion-staple-field')),
-          '1',
-        );
-        await tester.pump();
-        await tester.tap(find.byKey(const Key('manual-save-button')));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text(loc.dietTabDictionary));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('manual-portion-staple-field')),
+        '1',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('manual-save-button')));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(ManualEntryScreen), findsNothing);
-        expect(dietLogRepository.getDayLogCallCount, greaterThan(loadsBeforeSave));
-      },
-    );
+      expect(find.byType(ManualEntryScreen), findsNothing);
+      expect(
+        dietLogRepository.getDayLogCallCount,
+        greaterThan(loadsBeforeSave),
+      );
+    });
   });
 
   group('DietShellScreen day navigation', () {
@@ -468,11 +483,15 @@ void main() {
         final loc = lookupAppLocalizations(const Locale('en'));
 
         expect(
-          tester.widget<IconButton>(find.byKey(const Key('day-nav-previous'))).tooltip,
+          tester
+              .widget<IconButton>(find.byKey(const Key('day-nav-previous')))
+              .tooltip,
           loc.dietDayPrevTooltip,
         );
         expect(
-          tester.widget<IconButton>(find.byKey(const Key('day-nav-next'))).tooltip,
+          tester
+              .widget<IconButton>(find.byKey(const Key('day-nav-next')))
+              .tooltip,
           loc.dietDayNextTooltip,
         );
         expect(
@@ -636,7 +655,10 @@ void main() {
       (tester) async {
         await _pumpShell(
           tester,
-          locale: const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+          locale: const Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
+          ),
         );
         final expectedDate = DateFormat(
           'M月d日 EEEE',
@@ -647,7 +669,9 @@ void main() {
       },
     );
 
-    testWidgets('tapping the date pill still opens the calendar', (tester) async {
+    testWidgets('tapping the date pill still opens the calendar', (
+      tester,
+    ) async {
       final dietLogRepository = FakeDietLogRepository()
         ..loggedDaysToReturn = ['2026-07-15'];
       await _pumpShell(tester, dietLogRepository: dietLogRepository);
@@ -658,6 +682,29 @@ void main() {
       expect(dietLogRepository.receivedMonth, '2026-07');
       expect(find.byKey(const Key('calendar-day-2026-07-15')), findsOneWidget);
     });
+
+    testWidgets(
+      'centers the header within a maxWidth column on a wide (tablet/desktop) screen',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await _pumpShell(tester);
+
+        final constrainedBoxFinder = find.ancestor(
+          of: find.byKey(const Key('day-nav-label')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox && widget.constraints.maxWidth == 600,
+          ),
+        );
+        expect(constrainedBoxFinder, findsOneWidget);
+        expect(
+          tester.getSize(constrainedBoxFinder).width,
+          lessThanOrEqualTo(600),
+        );
+      },
+    );
   });
 
   group('DietShellScreen calendar', () {
@@ -707,22 +754,26 @@ void main() {
       expect(dietLogRepository.receivedDays.length, daysBefore);
     });
 
-    testWidgets('a failure to load logged days still leaves the calendar usable', (
-      tester,
-    ) async {
-      final dietLogRepository = FakeDietLogRepository()
-        ..loggedDaysError = Exception('boom');
-      await _pumpShell(tester, dietLogRepository: dietLogRepository);
+    testWidgets(
+      'a failure to load logged days still leaves the calendar usable',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository()
+          ..loggedDaysError = Exception('boom');
+        await _pumpShell(tester, dietLogRepository: dietLogRepository);
 
-      await tester.tap(find.byKey(const Key('day-nav-label')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('calendar-day-2026-07-10')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('calendar-day-2026-07-10')));
-      await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('calendar-day-2026-07-10')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const Key('calendar-day-2026-07-10')));
+        await tester.pumpAndSettle();
 
-      expect(dietLogRepository.receivedDays.last, '2026-07-10');
-    });
+        expect(dietLogRepository.receivedDays.last, '2026-07-10');
+      },
+    );
 
     testWidgets(
       'today and the viewed (selected) day get distinct, overlappable markers',
@@ -737,7 +788,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final theme = Theme.of(
-          tester.element(find.byKey(const Key('calendar-day-marker-2026-07-18'))),
+          tester.element(
+            find.byKey(const Key('calendar-day-marker-2026-07-18')),
+          ),
         );
 
         final todayMarker = tester.widget<Container>(
@@ -765,7 +818,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final theme = Theme.of(
-          tester.element(find.byKey(const Key('calendar-day-marker-2026-07-18'))),
+          tester.element(
+            find.byKey(const Key('calendar-day-marker-2026-07-18')),
+          ),
         );
         final marker = tester.widget<Container>(
           find.byKey(const Key('calendar-day-marker-2026-07-18')),
@@ -784,32 +839,41 @@ void main() {
       await tester.tap(find.byKey(const Key('day-nav-label')));
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.byKey(const Key('calendar-weekday-0')));
+      final context = tester.element(
+        find.byKey(const Key('calendar-weekday-0')),
+      );
       final expected = MaterialLocalizations.of(context).narrowWeekdays;
       for (var i = 0; i < 7; i++) {
-        final text = tester.widget<Text>(find.byKey(Key('calendar-weekday-$i')));
+        final text = tester.widget<Text>(
+          find.byKey(Key('calendar-weekday-$i')),
+        );
         expect(text.data, expected[i]);
       }
     });
 
-    testWidgets('the calendar prev/next month buttons expose localized tooltips', (
-      tester,
-    ) async {
-      await _pumpShell(tester);
-      final loc = lookupAppLocalizations(const Locale('en'));
+    testWidgets(
+      'the calendar prev/next month buttons expose localized tooltips',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.byKey(const Key('day-nav-label')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
 
-      expect(
-        tester.widget<IconButton>(find.byKey(const Key('calendar-prev-month'))).tooltip,
-        loc.dietCalendarPrevMonth,
-      );
-      expect(
-        tester.widget<IconButton>(find.byKey(const Key('calendar-next-month'))).tooltip,
-        loc.dietCalendarNextMonth,
-      );
-    });
+        expect(
+          tester
+              .widget<IconButton>(find.byKey(const Key('calendar-prev-month')))
+              .tooltip,
+          loc.dietCalendarPrevMonth,
+        );
+        expect(
+          tester
+              .widget<IconButton>(find.byKey(const Key('calendar-next-month')))
+              .tooltip,
+          loc.dietCalendarNextMonth,
+        );
+      },
+    );
   });
 
   group('DietShellScreen edit entry', () {
@@ -830,50 +894,58 @@ void main() {
       expect(nameField.controller?.text, '雞腿便當');
     });
 
-    testWidgets('saving in the edit sheet updates the entry and reloads the day', (
-      tester,
-    ) async {
-      final dietLogRepository = FakeDietLogRepository()
-        ..entryToLog = _shellEntryJson();
-      await _pumpShell(tester, dietLogRepository: dietLogRepository);
-      final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
+    testWidgets(
+      'saving in the edit sheet updates the entry and reloads the day',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository()
+          ..entryToLog = _shellEntryJson();
+        await _pumpShell(tester, dietLogRepository: dietLogRepository);
+        final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
 
-      await tester.tap(find.text('雞腿便當'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('edit-portion-staple-field')),
-        '5',
-      );
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('edit-save-button')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('雞腿便當'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('edit-portion-staple-field')),
+          '5',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('edit-save-button')));
+        await tester.pumpAndSettle();
 
-      expect(dietLogRepository.updatedEntryId, 'entry-1');
-      expect(dietLogRepository.updatedPortions?.staple, 5);
-      expect(find.byType(EditEntryScreen), findsNothing);
-      expect(dietLogRepository.getDayLogCallCount, greaterThan(loadsBeforeSave));
-    });
+        expect(dietLogRepository.updatedEntryId, 'entry-1');
+        expect(dietLogRepository.updatedPortions?.staple, 5);
+        expect(find.byType(EditEntryScreen), findsNothing);
+        expect(
+          dietLogRepository.getDayLogCallCount,
+          greaterThan(loadsBeforeSave),
+        );
+      },
+    );
 
-    testWidgets('deleting in the edit sheet removes the entry and reloads the day', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(800, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final dietLogRepository = FakeDietLogRepository()
-        ..entryToLog = _shellEntryJson();
-      await _pumpShell(tester, dietLogRepository: dietLogRepository);
-      final loadsBeforeDelete = dietLogRepository.getDayLogCallCount;
+    testWidgets(
+      'deleting in the edit sheet removes the entry and reloads the day',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final dietLogRepository = FakeDietLogRepository()
+          ..entryToLog = _shellEntryJson();
+        await _pumpShell(tester, dietLogRepository: dietLogRepository);
+        final loadsBeforeDelete = dietLogRepository.getDayLogCallCount;
 
-      await tester.tap(find.text('雞腿便當'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('edit-delete-button')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('edit-delete-confirm-button')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('雞腿便當'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('edit-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('edit-delete-confirm-button')));
+        await tester.pumpAndSettle();
 
-      expect(dietLogRepository.deletedEntryId, 'entry-1');
-      expect(find.byType(EditEntryScreen), findsNothing);
-      expect(dietLogRepository.getDayLogCallCount, greaterThan(loadsBeforeDelete));
-    });
+        expect(dietLogRepository.deletedEntryId, 'entry-1');
+        expect(find.byType(EditEntryScreen), findsNothing);
+        expect(
+          dietLogRepository.getDayLogCallCount,
+          greaterThan(loadsBeforeDelete),
+        );
+      },
+    );
   });
 }
