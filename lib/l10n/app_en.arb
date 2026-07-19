@@ -56,6 +56,56 @@
     "description": "Generic sign-in failure message for unrecognized errors."
   },
 
+  "registerTitle": "Create account",
+  "@registerTitle": {
+    "description": "Heading shown on the register card."
+  },
+
+  "registerSubtitle": "Get started with Life OS",
+  "@registerSubtitle": {
+    "description": "Subtitle shown under the register heading."
+  },
+
+  "confirmPasswordLabel": "Confirm password",
+  "@confirmPasswordLabel": {
+    "description": "Label for the confirm-password text field on the register screen."
+  },
+
+  "registerButton": "Register",
+  "@registerButton": {
+    "description": "Label for the register submit button."
+  },
+
+  "signingUp": "Signing up…",
+  "@signingUp": {
+    "description": "Accessible label announced while a sign-up request is in flight."
+  },
+
+  "errorPasswordMismatch": "Passwords don't match",
+  "@errorPasswordMismatch": {
+    "description": "Shown when the password and confirm-password fields don't match."
+  },
+
+  "errorEmailAlreadyInUse": "This email is already in use",
+  "@errorEmailAlreadyInUse": {
+    "description": "Shown when registering with an email that already has an account."
+  },
+
+  "errorWeakPassword": "Password is too weak (at least 6 characters)",
+  "@errorWeakPassword": {
+    "description": "Shown when the auth service rejects the password as too weak."
+  },
+
+  "noAccountLink": "No account? Register",
+  "@noAccountLink": {
+    "description": "Link on the sign-in screen that navigates to the register screen."
+  },
+
+  "haveAccountLink": "Have an account? Sign in",
+  "@haveAccountLink": {
+    "description": "Link on the register screen that navigates back to the sign-in screen."
+  },
+
   "greetingMorning": "Good morning",
   "@greetingMorning": {
     "description": "Home screen greeting shown before noon."

@@ -6,6 +6,8 @@ enum AuthFailureCode {
   invalidEmail,
   accountDisabled,
   tooManyRequests,
+  emailAlreadyInUse,
+  weakPassword,
   unknown,
 }
 

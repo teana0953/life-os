@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
+import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
+import 'package:life_os/contexts/auth/presentation/register_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -28,6 +30,9 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
   Future<void> signOut() async {}
 
   @override
@@ -44,6 +49,9 @@ class UnknownErrorAuthRepository implements AuthRepository {
   Future<void> signIn(String email, String password) async {
     throw Exception('SocketException: Connection refused at 10.0.0.5:443');
   }
+
+  @override
+  Future<void> signUp(String email, String password) async {}
 
   @override
   Future<void> signOut() async {}
@@ -63,6 +71,9 @@ class HangingAuthRepository implements AuthRepository {
   Future<void> signIn(String email, String password) => signInCompleter.future;
 
   @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
   Future<void> signOut() async {}
 
   @override
@@ -76,13 +87,18 @@ Future<void> pumpLoginScreen(
   WidgetTester tester,
   LoginController controller, {
   Locale locale = const Locale('en'),
+  AuthRepository? authRepository,
 }) async {
   final localeController = await testLocaleController();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
       localeController: localeController,
-      home: LoginScreen(controller: controller, localeController: localeController),
+      home: LoginScreen(
+        controller: controller,
+        localeController: localeController,
+        signUp: SignUp(authRepository ?? FakeAuthRepository()),
+      ),
     ),
   );
 }
@@ -283,6 +299,21 @@ void main() {
 
         expect(find.text(zhHant.welcomeBack), findsOneWidget);
         expect(find.text(en.welcomeBack), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'tapping the register link pushes RegisterScreen',
+      (tester) async {
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        await pumpLoginScreen(tester, controller, authRepository: repository);
+
+        expect(find.byType(RegisterScreen), findsNothing);
+        await tester.tap(find.byKey(const Key('register-link')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(RegisterScreen), findsOneWidget);
       },
     );
   });

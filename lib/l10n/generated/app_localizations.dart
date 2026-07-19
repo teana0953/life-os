@@ -165,6 +165,66 @@ abstract class AppLocalizations {
   /// **'Sign-in failed. Please try again.'**
   String get errorSignInFailed;
 
+  /// Heading shown on the register card.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get registerTitle;
+
+  /// Subtitle shown under the register heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started with Life OS'**
+  String get registerSubtitle;
+
+  /// Label for the confirm-password text field on the register screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get confirmPasswordLabel;
+
+  /// Label for the register submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerButton;
+
+  /// Accessible label announced while a sign-up request is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing up…'**
+  String get signingUp;
+
+  /// Shown when the password and confirm-password fields don't match.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords don\'t match'**
+  String get errorPasswordMismatch;
+
+  /// Shown when registering with an email that already has an account.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already in use'**
+  String get errorEmailAlreadyInUse;
+
+  /// Shown when the auth service rejects the password as too weak.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is too weak (at least 6 characters)'**
+  String get errorWeakPassword;
+
+  /// Link on the sign-in screen that navigates to the register screen.
+  ///
+  /// In en, this message translates to:
+  /// **'No account? Register'**
+  String get noAccountLink;
+
+  /// Link on the register screen that navigates back to the sign-in screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Have an account? Sign in'**
+  String get haveAccountLink;
+
   /// Home screen greeting shown before noon.
   ///
   /// In en, this message translates to:

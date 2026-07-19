@@ -43,6 +43,17 @@ void main() {
       );
     });
 
+    test('maps email-already-in-use to emailAlreadyInUse', () {
+      expect(
+        authFailureCodeFor('email-already-in-use'),
+        AuthFailureCode.emailAlreadyInUse,
+      );
+    });
+
+    test('maps weak-password to weakPassword', () {
+      expect(authFailureCodeFor('weak-password'), AuthFailureCode.weakPassword);
+    });
+
     test('falls back to unknown for unrecognized codes, without leaking the code', () {
       final code = authFailureCodeFor('internal-error-xyz');
 

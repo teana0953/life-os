@@ -1,6 +1,12 @@
 /// Port for Firebase email/password authentication.
 abstract class AuthRepository {
   Future<void> signIn(String email, String password);
+
+  /// Creates a new account with [email] and [password]. On success the user
+  /// is signed in, mirroring `createUserWithEmailAndPassword`'s auto-sign-in
+  /// behavior.
+  Future<void> signUp(String email, String password);
+
   Future<void> signOut();
 
   /// The current user's ID token, or `null` if signed out.
