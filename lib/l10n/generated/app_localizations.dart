@@ -603,6 +603,18 @@ abstract class AppLocalizations {
   /// **'This removes the entry and can\'t be undone.'**
   String get dietDeleteConfirmMessage;
 
+  /// Header title shown above the day-navigation row when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Food'**
+  String get dietTodayTitle;
+
+  /// Header title shown above the day-navigation row when viewing a past day.
+  ///
+  /// In en, this message translates to:
+  /// **'Food Log'**
+  String get dietHistoryTitle;
+
   /// Day-navigation header label when the viewed day is today.
   ///
   /// In en, this message translates to:

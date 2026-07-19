@@ -288,6 +288,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
 
   @override
+  String get dietTodayTitle => '今日飲食';
+
+  @override
+  String get dietHistoryTitle => '飲食紀錄';
+
+  @override
   String get dietDayToday => '今日';
 
   @override
@@ -600,6 +606,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
+
+  @override
+  String get dietTodayTitle => '今日飲食';
+
+  @override
+  String get dietHistoryTitle => '飲食紀錄';
 
   @override
   String get dietDayToday => '今日';

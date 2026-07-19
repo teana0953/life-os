@@ -295,6 +295,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'This removes the entry and can\'t be undone.';
 
   @override
+  String get dietTodayTitle => 'Today\'s Food';
+
+  @override
+  String get dietHistoryTitle => 'Food Log';
+
+  @override
   String get dietDayToday => 'Today';
 
   @override
