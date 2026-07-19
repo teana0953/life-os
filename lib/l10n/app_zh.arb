@@ -85,6 +85,8 @@
   "dietDeleteEntryButton": "刪除",
   "dietDeleteConfirmTitle": "刪除記錄？",
   "dietDeleteConfirmMessage": "這將移除該記錄，且無法復原。",
+  "dietTodayTitle": "今日飲食",
+  "dietHistoryTitle": "飲食紀錄",
   "dietDayToday": "今日",
   "dietDayYesterday": "昨天",
   "dietCalendarTitle": "日曆",

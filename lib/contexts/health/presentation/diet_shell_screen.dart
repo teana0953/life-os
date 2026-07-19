@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../application/get_logged_days.dart';
@@ -50,13 +51,22 @@ int _daysBetween(DateTime from, DateTime to) {
   return toUtc.difference(fromUtc).inDays;
 }
 
-/// The day-navigation header label: "Today"/"Yesterday" for the two nearby
-/// days, else a formatted date.
-String _dayLabel(AppLocalizations loc, DateTime viewedDate, DateTime today) {
+/// The day-navigation chip label: "Today"/"Yesterday" for the two nearby
+/// days, else `null` (no chip — the full date alone is shown).
+String? _dayChipLabel(AppLocalizations loc, DateTime viewedDate, DateTime today) {
   final diff = _daysBetween(viewedDate, today);
   if (diff == 0) return loc.dietDayToday;
   if (diff == 1) return loc.dietDayYesterday;
-  return DateFormat.yMMMd().format(viewedDate);
+  return null;
+}
+
+/// The full, always-shown date text for the day-navigation header, formatted
+/// per the active locale: `M月d日 EEEE` for Chinese (e.g. "7月19日 星期六"),
+/// `EEE, MMM d` otherwise (e.g. "Sat, Jul 19").
+String _fullDateLabel(BuildContext context, DateTime viewedDate) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  final pattern = languageTag.startsWith('zh') ? 'M月d日 EEEE' : 'EEE, MMM d';
+  return DateFormat(pattern, languageTag).format(viewedDate);
 }
 
 /// Diet shell: bottom navigation across Today, Dictionary, and Target.
@@ -208,7 +218,8 @@ class _DietShellScreenState extends State<DietShellScreen> {
       Column(
         children: [
           _DayNavBar(
-            label: _dayLabel(loc, _viewedDate, today),
+            viewedDate: _viewedDate,
+            today: today,
             // `DateUtils.addDaysToDate` does pure calendar-component
             // arithmetic (year/month/day), not `Duration` math on an
             // absolute instant, so it can't drift a day off across a DST
@@ -271,18 +282,23 @@ class _DietShellScreenState extends State<DietShellScreen> {
   }
 }
 
-/// Day-navigation header shown above the Today section (D3 in design.md):
-/// `‹ label ›`, where the label itself is the calendar entry point.
-/// [onNext] is `null` to disable the "next day" control when the viewed day
-/// is today.
+/// Diet header shown above the Today section (D3 in design.md): a mascot
+/// beside a title ("Today's Food" / "Food Log", depending on whether the
+/// viewed day is today) and a day-navigation row (`‹ date ›`, where the date
+/// itself is the calendar entry point). The date is always shown in full;
+/// today/yesterday are called out with a small chip *alongside* the date
+/// rather than replacing it. [onNext] is `null` to disable the "next day"
+/// control when the viewed day is today.
 class _DayNavBar extends StatelessWidget {
-  final String label;
+  final DateTime viewedDate;
+  final DateTime today;
   final VoidCallback onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onOpenCalendar;
 
   const _DayNavBar({
-    required this.label,
+    required this.viewedDate,
+    required this.today,
     required this.onPrevious,
     required this.onNext,
     required this.onOpenCalendar,
@@ -292,40 +308,95 @@ class _DayNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
+    final isToday = _daysBetween(viewedDate, today) == 0;
+    final title = isToday ? loc.dietTodayTitle : loc.dietHistoryTitle;
+    final chipLabel = _dayChipLabel(loc, viewedDate, today);
+    final dateText = _fullDateLabel(context, viewedDate);
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        IconButton(
-          key: const Key('day-nav-previous'),
-          tooltip: loc.dietDayPrevTooltip,
-          onPressed: onPrevious,
-          icon: const Icon(Icons.chevron_left),
-        ),
+        const Mascot(size: 34),
+        const SizedBox(width: 12),
         Expanded(
-          child: Tooltip(
-            message: loc.dietCalendarOpenTooltip,
-            child: Semantics(
-              button: true,
-              child: InkWell(
-                key: const Key('day-nav-label'),
-                onTap: onOpenCalendar,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
+              Row(
+                children: [
+                  IconButton(
+                    key: const Key('day-nav-previous'),
+                    tooltip: loc.dietDayPrevTooltip,
+                    onPressed: onPrevious,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Expanded(
+                    child: Tooltip(
+                      message: loc.dietCalendarOpenTooltip,
+                      child: Semantics(
+                        button: true,
+                        child: InkWell(
+                          key: const Key('day-nav-label'),
+                          onTap: onOpenCalendar,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (chipLabel != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      chipLabel,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Text(dateText, style: theme.textTheme.bodyMedium),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.calendar_month,
+                                  size: 16,
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('day-nav-next'),
+                    tooltip: loc.dietDayNextTooltip,
+                    onPressed: onNext,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ),
-        IconButton(
-          key: const Key('day-nav-next'),
-          tooltip: loc.dietDayNextTooltip,
-          onPressed: onNext,
-          icon: const Icon(Icons.chevron_right),
         ),
       ],
     );

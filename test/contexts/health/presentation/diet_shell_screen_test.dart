@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/delete_entry.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
@@ -32,6 +33,7 @@ import 'package:life_os/contexts/health/presentation/manual_entry_controller.dar
 import 'package:life_os/contexts/health/presentation/manual_entry_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/mascot.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -284,6 +286,7 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 Future<FakeDietLogRepository> _pumpShell(
   WidgetTester tester, {
   FakeDietLogRepository? dietLogRepository,
+  Locale locale = const Locale('en'),
 }) async {
   final resolvedDietLogRepository = dietLogRepository ?? FakeDietLogRepository();
   final dailyTargetRepository = FakeDailyTargetRepository();
@@ -291,6 +294,7 @@ Future<FakeDietLogRepository> _pumpShell(
 
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: DietShellScreen(
         authRepository: FakeAuthRepository(),
         todayController: TodayController(
@@ -542,6 +546,118 @@ void main() {
         expect(dietLogRepository.receivedDays.last, '2026-12-31');
       },
     );
+  });
+
+  group('DietShellScreen header', () {
+    testWidgets(
+      'shows the mascot, the today title, and a "Today" chip alongside the full date',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final expectedDate = DateFormat(
+          'EEE, MMM d',
+          'en',
+        ).format(DateTime(2026, 7, 18));
+
+        expect(find.byType(Mascot), findsOneWidget);
+        expect(find.text(loc.dietTodayTitle), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayToday),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining(expectedDate), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'switches to the history title and a "Yesterday" chip after going back a day',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final expectedDate = DateFormat(
+          'EEE, MMM d',
+          'en',
+        ).format(DateTime(2026, 7, 17));
+
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.dietHistoryTitle), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayYesterday),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining(expectedDate), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'shows no today/yesterday chip for an older day, but keeps showing the full date',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final expectedDate = DateFormat(
+          'EEE, MMM d',
+          'en',
+        ).format(DateTime(2026, 7, 10));
+
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('calendar-day-2026-07-10')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.dietHistoryTitle), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayToday),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayYesterday),
+          ),
+          findsNothing,
+        );
+        expect(find.textContaining(expectedDate), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'formats the full date per the active locale (Traditional Chinese)',
+      (tester) async {
+        await _pumpShell(
+          tester,
+          locale: const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+        final expectedDate = DateFormat(
+          'M月d日 EEEE',
+          'zh_Hant',
+        ).format(DateTime(2026, 7, 18));
+
+        expect(find.textContaining(expectedDate), findsOneWidget);
+      },
+    );
+
+    testWidgets('tapping the date pill still opens the calendar', (tester) async {
+      final dietLogRepository = FakeDietLogRepository()
+        ..loggedDaysToReturn = ['2026-07-15'];
+      await _pumpShell(tester, dietLogRepository: dietLogRepository);
+
+      await tester.tap(find.byKey(const Key('day-nav-label')));
+      await tester.pumpAndSettle();
+
+      expect(dietLogRepository.receivedMonth, '2026-07');
+      expect(find.byKey(const Key('calendar-day-2026-07-15')), findsOneWidget);
+    });
   });
 
   group('DietShellScreen calendar', () {

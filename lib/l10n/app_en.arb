@@ -432,6 +432,16 @@
     "description": "Body message of the confirmation dialog shown before deleting a food entry."
   },
 
+  "dietTodayTitle": "Today's Food",
+  "@dietTodayTitle": {
+    "description": "Header title shown above the day-navigation row when the viewed day is today."
+  },
+
+  "dietHistoryTitle": "Food Log",
+  "@dietHistoryTitle": {
+    "description": "Header title shown above the day-navigation row when viewing a past day."
+  },
+
   "dietDayToday": "Today",
   "@dietDayToday": {
     "description": "Day-navigation header label when the viewed day is today."
