@@ -59,6 +59,11 @@ class TodayScreen extends StatefulWidget {
   /// FAB is hidden when not provided.
   final VoidCallback? onAddEntry;
 
+  /// Called when the user taps a logged entry, so the shell can open the
+  /// edit-entry sheet prefilled with it. Entries are not tappable when not
+  /// provided.
+  final void Function(FoodEntry entry)? onEditEntry;
+
   /// Converts a meal group's (UTC) earliest `eatenAt` to local time before
   /// formatting as `HH:mm`. Defaults to `DateTime.toLocal`; injectable so
   /// tests can verify the conversion deterministically regardless of the
@@ -70,6 +75,7 @@ class TodayScreen extends StatefulWidget {
     required this.controller,
     required this.signOut,
     this.onAddEntry,
+    this.onEditEntry,
     this.toLocalTime = _defaultToLocal,
   });
 
@@ -193,15 +199,29 @@ class _TodayScreenState extends State<TodayScreen> {
               color: dietColors?.veg,
             ),
             const SizedBox(height: 20),
-            for (final meal in dayLog.meals) ...[
-              _MealCard(
-                meal: meal,
-                loc: loc,
-                theme: theme,
-                toLocalTime: widget.toLocalTime,
-              ),
-              const SizedBox(height: 16),
-            ],
+            if (dayLog.meals.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  loc.dietDayEmpty,
+                  key: const Key('today-empty-state'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              for (final meal in dayLog.meals) ...[
+                _MealCard(
+                  meal: meal,
+                  loc: loc,
+                  theme: theme,
+                  toLocalTime: widget.toLocalTime,
+                  onEditEntry: widget.onEditEntry,
+                ),
+                const SizedBox(height: 16),
+              ],
           ],
         );
     }
@@ -213,12 +233,14 @@ class _MealCard extends StatelessWidget {
   final AppLocalizations loc;
   final ThemeData theme;
   final DateTime Function(DateTime) toLocalTime;
+  final void Function(FoodEntry entry)? onEditEntry;
 
   const _MealCard({
     required this.meal,
     required this.loc,
     required this.theme,
     required this.toLocalTime,
+    required this.onEditEntry,
   });
 
   @override
@@ -265,6 +287,7 @@ class _MealCard extends StatelessWidget {
                 fruit: entry.fruit,
                 veg: entry.veg,
               ),
+              onTap: onEditEntry == null ? null : () => onEditEntry!(entry),
             ),
         ],
       ),

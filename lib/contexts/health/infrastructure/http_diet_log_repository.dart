@@ -148,4 +148,65 @@ class HttpDietLogRepository implements DietLogRepository {
       );
     }
   }
+
+  @override
+  Future<FoodEntry> updateEntry(
+    String idToken,
+    String entryId, {
+    String? name,
+    String? meal,
+    DateTime? eatenAt,
+    Portions? portions,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (meal != null) 'meal': meal,
+      if (eatenAt != null) 'eaten_at': eatenAt.toUtc().toIso8601String(),
+      if (portions != null)
+        'portions': {
+          'staple': portions.staple,
+          'meat': portions.meat,
+          'fruit': portions.fruit,
+          'veg': portions.veg,
+        },
+    };
+    final response = await _send(
+      () => client.patch(
+        Uri.parse('$baseUrl/api/diet-entries/$entryId'),
+        headers: _headers(idToken),
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw DietFetchFailure(
+        'Failed to update the entry (status ${response.statusCode}).',
+      );
+    }
+    try {
+      return FoodEntry.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    } catch (_) {
+      throw const DietFetchFailure(_genericFailureMessage);
+    }
+  }
+
+  @override
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/diet-entries/logged-days?month=$month'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw DietFetchFailure(
+        'Failed to load logged days (status ${response.statusCode}).',
+      );
+    }
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return (json['days'] as List).cast<String>();
+    } catch (_) {
+      throw const DietFetchFailure(_genericFailureMessage);
+    }
+  }
 }

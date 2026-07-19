@@ -256,5 +256,160 @@ void main() {
         throwsA(isA<DietFetchFailure>()),
       );
     });
+
+    test(
+      'updateEntry PATCHes {baseUrl}/api/diet-entries/:id with only the given fields',
+      () async {
+        Uri? capturedUri;
+        String? capturedMethod;
+        Map<String, dynamic>? capturedBody;
+        String? capturedAuthHeader;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          capturedMethod = request.method;
+          capturedAuthHeader = request.headers['Authorization'];
+          capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(jsonEncode(_entryJson()), 200, headers: {'content-type': 'application/json'});
+        });
+        final repository = HttpDietLogRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        final entry = await repository.updateEntry(
+          'token-123',
+          'entry-1',
+          name: '蛋',
+          portions: const Portions(staple: 2, meat: 1, fruit: 0, veg: 0),
+        );
+
+        expect(capturedUri, Uri.parse('https://example.test/api/diet-entries/entry-1'));
+        expect(capturedMethod, 'PATCH');
+        expect(capturedAuthHeader, 'Bearer token-123');
+        expect(capturedBody, {
+          'name': '蛋',
+          'portions': {'staple': 2.0, 'meat': 1.0, 'fruit': 0.0, 'veg': 0.0},
+        });
+        expect(capturedBody!.containsKey('meal'), isFalse);
+        expect(capturedBody!.containsKey('eaten_at'), isFalse);
+        expect(entry.staple, 6);
+      },
+    );
+
+    test('updateEntry sends eaten_at as UTC ISO-8601 when given', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_entryJson()), 200, headers: {'content-type': 'application/json'});
+      });
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.updateEntry(
+        'token-123',
+        'entry-1',
+        meal: 'lunch',
+        eatenAt: DateTime.utc(2026, 7, 18, 12, 30),
+      );
+
+      expect(capturedBody, {
+        'meal': 'lunch',
+        'eaten_at': '2026-07-18T12:30:00.000Z',
+      });
+    });
+
+    test('updateEntry sends an empty body when no field is given', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_entryJson()), 200, headers: {'content-type': 'application/json'});
+      });
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.updateEntry('token-123', 'entry-1');
+
+      expect(capturedBody, <String, dynamic>{});
+    });
+
+    test('updateEntry throws DietReauthenticationRequired on 401', () async {
+      final client = MockClient((request) async => http.Response('Unauthorized', 401));
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.updateEntry('expired-token', 'entry-1', name: 'x'),
+        throwsA(isA<DietReauthenticationRequired>()),
+      );
+    });
+
+    test('updateEntry throws DietFetchFailure on other non-2xx responses', () async {
+      final client = MockClient((request) async => http.Response('Internal Server Error', 500));
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.updateEntry('token-123', 'entry-1', name: 'x'),
+        throwsA(isA<DietFetchFailure>()),
+      );
+    });
+
+    test('loggedDays GETs {baseUrl}/api/diet-entries/logged-days?month= and parses days', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(
+          jsonEncode({'days': ['2026-07-01', '2026-07-15']}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final days = await repository.loggedDays('token-123', '2026-07');
+
+      expect(
+        capturedUri,
+        Uri.parse('https://example.test/api/diet-entries/logged-days?month=2026-07'),
+      );
+      expect(days, ['2026-07-01', '2026-07-15']);
+    });
+
+    test('loggedDays throws DietReauthenticationRequired on 401', () async {
+      final client = MockClient((request) async => http.Response('Unauthorized', 401));
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.loggedDays('expired-token', '2026-07'),
+        throwsA(isA<DietReauthenticationRequired>()),
+      );
+    });
+
+    test('loggedDays throws DietFetchFailure on other non-2xx responses', () async {
+      final client = MockClient((request) async => http.Response('Internal Server Error', 500));
+      final repository = HttpDietLogRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.loggedDays('token-123', '2026-07'),
+        throwsA(isA<DietFetchFailure>()),
+      );
+    });
   });
 }

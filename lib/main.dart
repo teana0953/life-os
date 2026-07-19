@@ -9,20 +9,24 @@ import 'contexts/auth/application/sign_in.dart';
 import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
+import 'contexts/health/application/delete_entry.dart';
 import 'contexts/health/application/favorite_food.dart';
 import 'contexts/health/application/get_day_diet_log.dart';
 import 'contexts/health/application/get_daily_target_with_remaining.dart';
+import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/application/list_favorites.dart';
 import 'contexts/health/application/log_food_from_dictionary.dart';
 import 'contexts/health/application/log_manual_entry.dart';
 import 'contexts/health/application/search_dictionary.dart';
 import 'contexts/health/application/set_daily_target.dart';
 import 'contexts/health/application/unfavorite_food.dart';
+import 'contexts/health/application/update_food_entry.dart';
 import 'contexts/health/infrastructure/http_daily_target_repository.dart';
 import 'contexts/health/infrastructure/http_diet_log_repository.dart';
 import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/edit_entry_controller.dart';
 import 'contexts/health/presentation/log_entry_controller.dart';
 import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
@@ -84,6 +88,11 @@ Future<void> main() async {
   final healthManualEntryController = ManualEntryController(
     LogManualEntry(dietLogRepository),
   );
+  final healthEditEntryController = EditEntryController(
+    UpdateFoodEntry(dietLogRepository),
+    DeleteEntry(dietLogRepository),
+  );
+  final healthGetLoggedDays = GetLoggedDays(dietLogRepository);
 
   runApp(
     App(
@@ -98,6 +107,8 @@ Future<void> main() async {
       healthDailyTargetController: healthDailyTargetController,
       healthLogEntryController: healthLogEntryController,
       healthManualEntryController: healthManualEntryController,
+      healthEditEntryController: healthEditEntryController,
+      healthGetLoggedDays: healthGetLoggedDays,
     ),
   );
 }

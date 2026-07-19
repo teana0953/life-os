@@ -5,8 +5,10 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/edit_entry_controller.dart';
 import 'contexts/health/presentation/log_entry_controller.dart';
 import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
@@ -58,6 +60,8 @@ class App extends StatefulWidget {
   final DailyTargetController healthDailyTargetController;
   final LogEntryController healthLogEntryController;
   final ManualEntryController healthManualEntryController;
+  final EditEntryController healthEditEntryController;
+  final GetLoggedDays healthGetLoggedDays;
 
   const App({
     super.key,
@@ -72,6 +76,8 @@ class App extends StatefulWidget {
     required this.healthDailyTargetController,
     required this.healthLogEntryController,
     required this.healthManualEntryController,
+    required this.healthEditEntryController,
+    required this.healthGetLoggedDays,
   });
 
   @override
@@ -152,6 +158,8 @@ class _AppState extends State<App> {
                   healthDailyTargetController: widget.healthDailyTargetController,
                   healthLogEntryController: widget.healthLogEntryController,
                   healthManualEntryController: widget.healthManualEntryController,
+                  healthEditEntryController: widget.healthEditEntryController,
+                  healthGetLoggedDays: widget.healthGetLoggedDays,
                 );
               }
               return LoginScreen(
@@ -177,6 +185,8 @@ class _AuthenticatedHome extends StatefulWidget {
   final DailyTargetController healthDailyTargetController;
   final LogEntryController healthLogEntryController;
   final ManualEntryController healthManualEntryController;
+  final EditEntryController healthEditEntryController;
+  final GetLoggedDays healthGetLoggedDays;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -189,6 +199,8 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthDailyTargetController,
     required this.healthLogEntryController,
     required this.healthManualEntryController,
+    required this.healthEditEntryController,
+    required this.healthGetLoggedDays,
   });
 
   @override
@@ -220,6 +232,8 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthDailyTargetController: widget.healthDailyTargetController,
       healthLogEntryController: widget.healthLogEntryController,
       healthManualEntryController: widget.healthManualEntryController,
+      healthEditEntryController: widget.healthEditEntryController,
+      healthGetLoggedDays: widget.healthGetLoggedDays,
     );
   }
 }

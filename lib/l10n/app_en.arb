@@ -410,5 +410,75 @@
   "dietBonusNote": "✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).",
   "@dietBonusNote": {
     "description": "Muted, non-editable note on the daily target screen about a future exercise-based bonus."
+  },
+
+  "dietEditEntryTitle": "Edit entry",
+  "@dietEditEntryTitle": {
+    "description": "Title of the bottom sheet for editing a past food entry."
+  },
+
+  "dietDeleteEntryButton": "Delete",
+  "@dietDeleteEntryButton": {
+    "description": "Label for the button that deletes a food entry, and for the destructive action in its confirmation dialog."
+  },
+
+  "dietDeleteConfirmTitle": "Delete entry?",
+  "@dietDeleteConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a food entry."
+  },
+
+  "dietDeleteConfirmMessage": "This removes the entry and can't be undone.",
+  "@dietDeleteConfirmMessage": {
+    "description": "Body message of the confirmation dialog shown before deleting a food entry."
+  },
+
+  "dietDayToday": "Today",
+  "@dietDayToday": {
+    "description": "Day-navigation header label when the viewed day is today."
+  },
+
+  "dietDayYesterday": "Yesterday",
+  "@dietDayYesterday": {
+    "description": "Day-navigation header label when the viewed day is yesterday."
+  },
+
+  "dietCalendarTitle": "Calendar",
+  "@dietCalendarTitle": {
+    "description": "Title of the dialog showing the month calendar for picking a day to view."
+  },
+
+  "dietCalendarCloseTooltip": "Close",
+  "@dietCalendarCloseTooltip": {
+    "description": "Tooltip/accessible label for the button that closes the calendar dialog."
+  },
+
+  "dietDayEmpty": "No entries yet for this day",
+  "@dietDayEmpty": {
+    "description": "Friendly empty-state message shown below the progress bars on Today when the viewed day has no logged meals."
+  },
+
+  "dietDayPrevTooltip": "Previous day",
+  "@dietDayPrevTooltip": {
+    "description": "Tooltip/accessible label for the day-navigation button that moves to the previous day."
+  },
+
+  "dietDayNextTooltip": "Next day",
+  "@dietDayNextTooltip": {
+    "description": "Tooltip/accessible label for the day-navigation button that moves to the next day."
+  },
+
+  "dietCalendarOpenTooltip": "Open calendar",
+  "@dietCalendarOpenTooltip": {
+    "description": "Tooltip/accessible label for the day-navigation button that opens the calendar dialog."
+  },
+
+  "dietCalendarPrevMonth": "Previous month",
+  "@dietCalendarPrevMonth": {
+    "description": "Tooltip/accessible label for the calendar dialog's previous-month button."
+  },
+
+  "dietCalendarNextMonth": "Next month",
+  "@dietCalendarNextMonth": {
+    "description": "Tooltip/accessible label for the calendar dialog's next-month button."
   }
 }

@@ -1,14 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
+import 'package:life_os/contexts/health/application/get_logged_days.dart';
 import 'package:life_os/contexts/health/domain/day_diet_log.dart';
 import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
 
 class FakeDietLogRepository implements DietLogRepository {
-  DayDietLog? logToReturn;
-  String? receivedIdToken;
-  String? receivedDay;
+  String? receivedMonth;
+  List<String> daysToReturn = const [];
 
   @override
   Future<FoodEntry> logFromDictionary(
@@ -37,9 +36,7 @@ class FakeDietLogRepository implements DietLogRepository {
 
   @override
   Future<DayDietLog> getDayLog(String idToken, String day) async {
-    receivedIdToken = idToken;
-    receivedDay = day;
-    return logToReturn!;
+    throw UnimplementedError();
   }
 
   @override
@@ -59,33 +56,22 @@ class FakeDietLogRepository implements DietLogRepository {
 
   @override
   Future<List<String>> loggedDays(String idToken, String month) async {
-    throw UnimplementedError();
+    receivedMonth = month;
+    return daysToReturn;
   }
 }
 
 void main() {
-  group('GetDayDietLog', () {
-    test('returns the day log via the repository', () async {
+  group('GetLoggedDays', () {
+    test('delegates to the repository with the given month', () async {
       final repository = FakeDietLogRepository()
-        ..logToReturn = DayDietLog.fromJson({
-          'day': '2026-07-18',
-          'meals': [],
-          'totals': {
-            'carbG': 0,
-            'proteinG': 0,
-            'fatG': 0,
-            'sugarG': 0,
-            'fiberG': 0,
-            'kcal': 0,
-          },
-        });
-      final getDayDietLog = GetDayDietLog(repository);
+        ..daysToReturn = ['2026-07-01', '2026-07-15'];
+      final useCase = GetLoggedDays(repository);
 
-      final log = await getDayDietLog('token-123', '2026-07-18');
+      final days = await useCase('token-123', '2026-07');
 
-      expect(log.day, '2026-07-18');
-      expect(repository.receivedIdToken, 'token-123');
-      expect(repository.receivedDay, '2026-07-18');
+      expect(repository.receivedMonth, '2026-07');
+      expect(days, ['2026-07-01', '2026-07-15']);
     });
   });
 }

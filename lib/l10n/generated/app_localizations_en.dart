@@ -280,4 +280,47 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dietBonusNote =>
       '✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).';
+
+  @override
+  String get dietEditEntryTitle => 'Edit entry';
+
+  @override
+  String get dietDeleteEntryButton => 'Delete';
+
+  @override
+  String get dietDeleteConfirmTitle => 'Delete entry?';
+
+  @override
+  String get dietDeleteConfirmMessage =>
+      'This removes the entry and can\'t be undone.';
+
+  @override
+  String get dietDayToday => 'Today';
+
+  @override
+  String get dietDayYesterday => 'Yesterday';
+
+  @override
+  String get dietCalendarTitle => 'Calendar';
+
+  @override
+  String get dietCalendarCloseTooltip => 'Close';
+
+  @override
+  String get dietDayEmpty => 'No entries yet for this day';
+
+  @override
+  String get dietDayPrevTooltip => 'Previous day';
+
+  @override
+  String get dietDayNextTooltip => 'Next day';
+
+  @override
+  String get dietCalendarOpenTooltip => 'Open calendar';
+
+  @override
+  String get dietCalendarPrevMonth => 'Previous month';
+
+  @override
+  String get dietCalendarNextMonth => 'Next month';
 }

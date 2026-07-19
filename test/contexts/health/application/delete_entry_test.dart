@@ -44,6 +44,23 @@ class FakeDietLogRepository implements DietLogRepository {
     receivedIdToken = idToken;
     receivedEntryId = entryId;
   }
+
+  @override
+  Future<FoodEntry> updateEntry(
+    String idToken,
+    String entryId, {
+    String? name,
+    String? meal,
+    DateTime? eatenAt,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
 }
 
 void main() {
