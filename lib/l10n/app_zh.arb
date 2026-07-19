@@ -108,10 +108,14 @@
   "dietDayYesterday": "昨天",
   "dietCalendarTitle": "日曆",
   "dietCalendarCloseTooltip": "關閉",
-  "dietDayEmpty": "這天還沒有記錄",
   "dietDayPrevTooltip": "前一天",
   "dietDayNextTooltip": "後一天",
   "dietCalendarOpenTooltip": "開啟日曆",
   "dietCalendarPrevMonth": "上個月",
-  "dietCalendarNextMonth": "下個月"
+  "dietCalendarNextMonth": "下個月",
+  "dietAddToMeal": "加",
+  "dietAddToMealA11yLabel": "加到{meal}",
+  "dietMealEmptyLabel": "還沒記錄",
+  "dietSnackAreaTitle": "點心",
+  "dietAddSnackButton": "加點心"
 }

@@ -48,16 +48,29 @@ DateTime _earliestEatenAt(List<FoodEntry> entries) =>
 
 DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
+/// The three standard meals, always shown as fixed Today cards in this
+/// order (D1 in design.md).
+const _standardMeals = ['breakfast', 'lunch', 'dinner'];
+
+/// Whether [meal] is one of the three standard meals; anything else is a
+/// snack group (D1 in design.md).
+bool _isStandardMeal(String meal) => _standardMeals.contains(meal);
+
 /// Today section: the day's diet log grouped by meal in eaten order, and
 /// per-category portion progress against the day's target.
 class TodayScreen extends StatefulWidget {
   final TodayController controller;
   final SignOut signOut;
 
-  /// Called when the user wants to log a new entry (e.g. from the FAB).
-  /// The shell wires this to open the dictionary/quantity-card flow; the
-  /// FAB is hidden when not provided.
-  final VoidCallback? onAddEntry;
+  /// Called when the user taps a meal card's add control, naming the meal
+  /// (a standard meal code, e.g. `'lunch'`) to log into. The shell wires
+  /// this to seed the logging session and switch to the Dictionary tab.
+  final void Function(String meal)? onAddToMeal;
+
+  /// Called when the user taps the snack area's add control, to start a
+  /// new snack-logging session. The shell wires this to seed the next
+  /// snack name and switch to the Dictionary tab.
+  final VoidCallback? onAddSnack;
 
   /// Called when the user taps a logged entry, so the shell can open the
   /// edit-entry sheet prefilled with it. Entries are not tappable when not
@@ -74,7 +87,8 @@ class TodayScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.signOut,
-    this.onAddEntry,
+    this.onAddToMeal,
+    this.onAddSnack,
     this.onEditEntry,
     this.toLocalTime = _defaultToLocal,
   });
@@ -105,14 +119,6 @@ class _TodayScreenState extends State<TodayScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      floatingActionButton: controller.status == TodayStatus.loaded &&
-              widget.onAddEntry != null
-          ? FloatingActionButton(
-              key: const Key('today-add-entry-fab'),
-              onPressed: widget.onAddEntry,
-              child: const Icon(Icons.add),
-            )
-          : null,
       body: SafeArea(child: _buildBody(context, controller, loc, theme)),
     );
   }
@@ -168,6 +174,10 @@ class _TodayScreenState extends State<TodayScreen> {
         final dayLog = controller.dayLog!;
         final target = controller.target!;
         final dietColors = theme.extension<DietCategoryColors>();
+        final mealsByName = {for (final m in dayLog.meals) m.meal: m};
+        final snackGroups = dayLog.meals
+            .where((m) => !_isStandardMeal(m.meal))
+            .toList();
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -199,55 +209,97 @@ class _TodayScreenState extends State<TodayScreen> {
               color: dietColors?.veg,
             ),
             const SizedBox(height: 20),
-            if (dayLog.meals.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  loc.dietDayEmpty,
-                  key: const Key('today-empty-state'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+            for (final meal in _standardMeals) ...[
+              _MealCard(
+                mealName: meal,
+                group: mealsByName[meal],
+                loc: loc,
+                theme: theme,
+                toLocalTime: widget.toLocalTime,
+                onEditEntry: widget.onEditEntry,
+                onAdd: widget.onAddToMeal == null
+                    ? null
+                    : () => widget.onAddToMeal!(meal),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    loc.dietSnackAreaTitle,
+                    style: theme.textTheme.titleLarge,
                   ),
                 ),
-              )
-            else
-              for (final meal in dayLog.meals) ...[
-                _MealCard(
-                  meal: meal,
-                  loc: loc,
-                  theme: theme,
-                  toLocalTime: widget.toLocalTime,
-                  onEditEntry: widget.onEditEntry,
+                Semantics(
+                  label: loc.dietAddToMealA11yLabel(loc.dietSnackBaseName),
+                  button: true,
+                  container: true,
+                  excludeSemantics: true,
+                  onTap: widget.onAddSnack,
+                  child: TextButton.icon(
+                    key: const Key('add-snack'),
+                    onPressed: widget.onAddSnack,
+                    icon: const Icon(Icons.add),
+                    label: Text(loc.dietAddSnackButton),
+                  ),
                 ),
-                const SizedBox(height: 16),
               ],
+            ),
+            const SizedBox(height: 8),
+            for (final group in snackGroups) ...[
+              _MealCard(
+                mealName: group.meal,
+                group: group,
+                loc: loc,
+                theme: theme,
+                toLocalTime: widget.toLocalTime,
+                onEditEntry: widget.onEditEntry,
+                onAdd: null,
+              ),
+              const SizedBox(height: 16),
+            ],
           ],
         );
     }
   }
 }
 
+/// Renders one meal card in both states (D1 in design.md): with entries —
+/// today's original look, emoji + earliest eaten-at time + editable rows +
+/// pills — or empty — emoji + name + a "not logged yet" line. [group] is
+/// `null` for an empty standard meal; the earliest-eaten-at time is only
+/// ever computed when [group] has entries, so an empty group never reaches
+/// `_earliestEatenAt` (which would otherwise crash on `reduce` over an
+/// empty list).
 class _MealCard extends StatelessWidget {
-  final MealGroup meal;
+  final String mealName;
+  final MealGroup? group;
   final AppLocalizations loc;
   final ThemeData theme;
   final DateTime Function(DateTime) toLocalTime;
   final void Function(FoodEntry entry)? onEditEntry;
+  final VoidCallback? onAdd;
 
   const _MealCard({
-    required this.meal,
+    required this.mealName,
+    required this.group,
     required this.loc,
     required this.theme,
     required this.toLocalTime,
     required this.onEditEntry,
+    required this.onAdd,
   });
 
   @override
   Widget build(BuildContext context) {
-    final time = DateFormat(
-      'HH:mm',
-    ).format(toLocalTime(_earliestEatenAt(meal.entries)));
+    final entries = group?.entries ?? const <FoodEntry>[];
+    final hasEntries = entries.isNotEmpty;
+    final time = hasEntries
+        ? DateFormat(
+            'HH:mm',
+          ).format(toLocalTime(_earliestEatenAt(entries)))
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -262,33 +314,60 @@ class _MealCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(_mealEmoji(meal.meal), style: theme.textTheme.titleLarge),
+              Text(_mealEmoji(mealName), style: theme.textTheme.titleLarge),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _mealLabel(loc, meal.meal),
+                  _mealLabel(loc, mealName),
                   style: theme.textTheme.titleLarge,
                 ),
               ),
-              Text(time, style: theme.textTheme.bodyMedium),
+              if (time != null) Text(time, style: theme.textTheme.bodyMedium),
             ],
           ),
           const SizedBox(height: 8),
-          for (final entry in meal.entries)
-            ListTile(
-              title: Text(
-                entry.name?.isNotEmpty == true
-                    ? entry.name!
-                    : loc.dietManualEntryFallbackName,
+          if (hasEntries)
+            for (final entry in entries)
+              ListTile(
+                title: Text(
+                  entry.name?.isNotEmpty == true
+                      ? entry.name!
+                      : loc.dietManualEntryFallbackName,
+                ),
+                trailing: PortionPills(
+                  staple: entry.staple,
+                  meat: entry.meat,
+                  fruit: entry.fruit,
+                  veg: entry.veg,
+                ),
+                onTap: onEditEntry == null ? null : () => onEditEntry!(entry),
+              )
+          else
+            Text(
+              loc.dietMealEmptyLabel,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              trailing: PortionPills(
-                staple: entry.staple,
-                meat: entry.meat,
-                fruit: entry.fruit,
-                veg: entry.veg,
-              ),
-              onTap: onEditEntry == null ? null : () => onEditEntry!(entry),
             ),
+          if (onAdd != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Semantics(
+                label: loc.dietAddToMealA11yLabel(_mealLabel(loc, mealName)),
+                button: true,
+                container: true,
+                excludeSemantics: true,
+                onTap: onAdd,
+                child: TextButton.icon(
+                  key: Key('add-to-meal-$mealName'),
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add),
+                  label: Text(loc.dietAddToMeal),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

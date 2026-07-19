@@ -455,6 +455,46 @@ void main() {
     });
   });
 
+  group('DietShellScreen Today add affordances', () {
+    testWidgets(
+      'tapping a meal card\'s add control seeds the logging bar with that meal and shows Dictionary',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.byKey(const Key('add-to-meal-lunch')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(loc.dietLoggingToMeal(loc.dietMealLunch)),
+          findsOneWidget,
+        );
+        expect(find.text('飯/1碗'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'tapping the snack area\'s add control starts the next snack session and shows Dictionary',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.byKey(const Key('add-snack')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(loc.dietLoggingToMeal(loc.dietSnackBaseName)),
+          findsOneWidget,
+        );
+        expect(find.text('飯/1碗'), findsOneWidget);
+      },
+    );
+  });
+
   group('DietShellScreen logging bar', () {
     Finder segment(AppLocalizations loc, String text) => find.descendant(
       of: find.byKey(const Key('logging-meal-bar-selector')),

@@ -167,7 +167,7 @@ class _PortionFormFieldsState extends State<PortionFormFields> {
             ),
             ChoiceChip(
               key: const Key('meal-chip-snack'),
-              label: Text(loc.dietAddSnack),
+              label: Text(loc.dietSnackBaseName),
               selected: isSnack,
               onSelected: (_) => widget.onMealChanged(snackMealValue),
             ),

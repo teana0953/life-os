@@ -361,9 +361,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietCalendarCloseTooltip => '關閉';
 
   @override
-  String get dietDayEmpty => '這天還沒有記錄';
-
-  @override
   String get dietDayPrevTooltip => '前一天';
 
   @override
@@ -377,6 +374,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietCalendarNextMonth => '下個月';
+
+  @override
+  String get dietAddToMeal => '加';
+
+  @override
+  String dietAddToMealA11yLabel(String meal) {
+    return '加到$meal';
+  }
+
+  @override
+  String get dietMealEmptyLabel => '還沒記錄';
+
+  @override
+  String get dietSnackAreaTitle => '點心';
+
+  @override
+  String get dietAddSnackButton => '加點心';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -736,9 +750,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietCalendarCloseTooltip => '關閉';
 
   @override
-  String get dietDayEmpty => '這天還沒有記錄';
-
-  @override
   String get dietDayPrevTooltip => '前一天';
 
   @override
@@ -752,4 +763,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietCalendarNextMonth => '下個月';
+
+  @override
+  String get dietAddToMeal => '加';
+
+  @override
+  String dietAddToMealA11yLabel(String meal) {
+    return '加到$meal';
+  }
+
+  @override
+  String get dietMealEmptyLabel => '還沒記錄';
+
+  @override
+  String get dietSnackAreaTitle => '點心';
+
+  @override
+  String get dietAddSnackButton => '加點心';
 }

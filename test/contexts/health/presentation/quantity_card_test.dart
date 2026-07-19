@@ -320,7 +320,7 @@ void main() {
 
       expect(find.byKey(const Key('snack-label-field')), findsNothing);
 
-      await tester.tap(find.text(loc.dietAddSnack));
+      await tester.tap(find.text(loc.dietSnackBaseName));
       await tester.pump();
 
       expect(find.byKey(const Key('snack-label-field')), findsOneWidget);

@@ -290,6 +290,20 @@ class _DietShellScreenState extends State<DietShellScreen> {
     }
   }
 
+  /// The next snack name for a brand-new snack session (D5 in design.md;
+  /// also used by [TodayScreen.onAddSnack], D2 in add-per-meal-add-entry's
+  /// design.md): computed from the day's current meal group names via
+  /// [nextSnackName].
+  String _nextSnackNameForDay() {
+    final loc = AppLocalizations.of(context)!;
+    final mealNames =
+        widget.todayController.dayLog?.meals
+            .map((meal) => meal.meal)
+            .toList() ??
+        const <String>[];
+    return nextSnackName(mealNames, loc.dietSnackBaseName);
+  }
+
   /// Handles a tap on the logging bar's segmented control (D1/D5 in
   /// design.md). The snack-numbering recompute is gated: it only runs on a
   /// real non-snack -> snack transition (`_currentMeal` wasn't already a
@@ -306,15 +320,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
         setState(() => _currentMeal = 'dinner');
       case _LoggingMealSegment.snack:
         if (_isSnackMeal(_currentMeal)) return;
-        final loc = AppLocalizations.of(context)!;
-        final mealNames =
-            widget.todayController.dayLog?.meals
-                .map((meal) => meal.meal)
-                .toList() ??
-            const <String>[];
-        setState(() {
-          _currentMeal = nextSnackName(mealNames, loc.dietSnackBaseName);
-        });
+        setState(() => _currentMeal = _nextSnackNameForDay());
     }
   }
 
@@ -396,7 +402,14 @@ class _DietShellScreenState extends State<DietShellScreen> {
                 child: TodayScreen(
                   controller: widget.todayController,
                   signOut: widget.signOut ?? SignOut(widget.authRepository),
-                  onAddEntry: () => setState(() => _index = 1),
+                  onAddToMeal: (meal) => setState(() {
+                    _currentMeal = meal;
+                    _index = 1;
+                  }),
+                  onAddSnack: () => setState(() {
+                    _currentMeal = _nextSnackNameForDay();
+                    _index = 1;
+                  }),
                   onEditEntry: _openEditEntry,
                 ),
               ),

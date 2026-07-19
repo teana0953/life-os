@@ -741,12 +741,6 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get dietCalendarCloseTooltip;
 
-  /// Friendly empty-state message shown below the progress bars on Today when the viewed day has no logged meals.
-  ///
-  /// In en, this message translates to:
-  /// **'No entries yet for this day'**
-  String get dietDayEmpty;
-
   /// Tooltip/accessible label for the day-navigation button that moves to the previous day.
   ///
   /// In en, this message translates to:
@@ -776,6 +770,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next month'**
   String get dietCalendarNextMonth;
+
+  /// Label on a Today meal card's control that jumps straight into logging a food for that meal. Paired with a leading add icon, so the text itself carries no plus sign.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get dietAddToMeal;
+
+  /// Accessible label for a Today add control, naming the meal (or the snack area) it adds into so screen readers can distinguish the breakfast/lunch/dinner cards and the snack area's add control from one another.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to {meal}'**
+  String dietAddToMealA11yLabel(String meal);
+
+  /// Shown on a Today meal card that has no logged entries yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No entries yet'**
+  String get dietMealEmptyLabel;
+
+  /// Header title for the Today snack area, listing the day's snack groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Snacks'**
+  String get dietSnackAreaTitle;
+
+  /// Label on the Today snack area's control that starts a new snack-logging session. Paired with a leading add icon, so the text itself carries no plus sign.
+  ///
+  /// In en, this message translates to:
+  /// **'Add snack'**
+  String get dietAddSnackButton;
 }
 
 class _AppLocalizationsDelegate
