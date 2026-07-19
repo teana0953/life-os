@@ -53,7 +53,11 @@ int _daysBetween(DateTime from, DateTime to) {
 
 /// The day-navigation chip label: "Today"/"Yesterday" for the two nearby
 /// days, else `null` (no chip — the full date alone is shown).
-String? _dayChipLabel(AppLocalizations loc, DateTime viewedDate, DateTime today) {
+String? _dayChipLabel(
+  AppLocalizations loc,
+  DateTime viewedDate,
+  DateTime today,
+) {
   final diff = _daysBetween(viewedDate, today);
   if (diff == 0) return loc.dietDayToday;
   if (diff == 1) return loc.dietDayYesterday;
@@ -215,31 +219,42 @@ class _DietShellScreenState extends State<DietShellScreen> {
     final isToday = _viewedDate == today;
 
     final screens = [
-      Column(
-        children: [
-          _DayNavBar(
-            viewedDate: _viewedDate,
-            today: today,
-            // `DateUtils.addDaysToDate` does pure calendar-component
-            // arithmetic (year/month/day), not `Duration` math on an
-            // absolute instant, so it can't drift a day off across a DST
-            // transition the way `_viewedDate.add(Duration(days: 1))` could.
-            onPrevious: () =>
-                _setViewedDate(DateUtils.addDaysToDate(_viewedDate, -1)),
-            onNext: isToday
-                ? null
-                : () => _setViewedDate(DateUtils.addDaysToDate(_viewedDate, 1)),
-            onOpenCalendar: _openCalendar,
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: _DayNavBar(
+                  viewedDate: _viewedDate,
+                  today: today,
+                  // `DateUtils.addDaysToDate` does pure calendar-component
+                  // arithmetic (year/month/day), not `Duration` math on an
+                  // absolute instant, so it can't drift a day off across a
+                  // DST transition the way
+                  // `_viewedDate.add(Duration(days: 1))` could.
+                  onPrevious: () =>
+                      _setViewedDate(DateUtils.addDaysToDate(_viewedDate, -1)),
+                  onNext: isToday
+                      ? null
+                      : () => _setViewedDate(
+                          DateUtils.addDaysToDate(_viewedDate, 1),
+                        ),
+                  onOpenCalendar: _openCalendar,
+                ),
+              ),
+              Expanded(
+                child: TodayScreen(
+                  controller: widget.todayController,
+                  signOut: widget.signOut ?? SignOut(widget.authRepository),
+                  onAddEntry: () => setState(() => _index = 1),
+                  onEditEntry: _openEditEntry,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: TodayScreen(
-              controller: widget.todayController,
-              signOut: widget.signOut ?? SignOut(widget.authRepository),
-              onAddEntry: () => setState(() => _index = 1),
-              onEditEntry: _openEditEntry,
-            ),
-          ),
-        ],
+        ),
       ),
       DictionaryScreen(
         controller: widget.dictionaryController,
@@ -366,14 +381,20 @@ class _DayNavBar extends StatelessWidget {
                                     ),
                                     child: Text(
                                       chipLabel,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: theme.colorScheme.onPrimaryContainer,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onPrimaryContainer,
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
                                 ],
-                                Text(dateText, style: theme.textTheme.bodyMedium),
+                                Text(
+                                  dateText,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
                                 const SizedBox(width: 4),
                                 Icon(
                                   Icons.calendar_month,
@@ -461,7 +482,11 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
   /// leading/trailing blanks), Sunday-first.
   List<List<int?>> _weeks() {
     final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final daysInMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    final daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
     final leadingBlanks = firstOfMonth.weekday % 7; // DateTime.sunday == 7
     final cells = <int?>[
       for (var i = 0; i < leadingBlanks; i++) null,
@@ -470,9 +495,7 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
     while (cells.length % 7 != 0) {
       cells.add(null);
     }
-    return [
-      for (var i = 0; i < cells.length; i += 7) cells.sublist(i, i + 7),
-    ];
+    return [for (var i = 0; i < cells.length; i += 7) cells.sublist(i, i + 7)];
   }
 
   @override
