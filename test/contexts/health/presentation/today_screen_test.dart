@@ -177,6 +177,8 @@ Future<void> _pumpToday(
   TodayController controller, {
   AuthRepository? authRepository,
   void Function(FoodEntry)? onEditEntry,
+  void Function(String)? onAddToMeal,
+  VoidCallback? onAddSnack,
 }) async {
   await tester.pumpWidget(
     l10nTestApp(
@@ -184,6 +186,8 @@ Future<void> _pumpToday(
         controller: controller,
         signOut: SignOut(authRepository ?? FakeAuthRepository()),
         onEditEntry: onEditEntry,
+        onAddToMeal: onAddToMeal,
+        onAddSnack: onAddSnack,
       ),
     ),
   );
@@ -410,15 +414,188 @@ void main() {
       expect(authRepository.signOutCalled, isTrue);
     });
 
-    testWidgets('shows a friendly empty state when the day has no meals', (
-      tester,
-    ) async {
-      final emptyDayLog = DayDietLog.fromJson({
-        'day': '2026-07-18',
-        'meals': [],
-        'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
-      });
-      final dietLogRepository = FakeDietLogRepository()..logToReturn = emptyDayLog;
+    testWidgets(
+      'always shows breakfast, lunch, and dinner cards in order, each empty, on an all-empty day',
+      (tester) async {
+        final emptyDayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [],
+          'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = emptyDayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietMealBreakfast), findsOneWidget);
+        expect(find.text(loc.dietMealLunch), findsOneWidget);
+        expect(find.text(loc.dietMealDinner), findsOneWidget);
+        expect(find.text(loc.dietMealEmptyLabel), findsNWidgets(3));
+        expect(find.byKey(const Key('today-empty-state')), findsNothing);
+
+        final breakfastPos = tester.getTopLeft(find.text(loc.dietMealBreakfast)).dy;
+        final lunchPos = tester.getTopLeft(find.text(loc.dietMealLunch)).dy;
+        final dinnerPos = tester.getTopLeft(find.text(loc.dietMealDinner)).dy;
+        expect(breakfastPos, lessThan(lunchPos));
+        expect(lunchPos, lessThan(dinnerPos));
+      },
+    );
+
+    testWidgets(
+      'when the day has only a lunch entry, breakfast and dinner cards still show, empty',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'lunch',
+              'entries': [_entryJson(meal: 'lunch', eatenAt: '2026-07-18T12:30:00.000Z')],
+            },
+          ],
+          'totals': {'carbG': 10, 'proteinG': 2, 'fatG': 1, 'sugarG': 0, 'fiberG': 0, 'kcal': 60},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietMealBreakfast), findsOneWidget);
+        expect(find.text(loc.dietMealLunch), findsOneWidget);
+        expect(find.text(loc.dietMealDinner), findsOneWidget);
+        expect(find.text(loc.dietMealEmptyLabel), findsNWidgets(2));
+        expect(find.text('food'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'tapping a meal card add control invokes onAddToMeal with that meal',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = _dayLog();
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+        final calls = <String>[];
+
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final semantics = tester.ensureSemantics();
+        await _pumpToday(tester, controller, onAddToMeal: calls.add);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.bySemanticsLabel(
+            loc.dietAddToMealA11yLabel(loc.dietMealBreakfast),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            loc.dietAddToMealA11yLabel(loc.dietMealLunch),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            loc.dietAddToMealA11yLabel(loc.dietMealDinner),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('add-to-meal-breakfast')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('add-to-meal-lunch')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('add-to-meal-dinner')));
+        await tester.pump();
+
+        expect(calls, ['breakfast', 'lunch', 'dinner']);
+        semantics.dispose();
+      },
+    );
+
+    testWidgets(
+      'the snack area lists non-standard-meal groups and its add control invokes onAddSnack',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'breakfast',
+              'entries': [_entryJson(meal: 'breakfast', eatenAt: '2026-07-18T08:00:00.000Z')],
+            },
+            {
+              'meal': '點心',
+              'entries': [
+                _entryJson(meal: '點心', eatenAt: '2026-07-18T15:00:00.000Z', name: '餅乾'),
+              ],
+            },
+            {
+              'meal': '下午茶',
+              'entries': [
+                _entryJson(meal: '下午茶', eatenAt: '2026-07-18T16:00:00.000Z', name: '奶茶'),
+              ],
+            },
+          ],
+          'totals': {'carbG': 30, 'proteinG': 6, 'fatG': 3, 'sugarG': 0, 'fiberG': 0, 'kcal': 180},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+        var addSnackCalled = false;
+
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final semantics = tester.ensureSemantics();
+        await _pumpToday(
+          tester,
+          controller,
+          onAddSnack: () => addSnackCalled = true,
+        );
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietSnackAreaTitle), findsOneWidget);
+        expect(find.text('點心'), findsOneWidget);
+        expect(find.text('下午茶'), findsOneWidget);
+        // Snack groups don't get their own per-card add control.
+        expect(find.byKey(const Key('add-to-meal-點心')), findsNothing);
+        // The add-snack control's accessible label names the snack context,
+        // distinct from the per-meal add controls' labels.
+        expect(
+          find.bySemanticsLabel(
+            loc.dietAddToMealA11yLabel(loc.dietSnackBaseName),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('add-snack')));
+        await tester.pump();
+
+        expect(addSnackCalled, isTrue);
+        semantics.dispose();
+      },
+    );
+
+    testWidgets('does not show a floating action button', (tester) async {
+      final dietLogRepository = FakeDietLogRepository()..logToReturn = _dayLog();
       final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
       final controller = TodayController(
         GetDayDietLog(dietLogRepository),
@@ -428,9 +605,8 @@ void main() {
 
       await _pumpToday(tester, controller);
 
-      final loc = lookupAppLocalizations(const Locale('en'));
-      expect(find.byKey(const Key('today-empty-state')), findsOneWidget);
-      expect(find.text(loc.dietDayEmpty), findsOneWidget);
+      expect(find.byKey(const Key('today-add-entry-fab')), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
     });
 
     testWidgets('tapping a logged entry invokes onEditEntry with that entry', (

@@ -198,7 +198,7 @@ class _QuantityCardState extends State<QuantityCard> {
             ),
             ChoiceChip(
               key: const Key('meal-chip-snack'),
-              label: Text(loc.dietAddSnack),
+              label: Text(loc.dietSnackBaseName),
               selected: isSnack,
               onSelected: (_) => controller.setMeal(snackMealValue),
             ),

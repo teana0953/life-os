@@ -188,6 +188,26 @@ void main() {
       expect(saved, isFalse);
     });
 
+    testWidgets(
+      'the snack meal chip shows the base snack word, not the "add snack" chip copy',
+      (tester) async {
+        final repository = FakeDietLogRepository();
+        final controller = ManualEntryController(LogManualEntry(repository));
+        controller.start(clock: () => DateTime(2026, 7, 18, 9, 5));
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('meal-chip-snack')),
+            matching: find.text(loc.dietSnackBaseName),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(loc.dietAddSnack), findsNothing);
+      },
+    );
+
     testWidgets('the eaten-at time is editable', (tester) async {
       final repository = FakeDietLogRepository();
       final controller = ManualEntryController(LogManualEntry(repository));

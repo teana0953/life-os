@@ -369,9 +369,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietCalendarCloseTooltip => 'Close';
 
   @override
-  String get dietDayEmpty => 'No entries yet for this day';
-
-  @override
   String get dietDayPrevTooltip => 'Previous day';
 
   @override
@@ -385,4 +382,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietCalendarNextMonth => 'Next month';
+
+  @override
+  String get dietAddToMeal => 'Add';
+
+  @override
+  String dietAddToMealA11yLabel(String meal) {
+    return 'Add to $meal';
+  }
+
+  @override
+  String get dietMealEmptyLabel => 'No entries yet';
+
+  @override
+  String get dietSnackAreaTitle => 'Snacks';
+
+  @override
+  String get dietAddSnackButton => 'Add snack';
 }
