@@ -578,6 +578,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).'**
   String get dietBonusNote;
+
+  /// Title of the bottom sheet for editing a past food entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit entry'**
+  String get dietEditEntryTitle;
+
+  /// Label for the button that deletes a food entry, and for the destructive action in its confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get dietDeleteEntryButton;
+
+  /// Title of the confirmation dialog shown before deleting a food entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete entry?'**
+  String get dietDeleteConfirmTitle;
+
+  /// Body message of the confirmation dialog shown before deleting a food entry.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the entry and can\'t be undone.'**
+  String get dietDeleteConfirmMessage;
+
+  /// Day-navigation header label when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dietDayToday;
+
+  /// Day-navigation header label when the viewed day is yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get dietDayYesterday;
+
+  /// Title of the dialog showing the month calendar for picking a day to view.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get dietCalendarTitle;
+
+  /// Tooltip/accessible label for the button that closes the calendar dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get dietCalendarCloseTooltip;
+
+  /// Friendly empty-state message shown below the progress bars on Today when the viewed day has no logged meals.
+  ///
+  /// In en, this message translates to:
+  /// **'No entries yet for this day'**
+  String get dietDayEmpty;
+
+  /// Tooltip/accessible label for the day-navigation button that moves to the previous day.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous day'**
+  String get dietDayPrevTooltip;
+
+  /// Tooltip/accessible label for the day-navigation button that moves to the next day.
+  ///
+  /// In en, this message translates to:
+  /// **'Next day'**
+  String get dietDayNextTooltip;
+
+  /// Tooltip/accessible label for the day-navigation button that opens the calendar dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Open calendar'**
+  String get dietCalendarOpenTooltip;
+
+  /// Tooltip/accessible label for the calendar dialog's previous-month button.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get dietCalendarPrevMonth;
+
+  /// Tooltip/accessible label for the calendar dialog's next-month button.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get dietCalendarNextMonth;
 }
 
 class _AppLocalizationsDelegate

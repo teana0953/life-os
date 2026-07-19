@@ -54,6 +54,23 @@ class FakeDietLogRepository implements DietLogRepository {
 
   @override
   Future<void> deleteEntry(String idToken, String entryId) async {}
+
+  @override
+  Future<FoodEntry> updateEntry(
+    String idToken,
+    String entryId, {
+    String? name,
+    String? meal,
+    DateTime? eatenAt,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
 }
 
 class FakeDailyTargetRepository implements DailyTargetRepository {
@@ -156,12 +173,14 @@ Future<void> _pumpToday(
   WidgetTester tester,
   TodayController controller, {
   AuthRepository? authRepository,
+  void Function(FoodEntry)? onEditEntry,
 }) async {
   await tester.pumpWidget(
     l10nTestApp(
       home: TodayScreen(
         controller: controller,
         signOut: SignOut(authRepository ?? FakeAuthRepository()),
+        onEditEntry: onEditEntry,
       ),
     ),
   );
@@ -386,6 +405,54 @@ void main() {
       await tester.tap(find.byKey(const Key('today-sign-out-button')));
       await tester.pumpAndSettle();
       expect(authRepository.signOutCalled, isTrue);
+    });
+
+    testWidgets('shows a friendly empty state when the day has no meals', (
+      tester,
+    ) async {
+      final emptyDayLog = DayDietLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [],
+        'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
+      });
+      final dietLogRepository = FakeDietLogRepository()..logToReturn = emptyDayLog;
+      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = TodayController(
+        GetDayDietLog(dietLogRepository),
+        GetDailyTargetWithRemaining(targetRepository),
+      );
+      await controller.load('token-123', '2026-07-18');
+
+      await _pumpToday(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.byKey(const Key('today-empty-state')), findsOneWidget);
+      expect(find.text(loc.dietDayEmpty), findsOneWidget);
+    });
+
+    testWidgets('tapping a logged entry invokes onEditEntry with that entry', (
+      tester,
+    ) async {
+      final dietLogRepository = FakeDietLogRepository()..logToReturn = _dayLog();
+      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = TodayController(
+        GetDayDietLog(dietLogRepository),
+        GetDailyTargetWithRemaining(targetRepository),
+      );
+      await controller.load('token-123', '2026-07-18');
+      FoodEntry? tappedEntry;
+
+      await _pumpToday(
+        tester,
+        controller,
+        onEditEntry: (entry) => tappedEntry = entry,
+      );
+
+      await tester.tap(find.text('food').first);
+      await tester.pumpAndSettle();
+
+      expect(tappedEntry, isNotNull);
+      expect(tappedEntry!.meal, 'breakfast');
     });
   });
 }

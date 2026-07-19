@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/health/application/delete_entry.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
 import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
+import 'package:life_os/contexts/health/application/get_logged_days.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/application/log_food_from_dictionary.dart';
 import 'package:life_os/contexts/health/application/log_manual_entry.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
+import 'package:life_os/contexts/health/application/update_food_entry.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_diet_log.dart';
@@ -21,6 +24,7 @@ import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
+import 'package:life_os/contexts/health/presentation/edit_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/manual_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
@@ -86,6 +90,23 @@ class _FakeDietLogRepository implements DietLogRepository {
 
   @override
   Future<void> deleteEntry(String idToken, String entryId) async {}
+
+  @override
+  Future<FoodEntry> updateEntry(
+    String idToken,
+    String entryId, {
+    String? name,
+    String? meal,
+    DateTime? eatenAt,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
 }
 
 class _FakeDailyTargetRepository implements DailyTargetRepository {
@@ -190,6 +211,11 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
         healthManualEntryController: ManualEntryController(
           LogManualEntry(dietLogRepository),
         ),
+        healthEditEntryController: EditEntryController(
+          UpdateFoodEntry(dietLogRepository),
+          DeleteEntry(dietLogRepository),
+        ),
+        healthGetLoggedDays: GetLoggedDays(dietLogRepository),
       ),
     ),
   );

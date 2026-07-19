@@ -80,5 +80,19 @@
   "dietSearchAllPrompt": "搜尋食物以查看結果",
   "dietBasisEquals": "{unit} ＝",
   "dietPreviewMathLabel": "{base} × {quantity}",
-  "dietBonusNote": "✳️ 運動後可加成份數（之後串運動模組）"
+  "dietBonusNote": "✳️ 運動後可加成份數（之後串運動模組）",
+  "dietEditEntryTitle": "編輯記錄",
+  "dietDeleteEntryButton": "刪除",
+  "dietDeleteConfirmTitle": "刪除記錄？",
+  "dietDeleteConfirmMessage": "這將移除該記錄，且無法復原。",
+  "dietDayToday": "今日",
+  "dietDayYesterday": "昨天",
+  "dietCalendarTitle": "日曆",
+  "dietCalendarCloseTooltip": "關閉",
+  "dietDayEmpty": "這天還沒有記錄",
+  "dietDayPrevTooltip": "前一天",
+  "dietDayNextTooltip": "後一天",
+  "dietCalendarOpenTooltip": "開啟日曆",
+  "dietCalendarPrevMonth": "上個月",
+  "dietCalendarNextMonth": "下個月"
 }

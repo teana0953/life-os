@@ -274,6 +274,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
+
+  @override
+  String get dietEditEntryTitle => '編輯記錄';
+
+  @override
+  String get dietDeleteEntryButton => '刪除';
+
+  @override
+  String get dietDeleteConfirmTitle => '刪除記錄？';
+
+  @override
+  String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
+
+  @override
+  String get dietDayToday => '今日';
+
+  @override
+  String get dietDayYesterday => '昨天';
+
+  @override
+  String get dietCalendarTitle => '日曆';
+
+  @override
+  String get dietCalendarCloseTooltip => '關閉';
+
+  @override
+  String get dietDayEmpty => '這天還沒有記錄';
+
+  @override
+  String get dietDayPrevTooltip => '前一天';
+
+  @override
+  String get dietDayNextTooltip => '後一天';
+
+  @override
+  String get dietCalendarOpenTooltip => '開啟日曆';
+
+  @override
+  String get dietCalendarPrevMonth => '上個月';
+
+  @override
+  String get dietCalendarNextMonth => '下個月';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -546,4 +588,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
+
+  @override
+  String get dietEditEntryTitle => '編輯記錄';
+
+  @override
+  String get dietDeleteEntryButton => '刪除';
+
+  @override
+  String get dietDeleteConfirmTitle => '刪除記錄？';
+
+  @override
+  String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
+
+  @override
+  String get dietDayToday => '今日';
+
+  @override
+  String get dietDayYesterday => '昨天';
+
+  @override
+  String get dietCalendarTitle => '日曆';
+
+  @override
+  String get dietCalendarCloseTooltip => '關閉';
+
+  @override
+  String get dietDayEmpty => '這天還沒有記錄';
+
+  @override
+  String get dietDayPrevTooltip => '前一天';
+
+  @override
+  String get dietDayNextTooltip => '後一天';
+
+  @override
+  String get dietCalendarOpenTooltip => '開啟日曆';
+
+  @override
+  String get dietCalendarPrevMonth => '上個月';
+
+  @override
+  String get dietCalendarNextMonth => '下個月';
 }

@@ -31,4 +31,21 @@ abstract class DietLogRepository {
   Future<DayDietLog> getDayLog(String idToken, String day);
 
   Future<void> deleteEntry(String idToken, String entryId);
+
+  /// Partially updates an existing entry: only the non-null named
+  /// parameters are sent. Sending [eatenAt] re-derives the entry's `day`
+  /// from its UTC calendar date on the backend, so callers MUST omit it
+  /// (pass `null`) unless the user actually changed the time — otherwise a
+  /// portions-only edit can silently move the entry to a different day.
+  Future<FoodEntry> updateEntry(
+    String idToken,
+    String entryId, {
+    String? name,
+    String? meal,
+    DateTime? eatenAt,
+    Portions? portions,
+  });
+
+  /// The days within [month] (`"YYYY-MM"`) that have at least one entry.
+  Future<List<String>> loggedDays(String idToken, String month);
 }
