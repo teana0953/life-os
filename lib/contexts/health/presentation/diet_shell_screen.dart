@@ -607,7 +607,7 @@ enum _LoggingMealSegment { breakfast, lunch, dinner, snack }
 
 /// The continuous-logging session bar shown above the Dictionary tab (D1 in
 /// design.md): a "Logging to" title naming the current meal, a Done button,
-/// a meal segmented control (breakfast/lunch/dinner/snack), and — only
+/// a wrapping row of meal choice chips (breakfast/lunch/dinner/snack), and — only
 /// while the snack segment is selected — a rename affordance for the
 /// current snack session.
 /// Purely presentational: [_DietShellScreenState] owns `_currentMeal`, the
@@ -683,9 +683,9 @@ class _LoggingMealBarState extends State<_LoggingMealBar> {
     return Container(
       key: const Key('logging-meal-bar'),
       padding: const EdgeInsets.all(16),
-      // Separates this bar's own meal SegmentedButton from the Dictionary
-      // screen's "all/favorites" SegmentedButton immediately below it — the
-      // two would otherwise visually run together (both are pill-grouped
+      // Separates this bar's own meal chip row from the Dictionary screen's
+      // "all/favorites" SegmentedButton immediately below it — the two
+      // would otherwise visually run together (both are pill-grouped
       // segmented controls sitting right on top of each other).
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -714,33 +714,38 @@ class _LoggingMealBarState extends State<_LoggingMealBar> {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: SegmentedButton<_LoggingMealSegment>(
-                  key: const Key('logging-meal-bar-selector'),
-                  segments: [
-                    ButtonSegment(
-                      value: _LoggingMealSegment.breakfast,
-                      label: Text(loc.dietMealBreakfast),
-                    ),
-                    ButtonSegment(
-                      value: _LoggingMealSegment.lunch,
-                      label: Text(loc.dietMealLunch),
-                    ),
-                    ButtonSegment(
-                      value: _LoggingMealSegment.dinner,
-                      label: Text(loc.dietMealDinner),
-                    ),
-                    ButtonSegment(
-                      value: _LoggingMealSegment.snack,
-                      label: Text(loc.dietSnackBaseName),
-                    ),
-                  ],
-                  selected: {widget.selectedSegment},
-                  onSelectionChanged: (selection) =>
-                      widget.onSegmentSelected(selection.first),
-                ),
+              ChoiceChip(
+                key: const Key('logging-meal-chip-breakfast'),
+                label: Text(loc.dietMealBreakfast),
+                selected: widget.selectedSegment == _LoggingMealSegment.breakfast,
+                onSelected: (_) =>
+                    widget.onSegmentSelected(_LoggingMealSegment.breakfast),
+              ),
+              ChoiceChip(
+                key: const Key('logging-meal-chip-lunch'),
+                label: Text(loc.dietMealLunch),
+                selected: widget.selectedSegment == _LoggingMealSegment.lunch,
+                onSelected: (_) =>
+                    widget.onSegmentSelected(_LoggingMealSegment.lunch),
+              ),
+              ChoiceChip(
+                key: const Key('logging-meal-chip-dinner'),
+                label: Text(loc.dietMealDinner),
+                selected: widget.selectedSegment == _LoggingMealSegment.dinner,
+                onSelected: (_) =>
+                    widget.onSegmentSelected(_LoggingMealSegment.dinner),
+              ),
+              ChoiceChip(
+                key: const Key('logging-meal-chip-snack'),
+                label: Text(loc.dietSnackBaseName),
+                selected: isSnackSelected,
+                onSelected: (_) =>
+                    widget.onSegmentSelected(_LoggingMealSegment.snack),
               ),
               if (isSnackSelected && !_renaming)
                 IconButton(

@@ -496,10 +496,24 @@ void main() {
   });
 
   group('DietShellScreen logging bar', () {
-    Finder segment(AppLocalizations loc, String text) => find.descendant(
-      of: find.byKey(const Key('logging-meal-bar-selector')),
-      matching: find.text(text),
-    );
+    // Taps the logging bar's meal ChoiceChip matching the given localized
+    // segment label (breakfast/lunch/dinner/snack), by mapping the label
+    // back to its `logging-meal-chip-<segment>` key.
+    Finder segment(AppLocalizations loc, String text) {
+      final String key;
+      if (text == loc.dietMealBreakfast) {
+        key = 'logging-meal-chip-breakfast';
+      } else if (text == loc.dietMealLunch) {
+        key = 'logging-meal-chip-lunch';
+      } else if (text == loc.dietMealDinner) {
+        key = 'logging-meal-chip-dinner';
+      } else if (text == loc.dietSnackBaseName) {
+        key = 'logging-meal-chip-snack';
+      } else {
+        throw ArgumentError('unknown logging bar segment label: $text');
+      }
+      return find.byKey(Key(key));
+    }
 
     testWidgets('a pick defaults to the current (breakfast) meal', (
       tester,
