@@ -96,6 +96,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     ),
                     decrementKey: const Key('daily-target-staple-decrement'),
                     incrementKey: const Key('daily-target-staple-increment'),
+                    valueKey: const Key('daily-target-staple-value'),
                   ),
                   const SizedBox(height: 12),
                   PortionStepper(
@@ -109,6 +110,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     ),
                     decrementKey: const Key('daily-target-meat-decrement'),
                     incrementKey: const Key('daily-target-meat-increment'),
+                    valueKey: const Key('daily-target-meat-value'),
                   ),
                   const SizedBox(height: 12),
                   PortionStepper(
@@ -122,6 +124,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     ),
                     decrementKey: const Key('daily-target-fruit-decrement'),
                     incrementKey: const Key('daily-target-fruit-increment'),
+                    valueKey: const Key('daily-target-fruit-value'),
                   ),
                   const SizedBox(height: 12),
                   PortionStepper(
@@ -135,6 +138,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                     ),
                     decrementKey: const Key('daily-target-veg-decrement'),
                     incrementKey: const Key('daily-target-veg-increment'),
+                    valueKey: const Key('daily-target-veg-value'),
                   ),
                   const SizedBox(height: 16),
                   Text(
