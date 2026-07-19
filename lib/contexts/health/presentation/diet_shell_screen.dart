@@ -203,18 +203,18 @@ class _DietShellScreenState extends State<DietShellScreen> {
       snackLabel: isSnack ? _currentMeal : '',
       clock: widget.clock,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LogEntryScreen(
-          controller: widget.logEntryController,
-          idToken: idToken,
-          day: _day,
-          onSaved: () => _onEntrySaved(
-            _savedMealLabel(
-              AppLocalizations.of(context)!,
-              widget.logEntryController.meal,
-              widget.logEntryController.snackLabel,
-            ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => LogEntryScreen(
+        controller: widget.logEntryController,
+        idToken: idToken,
+        day: _day,
+        onSaved: () => _onEntrySaved(
+          _savedMealLabel(
+            AppLocalizations.of(context)!,
+            widget.logEntryController.meal,
+            widget.logEntryController.snackLabel,
           ),
         ),
       ),

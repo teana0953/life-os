@@ -268,10 +268,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietSaveEntryButton => '儲存';
 
   @override
-  String get dietPreviewTitle => '預覽';
+  String dietAddToMealButton(String meal) {
+    return '加入$meal';
+  }
 
   @override
-  String get dietLogEntryTitle => '記錄飲食';
+  String get dietPreviewTitle => '預覽';
 
   @override
   String get dietSetTargetTitle => '設定每日目標';
@@ -657,10 +659,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietSaveEntryButton => '儲存';
 
   @override
-  String get dietPreviewTitle => '預覽';
+  String dietAddToMealButton(String meal) {
+    return '加入$meal';
+  }
 
   @override
-  String get dietLogEntryTitle => '記錄飲食';
+  String get dietPreviewTitle => '預覽';
 
   @override
   String get dietSetTargetTitle => '設定每日目標';

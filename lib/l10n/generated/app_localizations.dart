@@ -579,17 +579,17 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get dietSaveEntryButton;
 
+  /// Label for the button that adds a dictionary item to the current session's meal, naming that meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to {meal}'**
+  String dietAddToMealButton(String meal);
+
   /// Heading above the live portion preview on the log-entry card.
   ///
   /// In en, this message translates to:
   /// **'Preview'**
   String get dietPreviewTitle;
-
-  /// Screen title for logging a food entry from the dictionary.
-  ///
-  /// In en, this message translates to:
-  /// **'Log food'**
-  String get dietLogEntryTitle;
 
   /// Heading above the daily target editing fields.
   ///

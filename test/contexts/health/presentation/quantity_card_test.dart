@@ -308,23 +308,69 @@ void main() {
       expect(saved, isTrue);
     });
 
-    testWidgets('shows a custom snack label field when snack is chosen', (
+    testWidgets(
+      'has no meal chips and no snack-label field — the meal comes from the session',
+      (tester) async {
+        final controller = LogEntryController(
+          LogFoodFromDictionary(FakeDietLogRepository()),
+        );
+        controller.start(
+          _riceBowl(),
+          meal: snackMealValue,
+          snackLabel: '點心',
+          clock: () => DateTime.utc(2026, 7, 18),
+        );
+        await _pumpCard(tester, controller);
+
+        expect(find.byKey(const Key('meal-chip-breakfast')), findsNothing);
+        expect(find.byKey(const Key('meal-chip-lunch')), findsNothing);
+        expect(find.byKey(const Key('meal-chip-dinner')), findsNothing);
+        expect(find.byKey(const Key('meal-chip-snack')), findsNothing);
+        expect(find.byKey(const Key('snack-label-field')), findsNothing);
+      },
+    );
+
+    testWidgets('the add button names the session\'s standard meal', (
       tester,
     ) async {
       final controller = LogEntryController(
         LogFoodFromDictionary(FakeDietLogRepository()),
       );
-      controller.start(_riceBowl(), clock: () => DateTime.utc(2026, 7, 18));
+      controller.start(
+        _riceBowl(),
+        meal: 'lunch',
+        clock: () => DateTime.utc(2026, 7, 18),
+      );
       await _pumpCard(tester, controller);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      expect(find.byKey(const Key('snack-label-field')), findsNothing);
-
-      await tester.tap(find.text(loc.dietSnackBaseName));
-      await tester.pump();
-
-      expect(find.byKey(const Key('snack-label-field')), findsOneWidget);
+      expect(
+        find.text(loc.dietAddToMealButton(loc.dietMealLunch)),
+        findsOneWidget,
+      );
     });
+
+    testWidgets(
+      'the add button names the session\'s snack label, not the raw snack meal value',
+      (tester) async {
+        final controller = LogEntryController(
+          LogFoodFromDictionary(FakeDietLogRepository()),
+        );
+        controller.start(
+          _riceBowl(),
+          meal: snackMealValue,
+          snackLabel: '點心2',
+          clock: () => DateTime.utc(2026, 7, 18),
+        );
+        await _pumpCard(tester, controller);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(
+          find.text(loc.dietAddToMealButton('點心2')),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('shows the eaten-at time defaulted from the clock', (
       tester,
