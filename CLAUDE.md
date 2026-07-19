@@ -158,6 +158,14 @@ rationale.
   `tester.binding.setSurfaceSize(...)`, and always
   `addTearDown(() => tester.binding.setSurfaceSize(null))` to avoid
   leaking the size into later tests.
+- **Numeric input empty-zero convention**: for portion/quantity numeric
+  inputs, when the value is `0` the field shows an **empty string plus a
+  `hintText: '0'`**, never a literal `'0'` — so the user can type straight
+  away without deleting the 0 first. This applies both to inline fields and
+  to tap-to-type edit dialogs. Reference implementations:
+  `portion_form_fields.dart` (`value == 0 ? '' : …` with `hintText: '0'`)
+  and `portion_stepper.dart`'s `_PortionEditDialog`. Match this for any new
+  numeric portion/quantity input.
 
 ## i18n
 
