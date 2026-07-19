@@ -18,6 +18,7 @@ import 'log_entry_controller.dart';
 import 'log_entry_screen.dart';
 import 'manual_entry_controller.dart';
 import 'manual_entry_screen.dart';
+import 'snack_naming.dart';
 import 'today_controller.dart';
 import 'today_screen.dart';
 
@@ -62,6 +63,43 @@ String? _dayChipLabel(
   if (diff == 0) return loc.dietDayToday;
   if (diff == 1) return loc.dietDayYesterday;
   return null;
+}
+
+/// Whether [meal] represents a snack session (D1/D5 in design.md): any name
+/// that isn't one of the three standard meals. A snack session's
+/// `_currentMeal` holds its display name ("點心2", a rename like "下午茶", …)
+/// rather than a fixed code, so this name-based test is how both the
+/// logging bar's segment derivation and the snack-numbering recompute gate
+/// recognize "currently in a snack session".
+bool _isSnackMeal(String meal) =>
+    meal != 'breakfast' && meal != 'lunch' && meal != 'dinner';
+
+/// Maps a raw meal value to its localized label for the logging bar/snackbar
+/// (mirrors `today_screen.dart`'s private `_mealLabel`); a snack's display
+/// name is shown as-is.
+String _mealDisplayLabel(AppLocalizations loc, String meal) {
+  switch (meal) {
+    case 'breakfast':
+      return loc.dietMealBreakfast;
+    case 'lunch':
+      return loc.dietMealLunch;
+    case 'dinner':
+      return loc.dietMealDinner;
+    default:
+      return meal;
+  }
+}
+
+/// The display name for what a [LogEntryController]/[ManualEntryController]
+/// actually just saved (D3 in design.md): [meal]/[snackLabel] read from the
+/// controller *after* a successful save, not the shell's session-level
+/// `_currentMeal` — the quantity/manual card lets the user override the meal
+/// (or the snack label) for a single entry without changing the session, so
+/// the two can differ. A standard meal is localized; a snack shows its saved
+/// label verbatim.
+String _savedMealLabel(AppLocalizations loc, String meal, String snackLabel) {
+  if (meal == snackMealValue) return snackLabel;
+  return _mealDisplayLabel(loc, meal);
 }
 
 /// The full, always-shown date text for the day-navigation header, formatted
@@ -116,6 +154,13 @@ class _DietShellScreenState extends State<DietShellScreen> {
   late DateTime _viewedDate = _dateOnly(widget.clock());
   late String _day = _dayString(_viewedDate);
 
+  /// The logging session's current meal (D1 in design.md): a standard meal
+  /// code (`'breakfast'`/`'lunch'`/`'dinner'`) or a snack's display name
+  /// (e.g. "點心2", or a rename like "下午茶") — see [_isSnackMeal]. Session
+  /// state only; not persisted, and not changed by saving an entry (D3), so
+  /// the user keeps picking into the same meal/snack group.
+  String _currentMeal = 'breakfast';
+
   @override
   void initState() {
     super.initState();
@@ -148,14 +193,29 @@ class _DietShellScreenState extends State<DietShellScreen> {
   void _openLogEntry(FoodItem item) {
     final idToken = _idToken;
     if (idToken == null) return;
-    widget.logEntryController.start(item, clock: widget.clock);
+    final isSnack = _isSnackMeal(_currentMeal);
+    widget.logEntryController.start(
+      item,
+      // D5 seam: a snack is always handed to the controller as
+      // snackMealValue + the display name as snackLabel — never the bare
+      // display name as `meal` — so the card's `isSnack` check stays true.
+      meal: isSnack ? snackMealValue : _currentMeal,
+      snackLabel: isSnack ? _currentMeal : '',
+      clock: widget.clock,
+    );
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LogEntryScreen(
           controller: widget.logEntryController,
           idToken: idToken,
           day: _day,
-          onSaved: () => widget.todayController.load(idToken, _day),
+          onSaved: () => _onEntrySaved(
+            _savedMealLabel(
+              AppLocalizations.of(context)!,
+              widget.logEntryController.meal,
+              widget.logEntryController.snackLabel,
+            ),
+          ),
         ),
       ),
     );
@@ -164,17 +224,105 @@ class _DietShellScreenState extends State<DietShellScreen> {
   void _openManualEntry() {
     final idToken = _idToken;
     if (idToken == null) return;
-    widget.manualEntryController.start(clock: widget.clock);
+    final isSnack = _isSnackMeal(_currentMeal);
+    widget.manualEntryController.start(
+      meal: isSnack ? snackMealValue : _currentMeal,
+      snackLabel: isSnack ? _currentMeal : '',
+      clock: widget.clock,
+    );
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ManualEntryScreen(
           controller: widget.manualEntryController,
           idToken: idToken,
           day: _day,
-          onSaved: () => widget.todayController.load(idToken, _day),
+          onSaved: () => _onEntrySaved(
+            _savedMealLabel(
+              AppLocalizations.of(context)!,
+              widget.manualEntryController.meal,
+              widget.manualEntryController.snackLabel,
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  /// Shared `onSaved` for both the quantity card and manual entry (D3 in
+  /// design.md): reloads Today and shows a localized "Added to" snackbar
+  /// naming [mealLabel] — the meal actually saved (see [_savedMealLabel]),
+  /// which each opener resolves from its own controller since the quantity/
+  /// manual card can override the session's meal for a single entry. Does
+  /// NOT change `_currentMeal` — the next pick stays in the same meal/snack
+  /// group. Any snackbar still showing from a previous save is dismissed
+  /// first and the new one is kept brief, so rapid back-to-back logging
+  /// shows the latest confirmation instead of queuing a backlog of 4s
+  /// snackbars behind it.
+  void _onEntrySaved(String mealLabel) {
+    final idToken = _idToken;
+    if (idToken == null) return;
+    widget.todayController.load(idToken, _day);
+    final loc = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 1500),
+        content: Text(loc.dietAddedToMealSnackbar(mealLabel)),
+      ),
+    );
+  }
+
+  /// The logging bar's selected segment, derived (not stored) from
+  /// `_currentMeal` (D1 in design.md): the three standard meals select
+  /// themselves; any other value (a snack's display name) selects the snack
+  /// segment.
+  _LoggingMealSegment _selectedSegment() {
+    switch (_currentMeal) {
+      case 'breakfast':
+        return _LoggingMealSegment.breakfast;
+      case 'lunch':
+        return _LoggingMealSegment.lunch;
+      case 'dinner':
+        return _LoggingMealSegment.dinner;
+      default:
+        return _LoggingMealSegment.snack;
+    }
+  }
+
+  /// Handles a tap on the logging bar's segmented control (D1/D5 in
+  /// design.md). The snack-numbering recompute is gated: it only runs on a
+  /// real non-snack -> snack transition (`_currentMeal` wasn't already a
+  /// snack), so re-tapping the already-selected snack segment — e.g. a
+  /// rebuild after a save reloads Today — doesn't advance the number or
+  /// split the current batch into a new group.
+  void _onSegmentSelected(_LoggingMealSegment segment) {
+    switch (segment) {
+      case _LoggingMealSegment.breakfast:
+        setState(() => _currentMeal = 'breakfast');
+      case _LoggingMealSegment.lunch:
+        setState(() => _currentMeal = 'lunch');
+      case _LoggingMealSegment.dinner:
+        setState(() => _currentMeal = 'dinner');
+      case _LoggingMealSegment.snack:
+        if (_isSnackMeal(_currentMeal)) return;
+        final loc = AppLocalizations.of(context)!;
+        final mealNames =
+            widget.todayController.dayLog?.meals
+                .map((meal) => meal.meal)
+                .toList() ??
+            const <String>[];
+        setState(() {
+          _currentMeal = nextSnackName(mealNames, loc.dietSnackBaseName);
+        });
+    }
+  }
+
+  /// Renames the current snack session (D5 in design.md); still handed to
+  /// the controllers as `meal: snackMealValue, snackLabel: <typed name>` via
+  /// the same seam.
+  void _onRenameSnack(String name) {
+    setState(() => _currentMeal = name);
   }
 
   void _openEditEntry(FoodEntry entry) {
@@ -256,10 +404,23 @@ class _DietShellScreenState extends State<DietShellScreen> {
           ),
         ),
       ),
-      DictionaryScreen(
-        controller: widget.dictionaryController,
-        onSelectItem: _openLogEntry,
-        onManualEntry: _openManualEntry,
+      Column(
+        children: [
+          _LoggingMealBar(
+            selectedSegment: _selectedSegment(),
+            currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
+            onSegmentSelected: _onSegmentSelected,
+            onRenameSnack: _onRenameSnack,
+            onDone: () => setState(() => _index = 0),
+          ),
+          Expanded(
+            child: DictionaryScreen(
+              controller: widget.dictionaryController,
+              onSelectItem: _openLogEntry,
+              onManualEntry: _openManualEntry,
+            ),
+          ),
+        ],
       ),
       idToken == null
           ? const Center(child: CircularProgressIndicator())
@@ -420,6 +581,194 @@ class _DayNavBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The four selectable segments on [_LoggingMealBar] (D1 in design.md). A
+/// snack session's actual `_currentMeal` is its display name ("點心2", a
+/// rename, …), not this enum — [_DietShellScreenState._selectedSegment]
+/// derives [snack] whenever `_currentMeal` isn't one of the three standard
+/// meals (see [_isSnackMeal]).
+enum _LoggingMealSegment { breakfast, lunch, dinner, snack }
+
+/// The continuous-logging session bar shown above the Dictionary tab (D1 in
+/// design.md): a "Logging to" title naming the current meal, a Done button,
+/// a meal segmented control (breakfast/lunch/dinner/snack), and — only
+/// while the snack segment is selected — a rename affordance for the
+/// current snack session.
+/// Purely presentational: [_DietShellScreenState] owns `_currentMeal`, the
+/// segment-derivation, and the numbering recompute gate; this widget only
+/// reports taps via its callbacks. Colors from theme, strings from ARB.
+class _LoggingMealBar extends StatefulWidget {
+  final _LoggingMealSegment selectedSegment;
+  final String currentMealLabel;
+  final ValueChanged<_LoggingMealSegment> onSegmentSelected;
+  final ValueChanged<String> onRenameSnack;
+  final VoidCallback onDone;
+
+  const _LoggingMealBar({
+    required this.selectedSegment,
+    required this.currentMealLabel,
+    required this.onSegmentSelected,
+    required this.onRenameSnack,
+    required this.onDone,
+  });
+
+  @override
+  State<_LoggingMealBar> createState() => _LoggingMealBarState();
+}
+
+class _LoggingMealBarState extends State<_LoggingMealBar> {
+  bool _renaming = false;
+  late final TextEditingController _renameText;
+
+  @override
+  void initState() {
+    super.initState();
+    _renameText = TextEditingController(text: widget.currentMealLabel);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LoggingMealBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_renaming && oldWidget.currentMealLabel != widget.currentMealLabel) {
+      _renameText.text = widget.currentMealLabel;
+    }
+  }
+
+  @override
+  void dispose() {
+    _renameText.dispose();
+    super.dispose();
+  }
+
+  void _confirmRename() {
+    final value = _renameText.text.trim();
+    setState(() => _renaming = false);
+    if (value.isNotEmpty) widget.onRenameSnack(value);
+  }
+
+  /// Cancels the rename without saving: restores the field to the
+  /// still-current name (so a stale edit isn't silently kept for next time)
+  /// and closes the field. Never calls `onRenameSnack`, so `_currentMeal` is
+  /// untouched — the previous behavior of submitting an emptied field to
+  /// silently cancel is no longer the only way out.
+  void _cancelRename() {
+    setState(() {
+      _renaming = false;
+      _renameText.text = widget.currentMealLabel;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isSnackSelected = widget.selectedSegment == _LoggingMealSegment.snack;
+
+    return Container(
+      key: const Key('logging-meal-bar'),
+      padding: const EdgeInsets.all(16),
+      // Separates this bar's own meal SegmentedButton from the Dictionary
+      // screen's "all/favorites" SegmentedButton immediately below it — the
+      // two would otherwise visually run together (both are pill-grouped
+      // segmented controls sitting right on top of each other).
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  loc.dietLoggingToMeal(widget.currentMealLabel),
+                  key: const Key('logging-meal-bar-title'),
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              TextButton(
+                key: const Key('logging-meal-bar-done-button'),
+                onPressed: widget.onDone,
+                child: Text(loc.dietLoggingDoneButton),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<_LoggingMealSegment>(
+                  key: const Key('logging-meal-bar-selector'),
+                  segments: [
+                    ButtonSegment(
+                      value: _LoggingMealSegment.breakfast,
+                      label: Text(loc.dietMealBreakfast),
+                    ),
+                    ButtonSegment(
+                      value: _LoggingMealSegment.lunch,
+                      label: Text(loc.dietMealLunch),
+                    ),
+                    ButtonSegment(
+                      value: _LoggingMealSegment.dinner,
+                      label: Text(loc.dietMealDinner),
+                    ),
+                    ButtonSegment(
+                      value: _LoggingMealSegment.snack,
+                      label: Text(loc.dietSnackBaseName),
+                    ),
+                  ],
+                  selected: {widget.selectedSegment},
+                  onSelectionChanged: (selection) =>
+                      widget.onSegmentSelected(selection.first),
+                ),
+              ),
+              if (isSnackSelected && !_renaming)
+                IconButton(
+                  key: const Key('logging-meal-bar-rename-button'),
+                  tooltip: loc.dietSnackRenameTooltip,
+                  onPressed: () => setState(() => _renaming = true),
+                  icon: const Icon(Icons.edit),
+                ),
+            ],
+          ),
+          if (isSnackSelected && _renaming) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('logging-meal-bar-rename-field'),
+                    controller: _renameText,
+                    decoration: InputDecoration(
+                      hintText: loc.dietSnackRenameTooltip,
+                    ),
+                    onSubmitted: (_) => _confirmRename(),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('logging-meal-bar-rename-confirm'),
+                  tooltip: loc.dietSnackRenameConfirmTooltip,
+                  onPressed: _confirmRename,
+                  icon: const Icon(Icons.check),
+                ),
+                IconButton(
+                  key: const Key('logging-meal-bar-rename-cancel'),
+                  tooltip: loc.dietSnackRenameCancelTooltip,
+                  onPressed: _cancelRename,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -5,6 +5,8 @@ import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
 import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
+import 'package:life_os/contexts/health/presentation/log_entry_controller.dart'
+    show snackMealValue;
 import 'package:life_os/contexts/health/presentation/manual_entry_controller.dart';
 
 class FakeDietLogRepository implements DietLogRepository {
@@ -113,6 +115,32 @@ void main() {
       expect(controller.meal, 'breakfast');
       expect(controller.eatenAt, now);
       expect(controller.status, ManualEntryStatus.idle);
+    });
+
+    test('seeds a standard meal from the seam instead of hard-resetting to breakfast', () {
+      final controller = ManualEntryController(
+        LogManualEntry(FakeDietLogRepository()),
+      );
+
+      controller.start(meal: 'lunch', clock: () => DateTime.utc(2026, 7, 18, 9));
+
+      expect(controller.meal, 'lunch');
+      expect(controller.snackLabel, '');
+    });
+
+    test('seeds a snack session via snackMealValue + snackLabel (D5 seam)', () {
+      final controller = ManualEntryController(
+        LogManualEntry(FakeDietLogRepository()),
+      );
+
+      controller.start(
+        meal: snackMealValue,
+        snackLabel: '點心2',
+        clock: () => DateTime.utc(2026, 7, 18, 9),
+      );
+
+      expect(controller.meal, snackMealValue);
+      expect(controller.snackLabel, '點心2');
     });
   });
 

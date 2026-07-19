@@ -495,6 +495,48 @@ abstract class AppLocalizations {
   /// **'Snack name'**
   String get dietSnackLabelHint;
 
+  /// The base snack word used for the logging bar's snack segment and for auto-numbering a day's snack sessions (e.g. 'Snack', 'Snack2'). Distinct from dietAddSnack, which is chip copy ('Add snack') and would otherwise produce a nonsensical numbered name.
+  ///
+  /// In en, this message translates to:
+  /// **'Snack'**
+  String get dietSnackBaseName;
+
+  /// Title on the logging bar above the dictionary, showing which meal new picks will be logged into.
+  ///
+  /// In en, this message translates to:
+  /// **'Logging to {meal}'**
+  String dietLoggingToMeal(String meal);
+
+  /// Button on the logging bar that ends the current logging session and returns to Today.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get dietLoggingDoneButton;
+
+  /// Confirmation snackbar shown after saving a food entry, naming the meal it was added to.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to {meal}'**
+  String dietAddedToMealSnackbar(String meal);
+
+  /// Tooltip/hint for the rename affordance next to the snack segment on the logging bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Name this snack'**
+  String get dietSnackRenameTooltip;
+
+  /// Tooltip/accessible label for the checkmark button that confirms a snack rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm name'**
+  String get dietSnackRenameConfirmTooltip;
+
+  /// Tooltip/accessible label for the button that cancels a snack rename without saving, restoring the previous name.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel rename'**
+  String get dietSnackRenameCancelTooltip;
+
   /// Hint text for the food dictionary search field.
   ///
   /// In en, this message translates to:

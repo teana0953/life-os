@@ -335,6 +335,47 @@
     "description": "Hint text for the custom snack label text field."
   },
 
+  "dietSnackBaseName": "Snack",
+  "@dietSnackBaseName": {
+    "description": "The base snack word used for the logging bar's snack segment and for auto-numbering a day's snack sessions (e.g. 'Snack', 'Snack2'). Distinct from dietAddSnack, which is chip copy ('Add snack') and would otherwise produce a nonsensical numbered name."
+  },
+
+  "dietLoggingToMeal": "Logging to {meal}",
+  "@dietLoggingToMeal": {
+    "description": "Title on the logging bar above the dictionary, showing which meal new picks will be logged into.",
+    "placeholders": {
+      "meal": {"type": "String"}
+    }
+  },
+
+  "dietLoggingDoneButton": "Done",
+  "@dietLoggingDoneButton": {
+    "description": "Button on the logging bar that ends the current logging session and returns to Today."
+  },
+
+  "dietAddedToMealSnackbar": "Added to {meal}",
+  "@dietAddedToMealSnackbar": {
+    "description": "Confirmation snackbar shown after saving a food entry, naming the meal it was added to.",
+    "placeholders": {
+      "meal": {"type": "String"}
+    }
+  },
+
+  "dietSnackRenameTooltip": "Name this snack",
+  "@dietSnackRenameTooltip": {
+    "description": "Tooltip/hint for the rename affordance next to the snack segment on the logging bar."
+  },
+
+  "dietSnackRenameConfirmTooltip": "Confirm name",
+  "@dietSnackRenameConfirmTooltip": {
+    "description": "Tooltip/accessible label for the checkmark button that confirms a snack rename."
+  },
+
+  "dietSnackRenameCancelTooltip": "Cancel rename",
+  "@dietSnackRenameCancelTooltip": {
+    "description": "Tooltip/accessible label for the button that cancels a snack rename without saving, restoring the previous name."
+  },
+
   "dietSearchFoodHint": "Search food",
   "@dietSearchFoodHint": {
     "description": "Hint text for the food dictionary search field."
