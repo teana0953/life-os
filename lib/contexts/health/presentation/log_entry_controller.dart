@@ -35,12 +35,22 @@ class LogEntryController extends ChangeNotifier {
   LogEntryStatus status = LogEntryStatus.idle;
   LogEntryError? error;
 
-  /// Resets the card for logging [item]. Takes a [clock] (defaulting to
-  /// [DateTime.now]) so callers/tests can pin the default eaten-at time.
-  void start(FoodItem item, {DateTime Function() clock = DateTime.now}) {
+  /// Resets the card for logging [item], seeded from the current logging
+  /// session's [meal] (D2 in design.md) — a standard meal (e.g. `'lunch'`),
+  /// or [snackMealValue] with [snackLabel] set to the snack group's display
+  /// name (the D5 seam; never the bare display name as [meal] itself, or
+  /// the card's `isSnack` check would miss it). Defaults to `'breakfast'`
+  /// with no label. Takes a [clock] (defaulting to [DateTime.now]) so
+  /// callers/tests can pin the default eaten-at time.
+  void start(
+    FoodItem item, {
+    String meal = 'breakfast',
+    String snackLabel = '',
+    DateTime Function() clock = DateTime.now,
+  }) {
     this.item = item;
-    meal = 'breakfast';
-    snackLabel = '';
+    this.meal = meal;
+    this.snackLabel = snackLabel;
     useGrams = false;
     quantity = 1;
     grams = 0;

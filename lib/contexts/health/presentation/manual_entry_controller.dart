@@ -32,16 +32,24 @@ class ManualEntryController extends ChangeNotifier {
   ManualEntryStatus status = ManualEntryStatus.idle;
   ManualEntryError? error;
 
-  /// Resets the draft. Takes a [clock] (defaulting to [DateTime.now]) so
-  /// callers/tests can pin the default eaten-at time.
-  void start({DateTime Function() clock = DateTime.now}) {
+  /// Resets the draft, seeded from the current logging session's [meal] (D2
+  /// in design.md) — a standard meal (e.g. `'lunch'`), or [snackMealValue]
+  /// with [snackLabel] set to the snack group's display name (the D5 seam;
+  /// mirrors [LogEntryController.start]). Defaults to `'breakfast'` with no
+  /// label. Takes a [clock] (defaulting to [DateTime.now]) so callers/tests
+  /// can pin the default eaten-at time.
+  void start({
+    String meal = 'breakfast',
+    String snackLabel = '',
+    DateTime Function() clock = DateTime.now,
+  }) {
     name = '';
     staple = 0;
     meat = 0;
     fruit = 0;
     veg = 0;
-    meal = 'breakfast';
-    snackLabel = '';
+    this.meal = meal;
+    this.snackLabel = snackLabel;
     eatenAt = clock();
     status = ManualEntryStatus.idle;
     error = null;

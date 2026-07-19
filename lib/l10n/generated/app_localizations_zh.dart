@@ -222,6 +222,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietSnackLabelHint => '點心名稱';
 
   @override
+  String get dietSnackBaseName => '點心';
+
+  @override
+  String dietLoggingToMeal(String meal) {
+    return '記錄到：$meal';
+  }
+
+  @override
+  String get dietLoggingDoneButton => '完成';
+
+  @override
+  String dietAddedToMealSnackbar(String meal) {
+    return '已加入 $meal';
+  }
+
+  @override
+  String get dietSnackRenameTooltip => '命名這批點心';
+
+  @override
+  String get dietSnackRenameConfirmTooltip => '確認名稱';
+
+  @override
+  String get dietSnackRenameCancelTooltip => '取消改名';
+
+  @override
   String get dietSearchFoodHint => '搜尋食物';
 
   @override
@@ -570,6 +595,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietSnackLabelHint => '點心名稱';
+
+  @override
+  String get dietSnackBaseName => '點心';
+
+  @override
+  String dietLoggingToMeal(String meal) {
+    return '記錄到：$meal';
+  }
+
+  @override
+  String get dietLoggingDoneButton => '完成';
+
+  @override
+  String dietAddedToMealSnackbar(String meal) {
+    return '已加入 $meal';
+  }
+
+  @override
+  String get dietSnackRenameTooltip => '命名這批點心';
+
+  @override
+  String get dietSnackRenameConfirmTooltip => '確認名稱';
+
+  @override
+  String get dietSnackRenameCancelTooltip => '取消改名';
 
   @override
   String get dietSearchFoodHint => '搜尋食物';

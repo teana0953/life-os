@@ -226,6 +226,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietSnackLabelHint => 'Snack name';
 
   @override
+  String get dietSnackBaseName => 'Snack';
+
+  @override
+  String dietLoggingToMeal(String meal) {
+    return 'Logging to $meal';
+  }
+
+  @override
+  String get dietLoggingDoneButton => 'Done';
+
+  @override
+  String dietAddedToMealSnackbar(String meal) {
+    return 'Added to $meal';
+  }
+
+  @override
+  String get dietSnackRenameTooltip => 'Name this snack';
+
+  @override
+  String get dietSnackRenameConfirmTooltip => 'Confirm name';
+
+  @override
+  String get dietSnackRenameCancelTooltip => 'Cancel rename';
+
+  @override
   String get dietSearchFoodHint => 'Search food';
 
   @override

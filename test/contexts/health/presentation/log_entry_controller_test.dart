@@ -142,6 +142,37 @@ void main() {
       expect(controller.quantity, 1);
       expect(controller.eatenAt, now);
     });
+
+    test('seeds a standard meal from the seam instead of hard-resetting to breakfast', () {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+
+      controller.start(
+        _riceBowl(),
+        meal: 'lunch',
+        clock: () => DateTime.utc(2026, 7, 18, 9),
+      );
+
+      expect(controller.meal, 'lunch');
+      expect(controller.snackLabel, '');
+    });
+
+    test('seeds a snack session via snackMealValue + snackLabel (D5 seam)', () {
+      final controller = LogEntryController(
+        LogFoodFromDictionary(FakeDietLogRepository()),
+      );
+
+      controller.start(
+        _riceBowl(),
+        meal: snackMealValue,
+        snackLabel: '點心2',
+        clock: () => DateTime.utc(2026, 7, 18, 9),
+      );
+
+      expect(controller.meal, snackMealValue);
+      expect(controller.snackLabel, '點心2');
+    });
   });
 
   group('LogEntryController preview', () {
