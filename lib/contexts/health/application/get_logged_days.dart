@@ -1,9 +1,9 @@
-import '../domain/diet_log_repository.dart';
+import '../domain/meal_repository.dart';
 
 /// Use case: fetch the days within a month (`"YYYY-MM"`) that have at least
-/// one logged entry.
+/// one logged meal.
 class GetLoggedDays {
-  final DietLogRepository _repository;
+  final MealRepository _repository;
 
   GetLoggedDays(this._repository);
 

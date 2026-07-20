@@ -2,32 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
-import 'package:life_os/contexts/health/application/delete_entry.dart';
+import 'package:life_os/contexts/health/application/create_meal.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
-import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
+import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/get_logged_days.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
-import 'package:life_os/contexts/health/application/log_food_from_dictionary.dart';
-import 'package:life_os/contexts/health/application/log_manual_entry.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
-import 'package:life_os/contexts/health/application/update_food_entry.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
-import 'package:life_os/contexts/health/domain/day_diet_log.dart';
-import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
+import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
-import 'package:life_os/contexts/health/domain/food_entry.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
-import 'package:life_os/contexts/health/domain/portions.dart';
+import 'package:life_os/contexts/health/domain/meal_entry.dart';
+import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
-import 'package:life_os/contexts/health/presentation/edit_entry_controller.dart';
-import 'package:life_os/contexts/health/presentation/log_entry_controller.dart';
-import 'package:life_os/contexts/health/presentation/manual_entry_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
@@ -88,52 +82,26 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> unfavorite(String idToken, String foodItemId) async {}
 }
 
-class _FakeDietLogRepository implements DietLogRepository {
+class _FakeMealRepository implements MealRepository {
   @override
-  Future<FoodEntry> logFromDictionary(
-    String idToken, {
-    required String day,
-    required String meal,
-    required String foodItemId,
-    double? quantity,
-    double? grams,
-    DateTime? eatenAt,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<FoodEntry> logManualEntry(
-    String idToken, {
-    required String day,
-    required String meal,
-    String? name,
-    required Portions portions,
-    required DateTime eatenAt,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<DayDietLog> getDayLog(String idToken, String day) async {
-    return DayDietLog.fromJson({
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    return DayMealsLog.fromJson({
       'day': day,
-      'meals': [],
-      'totals': {'carbG': 0, 'proteinG': 0, 'fatG': 0, 'sugarG': 0, 'fiberG': 0, 'kcal': 0},
+      'meals': <dynamic>[],
+      'totals': {
+        'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+        'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+      },
     });
   }
 
   @override
-  Future<void> deleteEntry(String idToken, String entryId) async {}
-
-  @override
-  Future<FoodEntry> updateEntry(
-    String idToken,
-    String entryId, {
-    String? name,
-    String? meal,
-    DateTime? eatenAt,
-    Portions? portions,
+  Future<MealEntry> createMeal(
+    String idToken, {
+    required String day,
+    required String meal,
+    DateTime? time,
+    required List<CreateMealItem> items,
   }) async {
     throw UnimplementedError();
   }
@@ -189,7 +157,7 @@ Future<void> pumpHomeScreen(
 }) async {
   final localeController = await testLocaleController();
   final themeController = await testThemeController();
-  final dietLogRepository = _FakeDietLogRepository();
+  final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   await tester.pumpWidget(
@@ -203,7 +171,7 @@ Future<void> pumpHomeScreen(
         signOut: SignOut(FakeAuthRepository()),
         authRepository: authRepository ?? FakeAuthRepository(),
         healthTodayController: TodayController(
-          GetDayDietLog(dietLogRepository),
+          GetDayMeals(mealRepository),
           GetDailyTargetWithRemaining(dailyTargetRepository),
         ),
         healthDictionaryController: DictionaryController(
@@ -216,17 +184,10 @@ Future<void> pumpHomeScreen(
           GetDailyTargetWithRemaining(dailyTargetRepository),
           SetDailyTarget(dailyTargetRepository),
         ),
-        healthLogEntryController: LogEntryController(
-          LogFoodFromDictionary(dietLogRepository),
+        healthCreateMealController: CreateMealController(
+          CreateMeal(mealRepository),
         ),
-        healthManualEntryController: ManualEntryController(
-          LogManualEntry(dietLogRepository),
-        ),
-        healthEditEntryController: EditEntryController(
-          UpdateFoodEntry(dietLogRepository),
-          DeleteEntry(dietLogRepository),
-        ),
-        healthGetLoggedDays: GetLoggedDays(dietLogRepository),
+        healthGetLoggedDays: GetLoggedDays(mealRepository),
         clock: clock ?? DateTime.now,
       ),
     ),

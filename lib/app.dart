@@ -7,11 +7,9 @@ import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
+import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
-import 'contexts/health/presentation/edit_entry_controller.dart';
-import 'contexts/health/presentation/log_entry_controller.dart';
-import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
@@ -60,9 +58,7 @@ class App extends StatefulWidget {
   final TodayController healthTodayController;
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
-  final LogEntryController healthLogEntryController;
-  final ManualEntryController healthManualEntryController;
-  final EditEntryController healthEditEntryController;
+  final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
 
   const App({
@@ -77,9 +73,7 @@ class App extends StatefulWidget {
     required this.healthTodayController,
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
-    required this.healthLogEntryController,
-    required this.healthManualEntryController,
-    required this.healthEditEntryController,
+    required this.healthCreateMealController,
     required this.healthGetLoggedDays,
   });
 
@@ -159,9 +153,7 @@ class _AppState extends State<App> {
                   healthTodayController: widget.healthTodayController,
                   healthDictionaryController: widget.healthDictionaryController,
                   healthDailyTargetController: widget.healthDailyTargetController,
-                  healthLogEntryController: widget.healthLogEntryController,
-                  healthManualEntryController: widget.healthManualEntryController,
-                  healthEditEntryController: widget.healthEditEntryController,
+                  healthCreateMealController: widget.healthCreateMealController,
                   healthGetLoggedDays: widget.healthGetLoggedDays,
                 );
               }
@@ -187,9 +179,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final TodayController healthTodayController;
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
-  final LogEntryController healthLogEntryController;
-  final ManualEntryController healthManualEntryController;
-  final EditEntryController healthEditEntryController;
+  final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
 
   const _AuthenticatedHome({
@@ -201,9 +191,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthTodayController,
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
-    required this.healthLogEntryController,
-    required this.healthManualEntryController,
-    required this.healthEditEntryController,
+    required this.healthCreateMealController,
     required this.healthGetLoggedDays,
   });
 
@@ -234,9 +222,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthTodayController: widget.healthTodayController,
       healthDictionaryController: widget.healthDictionaryController,
       healthDailyTargetController: widget.healthDailyTargetController,
-      healthLogEntryController: widget.healthLogEntryController,
-      healthManualEntryController: widget.healthManualEntryController,
-      healthEditEntryController: widget.healthEditEntryController,
+      healthCreateMealController: widget.healthCreateMealController,
       healthGetLoggedDays: widget.healthGetLoggedDays,
     );
   }

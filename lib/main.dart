@@ -10,26 +10,21 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
-import 'contexts/health/application/delete_entry.dart';
+import 'contexts/health/application/create_meal.dart';
 import 'contexts/health/application/favorite_food.dart';
-import 'contexts/health/application/get_day_diet_log.dart';
+import 'contexts/health/application/get_day_meals.dart';
 import 'contexts/health/application/get_daily_target_with_remaining.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/application/list_favorites.dart';
-import 'contexts/health/application/log_food_from_dictionary.dart';
-import 'contexts/health/application/log_manual_entry.dart';
 import 'contexts/health/application/search_dictionary.dart';
 import 'contexts/health/application/set_daily_target.dart';
 import 'contexts/health/application/unfavorite_food.dart';
-import 'contexts/health/application/update_food_entry.dart';
 import 'contexts/health/infrastructure/http_daily_target_repository.dart';
-import 'contexts/health/infrastructure/http_diet_log_repository.dart';
 import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
+import 'contexts/health/infrastructure/http_meal_repository.dart';
+import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
-import 'contexts/health/presentation/edit_entry_controller.dart';
-import 'contexts/health/presentation/log_entry_controller.dart';
-import 'contexts/health/presentation/manual_entry_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
@@ -62,7 +57,7 @@ Future<void> main() async {
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
-  final dietLogRepository = HttpDietLogRepository(
+  final mealRepository = HttpMealRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
@@ -71,7 +66,7 @@ Future<void> main() async {
     client: httpClient,
   );
   final healthTodayController = TodayController(
-    GetDayDietLog(dietLogRepository),
+    GetDayMeals(mealRepository),
     GetDailyTargetWithRemaining(dailyTargetRepository),
   );
   final healthDictionaryController = DictionaryController(
@@ -84,17 +79,10 @@ Future<void> main() async {
     GetDailyTargetWithRemaining(dailyTargetRepository),
     SetDailyTarget(dailyTargetRepository),
   );
-  final healthLogEntryController = LogEntryController(
-    LogFoodFromDictionary(dietLogRepository),
+  final healthCreateMealController = CreateMealController(
+    CreateMeal(mealRepository),
   );
-  final healthManualEntryController = ManualEntryController(
-    LogManualEntry(dietLogRepository),
-  );
-  final healthEditEntryController = EditEntryController(
-    UpdateFoodEntry(dietLogRepository),
-    DeleteEntry(dietLogRepository),
-  );
-  final healthGetLoggedDays = GetLoggedDays(dietLogRepository);
+  final healthGetLoggedDays = GetLoggedDays(mealRepository);
 
   runApp(
     App(
@@ -108,9 +96,7 @@ Future<void> main() async {
       healthTodayController: healthTodayController,
       healthDictionaryController: healthDictionaryController,
       healthDailyTargetController: healthDailyTargetController,
-      healthLogEntryController: healthLogEntryController,
-      healthManualEntryController: healthManualEntryController,
-      healthEditEntryController: healthEditEntryController,
+      healthCreateMealController: healthCreateMealController,
       healthGetLoggedDays: healthGetLoggedDays,
     ),
   );

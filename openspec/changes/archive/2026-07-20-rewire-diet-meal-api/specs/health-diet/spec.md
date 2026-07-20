@@ -1,8 +1,5 @@
-# health-diet Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-health-diet. Update Purpose after archive.
-## Requirements
 ### Requirement: Diet module entry from home
 
 The app SHALL let an authenticated user open the diet module from the home
@@ -64,61 +61,6 @@ leaving to re-select the meal.
 - **WHEN** the user taps the add control on the lunch card
 - **THEN** the full-screen food search opens with the target meal set to lunch, ready to pick a food, without the user re-selecting the meal
 
-### Requirement: Meals and snacks
-
-The app SHALL offer the three standard meals (breakfast, lunch, dinner) and SHALL
-let the user add a snack entry with its own label in addition to them.
-
-#### Scenario: Add a snack
-- **WHEN** the user chooses to add a snack and logs a food to it
-- **THEN** the snack appears in the day's log ordered by its eaten-at time alongside the standard meals
-
-### Requirement: Favorite dictionary items
-
-The app SHALL let the user mark and unmark dictionary items as favorites and view
-their favorites while logging.
-
-#### Scenario: Favorite appears in favorites list
-- **WHEN** the user favorites a dictionary item and opens the favorites view
-- **THEN** that item appears in the favorites list
-
-### Requirement: Daily portion target
-
-The app SHALL let the user view and set the day's per-category portion targets
-(staple, meat, fruit, vegetable) and SHALL show the remaining portions for each
-category against what has been logged. Targets SHALL be adjustable via
-increment/decrement steppers per category, each labeled with a category color
-icon. Remaining SHALL be shown per category as a bar (filled by
-consumed-against-target) alongside the remaining number.
-
-#### Scenario: Set target and see remaining
-- **WHEN** the user sets the staple target to 12 and has logged 9 staple portions
-- **THEN** the target view shows 3 staple portions remaining
-
-#### Scenario: Adjust a target with the stepper
-- **WHEN** the user taps the staple increment control
-- **THEN** the staple target increases by one step and the draft reflects the new value
-
-### Requirement: Navigate the diet log by day
-
-The diet view SHALL let the user move between days: a header showing the viewed
-day with previous/next controls and a calendar entry point. Selecting a different
-day SHALL reload that day's entries and its portion target. The user MUST NOT be
-able to navigate to a day after today — the "next" control SHALL be disabled when
-the viewed day is today, and the calendar SHALL disable future dates.
-
-#### Scenario: Move to the previous day
-- **WHEN** the user taps the previous-day control on today's view
-- **THEN** the view shows the prior day's entries and that day's target
-
-#### Scenario: Future is blocked
-- **WHEN** the viewed day is today
-- **THEN** the next-day control is disabled and the calendar does not allow picking a future date
-
-#### Scenario: Calendar marks days with entries
-- **WHEN** the user opens the calendar for a month
-- **THEN** days on which the user has at least one entry are visually marked, and picking a day shows that day's log
-
 ### Requirement: Snack auto-numbering
 
 When the user starts a new snack from Today, the app SHALL seed the new snack's
@@ -144,15 +86,6 @@ the snack series) SHALL NOT affect the numbering.
 #### Scenario: Renamed snack ignored by numbering
 - **WHEN** an existing snack has a custom name and the user starts a new snack
 - **THEN** the custom-named snack is not counted toward the snack numbering
-
-### Requirement: Return to home from the diet module
-
-The diet module SHALL offer a visible control to return to the home "your spaces"
-screen, since the module is opened from home. Activating it SHALL return to home.
-
-#### Scenario: Home button returns to home
-- **WHEN** the user taps the home control in the Today header
-- **THEN** the app returns to the home "your spaces" screen
 
 ### Requirement: Add to an existing snack group
 
@@ -188,6 +121,8 @@ above it.
 #### Scenario: Search results stay reachable above the keyboard
 - **WHEN** the user focuses the food search's search field at a narrow phone width and the on-screen keyboard is shown
 - **THEN** the results list shrinks so its lower rows can be scrolled up into view above the keyboard, while the search field stays pinned at the top, with no viewport-inset workaround
+
+## ADDED Requirements
 
 ### Requirement: Add foods into a meal via a full-screen search
 
@@ -270,3 +205,86 @@ failure SHALL route to re-authentication.
 - **WHEN** completing the tray fails with an authentication error
 - **THEN** the app routes to re-authentication and the tray's contents are not lost
 
+## REMOVED Requirements
+
+### Requirement: Log a food from the dictionary
+
+**Reason**: Superseded by the full-screen food search + item tray. Amount entry
+moves from a per-item bottom sheet over the dictionary to the tray's amount
+control; the search and add flow is covered by "Add foods into a meal via a
+full-screen search" and "Build the meal in an item tray with adjustable amounts".
+
+**Migration**: Amount, gram entry, per-item portion pills, and the favorite toggle
+are provided by the new full-screen search and tray requirements.
+
+### Requirement: Portion preview before saving
+
+**Reason**: The client-side portion preview now lives on each tray item, folded
+into "Build the meal in an item tray with adjustable amounts". There is no longer a
+standalone quantity card.
+
+**Migration**: The same client-side "per-unit × quantity (grams via base grams)"
+preview is specified for tray items.
+
+### Requirement: Settable eaten-at time
+
+**Reason**: Entries no longer carry an individual eaten-at time; a meal carries a
+single `time`, defaulted to now on creation. User-settable meal time is deferred
+to PR③ (per-meal time changes).
+
+**Migration**: "Complete the tray to save the meal" defaults the new meal's `time`
+to now; changing a meal's time is a PR③ capability.
+
+### Requirement: Manual food entry
+
+**Reason**: No manual-entry UI in this PR. The meals API still accepts manual
+items (name + portions or nutrients), but a manual-entry surface is deferred; this
+PR's tray adds dictionary items only.
+
+**Migration**: Deferred; the meals API still accepts manual items, so a
+manual-entry surface (and the request payload for it) returns in a later PR.
+
+### Requirement: Manual entry in a bottom sheet
+
+**Reason**: The bottom-sheet add-food flow is removed entirely (replaced by the
+full-screen search), and manual entry has no UI in this PR (see "Manual food
+entry").
+
+**Migration**: Deferred with manual entry.
+
+### Requirement: Edit or delete a past food entry
+
+**Reason**: Today's item rows are read-only in this PR. In-place item editing and
+deletion on the new meal/meal-item model are PR③.
+
+**Migration**: Tapping an item to edit, and deleting entries, return in PR③ against
+`PATCH`/`DELETE /api/meal-items/:id`.
+
+### Requirement: Continuous logging into a current meal
+
+**Reason**: Superseded by the full-screen search. The target meal is fixed by the
+entry point (no in-flow logging bar or meal switch), and a whole tray is saved at
+once instead of one entry at a time with a stay-and-keep-picking bar.
+
+**Migration**: Adding several foods into one meal is covered by the tray in "Build
+the meal in an item tray with adjustable amounts" and "Complete the tray to save
+the meal".
+
+### Requirement: Add food via a dictionary bottom sheet
+
+**Reason**: Superseded by the full-screen food search, which root-causes the
+keyboard-collapse problem the bottom sheet fought. The bottom navigation already
+excludes a dictionary tab.
+
+**Migration**: The dictionary is reached only via the full-screen search opened
+from a meal card / snack control, per "Add foods into a meal via a full-screen
+search".
+
+### Requirement: Browse the dictionary from Today
+
+**Reason**: The browse-only dictionary sheet is removed; the only dictionary
+surface is the full-screen search opened to add food into a meal. Favorites remain
+available inside that search.
+
+**Migration**: Favoriting and browsing the food list happen within the full-screen
+search.

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../application/get_day_diet_log.dart';
+import '../application/get_day_meals.dart';
 import '../application/get_daily_target_with_remaining.dart';
-import '../domain/day_diet_log.dart';
+import '../domain/day_meals_log.dart';
 import '../domain/daily_target.dart';
 import '../domain/diet_exceptions.dart';
 
@@ -14,16 +14,16 @@ enum TodayStatus { loading, loaded, error, needsReauth }
 /// time.
 enum TodayError { fetchFailed, unknown }
 
-/// Drives the Today section: the day's diet log (meals in eaten order) and
-/// per-category portion progress against the day's target.
+/// Drives the Today section: the day's meals log (read via the meals API)
+/// and per-category portion progress against the day's target.
 class TodayController extends ChangeNotifier {
-  final GetDayDietLog _getDayDietLog;
+  final GetDayMeals _getDayMeals;
   final GetDailyTargetWithRemaining _getDailyTargetWithRemaining;
 
-  TodayController(this._getDayDietLog, this._getDailyTargetWithRemaining);
+  TodayController(this._getDayMeals, this._getDailyTargetWithRemaining);
 
   TodayStatus status = TodayStatus.loading;
-  DayDietLog? dayLog;
+  DayMealsLog? dayMealsLog;
   DailyTargetWithRemaining? target;
   TodayError? error;
 
@@ -33,7 +33,7 @@ class TodayController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      dayLog = await _getDayDietLog(idToken, day);
+      dayMealsLog = await _getDayMeals(idToken, day);
       target = await _getDailyTargetWithRemaining(idToken, day);
       status = TodayStatus.loaded;
     } on DietReauthenticationRequired {

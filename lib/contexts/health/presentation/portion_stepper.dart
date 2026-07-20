@@ -100,7 +100,7 @@ class PortionStepper extends StatelessWidget {
 /// `StatefulWidget` so its `TextEditingController` is owned and disposed by
 /// the framework when the dialog closes — avoiding a per-open leak and the
 /// teardown-timing issues of disposing it manually after `showDialog`
-/// returns (mirrors `_QuantityEditDialog` in `quantity_card.dart`).
+/// returns.
 class _PortionEditDialog extends StatefulWidget {
   final String label;
   final double initial;
@@ -118,8 +118,8 @@ class _PortionEditDialogState extends State<_PortionEditDialog> {
   void initState() {
     super.initState();
     // Show an empty field (with a "0" hint) instead of a literal "0", so the
-    // user can type straight away without first deleting the 0 — matching the
-    // food-entry portion fields (portion_form_fields.dart).
+    // user can type straight away without first deleting the 0 — the numeric
+    // empty-zero convention (see CLAUDE.md).
     _text = TextEditingController(
       text: widget.initial == 0 ? '' : PortionStepper._format(widget.initial),
     );
