@@ -62,10 +62,11 @@ int _daysBetween(DateTime from, DateTime to) {
 /// no height cap. See `_openDictionarySheet`.
 const double _dictionarySheetHeightFactor = 0.9;
 
-/// Corner radius for the dictionary sheet's rounded top corners (D1/D2 in
-/// design.md), matching the rounded-corner language used elsewhere in the
-/// design system. See `_openDictionarySheet`.
-const Radius _dictionarySheetCornerRadius = Radius.circular(20);
+/// Corner radius for the diet bottom sheets' rounded top corners (dictionary,
+/// edit-entry, and quantity-card sheets), matching the rounded-corner
+/// language used elsewhere in the design system. See `_openDictionarySheet`,
+/// `_openEditEntry`, `_openLogEntry`.
+const Radius _dietSheetCornerRadius = Radius.circular(20);
 
 String? _dayChipLabel(
   AppLocalizations loc,
@@ -234,7 +235,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
       showDragHandle: true,
       clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: _dictionarySheetCornerRadius),
+        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
       ),
       builder: (_) => FractionallySizedBox(
         heightFactor: _dictionarySheetHeightFactor,
@@ -259,6 +260,11 @@ class _DietShellScreenState extends State<DietShellScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
+      ),
       builder: (_) => EditEntryScreen(
         controller: widget.editEntryController,
         idToken: idToken,
@@ -824,6 +830,11 @@ class _DictionarySheetState extends State<_DictionarySheet> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
+      ),
       builder: (_) => LogEntryScreen(
         controller: widget.logEntryController,
         idToken: widget.idToken,

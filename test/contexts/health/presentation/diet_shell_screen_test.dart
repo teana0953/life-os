@@ -482,6 +482,17 @@ void main() {
         // Both sheets are open: the dictionary sheet underneath, the
         // quantity sheet stacked on top of it (D3 in design.md).
         expect(find.byType(BottomSheet), findsNWidgets(2));
+
+        // The quantity-card sheet shares the same grab handle + rounded
+        // top corners as the dictionary sheet (unify-sheet-style follow-up).
+        final quantitySheet = tester.widget<BottomSheet>(
+          find.ancestor(
+            of: find.byType(LogEntryScreen),
+            matching: find.byType(BottomSheet),
+          ),
+        );
+        expect(quantitySheet.showDragHandle, isTrue);
+        expect(quantitySheet.shape, isA<RoundedRectangleBorder>());
       },
     );
 
@@ -1509,11 +1520,24 @@ void main() {
         find.byKey(const Key('edit-name-field')),
       );
       expect(nameField.controller?.text, '雞腿便當');
+
+      // The edit sheet shares the same grab handle + rounded top corners as
+      // the dictionary sheet (unify-sheet-style follow-up).
+      final editSheet = tester.widget<BottomSheet>(
+        find.ancestor(
+          of: find.byType(EditEntryScreen),
+          matching: find.byType(BottomSheet),
+        ),
+      );
+      expect(editSheet.showDragHandle, isTrue);
+      expect(editSheet.shape, isA<RoundedRectangleBorder>());
     });
 
     testWidgets(
       'saving in the edit sheet updates the entry and reloads the day',
       (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
         final dietLogRepository = FakeDietLogRepository()
           ..entryToLog = _shellEntryJson();
         await _pumpShell(tester, dietLogRepository: dietLogRepository);
