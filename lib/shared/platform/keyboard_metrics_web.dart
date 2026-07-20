@@ -9,7 +9,9 @@ import 'keyboard_inset_calc.dart';
 /// viewport numbers so the on-device (mobile) keyboard occlusion can be
 /// diagnosed without a console. See `keyboard_metrics.dart`.
 class KeyboardMetricsText extends StatefulWidget {
-  const KeyboardMetricsText({super.key});
+  final String? extra;
+
+  const KeyboardMetricsText({super.key, this.extra});
 
   @override
   State<KeyboardMetricsText> createState() => _KeyboardMetricsTextState();
@@ -54,7 +56,8 @@ class _KeyboardMetricsTextState extends State<KeyboardMetricsText> {
       'off=${offsetTop.toStringAsFixed(0)}  ins=${inset.toStringAsFixed(0)}\n'
       'mqH=${mq.size.height.toStringAsFixed(0)}  '
       'mqVI=${mq.viewInsets.bottom.toStringAsFixed(0)}  '
-      'dpr=${mq.devicePixelRatio.toStringAsFixed(2)}',
+      'dpr=${mq.devicePixelRatio.toStringAsFixed(2)}'
+      '${widget.extra == null ? '' : '\n${widget.extra}'}',
       key: const Key('keyboard-metrics'),
       style: const TextStyle(fontSize: 11, height: 1.2),
     );
