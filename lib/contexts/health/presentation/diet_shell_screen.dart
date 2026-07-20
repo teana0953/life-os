@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/platform/keyboard_inset.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -422,132 +423,117 @@ class _DayNavBar extends StatelessWidget {
     final chipLabel = _dayChipLabel(loc, viewedDate, today);
     final dateText = _fullDateLabel(context, viewedDate);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    // Two rows: the title + header actions on top, and the day navigation on
+    // its own full-width row below. Keeping the date on its own line (rather
+    // than sharing the top row with the mascot and the two trailing buttons)
+    // gives it the whole width, so the date label isn't squeezed down to an
+    // unreadable ellipsis on narrow phones.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Mascot(size: 34),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Mascot(size: 34),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Row(
-                children: [
-                  IconButton(
-                    key: const Key('day-nav-previous'),
-                    tooltip: loc.dietDayPrevTooltip,
-                    onPressed: onPrevious,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Expanded(
-                    child: Tooltip(
-                      message: loc.dietCalendarOpenTooltip,
-                      child: Semantics(
-                        button: true,
-                        child: InkWell(
-                          key: const Key('day-nav-label'),
-                          onTap: onOpenCalendar,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 4,
+            ),
+            IconButton(
+              key: const Key('open-dictionary-button'),
+              tooltip: loc.dietOpenDictionaryTooltip,
+              onPressed: onOpenDictionary,
+              icon: const Icon(Icons.menu_book_outlined),
+            ),
+            IconButton(
+              key: const Key('today-home-button'),
+              tooltip: loc.dietGoHomeTooltip,
+              onPressed: onGoHome,
+              icon: const Icon(Icons.home),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            IconButton(
+              key: const Key('day-nav-previous'),
+              tooltip: loc.dietDayPrevTooltip,
+              onPressed: onPrevious,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Tooltip(
+                message: loc.dietCalendarOpenTooltip,
+                child: Semantics(
+                  button: true,
+                  child: InkWell(
+                    key: const Key('day-nav-label'),
+                    onTap: onOpenCalendar,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          if (chipLabel != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                chipLabel,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (chipLabel != null) ...[
-                                  // Flexible too (D3 in design.md): at very
-                                  // narrow phone widths, the chip's own text
-                                  // can take up more of the tight budget than
-                                  // is left once the calendar icon is
-                                  // accounted for; letting it shrink (and
-                                  // ellipsize) rather than stay a fixed size
-                                  // keeps the calendar icon from being pushed
-                                  // into overflow.
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.primaryContainer,
-                                        borderRadius: BorderRadius.circular(999),
-                                      ),
-                                      child: Text(
-                                        chipLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: false,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onPrimaryContainer,
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                // Flexible (D3 in design.md): at phone
-                                // widths the chip + date + calendar icon can
-                                // exceed the available width (Mascot + the
-                                // trailing header buttons + the chevrons
-                                // leave little room) and overflow; ellipsize
-                                // the date instead, keeping the calendar
-                                // icon visible.
-                                Flexible(
-                                  child: Text(
-                                    dateText,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.calendar_month,
-                                  size: 16,
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ],
+                            const SizedBox(width: 6),
+                          ],
+                          // Ellipsize only as a last resort — with the date on
+                          // its own full-width row it normally shows in full.
+                          Flexible(
+                            child: Text(
+                              dateText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium,
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.calendar_month,
+                            size: 16,
+                            color: theme.colorScheme.outline,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  IconButton(
-                    key: const Key('day-nav-next'),
-                    tooltip: loc.dietDayNextTooltip,
-                    onPressed: onNext,
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
+                ),
               ),
-            ],
-          ),
-        ),
-        IconButton(
-          key: const Key('open-dictionary-button'),
-          tooltip: loc.dietOpenDictionaryTooltip,
-          onPressed: onOpenDictionary,
-          icon: const Icon(Icons.menu_book_outlined),
-        ),
-        IconButton(
-          key: const Key('today-home-button'),
-          tooltip: loc.dietGoHomeTooltip,
-          onPressed: onGoHome,
-          icon: const Icon(Icons.home),
+            ),
+            IconButton(
+              key: const Key('day-nav-next'),
+              tooltip: loc.dietDayNextTooltip,
+              onPressed: onNext,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
         ),
       ],
     );
@@ -987,30 +973,44 @@ class _DictionarySheetState extends State<_DictionarySheet> {
       key: _messengerKey,
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            children: [
-              if (!widget.browseOnly)
-                _LoggingMealBar(
-                  selectedSegment: _selectedSegment(),
-                  currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                  onSegmentSelected: _onSegmentSelected,
-                  onRenameSnack: _onRenameSnack,
-                  onDone: () => Navigator.of(context).pop(),
-                ),
-              // Browse-only sheets have no logging bar, and a food row looks
-              // identical to logging mode but does nothing on tap (D3): this
-              // banner tells the user tapping a row won't log — only ♥ is
-              // active — so the dead tap doesn't read as "broken".
-              if (widget.browseOnly) _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
-              Expanded(
-                child: DictionaryScreen(
-                  controller: widget.dictionaryController,
-                  browseOnly: widget.browseOnly,
-                  onSelectItem: widget.browseOnly ? null : _openLogEntry,
-                  onManualEntry: widget.browseOnly ? null : _openManualEntry,
-                ),
+          // Lift the whole sheet above the on-screen keyboard. On native the
+          // Scaffold already resizes for the keyboard, so the helper reads a
+          // zero inset here (no change). On Flutter web the keyboard shrinks
+          // only the browser's visual viewport (viewInsets stays 0, the
+          // Scaffold never resizes), so without this the search field and
+          // results sink behind the keyboard; the helper's web path supplies
+          // the visual-viewport keyboard height and this padding lifts the
+          // whole content — search field and results — above it.
+          child: KeyboardInsetBuilder(
+            builder: (context, bottomInset) => Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: Column(
+                children: [
+                  if (!widget.browseOnly)
+                    _LoggingMealBar(
+                      selectedSegment: _selectedSegment(),
+                      currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
+                      onSegmentSelected: _onSegmentSelected,
+                      onRenameSnack: _onRenameSnack,
+                      onDone: () => Navigator.of(context).pop(),
+                    ),
+                  // Browse-only sheets have no logging bar, and a food row looks
+                  // identical to logging mode but does nothing on tap (D3): this
+                  // banner tells the user tapping a row won't log — only ♥ is
+                  // active — so the dead tap doesn't read as "broken".
+                  if (widget.browseOnly)
+                    _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
+                  Expanded(
+                    child: DictionaryScreen(
+                      controller: widget.dictionaryController,
+                      browseOnly: widget.browseOnly,
+                      onSelectItem: widget.browseOnly ? null : _openLogEntry,
+                      onManualEntry: widget.browseOnly ? null : _openManualEntry,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

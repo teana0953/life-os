@@ -1532,23 +1532,34 @@ void main() {
     );
 
     testWidgets(
-      'the date ellipsizes instead of overflowing at a narrow (phone) width, '
-      'keeping the calendar icon visible (D3 in design.md)',
+      'the date shows in full (no overflow, not truncated) at a narrow phone '
+      'width, on its own full-width row',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 700));
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
         await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final expectedDate = DateFormat(
+          'EEE, MMM d',
+          'en',
+        ).format(DateTime(2026, 7, 18));
 
-        // No RenderFlex overflow (or any other) exception was thrown while
-        // laying out the header at this narrow width — exercised with the
-        // "Today" chip present, the tightest case (D3 in design.md).
+        // No RenderFlex overflow (or any other) exception at this narrow width.
         expect(tester.takeException(), isNull);
         expect(find.byIcon(Icons.calendar_month), findsOneWidget);
-        expect(find.byKey(const Key('day-nav-label')), findsOneWidget);
+        // The date row is on its own line, so even at 320px the "Today" chip
+        // and the full date both show — not squeezed down to an ellipsis.
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayToday),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining(expectedDate), findsOneWidget);
 
-        // Tapping the (possibly ellipsized) date row still opens the
-        // calendar — no behavior change from the layout fix.
+        // Tapping the date row still opens the calendar.
         await tester.tap(find.byKey(const Key('day-nav-label')));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);

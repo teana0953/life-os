@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/build_info.dart';
 import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/theme_controller.dart';
@@ -270,6 +271,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: 24),
+              // A small build id so a deployed (Flutter web) build can be told
+              // apart from a cached one on the device. Not localized — it's a
+              // technical build tag, not user-facing copy.
+              Center(
+                child: Text(
+                  buildLabel,
+                  key: const Key('build-label'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),

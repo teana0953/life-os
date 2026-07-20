@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/platform/keyboard_inset.dart';
 import '../domain/food_item.dart';
 import 'dictionary_controller.dart';
 import 'portion_pills.dart';
@@ -28,19 +27,12 @@ class DictionaryScreen extends StatefulWidget {
   /// a separate trailing control from the row's own `onTap`.
   final bool browseOnly;
 
-  /// Test-only override for the keyboard-inset helper's bottom inset, so
-  /// widget tests can drive the results-list padding deterministically
-  /// without a real (web) keyboard. See
-  /// `openspec/changes/fix-dict-sheet-web-keyboard/design.md`.
-  final double? debugKeyboardInsetOverride;
-
   const DictionaryScreen({
     super.key,
     required this.controller,
     this.onSelectItem,
     this.onManualEntry,
     this.browseOnly = false,
-    this.debugKeyboardInsetOverride,
   });
 
   @override
@@ -134,45 +126,42 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           )
         else
           Expanded(
-            child: KeyboardInsetBuilder(
-              debugInsetOverride: widget.debugKeyboardInsetOverride,
-              builder: (context, bottomInset) => ListView.builder(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  final isFavorite = controller.favorites.any(
-                    (f) => f.id == item.id,
-                  );
-                  return ListTile(
-                    title: Text(item.name),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: PortionPills(
-                        staple: item.staple,
-                        meat: item.meat,
-                        fruit: item.fruit,
-                        veg: item.veg,
-                      ),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final isFavorite = controller.favorites.any(
+                  (f) => f.id == item.id,
+                );
+                return ListTile(
+                  title: Text(item.name),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: PortionPills(
+                      staple: item.staple,
+                      meat: item.meat,
+                      fruit: item.fruit,
+                      veg: item.veg,
                     ),
-                    onTap: widget.browseOnly
-                        ? null
-                        : () => widget.onSelectItem?.call(item),
-                    trailing: IconButton(
-                      tooltip: isFavorite
-                          ? loc.dietUnfavoriteTooltip
-                          : loc.dietFavoriteTooltip,
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                      ),
-                      onPressed: () => controller.toggleFavorite(
-                        item,
-                        isFavorite: isFavorite,
-                      ),
+                  ),
+                  onTap: widget.browseOnly
+                      ? null
+                      : () => widget.onSelectItem?.call(item),
+                  trailing: IconButton(
+                    tooltip: isFavorite
+                        ? loc.dietUnfavoriteTooltip
+                        : loc.dietFavoriteTooltip,
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
                     ),
-                  );
-                },
-              ),
+                    onPressed: () => controller.toggleFavorite(
+                      item,
+                      isFavorite: isFavorite,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         if (widget.onManualEntry != null)
