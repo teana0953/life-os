@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/platform/keyboard_inset.dart';
 import '../../../shared/platform/keyboard_metrics.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
@@ -976,32 +977,64 @@ class _DictionarySheetState extends State<_DictionarySheet> {
           child: Column(
             children: [
               // TEMPORARY debug readout (remove once the web keyboard fix is
-              // verified on-device): shows the live browser viewport numbers so
-              // the keyboard occlusion can be diagnosed without a console.
+              // verified on-device). Kept OUTSIDE the keyboard lift below so it
+              // stays visible at the top even if the lift misbehaves — the
+              // live browser viewport numbers let us diagnose without a
+              // console.
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: KeyboardMetricsText(),
               ),
-              if (!widget.browseOnly)
-                _LoggingMealBar(
-                  selectedSegment: _selectedSegment(),
-                  currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                  onSegmentSelected: _onSegmentSelected,
-                  onRenameSnack: _onRenameSnack,
-                  onDone: () => Navigator.of(context).pop(),
-                ),
-              // Browse-only sheets have no logging bar, and a food row looks
-              // identical to logging mode but does nothing on tap (D3): this
-              // banner tells the user tapping a row won't log — only ♥ is
-              // active — so the dead tap doesn't read as "broken".
-              if (widget.browseOnly)
-                _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
               Expanded(
-                child: DictionaryScreen(
-                  controller: widget.dictionaryController,
-                  browseOnly: widget.browseOnly,
-                  onSelectItem: widget.browseOnly ? null : _openLogEntry,
-                  onManualEntry: widget.browseOnly ? null : _openManualEntry,
+                // Lift the content above the on-screen keyboard. On Flutter web
+                // the keyboard shrinks only the browser's visual viewport
+                // (MediaQuery.viewInsets stays 0, so the Scaffold never
+                // resizes); the helper's web path supplies the real keyboard
+                // height from `visualViewport` and this padding raises the
+                // search field + results above it. On native the helper reads
+                // a zero inset here (the Scaffold already resized), so this is
+                // a no-op. The inset is clamped so a transient bad value can
+                // never collapse the content to nothing.
+                child: KeyboardInsetBuilder(
+                  builder: (context, rawInset) {
+                    final maxLift = MediaQuery.of(context).size.height * 0.6;
+                    final lift = rawInset > maxLift ? maxLift : rawInset;
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: lift),
+                      child: Column(
+                        children: [
+                          if (!widget.browseOnly)
+                            _LoggingMealBar(
+                              selectedSegment: _selectedSegment(),
+                              currentMealLabel: _mealDisplayLabel(
+                                loc,
+                                _currentMeal,
+                              ),
+                              onSegmentSelected: _onSegmentSelected,
+                              onRenameSnack: _onRenameSnack,
+                              onDone: () => Navigator.of(context).pop(),
+                            ),
+                          // Browse-only sheets have no logging bar; this banner
+                          // explains a row tap won't log (only ♥ is active),
+                          // so the dead tap doesn't read as "broken".
+                          if (widget.browseOnly)
+                            _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
+                          Expanded(
+                            child: DictionaryScreen(
+                              controller: widget.dictionaryController,
+                              browseOnly: widget.browseOnly,
+                              onSelectItem: widget.browseOnly
+                                  ? null
+                                  : _openLogEntry,
+                              onManualEntry: widget.browseOnly
+                                  ? null
+                                  : _openManualEntry,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
