@@ -27,12 +27,18 @@ class DictionaryScreen extends StatefulWidget {
   /// a separate trailing control from the row's own `onTap`.
   final bool browseOnly;
 
+  /// Compact mode for when vertical space is tight (the add-food sheet with the
+  /// on-screen keyboard open): hides the all/favorites tab selector and shows
+  /// the search results directly, so the search field + results get the room.
+  final bool compact;
+
   const DictionaryScreen({
     super.key,
     required this.controller,
     this.onSelectItem,
     this.onManualEntry,
     this.browseOnly = false,
+    this.compact = false,
   });
 
   @override
@@ -75,33 +81,38 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     ThemeData theme,
     DictionaryController controller,
   ) {
-    final showingFavorites = _tab == _DictionaryTab.favorites;
+    // In compact mode (keyboard open, tight sheet) the tab selector is hidden
+    // and we always show the search results, so typing surfaces matches
+    // without the favorites tab eating the little vertical space there is.
+    final showingFavorites =
+        !widget.compact && _tab == _DictionaryTab.favorites;
     final items = showingFavorites ? controller.favorites : controller.results;
     final showAllPrompt = !showingFavorites && controller.query.isEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: SegmentedButton<_DictionaryTab>(
-            key: const Key('dictionary-tab-selector'),
-            segments: [
-              ButtonSegment(
-                value: _DictionaryTab.all,
-                label: Text(loc.dietTabAll),
-              ),
-              ButtonSegment(
-                value: _DictionaryTab.favorites,
-                icon: const Icon(Icons.favorite),
-                label: Text(loc.dietFavoritesTitle),
-              ),
-            ],
-            selected: {_tab},
-            onSelectionChanged: (selection) =>
-                setState(() => _tab = selection.first),
+        if (!widget.compact)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: SegmentedButton<_DictionaryTab>(
+              key: const Key('dictionary-tab-selector'),
+              segments: [
+                ButtonSegment(
+                  value: _DictionaryTab.all,
+                  label: Text(loc.dietTabAll),
+                ),
+                ButtonSegment(
+                  value: _DictionaryTab.favorites,
+                  icon: const Icon(Icons.favorite),
+                  label: Text(loc.dietFavoritesTitle),
+                ),
+              ],
+              selected: {_tab},
+              onSelectionChanged: (selection) =>
+                  setState(() => _tab = selection.first),
+            ),
           ),
-        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: TextField(
