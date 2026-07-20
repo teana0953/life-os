@@ -72,6 +72,12 @@ class TodayScreen extends StatefulWidget {
   /// snack name and switch to the Dictionary tab.
   final VoidCallback? onAddSnack;
 
+  /// Called when the user taps a snack group card's own "add to this
+  /// snack" control, naming that group's exact snack name so the shell can
+  /// seed the logging session to continue it (not start a new group),
+  /// distinct from [onAddSnack] (D2 in design.md).
+  final void Function(String snackName)? onAddToSnackGroup;
+
   /// Called when the user taps a logged entry, so the shell can open the
   /// edit-entry sheet prefilled with it. Entries are not tappable when not
   /// provided.
@@ -89,6 +95,7 @@ class TodayScreen extends StatefulWidget {
     required this.signOut,
     this.onAddToMeal,
     this.onAddSnack,
+    this.onAddToSnackGroup,
     this.onEditEntry,
     this.toLocalTime = _defaultToLocal,
   });
@@ -255,7 +262,10 @@ class _TodayScreenState extends State<TodayScreen> {
                 theme: theme,
                 toLocalTime: widget.toLocalTime,
                 onEditEntry: widget.onEditEntry,
-                onAdd: null,
+                isSnackGroup: true,
+                onAdd: widget.onAddToSnackGroup == null
+                    ? null
+                    : () => widget.onAddToSnackGroup!(group.meal),
               ),
               const SizedBox(height: 16),
             ],
@@ -281,6 +291,13 @@ class _MealCard extends StatelessWidget {
   final void Function(FoodEntry entry)? onEditEntry;
   final VoidCallback? onAdd;
 
+  /// Whether this card renders a snack group rather than a standard meal
+  /// (D2 in design.md): only changes the add control's key
+  /// (`add-to-snack-<name>` instead of `add-to-meal-<name>`), so the shell's
+  /// snack-group "continue this snack" control is distinguishable from a
+  /// standard meal card's add control.
+  final bool isSnackGroup;
+
   const _MealCard({
     required this.mealName,
     required this.group,
@@ -289,6 +306,7 @@ class _MealCard extends StatelessWidget {
     required this.toLocalTime,
     required this.onEditEntry,
     required this.onAdd,
+    this.isSnackGroup = false,
   });
 
   @override
@@ -360,7 +378,11 @@ class _MealCard extends StatelessWidget {
                 excludeSemantics: true,
                 onTap: onAdd,
                 child: TextButton.icon(
-                  key: Key('add-to-meal-$mealName'),
+                  key: Key(
+                    isSnackGroup
+                        ? 'add-to-snack-$mealName'
+                        : 'add-to-meal-$mealName',
+                  ),
                   onPressed: onAdd,
                   icon: const Icon(Icons.add),
                   label: Text(loc.dietAddToMeal),

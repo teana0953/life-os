@@ -393,6 +393,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietAddSnackButton => '加點心';
+
+  @override
+  String get dietOpenDictionaryTooltip => '食物字典';
+
+  @override
+  String get dietBrowseOnlyHint => '瀏覽模式 — 點 ♥ 收藏。記錄請從各餐的＋。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -784,4 +790,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietAddSnackButton => '加點心';
+
+  @override
+  String get dietOpenDictionaryTooltip => '食物字典';
+
+  @override
+  String get dietBrowseOnlyHint => '瀏覽模式 — 點 ♥ 收藏。記錄請從各餐的＋。';
 }

@@ -226,7 +226,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
   /// sheet's content (the nested `Scaffold`s paint square corners otherwise —
   /// an opaque child can extend past `shape` unless clipped, per
   /// `BottomSheet.clipBehavior`'s own doc).
-  void _openDictionarySheet(String initialMeal) {
+  void _openDictionarySheet(String? initialMeal, {bool browseOnly = false}) {
     final idToken = _idToken;
     if (idToken == null) return;
     showModalBottomSheet(
@@ -247,11 +247,17 @@ class _DietShellScreenState extends State<DietShellScreen> {
           idToken: idToken,
           day: _day,
           initialMeal: initialMeal,
+          browseOnly: browseOnly,
           clock: widget.clock,
         ),
       ),
     );
   }
+
+  /// Opens the dictionary in a browse-only sheet (D3 in design.md): no
+  /// logging session, so no meal is seeded — search, the food list, and
+  /// favorites only. See `_DictionarySheet`'s `browseOnly` handling.
+  void _openDictionaryBrowse() => _openDictionarySheet(null, browseOnly: true);
 
   void _openEditEntry(FoodEntry entry) {
     final idToken = _idToken;
@@ -323,6 +329,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
                           DateUtils.addDaysToDate(_viewedDate, 1),
                         ),
                   onOpenCalendar: _openCalendar,
+                  onOpenDictionary: _openDictionaryBrowse,
                   onGoHome: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -334,6 +341,11 @@ class _DietShellScreenState extends State<DietShellScreen> {
                   onAddSnack: () => _openDictionarySheet(
                     _nextSnackNameForDay(loc, widget.todayController.dayLog),
                   ),
+                  // Continues the exact snack group tapped (D2 in
+                  // design.md): seeds `_currentMeal` to that name directly,
+                  // no renumbering — the recompute gate only fires on the
+                  // in-sheet segment tap, not on this seed.
+                  onAddToSnackGroup: _openDictionarySheet,
                   onEditEntry: _openEditEntry,
                 ),
               ),
@@ -388,6 +400,7 @@ class _DayNavBar extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onOpenCalendar;
+  final VoidCallback onOpenDictionary;
   final VoidCallback onGoHome;
 
   const _DayNavBar({
@@ -396,6 +409,7 @@ class _DayNavBar extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onOpenCalendar,
+    required this.onOpenDictionary,
     required this.onGoHome,
   });
 
@@ -498,6 +512,12 @@ class _DayNavBar extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        IconButton(
+          key: const Key('open-dictionary-button'),
+          tooltip: loc.dietOpenDictionaryTooltip,
+          onPressed: onOpenDictionary,
+          icon: const Icon(Icons.menu_book_outlined),
         ),
         IconButton(
           key: const Key('today-home-button'),
@@ -735,7 +755,18 @@ class _DictionarySheet extends StatefulWidget {
   final TodayController todayController;
   final String idToken;
   final String day;
-  final String initialMeal;
+
+  /// The logging session's initial meal. `null` in browse-only mode, where
+  /// there is no logging session (D3 in design.md) — irrelevant there since
+  /// [_DictionarySheetState] never reads `_currentMeal` while [browseOnly].
+  final String? initialMeal;
+
+  /// Browse-without-logging mode (D3 in design.md): no [_LoggingMealBar], no
+  /// logging session, and the hosted [DictionaryScreen] gets
+  /// `browseOnly: true` and `onManualEntry: null` — suppressing the
+  /// manual-entry logging path too, not just the row tap.
+  final bool browseOnly;
+
   final DateTime Function() clock;
 
   const _DictionarySheet({
@@ -746,6 +777,7 @@ class _DictionarySheet extends StatefulWidget {
     required this.idToken,
     required this.day,
     required this.initialMeal,
+    this.browseOnly = false,
     required this.clock,
   });
 
@@ -754,7 +786,7 @@ class _DictionarySheet extends StatefulWidget {
 }
 
 class _DictionarySheetState extends State<_DictionarySheet> {
-  late String _currentMeal = widget.initialMeal;
+  late String _currentMeal = widget.initialMeal ?? '';
 
   /// Identifies this sheet's own [ScaffoldMessenger] (see [build]) so
   /// [_onEntrySaved] can reach its `ScaffoldMessengerState` directly. Not
@@ -850,6 +882,11 @@ class _DictionarySheetState extends State<_DictionarySheet> {
     );
   }
 
+  /// Opens manual entry as a second-layer bottom sheet over the dictionary
+  /// sheet (D1 in design.md), mirroring [_openLogEntry]'s pattern: same
+  /// shared sheet style (drag handle + rounded top corners), and the
+  /// "added" snackbar routes through this sheet's own messenger via
+  /// [_onEntrySaved], not a pushed full-screen route.
   void _openManualEntry() {
     final isSnack = _isSnackMeal(_currentMeal);
     widget.manualEntryController.start(
@@ -857,18 +894,23 @@ class _DictionarySheetState extends State<_DictionarySheet> {
       snackLabel: isSnack ? _currentMeal : '',
       clock: widget.clock,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ManualEntryScreen(
-          controller: widget.manualEntryController,
-          idToken: widget.idToken,
-          day: widget.day,
-          onSaved: () => _onEntrySaved(
-            _savedMealLabel(
-              AppLocalizations.of(context)!,
-              widget.manualEntryController.meal,
-              widget.manualEntryController.snackLabel,
-            ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
+      ),
+      builder: (_) => ManualEntryScreen(
+        controller: widget.manualEntryController,
+        idToken: widget.idToken,
+        day: widget.day,
+        onSaved: () => _onEntrySaved(
+          _savedMealLabel(
+            AppLocalizations.of(context)!,
+            widget.manualEntryController.meal,
+            widget.manualEntryController.snackLabel,
           ),
         ),
       ),
@@ -906,23 +948,75 @@ class _DictionarySheetState extends State<_DictionarySheet> {
         body: SafeArea(
           child: Column(
             children: [
-              _LoggingMealBar(
-                selectedSegment: _selectedSegment(),
-                currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                onSegmentSelected: _onSegmentSelected,
-                onRenameSnack: _onRenameSnack,
-                onDone: () => Navigator.of(context).pop(),
-              ),
+              if (!widget.browseOnly)
+                _LoggingMealBar(
+                  selectedSegment: _selectedSegment(),
+                  currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
+                  onSegmentSelected: _onSegmentSelected,
+                  onRenameSnack: _onRenameSnack,
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              // Browse-only sheets have no logging bar, and a food row looks
+              // identical to logging mode but does nothing on tap (D3): this
+              // banner tells the user tapping a row won't log — only ♥ is
+              // active — so the dead tap doesn't read as "broken".
+              if (widget.browseOnly) _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
               Expanded(
                 child: DictionaryScreen(
                   controller: widget.dictionaryController,
-                  onSelectItem: _openLogEntry,
-                  onManualEntry: _openManualEntry,
+                  browseOnly: widget.browseOnly,
+                  onSelectItem: widget.browseOnly ? null : _openLogEntry,
+                  onManualEntry: widget.browseOnly ? null : _openManualEntry,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A slim info banner shown at the top of the browse-only dictionary sheet,
+/// occupying the same slot the logging bar has in logging mode. It explains
+/// that tapping a food row does not log it here (only ♥ is active), so the
+/// intentionally-inert row tap (D3 in design.md) doesn't read as broken.
+class _BrowseOnlyHintBar extends StatelessWidget {
+  final String text;
+
+  const _BrowseOnlyHintBar({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('browse-only-hint'),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.menu_book_outlined,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

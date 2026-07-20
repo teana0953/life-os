@@ -4,12 +4,14 @@ import '../../../l10n/generated/app_localizations.dart';
 import 'manual_entry_controller.dart';
 import 'portion_form_fields.dart';
 
-/// Screen for logging a food not in the dictionary: an optional name, four
-/// per-group portion fields, meal selection (incl. a custom snack label),
-/// an eaten-at time, and save — mirroring [QuantityCard]'s meal-chip/
+/// Bottom-sheet body for logging a food not in the dictionary: an optional
+/// name, four per-group portion fields, meal selection (incl. a custom snack
+/// label), an eaten-at time, and save — mirroring [QuantityCard]'s meal-chip/
 /// eaten-at/onSaved pattern (D1 in design.md). The form fields themselves
 /// are the shared [PortionFormFields] widget (D5), also used by the
-/// edit-entry sheet.
+/// edit-entry sheet. Opened via `showModalBottomSheet(isScrollControlled:
+/// true)` by the dictionary sheet, mirroring [EditEntryScreen]'s sheet body
+/// (SafeArea -> Padding(viewInsets) -> SingleChildScrollView -> form).
 class ManualEntryScreen extends StatefulWidget {
   final ManualEntryController controller;
   final String idToken;
@@ -58,15 +60,24 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(loc.dietManualEntryTitle)),
-      body: SafeArea(
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              Text(
+                loc.dietManualEntryTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
               PortionFormFields(
                 keyPrefix: 'manual',
                 name: controller.name,

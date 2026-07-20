@@ -607,5 +607,15 @@
   "dietAddSnackButton": "Add snack",
   "@dietAddSnackButton": {
     "description": "Label on the Today snack area's control that starts a new snack-logging session. Paired with a leading add icon, so the text itself carries no plus sign."
+  },
+
+  "dietOpenDictionaryTooltip": "Food dictionary",
+  "@dietOpenDictionaryTooltip": {
+    "description": "Tooltip/accessible label for the button in the diet module's Today header that opens the food dictionary in a browse-only bottom sheet (search, list, and favorites, no logging)."
+  },
+
+  "dietBrowseOnlyHint": "Browsing only — tap ♥ to favorite. Log food from a meal's ＋.",
+  "@dietBrowseOnlyHint": {
+    "description": "A hint banner shown at the top of the browse-only food dictionary sheet (opened from Today's header), explaining that tapping a food row does not log it here — only the favorite toggle is active — and logging happens via each meal's add button."
   }
 }

@@ -287,35 +287,39 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
+FoodItem _riceItem() => FoodItem.fromJson({
+  'id': 'rice-1',
+  'owner_user_id': null,
+  'name': '飯/1碗',
+  'carb_g': 60,
+  'protein_g': 4,
+  'fat_g': 0.5,
+  'sugar_g': 0,
+  'fiber_g': 1,
+  'kcal': 280,
+  'staple': 4,
+  'meat': 0,
+  'fruit': 0,
+  'veg': 0,
+  'base_grams': null,
+});
+
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
+  List<FoodItem> _favorites = [_riceItem()];
+
   @override
   Future<List<FoodItem>> search(String idToken, String query) async => [];
 
   @override
-  Future<List<FoodItem>> listFavorites(String idToken) async => [
-    FoodItem.fromJson({
-      'id': 'rice-1',
-      'owner_user_id': null,
-      'name': '飯/1碗',
-      'carb_g': 60,
-      'protein_g': 4,
-      'fat_g': 0.5,
-      'sugar_g': 0,
-      'fiber_g': 1,
-      'kcal': 280,
-      'staple': 4,
-      'meat': 0,
-      'fruit': 0,
-      'veg': 0,
-      'base_grams': null,
-    }),
-  ];
+  Future<List<FoodItem>> listFavorites(String idToken) async => _favorites;
 
   @override
   Future<void> favorite(String idToken, String foodItemId) async {}
 
   @override
-  Future<void> unfavorite(String idToken, String foodItemId) async {}
+  Future<void> unfavorite(String idToken, String foodItemId) async {
+    _favorites = _favorites.where((f) => f.id != foodItemId).toList();
+  }
 }
 
 /// Builds a [DietShellScreen] wired to fakes, for a test to pump directly as
@@ -497,7 +501,8 @@ void main() {
     );
 
     testWidgets(
-      'the manual-entry affordance on the dictionary sheet opens the manual-entry screen',
+      'the manual-entry affordance on the dictionary sheet opens the manual-entry '
+      'form as a second bottom sheet, not a pushed full-screen route',
       (tester) async {
         await _pumpShell(tester);
         await _openDictionarySheet(tester);
@@ -507,6 +512,19 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ManualEntryScreen), findsOneWidget);
+        // Both sheets are open: the dictionary sheet underneath, the manual
+        // entry sheet stacked on top of it (D1 in design.md) — not a pushed
+        // MaterialPageRoute.
+        expect(find.byType(BottomSheet), findsNWidgets(2));
+
+        final manualEntrySheet = tester.widget<BottomSheet>(
+          find.ancestor(
+            of: find.byType(ManualEntryScreen),
+            matching: find.byType(BottomSheet),
+          ),
+        );
+        expect(manualEntrySheet.showDragHandle, isTrue);
+        expect(manualEntrySheet.shape, isA<RoundedRectangleBorder>());
       },
     );
 
@@ -543,6 +561,64 @@ void main() {
         expect(find.text(loc.dietTabToday), findsWidgets);
         expect(find.text(loc.dietTabTarget), findsWidgets);
         expect(find.byIcon(Icons.menu_book), findsNothing);
+      },
+    );
+  });
+
+  group('DietShellScreen browse-only dictionary', () {
+    testWidgets(
+      'the header exposes a food-dictionary button with a localized tooltip',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const Key('open-dictionary-button')),
+              )
+              .tooltip,
+          loc.dietOpenDictionaryTooltip,
+        );
+      },
+    );
+
+    testWidgets(
+      'tapping it opens a browse-only sheet: no logging bar, tapping a food '
+      'does not open the quantity sheet, and the favorite toggle still works '
+      '(D3 in design.md)',
+      (tester) async {
+        await _pumpShell(tester);
+
+        await tester.tap(find.byKey(const Key('open-dictionary-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(find.byKey(const Key('logging-meal-bar')), findsNothing);
+        // A browse hint stands in for the logging bar, so the inert food row
+        // tap doesn't read as broken.
+        expect(find.byKey(const Key('browse-only-hint')), findsOneWidget);
+        expect(find.text('飯/1碗'), findsOneWidget);
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+
+        // No quantity sheet opened — still just the one (browse) sheet.
+        expect(find.byType(LogEntryScreen), findsNothing);
+        expect(find.byType(BottomSheet), findsOneWidget);
+
+        // The manual-entry affordance is suppressed too (onManualEntry:
+        // null), not just gated by browseOnly.
+        expect(
+          find.byKey(const Key('dictionary-manual-entry-button')),
+          findsNothing,
+        );
+
+        // The favorite toggle still works.
+        expect(find.byIcon(Icons.favorite), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.favorite));
+        await tester.pumpAndSettle();
+        expect(find.text('飯/1碗'), findsNothing);
       },
     );
   });
@@ -947,6 +1023,48 @@ void main() {
 
         final numberedName = '${loc.dietSnackBaseName}2';
         expect(find.text(loc.dietLoggingToMeal(numberedName)), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a snack group\'s own "add to this snack" control seeds that exact snack '
+      'name (no renumber), while the snack area\'s "add snack" still seeds '
+      'the next number (D2 in design.md)',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository();
+        await _pumpShell(tester, dietLogRepository: dietLogRepository);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // Create a first snack group under the base name, then close back
+        // to Today.
+        await _openDictionarySheet(tester, addKey: 'add-snack');
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-entry-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('logging-meal-bar-done-button')));
+        await tester.pumpAndSettle();
+
+        // Tapping that group's own "add to this snack" control seeds the
+        // sheet with the exact same (base) snack name — not the next
+        // number, unlike the top-level "add snack" control (covered by the
+        // adjacent existing test).
+        await tester.tap(
+          find.byKey(Key('add-to-snack-${loc.dietSnackBaseName}')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(loc.dietLoggingToMeal(loc.dietSnackBaseName)),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(loc.dietAddToMealButton(loc.dietSnackBaseName)),
+          findsOneWidget,
+        );
       },
     );
 
