@@ -288,7 +288,7 @@ void main() {
     );
 
     testWidgets(
-      'shows a build label (defaults to "dev" without a BUILD_TAG define)',
+      'shows a semver build label (defaults to "1.0.0+dev" without CI defines)',
       (tester) async {
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
@@ -308,7 +308,7 @@ void main() {
         expect(find.byKey(const Key('build-label')), findsOneWidget);
         expect(
           tester.widget<Text>(find.byKey(const Key('build-label'))).data,
-          'dev',
+          '1.0.0+dev',
         );
       },
     );
