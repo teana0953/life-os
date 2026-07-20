@@ -160,9 +160,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietTabToday => 'Today';
 
   @override
-  String get dietTabDictionary => 'Dictionary';
-
-  @override
   String get dietTabTarget => 'Target';
 
   @override
@@ -378,6 +375,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietCalendarOpenTooltip => 'Open calendar';
+
+  @override
+  String get dietGoHomeTooltip => 'Home';
 
   @override
   String get dietCalendarPrevMonth => 'Previous month';

@@ -318,6 +318,52 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> unfavorite(String idToken, String foodItemId) async {}
 }
 
+/// Builds a [DietShellScreen] wired to fakes, for a test to pump directly as
+/// `home:` (via [_pumpShell]) or push on top of a launcher screen (the
+/// home-button test, which needs a real "previous screen" to pop back to).
+DietShellScreen _dietShell({
+  required FakeDietLogRepository dietLogRepository,
+  FakeDailyTargetRepository? dailyTargetRepository,
+  FakeFoodDictionaryRepository? foodDictionaryRepository,
+  DateTime Function() clock = _defaultClock,
+}) {
+  final resolvedDailyTargetRepository =
+      dailyTargetRepository ?? FakeDailyTargetRepository();
+  final resolvedFoodDictionaryRepository =
+      foodDictionaryRepository ?? FakeFoodDictionaryRepository();
+  return DietShellScreen(
+    authRepository: FakeAuthRepository(),
+    todayController: TodayController(
+      GetDayDietLog(dietLogRepository),
+      GetDailyTargetWithRemaining(resolvedDailyTargetRepository),
+    ),
+    dictionaryController: DictionaryController(
+      SearchDictionary(resolvedFoodDictionaryRepository),
+      ListFavorites(resolvedFoodDictionaryRepository),
+      FavoriteFood(resolvedFoodDictionaryRepository),
+      UnfavoriteFood(resolvedFoodDictionaryRepository),
+    ),
+    dailyTargetController: DailyTargetController(
+      GetDailyTargetWithRemaining(resolvedDailyTargetRepository),
+      SetDailyTarget(resolvedDailyTargetRepository),
+    ),
+    logEntryController: LogEntryController(
+      LogFoodFromDictionary(dietLogRepository),
+    ),
+    manualEntryController: ManualEntryController(
+      LogManualEntry(dietLogRepository),
+    ),
+    editEntryController: EditEntryController(
+      UpdateFoodEntry(dietLogRepository),
+      DeleteEntry(dietLogRepository),
+    ),
+    getLoggedDays: GetLoggedDays(dietLogRepository),
+    clock: clock,
+  );
+}
+
+DateTime _defaultClock() => DateTime.utc(2026, 7, 18, 9);
+
 Future<FakeDietLogRepository> _pumpShell(
   WidgetTester tester, {
   FakeDietLogRepository? dietLogRepository,
@@ -325,45 +371,32 @@ Future<FakeDietLogRepository> _pumpShell(
 }) async {
   final resolvedDietLogRepository =
       dietLogRepository ?? FakeDietLogRepository();
-  final dailyTargetRepository = FakeDailyTargetRepository();
-  final foodDictionaryRepository = FakeFoodDictionaryRepository();
 
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
-      home: DietShellScreen(
-        authRepository: FakeAuthRepository(),
-        todayController: TodayController(
-          GetDayDietLog(resolvedDietLogRepository),
-          GetDailyTargetWithRemaining(dailyTargetRepository),
-        ),
-        dictionaryController: DictionaryController(
-          SearchDictionary(foodDictionaryRepository),
-          ListFavorites(foodDictionaryRepository),
-          FavoriteFood(foodDictionaryRepository),
-          UnfavoriteFood(foodDictionaryRepository),
-        ),
-        dailyTargetController: DailyTargetController(
-          GetDailyTargetWithRemaining(dailyTargetRepository),
-          SetDailyTarget(dailyTargetRepository),
-        ),
-        logEntryController: LogEntryController(
-          LogFoodFromDictionary(resolvedDietLogRepository),
-        ),
-        manualEntryController: ManualEntryController(
-          LogManualEntry(resolvedDietLogRepository),
-        ),
-        editEntryController: EditEntryController(
-          UpdateFoodEntry(resolvedDietLogRepository),
-          DeleteEntry(resolvedDietLogRepository),
-        ),
-        getLoggedDays: GetLoggedDays(resolvedDietLogRepository),
-        clock: () => DateTime.utc(2026, 7, 18, 9),
-      ),
+      home: _dietShell(dietLogRepository: resolvedDietLogRepository),
     ),
   );
   await tester.pumpAndSettle();
   return resolvedDietLogRepository;
+}
+
+/// Opens the dictionary bottom sheet the only way it's reachable now (D1/D2
+/// in design.md — no more Dictionary tab): tapping a meal's add control
+/// (`add-to-meal-<meal>`) or the snack area's `add-snack`. Bumps the test
+/// surface size so the add control — further down Today's scrollable list —
+/// is on-screen and tappable, mirroring this file's pre-existing convention
+/// for reaching those controls; restores it after the test.
+Future<void> _openDictionarySheet(
+  WidgetTester tester, {
+  String addKey = 'add-to-meal-breakfast',
+}) async {
+  await tester.binding.setSurfaceSize(const Size(800, 1400));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pump();
+  await tester.tap(find.byKey(Key(addKey)));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -375,17 +408,55 @@ void main() {
       expect(find.text(loc.dietTabToday), findsWidgets);
     });
 
-    testWidgets('switching to Dictionary shows the dictionary section', (
-      tester,
-    ) async {
-      await _pumpShell(tester);
-      final loc = lookupAppLocalizations(const Locale('en'));
+    testWidgets(
+      'a meal\'s add opens the dictionary as a bottom sheet over Today, not a tab switch',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+        await _openDictionarySheet(tester, addKey: 'add-to-meal-lunch');
 
-      expect(find.text('飯/1碗'), findsOneWidget);
-    });
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(
+          find.text(loc.dietLoggingToMeal(loc.dietMealLunch)),
+          findsOneWidget,
+        );
+        expect(find.text('飯/1碗'), findsOneWidget);
+        // Today (underneath) is untouched — this isn't a tab index switch.
+        expect(find.text(loc.dietTodayTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the dictionary sheet is capped well short of the full screen height, '
+      'with a grab handle and rounded top corners — not the near-fullscreen '
+      'panel flagged as blocking in uiux review (D1/D2 in design.md)',
+      (tester) async {
+        await _pumpShell(tester);
+        await _openDictionarySheet(tester);
+
+        // Capped height: leaves Today visible behind the sheet instead of
+        // the near-fullscreen panel `isScrollControlled: true` produces on
+        // its own with no height cap. Located via the sheet's own
+        // logging-meal-bar (unambiguous even though Today, kept alive
+        // underneath, has its own unrelated `FractionallySizedBox`es in its
+        // category progress bars).
+        final sheetSizer = find.ancestor(
+          of: find.byKey(const Key('logging-meal-bar')),
+          matching: find.byType(FractionallySizedBox),
+        );
+        expect(sheetSizer, findsOneWidget);
+        // `_openDictionarySheet` sets the test surface to this fixed size.
+        const surfaceHeight = 1400.0;
+        expect(tester.getSize(sheetSizer).height, lessThan(surfaceHeight * 0.95));
+
+        // Grab handle + rounded top corners, matching the other logging
+        // sheets' visual language.
+        final bottomSheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
+        expect(bottomSheet.showDragHandle, isTrue);
+        expect(bottomSheet.shape, isA<RoundedRectangleBorder>());
+      },
+    );
 
     testWidgets('switching to Target shows the daily target section', (
       tester,
@@ -400,29 +471,25 @@ void main() {
     });
 
     testWidgets(
-      'selecting a dictionary item opens the log entry as a bottom sheet, not a pushed full-screen route',
+      'selecting a dictionary item opens the log entry as a second bottom sheet, stacked over the dictionary sheet',
       (tester) async {
         await _pumpShell(tester);
-        final loc = lookupAppLocalizations(const Locale('en'));
-
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
 
         expect(find.byType(LogEntryScreen), findsOneWidget);
-        expect(find.byType(BottomSheet), findsOneWidget);
+        // Both sheets are open: the dictionary sheet underneath, the
+        // quantity sheet stacked on top of it (D3 in design.md).
+        expect(find.byType(BottomSheet), findsNWidgets(2));
       },
     );
 
     testWidgets(
-      'the manual-entry affordance on Dictionary opens the manual-entry screen',
+      'the manual-entry affordance on the dictionary sheet opens the manual-entry screen',
       (tester) async {
         await _pumpShell(tester);
-        final loc = lookupAppLocalizations(const Locale('en'));
-
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(
           find.byKey(const Key('dictionary-manual-entry-button')),
         );
@@ -434,11 +501,9 @@ void main() {
 
     testWidgets('saving a manual entry reloads Today', (tester) async {
       final dietLogRepository = await _pumpShell(tester);
-      final loc = lookupAppLocalizations(const Locale('en'));
       final loadsBeforeSave = dietLogRepository.getDayLogCallCount;
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+      await _openDictionarySheet(tester);
       await tester.tap(find.byKey(const Key('dictionary-manual-entry-button')));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -453,6 +518,72 @@ void main() {
       expect(
         dietLogRepository.getDayLogCallCount,
         greaterThan(loadsBeforeSave),
+      );
+    });
+  });
+
+  group('DietShellScreen bottom navigation', () {
+    testWidgets(
+      'shows only Today and Target, with no dictionary destination',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.text(loc.dietTabToday), findsWidgets);
+        expect(find.text(loc.dietTabTarget), findsWidgets);
+        expect(find.byIcon(Icons.menu_book), findsNothing);
+      },
+    );
+  });
+
+  group('DietShellScreen home button', () {
+    testWidgets(
+      'tapping the home button in the Today header pops back to the previous screen',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    key: const Key('open-diet-shell'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            _dietShell(dietLogRepository: dietLogRepository),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('open-diet-shell')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DietShellScreen), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('today-home-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DietShellScreen), findsNothing);
+        expect(find.byKey(const Key('open-diet-shell')), findsOneWidget);
+      },
+    );
+
+    testWidgets('the home button exposes a localized tooltip', (tester) async {
+      await _pumpShell(tester);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('today-home-button')))
+            .tooltip,
+        loc.dietGoHomeTooltip,
       );
     });
   });
@@ -523,8 +654,7 @@ void main() {
       await _pumpShell(tester);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+      await _openDictionarySheet(tester);
       expect(
         find.text(loc.dietLoggingToMeal(loc.dietMealBreakfast)),
         findsOneWidget,
@@ -545,8 +675,7 @@ void main() {
       await _pumpShell(tester);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+      await _openDictionarySheet(tester);
       await tester.tap(segment(loc, loc.dietMealLunch));
       await tester.pumpAndSettle();
 
@@ -570,8 +699,7 @@ void main() {
         await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietMealLunch));
         await tester.pumpAndSettle();
 
@@ -598,13 +726,44 @@ void main() {
     );
 
     testWidgets(
+      'the "added" snackbar renders in the dictionary sheet\'s own Scaffold, not the shell\'s (D3 in design.md)',
+      (tester) async {
+        await _pumpShell(tester);
+        await _openDictionarySheet(tester);
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-entry-button')));
+        await tester.pumpAndSettle();
+
+        // Exactly one Scaffold is an ancestor of the dictionary sheet's own
+        // logging bar — the sheet's own Scaffold (D3 in design.md); the
+        // shell's Scaffold sits on a sibling branch under the shared
+        // Navigator's Overlay, not an ancestor of anything inside the sheet.
+        final dictionarySheetScaffold = find.ancestor(
+          of: find.byKey(const Key('logging-meal-bar')),
+          matching: find.byType(Scaffold),
+        );
+        expect(dictionarySheetScaffold, findsOneWidget);
+
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(
+          find.descendant(
+            of: dictionarySheetScaffold,
+            matching: find.byType(SnackBar),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
       'a second save while the first snackbar is still showing replaces it instead of queuing behind it',
       (tester) async {
         await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
 
         // First save, as breakfast.
         await tester.tap(find.text('飯/1碗'));
@@ -639,15 +798,19 @@ void main() {
       },
     );
 
-    testWidgets('Done returns to the Today tab', (tester) async {
+    testWidgets('Done pops the dictionary sheet back to Today', (
+      tester,
+    ) async {
       await _pumpShell(tester);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+      await _openDictionarySheet(tester);
+      expect(find.byType(BottomSheet), findsOneWidget);
+
       await tester.tap(find.byKey(const Key('logging-meal-bar-done-button')));
       await tester.pumpAndSettle();
 
+      expect(find.byType(BottomSheet), findsNothing);
       expect(find.text(loc.dietTodayTitle), findsOneWidget);
     });
 
@@ -657,8 +820,7 @@ void main() {
         await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietSnackBaseName));
         await tester.pumpAndSettle();
 
@@ -684,8 +846,7 @@ void main() {
         await _pumpShell(tester, dietLogRepository: dietLogRepository);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietSnackBaseName));
         await tester.pumpAndSettle();
 
@@ -722,8 +883,7 @@ void main() {
         await _pumpShell(tester, dietLogRepository: dietLogRepository);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietSnackBaseName));
         await tester.pumpAndSettle();
         await tester.tap(find.text('飯/1碗'));
@@ -753,14 +913,39 @@ void main() {
       },
     );
 
+    testWidgets(
+      'tapping add-snack directly (not the in-sheet segment) also seeds the next number once the day already has a snack group',
+      (tester) async {
+        final dietLogRepository = FakeDietLogRepository();
+        await _pumpShell(tester, dietLogRepository: dietLogRepository);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // First snack session, saved under the base name, then Done back to
+        // Today.
+        await _openDictionarySheet(tester, addKey: 'add-snack');
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-entry-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('logging-meal-bar-done-button')));
+        await tester.pumpAndSettle();
+
+        // A fresh tap on Today's add-snack control, with the day already
+        // holding one snack group, seeds the numbered name right away.
+        await _openDictionarySheet(tester, addKey: 'add-snack');
+
+        final numberedName = '${loc.dietSnackBaseName}2';
+        expect(find.text(loc.dietLoggingToMeal(numberedName)), findsOneWidget);
+      },
+    );
+
     testWidgets('renaming the current snack session updates the seeded label', (
       tester,
     ) async {
       await _pumpShell(tester);
       final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
+      await _openDictionarySheet(tester);
       await tester.tap(segment(loc, loc.dietSnackBaseName));
       await tester.pumpAndSettle();
 
@@ -789,8 +974,7 @@ void main() {
         await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietSnackBaseName));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('logging-meal-bar-rename-button')));
@@ -821,8 +1005,7 @@ void main() {
         await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
+        await _openDictionarySheet(tester);
         await tester.tap(segment(loc, loc.dietSnackBaseName));
         await tester.pumpAndSettle();
 

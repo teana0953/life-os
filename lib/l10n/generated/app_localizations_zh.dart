@@ -156,9 +156,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietTabToday => '今日';
 
   @override
-  String get dietTabDictionary => '食物字典';
-
-  @override
   String get dietTabTarget => '目標';
 
   @override
@@ -370,6 +367,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietCalendarOpenTooltip => '開啟日曆';
+
+  @override
+  String get dietGoHomeTooltip => '回首頁';
 
   @override
   String get dietCalendarPrevMonth => '上個月';
@@ -547,9 +547,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietTabToday => '今日';
 
   @override
-  String get dietTabDictionary => '食物字典';
-
-  @override
   String get dietTabTarget => '目標';
 
   @override
@@ -761,6 +758,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietCalendarOpenTooltip => '開啟日曆';
+
+  @override
+  String get dietGoHomeTooltip => '回首頁';
 
   @override
   String get dietCalendarPrevMonth => '上個月';
