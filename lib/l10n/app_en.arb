@@ -411,14 +411,17 @@
     "description": "Label for the button that saves a logged food entry."
   },
 
+  "dietAddToMealButton": "Add to {meal}",
+  "@dietAddToMealButton": {
+    "description": "Label for the button that adds a dictionary item to the current session's meal, naming that meal.",
+    "placeholders": {
+      "meal": {"type": "String"}
+    }
+  },
+
   "dietPreviewTitle": "Preview",
   "@dietPreviewTitle": {
     "description": "Heading above the live portion preview on the log-entry card."
-  },
-
-  "dietLogEntryTitle": "Log food",
-  "@dietLogEntryTitle": {
-    "description": "Screen title for logging a food entry from the dictionary."
   },
 
   "dietSetTargetTitle": "Set daily target",

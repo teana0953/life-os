@@ -58,9 +58,27 @@ Future<TimeOfDay?> _showTimePicker(
   return showTimePicker(context: context, initialTime: initialTime);
 }
 
-/// Card for logging a dictionary item: meal selection (incl. a custom
-/// snack label), unit-quantity/grams amount with a live portion preview
-/// (D2 in design.md), an eaten-at time, and save.
+/// The session meal's display name shown on the "add to \<meal\>" button
+/// (D2 in design.md): a standard meal is localized via `dietMeal*`; a snack
+/// shows its saved label (`controller.snackLabel`) verbatim.
+String _mealLabel(AppLocalizations loc, LogEntryController controller) {
+  switch (controller.meal) {
+    case 'breakfast':
+      return loc.dietMealBreakfast;
+    case 'lunch':
+      return loc.dietMealLunch;
+    case 'dinner':
+      return loc.dietMealDinner;
+    default:
+      return controller.snackLabel;
+  }
+}
+
+/// Card for logging a dictionary item: unit-quantity/grams amount with a
+/// live portion preview (D2 in design.md), an eaten-at time, and an "add to
+/// \<meal\>" button. The meal comes wholly from the session (seeded by
+/// `LogEntryController.start`) — the card no longer offers a meal chooser
+/// (D2 in design.md).
 class QuantityCard extends StatefulWidget {
   final LogEntryController controller;
   final String idToken;
@@ -84,7 +102,6 @@ class QuantityCard extends StatefulWidget {
 
 class _QuantityCardState extends State<QuantityCard> {
   late final TextEditingController _gramsText;
-  late final TextEditingController _snackLabelText;
 
   @override
   void initState() {
@@ -93,14 +110,12 @@ class _QuantityCardState extends State<QuantityCard> {
     _gramsText = TextEditingController(
       text: _formatPortion(widget.controller.grams),
     );
-    _snackLabelText = TextEditingController(text: widget.controller.snackLabel);
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     _gramsText.dispose();
-    _snackLabelText.dispose();
     super.dispose();
   }
 
@@ -127,7 +142,10 @@ class _QuantityCardState extends State<QuantityCard> {
 
   Future<void> _save() async {
     final saved = await widget.controller.save(widget.idToken, widget.day);
-    if (saved) widget.onSaved?.call();
+    // Guard `mounted`: onSaved pops this sheet's context, so if the user
+    // dismissed the sheet (scrim/swipe/back) while the save was in flight,
+    // firing it on a defunct context would throw. Mirrors EditEntryScreen.
+    if (saved && mounted) widget.onSaved?.call();
   }
 
   @override
@@ -139,7 +157,6 @@ class _QuantityCardState extends State<QuantityCard> {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final preview = controller.preview;
-    final isSnack = controller.meal == snackMealValue;
 
     final basisUnit = _unitSegment(item.name);
     final hasBasisPortions =
@@ -172,45 +189,6 @@ class _QuantityCardState extends State<QuantityCard> {
                 veg: item.veg,
               ),
             ],
-          ),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            ChoiceChip(
-              key: const Key('meal-chip-breakfast'),
-              label: Text(loc.dietMealBreakfast),
-              selected: controller.meal == 'breakfast',
-              onSelected: (_) => controller.setMeal('breakfast'),
-            ),
-            ChoiceChip(
-              key: const Key('meal-chip-lunch'),
-              label: Text(loc.dietMealLunch),
-              selected: controller.meal == 'lunch',
-              onSelected: (_) => controller.setMeal('lunch'),
-            ),
-            ChoiceChip(
-              key: const Key('meal-chip-dinner'),
-              label: Text(loc.dietMealDinner),
-              selected: controller.meal == 'dinner',
-              onSelected: (_) => controller.setMeal('dinner'),
-            ),
-            ChoiceChip(
-              key: const Key('meal-chip-snack'),
-              label: Text(loc.dietSnackBaseName),
-              selected: isSnack,
-              onSelected: (_) => controller.setMeal(snackMealValue),
-            ),
-          ],
-        ),
-        if (isSnack) ...[
-          const SizedBox(height: 8),
-          TextField(
-            key: const Key('snack-label-field'),
-            controller: _snackLabelText,
-            decoration: InputDecoration(hintText: loc.dietSnackLabelHint),
-            onChanged: controller.setSnackLabel,
           ),
         ],
         const SizedBox(height: 12),
@@ -288,7 +266,7 @@ class _QuantityCardState extends State<QuantityCard> {
         FilledButton(
           key: const Key('save-entry-button'),
           onPressed: controller.status == LogEntryStatus.saving ? null : _save,
-          child: Text(loc.dietSaveEntryButton),
+          child: Text(loc.dietAddToMealButton(_mealLabel(loc, controller))),
         ),
       ],
     );

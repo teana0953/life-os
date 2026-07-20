@@ -272,10 +272,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietSaveEntryButton => 'Save';
 
   @override
-  String get dietPreviewTitle => 'Preview';
+  String dietAddToMealButton(String meal) {
+    return 'Add to $meal';
+  }
 
   @override
-  String get dietLogEntryTitle => 'Log food';
+  String get dietPreviewTitle => 'Preview';
 
   @override
   String get dietSetTargetTitle => 'Set daily target';

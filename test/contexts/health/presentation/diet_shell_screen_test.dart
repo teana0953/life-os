@@ -399,19 +399,21 @@ void main() {
       expect(find.text(loc.dietSetTargetTitle), findsOneWidget);
     });
 
-    testWidgets('selecting a dictionary item opens the log-entry screen', (
-      tester,
-    ) async {
-      await _pumpShell(tester);
-      final loc = lookupAppLocalizations(const Locale('en'));
+    testWidgets(
+      'selecting a dictionary item opens the log entry as a bottom sheet, not a pushed full-screen route',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
 
-      await tester.tap(find.text(loc.dietTabDictionary));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('飯/1碗'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text(loc.dietTabDictionary));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(LogEntryScreen), findsOneWidget);
-    });
+        expect(find.byType(LogEntryScreen), findsOneWidget);
+        expect(find.byType(BottomSheet), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'the manual-entry affordance on Dictionary opens the manual-entry screen',
@@ -531,10 +533,10 @@ void main() {
       await tester.tap(find.text('飯/1碗'));
       await tester.pumpAndSettle();
 
-      final chip = tester.widget<ChoiceChip>(
-        find.byKey(const Key('meal-chip-breakfast')),
+      expect(
+        find.text(loc.dietAddToMealButton(loc.dietMealBreakfast)),
+        findsOneWidget,
       );
-      expect(chip.selected, isTrue);
     });
 
     testWidgets('switching the segment seeds the newly selected meal', (
@@ -556,10 +558,10 @@ void main() {
       await tester.tap(find.text('飯/1碗'));
       await tester.pumpAndSettle();
 
-      final chip = tester.widget<ChoiceChip>(
-        find.byKey(const Key('meal-chip-lunch')),
+      expect(
+        find.text(loc.dietAddToMealButton(loc.dietMealLunch)),
+        findsOneWidget,
       );
-      expect(chip.selected, isTrue);
     });
 
     testWidgets(
@@ -588,74 +590,8 @@ void main() {
         // saving (D3 in design.md).
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
-        final chip = tester.widget<ChoiceChip>(
-          find.byKey(const Key('meal-chip-lunch')),
-        );
-        expect(chip.selected, isTrue);
-      },
-    );
-
-    testWidgets(
-      'overriding the meal inside the quantity card before saving shows the actually-saved meal in the snackbar, not the session meal',
-      (tester) async {
-        await _pumpShell(tester);
-        final loc = lookupAppLocalizations(const Locale('en'));
-
-        // Session stays on breakfast (the default).
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('飯/1碗'));
-        await tester.pumpAndSettle();
-
-        // Override the meal for just this entry, inside the quantity card.
-        await tester.tap(find.byKey(const Key('meal-chip-lunch')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('save-entry-button')));
-        await tester.pumpAndSettle();
-
-        // Snackbar names the actually-saved meal (lunch), not the session's
-        // meal (breakfast).
         expect(
-          find.text(loc.dietAddedToMealSnackbar(loc.dietMealLunch)),
-          findsOneWidget,
-        );
-
-        // The session itself is untouched (D3): still logging to breakfast.
-        expect(
-          find.text(loc.dietLoggingToMeal(loc.dietMealBreakfast)),
-          findsOneWidget,
-        );
-      },
-    );
-
-    testWidgets(
-      'overriding the snack label inside the quantity card before saving shows the actually-saved label in the snackbar',
-      (tester) async {
-        await _pumpShell(tester);
-        final loc = lookupAppLocalizations(const Locale('en'));
-
-        await tester.tap(find.text(loc.dietTabDictionary));
-        await tester.pumpAndSettle();
-        await tester.tap(segment(loc, loc.dietSnackBaseName));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('飯/1碗'));
-        await tester.pumpAndSettle();
-
-        // Override the seeded snack label for just this entry.
-        await tester.enterText(
-          find.byKey(const Key('snack-label-field')),
-          '下午茶',
-        );
-        await tester.pump();
-        await tester.tap(find.byKey(const Key('save-entry-button')));
-        await tester.pumpAndSettle();
-
-        expect(find.text(loc.dietAddedToMealSnackbar('下午茶')), findsOneWidget);
-
-        // The session's snack name is unaffected — still the base name.
-        expect(
-          find.text(loc.dietLoggingToMeal(loc.dietSnackBaseName)),
+          find.text(loc.dietAddToMealButton(loc.dietMealLunch)),
           findsOneWidget,
         );
       },
@@ -734,14 +670,10 @@ void main() {
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
 
-        final snackChip = tester.widget<ChoiceChip>(
-          find.byKey(const Key('meal-chip-snack')),
+        expect(
+          find.text(loc.dietAddToMealButton(loc.dietSnackBaseName)),
+          findsOneWidget,
         );
-        expect(snackChip.selected, isTrue);
-        final labelField = tester.widget<TextField>(
-          find.byKey(const Key('snack-label-field')),
-        );
-        expect(labelField.controller?.text, loc.dietSnackBaseName);
       },
     );
 
@@ -776,10 +708,10 @@ void main() {
         // A second pick within the same session is still the base name.
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
-        final labelField = tester.widget<TextField>(
-          find.byKey(const Key('snack-label-field')),
+        expect(
+          find.text(loc.dietAddToMealButton(loc.dietSnackBaseName)),
+          findsOneWidget,
         );
-        expect(labelField.controller?.text, loc.dietSnackBaseName);
       },
     );
 
@@ -814,10 +746,10 @@ void main() {
 
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
-        final labelField = tester.widget<TextField>(
-          find.byKey(const Key('snack-label-field')),
+        expect(
+          find.text(loc.dietAddToMealButton(numberedName)),
+          findsOneWidget,
         );
-        expect(labelField.controller?.text, numberedName);
       },
     );
 
@@ -845,10 +777,10 @@ void main() {
 
       await tester.tap(find.text('飯/1碗'));
       await tester.pumpAndSettle();
-      final labelField = tester.widget<TextField>(
-        find.byKey(const Key('snack-label-field')),
+      expect(
+        find.text(loc.dietAddToMealButton('下午茶')),
+        findsOneWidget,
       );
-      expect(labelField.controller?.text, '下午茶');
     });
 
     testWidgets(
@@ -915,10 +847,10 @@ void main() {
         // carried into a new session.
         await tester.tap(find.text('飯/1碗'));
         await tester.pumpAndSettle();
-        final labelField = tester.widget<TextField>(
-          find.byKey(const Key('snack-label-field')),
+        expect(
+          find.text(loc.dietAddToMealButton(loc.dietSnackBaseName)),
+          findsOneWidget,
         );
-        expect(labelField.controller?.text, loc.dietSnackBaseName);
 
         // Reopening rename mode shows the restored name, not the abandoned
         // "下午茶" edit.
