@@ -2,25 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/platform/keyboard_inset.dart';
-import '../../../shared/platform/keyboard_metrics.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../application/get_logged_days.dart';
-import '../domain/day_diet_log.dart';
-import '../domain/food_entry.dart';
-import '../domain/food_item.dart';
+import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
 import 'daily_target_screen.dart';
 import 'dictionary_controller.dart';
-import 'dictionary_screen.dart';
-import 'edit_entry_controller.dart';
-import 'edit_entry_screen.dart';
-import 'log_entry_controller.dart';
-import 'log_entry_screen.dart';
-import 'manual_entry_controller.dart';
-import 'manual_entry_screen.dart';
+import 'food_search_screen.dart';
 import 'snack_naming.dart';
 import 'today_controller.dart';
 import 'today_screen.dart';
@@ -55,21 +45,6 @@ int _daysBetween(DateTime from, DateTime to) {
   return toUtc.difference(fromUtc).inDays;
 }
 
-/// The day-navigation chip label: "Today"/"Yesterday" for the two nearby
-/// days, else `null` (no chip — the full date alone is shown).
-/// Portion of the screen height the dictionary bottom sheet occupies (D1/D2
-/// in design.md): "a large majority of the screen, with Today peeking out
-/// behind the scrim" per the design mockup — not the near-fullscreen panel
-/// `showModalBottomSheet(isScrollControlled: true)` produces on its own with
-/// no height cap. See `_openDictionarySheet`.
-const double _dictionarySheetHeightFactor = 0.9;
-
-/// Corner radius for the diet bottom sheets' rounded top corners (dictionary,
-/// edit-entry, and quantity-card sheets), matching the rounded-corner
-/// language used elsewhere in the design system. See `_openDictionarySheet`,
-/// `_openEditEntry`, `_openLogEntry`.
-const Radius _dietSheetCornerRadius = Radius.circular(20);
-
 String? _dayChipLabel(
   AppLocalizations loc,
   DateTime viewedDate,
@@ -81,51 +56,10 @@ String? _dayChipLabel(
   return null;
 }
 
-/// Whether [meal] represents a snack session (D1/D5 in design.md): any name
-/// that isn't one of the three standard meals. A snack session's
-/// `_currentMeal` holds its display name ("點心2", a rename like "下午茶", …)
-/// rather than a fixed code, so this name-based test is how both the
-/// logging bar's segment derivation and the snack-numbering recompute gate
-/// recognize "currently in a snack session".
-bool _isSnackMeal(String meal) =>
-    meal != 'breakfast' && meal != 'lunch' && meal != 'dinner';
-
-/// Maps a raw meal value to its localized label for the logging bar/snackbar
-/// (mirrors `today_screen.dart`'s private `_mealLabel`); a snack's display
-/// name is shown as-is.
-String _mealDisplayLabel(AppLocalizations loc, String meal) {
-  switch (meal) {
-    case 'breakfast':
-      return loc.dietMealBreakfast;
-    case 'lunch':
-      return loc.dietMealLunch;
-    case 'dinner':
-      return loc.dietMealDinner;
-    default:
-      return meal;
-  }
-}
-
-/// The display name for what a [LogEntryController]/[ManualEntryController]
-/// actually just saved (D3 in design.md): [meal]/[snackLabel] read from the
-/// controller *after* a successful save, not the shell's session-level
-/// `_currentMeal` — the quantity/manual card lets the user override the meal
-/// (or the snack label) for a single entry without changing the session, so
-/// the two can differ. A standard meal is localized; a snack shows its saved
-/// label verbatim.
-String _savedMealLabel(AppLocalizations loc, String meal, String snackLabel) {
-  if (meal == snackMealValue) return snackLabel;
-  return _mealDisplayLabel(loc, meal);
-}
-
-/// The next name in a day's snack series (D1/D5 in design.md), from [dayLog]'s
-/// current meal group names: seeds a brand-new snack session (the shell's
-/// add-snack affordance) and drives the dictionary sheet's own segment-select
-/// recompute (switching from a non-snack segment into snack) — both read from
-/// `todayController.dayLog` rather than a snack controller (there is none),
-/// per D1 in design.md.
-String _nextSnackNameForDay(AppLocalizations loc, DayDietLog? dayLog) {
-  final mealNames = dayLog?.meals.map((meal) => meal.meal).toList() ?? const <String>[];
+/// The next name in a day's snack series, from [dayLog]'s current meal
+/// names: seeds a brand-new snack session (the Today "＋ new snack"
+/// control).
+String _nextSnackNameForDay(AppLocalizations loc, List<String> mealNames) {
   return nextSnackName(mealNames, loc.dietSnackBaseName);
 }
 
@@ -138,24 +72,21 @@ String _fullDateLabel(BuildContext context, DateTime viewedDate) {
   return DateFormat(pattern, languageTag).format(viewedDate);
 }
 
-/// Diet shell: bottom navigation across Today and Target; the food
-/// dictionary is reached only via the add-food bottom sheet (D1/D2 in
-/// design.md), not a tab. Owns the auth-token load (mirroring
+/// Diet shell: bottom navigation across Today and Target; food is added by
+/// pushing the full-screen [FoodSearchScreen] for a target meal — there is
+/// no dictionary tab or bottom sheet. Owns the auth-token load (mirroring
 /// `_AuthenticatedHome`) and passes it down to each section's controller.
 class DietShellScreen extends StatefulWidget {
   final AuthRepository authRepository;
   final TodayController todayController;
   final DictionaryController dictionaryController;
   final DailyTargetController dailyTargetController;
-  final LogEntryController logEntryController;
-  final ManualEntryController manualEntryController;
-  final EditEntryController editEntryController;
+  final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
 
-  /// Returns the current time, used to resolve "today" and to default the
-  /// log-entry eaten-at time. Defaults to [DateTime.now]; tests inject a
-  /// fixed clock.
+  /// Returns the current time, used to resolve "today". Defaults to
+  /// [DateTime.now]; tests inject a fixed clock.
   final DateTime Function() clock;
 
   const DietShellScreen({
@@ -164,9 +95,7 @@ class DietShellScreen extends StatefulWidget {
     required this.todayController,
     required this.dictionaryController,
     required this.dailyTargetController,
-    required this.logEntryController,
-    required this.manualEntryController,
-    required this.editEntryController,
+    required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
     this.clock = DateTime.now,
@@ -211,75 +140,37 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await _reloadCurrentDay();
   }
 
-  /// Opens the dictionary bottom sheet (D1/D2 in design.md), seeded to
-  /// [initialMeal] (a standard meal, or the next snack name for the
-  /// add-snack affordance — computed by the caller). Replaces the old
-  /// tab-switch (`setState(_index = 1)`): the logging session's current meal
-  /// no longer lives on the shell at all — see `_DictionarySheet`, which owns
-  /// it from here on, seeded once by this call.
-  ///
-  /// Capped at [_dictionarySheetHeightFactor] of the screen height via
-  /// [FractionallySizedBox]: `isScrollControlled: true` alone lets the sheet
-  /// grow as tall as its child requests, and `_DictionarySheet`'s own
-  /// `Scaffold` requests all the space it's given — with no cap that reads
-  /// as a near-fullscreen panel, hiding Today (the scrim) behind it entirely.
-  /// `showDragHandle`/`shape` add the grab handle and rounded top corners;
-  /// `clipBehavior: Clip.antiAlias` makes that `shape` actually clip the
-  /// sheet's content (the nested `Scaffold`s paint square corners otherwise —
-  /// an opaque child can extend past `shape` unless clipped, per
-  /// `BottomSheet.clipBehavior`'s own doc).
-  void _openDictionarySheet(String? initialMeal, {bool browseOnly = false}) {
+  /// Pushes the full-screen food search targeting [meal], resetting the
+  /// shared [CreateMealController] for a fresh session; on a completed
+  /// result (the tray was saved), reloads Today + the target for the
+  /// current day.
+  Future<void> _openFoodSearch(String meal) async {
     final idToken = _idToken;
     if (idToken == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
-      ),
-      builder: (_) => FractionallySizedBox(
-        heightFactor: _dictionarySheetHeightFactor,
-        child: _DictionarySheet(
+    widget.createMealController.start(meal);
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => FoodSearchScreen(
+          meal: meal,
           dictionaryController: widget.dictionaryController,
-          logEntryController: widget.logEntryController,
-          manualEntryController: widget.manualEntryController,
-          todayController: widget.todayController,
+          createMealController: widget.createMealController,
           idToken: idToken,
           day: _day,
-          initialMeal: initialMeal,
-          browseOnly: browseOnly,
-          clock: widget.clock,
+          signOut: widget.signOut ?? SignOut(widget.authRepository),
         ),
       ),
     );
+    if (result == true) {
+      await _reloadCurrentDay();
+    }
   }
 
-  /// Opens the dictionary in a browse-only sheet (D3 in design.md): no
-  /// logging session, so no meal is seeded — search, the food list, and
-  /// favorites only. See `_DictionarySheet`'s `browseOnly` handling.
-  void _openDictionaryBrowse() => _openDictionarySheet(null, browseOnly: true);
-
-  void _openEditEntry(FoodEntry entry) {
-    final idToken = _idToken;
-    if (idToken == null) return;
-    widget.editEntryController.start(entry);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
-      ),
-      builder: (_) => EditEntryScreen(
-        controller: widget.editEntryController,
-        idToken: idToken,
-        onSaved: _reloadCurrentDay,
-        onDeleted: _reloadCurrentDay,
-      ),
-    );
+  void _openAddSnack() {
+    final loc = AppLocalizations.of(context)!;
+    final mealNames =
+        widget.todayController.dayMealsLog?.meals.map((m) => m.meal).toList() ??
+        const <String>[];
+    _openFoodSearch(_nextSnackNameForDay(loc, mealNames));
   }
 
   Future<void> _openCalendar() async {
@@ -331,7 +222,6 @@ class _DietShellScreenState extends State<DietShellScreen> {
                           DateUtils.addDaysToDate(_viewedDate, 1),
                         ),
                   onOpenCalendar: _openCalendar,
-                  onOpenDictionary: _openDictionaryBrowse,
                   onGoHome: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -339,16 +229,9 @@ class _DietShellScreenState extends State<DietShellScreen> {
                 child: TodayScreen(
                   controller: widget.todayController,
                   signOut: widget.signOut ?? SignOut(widget.authRepository),
-                  onAddToMeal: _openDictionarySheet,
-                  onAddSnack: () => _openDictionarySheet(
-                    _nextSnackNameForDay(loc, widget.todayController.dayLog),
-                  ),
-                  // Continues the exact snack group tapped (D2 in
-                  // design.md): seeds `_currentMeal` to that name directly,
-                  // no renumbering — the recompute gate only fires on the
-                  // in-sheet segment tap, not on this seed.
-                  onAddToSnackGroup: _openDictionarySheet,
-                  onEditEntry: _openEditEntry,
+                  onAddToMeal: _openFoodSearch,
+                  onAddSnack: _openAddSnack,
+                  onAddToSnackGroup: _openFoodSearch,
                 ),
               ),
             ],
@@ -387,22 +270,19 @@ class _DietShellScreenState extends State<DietShellScreen> {
   }
 }
 
-/// Diet header shown above the Today section (D3 in design.md): a mascot
-/// beside a title ("Today's Food" / "Food Log", depending on whether the
-/// viewed day is today) and a day-navigation row (`‹ date ›`, where the date
-/// itself is the calendar entry point). The date is always shown in full;
-/// today/yesterday are called out with a small chip *alongside* the date
-/// rather than replacing it. [onNext] is `null` to disable the "next day"
+/// Diet header shown above the Today section: a mascot beside a title
+/// ("Today's Food" / "Food Log", depending on whether the viewed day is
+/// today) and a day-navigation row (`‹ date ›`, where the date itself is the
+/// calendar entry point). [onNext] is `null` to disable the "next day"
 /// control when the viewed day is today. [onGoHome] wires the header's home
-/// control (D5 in design.md), returning to the home "your spaces" screen the
-/// diet module was pushed from.
+/// control, returning to the home "your spaces" screen the diet module was
+/// pushed from.
 class _DayNavBar extends StatelessWidget {
   final DateTime viewedDate;
   final DateTime today;
   final VoidCallback onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onOpenCalendar;
-  final VoidCallback onOpenDictionary;
   final VoidCallback onGoHome;
 
   const _DayNavBar({
@@ -411,7 +291,6 @@ class _DayNavBar extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onOpenCalendar,
-    required this.onOpenDictionary,
     required this.onGoHome,
   });
 
@@ -426,7 +305,7 @@ class _DayNavBar extends StatelessWidget {
 
     // Two rows: the title + header actions on top, and the day navigation on
     // its own full-width row below. Keeping the date on its own line (rather
-    // than sharing the top row with the mascot and the two trailing buttons)
+    // than sharing the top row with the mascot and the trailing button)
     // gives it the whole width, so the date label isn't squeezed down to an
     // unreadable ellipsis on narrow phones.
     return Column(
@@ -447,12 +326,6 @@ class _DayNavBar extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            IconButton(
-              key: const Key('open-dictionary-button'),
-              tooltip: loc.dietOpenDictionaryTooltip,
-              onPressed: onOpenDictionary,
-              icon: const Icon(Icons.menu_book_outlined),
             ),
             IconButton(
               key: const Key('today-home-button'),
@@ -541,551 +414,11 @@ class _DayNavBar extends StatelessWidget {
   }
 }
 
-/// The four selectable segments on [_LoggingMealBar] (D1 in design.md). A
-/// snack session's actual `_currentMeal` is its display name ("點心2", a
-/// rename, …), not this enum — [_DictionarySheetState._selectedSegment]
-/// derives [snack] whenever `_currentMeal` isn't one of the three standard
-/// meals (see [_isSnackMeal]).
-enum _LoggingMealSegment { breakfast, lunch, dinner, snack }
-
-/// The continuous-logging session bar shown atop the dictionary sheet (D1 in
-/// design.md): a "Logging to" title naming the current meal, a Done button,
-/// a wrapping row of meal choice chips (breakfast/lunch/dinner/snack), and — only
-/// while the snack segment is selected — a rename affordance for the
-/// current snack session.
-/// Purely presentational: [_DictionarySheetState] owns `_currentMeal`, the
-/// segment-derivation, and the numbering recompute gate; this widget only
-/// reports taps via its callbacks. Colors from theme, strings from ARB.
-class _LoggingMealBar extends StatefulWidget {
-  final _LoggingMealSegment selectedSegment;
-  final String currentMealLabel;
-  final ValueChanged<_LoggingMealSegment> onSegmentSelected;
-  final ValueChanged<String> onRenameSnack;
-  final VoidCallback onDone;
-
-  const _LoggingMealBar({
-    required this.selectedSegment,
-    required this.currentMealLabel,
-    required this.onSegmentSelected,
-    required this.onRenameSnack,
-    required this.onDone,
-  });
-
-  @override
-  State<_LoggingMealBar> createState() => _LoggingMealBarState();
-}
-
-class _LoggingMealBarState extends State<_LoggingMealBar> {
-  bool _renaming = false;
-  late final TextEditingController _renameText;
-
-  @override
-  void initState() {
-    super.initState();
-    _renameText = TextEditingController(text: widget.currentMealLabel);
-  }
-
-  @override
-  void didUpdateWidget(covariant _LoggingMealBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_renaming && oldWidget.currentMealLabel != widget.currentMealLabel) {
-      _renameText.text = widget.currentMealLabel;
-    }
-  }
-
-  @override
-  void dispose() {
-    _renameText.dispose();
-    super.dispose();
-  }
-
-  void _confirmRename() {
-    final value = _renameText.text.trim();
-    setState(() => _renaming = false);
-    if (value.isNotEmpty) widget.onRenameSnack(value);
-  }
-
-  /// Cancels the rename without saving: restores the field to the
-  /// still-current name (so a stale edit isn't silently kept for next time)
-  /// and closes the field. Never calls `onRenameSnack`, so `_currentMeal` is
-  /// untouched — the previous behavior of submitting an emptied field to
-  /// silently cancel is no longer the only way out.
-  void _cancelRename() {
-    setState(() {
-      _renaming = false;
-      _renameText.text = widget.currentMealLabel;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isSnackSelected = widget.selectedSegment == _LoggingMealSegment.snack;
-
-    return Container(
-      key: const Key('logging-meal-bar'),
-      padding: const EdgeInsets.all(16),
-      // Separates this bar's own meal chip row from the Dictionary screen's
-      // "all/favorites" SegmentedButton immediately below it — the two
-      // would otherwise visually run together (both are pill-grouped
-      // segmented controls sitting right on top of each other).
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  loc.dietLoggingToMeal(widget.currentMealLabel),
-                  key: const Key('logging-meal-bar-title'),
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              TextButton(
-                key: const Key('logging-meal-bar-done-button'),
-                onPressed: widget.onDone,
-                child: Text(loc.dietLoggingDoneButton),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ChoiceChip(
-                key: const Key('logging-meal-chip-breakfast'),
-                label: Text(loc.dietMealBreakfast),
-                selected: widget.selectedSegment == _LoggingMealSegment.breakfast,
-                onSelected: (_) =>
-                    widget.onSegmentSelected(_LoggingMealSegment.breakfast),
-              ),
-              ChoiceChip(
-                key: const Key('logging-meal-chip-lunch'),
-                label: Text(loc.dietMealLunch),
-                selected: widget.selectedSegment == _LoggingMealSegment.lunch,
-                onSelected: (_) =>
-                    widget.onSegmentSelected(_LoggingMealSegment.lunch),
-              ),
-              ChoiceChip(
-                key: const Key('logging-meal-chip-dinner'),
-                label: Text(loc.dietMealDinner),
-                selected: widget.selectedSegment == _LoggingMealSegment.dinner,
-                onSelected: (_) =>
-                    widget.onSegmentSelected(_LoggingMealSegment.dinner),
-              ),
-              // While the snack segment is selected, the chip shows the
-              // current snack session's actual name ("點心3"/a rename like
-              // "下午茶") rather than the generic "Snack" label (D4 in
-              // design.md), so the user can see which snack they're logging
-              // into; unselected, it shows the generic label since there's
-              // no "current" session to name yet.
-              ChoiceChip(
-                key: const Key('logging-meal-chip-snack'),
-                label: Text(
-                  isSnackSelected ? widget.currentMealLabel : loc.dietSnackBaseName,
-                ),
-                selected: isSnackSelected,
-                onSelected: (_) =>
-                    widget.onSegmentSelected(_LoggingMealSegment.snack),
-              ),
-              // Compact, chip-height rename control (D4 in design.md): a
-              // default 48px `IconButton` misaligns with the ~32px chips and
-              // can wrap onto its own line on a narrow screen; sizing it
-              // down keeps it in the same `Wrap` run as the chips.
-              if (isSnackSelected && !_renaming)
-                IconButton(
-                  key: const Key('logging-meal-bar-rename-button'),
-                  tooltip: loc.dietSnackRenameTooltip,
-                  onPressed: () => setState(() => _renaming = true),
-                  icon: const Icon(Icons.edit, size: 18),
-                  visualDensity: VisualDensity.compact,
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(32, 32),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-            ],
-          ),
-          if (isSnackSelected && _renaming) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('logging-meal-bar-rename-field'),
-                    controller: _renameText,
-                    decoration: InputDecoration(
-                      hintText: loc.dietSnackRenameTooltip,
-                    ),
-                    onSubmitted: (_) => _confirmRename(),
-                  ),
-                ),
-                IconButton(
-                  key: const Key('logging-meal-bar-rename-confirm'),
-                  tooltip: loc.dietSnackRenameConfirmTooltip,
-                  onPressed: _confirmRename,
-                  icon: const Icon(Icons.check),
-                ),
-                IconButton(
-                  key: const Key('logging-meal-bar-rename-cancel'),
-                  tooltip: loc.dietSnackRenameCancelTooltip,
-                  onPressed: _cancelRename,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// The dictionary bottom sheet (D1/D2/D3 in design.md): opened by the shell
-/// (`_DietShellScreenState._openDictionarySheet`) in place of the old
-/// tab-switch, stacked over Today. Owns the logging session's current meal —
-/// moved here from the shell entirely, since a `showModalBottomSheet` builder
-/// is a separate route that doesn't rebuild off the shell's `setState` — so
-/// [_LoggingMealBar]'s segment-select/snack-rename, the recompute gate, and
-/// [_nextSnackNameForDay] (fed by [todayController]'s `dayLog`, since there is
-/// no snack controller) all operate on this sheet's own state.
-///
-/// Wraps its body in its own [ScaffoldMessenger] (not just a [Scaffold]:
-/// under the single [ScaffoldMessenger] the app's `MaterialApp` already
-/// provides, this sheet's Scaffold and the shell's Scaffold would both
-/// register as sibling "root" Scaffolds — since a bottom sheet route lands as
-/// a sibling overlay entry, not a descendant of the shell's Scaffold — so
-/// [ScaffoldMessengerState.showSnackBar] would paint the "added" confirmation
-/// into *both* simultaneously, including the shell's copy sitting invisibly
-/// behind this modal sheet (D3 in design.md). A dedicated [ScaffoldMessenger]
-/// scopes the snackbar to this sheet's own (visible) Scaffold only —
-/// reached via [_DictionarySheetState._messengerKey], not
-/// `ScaffoldMessenger.of(context)`: the *State's* own `context` is the
-/// element `build()` is called *for*, i.e. above (not below) the
-/// `ScaffoldMessenger` that `build()` returns, so an ancestor lookup from
-/// there would skip past this sheet's own messenger and find the app's
-/// outer one instead — silently recreating the exact bug this sheet exists
-/// to avoid.
-class _DictionarySheet extends StatefulWidget {
-  final DictionaryController dictionaryController;
-  final LogEntryController logEntryController;
-  final ManualEntryController manualEntryController;
-  final TodayController todayController;
-  final String idToken;
-  final String day;
-
-  /// The logging session's initial meal. `null` in browse-only mode, where
-  /// there is no logging session (D3 in design.md) — irrelevant there since
-  /// [_DictionarySheetState] never reads `_currentMeal` while [browseOnly].
-  final String? initialMeal;
-
-  /// Browse-without-logging mode (D3 in design.md): no [_LoggingMealBar], no
-  /// logging session, and the hosted [DictionaryScreen] gets
-  /// `browseOnly: true` and `onManualEntry: null` — suppressing the
-  /// manual-entry logging path too, not just the row tap.
-  final bool browseOnly;
-
-  final DateTime Function() clock;
-
-  const _DictionarySheet({
-    required this.dictionaryController,
-    required this.logEntryController,
-    required this.manualEntryController,
-    required this.todayController,
-    required this.idToken,
-    required this.day,
-    required this.initialMeal,
-    this.browseOnly = false,
-    required this.clock,
-  });
-
-  @override
-  State<_DictionarySheet> createState() => _DictionarySheetState();
-}
-
-class _DictionarySheetState extends State<_DictionarySheet> {
-  late String _currentMeal = widget.initialMeal ?? '';
-
-  /// Identifies this sheet's own [ScaffoldMessenger] (see [build]) so
-  /// [_onEntrySaved] can reach its `ScaffoldMessengerState` directly. Not
-  /// `ScaffoldMessenger.of(context)`: this `State`'s own `context` is the
-  /// element *above* what `build()` returns, i.e. above (not below) the
-  /// `ScaffoldMessenger` this sheet wraps itself in — so an ancestor lookup
-  /// from here would skip right past it and hit the app's outer one instead,
-  /// exactly the bug this sheet's own messenger exists to avoid (D3 in
-  /// design.md).
-  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
-
-  /// The logging bar's selected segment, derived (not stored) from
-  /// `_currentMeal` (D1 in design.md): the three standard meals select
-  /// themselves; any other value (a snack's display name) selects the snack
-  /// segment.
-  _LoggingMealSegment _selectedSegment() {
-    switch (_currentMeal) {
-      case 'breakfast':
-        return _LoggingMealSegment.breakfast;
-      case 'lunch':
-        return _LoggingMealSegment.lunch;
-      case 'dinner':
-        return _LoggingMealSegment.dinner;
-      default:
-        return _LoggingMealSegment.snack;
-    }
-  }
-
-  /// Handles a tap on the logging bar's segmented control (D1/D5 in
-  /// design.md). The snack-numbering recompute is gated: it only runs on a
-  /// real non-snack -> snack transition (`_currentMeal` wasn't already a
-  /// snack), so re-tapping the already-selected snack segment — e.g. a
-  /// rebuild after a save reloads Today — doesn't advance the number or
-  /// split the current batch into a new group.
-  void _onSegmentSelected(_LoggingMealSegment segment) {
-    switch (segment) {
-      case _LoggingMealSegment.breakfast:
-        setState(() => _currentMeal = 'breakfast');
-      case _LoggingMealSegment.lunch:
-        setState(() => _currentMeal = 'lunch');
-      case _LoggingMealSegment.dinner:
-        setState(() => _currentMeal = 'dinner');
-      case _LoggingMealSegment.snack:
-        if (_isSnackMeal(_currentMeal)) return;
-        final loc = AppLocalizations.of(context)!;
-        setState(
-          () => _currentMeal = _nextSnackNameForDay(
-            loc,
-            widget.todayController.dayLog,
-          ),
-        );
-    }
-  }
-
-  /// Renames the current snack session (D5 in design.md); still handed to
-  /// the controllers as `meal: snackMealValue, snackLabel: <typed name>` via
-  /// the same seam.
-  void _onRenameSnack(String name) {
-    setState(() => _currentMeal = name);
-  }
-
-  void _openLogEntry(FoodItem item) {
-    final isSnack = _isSnackMeal(_currentMeal);
-    widget.logEntryController.start(
-      item,
-      // D5 seam: a snack is always handed to the controller as
-      // snackMealValue + the display name as snackLabel — never the bare
-      // display name as `meal` — so the card's `isSnack` check stays true.
-      meal: isSnack ? snackMealValue : _currentMeal,
-      snackLabel: isSnack ? _currentMeal : '',
-      clock: widget.clock,
-    );
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
-      ),
-      builder: (_) => LogEntryScreen(
-        controller: widget.logEntryController,
-        idToken: widget.idToken,
-        day: widget.day,
-        onSaved: () => _onEntrySaved(
-          _savedMealLabel(
-            AppLocalizations.of(context)!,
-            widget.logEntryController.meal,
-            widget.logEntryController.snackLabel,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Opens manual entry as a second-layer bottom sheet over the dictionary
-  /// sheet (D1 in design.md), mirroring [_openLogEntry]'s pattern: same
-  /// shared sheet style (drag handle + rounded top corners), and the
-  /// "added" snackbar routes through this sheet's own messenger via
-  /// [_onEntrySaved], not a pushed full-screen route.
-  void _openManualEntry() {
-    final isSnack = _isSnackMeal(_currentMeal);
-    widget.manualEntryController.start(
-      meal: isSnack ? snackMealValue : _currentMeal,
-      snackLabel: isSnack ? _currentMeal : '',
-      clock: widget.clock,
-    );
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: _dietSheetCornerRadius),
-      ),
-      builder: (_) => ManualEntryScreen(
-        controller: widget.manualEntryController,
-        idToken: widget.idToken,
-        day: widget.day,
-        onSaved: () => _onEntrySaved(
-          _savedMealLabel(
-            AppLocalizations.of(context)!,
-            widget.manualEntryController.meal,
-            widget.manualEntryController.snackLabel,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Mirrors the shell's former `_onEntrySaved` (D3 in design.md): reloads
-  /// Today and shows a localized "Added to" snackbar naming [mealLabel] — the
-  /// meal actually saved (see [_savedMealLabel]) — but through THIS sheet's
-  /// own [ScaffoldMessenger] (see [build]), not the shell's, so it's visible
-  /// above the sheet instead of painting invisibly behind it. Does NOT change
-  /// `_currentMeal` — the next pick stays in the same meal/snack group. Any
-  /// snackbar still showing from a previous save is dismissed first and the
-  /// new one is kept brief, so rapid back-to-back logging shows the latest
-  /// confirmation instead of queuing a backlog of 4s snackbars behind it.
-  void _onEntrySaved(String mealLabel) {
-    widget.todayController.load(widget.idToken, widget.day);
-    final loc = AppLocalizations.of(context)!;
-    final messenger = _messengerKey.currentState!;
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        duration: const Duration(milliseconds: 1500),
-        content: Text(loc.dietAddedToMealSnackbar(mealLabel)),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    return ScaffoldMessenger(
-      key: _messengerKey,
-      child: Scaffold(
-        // When the on-screen keyboard is open the modal sheet is only ~260px
-        // tall (measured on-device: sheetH), which the logging bar + tab
-        // selector + search field alone fill — pushing the search field and
-        // results off the bottom, behind the keyboard. So when the keyboard is
-        // up (web: visualViewport inset > 0), collapse the secondary chrome —
-        // the meal-selector bar / browse hint here, and the all/favorites tabs
-        // inside DictionaryScreen (compact) — giving the search field + results
-        // the room. The meal is already chosen before searching; the bar
-        // returns when the keyboard closes.
-        body: KeyboardInsetBuilder(
-          builder: (context, inset) {
-            final keyboardOpen = inset > 0;
-            return LayoutBuilder(
-              builder: (context, constraints) => SafeArea(
-                child: Column(
-                  children: [
-                    // TEMPORARY debug readout (remove once verified on-device).
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: KeyboardMetricsText(
-                        extra:
-                            'sheetH=${constraints.maxHeight.toStringAsFixed(0)}'
-                            '  kb=$keyboardOpen',
-                      ),
-                    ),
-                    if (!keyboardOpen && !widget.browseOnly)
-                      _LoggingMealBar(
-                        selectedSegment: _selectedSegment(),
-                        currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                        onSegmentSelected: _onSegmentSelected,
-                        onRenameSnack: _onRenameSnack,
-                        onDone: () => Navigator.of(context).pop(),
-                      ),
-                    // Browse-only sheets have no logging bar; this banner
-                    // explains a row tap won't log (only ♥ is active), so the
-                    // dead tap doesn't read as "broken".
-                    if (!keyboardOpen && widget.browseOnly)
-                      _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
-                    Expanded(
-                      child: DictionaryScreen(
-                        controller: widget.dictionaryController,
-                        browseOnly: widget.browseOnly,
-                        compact: keyboardOpen,
-                        onSelectItem: widget.browseOnly ? null : _openLogEntry,
-                        onManualEntry: widget.browseOnly
-                            ? null
-                            : _openManualEntry,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// A slim info banner shown at the top of the browse-only dictionary sheet,
-/// occupying the same slot the logging bar has in logging mode. It explains
-/// that tapping a food row does not log it here (only ♥ is active), so the
-/// intentionally-inert row tap (D3 in design.md) doesn't read as broken.
-class _BrowseOnlyHintBar extends StatelessWidget {
-  final String text;
-
-  const _BrowseOnlyHintBar({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      key: const Key('browse-only-hint'),
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.menu_book_outlined,
-            size: 20,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Month calendar dialog (D4 in design.md): dots mark days with at least
-/// one entry (via [getLoggedDays]); dates after [today] are dimmed and
-/// non-selectable; picking a day pops it back to the caller. A
-/// [getLoggedDays] failure degrades to an unmarked (still usable) calendar
-/// rather than blocking navigation.
+/// Month calendar dialog: dots mark days with at least one meal (via
+/// [getLoggedDays]); dates after [today] are dimmed and non-selectable;
+/// picking a day pops it back to the caller. A [getLoggedDays] failure
+/// degrades to an unmarked (still usable) calendar rather than blocking
+/// navigation.
 class _DietCalendarDialog extends StatefulWidget {
   final DateTime initialMonth;
   final DateTime today;
@@ -1238,10 +571,6 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                                 day,
                               ),
                               today: widget.today,
-                              // `initialMonth` is the day the calendar was
-                              // opened on (the currently-viewed day, D4 in
-                              // design.md) — doubles as "the selected day" to
-                              // highlight, not just the month anchor.
                               isSelected:
                                   DateTime(
                                     _visibleMonth.year,
@@ -1269,14 +598,14 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
   }
 }
 
-/// A single selectable day cell in [_DietCalendarDialog]'s grid (D4 in
-/// design.md): the day number, dimmed and disabled when [date] is after
-/// [today]; a primary-colored outline ring when [date] is today; a filled
-/// primary circle with reversed (on-primary) text when [isSelected] (the
-/// day currently being viewed); and a small dot when [isMarked] (the day has
-/// at least one logged entry). The today ring and the selected fill can
-/// overlap (e.g. viewing today shows both at once). Colors come from
-/// [Theme.of(context)] only (no hard-coded `Color`/`Colors.*`).
+/// A single selectable day cell in [_DietCalendarDialog]'s grid: the day
+/// number, dimmed and disabled when [date] is after [today]; a
+/// primary-colored outline ring when [date] is today; a filled primary
+/// circle with reversed (on-primary) text when [isSelected] (the day
+/// currently being viewed); and a small dot when [isMarked] (the day has at
+/// least one meal). The today ring and the selected fill can overlap (e.g.
+/// viewing today shows both at once). Colors come from [Theme.of(context)]
+/// only (no hard-coded `Color`/`Colors.*`).
 class _DayCell extends StatelessWidget {
   final DateTime date;
   final DateTime today;

@@ -477,71 +477,17 @@ abstract class AppLocalizations {
   /// **'Dinner'**
   String get dietMealDinner;
 
-  /// Meal chip label that switches the entry to a custom-labeled snack.
-  ///
-  /// In en, this message translates to:
-  /// **'Add snack'**
-  String get dietAddSnack;
-
-  /// Hint text for the custom snack label text field.
-  ///
-  /// In en, this message translates to:
-  /// **'Snack name'**
-  String get dietSnackLabelHint;
-
   /// The base snack word used for the logging bar's snack segment and for auto-numbering a day's snack sessions (e.g. 'Snack', 'Snack2'). Distinct from dietAddSnack, which is chip copy ('Add snack') and would otherwise produce a nonsensical numbered name.
   ///
   /// In en, this message translates to:
   /// **'Snack'**
   String get dietSnackBaseName;
 
-  /// Title on the logging bar above the dictionary, showing which meal new picks will be logged into.
-  ///
-  /// In en, this message translates to:
-  /// **'Logging to {meal}'**
-  String dietLoggingToMeal(String meal);
-
-  /// Button on the logging bar that ends the current logging session and returns to Today.
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get dietLoggingDoneButton;
-
-  /// Confirmation snackbar shown after saving a food entry, naming the meal it was added to.
-  ///
-  /// In en, this message translates to:
-  /// **'Added to {meal}'**
-  String dietAddedToMealSnackbar(String meal);
-
-  /// Tooltip/hint for the rename affordance next to the snack segment on the logging bar.
-  ///
-  /// In en, this message translates to:
-  /// **'Name this snack'**
-  String get dietSnackRenameTooltip;
-
-  /// Tooltip/accessible label for the checkmark button that confirms a snack rename.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm name'**
-  String get dietSnackRenameConfirmTooltip;
-
-  /// Tooltip/accessible label for the button that cancels a snack rename without saving, restoring the previous name.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel rename'**
-  String get dietSnackRenameCancelTooltip;
-
   /// Hint text for the food dictionary search field.
   ///
   /// In en, this message translates to:
   /// **'Search food'**
   String get dietSearchFoodHint;
-
-  /// Heading above the list of favorite dictionary items.
-  ///
-  /// In en, this message translates to:
-  /// **'Favorites'**
-  String get dietFavoritesTitle;
 
   /// Label for the quantity amount text field on the log-entry card.
   ///
@@ -555,35 +501,11 @@ abstract class AppLocalizations {
   /// **'Grams'**
   String get dietGramsLabel;
 
-  /// Label for the toggle that switches the log-entry card's amount input from unit quantity to grams.
-  ///
-  /// In en, this message translates to:
-  /// **'Use grams'**
-  String get dietUseGramsLabel;
-
-  /// Label for the eaten-at time picker on the log-entry card.
-  ///
-  /// In en, this message translates to:
-  /// **'Eaten at'**
-  String get dietEatenAtLabel;
-
-  /// Label for the button that saves a logged food entry.
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get dietSaveEntryButton;
-
   /// Label for the button that adds a dictionary item to the current session's meal, naming that meal.
   ///
   /// In en, this message translates to:
   /// **'Add to {meal}'**
   String dietAddToMealButton(String meal);
-
-  /// Heading above the live portion preview on the log-entry card.
-  ///
-  /// In en, this message translates to:
-  /// **'Preview'**
-  String get dietPreviewTitle;
 
   /// Heading above the daily target editing fields.
   ///
@@ -615,89 +537,11 @@ abstract class AppLocalizations {
   /// **'Unable to load your diet data. Please try again.'**
   String get errorDietLoadFailed;
 
-  /// Button at the bottom of the dictionary screen that opens the manual food-entry screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Can\'t find it? Log manually'**
-  String get dietManualEntryAffordance;
-
-  /// Screen title for logging a food not in the dictionary.
-  ///
-  /// In en, this message translates to:
-  /// **'Log food manually'**
-  String get dietManualEntryTitle;
-
-  /// Label for the optional name text field on the manual-entry screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Name (optional)'**
-  String get dietManualEntryNameLabel;
-
-  /// Fallback title shown on Today for a manually-logged entry that has no name.
-  ///
-  /// In en, this message translates to:
-  /// **'Manual entry'**
-  String get dietManualEntryFallbackName;
-
-  /// Shown on the manual-entry screen when the user tries to save with all portions at zero.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter at least one portion before saving.'**
-  String get dietManualEntryAllZeroError;
-
-  /// Segmented control label for showing all dictionary search results, as opposed to favorites.
-  ///
-  /// In en, this message translates to:
-  /// **'All'**
-  String get dietTabAll;
-
-  /// Shown in the All tab of the dictionary before the user has typed a search query.
-  ///
-  /// In en, this message translates to:
-  /// **'Search for a food to see results'**
-  String get dietSearchAllPrompt;
-
-  /// Prefix shown before the dictionary-basis portion pills on the quantity card, e.g. '1碗 ＝' (unit equals) before the portions it's worth.
-  ///
-  /// In en, this message translates to:
-  /// **'{unit} ＝'**
-  String dietBasisEquals(String unit);
-
-  /// Shows the dictionary base portion value times the entered quantity beneath the preview pills, e.g. '4 × 1.5'.
-  ///
-  /// In en, this message translates to:
-  /// **'{base} × {quantity}'**
-  String dietPreviewMathLabel(double base, double quantity);
-
   /// Muted, non-editable note on the daily target screen about a future exercise-based bonus.
   ///
   /// In en, this message translates to:
   /// **'✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).'**
   String get dietBonusNote;
-
-  /// Title of the bottom sheet for editing a past food entry.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit entry'**
-  String get dietEditEntryTitle;
-
-  /// Label for the button that deletes a food entry, and for the destructive action in its confirmation dialog.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete'**
-  String get dietDeleteEntryButton;
-
-  /// Title of the confirmation dialog shown before deleting a food entry.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete entry?'**
-  String get dietDeleteConfirmTitle;
-
-  /// Body message of the confirmation dialog shown before deleting a food entry.
-  ///
-  /// In en, this message translates to:
-  /// **'This removes the entry and can\'t be undone.'**
-  String get dietDeleteConfirmMessage;
 
   /// Header title shown above the day-navigation row when the viewed day is today.
   ///
@@ -771,12 +615,6 @@ abstract class AppLocalizations {
   /// **'Next month'**
   String get dietCalendarNextMonth;
 
-  /// Label on a Today meal card's control that jumps straight into logging a food for that meal. Paired with a leading add icon, so the text itself carries no plus sign.
-  ///
-  /// In en, this message translates to:
-  /// **'Add'**
-  String get dietAddToMeal;
-
   /// Accessible label for a Today add control, naming the meal (or the snack area) it adds into so screen readers can distinguish the breakfast/lunch/dinner cards and the snack area's add control from one another.
   ///
   /// In en, this message translates to:
@@ -795,17 +633,35 @@ abstract class AppLocalizations {
   /// **'Add snack'**
   String get dietAddSnackButton;
 
-  /// Tooltip/accessible label for the button in the diet module's Today header that opens the food dictionary in a browse-only bottom sheet (search, list, and favorites, no logging).
+  /// Label for the full-screen food search's complete action, naming how many items are currently in the tray.
   ///
   /// In en, this message translates to:
-  /// **'Food dictionary'**
-  String get dietOpenDictionaryTooltip;
+  /// **'Done ({count})'**
+  String dietSearchDoneButton(int count);
 
-  /// A hint banner shown at the top of the browse-only food dictionary sheet (opened from Today's header), explaining that tapping a food row does not log it here — only the favorite toggle is active — and logging happens via each meal's add button.
+  /// Tooltip/accessible label for a tray row's remove control on the full-screen food search.
   ///
   /// In en, this message translates to:
-  /// **'Browsing only — tap ♥ to favorite. Log food from a meal\'s ＋.'**
-  String get dietBrowseOnlyHint;
+  /// **'Remove'**
+  String get dietRemoveItemTooltip;
+
+  /// Label preceding the aggregated portion pills shown for a meal card's total and the food search tray's running total.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get dietMealTotalLabel;
+
+  /// Error message shown on the full-screen food search when completing the tray fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save. Please try again.'**
+  String get dietSaveMealFailed;
+
+  /// Fallback title shown on a Today meal item row for a dictionary item that has no name.
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed item'**
+  String get dietUnnamedItemLabel;
 }
 
 class _AppLocalizationsDelegate

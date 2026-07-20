@@ -9,12 +9,10 @@ import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../health/application/get_logged_days.dart';
+import '../../health/presentation/create_meal_controller.dart';
 import '../../health/presentation/daily_target_controller.dart';
 import '../../health/presentation/dictionary_controller.dart';
 import '../../health/presentation/diet_shell_screen.dart';
-import '../../health/presentation/edit_entry_controller.dart';
-import '../../health/presentation/log_entry_controller.dart';
-import '../../health/presentation/manual_entry_controller.dart';
 import '../../health/presentation/today_controller.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'home_controller.dart';
@@ -48,9 +46,7 @@ class HomeScreen extends StatefulWidget {
   final TodayController healthTodayController;
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
-  final LogEntryController healthLogEntryController;
-  final ManualEntryController healthManualEntryController;
-  final EditEntryController healthEditEntryController;
+  final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
 
   /// Returns the current time, used to pick the home screen's time-of-day
@@ -68,9 +64,7 @@ class HomeScreen extends StatefulWidget {
     required this.healthTodayController,
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
-    required this.healthLogEntryController,
-    required this.healthManualEntryController,
-    required this.healthEditEntryController,
+    required this.healthCreateMealController,
     required this.healthGetLoggedDays,
     this.clock = DateTime.now,
   });
@@ -114,9 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
           todayController: widget.healthTodayController,
           dictionaryController: widget.healthDictionaryController,
           dailyTargetController: widget.healthDailyTargetController,
-          logEntryController: widget.healthLogEntryController,
-          manualEntryController: widget.healthManualEntryController,
-          editEntryController: widget.healthEditEntryController,
+          createMealController: widget.healthCreateMealController,
           getLoggedDays: widget.healthGetLoggedDays,
           signOut: widget.signOut,
         ),

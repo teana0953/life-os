@@ -217,41 +217,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietMealDinner => 'Dinner';
 
   @override
-  String get dietAddSnack => 'Add snack';
-
-  @override
-  String get dietSnackLabelHint => 'Snack name';
-
-  @override
   String get dietSnackBaseName => 'Snack';
 
   @override
-  String dietLoggingToMeal(String meal) {
-    return 'Logging to $meal';
-  }
-
-  @override
-  String get dietLoggingDoneButton => 'Done';
-
-  @override
-  String dietAddedToMealSnackbar(String meal) {
-    return 'Added to $meal';
-  }
-
-  @override
-  String get dietSnackRenameTooltip => 'Name this snack';
-
-  @override
-  String get dietSnackRenameConfirmTooltip => 'Confirm name';
-
-  @override
-  String get dietSnackRenameCancelTooltip => 'Cancel rename';
-
-  @override
   String get dietSearchFoodHint => 'Search food';
-
-  @override
-  String get dietFavoritesTitle => 'Favorites';
 
   @override
   String get dietQuantityLabel => 'Quantity';
@@ -260,21 +229,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietGramsLabel => 'Grams';
 
   @override
-  String get dietUseGramsLabel => 'Use grams';
-
-  @override
-  String get dietEatenAtLabel => 'Eaten at';
-
-  @override
-  String get dietSaveEntryButton => 'Save';
-
-  @override
   String dietAddToMealButton(String meal) {
     return 'Add to $meal';
   }
-
-  @override
-  String get dietPreviewTitle => 'Preview';
 
   @override
   String get dietSetTargetTitle => 'Set daily target';
@@ -293,61 +250,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load your diet data. Please try again.';
 
   @override
-  String get dietManualEntryAffordance => 'Can\'t find it? Log manually';
-
-  @override
-  String get dietManualEntryTitle => 'Log food manually';
-
-  @override
-  String get dietManualEntryNameLabel => 'Name (optional)';
-
-  @override
-  String get dietManualEntryFallbackName => 'Manual entry';
-
-  @override
-  String get dietManualEntryAllZeroError =>
-      'Enter at least one portion before saving.';
-
-  @override
-  String get dietTabAll => 'All';
-
-  @override
-  String get dietSearchAllPrompt => 'Search for a food to see results';
-
-  @override
-  String dietBasisEquals(String unit) {
-    return '$unit ＝';
-  }
-
-  @override
-  String dietPreviewMathLabel(double base, double quantity) {
-    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String baseString = baseNumberFormat.format(base);
-    final intl.NumberFormat quantityNumberFormat =
-        intl.NumberFormat.decimalPattern(localeName);
-    final String quantityString = quantityNumberFormat.format(quantity);
-
-    return '$baseString × $quantityString';
-  }
-
-  @override
   String get dietBonusNote =>
       '✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).';
-
-  @override
-  String get dietEditEntryTitle => 'Edit entry';
-
-  @override
-  String get dietDeleteEntryButton => 'Delete';
-
-  @override
-  String get dietDeleteConfirmTitle => 'Delete entry?';
-
-  @override
-  String get dietDeleteConfirmMessage =>
-      'This removes the entry and can\'t be undone.';
 
   @override
   String get dietTodayTitle => 'Today\'s Food';
@@ -386,9 +290,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietCalendarNextMonth => 'Next month';
 
   @override
-  String get dietAddToMeal => 'Add';
-
-  @override
   String dietAddToMealA11yLabel(String meal) {
     return 'Add to $meal';
   }
@@ -400,9 +301,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietAddSnackButton => 'Add snack';
 
   @override
-  String get dietOpenDictionaryTooltip => 'Food dictionary';
+  String dietSearchDoneButton(int count) {
+    return 'Done ($count)';
+  }
 
   @override
-  String get dietBrowseOnlyHint =>
-      'Browsing only — tap ♥ to favorite. Log food from a meal\'s ＋.';
+  String get dietRemoveItemTooltip => 'Remove';
+
+  @override
+  String get dietMealTotalLabel => 'Total';
+
+  @override
+  String get dietSaveMealFailed => 'Failed to save. Please try again.';
+
+  @override
+  String get dietUnnamedItemLabel => 'Unnamed item';
 }

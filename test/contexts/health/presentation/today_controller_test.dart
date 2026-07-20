@@ -1,61 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:life_os/contexts/health/application/get_day_diet_log.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
-import 'package:life_os/contexts/health/domain/day_diet_log.dart';
+import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
-import 'package:life_os/contexts/health/domain/diet_log_repository.dart';
-import 'package:life_os/contexts/health/domain/food_entry.dart';
-import 'package:life_os/contexts/health/domain/portions.dart';
+import 'package:life_os/contexts/health/domain/meal_entry.dart';
+import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 
-class FakeDietLogRepository implements DietLogRepository {
-  DayDietLog? logToReturn;
+class FakeMealRepository implements MealRepository {
+  DayMealsLog? logToReturn;
   Object? errorToThrow;
+  String? receivedDay;
 
   @override
-  Future<FoodEntry> logFromDictionary(
-    String idToken, {
-    required String day,
-    required String meal,
-    required String foodItemId,
-    double? quantity,
-    double? grams,
-    DateTime? eatenAt,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<FoodEntry> logManualEntry(
-    String idToken, {
-    required String day,
-    required String meal,
-    String? name,
-    required Portions portions,
-    required DateTime eatenAt,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<DayDietLog> getDayLog(String idToken, String day) async {
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    receivedDay = day;
     if (errorToThrow != null) throw errorToThrow!;
     return logToReturn!;
   }
 
   @override
-  Future<void> deleteEntry(String idToken, String entryId) async {}
-
-  @override
-  Future<FoodEntry> updateEntry(
-    String idToken,
-    String entryId, {
-    String? name,
-    String? meal,
-    DateTime? eatenAt,
-    Portions? portions,
+  Future<MealEntry> createMeal(
+    String idToken, {
+    required String day,
+    required String meal,
+    DateTime? time,
+    required List<CreateMealItem> items,
   }) async {
     throw UnimplementedError();
   }
@@ -68,11 +40,9 @@ class FakeDietLogRepository implements DietLogRepository {
 
 class FakeDailyTargetRepository implements DailyTargetRepository {
   DailyTargetWithRemaining? targetToReturn;
-  Object? errorToThrow;
 
   @override
   Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
-    if (errorToThrow != null) throw errorToThrow!;
     return targetToReturn!;
   }
 
@@ -93,41 +63,34 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
-Map<String, dynamic> _entryJson({required String meal, required String eatenAt}) => {
-  'id': 'entry-$meal',
-  'day': '2026-07-18',
-  'meal': meal,
-  'name': 'food',
-  'photo_ref': null,
-  'source': 'dict',
-  'unclassified': false,
-  'carb_g': 10,
-  'protein_g': 2,
-  'fat_g': 1,
-  'sugar_g': 0,
-  'fiber_g': 0,
-  'kcal': 60,
-  'staple': 1,
-  'meat': 0,
-  'fruit': 0,
-  'veg': 0,
-  'eaten_at': eatenAt,
-  'logged_at': eatenAt,
-};
-
-DayDietLog _dayLog() => DayDietLog.fromJson({
+DayMealsLog _dayLog() => DayMealsLog.fromJson({
   'day': '2026-07-18',
   'meals': [
     {
+      'id': 'meal-breakfast',
       'meal': 'breakfast',
-      'entries': [_entryJson(meal: 'breakfast', eatenAt: '2026-07-18T08:00:00.000Z')],
+      'time': '2026-07-18T08:00:00.000Z',
+      'items': <dynamic>[],
     },
     {
+      'id': 'meal-lunch',
       'meal': 'lunch',
-      'entries': [_entryJson(meal: 'lunch', eatenAt: '2026-07-18T12:30:00.000Z')],
+      'time': '2026-07-18T12:30:00.000Z',
+      'items': <dynamic>[],
     },
   ],
-  'totals': {'carbG': 20, 'proteinG': 4, 'fatG': 2, 'sugarG': 0, 'fiberG': 0, 'kcal': 120},
+  'totals': {
+    'carb_g': 20,
+    'protein_g': 4,
+    'fat_g': 2,
+    'sugar_g': 0,
+    'fiber_g': 0,
+    'kcal': 120,
+    'staple': 9,
+    'meat': 3,
+    'fruit': 1,
+    'veg': 0,
+  },
 });
 
 DailyTargetWithRemaining _target() => DailyTargetWithRemaining.fromJson({
@@ -141,28 +104,29 @@ DailyTargetWithRemaining _target() => DailyTargetWithRemaining.fromJson({
 
 void main() {
   group('TodayController.load', () {
-    test('loads the day log and target, in eaten order', () async {
-      final dietLogRepository = FakeDietLogRepository()..logToReturn = _dayLog();
+    test('loads the day meals log and target', () async {
+      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
       final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
       final controller = TodayController(
-        GetDayDietLog(dietLogRepository),
+        GetDayMeals(mealRepository),
         GetDailyTargetWithRemaining(targetRepository),
       );
 
       await controller.load('token-123', '2026-07-18');
 
       expect(controller.status, TodayStatus.loaded);
-      expect(controller.dayLog!.meals.map((m) => m.meal), ['breakfast', 'lunch']);
-      expect(controller.target!.logged.staple, 9);
+      expect(controller.dayMealsLog!.meals.map((m) => m.meal), ['breakfast', 'lunch']);
+      expect(controller.dayMealsLog!.totals.staple, 9);
       expect(controller.target!.effective.staple, 12);
+      expect(mealRepository.receivedDay, '2026-07-18');
     });
 
     test('sets error status on DietFetchFailure', () async {
-      final dietLogRepository = FakeDietLogRepository()
+      final mealRepository = FakeMealRepository()
         ..errorToThrow = const DietFetchFailure('server error');
       final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
       final controller = TodayController(
-        GetDayDietLog(dietLogRepository),
+        GetDayMeals(mealRepository),
         GetDailyTargetWithRemaining(targetRepository),
       );
 
@@ -173,11 +137,11 @@ void main() {
     });
 
     test('sets needsReauth status on DietReauthenticationRequired', () async {
-      final dietLogRepository = FakeDietLogRepository()
+      final mealRepository = FakeMealRepository()
         ..errorToThrow = const DietReauthenticationRequired();
       final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
       final controller = TodayController(
-        GetDayDietLog(dietLogRepository),
+        GetDayMeals(mealRepository),
         GetDailyTargetWithRemaining(targetRepository),
       );
 

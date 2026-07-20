@@ -213,41 +213,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietMealDinner => '晚餐';
 
   @override
-  String get dietAddSnack => '新增點心';
-
-  @override
-  String get dietSnackLabelHint => '點心名稱';
-
-  @override
   String get dietSnackBaseName => '點心';
 
   @override
-  String dietLoggingToMeal(String meal) {
-    return '記錄到：$meal';
-  }
-
-  @override
-  String get dietLoggingDoneButton => '完成';
-
-  @override
-  String dietAddedToMealSnackbar(String meal) {
-    return '已加入 $meal';
-  }
-
-  @override
-  String get dietSnackRenameTooltip => '命名這批點心';
-
-  @override
-  String get dietSnackRenameConfirmTooltip => '確認名稱';
-
-  @override
-  String get dietSnackRenameCancelTooltip => '取消改名';
-
-  @override
   String get dietSearchFoodHint => '搜尋食物';
-
-  @override
-  String get dietFavoritesTitle => '常用食物';
 
   @override
   String get dietQuantityLabel => '份量';
@@ -256,21 +225,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietGramsLabel => '公克';
 
   @override
-  String get dietUseGramsLabel => '使用公克';
-
-  @override
-  String get dietEatenAtLabel => '食用時間';
-
-  @override
-  String get dietSaveEntryButton => '儲存';
-
-  @override
   String dietAddToMealButton(String meal) {
     return '加入$meal';
   }
-
-  @override
-  String get dietPreviewTitle => '預覽';
 
   @override
   String get dietSetTargetTitle => '設定每日目標';
@@ -288,58 +245,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 
   @override
-  String get dietManualEntryAffordance => '找不到? 手動輸入';
-
-  @override
-  String get dietManualEntryTitle => '手動記錄飲食';
-
-  @override
-  String get dietManualEntryNameLabel => '名稱（選填）';
-
-  @override
-  String get dietManualEntryFallbackName => '手動記錄';
-
-  @override
-  String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
-
-  @override
-  String get dietTabAll => '全部';
-
-  @override
-  String get dietSearchAllPrompt => '搜尋食物以查看結果';
-
-  @override
-  String dietBasisEquals(String unit) {
-    return '$unit ＝';
-  }
-
-  @override
-  String dietPreviewMathLabel(double base, double quantity) {
-    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String baseString = baseNumberFormat.format(base);
-    final intl.NumberFormat quantityNumberFormat =
-        intl.NumberFormat.decimalPattern(localeName);
-    final String quantityString = quantityNumberFormat.format(quantity);
-
-    return '$baseString × $quantityString';
-  }
-
-  @override
   String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
-
-  @override
-  String get dietEditEntryTitle => '編輯記錄';
-
-  @override
-  String get dietDeleteEntryButton => '刪除';
-
-  @override
-  String get dietDeleteConfirmTitle => '刪除記錄？';
-
-  @override
-  String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
 
   @override
   String get dietTodayTitle => '今日飲食';
@@ -378,9 +284,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietCalendarNextMonth => '下個月';
 
   @override
-  String get dietAddToMeal => '加';
-
-  @override
   String dietAddToMealA11yLabel(String meal) {
     return '加到$meal';
   }
@@ -392,10 +295,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietAddSnackButton => '加點心';
 
   @override
-  String get dietOpenDictionaryTooltip => '食物字典';
+  String dietSearchDoneButton(int count) {
+    return '完成（$count）';
+  }
 
   @override
-  String get dietBrowseOnlyHint => '瀏覽模式 — 點 ♥ 收藏。記錄請從各餐的＋。';
+  String get dietRemoveItemTooltip => '移除';
+
+  @override
+  String get dietMealTotalLabel => '合計';
+
+  @override
+  String get dietSaveMealFailed => '儲存失敗，請再試一次。';
+
+  @override
+  String get dietUnnamedItemLabel => '未命名項目';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -607,41 +521,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietMealDinner => '晚餐';
 
   @override
-  String get dietAddSnack => '新增點心';
-
-  @override
-  String get dietSnackLabelHint => '點心名稱';
-
-  @override
   String get dietSnackBaseName => '點心';
 
   @override
-  String dietLoggingToMeal(String meal) {
-    return '記錄到：$meal';
-  }
-
-  @override
-  String get dietLoggingDoneButton => '完成';
-
-  @override
-  String dietAddedToMealSnackbar(String meal) {
-    return '已加入 $meal';
-  }
-
-  @override
-  String get dietSnackRenameTooltip => '命名這批點心';
-
-  @override
-  String get dietSnackRenameConfirmTooltip => '確認名稱';
-
-  @override
-  String get dietSnackRenameCancelTooltip => '取消改名';
-
-  @override
   String get dietSearchFoodHint => '搜尋食物';
-
-  @override
-  String get dietFavoritesTitle => '常用食物';
 
   @override
   String get dietQuantityLabel => '份量';
@@ -650,21 +533,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietGramsLabel => '公克';
 
   @override
-  String get dietUseGramsLabel => '使用公克';
-
-  @override
-  String get dietEatenAtLabel => '食用時間';
-
-  @override
-  String get dietSaveEntryButton => '儲存';
-
-  @override
   String dietAddToMealButton(String meal) {
     return '加入$meal';
   }
-
-  @override
-  String get dietPreviewTitle => '預覽';
 
   @override
   String get dietSetTargetTitle => '設定每日目標';
@@ -682,58 +553,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 
   @override
-  String get dietManualEntryAffordance => '找不到? 手動輸入';
-
-  @override
-  String get dietManualEntryTitle => '手動記錄飲食';
-
-  @override
-  String get dietManualEntryNameLabel => '名稱（選填）';
-
-  @override
-  String get dietManualEntryFallbackName => '手動記錄';
-
-  @override
-  String get dietManualEntryAllZeroError => '儲存前請至少輸入一項份量。';
-
-  @override
-  String get dietTabAll => '全部';
-
-  @override
-  String get dietSearchAllPrompt => '搜尋食物以查看結果';
-
-  @override
-  String dietBasisEquals(String unit) {
-    return '$unit ＝';
-  }
-
-  @override
-  String dietPreviewMathLabel(double base, double quantity) {
-    final intl.NumberFormat baseNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String baseString = baseNumberFormat.format(base);
-    final intl.NumberFormat quantityNumberFormat =
-        intl.NumberFormat.decimalPattern(localeName);
-    final String quantityString = quantityNumberFormat.format(quantity);
-
-    return '$baseString × $quantityString';
-  }
-
-  @override
   String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
-
-  @override
-  String get dietEditEntryTitle => '編輯記錄';
-
-  @override
-  String get dietDeleteEntryButton => '刪除';
-
-  @override
-  String get dietDeleteConfirmTitle => '刪除記錄？';
-
-  @override
-  String get dietDeleteConfirmMessage => '這將移除該記錄，且無法復原。';
 
   @override
   String get dietTodayTitle => '今日飲食';
@@ -772,9 +592,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietCalendarNextMonth => '下個月';
 
   @override
-  String get dietAddToMeal => '加';
-
-  @override
   String dietAddToMealA11yLabel(String meal) {
     return '加到$meal';
   }
@@ -786,8 +603,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietAddSnackButton => '加點心';
 
   @override
-  String get dietOpenDictionaryTooltip => '食物字典';
+  String dietSearchDoneButton(int count) {
+    return '完成（$count）';
+  }
 
   @override
-  String get dietBrowseOnlyHint => '瀏覽模式 — 點 ♥ 收藏。記錄請從各餐的＋。';
+  String get dietRemoveItemTooltip => '移除';
+
+  @override
+  String get dietMealTotalLabel => '合計';
+
+  @override
+  String get dietSaveMealFailed => '儲存失敗，請再試一次。';
+
+  @override
+  String get dietUnnamedItemLabel => '未命名項目';
 }
