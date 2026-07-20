@@ -464,30 +464,54 @@ class _DayNavBar extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (chipLabel != null) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primaryContainer,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      chipLabel,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onPrimaryContainer,
-                                          ),
+                                  // Flexible too (D3 in design.md): at very
+                                  // narrow phone widths, the chip's own text
+                                  // can take up more of the tight budget than
+                                  // is left once the calendar icon is
+                                  // accounted for; letting it shrink (and
+                                  // ellipsize) rather than stay a fixed size
+                                  // keeps the calendar icon from being pushed
+                                  // into overflow.
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primaryContainer,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        chipLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: false,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onPrimaryContainer,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
                                 ],
-                                Text(
-                                  dateText,
-                                  style: theme.textTheme.bodyMedium,
+                                // Flexible (D3 in design.md): at phone
+                                // widths the chip + date + calendar icon can
+                                // exceed the available width (Mascot + the
+                                // trailing header buttons + the chevrons
+                                // leave little room) and overflow; ellipsize
+                                // the date instead, keeping the calendar
+                                // icon visible.
+                                Flexible(
+                                  child: Text(
+                                    dateText,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
@@ -672,19 +696,36 @@ class _LoggingMealBarState extends State<_LoggingMealBar> {
                 onSelected: (_) =>
                     widget.onSegmentSelected(_LoggingMealSegment.dinner),
               ),
+              // While the snack segment is selected, the chip shows the
+              // current snack session's actual name ("點心3"/a rename like
+              // "下午茶") rather than the generic "Snack" label (D4 in
+              // design.md), so the user can see which snack they're logging
+              // into; unselected, it shows the generic label since there's
+              // no "current" session to name yet.
               ChoiceChip(
                 key: const Key('logging-meal-chip-snack'),
-                label: Text(loc.dietSnackBaseName),
+                label: Text(
+                  isSnackSelected ? widget.currentMealLabel : loc.dietSnackBaseName,
+                ),
                 selected: isSnackSelected,
                 onSelected: (_) =>
                     widget.onSegmentSelected(_LoggingMealSegment.snack),
               ),
+              // Compact, chip-height rename control (D4 in design.md): a
+              // default 48px `IconButton` misaligns with the ~32px chips and
+              // can wrap onto its own line on a narrow screen; sizing it
+              // down keeps it in the same `Wrap` run as the chips.
               if (isSnackSelected && !_renaming)
                 IconButton(
                   key: const Key('logging-meal-bar-rename-button'),
                   tooltip: loc.dietSnackRenameTooltip,
                   onPressed: () => setState(() => _renaming = true),
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(Icons.edit, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    padding: EdgeInsets.zero,
+                  ),
                 ),
             ],
           ),

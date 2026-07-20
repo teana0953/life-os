@@ -397,9 +397,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietMealEmptyLabel => 'No entries yet';
 
   @override
-  String get dietSnackAreaTitle => 'Snacks';
-
-  @override
   String get dietAddSnackButton => 'Add snack';
 
   @override

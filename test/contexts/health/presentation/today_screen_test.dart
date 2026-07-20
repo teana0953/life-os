@@ -450,7 +450,8 @@ void main() {
     );
 
     testWidgets(
-      'when the day has only a lunch entry, breakfast and dinner cards still show, empty',
+      'when the day has only a lunch entry, breakfast and dinner cards still show, '
+      'empty, and after the logged lunch card (D1 in design.md)',
       (tester) async {
         final dayLog = DayDietLog.fromJson({
           'day': '2026-07-18',
@@ -478,6 +479,112 @@ void main() {
         expect(find.text(loc.dietMealDinner), findsOneWidget);
         expect(find.text(loc.dietMealEmptyLabel), findsNWidgets(2));
         expect(find.text('food'), findsOneWidget);
+
+        // The logged lunch card comes first; the empty breakfast and dinner
+        // cards follow it, in fixed breakfast->lunch->dinner order.
+        final lunchPos = tester.getTopLeft(find.text(loc.dietMealLunch)).dy;
+        final breakfastPos = tester.getTopLeft(find.text(loc.dietMealBreakfast)).dy;
+        final dinnerPos = tester.getTopLeft(find.text(loc.dietMealDinner)).dy;
+        expect(lunchPos, lessThan(breakfastPos));
+        expect(breakfastPos, lessThan(dinnerPos));
+      },
+    );
+
+    testWidgets(
+      'logged meals and snacks interleave by eaten-at time, with empty '
+      'standard meals after and the new-snack control always present '
+      '(D1 in design.md)',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'breakfast',
+              'entries': [_entryJson(meal: 'breakfast', eatenAt: '2026-07-18T08:00:00.000Z')],
+            },
+            {
+              'meal': '點心2',
+              'entries': [
+                _entryJson(meal: '點心2', eatenAt: '2026-07-18T10:30:00.000Z', name: '優格'),
+              ],
+            },
+            {
+              'meal': 'lunch',
+              'entries': [_entryJson(meal: 'lunch', eatenAt: '2026-07-18T12:30:00.000Z')],
+            },
+            {
+              'meal': 'snack',
+              'entries': [
+                _entryJson(meal: 'snack', eatenAt: '2026-07-18T15:00:00.000Z', name: '餅乾'),
+              ],
+            },
+            {
+              'meal': 'dinner',
+              'entries': [_entryJson(meal: 'dinner', eatenAt: '2026-07-18T19:00:00.000Z')],
+            },
+          ],
+          'totals': {'carbG': 50, 'proteinG': 10, 'fatG': 5, 'sugarG': 0, 'fiberG': 0, 'kcal': 300},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        // No empty standard-meal cards: all three have entries.
+        expect(find.text(loc.dietMealEmptyLabel), findsNothing);
+        // The new-snack control is always present, even when nothing is
+        // empty.
+        expect(find.byKey(const Key('add-snack')), findsOneWidget);
+
+        final breakfastPos = tester.getTopLeft(find.text(loc.dietMealBreakfast)).dy;
+        final snack2Pos = tester.getTopLeft(find.text('點心2')).dy;
+        final lunchPos = tester.getTopLeft(find.text(loc.dietMealLunch)).dy;
+        final unnamedSnackPos = tester.getTopLeft(find.text(loc.dietSnackBaseName)).dy;
+        final dinnerPos = tester.getTopLeft(find.text(loc.dietMealDinner)).dy;
+
+        expect(breakfastPos, lessThan(snack2Pos));
+        expect(snack2Pos, lessThan(lunchPos));
+        expect(lunchPos, lessThan(unnamedSnackPos));
+        expect(unnamedSnackPos, lessThan(dinnerPos));
+      },
+    );
+
+    testWidgets(
+      'an unnamed snack group (meal: snack) shows the localized snack word, not the raw value (D1 in design.md)',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': 'snack',
+              'entries': [
+                _entryJson(meal: 'snack', eatenAt: '2026-07-18T15:00:00.000Z', name: '餅乾'),
+              ],
+            },
+          ],
+          'totals': {'carbG': 10, 'proteinG': 2, 'fatG': 1, 'sugarG': 0, 'fiberG': 0, 'kcal': 60},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+
+        await _pumpToday(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietSnackBaseName), findsOneWidget);
+        expect(find.text('snack'), findsNothing);
       },
     );
 
@@ -531,7 +638,7 @@ void main() {
     );
 
     testWidgets(
-      'the snack area lists non-standard-meal groups and its add control invokes onAddSnack',
+      'snack groups render on the timeline and the new-snack control invokes onAddSnack',
       (tester) async {
         final dayLog = DayDietLog.fromJson({
           'day': '2026-07-18',
@@ -574,7 +681,6 @@ void main() {
         );
 
         final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.text(loc.dietSnackAreaTitle), findsOneWidget);
         expect(find.text('點心'), findsOneWidget);
         expect(find.text('下午茶'), findsOneWidget);
         // Snack groups don't get their own per-card add control.

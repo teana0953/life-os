@@ -116,7 +116,6 @@
   "dietAddToMeal": "加",
   "dietAddToMealA11yLabel": "加到{meal}",
   "dietMealEmptyLabel": "還沒記錄",
-  "dietSnackAreaTitle": "點心",
   "dietAddSnackButton": "加點心",
   "dietOpenDictionaryTooltip": "食物字典",
   "dietBrowseOnlyHint": "瀏覽模式 — 點 ♥ 收藏。記錄請從各餐的＋。"

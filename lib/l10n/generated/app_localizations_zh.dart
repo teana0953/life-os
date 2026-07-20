@@ -389,9 +389,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietMealEmptyLabel => '還沒記錄';
 
   @override
-  String get dietSnackAreaTitle => '點心';
-
-  @override
   String get dietAddSnackButton => '加點心';
 
   @override
@@ -784,9 +781,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietMealEmptyLabel => '還沒記錄';
-
-  @override
-  String get dietSnackAreaTitle => '點心';
 
   @override
   String get dietAddSnackButton => '加點心';

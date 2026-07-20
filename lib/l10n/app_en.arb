@@ -599,11 +599,6 @@
     "description": "Shown on a Today meal card that has no logged entries yet."
   },
 
-  "dietSnackAreaTitle": "Snacks",
-  "@dietSnackAreaTitle": {
-    "description": "Header title for the Today snack area, listing the day's snack groups."
-  },
-
   "dietAddSnackButton": "Add snack",
   "@dietAddSnackButton": {
     "description": "Label on the Today snack area's control that starts a new snack-logging session. Paired with a leading add icon, so the text itself carries no plus sign."
