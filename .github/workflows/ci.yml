@@ -1,7 +1,12 @@
 name: CI
 
 on:
-  pull_request:
+  # Push-only: every commit on a non-main branch runs CI exactly once. A PR
+  # does NOT add a second run — its checks are attached to the head commit's
+  # push run (GitHub keys status checks by commit SHA), so the PR is still
+  # gated. Listening to `pull_request` as well would double every push on a
+  # branch that has an open PR (the two events carry different `github.ref`,
+  # so `concurrency` can't dedupe them). main is built/deployed by deploy.yml.
   push:
     branches-ignore:
       - main
