@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/platform/keyboard_inset.dart';
 import '../../../shared/platform/keyboard_metrics.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
@@ -972,51 +973,63 @@ class _DictionarySheetState extends State<_DictionarySheet> {
     return ScaffoldMessenger(
       key: _messengerKey,
       child: Scaffold(
-        // LayoutBuilder captures the sheet body's REAL height (the number I've
-        // been missing) — reported in the debug readout so we can see how tall
-        // the modal sheet actually is when the keyboard is open, vs the
-        // browser viewport numbers. NO keyboard lift here (it collapsed the
-        // content to blank); restore the visible layout first.
-        body: LayoutBuilder(
-          builder: (context, constraints) => SafeArea(
-            child: Column(
-              children: [
-                // TEMPORARY debug readout (remove once the keyboard fix is
-                // verified on-device): browser viewport numbers + the sheet's
-                // real max height.
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  child: KeyboardMetricsText(
-                    extra: 'sheetH=${constraints.maxHeight.toStringAsFixed(0)}',
-                  ),
+        // When the on-screen keyboard is open the modal sheet is only ~260px
+        // tall (measured on-device: sheetH), which the logging bar + tab
+        // selector + search field alone fill — pushing the search field and
+        // results off the bottom, behind the keyboard. So when the keyboard is
+        // up (web: visualViewport inset > 0), collapse the secondary chrome —
+        // the meal-selector bar / browse hint here, and the all/favorites tabs
+        // inside DictionaryScreen (compact) — giving the search field + results
+        // the room. The meal is already chosen before searching; the bar
+        // returns when the keyboard closes.
+        body: KeyboardInsetBuilder(
+          builder: (context, inset) {
+            final keyboardOpen = inset > 0;
+            return LayoutBuilder(
+              builder: (context, constraints) => SafeArea(
+                child: Column(
+                  children: [
+                    // TEMPORARY debug readout (remove once verified on-device).
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: KeyboardMetricsText(
+                        extra:
+                            'sheetH=${constraints.maxHeight.toStringAsFixed(0)}'
+                            '  kb=$keyboardOpen',
+                      ),
+                    ),
+                    if (!keyboardOpen && !widget.browseOnly)
+                      _LoggingMealBar(
+                        selectedSegment: _selectedSegment(),
+                        currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
+                        onSegmentSelected: _onSegmentSelected,
+                        onRenameSnack: _onRenameSnack,
+                        onDone: () => Navigator.of(context).pop(),
+                      ),
+                    // Browse-only sheets have no logging bar; this banner
+                    // explains a row tap won't log (only ♥ is active), so the
+                    // dead tap doesn't read as "broken".
+                    if (!keyboardOpen && widget.browseOnly)
+                      _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
+                    Expanded(
+                      child: DictionaryScreen(
+                        controller: widget.dictionaryController,
+                        browseOnly: widget.browseOnly,
+                        compact: keyboardOpen,
+                        onSelectItem: widget.browseOnly ? null : _openLogEntry,
+                        onManualEntry: widget.browseOnly
+                            ? null
+                            : _openManualEntry,
+                      ),
+                    ),
+                  ],
                 ),
-                if (!widget.browseOnly)
-                  _LoggingMealBar(
-                    selectedSegment: _selectedSegment(),
-                    currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                    onSegmentSelected: _onSegmentSelected,
-                    onRenameSnack: _onRenameSnack,
-                    onDone: () => Navigator.of(context).pop(),
-                  ),
-                // Browse-only sheets have no logging bar; this banner explains a
-                // row tap won't log (only ♥ is active), so the dead tap doesn't
-                // read as "broken".
-                if (widget.browseOnly)
-                  _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
-                Expanded(
-                  child: DictionaryScreen(
-                    controller: widget.dictionaryController,
-                    browseOnly: widget.browseOnly,
-                    onSelectItem: widget.browseOnly ? null : _openLogEntry,
-                    onManualEntry: widget.browseOnly ? null : _openManualEntry,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
