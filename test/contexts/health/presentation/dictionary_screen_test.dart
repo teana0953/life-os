@@ -273,5 +273,48 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'with no keyboard inset, the results list keeps its original bottom '
+      'padding (native zero-impact, fix-dict-sheet-web-keyboard design.md D3)',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+        final controller = _controller(repository);
+        await controller.load('token-123');
+
+        await tester.pumpWidget(
+          l10nTestApp(home: DictionaryScreen(controller: controller)),
+        );
+        await tester.pump();
+
+        final listView = tester.widget<ListView>(find.byType(ListView));
+        expect(listView.padding, const EdgeInsets.all(16));
+      },
+    );
+
+    testWidgets(
+      'an injected keyboard inset adds to the results list bottom padding '
+      '(fix-dict-sheet-web-keyboard design.md D2)',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+        final controller = _controller(repository);
+        await controller.load('token-123');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DictionaryScreen(
+              controller: controller,
+              debugKeyboardInsetOverride: 300,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final listView = tester.widget<ListView>(find.byType(ListView));
+        expect(listView.padding, const EdgeInsets.fromLTRB(16, 16, 16, 316));
+      },
+    );
   });
 }
