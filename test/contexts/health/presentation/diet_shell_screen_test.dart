@@ -1098,6 +1098,85 @@ void main() {
     });
 
     testWidgets(
+      'a renamed snack shows its current name on the chip alongside the '
+      'rename control, without overflow at a narrow width (D4 in design.md)',
+      (tester) async {
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await _openDictionarySheet(tester);
+        await tester.tap(segment(loc, loc.dietSnackBaseName));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('logging-meal-bar-rename-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('logging-meal-bar-rename-field')),
+          '下午茶',
+        );
+        await tester.tap(find.byKey(const Key('logging-meal-bar-rename-confirm')));
+        await tester.pumpAndSettle();
+
+        // Shrink to a narrow phone width with the renamed snack still
+        // selected, so the chip + rename control must share the Wrap run
+        // without overflowing.
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        // The chip shows the snack's actual current name ("下午茶"), not
+        // the generic "Snack" label.
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('logging-meal-chip-snack')),
+            matching: find.text('下午茶'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(loc.dietSnackBaseName), findsNothing);
+        // The rename control is shown alongside it in the same Wrap run
+        // (same row), not wrapped onto its own line below the chips.
+        expect(
+          find.byKey(const Key('logging-meal-bar-rename-button')),
+          findsOneWidget,
+        );
+        final chipRect = tester.getRect(
+          find.byKey(const Key('logging-meal-chip-snack')),
+        );
+        final renameRect = tester.getRect(
+          find.byKey(const Key('logging-meal-bar-rename-button')),
+        );
+        // Same Wrap run (row), not wrapped onto its own line below the
+        // chips.
+        expect((chipRect.top - renameRect.top).abs(), lessThan(20));
+        // Chip-height, not a default 48px tap target that would misalign
+        // with the ~32-34px chips.
+        expect(renameRect.height, lessThanOrEqualTo(40));
+
+        // Renaming still works via the existing keys after this layout
+        // change.
+        await tester.tap(find.byKey(const Key('logging-meal-bar-rename-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('logging-meal-bar-rename-field')),
+          '晚點心',
+        );
+        await tester.tap(find.byKey(const Key('logging-meal-bar-rename-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('logging-meal-chip-snack')),
+            matching: find.text('晚點心'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
       'the rename confirm and cancel buttons expose localized tooltips',
       (tester) async {
         await _pumpShell(tester);
@@ -1449,6 +1528,31 @@ void main() {
           tester.getSize(constrainedBoxFinder).width,
           lessThanOrEqualTo(600),
         );
+      },
+    );
+
+    testWidgets(
+      'the date ellipsizes instead of overflowing at a narrow (phone) width, '
+      'keeping the calendar icon visible (D3 in design.md)',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await _pumpShell(tester);
+
+        // No RenderFlex overflow (or any other) exception was thrown while
+        // laying out the header at this narrow width — exercised with the
+        // "Today" chip present, the tightest case (D3 in design.md).
+        expect(tester.takeException(), isNull);
+        expect(find.byIcon(Icons.calendar_month), findsOneWidget);
+        expect(find.byKey(const Key('day-nav-label')), findsOneWidget);
+
+        // Tapping the (possibly ellipsized) date row still opens the
+        // calendar — no behavior change from the layout fix.
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('calendar-close-button')), findsOneWidget);
       },
     );
   });

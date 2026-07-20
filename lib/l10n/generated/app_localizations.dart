@@ -789,12 +789,6 @@ abstract class AppLocalizations {
   /// **'No entries yet'**
   String get dietMealEmptyLabel;
 
-  /// Header title for the Today snack area, listing the day's snack groups.
-  ///
-  /// In en, this message translates to:
-  /// **'Snacks'**
-  String get dietSnackAreaTitle;
-
   /// Label on the Today snack area's control that starts a new snack-logging session. Paired with a leading add icon, so the text itself carries no plus sign.
   ///
   /// In en, this message translates to:

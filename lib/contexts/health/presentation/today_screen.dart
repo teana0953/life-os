@@ -7,11 +7,16 @@ import '../../auth/application/sign_out.dart';
 import '../domain/day_diet_log.dart';
 import '../domain/food_entry.dart';
 import 'category_progress_bar.dart';
+import 'log_entry_controller.dart' show snackMealValue;
 import 'portion_pills.dart';
 import 'today_controller.dart';
 
 /// Maps a raw meal value to its localized label; falls back to the raw
-/// value itself for custom snack labels.
+/// value itself for custom snack labels. A bare, unnamed snack group
+/// (`snackMealValue`, i.e. `'snack'`) gets the localized snack word rather
+/// than falling through to the raw internal value (D1 in design.md) — named
+/// snacks already carry their display name as the group `meal` and hit the
+/// `default` branch unchanged.
 String _mealLabel(AppLocalizations loc, String meal) {
   switch (meal) {
     case 'breakfast':
@@ -20,6 +25,8 @@ String _mealLabel(AppLocalizations loc, String meal) {
       return loc.dietMealLunch;
     case 'dinner':
       return loc.dietMealDinner;
+    case snackMealValue:
+      return loc.dietSnackBaseName;
     default:
       return meal;
   }
@@ -48,13 +55,35 @@ DateTime _earliestEatenAt(List<FoodEntry> entries) =>
 
 DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
-/// The three standard meals, always shown as fixed Today cards in this
-/// order (D1 in design.md).
+/// The three standard meals; empty ones are shown, after the logged
+/// timeline, as fixed cards in this order (D1 in design.md).
 const _standardMeals = ['breakfast', 'lunch', 'dinner'];
 
 /// Whether [meal] is one of the three standard meals; anything else is a
 /// snack group (D1 in design.md).
 bool _isStandardMeal(String meal) => _standardMeals.contains(meal);
+
+/// Tie-break rank for the interleaved timeline sort (D1 in design.md):
+/// breakfast < lunch < dinner < any snack group, used only when two groups
+/// share the exact same earliest-eaten-at time.
+int _standardMealRank(String meal) {
+  final index = _standardMeals.indexOf(meal);
+  return index == -1 ? _standardMeals.length : index;
+}
+
+/// Sorts meal groups (standard + snack alike) by earliest eaten-at time
+/// ascending, so a snack logged between two meals is interleaved between
+/// them (D1 in design.md). Ties (identical eaten-at) break deterministically
+/// by [_standardMealRank] then by name, so tests can assert an exact order.
+int _compareGroupsByEatenAt(MealGroup a, MealGroup b) {
+  final timeCompare = _earliestEatenAt(
+    a.entries,
+  ).compareTo(_earliestEatenAt(b.entries));
+  if (timeCompare != 0) return timeCompare;
+  final rankCompare = _standardMealRank(a.meal).compareTo(_standardMealRank(b.meal));
+  if (rankCompare != 0) return rankCompare;
+  return a.meal.compareTo(b.meal);
+}
 
 /// Today section: the day's diet log grouped by meal in eaten order, and
 /// per-category portion progress against the day's target.
@@ -181,9 +210,21 @@ class _TodayScreenState extends State<TodayScreen> {
         final dayLog = controller.dayLog!;
         final target = controller.target!;
         final dietColors = theme.extension<DietCategoryColors>();
-        final mealsByName = {for (final m in dayLog.meals) m.meal: m};
-        final snackGroups = dayLog.meals
-            .where((m) => !_isStandardMeal(m.meal))
+        // The interleaved timeline (D1 in design.md): every group that has
+        // entries — standard meals and snacks alike — sorted together by
+        // earliest eaten-at, so a snack logged between two meals renders
+        // between their cards. Groups with no entries can't be timestamped
+        // (there's no eaten-at to sort by), so the three standard meals with
+        // no logged group are rendered afterward instead, in fixed
+        // breakfast->lunch->dinner order.
+        final loggedGroups = dayLog.meals.where((m) => m.entries.isNotEmpty).toList()
+          ..sort(_compareGroupsByEatenAt);
+        final loggedStandardMeals = loggedGroups
+            .where((m) => _isStandardMeal(m.meal))
+            .map((m) => m.meal)
+            .toSet();
+        final emptyStandardMeals = _standardMeals
+            .where((meal) => !loggedStandardMeals.contains(meal))
             .toList();
         return ListView(
           padding: const EdgeInsets.all(20),
@@ -216,10 +257,29 @@ class _TodayScreenState extends State<TodayScreen> {
               color: dietColors?.veg,
             ),
             const SizedBox(height: 20),
-            for (final meal in _standardMeals) ...[
+            for (final group in loggedGroups) ...[
+              _MealCard(
+                mealName: group.meal,
+                group: group,
+                loc: loc,
+                theme: theme,
+                toLocalTime: widget.toLocalTime,
+                onEditEntry: widget.onEditEntry,
+                isSnackGroup: !_isStandardMeal(group.meal),
+                onAdd: _isStandardMeal(group.meal)
+                    ? (widget.onAddToMeal == null
+                          ? null
+                          : () => widget.onAddToMeal!(group.meal))
+                    : (widget.onAddToSnackGroup == null
+                          ? null
+                          : () => widget.onAddToSnackGroup!(group.meal)),
+              ),
+              const SizedBox(height: 16),
+            ],
+            for (final meal in emptyStandardMeals) ...[
               _MealCard(
                 mealName: meal,
-                group: mealsByName[meal],
+                group: null,
                 loc: loc,
                 theme: theme,
                 toLocalTime: widget.toLocalTime,
@@ -230,45 +290,22 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    loc.dietSnackAreaTitle,
-                    style: theme.textTheme.titleLarge,
-                  ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Semantics(
+                label: loc.dietAddToMealA11yLabel(loc.dietSnackBaseName),
+                button: true,
+                container: true,
+                excludeSemantics: true,
+                onTap: widget.onAddSnack,
+                child: TextButton.icon(
+                  key: const Key('add-snack'),
+                  onPressed: widget.onAddSnack,
+                  icon: const Icon(Icons.add),
+                  label: Text(loc.dietAddSnackButton),
                 ),
-                Semantics(
-                  label: loc.dietAddToMealA11yLabel(loc.dietSnackBaseName),
-                  button: true,
-                  container: true,
-                  excludeSemantics: true,
-                  onTap: widget.onAddSnack,
-                  child: TextButton.icon(
-                    key: const Key('add-snack'),
-                    onPressed: widget.onAddSnack,
-                    icon: const Icon(Icons.add),
-                    label: Text(loc.dietAddSnackButton),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            for (final group in snackGroups) ...[
-              _MealCard(
-                mealName: group.meal,
-                group: group,
-                loc: loc,
-                theme: theme,
-                toLocalTime: widget.toLocalTime,
-                onEditEntry: widget.onEditEntry,
-                isSnackGroup: true,
-                onAdd: widget.onAddToSnackGroup == null
-                    ? null
-                    : () => widget.onAddToSnackGroup!(group.meal),
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ],
         );
     }
