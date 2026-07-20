@@ -1,10 +1,18 @@
-/// The build identifier surfaced in-app so a deployed (Flutter web) build can
-/// be told apart from a cached one on the device. Injected at build time by
-/// the deploy workflow via `--dart-define=BUILD_TAG=<commit sha>`; falls back
-/// to `dev` for local runs that don't pass it.
-const String _buildTag = String.fromEnvironment('BUILD_TAG', defaultValue: 'dev');
+/// The app version shown in-app, in standard semver form
+/// `MAJOR.MINOR.PATCH+BUILD`. The version comes from `pubspec.yaml` and the
+/// build number is the CI run number, both injected at build time by the
+/// deploy workflow via `--dart-define`. Falls back to a local placeholder when
+/// not provided. The build number increments on every deploy, so it also tells
+/// a freshly-deployed build apart from a cached one on the device.
+const String _appVersion = String.fromEnvironment(
+  'APP_VERSION',
+  defaultValue: '1.0.0',
+);
+const String _buildNumber = String.fromEnvironment(
+  'BUILD_NUMBER',
+  defaultValue: 'dev',
+);
 
-/// A short, display-friendly build id: the first 7 chars of the commit SHA
-/// (like `git log --oneline`), or `dev` locally.
-String get buildLabel =>
-    _buildTag.length > 7 ? _buildTag.substring(0, 7) : _buildTag;
+/// Display label in standard semver form, e.g. `1.0.0+42` (or `1.0.0+dev`
+/// for local builds without a CI build number).
+String get buildLabel => '$_appVersion+$_buildNumber';
