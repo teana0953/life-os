@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/platform/keyboard_inset.dart';
+import '../../../shared/platform/keyboard_metrics.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -973,44 +973,38 @@ class _DictionarySheetState extends State<_DictionarySheet> {
       key: _messengerKey,
       child: Scaffold(
         body: SafeArea(
-          // Lift the whole sheet above the on-screen keyboard. On native the
-          // Scaffold already resizes for the keyboard, so the helper reads a
-          // zero inset here (no change). On Flutter web the keyboard shrinks
-          // only the browser's visual viewport (viewInsets stays 0, the
-          // Scaffold never resizes), so without this the search field and
-          // results sink behind the keyboard; the helper's web path supplies
-          // the visual-viewport keyboard height and this padding lifts the
-          // whole content — search field and results — above it.
-          child: KeyboardInsetBuilder(
-            builder: (context, bottomInset) => Padding(
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: Column(
-                children: [
-                  if (!widget.browseOnly)
-                    _LoggingMealBar(
-                      selectedSegment: _selectedSegment(),
-                      currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
-                      onSegmentSelected: _onSegmentSelected,
-                      onRenameSnack: _onRenameSnack,
-                      onDone: () => Navigator.of(context).pop(),
-                    ),
-                  // Browse-only sheets have no logging bar, and a food row looks
-                  // identical to logging mode but does nothing on tap (D3): this
-                  // banner tells the user tapping a row won't log — only ♥ is
-                  // active — so the dead tap doesn't read as "broken".
-                  if (widget.browseOnly)
-                    _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
-                  Expanded(
-                    child: DictionaryScreen(
-                      controller: widget.dictionaryController,
-                      browseOnly: widget.browseOnly,
-                      onSelectItem: widget.browseOnly ? null : _openLogEntry,
-                      onManualEntry: widget.browseOnly ? null : _openManualEntry,
-                    ),
-                  ),
-                ],
+          child: Column(
+            children: [
+              // TEMPORARY debug readout (remove once the web keyboard fix is
+              // verified on-device): shows the live browser viewport numbers so
+              // the keyboard occlusion can be diagnosed without a console.
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: KeyboardMetricsText(),
               ),
-            ),
+              if (!widget.browseOnly)
+                _LoggingMealBar(
+                  selectedSegment: _selectedSegment(),
+                  currentMealLabel: _mealDisplayLabel(loc, _currentMeal),
+                  onSegmentSelected: _onSegmentSelected,
+                  onRenameSnack: _onRenameSnack,
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              // Browse-only sheets have no logging bar, and a food row looks
+              // identical to logging mode but does nothing on tap (D3): this
+              // banner tells the user tapping a row won't log — only ♥ is
+              // active — so the dead tap doesn't read as "broken".
+              if (widget.browseOnly)
+                _BrowseOnlyHintBar(text: loc.dietBrowseOnlyHint),
+              Expanded(
+                child: DictionaryScreen(
+                  controller: widget.dictionaryController,
+                  browseOnly: widget.browseOnly,
+                  onSelectItem: widget.browseOnly ? null : _openLogEntry,
+                  onManualEntry: widget.browseOnly ? null : _openManualEntry,
+                ),
+              ),
+            ],
           ),
         ),
       ),
