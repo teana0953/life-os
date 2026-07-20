@@ -393,12 +393,6 @@ abstract class AppLocalizations {
   /// **'Today'**
   String get dietTabToday;
 
-  /// Diet shell bottom navigation label and screen title for the food dictionary section.
-  ///
-  /// In en, this message translates to:
-  /// **'Dictionary'**
-  String get dietTabDictionary;
-
   /// Diet shell bottom navigation label and screen title for the daily target section.
   ///
   /// In en, this message translates to:
@@ -758,6 +752,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open calendar'**
   String get dietCalendarOpenTooltip;
+
+  /// Tooltip/accessible label for the button in the diet module's Today header that returns to the home "your spaces" screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get dietGoHomeTooltip;
 
   /// Tooltip/accessible label for the calendar dialog's previous-month button.
   ///
