@@ -288,6 +288,32 @@ void main() {
     );
 
     testWidgets(
+      'shows a build label (defaults to "dev" without a BUILD_TAG define)',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          );
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(FakeAuthRepository()),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller);
+
+        expect(find.byKey(const Key('build-label')), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.byKey(const Key('build-label'))).data,
+          'dev',
+        );
+      },
+    );
+
+    testWidgets(
       'shows an error state and a sign-out option when the profile request fails',
       (tester) async {
         final profileRepository = FakeProfileRepository()

@@ -25,7 +25,10 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+      # BUILD_TAG (the commit SHA) is surfaced in-app as a small build id, so
+      # a mobile browser hitting the deployed Pages URL can confirm which build
+      # it is actually running (Flutter web's service worker caches hard).
+      - run: flutter build web --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }} --dart-define=BUILD_TAG=${{ github.sha }}
 
       # Pages deploy must be given the account id explicitly. Unlike Workers
       # deploy, `wrangler pages deploy` resolves the account via the user-level
