@@ -401,4 +401,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietAddSnackButton => 'Add snack';
+
+  @override
+  String get dietOpenDictionaryTooltip => 'Food dictionary';
+
+  @override
+  String get dietBrowseOnlyHint =>
+      'Browsing only — tap ♥ to favorite. Log food from a meal\'s ＋.';
 }

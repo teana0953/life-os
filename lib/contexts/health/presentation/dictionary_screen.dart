@@ -21,11 +21,18 @@ class DictionaryScreen extends StatefulWidget {
   /// affordance at the bottom of the screen (D1 in design.md).
   final VoidCallback? onManualEntry;
 
+  /// Browse-without-logging mode (D3 in design.md): a row tap does NOT call
+  /// [onSelectItem] (there is no food-detail view to open either — search +
+  /// list + favorites only). The favorite toggle is unaffected, since it's
+  /// a separate trailing control from the row's own `onTap`.
+  final bool browseOnly;
+
   const DictionaryScreen({
     super.key,
     required this.controller,
     this.onSelectItem,
     this.onManualEntry,
+    this.browseOnly = false,
   });
 
   @override
@@ -138,7 +145,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                       veg: item.veg,
                     ),
                   ),
-                  onTap: () => widget.onSelectItem?.call(item),
+                  onTap: widget.browseOnly
+                      ? null
+                      : () => widget.onSelectItem?.call(item),
                   trailing: IconButton(
                     tooltip: isFavorite
                         ? loc.dietUnfavoriteTooltip

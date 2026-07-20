@@ -800,6 +800,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add snack'**
   String get dietAddSnackButton;
+
+  /// Tooltip/accessible label for the button in the diet module's Today header that opens the food dictionary in a browse-only bottom sheet (search, list, and favorites, no logging).
+  ///
+  /// In en, this message translates to:
+  /// **'Food dictionary'**
+  String get dietOpenDictionaryTooltip;
+
+  /// A hint banner shown at the top of the browse-only food dictionary sheet (opened from Today's header), explaining that tapping a food row does not log it here — only the favorite toggle is active — and logging happens via each meal's add button.
+  ///
+  /// In en, this message translates to:
+  /// **'Browsing only — tap ♥ to favorite. Log food from a meal\'s ＋.'**
+  String get dietBrowseOnlyHint;
 }
 
 class _AppLocalizationsDelegate

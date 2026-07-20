@@ -101,11 +101,13 @@ Future<void> _pumpScreen(
 }) async {
   await tester.pumpWidget(
     l10nTestApp(
-      home: ManualEntryScreen(
-        controller: controller,
-        idToken: idToken,
-        day: day,
-        onSaved: onSaved,
+      home: Scaffold(
+        body: ManualEntryScreen(
+          controller: controller,
+          idToken: idToken,
+          day: day,
+          onSaved: onSaved,
+        ),
       ),
     ),
   );

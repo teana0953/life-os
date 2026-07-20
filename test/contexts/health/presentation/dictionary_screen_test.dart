@@ -220,5 +220,58 @@ void main() {
         expect(tapped, isTrue);
       },
     );
+
+    testWidgets(
+      'in browseOnly mode, tapping a row does not call onSelectItem but the '
+      'favorite toggle still works (D3 in design.md)',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
+        final controller = _controller(repository);
+        await controller.load('token-123');
+        FoodItem? selected;
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DictionaryScreen(
+              controller: controller,
+              browseOnly: true,
+              onSelectItem: (item) => selected = item,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        expect(selected, isNull);
+
+        expect(find.byIcon(Icons.favorite), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.favorite));
+        await tester.pumpAndSettle();
+        expect(find.text('飯/1碗'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'in browseOnly mode with no onManualEntry, no manual-entry affordance is shown',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        final controller = _controller(repository);
+        await controller.load('token-123');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DictionaryScreen(controller: controller, browseOnly: true),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const Key('dictionary-manual-entry-button')),
+          findsNothing,
+        );
+      },
+    );
   });
 }

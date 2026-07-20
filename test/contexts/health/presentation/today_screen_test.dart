@@ -179,6 +179,7 @@ Future<void> _pumpToday(
   void Function(FoodEntry)? onEditEntry,
   void Function(String)? onAddToMeal,
   VoidCallback? onAddSnack,
+  void Function(String)? onAddToSnackGroup,
 }) async {
   await tester.pumpWidget(
     l10nTestApp(
@@ -188,6 +189,7 @@ Future<void> _pumpToday(
         onEditEntry: onEditEntry,
         onAddToMeal: onAddToMeal,
         onAddSnack: onAddSnack,
+        onAddToSnackGroup: onAddToSnackGroup,
       ),
     ),
   );
@@ -591,6 +593,52 @@ void main() {
 
         expect(addSnackCalled, isTrue);
         semantics.dispose();
+      },
+    );
+
+    testWidgets(
+      'each snack group has an "add to this snack" control that invokes onAddToSnackGroup with that group\'s name',
+      (tester) async {
+        final dayLog = DayDietLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            {
+              'meal': '點心',
+              'entries': [
+                _entryJson(meal: '點心', eatenAt: '2026-07-18T15:00:00.000Z', name: '餅乾'),
+              ],
+            },
+            {
+              'meal': '下午茶',
+              'entries': [
+                _entryJson(meal: '下午茶', eatenAt: '2026-07-18T16:00:00.000Z', name: '奶茶'),
+              ],
+            },
+          ],
+          'totals': {'carbG': 20, 'proteinG': 4, 'fatG': 2, 'sugarG': 0, 'fiberG': 0, 'kcal': 120},
+        });
+        final dietLogRepository = FakeDietLogRepository()..logToReturn = dayLog;
+        final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+        final controller = TodayController(
+          GetDayDietLog(dietLogRepository),
+          GetDailyTargetWithRemaining(targetRepository),
+        );
+        await controller.load('token-123', '2026-07-18');
+        final calls = <String>[];
+
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpToday(tester, controller, onAddToSnackGroup: calls.add);
+
+        expect(find.byKey(const Key('add-to-snack-點心')), findsOneWidget);
+        expect(find.byKey(const Key('add-to-snack-下午茶')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('add-to-snack-點心')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('add-to-snack-下午茶')));
+        await tester.pump();
+
+        expect(calls, ['點心', '下午茶']);
       },
     );
 
