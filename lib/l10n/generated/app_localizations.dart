@@ -662,6 +662,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unnamed item'**
   String get dietUnnamedItemLabel;
+
+  /// Label for the measure segment of the portion/measure toggle when the food's measure unit is millilitres (never a bare "ml").
+  ///
+  /// In en, this message translates to:
+  /// **'Milliliters'**
+  String get dietMeasureUnitMl;
+
+  /// Link/button on the full-screen food search that opens the manual-entry form for a food not in the dictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Not found? Enter manually'**
+  String get dietManualEntryLink;
+
+  /// Title of the manual food-entry form.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual entry'**
+  String get dietManualEntryTitle;
+
+  /// Label/hint for the manual-entry form's food name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get dietManualEntryNameLabel;
+
+  /// Label for the manual-entry form's button that adds the entered food to the current-meal tray.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get dietManualEntryAddButton;
+
+  /// Tooltip/accessible label for a Today meal item row's delete control.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get dietDeleteItemTooltip;
+
+  /// Tooltip/accessible label for a Today meal card's delete-meal control.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete meal'**
+  String get dietDeleteMealTooltip;
+
+  /// Title of the confirmation dialog shown before deleting a whole meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this meal?'**
+  String get dietDeleteMealConfirmTitle;
+
+  /// Body text of the confirmation dialog shown before deleting a whole meal.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes all of its items.'**
+  String get dietDeleteMealConfirmMessage;
+
+  /// Label for the confirm button on the delete-meal confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get dietDeleteMealConfirmButton;
+
+  /// Tooltip/accessible label for a Today meal card's change-time control.
+  ///
+  /// In en, this message translates to:
+  /// **'Change time'**
+  String get dietChangeTimeTooltip;
+
+  /// Shown when editing/deleting a meal or item fails because it no longer exists (or isn't owned by the caller).
+  ///
+  /// In en, this message translates to:
+  /// **'This entry no longer exists.'**
+  String get errorDietItemNotFound;
+
+  /// Label for the inline item editor's save/commit control on Today.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get dietSaveEditButton;
 }
 
 class _AppLocalizationsDelegate

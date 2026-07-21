@@ -6,37 +6,45 @@ String _format(double value) => value == value.roundToDouble()
     ? value.toInt().toString()
     : value.toString();
 
-/// A portion/gram amount's field text: empty for zero (the numeric
+/// A portion/measure amount's field text: empty for zero (the numeric
 /// empty-zero convention — the field shows a `hintText: '0'` instead), the
 /// formatted number otherwise.
 String _fieldText(double value) => value == 0 ? '' : _format(value);
 
 /// Reusable amount control: a −/+ stepper around a typable numeric field and
-/// a unit label, plus (when [allowGrams]) a portion/gram mode toggle. Used by
-/// the create-meal tray now, and by PR③'s in-place item edit later.
-/// Presentation-only — all state (the current amount and mode) lives in the
-/// caller; this widget only reports changes via [onChanged]/[onModeChanged].
+/// a unit label, plus (when [allowMeasure]) a portion/measure mode toggle
+/// whose measure side is labeled by [measureLabel] (e.g. 公克/毫升 — never a
+/// bare "g"/"ml"). Used by the create-meal tray and Today's in-place item
+/// editor. Presentation-only — all state (the current amount and mode)
+/// lives in the caller; this widget only reports changes via
+/// [onChanged]/[onModeChanged].
 class AmountStepper extends StatefulWidget {
-  /// The current amount: a unit quantity, or grams when [grams] is true.
+  /// The current amount: a unit quantity, or a measure amount when
+  /// [measureMode] is true.
   final double value;
   final ValueChanged<double> onChanged;
 
   /// The unit shown after the field, e.g. the item's dictionary unit ("碗")
-  /// or a generic portions word.
+  /// or a generic portions word. Never a bare "g"/"ml".
   final String unitLabel;
 
   /// The −/+ increment/decrement step.
   final double step;
 
-  /// Whether to show the portion/gram mode toggle at all (only when the
-  /// item has a defined base gram weight).
-  final bool allowGrams;
+  /// Whether to show the portion/measure mode toggle at all (only when the
+  /// item has a defined base measure).
+  final bool allowMeasure;
 
-  /// The current mode: entering grams (true) or a unit quantity (false).
-  final bool grams;
+  /// The current mode: entering a measure amount (true) or a unit quantity
+  /// (false).
+  final bool measureMode;
 
-  /// Reports a tap on the portion/gram toggle; only relevant when
-  /// [allowGrams].
+  /// The measure segment's label — 公克 for a gram item, 毫升 for a
+  /// millilitre item. Required when [allowMeasure] is true.
+  final String? measureLabel;
+
+  /// Reports a tap on the portion/measure toggle; only relevant when
+  /// [allowMeasure].
   final ValueChanged<bool>? onModeChanged;
 
   const AmountStepper({
@@ -45,8 +53,9 @@ class AmountStepper extends StatefulWidget {
     required this.onChanged,
     required this.unitLabel,
     this.step = 1,
-    this.allowGrams = false,
-    this.grams = false,
+    this.allowMeasure = false,
+    this.measureMode = false,
+    this.measureLabel,
     this.onModeChanged,
   });
 
@@ -92,7 +101,7 @@ class _AmountStepperState extends State<AmountStepper> {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
 
-    // A Wrap (not a fixed-width Row) so the portion/gram SegmentedButton —
+    // A Wrap (not a fixed-width Row) so the portion/measure SegmentedButton —
     // the widest piece, especially with longer English labels — flows onto
     // its own line instead of overflowing on narrow phones (~360dp and
     // below); the −/field/+ trio stays together as one unbreakable Row.
@@ -128,17 +137,31 @@ class _AmountStepperState extends State<AmountStepper> {
             Text(widget.unitLabel, style: theme.textTheme.bodyMedium),
           ],
         ),
-        if (widget.allowGrams)
+        if (widget.allowMeasure)
           SegmentedButton<bool>(
             segments: [
               ButtonSegment(value: false, label: Text(loc.dietQuantityLabel)),
-              ButtonSegment(value: true, label: Text(loc.dietGramsLabel)),
+              ButtonSegment(value: true, label: Text(widget.measureLabel ?? '')),
             ],
-            selected: {widget.grams},
+            selected: {widget.measureMode},
             onSelectionChanged: (selection) =>
                 widget.onModeChanged?.call(selection.first),
           ),
       ],
     );
+  }
+}
+
+/// The measure segment's label for a food's [measureUnit] — 公克 for `g`,
+/// 毫升 for `ml`, `null` when the food has no measure unit (no measure
+/// toggle should be offered).
+String? measureLabelFor(String? measureUnit, AppLocalizations loc) {
+  switch (measureUnit) {
+    case 'g':
+      return loc.dietGramsLabel;
+    case 'ml':
+      return loc.dietMeasureUnitMl;
+    default:
+      return null;
   }
 }

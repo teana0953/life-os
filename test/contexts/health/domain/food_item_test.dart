@@ -3,7 +3,7 @@ import 'package:life_os/contexts/health/domain/food_item.dart';
 
 void main() {
   group('FoodItem.fromJson', () {
-    test('parses all fields including base_grams', () {
+    test('parses all fields, base_amount and measure_unit null when absent', () {
       final item = FoodItem.fromJson({
         'id': 'item-1',
         'owner_user_id': null,
@@ -18,17 +18,19 @@ void main() {
         'meat': 0,
         'fruit': 0,
         'veg': 0,
-        'base_grams': null,
+        'base_amount': null,
+        'measure_unit': null,
       });
 
       expect(item.id, 'item-1');
       expect(item.ownerUserId, isNull);
       expect(item.name, '飯/1碗');
       expect(item.staple, 4);
-      expect(item.baseGrams, isNull);
+      expect(item.baseAmount, isNull);
+      expect(item.measureUnit, isNull);
     });
 
-    test('parses base_grams when present', () {
+    test('parses base_amount + measure_unit "g" when present', () {
       final item = FoodItem.fromJson({
         'id': 'item-2',
         'owner_user_id': 'user-1',
@@ -43,11 +45,36 @@ void main() {
         'meat': 0,
         'fruit': 0,
         'veg': 0,
-        'base_grams': 50,
+        'base_amount': 50,
+        'measure_unit': 'g',
       });
 
       expect(item.ownerUserId, 'user-1');
-      expect(item.baseGrams, 50);
+      expect(item.baseAmount, 50);
+      expect(item.measureUnit, 'g');
+    });
+
+    test('parses measure_unit "ml" when present', () {
+      final item = FoodItem.fromJson({
+        'id': 'item-3',
+        'owner_user_id': null,
+        'name': '牛奶/240ml',
+        'carb_g': 12,
+        'protein_g': 8,
+        'fat_g': 8,
+        'sugar_g': 12,
+        'fiber_g': 0,
+        'kcal': 150,
+        'staple': 0,
+        'meat': 1,
+        'fruit': 0,
+        'veg': 0,
+        'base_amount': 240,
+        'measure_unit': 'ml',
+      });
+
+      expect(item.baseAmount, 240);
+      expect(item.measureUnit, 'ml');
     });
   });
 }

@@ -10,7 +10,11 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
+import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
+import 'contexts/health/application/delete_meal.dart';
+import 'contexts/health/application/delete_meal_item.dart';
+import 'contexts/health/application/edit_meal_item.dart';
 import 'contexts/health/application/favorite_food.dart';
 import 'contexts/health/application/get_day_meals.dart';
 import 'contexts/health/application/get_daily_target_with_remaining.dart';
@@ -68,6 +72,10 @@ Future<void> main() async {
   final healthTodayController = TodayController(
     GetDayMeals(mealRepository),
     GetDailyTargetWithRemaining(dailyTargetRepository),
+    EditMealItem(mealRepository),
+    DeleteMealItem(mealRepository),
+    ChangeMealTime(mealRepository),
+    DeleteMeal(mealRepository),
   );
   final healthDictionaryController = DictionaryController(
     SearchDictionary(foodDictionaryRepository),

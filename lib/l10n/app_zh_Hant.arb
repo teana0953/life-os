@@ -93,5 +93,18 @@
   "dietRemoveItemTooltip": "移除",
   "dietMealTotalLabel": "合計",
   "dietSaveMealFailed": "儲存失敗，請再試一次。",
-  "dietUnnamedItemLabel": "未命名項目"
+  "dietUnnamedItemLabel": "未命名項目",
+  "dietMeasureUnitMl": "毫升",
+  "dietManualEntryLink": "找不到？手動輸入",
+  "dietManualEntryTitle": "手動輸入",
+  "dietManualEntryNameLabel": "名稱",
+  "dietManualEntryAddButton": "加入",
+  "dietDeleteItemTooltip": "刪除",
+  "dietDeleteMealTooltip": "刪除整餐",
+  "dietDeleteMealConfirmTitle": "刪除這餐？",
+  "dietDeleteMealConfirmMessage": "將會移除所有項目。",
+  "dietDeleteMealConfirmButton": "刪除",
+  "dietChangeTimeTooltip": "改時間",
+  "errorDietItemNotFound": "找不到這筆紀錄。",
+  "dietSaveEditButton": "儲存"
 }

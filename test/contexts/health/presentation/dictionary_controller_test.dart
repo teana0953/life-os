@@ -56,7 +56,8 @@ FoodItem _item(String id, String name) => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': null,
+  'base_amount': null,
+  'measure_unit': null,
 });
 
 class _CountingFoodDictionaryRepository extends FakeFoodDictionaryRepository {

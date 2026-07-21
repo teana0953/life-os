@@ -310,6 +310,45 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietUnnamedItemLabel => '未命名項目';
+
+  @override
+  String get dietMeasureUnitMl => '毫升';
+
+  @override
+  String get dietManualEntryLink => '找不到？手動輸入';
+
+  @override
+  String get dietManualEntryTitle => '手動輸入';
+
+  @override
+  String get dietManualEntryNameLabel => '名稱';
+
+  @override
+  String get dietManualEntryAddButton => '加入';
+
+  @override
+  String get dietDeleteItemTooltip => '刪除';
+
+  @override
+  String get dietDeleteMealTooltip => '刪除整餐';
+
+  @override
+  String get dietDeleteMealConfirmTitle => '刪除這餐？';
+
+  @override
+  String get dietDeleteMealConfirmMessage => '將會移除所有項目。';
+
+  @override
+  String get dietDeleteMealConfirmButton => '刪除';
+
+  @override
+  String get dietChangeTimeTooltip => '改時間';
+
+  @override
+  String get errorDietItemNotFound => '找不到這筆紀錄。';
+
+  @override
+  String get dietSaveEditButton => '儲存';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -618,4 +657,43 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietUnnamedItemLabel => '未命名項目';
+
+  @override
+  String get dietMeasureUnitMl => '毫升';
+
+  @override
+  String get dietManualEntryLink => '找不到？手動輸入';
+
+  @override
+  String get dietManualEntryTitle => '手動輸入';
+
+  @override
+  String get dietManualEntryNameLabel => '名稱';
+
+  @override
+  String get dietManualEntryAddButton => '加入';
+
+  @override
+  String get dietDeleteItemTooltip => '刪除';
+
+  @override
+  String get dietDeleteMealTooltip => '刪除整餐';
+
+  @override
+  String get dietDeleteMealConfirmTitle => '刪除這餐？';
+
+  @override
+  String get dietDeleteMealConfirmMessage => '將會移除所有項目。';
+
+  @override
+  String get dietDeleteMealConfirmButton => '刪除';
+
+  @override
+  String get dietChangeTimeTooltip => '改時間';
+
+  @override
+  String get errorDietItemNotFound => '找不到這筆紀錄。';
+
+  @override
+  String get dietSaveEditButton => '儲存';
 }

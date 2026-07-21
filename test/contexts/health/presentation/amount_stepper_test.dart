@@ -9,8 +9,9 @@ void main() {
   Widget harness({
     required double value,
     required ValueChanged<double> onChanged,
-    bool allowGrams = false,
-    bool grams = false,
+    bool allowMeasure = false,
+    bool measureMode = false,
+    String? measureLabel,
     ValueChanged<bool>? onModeChanged,
   }) {
     return l10nTestApp(
@@ -19,8 +20,9 @@ void main() {
           value: value,
           onChanged: onChanged,
           unitLabel: '碗',
-          allowGrams: allowGrams,
-          grams: grams,
+          allowMeasure: allowMeasure,
+          measureMode: measureMode,
+          measureLabel: measureLabel,
           onModeChanged: onModeChanged,
         ),
       ),
@@ -90,7 +92,7 @@ void main() {
     expect(field.controller?.text, '1.5');
   });
 
-  testWidgets('the portion/gram toggle is hidden when allowGrams is false', (
+  testWidgets('the portion/measure toggle is hidden when allowMeasure is false', (
     tester,
   ) async {
     await tester.pumpWidget(harness(value: 1, onChanged: (_) {}));
@@ -98,26 +100,72 @@ void main() {
     expect(find.byType(SegmentedButton<bool>), findsNothing);
   });
 
-  testWidgets('the portion/gram toggle appears when allowGrams is true, and reports mode changes', (
+  testWidgets('a g food\'s measure segment reads 公克, and toggling reports mode changes', (
     tester,
   ) async {
     bool? reportedMode;
+    final loc = lookupAppLocalizations(const Locale('en'));
     await tester.pumpWidget(
       harness(
         value: 1,
         onChanged: (_) {},
-        allowGrams: true,
-        grams: false,
+        allowMeasure: true,
+        measureMode: false,
+        measureLabel: loc.dietGramsLabel,
         onModeChanged: (v) => reportedMode = v,
       ),
     );
 
     expect(find.byType(SegmentedButton<bool>), findsOneWidget);
+    expect(find.text(loc.dietGramsLabel), findsOneWidget);
 
-    final loc = lookupAppLocalizations(const Locale('en'));
     await tester.tap(find.text(loc.dietGramsLabel));
     await tester.pump();
 
     expect(reportedMode, isTrue);
+  });
+
+  testWidgets('a ml food\'s measure segment reads 毫升, not a bare "ml"', (
+    tester,
+  ) async {
+    final loc = lookupAppLocalizations(const Locale('en'));
+    await tester.pumpWidget(
+      harness(
+        value: 1,
+        onChanged: (_) {},
+        allowMeasure: true,
+        measureMode: false,
+        measureLabel: loc.dietMeasureUnitMl,
+      ),
+    );
+
+    expect(find.text(loc.dietMeasureUnitMl), findsOneWidget);
+    expect(find.text('ml'), findsNothing);
+  });
+
+  testWidgets('portion mode always shows the caller\'s unitLabel, never g/ml', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(
+        value: 1,
+        onChanged: (_) {},
+        allowMeasure: true,
+        measureMode: false,
+        measureLabel: '公克',
+      ),
+    );
+
+    expect(find.text('碗'), findsOneWidget);
+  });
+
+  testWidgets('measureLabelFor maps g to Grams and ml to Milliliters, null otherwise', (
+    tester,
+  ) async {
+    final loc = lookupAppLocalizations(const Locale('en'));
+
+    expect(measureLabelFor('g', loc), loc.dietGramsLabel);
+    expect(measureLabelFor('ml', loc), loc.dietMeasureUnitMl);
+    expect(measureLabelFor(null, loc), isNull);
   });
 }

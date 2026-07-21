@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
+import 'package:life_os/contexts/health/application/delete_meal.dart';
+import 'package:life_os/contexts/health/application/delete_meal_item.dart';
+import 'package:life_os/contexts/health/application/edit_meal_item.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
 import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
@@ -18,6 +22,7 @@ import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
@@ -73,6 +78,32 @@ class _FakeMealRepository implements MealRepository {
 
   @override
   Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {
     throw UnimplementedError();
   }
 }
@@ -165,6 +196,10 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
         healthTodayController: TodayController(
           GetDayMeals(mealRepository),
           GetDailyTargetWithRemaining(dailyTargetRepository),
+          EditMealItem(mealRepository),
+          DeleteMealItem(mealRepository),
+          ChangeMealTime(mealRepository),
+          DeleteMeal(mealRepository),
         ),
         healthDictionaryController: DictionaryController(
           SearchDictionary(foodDictionaryRepository),

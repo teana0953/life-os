@@ -37,7 +37,8 @@ FoodItem _riceItem() => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': null,
+  'base_amount': null,
+  'measure_unit': null,
 });
 
 void main() {

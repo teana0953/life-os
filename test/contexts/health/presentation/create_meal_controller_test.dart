@@ -5,6 +5,7 @@ import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 
 class FakeMealRepository implements MealRepository {
@@ -44,9 +45,35 @@ class FakeMealRepository implements MealRepository {
   Future<List<String>> loggedDays(String idToken, String month) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {
+    throw UnimplementedError();
+  }
 }
 
-FoodItem _riceItem({double? baseGrams}) => FoodItem.fromJson({
+FoodItem _riceItem({double? baseAmount, String? measureUnit}) => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
   'name': '飯/1碗',
@@ -60,7 +87,8 @@ FoodItem _riceItem({double? baseGrams}) => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': baseGrams,
+  'base_amount': baseAmount,
+  'measure_unit': measureUnit,
 });
 
 void main() {
@@ -75,16 +103,17 @@ void main() {
       expect(controller.status, CreateMealControllerStatus.editing);
     });
 
-    test('add appends a tray item defaulting to quantity 1, not grams', () {
+    test('add appends a tray item defaulting to quantity 1, not measure mode', () {
       final controller = CreateMealController(CreateMeal(FakeMealRepository()))
         ..start('lunch');
 
       controller.add(_riceItem());
 
       expect(controller.tray, hasLength(1));
-      expect(controller.tray.single.item.id, 'rice-1');
-      expect(controller.tray.single.amount, 1);
-      expect(controller.tray.single.grams, isFalse);
+      final entry = controller.tray.single as TrayItem;
+      expect(entry.item.id, 'rice-1');
+      expect(entry.amount, 1);
+      expect(entry.measureMode, isFalse);
     });
 
     test('remove removes exactly the given tray item', () {
@@ -104,47 +133,49 @@ void main() {
       final controller = CreateMealController(CreateMeal(FakeMealRepository()))
         ..start('lunch');
       controller.add(_riceItem());
-      final row = controller.tray.single;
+      final row = controller.tray.single as TrayItem;
 
       controller.setAmount(row, 2.5);
 
-      expect(controller.tray.single.amount, 2.5);
+      expect((controller.tray.single as TrayItem).amount, 2.5);
     });
 
-    test('toggleGrams to grams mode resets the amount to the item\'s base grams', () {
+    test('toggleMeasure to measure mode resets the amount to the item\'s base amount', () {
       final controller = CreateMealController(CreateMeal(FakeMealRepository()))
         ..start('lunch');
-      controller.add(_riceItem(baseGrams: 50));
-      final row = controller.tray.single;
+      controller.add(_riceItem(baseAmount: 50, measureUnit: 'g'));
+      final row = controller.tray.single as TrayItem;
 
-      controller.toggleGrams(row, true);
+      controller.toggleMeasure(row, true);
 
-      expect(controller.tray.single.grams, isTrue);
-      expect(controller.tray.single.amount, 50);
+      final entry = controller.tray.single as TrayItem;
+      expect(entry.measureMode, isTrue);
+      expect(entry.amount, 50);
     });
 
-    test('toggleGrams back to quantity mode resets the amount to 1', () {
+    test('toggleMeasure back to quantity mode resets the amount to 1', () {
       final controller = CreateMealController(CreateMeal(FakeMealRepository()))
         ..start('lunch');
-      controller.add(_riceItem(baseGrams: 50));
-      controller.toggleGrams(controller.tray.single, true);
-      controller.setAmount(controller.tray.single, 33);
+      controller.add(_riceItem(baseAmount: 50, measureUnit: 'g'));
+      controller.toggleMeasure(controller.tray.single as TrayItem, true);
+      controller.setAmount(controller.tray.single as TrayItem, 33);
 
-      controller.toggleGrams(controller.tray.single, false);
+      controller.toggleMeasure(controller.tray.single as TrayItem, false);
 
-      expect(controller.tray.single.grams, isFalse);
-      expect(controller.tray.single.amount, 1);
+      final entry = controller.tray.single as TrayItem;
+      expect(entry.measureMode, isFalse);
+      expect(entry.amount, 1);
     });
 
-    test('submit sends quantity for a unit row and grams for a gram-mode row', () async {
+    test('submit sends quantity for a unit row and measure for a measure-mode row', () async {
       final repository = FakeMealRepository();
       final controller = CreateMealController(CreateMeal(repository))
         ..start('lunch');
       controller.add(_riceItem());
-      controller.setAmount(controller.tray[0], 1.5);
-      controller.add(_riceItem(baseGrams: 50));
-      controller.toggleGrams(controller.tray[1], true);
-      controller.setAmount(controller.tray[1], 33);
+      controller.setAmount(controller.tray[0] as TrayItem, 1.5);
+      controller.add(_riceItem(baseAmount: 50, measureUnit: 'g'));
+      controller.toggleMeasure(controller.tray[1] as TrayItem, true);
+      controller.setAmount(controller.tray[1] as TrayItem, 33);
 
       final result = await controller.submit('token-123', '2026-07-18');
 
@@ -154,8 +185,8 @@ void main() {
       expect(repository.receivedMeal, 'lunch');
       expect(repository.receivedItems, hasLength(2));
       expect(repository.receivedItems![0].quantity, 1.5);
-      expect(repository.receivedItems![0].grams, isNull);
-      expect(repository.receivedItems![1].grams, 33);
+      expect(repository.receivedItems![0].measure, isNull);
+      expect(repository.receivedItems![1].measure, 33);
       expect(repository.receivedItems![1].quantity, isNull);
     });
 
@@ -164,9 +195,9 @@ void main() {
       final controller = CreateMealController(CreateMeal(repository))
         ..start('lunch');
       controller.add(_riceItem());
-      controller.setAmount(controller.tray[0], 0);
+      controller.setAmount(controller.tray[0] as TrayItem, 0);
       controller.add(_riceItem());
-      controller.setAmount(controller.tray[1], 1);
+      controller.setAmount(controller.tray[1] as TrayItem, 1);
 
       final result = await controller.submit('token-123', '2026-07-18');
 
@@ -180,7 +211,7 @@ void main() {
       final controller = CreateMealController(CreateMeal(repository))
         ..start('lunch');
       controller.add(_riceItem());
-      controller.setAmount(controller.tray[0], 0);
+      controller.setAmount(controller.tray[0] as TrayItem, 0);
 
       final result = await controller.submit('token-123', '2026-07-18');
 
@@ -215,6 +246,51 @@ void main() {
       expect(controller.status, CreateMealControllerStatus.error);
       expect(controller.error, CreateMealError.saveFailed);
       expect(controller.tray, hasLength(1));
+    });
+
+    group('manual tray items', () {
+      const portions = Portions(staple: 1, meat: 1, fruit: 0, veg: 0);
+
+      test('addManual appends a ManualTrayItem carrying the name and portions', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+
+        controller.addManual('自製便當', portions);
+
+        expect(controller.tray, hasLength(1));
+        final entry = controller.tray.single as ManualTrayItem;
+        expect(entry.name, '自製便當');
+        expect(entry.portions, portions);
+      });
+
+      test('remove removes a manual tray item', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        controller.addManual('自製便當', portions);
+        final toRemove = controller.tray.single;
+
+        controller.remove(toRemove);
+
+        expect(controller.tray, isEmpty);
+      });
+
+      test('submit sends a manual row as name+portions and a dictionary row as quantity, in one call', () async {
+        final repository = FakeMealRepository();
+        final controller = CreateMealController(CreateMeal(repository))
+          ..start('lunch');
+        controller.add(_riceItem());
+        controller.addManual('自製便當', portions);
+
+        final result = await controller.submit('token-123', '2026-07-18');
+
+        expect(result, isTrue);
+        expect(repository.receivedItems, hasLength(2));
+        final dictionaryItem = repository.receivedItems!.firstWhere((i) => i.foodItemId != null);
+        expect(dictionaryItem.quantity, 1);
+        final manualItem = repository.receivedItems!.firstWhere((i) => i.foodItemId == null);
+        expect(manualItem.name, '自製便當');
+        expect(manualItem.portions, portions);
+      });
     });
   });
 }
