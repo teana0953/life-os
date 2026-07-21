@@ -332,7 +332,7 @@ class _TrayPanel extends StatelessWidget {
                           value: entry.amount,
                           onChanged: (value) => controller.setAmount(entry, value),
                           unitLabel: loc.dietPortionUnit,
-                          allowMeasure: entry.item.baseAmount != null && entry.item.measureUnit != null,
+                          allowMeasure: entry.item.baseAmount != null && entry.item.measureUnit?.isNotEmpty == true,
                           measureMode: entry.measureMode,
                           measureLabel: measureLabelFor(entry.item.measureUnit, loc),
                           onModeChanged: (measureMode) =>

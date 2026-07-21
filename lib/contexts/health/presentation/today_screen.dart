@@ -23,7 +23,10 @@ String _formatAmount(double value) => value == value.roundToDouble()
 /// that measure; otherwise the quantity with its dictionary unit word.
 String _consumedAmountLabel(MealItem item, AppLocalizations loc) {
   final baseAmount = item.baseAmount;
-  if (baseAmount != null && item.measureUnit != null) {
+  // Guard on a non-empty measure unit (not just non-null) so an empty-string
+  // unit falls back to 份 instead of rendering a blank unit ("9 "). Matches
+  // measureLabelFor, which also treats '' as no unit.
+  if (baseAmount != null && item.measureUnit?.isNotEmpty == true) {
     final measure = item.quantity * baseAmount;
     final label = measureLabelFor(item.measureUnit, loc) ?? '';
     return '${_formatAmount(measure)} $label';
@@ -724,7 +727,7 @@ class _EditableItemRowState extends State<_EditableItemRow> {
                     value: _amount,
                     onChanged: (v) => setState(() => _amount = v),
                     unitLabel: loc.dietPortionUnit,
-                    allowMeasure: item.baseAmount != null && item.measureUnit != null,
+                    allowMeasure: item.baseAmount != null && item.measureUnit?.isNotEmpty == true,
                     measureMode: _measureMode,
                     measureLabel: measureLabelFor(item.measureUnit, loc),
                     onModeChanged: _onMeasureModeChanged,

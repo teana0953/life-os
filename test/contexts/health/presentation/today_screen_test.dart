@@ -496,6 +496,43 @@ void main() {
       expect(find.text('9 顆'), findsOneWidget);
     });
 
+    testWidgets('an item with a base but an empty measure unit falls back to 份, not a blank unit', (
+      tester,
+    ) async {
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'breakfast',
+            time: '2026-07-18T08:00:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: 'X',
+                fruit: 1,
+                quantity: 1,
+                baseAmount: 9,
+                measureUnit: '',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 1, 'veg': 0,
+        },
+      });
+      final controller = _controllerWith(dayLog: dayLog);
+      await _pumpTodayScreen(tester, controller);
+
+      // An empty measure unit must not render "9 " (a number with a blank
+      // unit); the guard treats it as no unit and falls back to 份.
+      expect(find.text('1 ${loc.dietPortionUnit}'), findsOneWidget);
+      expect(find.text('9 '), findsNothing);
+    });
+
     testWidgets('a household-unit item editor labels its after-field unit 份 and its measure segment 顆', (
       tester,
     ) async {
