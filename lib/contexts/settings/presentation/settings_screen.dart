@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/locale_controller.dart';
-import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/theme_controller.dart';
+import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
 
 const _zhHantLocale = Locale.fromSubtags(
@@ -157,13 +157,7 @@ class _SettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outline, width: 2),
-        boxShadow: ledgeShadow(theme.colorScheme.outline),
-      ),
+    return LedgeCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
