@@ -438,9 +438,25 @@ class _MealCard extends StatelessWidget {
                     key: Key('change-meal-time-${meal.id}'),
                     borderRadius: BorderRadius.circular(8),
                     onTap: onChangeTime,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      child: Text(time, style: theme.textTheme.bodyMedium),
+                    // 48dp min tap target (was ~32dp) + a leading clock glyph
+                    // so it reads as an editable control, not plain text.
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(time, style: theme.textTheme.bodyMedium),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -669,6 +685,15 @@ class _EditableItemRowState extends State<_EditableItemRow> {
                     fruit: item.consumed.fruit,
                     veg: item.consumed.veg,
                   ),
+                ),
+                // Chevron affordance so the row reads as tap-to-expand
+                // (it went from read-only to interactive; without a hint it
+                // looks static). Flips to point up while the editor is open.
+                const SizedBox(width: 4),
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ],
             ),
