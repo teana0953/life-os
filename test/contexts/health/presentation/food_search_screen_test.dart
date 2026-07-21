@@ -266,6 +266,28 @@ void main() {
       expect(find.byType(SegmentedButton<bool>), findsNothing);
     });
 
+    testWidgets('a household-unit tray item labels its after-field unit 份 and its measure segment 顆', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          favorites: [_riceItem(baseAmount: 9, measureUnit: '顆')],
+        ),
+      );
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      // A household food carries a base measure, so the toggle is offered.
+      expect(find.byType(SegmentedButton<bool>), findsOneWidget);
+      // After-field unit label is the generic 份, not a name-scraped 碗.
+      expect(find.text(loc.dietPortionUnit), findsWidgets);
+      // The measure segment reads the item's own unit 顆.
+      expect(find.text('顆'), findsOneWidget);
+    });
+
     testWidgets('the running total sums every tray item\'s preview', (
       tester,
     ) async {

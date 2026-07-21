@@ -159,6 +159,26 @@ void main() {
     expect(find.text('碗'), findsOneWidget);
   });
 
+  testWidgets('measure mode labels the field with the measure unit, not the portion word', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(
+        value: 18,
+        onChanged: (_) {},
+        allowMeasure: true,
+        measureMode: true,
+        measureLabel: '顆',
+      ),
+    );
+
+    // In measure mode the after-field unit follows the mode (顆), so the user
+    // reads "18 顆" — never the portion word 碗, which would contradict the
+    // highlighted 顆 segment.
+    expect(find.text('碗'), findsNothing);
+    expect(find.text('顆'), findsWidgets); // both the segment and the after-field label
+  });
+
   testWidgets('measureLabelFor maps g to Grams and ml to Milliliters, null otherwise', (
     tester,
   ) async {
@@ -167,5 +187,15 @@ void main() {
     expect(measureLabelFor('g', loc), loc.dietGramsLabel);
     expect(measureLabelFor('ml', loc), loc.dietMeasureUnitMl);
     expect(measureLabelFor(null, loc), isNull);
+  });
+
+  testWidgets('measureLabelFor returns a household unit word verbatim, and treats empty as null', (
+    tester,
+  ) async {
+    final loc = lookupAppLocalizations(const Locale('en'));
+
+    expect(measureLabelFor('顆', loc), '顆');
+    expect(measureLabelFor('碗', loc), '碗');
+    expect(measureLabelFor('', loc), isNull);
   });
 }

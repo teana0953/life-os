@@ -67,6 +67,7 @@
   "dietSearchFoodHint": "搜尋食物",
   "dietQuantityLabel": "份量",
   "dietGramsLabel": "公克",
+  "dietPortionUnit": "份",
   "dietAddToMealButton": "加入{meal}",
   "dietSetTargetTitle": "設定每日目標",
   "dietSaveTargetButton": "儲存",

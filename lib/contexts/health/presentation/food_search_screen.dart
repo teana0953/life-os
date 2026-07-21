@@ -9,7 +9,6 @@ import 'create_meal_controller.dart';
 import 'dictionary_controller.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
-import 'unit_label.dart';
 
 /// The effective quantity previewed for a dictionary tray row: the entered
 /// unit quantity, or (in measure mode) the measure-derived quantity via the
@@ -332,8 +331,8 @@ class _TrayPanel extends StatelessWidget {
                         AmountStepper(
                           value: entry.amount,
                           onChanged: (value) => controller.setAmount(entry, value),
-                          unitLabel: unitLabelForName(entry.item.name, loc),
-                          allowMeasure: entry.item.baseAmount != null && entry.item.measureUnit != null,
+                          unitLabel: loc.dietPortionUnit,
+                          allowMeasure: entry.item.baseAmount != null && entry.item.measureUnit?.isNotEmpty == true,
                           measureMode: entry.measureMode,
                           measureLabel: measureLabelFor(entry.item.measureUnit, loc),
                           onModeChanged: (measureMode) =>
