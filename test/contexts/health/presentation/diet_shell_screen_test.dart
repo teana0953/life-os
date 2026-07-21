@@ -649,5 +649,33 @@ void main() {
         expect(constrainedBoxFinder, findsOneWidget);
       },
     );
+
+    testWidgets(
+      'centers the date label group between the prev/next arrows',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await _pumpShell(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // The tappable label fills the space between the two chevrons; its
+        // content (chip · date · calendar icon) should sit centered within it,
+        // so the free space to the left of the content mirrors the space to
+        // its right. Left-aligned, the whole gap would pile up on the right.
+        final labelRect = tester.getRect(find.byKey(const Key('day-nav-label')));
+        final chipRect = tester.getRect(
+          find.descendant(
+            of: find.byKey(const Key('day-nav-label')),
+            matching: find.text(loc.dietDayToday),
+          ),
+        );
+        final iconRect = tester.getRect(find.byIcon(Icons.calendar_month));
+
+        final leftGap = chipRect.left - labelRect.left;
+        final rightGap = labelRect.right - iconRect.right;
+        expect((leftGap - rightGap).abs(), lessThan(24));
+      },
+    );
   });
 }
