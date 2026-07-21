@@ -152,6 +152,7 @@ Future<FakeMealRepository> _pumpScreen(
   FakeMealRepository? mealRepository,
   FakeAuthRepository? authRepository,
   String meal = 'lunch',
+  Locale locale = const Locale('en'),
 }) async {
   final resolvedDictionaryRepository =
       dictionaryRepository ?? FakeFoodDictionaryRepository();
@@ -163,6 +164,7 @@ Future<FakeMealRepository> _pumpScreen(
 
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: FoodSearchScreen(
         meal: meal,
         dictionaryController: dictionaryController,
@@ -492,45 +494,46 @@ void main() {
       expect(find.text('飯/1碗'), findsOneWidget);
     });
 
-    testWidgets('a tray row for a gram-enabled item does not overflow at 360dp', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(360, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    // A gram tray row must not overflow across the full narrow-width axis:
+    // {320dp, 360dp} × {en, zh-Hant} × {portion, measure} mode. The tray gives
+    // the AmountStepper less width than the isolated widget (row padding +
+    // the row's other columns), so this is where plan A''s trio-tightening
+    // earns its keep. zh-Hant switches the segment's 份量 label (real CJK
+    // coverage); the after-field label follows the item's own measure unit.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final measureMode in [false, true]) {
+          testWidgets(
+            'a gram tray row does not overflow at ${width.toInt()}dp, '
+            'locale=$locale, measureMode=$measureMode',
+            (tester) async {
+              await tester.binding.setSurfaceSize(Size(width, 640));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await _pumpScreen(
-        tester,
-        dictionaryRepository: FakeFoodDictionaryRepository(
-          favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
-        ),
-      );
+              await _pumpScreen(
+                tester,
+                locale: locale,
+                dictionaryRepository: FakeFoodDictionaryRepository(
+                  favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
+                ),
+              );
 
-      await tester.tap(find.text('飯/1碗'));
-      await tester.pumpAndSettle();
+              await tester.tap(find.text('飯/1碗'));
+              await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
-    });
+              if (measureMode) {
+                final loc = lookupAppLocalizations(locale);
+                await tester.tap(find.text(loc.dietGramsLabel));
+                await tester.pumpAndSettle();
+              }
 
-    testWidgets('a tray row for a gram-enabled item does not overflow at 320dp', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(320, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      await _pumpScreen(
-        tester,
-        dictionaryRepository: FakeFoodDictionaryRepository(
-          favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
-        ),
-      );
-
-      await tester.tap(find.text('飯/1碗'));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
-    });
+              expect(tester.takeException(), isNull);
+              expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+            },
+          );
+        }
+      }
+    }
   });
 
   group('FoodSearchScreen manual entry', () {

@@ -101,23 +101,27 @@ class _AmountStepperState extends State<AmountStepper> {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
 
-    // A Wrap (not a fixed-width Row) so the portion/measure SegmentedButton —
-    // the widest piece, especially with longer English labels — flows onto
-    // its own line instead of overflowing on narrow phones (~360dp and
-    // below); the −/field/+ trio stays together as one unbreakable Row.
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 4,
+    // A fixed two-row layout (not a Wrap) so switching the mode never changes
+    // the number of lines: row 1 is the −/field/+ trio plus the after-field
+    // unit label; row 2 is the portion/measure SegmentedButton, always on its
+    // own line. Only the after-field label's text changes with the mode, so
+    // the SegmentedButton keeps a fixed position and nothing reflows.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               onPressed: () => widget.onChanged(
                 (widget.value - widget.step).clamp(0.0, double.infinity),
               ),
               icon: const Icon(Icons.remove),
+              // Tightened so the trio leaves room for the after-field label to
+              // fit (or ellipsize) instead of overflowing row 1 at 320dp.
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
             SizedBox(
               width: 56,
@@ -132,18 +136,27 @@ class _AmountStepperState extends State<AmountStepper> {
             IconButton(
               onPressed: () => widget.onChanged(widget.value + widget.step),
               icon: const Icon(Icons.add),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+            const SizedBox(width: 8),
+            // The after-field unit label follows the selected mode: the measure
+            // unit (顆/公克/毫升) in measure mode, the portion word otherwise —
+            // so the label after the number never contradicts the highlighted
+            // segment. Flexible + ellipsis so a longer label (e.g. the English
+            // "portion(s)") shrinks rather than overflowing the row on narrow
+            // phones.
+            Flexible(
+              child: Text(
+                widget.measureMode
+                    ? (widget.measureLabel ?? widget.unitLabel)
+                    : widget.unitLabel,
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
-        ),
-        // The unit label is its own Wrap child (not glued to the −/field/+
-        // trio) so a longer label (e.g. the English "portion(s)") flows to
-        // the next line instead of overflowing the unbreakable trio Row on
-        // narrow phones. It follows the selected mode: the measure unit
-        // (顆/公克/毫升) in measure mode, the portion word (份) otherwise — so
-        // the label after the number never contradicts the highlighted segment.
-        Text(
-          widget.measureMode ? (widget.measureLabel ?? widget.unitLabel) : widget.unitLabel,
-          style: theme.textTheme.bodyMedium,
         ),
         if (widget.allowMeasure)
           SegmentedButton<bool>(

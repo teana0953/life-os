@@ -9,17 +9,20 @@ void main() {
   Widget harness({
     required double value,
     required ValueChanged<double> onChanged,
+    String unitLabel = '碗',
     bool allowMeasure = false,
     bool measureMode = false,
     String? measureLabel,
     ValueChanged<bool>? onModeChanged,
+    Locale locale = const Locale('en'),
   }) {
     return l10nTestApp(
+      locale: locale,
       home: Scaffold(
         body: AmountStepper(
           value: value,
           onChanged: onChanged,
-          unitLabel: '碗',
+          unitLabel: unitLabel,
           allowMeasure: allowMeasure,
           measureMode: measureMode,
           measureLabel: measureLabel,
@@ -178,6 +181,87 @@ void main() {
     expect(find.text('碗'), findsNothing);
     expect(find.text('顆'), findsWidgets); // both the segment and the after-field label
   });
+
+  testWidgets(
+    'the mode toggle keeps its own line below the trio in BOTH modes (mode-stable layout)',
+    (tester) async {
+      // A wide surface where the old Wrap put every child on one line: the
+      // assertion below only holds once the SegmentedButton is on a fixed line
+      // of its own, so this is a real geometric stability check, not one an
+      // on-one-line layout could pass. The same relationship must hold in both
+      // modes — that invariance IS the stability this change guarantees.
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      // Portion mode: after-field label is the caller's unitLabel (碗).
+      await tester.pumpWidget(
+        harness(
+          value: 1,
+          onChanged: (_) {},
+          allowMeasure: true,
+          measureMode: false,
+          measureLabel: loc.dietGramsLabel,
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.byType(SegmentedButton<bool>)).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(find.byType(TextField)).dy),
+      );
+      expect(find.text('碗'), findsOneWidget);
+
+      // Measure mode: same line relationship (segment still below the trio),
+      // only the after-field label changes to the measure label.
+      await tester.pumpWidget(
+        harness(
+          value: 1,
+          onChanged: (_) {},
+          allowMeasure: true,
+          measureMode: true,
+          measureLabel: loc.dietGramsLabel,
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.byType(SegmentedButton<bool>)).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(find.byType(TextField)).dy),
+      );
+      expect(find.text('碗'), findsNothing);
+      expect(find.text(loc.dietGramsLabel), findsWidgets);
+    },
+  );
+
+  // No overflow at narrow widths in both locales. The passed unit/measure
+  // labels stay at their worst-case English width ("portion(s)"/"Grams") even
+  // in the zh-Hant cell: the after-field label is the row-1 element most at
+  // risk of overflow, so holding it at worst case keeps zh-Hant from being a
+  // strictly-easier width, while the locale still switches the segment's
+  // 份量/Quantity label (exercising CJK glyph metrics).
+  for (final width in [320.0, 360.0]) {
+    for (final locale in testSupportedLocales) {
+      for (final measureMode in [false, true]) {
+        testWidgets(
+          'a gram amount control does not overflow at ${width.toInt()}dp, '
+          'locale=$locale, measureMode=$measureMode',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await tester.pumpWidget(
+              harness(
+                value: 18,
+                onChanged: (_) {},
+                unitLabel: 'portion(s)',
+                allowMeasure: true,
+                measureMode: measureMode,
+                measureLabel: 'Grams',
+                locale: locale,
+              ),
+            );
+
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
 
   testWidgets('measureLabelFor maps g to Grams and ml to Milliliters, null otherwise', (
     tester,
