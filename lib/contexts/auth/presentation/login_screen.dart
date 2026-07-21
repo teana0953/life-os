@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/language_switcher.dart';
 import '../../../shared/i18n/locale_controller.dart';
-import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../application/sign_up.dart';
 import 'login_controller.dart';
@@ -86,24 +86,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Align(
                     alignment: Alignment.topRight,
-                    child: LanguageSwitcher(controller: widget.localeController),
+                    child: LanguageSwitcher(
+                      controller: widget.localeController,
+                    ),
                   ),
                   Center(
                     child: SingleChildScrollView(
                       child: SizedBox(
                         key: const Key('login-card'),
                         width: cardWidth,
-                        child: Container(
+                        child: LedgeCard(
+                          borderRadius: 22,
                           padding: const EdgeInsets.all(_cardPadding),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: theme.colorScheme.outline,
-                              width: 2,
-                            ),
-                            boxShadow: ledgeShadow(theme.colorScheme.outline),
-                          ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,7 +155,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   errorText,
                                   key: const Key('error-message'),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: theme.colorScheme.error),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                  ),
                                 ),
                               const SizedBox(height: 16),
                               FilledButton(

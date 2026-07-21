@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
-import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/amount_entry_dialog.dart';
+import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
+import '../../../shared/widgets/ledge_card.dart';
 import 'water_controller.dart';
 
 /// Water section: the day's total against its target with a progress bar,
@@ -55,9 +56,9 @@ class _WaterScreenState extends State<WaterScreen> {
     if (!mounted) return;
     if (widget.controller.status == WaterStatus.error) {
       final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.waterSaveFailed)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.waterSaveFailed)));
     }
   }
 
@@ -108,168 +109,173 @@ class _WaterScreenState extends State<WaterScreen> {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    final busy = controller.status == WaterStatus.loading ||
+    final busy =
+        controller.status == WaterStatus.loading ||
         controller.status == WaterStatus.saving;
 
     // Full-screen spinner only on the very first load, when there is no data
     // to show yet. Once a day is loaded, mutations/reloads keep the content
     // on screen with a subtle busy indicator instead of blanking the tab.
-    if (busy && controller.day == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (controller.status == WaterStatus.needsReauth) {
-      return Scaffold(
-        body: Center(
-          child: Text(loc.pleaseSignInAgain, textAlign: TextAlign.center),
-        ),
-      );
-    }
-    if (controller.day == null) {
-      return Scaffold(
-        body: Center(
-          child: Text(loc.errorWaterLoadFailed, textAlign: TextAlign.center),
-        ),
-      );
-    }
-
-    final day = controller.day!;
-
-    final viewedDate = DateTime.parse(widget.day);
-    final now = widget.clock();
-    final isToday =
-        daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) == 0;
-    final title = isToday ? loc.waterTitle : loc.waterHistoryTitle;
-
-    final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
-
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Subtle busy indicator during a mutation/reload — the content
-            // below stays visible rather than blanking to a full spinner.
-            SizedBox(
-              height: 3,
-              child: busy
-                  ? const LinearProgressIndicator(
-                      key: Key('water-busy'),
-                      minHeight: 3,
-                    )
-                  : null,
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-            _WaterSectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(title, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    fullDateLabel(context, viewedDate),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _WaterProgressBar(
-                    key: const Key('water-progress'),
-                    totalMl: day.totalMl,
-                    targetMl: day.targetMl,
-                    goalMet: goalMet,
-                    goalMetLabel: loc.waterGoalMet,
-                    label: loc.waterTotalOfTarget(day.totalMl, day.targetMl),
-                  ),
-                ],
+    return AsyncStateScaffold(
+      isLoading: busy && controller.day == null,
+      isReauth: controller.status == WaterStatus.needsReauth,
+      reauthMessage: loc.pleaseSignInAgain,
+      builder: (context) {
+        if (controller.day == null) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                loc.errorWaterLoadFailed,
+                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 20),
-            _WaterSectionCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+          );
+        }
+
+        final day = controller.day!;
+
+        final viewedDate = DateTime.parse(widget.day);
+        final now = widget.clock();
+        final isToday =
+            daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) ==
+            0;
+        final title = isToday ? loc.waterTitle : loc.waterHistoryTitle;
+
+        final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
+
+        return Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Subtle busy indicator during a mutation/reload — the content
+                // below stays visible rather than blanking to a full spinner.
+                SizedBox(
+                  height: 3,
+                  child: busy
+                      ? const LinearProgressIndicator(
+                          key: Key('water-busy'),
+                          minHeight: 3,
+                        )
+                      : null,
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
                     children: [
-                      Expanded(
-                        child: FilledButton(
-                          key: const Key('water-add-250'),
-                          onPressed: busy
-                              ? null
-                              : () => _runMutation(
-                                    () => controller.addWater(
-                                      widget.idToken,
-                                      widget.day,
-                                      250,
-                                    ),
-                                  ),
-                          child: Text(loc.waterAdd250),
+                      _WaterSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(title, style: theme.textTheme.titleLarge),
+                            const SizedBox(height: 4),
+                            Text(
+                              fullDateLabel(context, viewedDate),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _WaterProgressBar(
+                              key: const Key('water-progress'),
+                              totalMl: day.totalMl,
+                              targetMl: day.targetMl,
+                              goalMet: goalMet,
+                              goalMetLabel: loc.waterGoalMet,
+                              label: loc.waterTotalOfTarget(
+                                day.totalMl,
+                                day.targetMl,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          key: const Key('water-add-500'),
-                          onPressed: busy
-                              ? null
-                              : () => _runMutation(
-                                    () => controller.addWater(
-                                      widget.idToken,
-                                      widget.day,
-                                      500,
-                                    ),
+                      const SizedBox(height: 20),
+                      _WaterSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton(
+                                    key: const Key('water-add-250'),
+                                    onPressed: busy
+                                        ? null
+                                        : () => _runMutation(
+                                            () => controller.addWater(
+                                              widget.idToken,
+                                              widget.day,
+                                              250,
+                                            ),
+                                          ),
+                                    child: Text(loc.waterAdd250),
                                   ),
-                          child: Text(loc.waterAdd500),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: FilledButton(
+                                    key: const Key('water-add-500'),
+                                    onPressed: busy
+                                        ? null
+                                        : () => _runMutation(
+                                            () => controller.addWater(
+                                              widget.idToken,
+                                              widget.day,
+                                              500,
+                                            ),
+                                          ),
+                                    child: Text(loc.waterAdd500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    key: const Key('water-add-custom'),
+                                    onPressed: busy ? null : _addCustomAmount,
+                                    child: Text(loc.waterCustomAmount),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    key: const Key('water-correct-250'),
+                                    onPressed: busy
+                                        ? null
+                                        : () => _runMutation(
+                                            () => controller.correct(
+                                              widget.idToken,
+                                              widget.day,
+                                              -250,
+                                            ),
+                                          ),
+                                    child: Text(loc.waterCorrect250),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _WaterSectionCard(
+                        child: OutlinedButton(
+                          key: const Key('water-set-target'),
+                          onPressed: busy ? null : _setTarget,
+                          child: Text(loc.waterSetTargetButton),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          key: const Key('water-add-custom'),
-                          onPressed: busy ? null : _addCustomAmount,
-                          child: Text(loc.waterCustomAmount),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          key: const Key('water-correct-250'),
-                          onPressed: busy
-                              ? null
-                              : () => _runMutation(
-                                    () => controller.correct(
-                                      widget.idToken,
-                                      widget.day,
-                                      -250,
-                                    ),
-                                  ),
-                          child: Text(loc.waterCorrect250),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            _WaterSectionCard(
-              child: OutlinedButton(
-                key: const Key('water-set-target'),
-                onPressed: busy ? null : _setTarget,
-                child: Text(loc.waterSetTargetButton),
-              ),
-            ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -282,17 +288,7 @@ class _WaterSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outline, width: 2),
-        boxShadow: ledgeShadow(theme.colorScheme.outline),
-      ),
-      child: child,
-    );
+    return LedgeCard(padding: const EdgeInsets.all(16), child: child);
   }
 }
 
@@ -327,8 +323,9 @@ class _WaterProgressBar extends StatelessWidget {
     // The theme exposes no dedicated "success" role in its ColorScheme; its
     // tertiary is the closest semantic accent, so goal-met reuses it rather
     // than the normal primary fill (never a hard-coded hex).
-    final fillColor =
-        goalMet ? theme.colorScheme.tertiary : theme.colorScheme.primary;
+    final fillColor = goalMet
+        ? theme.colorScheme.tertiary
+        : theme.colorScheme.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
