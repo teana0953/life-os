@@ -63,6 +63,18 @@ class DictionaryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Resets the search state (query + results) back to the favorites-only
+  /// default, cancelling any pending debounced request. Called when a fresh
+  /// food-search session opens so it never shows the previous session's
+  /// leftover query and results. Favorites and status are left intact.
+  void clearSearch() {
+    _debounceTimer?.cancel();
+    if (query.isEmpty && results.isEmpty) return;
+    query = '';
+    results = [];
+    notifyListeners();
+  }
+
   Future<void> search(String query) async {
     this.query = query;
     _debounceTimer?.cancel();

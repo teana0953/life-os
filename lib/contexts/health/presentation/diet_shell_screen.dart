@@ -148,6 +148,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     final idToken = _idToken;
     if (idToken == null) return;
     widget.createMealController.start(meal);
+    widget.dictionaryController.clearSearch();
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => FoodSearchScreen(

@@ -131,6 +131,22 @@ void main() {
       expect(controller.results, isEmpty);
     });
 
+    test('clearSearch resets query and results back to favorites-only', () async {
+      final repository = FakeFoodDictionaryRepository()
+        ..searchResultsToReturn = [_item('rice-1', '飯/1碗')];
+      final controller = _controller(repository);
+      await controller.load('token-123');
+
+      await controller.search('飯');
+      expect(controller.query, '飯');
+      expect(controller.results, isNotEmpty);
+
+      controller.clearSearch();
+
+      expect(controller.query, isEmpty);
+      expect(controller.results, isEmpty);
+    });
+
     test('a successful empty response shows no results without an error', () async {
       final repository = FakeFoodDictionaryRepository()
         ..searchResultsToReturn = [];

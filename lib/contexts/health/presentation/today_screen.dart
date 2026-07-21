@@ -643,58 +643,61 @@ class _EditableItemRowState extends State<_EditableItemRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Collapsed row: name + consumed amount + portion pills only —
-        // tapping the whole row expands the editor below. No delete control
-        // here (it lives in the expanded editor instead, so it isn't a
-        // stray tap target right next to the expand affordance). Name gets
-        // priority for width (ellipsized rather than pushed off), and the
-        // pills are wrapped in Flexible so they wrap onto their own line(s)
-        // instead of forcing the row to overflow on narrow phones.
+        // Collapsed row: name + consumed amount + a chevron on the top line,
+        // and the portion pills on their own full-width line below. Tapping
+        // the whole thing expands the editor. The pills MUST NOT share the
+        // top row's width: squeezed into a narrow Flexible slot, a single
+        // pill gets compressed below its intrinsic width and its label wraps,
+        // rounding the pill into a blob (the reported overflow). Giving the
+        // pills a full line lets their Wrap lay them out at natural size.
         InkWell(
           key: Key('meal-item-${item.id}'),
           onTap: _toggleExpanded,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    item.name?.isNotEmpty == true ? item.name! : loc.dietUnnamedItemLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (!item.isManual) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      _consumedAmountLabel(item, loc),
-                      style: theme.textTheme.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.name?.isNotEmpty == true ? item.name! : loc.dietUnnamedItemLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                Flexible(
-                  child: PortionPills(
+                    if (!item.isManual) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        _consumedAmountLabel(item, loc),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                    // Chevron affordance so the row reads as tap-to-expand
+                    // (it went from read-only to interactive; without a hint
+                    // it looks static). Flips up while the editor is open.
+                    const SizedBox(width: 4),
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                if (item.consumed.staple != 0 ||
+                    item.consumed.meat != 0 ||
+                    item.consumed.fruit != 0 ||
+                    item.consumed.veg != 0) ...[
+                  const SizedBox(height: 6),
+                  PortionPills(
                     staple: item.consumed.staple,
                     meat: item.consumed.meat,
                     fruit: item.consumed.fruit,
                     veg: item.consumed.veg,
                   ),
-                ),
-                // Chevron affordance so the row reads as tap-to-expand
-                // (it went from read-only to interactive; without a hint it
-                // looks static). Flips to point up while the editor is open.
-                const SizedBox(width: 4),
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                ],
               ],
             ),
           ),
