@@ -237,7 +237,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 /// The current-meal tray shown at the bottom of [FoodSearchScreen]: a
 /// running total pill (sum of every row's preview) and one row per tray
 /// entry (dictionary or manual).
-class _TrayPanel extends StatelessWidget {
+class _TrayPanel extends StatefulWidget {
   final CreateMealController controller;
   final AppLocalizations loc;
   final ThemeData theme;
@@ -245,7 +245,73 @@ class _TrayPanel extends StatelessWidget {
   const _TrayPanel({required this.controller, required this.loc, required this.theme});
 
   @override
+  State<_TrayPanel> createState() => _TrayPanelState();
+}
+
+class _TrayPanelState extends State<_TrayPanel> with SingleTickerProviderStateMixin {
+  final ScrollController _scrollController = ScrollController();
+
+  /// The last add signal this panel has already scrolled for, so a rebuild
+  /// caused by a remove/amount change (which don't bump `addTick`) doesn't
+  /// re-scroll to the end.
+  late int _lastAddTick;
+
+  /// Panel-level driver for the just-added row's fade. Because the fade's
+  /// time source lives on the panel (not the row), a rebuild that remounts
+  /// the just-added row — e.g. removing a row above it shifts it into a
+  /// different index slot mid-fade — reads the fade's CURRENT value rather
+  /// than restarting a fresh per-row animation, so the "added" cue can never
+  /// replay on a delete. Restarted only when a genuine new add bumps
+  /// `addTick`. `_fade` applies the easeOut curve; the row reads `_fade.value`
+  /// (0 → 1) and renders alpha `0.18 * (1 - value)`.
+  late final AnimationController _highlightController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  late final CurvedAnimation _fade = CurvedAnimation(
+    parent: _highlightController,
+    curve: Curves.easeOut,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _lastAddTick = widget.controller.addTick;
+    // The panel only mounts once the tray is non-empty (i.e. after an add),
+    // so play the fade for that first added row.
+    if (_lastAddTick != 0) _highlightController.forward(from: 0);
+  }
+
+  @override
+  void didUpdateWidget(_TrayPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller.addTick != _lastAddTick) {
+      _lastAddTick = widget.controller.addTick;
+      _highlightController.forward(from: 0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    _highlightController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final loc = widget.loc;
+    final theme = widget.theme;
     final total = _trayTotal(controller.tray);
 
     return Container(
@@ -279,6 +345,7 @@ class _TrayPanel extends StatelessWidget {
           Flexible(
             child: ListView.builder(
               key: const Key('food-search-tray-list'),
+              controller: _scrollController,
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: controller.tray.length,
@@ -289,6 +356,7 @@ class _TrayPanel extends StatelessWidget {
                   TrayItem() => entry.item.name,
                   ManualTrayItem() => entry.name,
                 };
+                final justAdded = identical(entry, controller.lastAdded);
                 return Padding(
                   key: Key('tray-item-$index'),
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -298,7 +366,7 @@ class _TrayPanel extends StatelessWidget {
                   // pills into a Flexible slot beside the name compresses a
                   // pill below its intrinsic width and wraps its label into a
                   // rounded blob on narrow phones — the pills need a full line.
-                  child: Column(
+                  child: _withHighlight(justAdded, index, Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -339,12 +407,37 @@ class _TrayPanel extends StatelessWidget {
                               controller.toggleMeasure(entry, measureMode),
                         ),
                     ],
-                  ),
+                  )),
                 );
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Wraps the just-added row in a soft, theme-derived highlight that fades
+  /// to transparent once (~0.9s). The fade is driven by the panel-level
+  /// [_highlightController] (restarted on each new [addTick]), so the row
+  /// reads the fade's current value rather than owning it: an index shift or
+  /// remount mid-fade — e.g. a deleted row above shifts this one into a
+  /// different index slot — continues the fade from where it was instead of
+  /// replaying the "added" cue on a delete. Other rows pass through unwrapped
+  /// so only the just-added one is ever highlighted.
+  Widget _withHighlight(bool justAdded, int index, Widget child) {
+    if (!justAdded) return child;
+    final primary = widget.theme.colorScheme.primary;
+    return AnimatedBuilder(
+      animation: _fade,
+      child: child,
+      builder: (context, wrapped) => DecoratedBox(
+        key: Key('tray-item-highlight-$index'),
+        decoration: BoxDecoration(
+          color: primary.withValues(alpha: 0.18 * (1 - _fade.value)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: wrapped,
       ),
     );
   }
