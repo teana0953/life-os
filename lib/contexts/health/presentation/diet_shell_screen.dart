@@ -361,6 +361,9 @@ class _DayNavBar extends StatelessWidget {
                         horizontal: 4,
                       ),
                       child: Row(
+                        // Centre the [chip · date · calendar] group between the
+                        // prev/next arrows rather than letting it hug the left.
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (chipLabel != null) ...[
                             Container(
