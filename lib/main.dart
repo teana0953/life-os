@@ -30,6 +30,11 @@ import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
+import 'contexts/hydration/application/add_water.dart';
+import 'contexts/hydration/application/get_water_day.dart';
+import 'contexts/hydration/application/set_water_target.dart';
+import 'contexts/hydration/infrastructure/http_water_repository.dart';
+import 'contexts/hydration/presentation/water_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
 import 'contexts/user/presentation/home_controller.dart';
@@ -91,6 +96,15 @@ Future<void> main() async {
     CreateMeal(mealRepository),
   );
   final healthGetLoggedDays = GetLoggedDays(mealRepository);
+  final waterRepository = HttpWaterRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final waterController = WaterController(
+    GetWaterDay(waterRepository),
+    AddWater(waterRepository),
+    SetWaterTarget(waterRepository),
+  );
 
   runApp(
     App(
@@ -106,6 +120,7 @@ Future<void> main() async {
       healthDailyTargetController: healthDailyTargetController,
       healthCreateMealController: healthCreateMealController,
       healthGetLoggedDays: healthGetLoggedDays,
+      waterController: waterController,
     ),
   );
 }

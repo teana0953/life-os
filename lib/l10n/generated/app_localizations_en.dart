@@ -358,4 +358,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietSaveEditButton => 'Save';
+
+  @override
+  String get dietTabWater => 'Water';
+
+  @override
+  String get waterTitle => 'Today\'s water';
+
+  @override
+  String get waterHistoryTitle => 'Water log';
+
+  @override
+  String waterTotalOfTarget(int total, int target) {
+    return '$total / $target ml';
+  }
+
+  @override
+  String get waterAdd250 => '＋250 ml';
+
+  @override
+  String get waterAdd500 => '＋500 ml';
+
+  @override
+  String get waterCustomAmount => 'Custom';
+
+  @override
+  String get waterCorrect250 => '−250 ml';
+
+  @override
+  String get waterSetTargetButton => 'Set target';
+
+  @override
+  String get waterCustomAmountTitle => 'Add water (ml)';
+
+  @override
+  String get waterSetTargetTitle => 'Daily water target (ml)';
+
+  @override
+  String get errorWaterLoadFailed =>
+      'Unable to load your water data. Please try again.';
 }

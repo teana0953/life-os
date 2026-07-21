@@ -11,6 +11,7 @@ import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
+import 'contexts/hydration/presentation/water_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -60,6 +61,7 @@ class App extends StatefulWidget {
   final DailyTargetController healthDailyTargetController;
   final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
+  final WaterController waterController;
 
   const App({
     super.key,
@@ -75,6 +77,7 @@ class App extends StatefulWidget {
     required this.healthDailyTargetController,
     required this.healthCreateMealController,
     required this.healthGetLoggedDays,
+    required this.waterController,
   });
 
   @override
@@ -155,6 +158,7 @@ class _AppState extends State<App> {
                   healthDailyTargetController: widget.healthDailyTargetController,
                   healthCreateMealController: widget.healthCreateMealController,
                   healthGetLoggedDays: widget.healthGetLoggedDays,
+                  waterController: widget.waterController,
                 );
               }
               return LoginScreen(
@@ -181,6 +185,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final DailyTargetController healthDailyTargetController;
   final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
+  final WaterController waterController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -193,6 +198,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthDailyTargetController,
     required this.healthCreateMealController,
     required this.healthGetLoggedDays,
+    required this.waterController,
   });
 
   @override
@@ -224,6 +230,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthDailyTargetController: widget.healthDailyTargetController,
       healthCreateMealController: widget.healthCreateMealController,
       healthGetLoggedDays: widget.healthGetLoggedDays,
+      waterController: widget.waterController,
     );
   }
 }

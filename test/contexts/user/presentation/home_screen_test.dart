@@ -28,6 +28,12 @@ import 'package:life_os/contexts/health/presentation/daily_target_controller.dar
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
+import 'package:life_os/contexts/hydration/application/add_water.dart';
+import 'package:life_os/contexts/hydration/application/get_water_day.dart';
+import 'package:life_os/contexts/hydration/application/set_water_target.dart';
+import 'package:life_os/contexts/hydration/domain/water_day.dart';
+import 'package:life_os/contexts/hydration/domain/water_repository.dart';
+import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
@@ -173,6 +179,30 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
+class _FakeWaterRepository implements WaterRepository {
+  @override
+  Future<WaterDay> getDay(String idToken, String day) async => WaterDay(
+    day: day,
+    totalMl: 0,
+    targetMl: 2000,
+    remainingMl: 2000,
+  );
+
+  @override
+  Future<int> addWater(
+    String idToken, {
+    required String day,
+    required int addMl,
+  }) async => 0;
+
+  @override
+  Future<int> setTarget(
+    String idToken, {
+    required String day,
+    required int targetMl,
+  }) async => targetMl;
+}
+
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -191,6 +221,7 @@ Future<void> pumpHomeScreen(
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
+  final waterRepository = _FakeWaterRepository();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -223,6 +254,11 @@ Future<void> pumpHomeScreen(
           CreateMeal(mealRepository),
         ),
         healthGetLoggedDays: GetLoggedDays(mealRepository),
+        waterController: WaterController(
+          GetWaterDay(waterRepository),
+          AddWater(waterRepository),
+          SetWaterTarget(waterRepository),
+        ),
         clock: clock ?? DateTime.now,
       ),
     ),

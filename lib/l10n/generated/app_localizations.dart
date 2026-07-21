@@ -746,6 +746,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get dietSaveEditButton;
+
+  /// Label for the Water destination in the daily-log shell's bottom navigation, alongside Today and Target.
+  ///
+  /// In en, this message translates to:
+  /// **'Water'**
+  String get dietTabWater;
+
+  /// Heading on the water screen, above the intake progress, when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s water'**
+  String get waterTitle;
+
+  /// Heading on the water screen, above the intake progress, when viewing a past day.
+  ///
+  /// In en, this message translates to:
+  /// **'Water log'**
+  String get waterHistoryTitle;
+
+  /// Water intake readout: the day's total against its target in millilitres, e.g. '1200 / 2000 ml'.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} / {target} ml'**
+  String waterTotalOfTarget(int total, int target);
+
+  /// Quick-add control that adds 250 millilitres of water.
+  ///
+  /// In en, this message translates to:
+  /// **'＋250 ml'**
+  String get waterAdd250;
+
+  /// Quick-add control that adds 500 millilitres of water.
+  ///
+  /// In en, this message translates to:
+  /// **'＋500 ml'**
+  String get waterAdd500;
+
+  /// Control that opens a dialog to add a custom amount of water.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get waterCustomAmount;
+
+  /// Correction control that reduces the day's water total by 250 millilitres (the backend never lets the total go below zero).
+  ///
+  /// In en, this message translates to:
+  /// **'−250 ml'**
+  String get waterCorrect250;
+
+  /// Control that opens a dialog to set the day's water target.
+  ///
+  /// In en, this message translates to:
+  /// **'Set target'**
+  String get waterSetTargetButton;
+
+  /// Title of the dialog for entering a custom amount of water in millilitres.
+  ///
+  /// In en, this message translates to:
+  /// **'Add water (ml)'**
+  String get waterCustomAmountTitle;
+
+  /// Title of the dialog for setting the day's water target in millilitres.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily water target (ml)'**
+  String get waterSetTargetTitle;
+
+  /// Shown on the water screen when loading the day's water intake fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your water data. Please try again.'**
+  String get errorWaterLoadFailed;
 }
 
 class _AppLocalizationsDelegate

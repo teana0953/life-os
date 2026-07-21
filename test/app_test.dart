@@ -34,6 +34,12 @@ import 'package:life_os/contexts/health/presentation/create_meal_controller.dart
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
+import 'package:life_os/contexts/hydration/application/add_water.dart';
+import 'package:life_os/contexts/hydration/application/get_water_day.dart';
+import 'package:life_os/contexts/hydration/application/set_water_target.dart';
+import 'package:life_os/contexts/hydration/domain/water_day.dart';
+import 'package:life_os/contexts/hydration/domain/water_repository.dart';
+import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -145,6 +151,30 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
+class _FakeWaterRepository implements WaterRepository {
+  @override
+  Future<WaterDay> getDay(String idToken, String day) async => WaterDay(
+    day: day,
+    totalMl: 0,
+    targetMl: 2000,
+    remainingMl: 2000,
+  );
+
+  @override
+  Future<int> addWater(
+    String idToken, {
+    required String day,
+    required int addMl,
+  }) async => 0;
+
+  @override
+  Future<int> setTarget(
+    String idToken, {
+    required String day,
+    required int targetMl,
+  }) async => targetMl;
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -153,10 +183,12 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
   DailyTargetController dailyTarget,
   CreateMealController createMeal,
   GetLoggedDays getLoggedDays,
+  WaterController water,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
+  final waterRepository = _FakeWaterRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -178,6 +210,11 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
     ),
     createMeal: CreateMealController(CreateMeal(mealRepository)),
     getLoggedDays: GetLoggedDays(mealRepository),
+    water: WaterController(
+      GetWaterDay(waterRepository),
+      AddWater(waterRepository),
+      SetWaterTarget(waterRepository),
+    ),
   );
 }
 
@@ -301,6 +338,7 @@ Future<LocaleController> pumpApp(
       healthDailyTargetController: health.dailyTarget,
       healthCreateMealController: health.createMeal,
       healthGetLoggedDays: health.getLoggedDays,
+      waterController: health.water,
     ),
   );
   return resolvedLocaleController;
