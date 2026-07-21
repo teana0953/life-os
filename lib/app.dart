@@ -6,6 +6,7 @@ import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -62,6 +63,7 @@ class App extends StatefulWidget {
   final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
   final WaterController waterController;
+  final BowelController bowelController;
 
   const App({
     super.key,
@@ -78,6 +80,7 @@ class App extends StatefulWidget {
     required this.healthCreateMealController,
     required this.healthGetLoggedDays,
     required this.waterController,
+    required this.bowelController,
   });
 
   @override
@@ -159,6 +162,7 @@ class _AppState extends State<App> {
                   healthCreateMealController: widget.healthCreateMealController,
                   healthGetLoggedDays: widget.healthGetLoggedDays,
                   waterController: widget.waterController,
+                  bowelController: widget.bowelController,
                 );
               }
               return LoginScreen(
@@ -186,6 +190,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final CreateMealController healthCreateMealController;
   final GetLoggedDays healthGetLoggedDays;
   final WaterController waterController;
+  final BowelController bowelController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -199,6 +204,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthCreateMealController,
     required this.healthGetLoggedDays,
     required this.waterController,
+    required this.bowelController,
   });
 
   @override
@@ -231,6 +237,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthCreateMealController: widget.healthCreateMealController,
       healthGetLoggedDays: widget.healthGetLoggedDays,
       waterController: widget.waterController,
+      bowelController: widget.bowelController,
     );
   }
 }

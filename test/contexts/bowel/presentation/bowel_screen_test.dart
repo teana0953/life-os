@@ -1,0 +1,254 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
+import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
+import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_exceptions.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
+import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
+import 'package:life_os/contexts/bowel/presentation/bowel_screen.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+
+import '../../../support/l10n_test_app.dart';
+
+/// A backend-like fake: keeps the last-saved record so save→reload round-trips
+/// read back real state.
+class FakeBowelRepository implements BowelRepository {
+  BowelDay stored;
+  Object? getError;
+  Object? saveError;
+
+  int? savedCount;
+  bool? savedIsNormal;
+  String? savedNote;
+
+  FakeBowelRepository({BowelDay? stored})
+    : stored =
+          stored ??
+          const BowelDay(
+            day: '2026-07-18',
+            count: 0,
+            isNormal: null,
+            note: '',
+          );
+
+  @override
+  Future<BowelDay> getDay(String idToken, String day) async {
+    if (getError != null) throw getError!;
+    return stored;
+  }
+
+  @override
+  Future<BowelDay> save(
+    String idToken, {
+    required String day,
+    required int count,
+    required bool? isNormal,
+    required String note,
+  }) async {
+    if (saveError != null) throw saveError!;
+    savedCount = count;
+    savedIsNormal = isNormal;
+    savedNote = note;
+    stored = BowelDay(day: day, count: count, isNormal: isNormal, note: note);
+    return stored;
+  }
+}
+
+BowelController _controller(FakeBowelRepository repository) =>
+    BowelController(GetBowelDay(repository), SaveBowelDay(repository));
+
+Future<BowelController> _pumpScreen(
+  WidgetTester tester, {
+  required FakeBowelRepository repository,
+  bool load = true,
+  Locale locale = const Locale('en'),
+  String day = '2026-07-18',
+  DateTime Function() clock = _defaultClock,
+}) async {
+  final controller = _controller(repository);
+  if (load) await controller.load('token', day);
+  await tester.pumpWidget(
+    l10nTestApp(
+      locale: locale,
+      home: BowelScreen(
+        controller: controller,
+        idToken: 'token',
+        day: day,
+        clock: clock,
+      ),
+    ),
+  );
+  if (load) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+  return controller;
+}
+
+DateTime _defaultClock() => DateTime(2026, 7, 18, 9);
+
+void main() {
+  final loc = lookupAppLocalizations(const Locale('en'));
+
+  group('BowelScreen', () {
+    testWidgets('for today shows the today title and today\'s date', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository(),
+        day: '2026-07-18',
+        clock: () => DateTime(2026, 7, 18, 9),
+      );
+
+      final expectedDate = DateFormat(
+        'EEE, MMM d',
+        'en',
+      ).format(DateTime(2026, 7, 18));
+
+      expect(find.text(loc.bowelTitle), findsOneWidget);
+      expect(find.text(loc.bowelHistoryTitle), findsNothing);
+      expect(find.textContaining(expectedDate), findsOneWidget);
+    });
+
+    testWidgets('for a past day shows the history title', (tester) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository(),
+        day: '2026-07-17',
+        clock: () => DateTime(2026, 7, 18, 9),
+      );
+
+      expect(find.text(loc.bowelHistoryTitle), findsOneWidget);
+      expect(find.text(loc.bowelTitle), findsNothing);
+    });
+
+    testWidgets('the count stepper increments and decrements', (tester) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository(
+          stored: const BowelDay(
+            day: '2026-07-18',
+            count: 1,
+            isNormal: null,
+            note: '',
+          ),
+        ),
+      );
+
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('bowel-count-increment')));
+      await tester.pump();
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('bowel-count-decrement')));
+      await tester.pump();
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('the count does not go below zero', (tester) async {
+      final controller = await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository(),
+      );
+
+      // Decrement is disabled at 0.
+      final decrement = tester.widget<IconButton>(
+        find.byKey(const Key('bowel-count-decrement')),
+      );
+      expect(decrement.onPressed, isNull);
+      expect(controller.count, 0);
+    });
+
+    testWidgets('normal/abnormal starts unselected for an unrecorded day', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, repository: FakeBowelRepository());
+
+      final segmented = tester.widget<SegmentedButton<bool>>(
+        find.byKey(const Key('bowel-normal-segment')),
+      );
+      expect(segmented.selected, isEmpty);
+    });
+
+    testWidgets('entering a record and saving persists count, flag, and note', (
+      tester,
+    ) async {
+      final repository = FakeBowelRepository();
+      await _pumpScreen(tester, repository: repository);
+
+      await tester.tap(find.byKey(const Key('bowel-count-increment')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('bowel-count-increment')));
+      await tester.pump();
+      await tester.tap(find.text(loc.bowelNormalLabel));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('bowel-note-field')),
+        'all good',
+      );
+      await tester.tap(find.byKey(const Key('bowel-save-button')));
+      await tester.pumpAndSettle();
+
+      expect(repository.savedCount, 2);
+      expect(repository.savedIsNormal, true);
+      expect(repository.savedNote, 'all good');
+    });
+
+    testWidgets('a save failure shows a snackbar and keeps the entered values', (
+      tester,
+    ) async {
+      final repository = FakeBowelRepository();
+      await _pumpScreen(tester, repository: repository);
+
+      await tester.tap(find.byKey(const Key('bowel-count-increment')));
+      await tester.pump();
+
+      repository.saveError = const BowelFetchFailure('boom');
+      await tester.tap(find.byKey(const Key('bowel-save-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.bowelSaveFailed), findsOneWidget);
+      // The entered count survives the failed save.
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('renders an error state without crashing', (tester) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository()
+          ..getError = const BowelFetchFailure('boom'),
+      );
+
+      expect(find.text(loc.errorBowelLoadFailed), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('renders a reauth state without crashing', (tester) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository()
+          ..getError = const BowelReauthenticationRequired(),
+      );
+
+      expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shows a loading indicator before the first load completes', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeBowelRepository(),
+        load: false,
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+  });
+}

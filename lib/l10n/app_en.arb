@@ -526,5 +526,45 @@
   "waterGoalMet": "Goal met",
   "@waterGoalMet": {
     "description": "Small badge shown near the water intake readout when the day's total has reached or exceeded its target."
+  },
+  "dietTabBowel": "Bowel",
+  "@dietTabBowel": {
+    "description": "Label for the Bowel destination in the daily-log shell's bottom navigation, alongside Today, Target, and Water."
+  },
+  "bowelTitle": "Today's bowel",
+  "@bowelTitle": {
+    "description": "Heading on the bowel screen, above the record form, when the viewed day is today."
+  },
+  "bowelHistoryTitle": "Bowel log",
+  "@bowelHistoryTitle": {
+    "description": "Heading on the bowel screen, above the record form, when viewing a past day."
+  },
+  "bowelCountLabel": "Count",
+  "@bowelCountLabel": {
+    "description": "Label for the bowel-movement count stepper on the bowel screen."
+  },
+  "bowelNormalLabel": "Normal",
+  "@bowelNormalLabel": {
+    "description": "Label for the 'normal' option of the bowel screen's normal/abnormal toggle."
+  },
+  "bowelAbnormalLabel": "Abnormal",
+  "@bowelAbnormalLabel": {
+    "description": "Label for the 'abnormal' option of the bowel screen's normal/abnormal toggle."
+  },
+  "bowelNoteLabel": "Note",
+  "@bowelNoteLabel": {
+    "description": "Label/hint for the free-text note field on the bowel screen."
+  },
+  "bowelSaveButton": "Save",
+  "@bowelSaveButton": {
+    "description": "Label for the button that saves (upserts) the day's whole bowel record."
+  },
+  "bowelSaveFailed": "Couldn't save — try again",
+  "@bowelSaveFailed": {
+    "description": "Transient SnackBar shown on the bowel screen when saving the day's record fails (not an auth failure)."
+  },
+  "errorBowelLoadFailed": "Unable to load your bowel data. Please try again.",
+  "@errorBowelLoadFailed": {
+    "description": "Shown on the bowel screen when loading the day's record fails (not an auth failure)."
   }
 }

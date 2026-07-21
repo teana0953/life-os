@@ -396,6 +396,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get waterGoalMet => '達標';
+
+  @override
+  String get dietTabBowel => '排便';
+
+  @override
+  String get bowelTitle => '今日排便';
+
+  @override
+  String get bowelHistoryTitle => '排便紀錄';
+
+  @override
+  String get bowelCountLabel => '次數';
+
+  @override
+  String get bowelNormalLabel => '正常';
+
+  @override
+  String get bowelAbnormalLabel => '異常';
+
+  @override
+  String get bowelNoteLabel => '備註';
+
+  @override
+  String get bowelSaveButton => '儲存';
+
+  @override
+  String get bowelSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorBowelLoadFailed => '無法載入排便資料,請再試一次。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -790,4 +820,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get waterGoalMet => '達標';
+
+  @override
+  String get dietTabBowel => '排便';
+
+  @override
+  String get bowelTitle => '今日排便';
+
+  @override
+  String get bowelHistoryTitle => '排便紀錄';
+
+  @override
+  String get bowelCountLabel => '次數';
+
+  @override
+  String get bowelNormalLabel => '正常';
+
+  @override
+  String get bowelAbnormalLabel => '異常';
+
+  @override
+  String get bowelNoteLabel => '備註';
+
+  @override
+  String get bowelSaveButton => '儲存';
+
+  @override
+  String get bowelSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorBowelLoadFailed => '無法載入排便資料,請再試一次。';
 }
