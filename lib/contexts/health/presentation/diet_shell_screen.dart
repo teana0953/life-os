@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -35,24 +36,12 @@ String _monthString(DateTime time) {
 /// passing a value that already represents the intended wall-clock day).
 DateTime _dateOnly(DateTime time) => DateTime(time.year, time.month, time.day);
 
-/// The number of calendar days from [from] to [to] (both already
-/// date-only). Anchored in UTC rather than computed via
-/// `to.difference(from).inDays` on local `DateTime`s: two local midnights
-/// straddling a DST transition aren't always exactly 24h apart, which would
-/// truncate `.inDays` to the wrong count. UTC has no DST, so this always
-/// reflects the true calendar-day gap.
-int _daysBetween(DateTime from, DateTime to) {
-  final fromUtc = DateTime.utc(from.year, from.month, from.day);
-  final toUtc = DateTime.utc(to.year, to.month, to.day);
-  return toUtc.difference(fromUtc).inDays;
-}
-
 String? _dayChipLabel(
   AppLocalizations loc,
   DateTime viewedDate,
   DateTime today,
 ) {
-  final diff = _daysBetween(viewedDate, today);
+  final diff = daysBetween(viewedDate, today);
   if (diff == 0) return loc.dietDayToday;
   if (diff == 1) return loc.dietDayYesterday;
   return null;
@@ -63,15 +52,6 @@ String? _dayChipLabel(
 /// control).
 String _nextSnackNameForDay(AppLocalizations loc, List<String> mealNames) {
   return nextSnackName(mealNames, loc.dietSnackBaseName);
-}
-
-/// The full, always-shown date text for the day-navigation header, formatted
-/// per the active locale: `M月d日 EEEE` for Chinese (e.g. "7月19日 星期六"),
-/// `EEE, MMM d` otherwise (e.g. "Sat, Jul 19").
-String _fullDateLabel(BuildContext context, DateTime viewedDate) {
-  final languageTag = Localizations.localeOf(context).toLanguageTag();
-  final pattern = languageTag.startsWith('zh') ? 'M月d日 EEEE' : 'EEE, MMM d';
-  return DateFormat(pattern, languageTag).format(viewedDate);
 }
 
 /// Diet shell: bottom navigation across Today and Target; food is added by
@@ -319,10 +299,10 @@ class _DayNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
-    final isToday = _daysBetween(viewedDate, today) == 0;
+    final isToday = daysBetween(viewedDate, today) == 0;
     final title = isToday ? loc.dietTodayTitle : loc.dietHistoryTitle;
     final chipLabel = _dayChipLabel(loc, viewedDate, today);
-    final dateText = _fullDateLabel(context, viewedDate);
+    final dateText = fullDateLabel(context, viewedDate);
 
     // Two rows: the title + header actions on top, and the day navigation on
     // its own full-width row below. Keeping the date on its own line (rather

@@ -395,7 +395,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get waterSaveFailed => '儲存失敗,請再試一次';
 
   @override
-  String get waterGoalMet => '達標!';
+  String get waterGoalMet => '達標';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -789,5 +789,5 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get waterSaveFailed => '儲存失敗,請再試一次';
 
   @override
-  String get waterGoalMet => '達標!';
+  String get waterGoalMet => '達標';
 }

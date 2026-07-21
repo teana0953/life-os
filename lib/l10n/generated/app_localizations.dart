@@ -828,7 +828,7 @@ abstract class AppLocalizations {
   /// Small badge shown near the water intake readout when the day's total has reached or exceeded its target.
   ///
   /// In en, this message translates to:
-  /// **'Goal met!'**
+  /// **'Goal met'**
   String get waterGoalMet;
 }
 

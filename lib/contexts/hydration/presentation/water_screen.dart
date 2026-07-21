@@ -1,27 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/amount_entry_dialog.dart';
+import '../../../shared/widgets/fractional_progress_bar.dart';
 import 'water_controller.dart';
-
-/// The number of calendar days from [from] to [to] (both already date-only),
-/// anchored in UTC so a DST transition can't miscount the gap. Mirrors the
-/// diet shell's day arithmetic.
-int _daysBetween(DateTime from, DateTime to) {
-  final fromUtc = DateTime.utc(from.year, from.month, from.day);
-  final toUtc = DateTime.utc(to.year, to.month, to.day);
-  return toUtc.difference(fromUtc).inDays;
-}
-
-/// The full, always-shown date text, formatted per the active locale:
-/// `M月d日 EEEE` for Chinese (e.g. "7月17日 星期五"), `EEE, MMM d` otherwise
-/// (e.g. "Fri, Jul 17"). Mirrors the diet shell header's date label.
-String _fullDateLabel(BuildContext context, DateTime viewedDate) {
-  final languageTag = Localizations.localeOf(context).toLanguageTag();
-  final pattern = languageTag.startsWith('zh') ? 'M月d日 EEEE' : 'EEE, MMM d';
-  return DateFormat(pattern, languageTag).format(viewedDate);
-}
 
 /// Water section: the day's total against its target with a progress bar,
 /// quick-add / custom / correction controls, and a settable daily target.
@@ -81,7 +65,14 @@ class _WaterScreenState extends State<WaterScreen> {
     final loc = AppLocalizations.of(context)!;
     final amount = await showDialog<int>(
       context: context,
-      builder: (_) => _AmountDialog(title: loc.waterCustomAmountTitle, initial: 0),
+      builder: (_) => AmountEntryDialog<int>(
+        title: loc.waterCustomAmountTitle,
+        initialText: '',
+        keyboardType: TextInputType.number,
+        parse: int.tryParse,
+        fieldKey: const Key('water-amount-field'),
+        confirmKey: const Key('water-amount-confirm'),
+      ),
     );
     if (amount != null && amount != 0) {
       await _runMutation(
@@ -95,7 +86,14 @@ class _WaterScreenState extends State<WaterScreen> {
     final current = widget.controller.day?.targetMl ?? 0;
     final target = await showDialog<int>(
       context: context,
-      builder: (_) => _AmountDialog(title: loc.waterSetTargetTitle, initial: current),
+      builder: (_) => AmountEntryDialog<int>(
+        title: loc.waterSetTargetTitle,
+        initialText: current == 0 ? '' : current.toString(),
+        keyboardType: TextInputType.number,
+        parse: int.tryParse,
+        fieldKey: const Key('water-amount-field'),
+        confirmKey: const Key('water-amount-confirm'),
+      ),
     );
     if (target != null) {
       await _runMutation(
@@ -139,7 +137,7 @@ class _WaterScreenState extends State<WaterScreen> {
     final viewedDate = DateTime.parse(widget.day);
     final now = widget.clock();
     final isToday =
-        _daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) == 0;
+        daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) == 0;
     final title = isToday ? loc.waterTitle : loc.waterHistoryTitle;
 
     final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
@@ -170,7 +168,7 @@ class _WaterScreenState extends State<WaterScreen> {
                   Text(title, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 4),
                   Text(
-                    _fullDateLabel(context, viewedDate),
+                    fullDateLabel(context, viewedDate),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -345,32 +343,7 @@ class _WaterProgressBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Container(
-                height: 12,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  border: Border.all(color: theme.colorScheme.outline, width: 2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: fraction,
-                child: Container(
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: fillColor,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        FractionalProgressBar(fraction: fraction, fillColor: fillColor),
       ],
     );
   }
@@ -407,60 +380,6 @@ class _GoalMetBadge extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Dialog for typing an amount of water in millilitres, following the numeric
-/// empty-zero convention (an empty field with a "0" hint rather than a
-/// literal "0"). A `StatefulWidget` so its `TextEditingController` is owned
-/// and disposed by the framework.
-class _AmountDialog extends StatefulWidget {
-  final String title;
-  final int initial;
-
-  const _AmountDialog({required this.title, required this.initial});
-
-  @override
-  State<_AmountDialog> createState() => _AmountDialogState();
-}
-
-class _AmountDialogState extends State<_AmountDialog> {
-  late final TextEditingController _text;
-
-  @override
-  void initState() {
-    super.initState();
-    _text = TextEditingController(
-      text: widget.initial == 0 ? '' : widget.initial.toString(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        key: const Key('water-amount-field'),
-        controller: _text,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(hintText: '0'),
-        onSubmitted: (v) => Navigator.of(context).pop(int.tryParse(v)),
-      ),
-      actions: [
-        TextButton(
-          key: const Key('water-amount-confirm'),
-          onPressed: () => Navigator.of(context).pop(int.tryParse(_text.text)),
-          child: Text(MaterialLocalizations.of(context).okButtonLabel),
-        ),
-      ],
     );
   }
 }

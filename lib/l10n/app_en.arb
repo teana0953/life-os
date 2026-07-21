@@ -523,7 +523,7 @@
   "@waterSaveFailed": {
     "description": "Transient SnackBar shown on the water screen when a quick-add/custom-add/correction/set-target mutation fails (not an auth failure)."
   },
-  "waterGoalMet": "Goal met!",
+  "waterGoalMet": "Goal met",
   "@waterGoalMet": {
     "description": "Small badge shown near the water intake readout when the day's total has reached or exceeded its target."
   }

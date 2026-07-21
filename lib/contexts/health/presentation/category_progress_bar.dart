@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/fractional_progress_bar.dart';
 
 /// A per-category portion progress bar: a label, a rounded track filled to
 /// `clamp(logged / effective, 0, 1)` in the category color, and the
@@ -49,31 +50,9 @@ class CategoryProgressBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Container(
-                height: 12,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  border: Border.all(color: theme.colorScheme.outline, width: 2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: fraction,
-                child: Container(
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color ?? theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        FractionalProgressBar(
+          fraction: fraction,
+          fillColor: color ?? theme.colorScheme.primary,
         ),
       ],
     );
