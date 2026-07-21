@@ -453,13 +453,89 @@ void main() {
       expect(find.text('蛋'), findsOneWidget);
       // Only one "meat 1" pill for the item row itself; no lone "0" shown.
       expect(find.text('${loc.dietCategoryStaple} 0'), findsNothing);
-      // Consumed amount shown ("蛋" has no "/" unit segment -> generic word).
-      expect(find.text('1 ${loc.dietQuantityLabel}'), findsOneWidget);
+      // Consumed amount shown ("蛋" has no base measure -> generic 份 word).
+      expect(find.text('1 ${loc.dietPortionUnit}'), findsOneWidget);
 
       final itemRow = tester.widget<InkWell>(
         find.ancestor(of: find.text('蛋'), matching: find.byType(InkWell)),
       );
       expect(itemRow.onTap, isNotNull);
+    });
+
+    testWidgets('a household-unit item shows its consumed amount in that unit ("9 顆")', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'breakfast',
+            time: '2026-07-18T08:00:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: '櫻桃/9顆',
+                fruit: 1,
+                quantity: 1,
+                baseAmount: 9,
+                measureUnit: '顆',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 1, 'veg': 0,
+        },
+      });
+      final controller = _controllerWith(dayLog: dayLog);
+      await _pumpTodayScreen(tester, controller);
+
+      // quantity 1 * base 9 = 9, in the item's own unit 顆.
+      expect(find.text('9 顆'), findsOneWidget);
+    });
+
+    testWidgets('a household-unit item editor labels its after-field unit 份 and its measure segment 顆', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'breakfast',
+            time: '2026-07-18T08:00:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: '櫻桃/9顆',
+                fruit: 1,
+                quantity: 1,
+                baseAmount: 9,
+                measureUnit: '顆',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 1, 'veg': 0,
+        },
+      });
+      final controller = _controllerWith(dayLog: dayLog);
+      await _pumpTodayScreen(tester, controller);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+
+      // Household foods now carry a base measure, so the toggle is offered.
+      expect(find.byType(SegmentedButton<bool>), findsOneWidget);
+      // After-field unit label is the generic 份, not a name-scraped 顆.
+      expect(find.text(loc.dietPortionUnit), findsWidgets);
+      // The measure segment reads the item's own unit 顆.
+      expect(find.text('顆'), findsOneWidget);
     });
 
     testWidgets('a snack card shows its own meal value verbatim, with the snack emoji', (

@@ -11,7 +11,6 @@ import 'category_progress_bar.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
 import 'today_controller.dart';
-import 'unit_label.dart';
 
 DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
@@ -29,7 +28,7 @@ String _consumedAmountLabel(MealItem item, AppLocalizations loc) {
     final label = measureLabelFor(item.measureUnit, loc) ?? '';
     return '${_formatAmount(measure)} $label';
   }
-  return '${_formatAmount(item.quantity)} ${unitLabelForName(item.name, loc)}';
+  return '${_formatAmount(item.quantity)} ${loc.dietPortionUnit}';
 }
 
 /// Combines a meal's current time (via [toLocalTime]) with a freshly-picked
@@ -724,7 +723,7 @@ class _EditableItemRowState extends State<_EditableItemRow> {
                   AmountStepper(
                     value: _amount,
                     onChanged: (v) => setState(() => _amount = v),
-                    unitLabel: unitLabelForName(item.name, loc),
+                    unitLabel: loc.dietPortionUnit,
                     allowMeasure: item.baseAmount != null && item.measureUnit != null,
                     measureMode: _measureMode,
                     measureLabel: measureLabelFor(item.measureUnit, loc),

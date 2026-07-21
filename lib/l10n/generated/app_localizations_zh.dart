@@ -225,6 +225,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietGramsLabel => '公克';
 
   @override
+  String get dietPortionUnit => '份';
+
+  @override
   String dietAddToMealButton(String meal) {
     return '加入$meal';
   }
@@ -570,6 +573,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietGramsLabel => '公克';
+
+  @override
+  String get dietPortionUnit => '份';
 
   @override
   String dietAddToMealButton(String meal) {

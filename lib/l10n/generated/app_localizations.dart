@@ -501,6 +501,12 @@ abstract class AppLocalizations {
   /// **'Grams'**
   String get dietGramsLabel;
 
+  /// Generic unit word shown after the number in the amount control's portion mode, and in the consumed-amount label for foods with no base measure (e.g. "1 portion(s)").
+  ///
+  /// In en, this message translates to:
+  /// **'portion(s)'**
+  String get dietPortionUnit;
+
   /// Label for the button that adds a dictionary item to the current session's meal, naming that meal.
   ///
   /// In en, this message translates to:

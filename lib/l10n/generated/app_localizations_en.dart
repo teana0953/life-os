@@ -229,6 +229,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietGramsLabel => 'Grams';
 
   @override
+  String get dietPortionUnit => 'portion(s)';
+
+  @override
   String dietAddToMealButton(String meal) {
     return 'Add to $meal';
   }

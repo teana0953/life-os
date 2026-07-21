@@ -284,6 +284,10 @@
   "@dietGramsLabel": {
     "description": "Label for the gram amount text field on the log-entry card."
   },
+  "dietPortionUnit": "portion(s)",
+  "@dietPortionUnit": {
+    "description": "Generic unit word shown after the number in the amount control's portion mode, and in the consumed-amount label for foods with no base measure (e.g. \"1 portion(s)\")."
+  },
   "dietAddToMealButton": "Add to {meal}",
   "@dietAddToMealButton": {
     "description": "Label for the button that adds a dictionary item to the current session's meal, naming that meal.",

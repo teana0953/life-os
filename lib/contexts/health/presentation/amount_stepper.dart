@@ -133,9 +133,17 @@ class _AmountStepperState extends State<AmountStepper> {
               onPressed: () => widget.onChanged(widget.value + widget.step),
               icon: const Icon(Icons.add),
             ),
-            const SizedBox(width: 4),
-            Text(widget.unitLabel, style: theme.textTheme.bodyMedium),
           ],
+        ),
+        // The unit label is its own Wrap child (not glued to the −/field/+
+        // trio) so a longer label (e.g. the English "portion(s)") flows to
+        // the next line instead of overflowing the unbreakable trio Row on
+        // narrow phones. It follows the selected mode: the measure unit
+        // (顆/公克/毫升) in measure mode, the portion word (份) otherwise — so
+        // the label after the number never contradicts the highlighted segment.
+        Text(
+          widget.measureMode ? (widget.measureLabel ?? widget.unitLabel) : widget.unitLabel,
+          style: theme.textTheme.bodyMedium,
         ),
         if (widget.allowMeasure)
           SegmentedButton<bool>(
@@ -153,15 +161,20 @@ class _AmountStepperState extends State<AmountStepper> {
 }
 
 /// The measure segment's label for a food's [measureUnit] — 公克 for `g`,
-/// 毫升 for `ml`, `null` when the food has no measure unit (no measure
-/// toggle should be offered).
+/// 毫升 for `ml`, the unit word itself for a household unit (顆/碗/杯),
+/// `null` when the food has no measure unit (null or empty — no measure
+/// toggle should be offered; empty must map to null so no blank label or
+/// "9 " consumed ever renders).
 String? measureLabelFor(String? measureUnit, AppLocalizations loc) {
   switch (measureUnit) {
+    case null:
+    case '':
+      return null;
     case 'g':
       return loc.dietGramsLabel;
     case 'ml':
       return loc.dietMeasureUnitMl;
     default:
-      return null;
+      return measureUnit;
   }
 }
