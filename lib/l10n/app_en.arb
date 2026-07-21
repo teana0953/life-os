@@ -462,5 +462,69 @@
   "dietSaveEditButton": "Save",
   "@dietSaveEditButton": {
     "description": "Label for the inline item editor's save/commit control on Today."
+  },
+  "dietTabWater": "Water",
+  "@dietTabWater": {
+    "description": "Label for the Water destination in the daily-log shell's bottom navigation, alongside Today and Target."
+  },
+  "waterTitle": "Today's water",
+  "@waterTitle": {
+    "description": "Heading on the water screen, above the intake progress, when the viewed day is today."
+  },
+  "waterHistoryTitle": "Water log",
+  "@waterHistoryTitle": {
+    "description": "Heading on the water screen, above the intake progress, when viewing a past day."
+  },
+  "waterTotalOfTarget": "{total} / {target} ml",
+  "@waterTotalOfTarget": {
+    "description": "Water intake readout: the day's total against its target in millilitres, e.g. '1200 / 2000 ml'.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "target": {
+        "type": "int"
+      }
+    }
+  },
+  "waterAdd250": "＋250 ml",
+  "@waterAdd250": {
+    "description": "Quick-add control that adds 250 millilitres of water."
+  },
+  "waterAdd500": "＋500 ml",
+  "@waterAdd500": {
+    "description": "Quick-add control that adds 500 millilitres of water."
+  },
+  "waterCustomAmount": "Custom",
+  "@waterCustomAmount": {
+    "description": "Control that opens a dialog to add a custom amount of water."
+  },
+  "waterCorrect250": "−250 ml",
+  "@waterCorrect250": {
+    "description": "Correction control that reduces the day's water total by 250 millilitres (the backend never lets the total go below zero)."
+  },
+  "waterSetTargetButton": "Set target",
+  "@waterSetTargetButton": {
+    "description": "Control that opens a dialog to set the day's water target."
+  },
+  "waterCustomAmountTitle": "Add water (ml)",
+  "@waterCustomAmountTitle": {
+    "description": "Title of the dialog for entering a custom amount of water in millilitres."
+  },
+  "waterSetTargetTitle": "Daily water target (ml)",
+  "@waterSetTargetTitle": {
+    "description": "Title of the dialog for setting the day's water target in millilitres."
+  },
+  "errorWaterLoadFailed": "Unable to load your water data. Please try again.",
+  "@errorWaterLoadFailed": {
+    "description": "Shown on the water screen when loading the day's water intake fails (not an auth failure)."
+  },
+  "waterSaveFailed": "Couldn't save — try again",
+  "@waterSaveFailed": {
+    "description": "Transient SnackBar shown on the water screen when a quick-add/custom-add/correction/set-target mutation fails (not an auth failure)."
+  },
+  "waterGoalMet": "Goal met!",
+  "@waterGoalMet": {
+    "description": "Small badge shown near the water intake readout when the day's total has reached or exceeded its target."
   }
 }

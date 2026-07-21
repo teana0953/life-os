@@ -352,6 +352,50 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dietSaveEditButton => '儲存';
+
+  @override
+  String get dietTabWater => '飲水';
+
+  @override
+  String get waterTitle => '今日飲水';
+
+  @override
+  String get waterHistoryTitle => '飲水紀錄';
+
+  @override
+  String waterTotalOfTarget(int total, int target) {
+    return '$total / $target ml';
+  }
+
+  @override
+  String get waterAdd250 => '＋250 ml';
+
+  @override
+  String get waterAdd500 => '＋500 ml';
+
+  @override
+  String get waterCustomAmount => '自訂';
+
+  @override
+  String get waterCorrect250 => '−250 ml';
+
+  @override
+  String get waterSetTargetButton => '設定目標';
+
+  @override
+  String get waterCustomAmountTitle => '新增飲水量(ml)';
+
+  @override
+  String get waterSetTargetTitle => '每日飲水目標(ml)';
+
+  @override
+  String get errorWaterLoadFailed => '無法載入飲水資料,請再試一次。';
+
+  @override
+  String get waterSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get waterGoalMet => '達標!';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -702,4 +746,48 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietSaveEditButton => '儲存';
+
+  @override
+  String get dietTabWater => '飲水';
+
+  @override
+  String get waterTitle => '今日飲水';
+
+  @override
+  String get waterHistoryTitle => '飲水紀錄';
+
+  @override
+  String waterTotalOfTarget(int total, int target) {
+    return '$total / $target ml';
+  }
+
+  @override
+  String get waterAdd250 => '＋250 ml';
+
+  @override
+  String get waterAdd500 => '＋500 ml';
+
+  @override
+  String get waterCustomAmount => '自訂';
+
+  @override
+  String get waterCorrect250 => '−250 ml';
+
+  @override
+  String get waterSetTargetButton => '設定目標';
+
+  @override
+  String get waterCustomAmountTitle => '新增飲水量(ml)';
+
+  @override
+  String get waterSetTargetTitle => '每日飲水目標(ml)';
+
+  @override
+  String get errorWaterLoadFailed => '無法載入飲水資料,請再試一次。';
+
+  @override
+  String get waterSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get waterGoalMet => '達標!';
 }

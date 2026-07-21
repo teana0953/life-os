@@ -5,6 +5,8 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
+import '../../hydration/presentation/water_controller.dart';
+import '../../hydration/presentation/water_screen.dart';
 import '../application/get_logged_days.dart';
 import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
@@ -81,6 +83,7 @@ class DietShellScreen extends StatefulWidget {
   final TodayController todayController;
   final DictionaryController dictionaryController;
   final DailyTargetController dailyTargetController;
+  final WaterController waterController;
   final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
@@ -95,6 +98,7 @@ class DietShellScreen extends StatefulWidget {
     required this.todayController,
     required this.dictionaryController,
     required this.dailyTargetController,
+    required this.waterController,
     required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
@@ -123,6 +127,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.todayController.load(token, _day);
     await widget.dictionaryController.load(token);
     await widget.dailyTargetController.load(token, _day);
+    await widget.waterController.load(token, _day);
   }
 
   Future<void> _reloadCurrentDay() async {
@@ -130,6 +135,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     if (token == null) return;
     await widget.todayController.load(token, _day);
     await widget.dailyTargetController.load(token, _day);
+    await widget.waterController.load(token, _day);
   }
 
   Future<void> _setViewedDate(DateTime date) async {
@@ -251,6 +257,14 @@ class _DietShellScreenState extends State<DietShellScreen> {
               // so switching back to Today reflects the new target.
               onSaved: () => widget.todayController.load(idToken, _day),
             ),
+      idToken == null
+          ? const Center(child: CircularProgressIndicator())
+          : WaterScreen(
+              controller: widget.waterController,
+              idToken: idToken,
+              day: _day,
+              clock: widget.clock,
+            ),
     ];
 
     return Scaffold(
@@ -266,6 +280,10 @@ class _DietShellScreenState extends State<DietShellScreen> {
           NavigationDestination(
             icon: const Icon(Icons.flag),
             label: loc.dietTabTarget,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.water_drop),
+            label: loc.dietTabWater,
           ),
         ],
       ),

@@ -29,6 +29,13 @@ import 'package:life_os/contexts/health/presentation/dictionary_controller.dart'
 import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
+import 'package:life_os/contexts/hydration/application/add_water.dart';
+import 'package:life_os/contexts/hydration/application/get_water_day.dart';
+import 'package:life_os/contexts/hydration/application/set_water_target.dart';
+import 'package:life_os/contexts/hydration/domain/water_day.dart';
+import 'package:life_os/contexts/hydration/domain/water_repository.dart';
+import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
+import 'package:life_os/contexts/hydration/presentation/water_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/mascot.dart';
 
@@ -162,6 +169,35 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
+class FakeWaterRepository implements WaterRepository {
+  final List<String> receivedDays = [];
+
+  @override
+  Future<WaterDay> getDay(String idToken, String day) async {
+    receivedDays.add(day);
+    return WaterDay(
+      day: day,
+      totalMl: 0,
+      targetMl: 2000,
+      remainingMl: 2000,
+    );
+  }
+
+  @override
+  Future<int> addWater(
+    String idToken, {
+    required String day,
+    required int addMl,
+  }) async => 0;
+
+  @override
+  Future<int> setTarget(
+    String idToken, {
+    required String day,
+    required int targetMl,
+  }) async => targetMl;
+}
+
 FoodItem _riceItem() => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
@@ -202,12 +238,14 @@ DietShellScreen _dietShell({
   required FakeMealRepository mealRepository,
   FakeDailyTargetRepository? dailyTargetRepository,
   FakeFoodDictionaryRepository? foodDictionaryRepository,
+  FakeWaterRepository? waterRepository,
   DateTime Function() clock = _defaultClock,
 }) {
   final resolvedDailyTargetRepository =
       dailyTargetRepository ?? FakeDailyTargetRepository();
   final resolvedFoodDictionaryRepository =
       foodDictionaryRepository ?? FakeFoodDictionaryRepository();
+  final resolvedWaterRepository = waterRepository ?? FakeWaterRepository();
   return DietShellScreen(
     authRepository: FakeAuthRepository(),
     todayController: TodayController(
@@ -227,6 +265,11 @@ DietShellScreen _dietShell({
     dailyTargetController: DailyTargetController(
       GetDailyTargetWithRemaining(resolvedDailyTargetRepository),
       SetDailyTarget(resolvedDailyTargetRepository),
+    ),
+    waterController: WaterController(
+      GetWaterDay(resolvedWaterRepository),
+      AddWater(resolvedWaterRepository),
+      SetWaterTarget(resolvedWaterRepository),
     ),
     createMealController: CreateMealController(CreateMeal(mealRepository)),
     getLoggedDays: GetLoggedDays(mealRepository),
@@ -677,5 +720,61 @@ void main() {
         expect((leftGap - rightGap).abs(), lessThan(24));
       },
     );
+  });
+
+  group('DietShellScreen water tab', () {
+    testWidgets(
+      'selecting the water destination shows the water screen for the '
+      'viewed day, and Today/Target remain reachable',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final waterRepository = FakeWaterRepository();
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: _dietShell(
+              mealRepository: FakeMealRepository(),
+              waterRepository: waterRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.byType(WaterScreen), findsNothing);
+        // The shell loaded the water tab for its viewed day even before it is
+        // shown (the shell owns loading).
+        expect(waterRepository.receivedDays, contains('2026-07-18'));
+
+        await tester.tap(find.text(loc.dietTabWater));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(WaterScreen), findsOneWidget);
+        expect(find.text(loc.waterTitle), findsOneWidget);
+        // Today and Target are still reachable.
+        expect(find.text(loc.dietTabToday), findsWidgets);
+        expect(find.text(loc.dietTabTarget), findsWidgets);
+      },
+    );
+
+    testWidgets('the water tab follows the shell day navigation', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final waterRepository = FakeWaterRepository();
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: _dietShell(
+            mealRepository: FakeMealRepository(),
+            waterRepository: waterRepository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('day-nav-previous')));
+      await tester.pumpAndSettle();
+
+      expect(waterRepository.receivedDays.last, '2026-07-17');
+    });
   });
 }

@@ -107,5 +107,19 @@
   "dietDeleteMealConfirmButton": "刪除",
   "dietChangeTimeTooltip": "改時間",
   "errorDietItemNotFound": "找不到這筆紀錄。",
-  "dietSaveEditButton": "儲存"
+  "dietSaveEditButton": "儲存",
+  "dietTabWater": "飲水",
+  "waterTitle": "今日飲水",
+  "waterHistoryTitle": "飲水紀錄",
+  "waterTotalOfTarget": "{total} / {target} ml",
+  "waterAdd250": "＋250 ml",
+  "waterAdd500": "＋500 ml",
+  "waterCustomAmount": "自訂",
+  "waterCorrect250": "−250 ml",
+  "waterSetTargetButton": "設定目標",
+  "waterCustomAmountTitle": "新增飲水量(ml)",
+  "waterSetTargetTitle": "每日飲水目標(ml)",
+  "errorWaterLoadFailed": "無法載入飲水資料,請再試一次。",
+  "waterSaveFailed": "儲存失敗,請再試一次",
+  "waterGoalMet": "達標!"
 }
