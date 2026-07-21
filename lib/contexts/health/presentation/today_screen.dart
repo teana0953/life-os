@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/meal_entry.dart';
 import '../domain/portions.dart';
@@ -624,16 +625,7 @@ class _EditableItemRowState extends State<_EditableItemRow> {
   }
 
   Widget _portionField(Key key, TextEditingController controller, String label) {
-    return SizedBox(
-      width: 80,
-      child: TextField(
-        key: key,
-        controller: controller,
-        textAlign: TextAlign.center,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: label, hintText: '0'),
-      ),
-    );
+    return NumericAmountField(fieldKey: key, controller: controller, label: label);
   }
 
   @override

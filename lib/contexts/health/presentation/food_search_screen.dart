@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/portion_preview.dart';
 import '../domain/portions.dart';
@@ -530,16 +531,7 @@ class _ManualEntryDialogState extends State<_ManualEntryDialog> {
   }
 
   Widget _portionField(Key key, TextEditingController controller, String label) {
-    return SizedBox(
-      width: 80,
-      child: TextField(
-        key: key,
-        controller: controller,
-        textAlign: TextAlign.center,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: label, hintText: '0'),
-      ),
-    );
+    return NumericAmountField(fieldKey: key, controller: controller, label: label);
   }
 
   @override

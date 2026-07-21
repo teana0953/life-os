@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/amount_entry_dialog.dart';
+
 /// A per-category target stepper (D3 in design.md): a label, the current
 /// value, and −/+ controls that adjust it by [step] (0.5, so half-portion
 /// targets stay reachable), clamped at 0 and preserving decimals. Colored
@@ -44,7 +46,14 @@ class PortionStepper extends StatelessWidget {
   Future<void> _editValue(BuildContext context) async {
     final result = await showDialog<double>(
       context: context,
-      builder: (_) => _PortionEditDialog(label: label, initial: value),
+      builder: (_) => AmountEntryDialog<double>(
+        title: label,
+        initialText: value == 0 ? '' : _format(value),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        parse: double.tryParse,
+        fieldKey: const Key('portion-edit-field'),
+        confirmKey: const Key('portion-edit-confirm'),
+      ),
     );
     if (result != null) onChanged(result.clamp(0.0, double.infinity));
   }
@@ -92,65 +101,6 @@ class PortionStepper extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Dialog for typing an exact target value for one category. A
-/// `StatefulWidget` so its `TextEditingController` is owned and disposed by
-/// the framework when the dialog closes — avoiding a per-open leak and the
-/// teardown-timing issues of disposing it manually after `showDialog`
-/// returns.
-class _PortionEditDialog extends StatefulWidget {
-  final String label;
-  final double initial;
-
-  const _PortionEditDialog({required this.label, required this.initial});
-
-  @override
-  State<_PortionEditDialog> createState() => _PortionEditDialogState();
-}
-
-class _PortionEditDialogState extends State<_PortionEditDialog> {
-  late final TextEditingController _text;
-
-  @override
-  void initState() {
-    super.initState();
-    // Show an empty field (with a "0" hint) instead of a literal "0", so the
-    // user can type straight away without first deleting the 0 — the numeric
-    // empty-zero convention (see CLAUDE.md).
-    _text = TextEditingController(
-      text: widget.initial == 0 ? '' : PortionStepper._format(widget.initial),
-    );
-  }
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.label),
-      content: TextField(
-        key: const Key('portion-edit-field'),
-        controller: _text,
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: const InputDecoration(hintText: '0'),
-        onSubmitted: (v) => Navigator.of(context).pop(double.tryParse(v)),
-      ),
-      actions: [
-        TextButton(
-          key: const Key('portion-edit-confirm'),
-          onPressed: () =>
-              Navigator.of(context).pop(double.tryParse(_text.text)),
-          child: Text(MaterialLocalizations.of(context).okButtonLabel),
-        ),
-      ],
     );
   }
 }
