@@ -402,5 +402,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get waterSaveFailed => 'Couldn\'t save — try again';
 
   @override
-  String get waterGoalMet => 'Goal met!';
+  String get waterGoalMet => 'Goal met';
 }
