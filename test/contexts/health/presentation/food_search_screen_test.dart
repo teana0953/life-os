@@ -536,6 +536,260 @@ void main() {
     }
   });
 
+  group('FoodSearchScreen add feedback', () {
+    Future<CreateMealController> pumpForFeedback(WidgetTester tester) async {
+      final dictionaryController = _dictionaryController(
+        FakeFoodDictionaryRepository(),
+      );
+      await dictionaryController.load('token-123');
+      final createMealController =
+          CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FoodSearchScreen(
+            meal: 'lunch',
+            dictionaryController: dictionaryController,
+            createMealController: createMealController,
+            idToken: 'token-123',
+            day: '2026-07-18',
+            signOut: SignOut(FakeAuthRepository()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return createMealController;
+    }
+
+    ScrollController trayScrollController(WidgetTester tester) => tester
+        .widget<ListView>(find.byKey(const Key('food-search-tray-list')))
+        .controller!;
+
+    testWidgets('adding a food scrolls the overflowing tray to reveal the newest item', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+
+      // Add enough rows to overflow the 260px-capped tray.
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+      }
+
+      final scroll = trayScrollController(tester);
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      expect(scroll.offset, closeTo(scroll.position.maxScrollExtent, 1.0));
+    });
+
+    testWidgets('removing an item or changing an amount does not scroll the tray to the end', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+      }
+
+      final scroll = trayScrollController(tester);
+      scroll.jumpTo(0);
+      await tester.pump();
+
+      // Change the top row's amount: must not jump to the end.
+      await tester.tap(find.byIcon(Icons.add).first);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, lessThan(scroll.position.maxScrollExtent));
+
+      // Remove the top row: must not jump to the end.
+      await tester.tap(find.byTooltip(loc.dietRemoveItemTooltip).first);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, lessThan(scroll.position.maxScrollExtent));
+    });
+
+    testWidgets('the newly added row briefly highlights then fades to transparent', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+
+      BoxDecoration highlightDecoration() =>
+          tester.widget<DecoratedBox>(
+            find.byKey(const Key('tray-item-highlight-0')),
+          ).decoration as BoxDecoration;
+
+      // Non-transparent right after the add.
+      expect(highlightDecoration().color!.a, greaterThan(0));
+
+      // Fully faded back to transparent once the animation settles.
+      await tester.pumpAndSettle();
+      expect(highlightDecoration().color!.a, 0);
+    });
+
+    testWidgets('removing a row above the just-added one does not replay the add highlight', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      // Add two rows; the last-added is the bottom row (index 1).
+      // pumpAndSettle lets its highlight fully fade before the removal.
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+      }
+
+      // Scroll to the top so the first row's remove button is on-screen and
+      // hittable (the tray overflows its 260px cap after two tall rows).
+      trayScrollController(tester).jumpTo(0);
+      await tester.pump();
+
+      // Remove the row ABOVE the last-added one. This shifts the last-added
+      // entry from index 1 into index 0; its (already-faded) highlight must
+      // NOT replay from the start.
+      await tester.tap(find.byTooltip(loc.dietRemoveItemTooltip).first);
+      await tester.pump();
+
+      // One row remains — the last-added, now at index 0 — and it must stay
+      // transparent, not flash the add highlight on this delete.
+      final decoration =
+          tester.widget<DecoratedBox>(
+            find.byKey(const Key('tray-item-highlight-0')),
+          ).decoration as BoxDecoration;
+      expect(decoration.color!.a, 0);
+    });
+
+    testWidgets('removing a row above the just-added one MID-FADE does not restart the add highlight', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      double highlightAlpha(int index) =>
+          (tester
+                      .widget<DecoratedBox>(
+                        find.byKey(Key('tray-item-highlight-$index')),
+                      )
+                      .decoration
+                  as BoxDecoration)
+              .color!
+              .a;
+
+      // Add two rows; the last-added is the bottom row (index 1). Let the
+      // FIRST add settle, but only pump the SECOND add PART-WAY into its
+      // ~900ms fade (never pumpAndSettle) so its highlight is mid-flight.
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Scroll to the top so the first row's remove button is hittable.
+      trayScrollController(tester).jumpTo(0);
+      await tester.pump();
+
+      // The just-added row (index 1) is mid-fade: partially transparent.
+      final alphaBefore = highlightAlpha(1);
+      expect(alphaBefore, greaterThan(0));
+
+      // Remove the row ABOVE the still-fading just-added row. This shifts the
+      // last-added entry from index 1 into index 0, remounting its row.
+      await tester.tap(find.byTooltip(loc.dietRemoveItemTooltip).first);
+      await tester.pump();
+
+      // The fade must have CONTINUED from where it was, never restarted to
+      // full alpha on this delete. A remount that restarts the tween jumps
+      // the alpha back UP toward the initial 0.18; a panel-driven fade only
+      // ever progresses downward.
+      final alphaAfter = highlightAlpha(0);
+      expect(alphaAfter, lessThanOrEqualTo(alphaBefore + 0.001));
+    });
+
+    testWidgets('only the just-added row highlights, not the older rows', (
+      tester,
+    ) async {
+      await pumpForFeedback(tester);
+
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+
+      // The second add highlights only its own (index 1) row.
+      expect(find.byKey(const Key('tray-item-highlight-1')), findsOneWidget);
+      expect(find.byKey(const Key('tray-item-highlight-0')), findsNothing);
+    });
+
+    Future<CreateMealController> pumpReduceMotion(WidgetTester tester) async {
+      final dictionaryController = _dictionaryController(
+        FakeFoodDictionaryRepository(),
+      );
+      await dictionaryController.load('token-123');
+      final createMealController =
+          CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Builder(
+            // Simulate the OS "reduce motion" accessibility setting.
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: FoodSearchScreen(
+                meal: 'lunch',
+                dictionaryController: dictionaryController,
+                createMealController: createMealController,
+                idToken: 'token-123',
+                day: '2026-07-18',
+                signOut: SignOut(FakeAuthRepository()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return createMealController;
+    }
+
+    testWidgets('reduced motion: adding a food jumps (not animates) the tray to the newest item', (
+      tester,
+    ) async {
+      await pumpReduceMotion(tester);
+
+      // Fill the tray so it overflows its 260px cap.
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+      }
+      final scroll = trayScrollController(tester);
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+
+      // The final add reaches the newest item within a couple of zero-duration
+      // frames, because under reduced motion the tray JUMPS to it. A 300ms
+      // animateTo would not have progressed at all without advancing the clock,
+      // leaving the offset near its previous (smaller) value.
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+      await tester.pump();
+      expect(scroll.offset, closeTo(scroll.position.maxScrollExtent, 0.5));
+    });
+
+    testWidgets('reduced motion: the newly added row shows no highlight fade', (
+      tester,
+    ) async {
+      await pumpReduceMotion(tester);
+
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+
+      final decoration = tester.widget<DecoratedBox>(
+        find.byKey(const Key('tray-item-highlight-0')),
+      ).decoration as BoxDecoration;
+      // The fade is skipped under reduced motion: transparent immediately, no
+      // animation to play. (The normal path shows alpha > 0 at this point.)
+      expect(decoration.color!.a, 0);
+    });
+  });
+
   group('FoodSearchScreen manual entry', () {
     testWidgets('the manual-entry link opens a form with a name field and four portion inputs', (
       tester,

@@ -248,6 +248,62 @@ void main() {
       expect(controller.tray, hasLength(1));
     });
 
+    group('add signal (addTick / lastAdded)', () {
+      test('add bumps addTick and records the added entry as lastAdded', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        expect(controller.addTick, 0);
+        expect(controller.lastAdded, isNull);
+
+        controller.add(_riceItem());
+
+        expect(controller.addTick, 1);
+        expect(controller.lastAdded, same(controller.tray.last));
+      });
+
+      test('addManual bumps addTick and records the added entry as lastAdded', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        controller.add(_riceItem());
+
+        controller.addManual(
+          '自製便當',
+          const Portions(staple: 1, meat: 0, fruit: 0, veg: 0),
+        );
+
+        expect(controller.addTick, 2);
+        expect(controller.lastAdded, same(controller.tray.last));
+        expect(controller.lastAdded, isA<ManualTrayItem>());
+      });
+
+      test('remove, setAmount and toggleMeasure leave addTick/lastAdded unchanged', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        controller.add(_riceItem(baseAmount: 50, measureUnit: 'g'));
+        controller.add(_riceItem());
+        final tickAfterAdds = controller.addTick;
+        final lastAddedAfterAdds = controller.lastAdded;
+
+        controller.setAmount(controller.tray[0] as TrayItem, 2);
+        controller.toggleMeasure(controller.tray[0] as TrayItem, true);
+        controller.remove(controller.tray.last);
+
+        expect(controller.addTick, tickAfterAdds);
+        expect(controller.lastAdded, same(lastAddedAfterAdds));
+      });
+
+      test('start resets addTick and lastAdded for a fresh session', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        controller.add(_riceItem());
+
+        controller.start('dinner');
+
+        expect(controller.addTick, 0);
+        expect(controller.lastAdded, isNull);
+      });
+    });
+
     group('manual tray items', () {
       const portions = Portions(staple: 1, meat: 1, fruit: 0, veg: 0);
 

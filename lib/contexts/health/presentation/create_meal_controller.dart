@@ -68,6 +68,14 @@ class CreateMealController extends ChangeNotifier {
   CreateMealControllerStatus status = CreateMealControllerStatus.editing;
   CreateMealError? error;
 
+  /// Presentation-only "an item was just added" signal for the tray view to
+  /// distinguish a genuine add (auto-scroll + highlight) from a remove or
+  /// amount change. [addTick] increments on every [add]/[addManual];
+  /// [lastAdded] points at the entry that add produced. Neither changes on
+  /// [remove]/[setAmount]/[toggleMeasure].
+  int addTick = 0;
+  TrayEntry? lastAdded;
+
   /// Resets the tray for a new search session targeting [meal] (a standard
   /// meal code, an existing snack's name, or the next snack name).
   void start(String meal) {
@@ -75,19 +83,27 @@ class CreateMealController extends ChangeNotifier {
     tray = [];
     status = CreateMealControllerStatus.editing;
     error = null;
+    addTick = 0;
+    lastAdded = null;
     notifyListeners();
   }
 
   /// Adds [item] to the tray at a default quantity of 1 (unit mode).
   void add(FoodItem item) {
-    tray = [...tray, TrayItem(item: item, amount: 1)];
+    final entry = TrayItem(item: item, amount: 1);
+    tray = [...tray, entry];
+    lastAdded = entry;
+    addTick++;
     notifyListeners();
   }
 
   /// Adds a manually-entered food (no dictionary reference) with the given
   /// [name] and [portions] to the tray.
   void addManual(String name, Portions portions) {
-    tray = [...tray, ManualTrayItem(name: name, portions: portions)];
+    final entry = ManualTrayItem(name: name, portions: portions);
+    tray = [...tray, entry];
+    lastAdded = entry;
+    addTick++;
     notifyListeners();
   }
 
