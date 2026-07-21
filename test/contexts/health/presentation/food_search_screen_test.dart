@@ -720,6 +720,74 @@ void main() {
       expect(find.byKey(const Key('tray-item-highlight-1')), findsOneWidget);
       expect(find.byKey(const Key('tray-item-highlight-0')), findsNothing);
     });
+
+    Future<CreateMealController> pumpReduceMotion(WidgetTester tester) async {
+      final dictionaryController = _dictionaryController(
+        FakeFoodDictionaryRepository(),
+      );
+      await dictionaryController.load('token-123');
+      final createMealController =
+          CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Builder(
+            // Simulate the OS "reduce motion" accessibility setting.
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: FoodSearchScreen(
+                meal: 'lunch',
+                dictionaryController: dictionaryController,
+                createMealController: createMealController,
+                idToken: 'token-123',
+                day: '2026-07-18',
+                signOut: SignOut(FakeAuthRepository()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return createMealController;
+    }
+
+    testWidgets('reduced motion: adding a food jumps (not animates) the tray to the newest item', (
+      tester,
+    ) async {
+      await pumpReduceMotion(tester);
+
+      // Fill the tray so it overflows its 260px cap.
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+      }
+      final scroll = trayScrollController(tester);
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+
+      // The final add reaches the newest item within a couple of zero-duration
+      // frames, because under reduced motion the tray JUMPS to it. A 300ms
+      // animateTo would not have progressed at all without advancing the clock,
+      // leaving the offset near its previous (smaller) value.
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+      await tester.pump();
+      expect(scroll.offset, closeTo(scroll.position.maxScrollExtent, 0.5));
+    });
+
+    testWidgets('reduced motion: the newly added row shows no highlight fade', (
+      tester,
+    ) async {
+      await pumpReduceMotion(tester);
+
+      await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+      await tester.pump();
+
+      final decoration = tester.widget<DecoratedBox>(
+        find.byKey(const Key('tray-item-highlight-0')),
+      ).decoration as BoxDecoration;
+      // The fade is skipped under reduced motion: transparent immediately, no
+      // animation to play. (The normal path shows alpha > 0 at this point.)
+      expect(decoration.color!.a, 0);
+    });
   });
 
   group('FoodSearchScreen manual entry', () {

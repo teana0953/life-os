@@ -262,24 +262,45 @@ class _TrayPanelState extends State<_TrayPanel> with SingleTickerProviderStateMi
   /// different index slot mid-fade — reads the fade's CURRENT value rather
   /// than restarting a fresh per-row animation, so the "added" cue can never
   /// replay on a delete. Restarted only when a genuine new add bumps
-  /// `addTick`. `_fade` applies the easeOut curve; the row reads `_fade.value`
-  /// (0 → 1) and renders alpha `0.18 * (1 - value)`.
+  /// `addTick`. `_fade` applies an easeInOut curve so the highlight holds
+  /// briefly at full then eases away — a gentle glow rather than an abrupt
+  /// flash; the row reads `_fade.value` (0 → 1) and renders alpha
+  /// `0.18 * (1 - value)`.
   late final AnimationController _highlightController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
   );
   late final CurvedAnimation _fade = CurvedAnimation(
     parent: _highlightController,
-    curve: Curves.easeOut,
+    curve: Curves.easeInOut,
   );
+
+  /// Whether the platform asks to minimize motion (the OS "reduce motion"
+  /// accessibility setting). When true the add feedback avoids animating:
+  /// the tray jumps (not animates) to the newest item and the highlight fade
+  /// is skipped, leaving no lingering highlight.
+  bool get _reduceMotion => MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+  /// Guards the one-time initial fade for the row already present when the
+  /// panel first mounts. `MediaQuery` isn't readable in `initState`, so the
+  /// initial play is deferred to `didChangeDependencies`.
+  bool _initialHighlightDone = false;
 
   @override
   void initState() {
     super.initState();
     _lastAddTick = widget.controller.addTick;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     // The panel only mounts once the tray is non-empty (i.e. after an add),
-    // so play the fade for that first added row.
-    if (_lastAddTick != 0) _highlightController.forward(from: 0);
+    // so play the fade for that first added row — once.
+    if (!_initialHighlightDone && _lastAddTick != 0) {
+      _initialHighlightDone = true;
+      _playHighlight();
+    }
   }
 
   @override
@@ -287,16 +308,38 @@ class _TrayPanelState extends State<_TrayPanel> with SingleTickerProviderStateMi
     super.didUpdateWidget(oldWidget);
     if (widget.controller.addTick != _lastAddTick) {
       _lastAddTick = widget.controller.addTick;
+      _playHighlight();
+      _scrollToNewestAfterFrame();
+    }
+  }
+
+  /// Runs the highlight fade for a new add, or skips it (leaving no lingering
+  /// highlight) when the user prefers reduced motion.
+  void _playHighlight() {
+    if (_reduceMotion) {
+      _highlightController.value = 1; // alpha 0 — no highlight, no motion
+    } else {
       _highlightController.forward(from: 0);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_scrollController.hasClients) return;
+    }
+  }
+
+  /// After the added row lays out, bring it into view — animating normally,
+  /// or jumping instantly under reduced motion.
+  void _scrollToNewestAfterFrame() {
+    final reduceMotion = _reduceMotion;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (reduceMotion) {
+        _scrollController.jumpTo(target);
+      } else {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          target,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
-      });
-    }
+      }
+    });
   }
 
   @override
