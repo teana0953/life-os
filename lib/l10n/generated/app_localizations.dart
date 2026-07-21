@@ -818,6 +818,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your water data. Please try again.'**
   String get errorWaterLoadFailed;
+
+  /// Transient SnackBar shown on the water screen when a quick-add/custom-add/correction/set-target mutation fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again'**
+  String get waterSaveFailed;
+
+  /// Small badge shown near the water intake readout when the day's total has reached or exceeded its target.
+  ///
+  /// In en, this message translates to:
+  /// **'Goal met!'**
+  String get waterGoalMet;
 }
 
 class _AppLocalizationsDelegate

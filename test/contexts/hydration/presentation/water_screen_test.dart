@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -52,6 +54,21 @@ class FakeWaterRepository implements WaterRepository {
   }) async {
     target = targetMl;
     return target;
+  }
+}
+
+/// A repository whose day-fetch can be held open via [getGate], so a test can
+/// pin the controller in a mid-reload `loading` state (day still present) and
+/// inspect what the screen renders during a mutation reload.
+class GatedWaterRepository extends FakeWaterRepository {
+  Completer<void>? getGate;
+
+  GatedWaterRepository({super.total, super.target});
+
+  @override
+  Future<WaterDay> getDay(String idToken, String day) async {
+    if (getGate != null) await getGate!.future;
+    return super.getDay(idToken, day);
   }
 }
 
@@ -252,6 +269,105 @@ void main() {
 
       expect(find.text(loc.errorWaterLoadFailed), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'during a mutation reload keeps the content visible and shows only a '
+      'subtle busy indicator (no full-screen spinner)',
+      (tester) async {
+        final repository = GatedWaterRepository(total: 500, target: 2000);
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: WaterScreen(
+              controller: controller,
+              idToken: 'token',
+              day: '2026-07-18',
+              clock: _defaultClock,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Hold the reload open so the controller stays in `loading` with the
+        // previously-loaded day still present.
+        repository.getGate = Completer<void>();
+        await tester.tap(find.byKey(const Key('water-add-250')));
+        await tester.pump();
+        await tester.pump();
+
+        // Content stays visible — no blanking to a bare full-screen spinner.
+        expect(find.text(loc.waterTotalOfTarget(500, 2000)), findsOneWidget);
+        expect(find.byKey(const Key('water-add-250')), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        // A subtle busy indicator is shown instead.
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+        repository.getGate!.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('a failed quick-add shows a save-failed snackbar and keeps the '
+        'previous total', (tester) async {
+      final repository = FakeWaterRepository(total: 500, target: 2000);
+      await _pumpScreen(tester, repository: repository);
+
+      // The mutation writes, but the reload fails: controller ends in `error`
+      // with the previous day still shown.
+      repository.getError = const WaterFetchFailure('boom');
+      await tester.tap(find.byKey(const Key('water-add-250')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.waterSaveFailed), findsOneWidget);
+      expect(find.text(loc.waterTotalOfTarget(500, 2000)), findsOneWidget);
+    });
+
+    testWidgets('a successful quick-add shows no save-failed snackbar', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeWaterRepository(total: 0, target: 2000),
+      );
+
+      await tester.tap(find.byKey(const Key('water-add-250')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.waterSaveFailed), findsNothing);
+      expect(find.text(loc.waterTotalOfTarget(250, 2000)), findsOneWidget);
+    });
+
+    testWidgets('at or over target shows the goal-met badge and success fill', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeWaterRepository(total: 2000, target: 2000),
+      );
+
+      expect(find.text(loc.waterGoalMet), findsOneWidget);
+
+      final scheme = Theme.of(
+        tester.element(find.byType(FractionallySizedBox)),
+      ).colorScheme;
+      final fill = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(FractionallySizedBox),
+          matching: find.byType(Container),
+        ),
+      );
+      expect((fill.decoration as BoxDecoration).color, scheme.tertiary);
+    });
+
+    testWidgets('below target shows no goal-met badge', (tester) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeWaterRepository(total: 500, target: 2000),
+      );
+
+      expect(find.text(loc.waterGoalMet), findsNothing);
     });
 
     testWidgets('renders a reauth state without crashing', (tester) async {

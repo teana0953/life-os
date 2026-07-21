@@ -518,5 +518,13 @@
   "errorWaterLoadFailed": "Unable to load your water data. Please try again.",
   "@errorWaterLoadFailed": {
     "description": "Shown on the water screen when loading the day's water intake fails (not an auth failure)."
+  },
+  "waterSaveFailed": "Couldn't save — try again",
+  "@waterSaveFailed": {
+    "description": "Transient SnackBar shown on the water screen when a quick-add/custom-add/correction/set-target mutation fails (not an auth failure)."
+  },
+  "waterGoalMet": "Goal met!",
+  "@waterGoalMet": {
+    "description": "Small badge shown near the water intake readout when the day's total has reached or exceeded its target."
   }
 }

@@ -119,5 +119,7 @@
   "waterSetTargetButton": "設定目標",
   "waterCustomAmountTitle": "新增飲水量(ml)",
   "waterSetTargetTitle": "每日飲水目標(ml)",
-  "errorWaterLoadFailed": "無法載入飲水資料,請再試一次。"
+  "errorWaterLoadFailed": "無法載入飲水資料,請再試一次。",
+  "waterSaveFailed": "儲存失敗,請再試一次",
+  "waterGoalMet": "達標!"
 }

@@ -63,6 +63,20 @@ class _WaterScreenState extends State<WaterScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// Awaits [action] (a controller mutation) then, if the controller ended in
+  /// an error state, surfaces a transient save-failed snackbar. `needsReauth`
+  /// routes to the reauth screen via [build] instead, so it is left alone.
+  Future<void> _runMutation(Future<void> Function() action) async {
+    await action();
+    if (!mounted) return;
+    if (widget.controller.status == WaterStatus.error) {
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.waterSaveFailed)),
+      );
+    }
+  }
+
   Future<void> _addCustomAmount() async {
     final loc = AppLocalizations.of(context)!;
     final amount = await showDialog<int>(
@@ -70,7 +84,9 @@ class _WaterScreenState extends State<WaterScreen> {
       builder: (_) => _AmountDialog(title: loc.waterCustomAmountTitle, initial: 0),
     );
     if (amount != null && amount != 0) {
-      await widget.controller.addWater(widget.idToken, widget.day, amount);
+      await _runMutation(
+        () => widget.controller.addWater(widget.idToken, widget.day, amount),
+      );
     }
   }
 
@@ -82,7 +98,9 @@ class _WaterScreenState extends State<WaterScreen> {
       builder: (_) => _AmountDialog(title: loc.waterSetTargetTitle, initial: current),
     );
     if (target != null) {
-      await widget.controller.setTarget(widget.idToken, widget.day, target);
+      await _runMutation(
+        () => widget.controller.setTarget(widget.idToken, widget.day, target),
+      );
     }
   }
 
@@ -92,7 +110,13 @@ class _WaterScreenState extends State<WaterScreen> {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    if (controller.status == WaterStatus.loading) {
+    final busy = controller.status == WaterStatus.loading ||
+        controller.status == WaterStatus.saving;
+
+    // Full-screen spinner only on the very first load, when there is no data
+    // to show yet. Once a day is loaded, mutations/reloads keep the content
+    // on screen with a subtle busy indicator instead of blanking the tab.
+    if (busy && controller.day == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (controller.status == WaterStatus.needsReauth) {
@@ -118,11 +142,27 @@ class _WaterScreenState extends State<WaterScreen> {
         _daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) == 0;
     final title = isToday ? loc.waterTitle : loc.waterHistoryTitle;
 
+    final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
+
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
+            // Subtle busy indicator during a mutation/reload — the content
+            // below stays visible rather than blanking to a full spinner.
+            SizedBox(
+              height: 3,
+              child: busy
+                  ? const LinearProgressIndicator(
+                      key: Key('water-busy'),
+                      minHeight: 3,
+                    )
+                  : null,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
             _WaterSectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -140,6 +180,8 @@ class _WaterScreenState extends State<WaterScreen> {
                     key: const Key('water-progress'),
                     totalMl: day.totalMl,
                     targetMl: day.targetMl,
+                    goalMet: goalMet,
+                    goalMetLabel: loc.waterGoalMet,
                     label: loc.waterTotalOfTarget(day.totalMl, day.targetMl),
                   ),
                 ],
@@ -155,11 +197,15 @@ class _WaterScreenState extends State<WaterScreen> {
                       Expanded(
                         child: FilledButton(
                           key: const Key('water-add-250'),
-                          onPressed: () => controller.addWater(
-                            widget.idToken,
-                            widget.day,
-                            250,
-                          ),
+                          onPressed: busy
+                              ? null
+                              : () => _runMutation(
+                                    () => controller.addWater(
+                                      widget.idToken,
+                                      widget.day,
+                                      250,
+                                    ),
+                                  ),
                           child: Text(loc.waterAdd250),
                         ),
                       ),
@@ -167,11 +213,15 @@ class _WaterScreenState extends State<WaterScreen> {
                       Expanded(
                         child: FilledButton(
                           key: const Key('water-add-500'),
-                          onPressed: () => controller.addWater(
-                            widget.idToken,
-                            widget.day,
-                            500,
-                          ),
+                          onPressed: busy
+                              ? null
+                              : () => _runMutation(
+                                    () => controller.addWater(
+                                      widget.idToken,
+                                      widget.day,
+                                      500,
+                                    ),
+                                  ),
                           child: Text(loc.waterAdd500),
                         ),
                       ),
@@ -183,7 +233,7 @@ class _WaterScreenState extends State<WaterScreen> {
                       Expanded(
                         child: OutlinedButton(
                           key: const Key('water-add-custom'),
-                          onPressed: _addCustomAmount,
+                          onPressed: busy ? null : _addCustomAmount,
                           child: Text(loc.waterCustomAmount),
                         ),
                       ),
@@ -191,11 +241,15 @@ class _WaterScreenState extends State<WaterScreen> {
                       Expanded(
                         child: OutlinedButton(
                           key: const Key('water-correct-250'),
-                          onPressed: () => controller.correct(
-                            widget.idToken,
-                            widget.day,
-                            -250,
-                          ),
+                          onPressed: busy
+                              ? null
+                              : () => _runMutation(
+                                    () => controller.correct(
+                                      widget.idToken,
+                                      widget.day,
+                                      -250,
+                                    ),
+                                  ),
                           child: Text(loc.waterCorrect250),
                         ),
                       ),
@@ -208,8 +262,11 @@ class _WaterScreenState extends State<WaterScreen> {
             _WaterSectionCard(
               child: OutlinedButton(
                 key: const Key('water-set-target'),
-                onPressed: _setTarget,
+                onPressed: busy ? null : _setTarget,
                 child: Text(loc.waterSetTargetButton),
+              ),
+            ),
+                ],
               ),
             ),
           ],
@@ -251,22 +308,42 @@ class _WaterProgressBar extends StatelessWidget {
   final int targetMl;
   final String label;
 
+  /// Whether the day's total has reached or exceeded its target — drives the
+  /// distinct "goal met" fill color and the badge next to the readout.
+  final bool goalMet;
+  final String goalMetLabel;
+
   const _WaterProgressBar({
     super.key,
     required this.totalMl,
     required this.targetMl,
     required this.label,
+    required this.goalMet,
+    required this.goalMetLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fraction = targetMl <= 0 ? 0.0 : (totalMl / targetMl).clamp(0.0, 1.0);
+    // The theme exposes no dedicated "success" role in its ColorScheme; its
+    // tertiary is the closest semantic accent, so goal-met reuses it rather
+    // than the normal primary fill (never a hard-coded hex).
+    final fillColor =
+        goalMet ? theme.colorScheme.tertiary : theme.colorScheme.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(label, style: theme.textTheme.bodyLarge),
+        Row(
+          children: [
+            Flexible(child: Text(label, style: theme.textTheme.bodyLarge)),
+            if (goalMet) ...[
+              const SizedBox(width: 8),
+              _GoalMetBadge(label: goalMetLabel),
+            ],
+          ],
+        ),
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(999),
@@ -286,7 +363,7 @@ class _WaterProgressBar extends StatelessWidget {
                 child: Container(
                   height: 12,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
+                    color: fillColor,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -295,6 +372,41 @@ class _WaterProgressBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A small pill badge shown next to the intake readout once the day's target
+/// is met — a themed check + label, colored from the ColorScheme's tertiary
+/// (goal-met) accent.
+class _GoalMetBadge extends StatelessWidget {
+  final String label;
+
+  const _GoalMetBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('water-goal-met-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiary,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check, size: 14, color: theme.colorScheme.onTertiary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onTertiary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

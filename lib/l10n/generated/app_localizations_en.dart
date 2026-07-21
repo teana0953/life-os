@@ -397,4 +397,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorWaterLoadFailed =>
       'Unable to load your water data. Please try again.';
+
+  @override
+  String get waterSaveFailed => 'Couldn\'t save — try again';
+
+  @override
+  String get waterGoalMet => 'Goal met!';
 }
