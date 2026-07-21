@@ -14,3 +14,11 @@ class DietFetchFailure implements Exception {
   @override
   String toString() => message;
 }
+
+/// Thrown by a diet repository mutation (edit/delete) when the backend
+/// returns `404` — the target id doesn't exist, or exists but isn't owned
+/// by the caller. Distinct from [DietFetchFailure] so the screen can
+/// surface "this entry no longer exists" instead of a generic error.
+class DietNotFound implements Exception {
+  const DietNotFound();
+}

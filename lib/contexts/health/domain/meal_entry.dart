@@ -1,27 +1,65 @@
 import 'portions.dart';
 
 /// One item within a [MealEntry], as returned by the meals API — either a
-/// day-view item (`GET /api/meals`) or a POST-response item. Only the fields
-/// Today actually renders are parsed here: `id`, `name`, and `consumed`
-/// (a [Portions] built from the item JSON's *nested* `consumed` object).
+/// day-view item (`GET /api/meals`) or a POST/PATCH-response item
+/// (`mealItemToJson` on the backend). Parses the fields Today needs to
+/// display an amount and drive in-place editing: `id`, `foodItemId`,
+/// `name`, `source`, `quantity`, the flat per-unit `staple/meat/fruit/veg`,
+/// `baseAmount`, `measureUnit`, and the nested `consumed` (a [Portions]).
 ///
-/// The item's own flat per-unit fields (`staple/meat/fruit/veg`,
-/// `carb_g`…`kcal`, `quantity`, `base_grams`, `food_item_id`, `source`,
-/// `unclassified`, `photo_ref`) are **not parsed this PR** — Today shows only
-/// consumed portions and item editing is read-only here; PR③'s in-place
-/// edit adds the per-unit + quantity + baseGrams fields it needs.
+/// The response never carries a `measure` field or a separate `portions`
+/// object — `measure` is request-only (the backend converts it to
+/// `quantity` on write) and a manual item's portions live in the flat
+/// per-unit fields at `quantity = 1` — so neither is parsed here.
 class MealItem {
   final String id;
+  final String? foodItemId;
   final String? name;
+  final String source;
+  final double quantity;
+  final double staple;
+  final double meat;
+  final double fruit;
+  final double veg;
+  final double? baseAmount;
+  final String? measureUnit;
   final Portions consumed;
 
-  const MealItem({required this.id, required this.name, required this.consumed});
+  const MealItem({
+    required this.id,
+    required this.foodItemId,
+    required this.name,
+    required this.source,
+    required this.quantity,
+    required this.staple,
+    required this.meat,
+    required this.fruit,
+    required this.veg,
+    required this.baseAmount,
+    required this.measureUnit,
+    required this.consumed,
+  });
+
+  /// A manually-entered item — recognised by `source == 'manual'` or a null
+  /// [foodItemId] — is edited by sending `portions` (the four flat per-unit
+  /// values above); a dictionary item is edited by sending `quantity` or
+  /// `measure`.
+  bool get isManual => source == 'manual' || foodItemId == null;
 
   factory MealItem.fromJson(Map<String, dynamic> json) {
     final consumed = json['consumed'] as Map<String, dynamic>;
     return MealItem(
       id: json['id'] as String,
+      foodItemId: json['food_item_id'] as String?,
       name: json['name'] as String?,
+      source: json['source'] as String,
+      quantity: (json['quantity'] as num).toDouble(),
+      staple: (json['staple'] as num).toDouble(),
+      meat: (json['meat'] as num).toDouble(),
+      fruit: (json['fruit'] as num).toDouble(),
+      veg: (json['veg'] as num).toDouble(),
+      baseAmount: (json['base_amount'] as num?)?.toDouble(),
+      measureUnit: json['measure_unit'] as String?,
       consumed: Portions(
         staple: (consumed['staple'] as num).toDouble(),
         meat: (consumed['meat'] as num).toDouble(),

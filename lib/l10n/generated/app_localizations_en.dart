@@ -316,4 +316,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietUnnamedItemLabel => 'Unnamed item';
+
+  @override
+  String get dietMeasureUnitMl => 'Milliliters';
+
+  @override
+  String get dietManualEntryLink => 'Not found? Enter manually';
+
+  @override
+  String get dietManualEntryTitle => 'Manual entry';
+
+  @override
+  String get dietManualEntryNameLabel => 'Name';
+
+  @override
+  String get dietManualEntryAddButton => 'Add';
+
+  @override
+  String get dietDeleteItemTooltip => 'Delete';
+
+  @override
+  String get dietDeleteMealTooltip => 'Delete meal';
+
+  @override
+  String get dietDeleteMealConfirmTitle => 'Delete this meal?';
+
+  @override
+  String get dietDeleteMealConfirmMessage => 'This removes all of its items.';
+
+  @override
+  String get dietDeleteMealConfirmButton => 'Delete';
+
+  @override
+  String get dietChangeTimeTooltip => 'Change time';
+
+  @override
+  String get errorDietItemNotFound => 'This entry no longer exists.';
+
+  @override
+  String get dietSaveEditButton => 'Save';
 }

@@ -13,6 +13,7 @@ import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
@@ -20,7 +21,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
 
-FoodItem _riceItem({double? baseGrams}) => FoodItem.fromJson({
+FoodItem _riceItem({double? baseAmount, String? measureUnit}) => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
   'name': '飯/1碗',
@@ -34,7 +35,8 @@ FoodItem _riceItem({double? baseGrams}) => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': baseGrams,
+  'base_amount': baseAmount,
+  'measure_unit': measureUnit,
 });
 
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
@@ -89,6 +91,32 @@ class FakeMealRepository implements MealRepository {
 
   @override
   Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {
     throw UnimplementedError();
   }
 }
@@ -205,7 +233,7 @@ void main() {
       await _pumpScreen(
         tester,
         dictionaryRepository: FakeFoodDictionaryRepository(
-          favorites: [_riceItem(baseGrams: 50)],
+          favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
         ),
       );
 
@@ -451,7 +479,7 @@ void main() {
       await _pumpScreen(
         tester,
         dictionaryRepository: FakeFoodDictionaryRepository(
-          favorites: [_riceItem(baseGrams: 50)],
+          favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
         ),
       );
 
@@ -471,7 +499,7 @@ void main() {
       await _pumpScreen(
         tester,
         dictionaryRepository: FakeFoodDictionaryRepository(
-          favorites: [_riceItem(baseGrams: 50)],
+          favorites: [_riceItem(baseAmount: 50, measureUnit: 'g')],
         ),
       );
 
@@ -480,6 +508,90 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+    });
+  });
+
+  group('FoodSearchScreen manual entry', () {
+    testWidgets('the manual-entry link opens a form with a name field and four portion inputs', (
+      tester,
+    ) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('manual-entry-link')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('manual-entry-name-field')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-staple-field')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-meat-field')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-fruit-field')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-veg-field')), findsOneWidget);
+    });
+
+    testWidgets('zero portions show an empty field with a "0" hint (empty-zero convention)', (
+      tester,
+    ) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('manual-entry-link')));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(find.byKey(const Key('manual-entry-staple-field')));
+      expect(field.controller?.text, '');
+      expect(field.decoration?.hintText, '0');
+    });
+
+    testWidgets('naming a food and setting portions adds a manual tray item previewing exactly those portions', (
+      tester,
+    ) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('manual-entry-link')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('manual-entry-name-field')), '自製便當');
+      await tester.enterText(find.byKey(const Key('manual-entry-staple-field')), '1');
+      await tester.enterText(find.byKey(const Key('manual-entry-meat-field')), '1');
+      await tester.tap(find.byKey(const Key('manual-entry-add-button')));
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text('自製便當'), findsOneWidget);
+      expect(find.text('${loc.dietCategoryStaple} 1'), findsWidgets);
+      expect(find.text('${loc.dietCategoryMeat} 1'), findsWidgets);
+      // No dictionary reference: no AmountStepper for a manual row.
+      expect(find.byType(SegmentedButton<bool>), findsNothing);
+    });
+
+    testWidgets('completing the tray posts the manual item with name+portions and no food_item_id', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('manual-entry-link')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('manual-entry-name-field')), '自製便當');
+      await tester.enterText(find.byKey(const Key('manual-entry-staple-field')), '1');
+      await tester.tap(find.byKey(const Key('manual-entry-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedItems, hasLength(1));
+      final item = mealRepository.receivedItems!.single;
+      expect(item.name, '自製便當');
+      expect(item.portions?.staple, 1);
+      expect(item.foodItemId, isNull);
+    });
+
+    testWidgets('a blank name does not add a tray item', (tester) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('manual-entry-link')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('manual-entry-add-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FoodSearchScreen), findsOneWidget);
+      expect(find.byKey(const Key('food-search-tray')), findsNothing);
     });
   });
 }

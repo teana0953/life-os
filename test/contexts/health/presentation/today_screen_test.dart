@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/health/application/change_meal_time.dart';
+import 'package:life_os/contexts/health/application/delete_meal.dart';
+import 'package:life_os/contexts/health/application/delete_meal_item.dart';
+import 'package:life_os/contexts/health/application/edit_meal_item.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
@@ -9,6 +13,7 @@ import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -31,6 +36,15 @@ class FakeAuthRepository implements AuthRepository {
 class FakeMealRepository implements MealRepository {
   DayMealsLog? logToReturn;
 
+  String? patchedItemId;
+  double? patchedQuantity;
+  double? patchedMeasure;
+  Portions? patchedPortions;
+  String? deletedItemId;
+  String? patchedMealId;
+  DateTime? patchedTime;
+  String? deletedMealId;
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async => logToReturn!;
 
@@ -48,6 +62,109 @@ class FakeMealRepository implements MealRepository {
   @override
   Future<List<String>> loggedDays(String idToken, String month) async {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {
+    patchedItemId = id;
+    patchedQuantity = quantity;
+    patchedMeasure = measure;
+    patchedPortions = portions;
+    // Reflect the edit in the next getDayMeals so the reload shows it.
+    _applyItemPatch(id, quantity: quantity, measure: measure, portions: portions);
+  }
+
+  void _applyItemPatch(
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) {
+    final log = logToReturn;
+    if (log == null) return;
+    logToReturn = DayMealsLog(
+      day: log.day,
+      totals: log.totals,
+      meals: log.meals.map((meal) {
+        return MealEntry(
+          id: meal.id,
+          meal: meal.meal,
+          time: meal.time,
+          items: meal.items.map((item) {
+            if (item.id != id) return item;
+            final newQuantity = quantity ?? item.quantity;
+            return MealItem(
+              id: item.id,
+              foodItemId: item.foodItemId,
+              name: item.name,
+              source: item.source,
+              quantity: newQuantity,
+              staple: portions?.staple ?? item.staple,
+              meat: portions?.meat ?? item.meat,
+              fruit: portions?.fruit ?? item.fruit,
+              veg: portions?.veg ?? item.veg,
+              baseAmount: item.baseAmount,
+              measureUnit: item.measureUnit,
+              consumed: item.consumed,
+            );
+          }).toList(),
+        );
+      }).toList(),
+    );
+  }
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {
+    deletedItemId = id;
+    final log = logToReturn;
+    if (log == null) return;
+    logToReturn = DayMealsLog(
+      day: log.day,
+      totals: log.totals,
+      meals: log.meals
+          .map((meal) => MealEntry(
+                id: meal.id,
+                meal: meal.meal,
+                time: meal.time,
+                items: meal.items.where((item) => item.id != id).toList(),
+              ))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
+    patchedMealId = id;
+    patchedTime = time;
+    final log = logToReturn;
+    if (log == null) return;
+    logToReturn = DayMealsLog(
+      day: log.day,
+      totals: log.totals,
+      meals: log.meals
+          .map((meal) => meal.id == id
+              ? MealEntry(id: meal.id, meal: meal.meal, time: time, items: meal.items)
+              : meal)
+          .toList(),
+    );
+  }
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {
+    deletedMealId = id;
+    final log = logToReturn;
+    if (log == null) return;
+    logToReturn = DayMealsLog(
+      day: log.day,
+      totals: log.totals,
+      meals: log.meals.where((meal) => meal.id != id).toList(),
+    );
   }
 }
 
@@ -80,12 +197,19 @@ Map<String, dynamic> _itemJson({
   String? name,
   double staple = 0,
   double meat = 0,
+  double fruit = 0,
+  double veg = 0,
+  String? foodItemId = 'food-1',
+  String source = 'dict',
+  double quantity = 1,
+  double? baseAmount,
+  String? measureUnit,
 }) => {
   'id': id,
-  'food_item_id': 'food-1',
+  'food_item_id': foodItemId,
   'name': name,
   'photo_ref': null,
-  'source': 'dict',
+  'source': source,
   'unclassified': false,
   'carb_g': 0,
   'protein_g': 0,
@@ -95,10 +219,11 @@ Map<String, dynamic> _itemJson({
   'kcal': 0,
   'staple': staple,
   'meat': meat,
-  'fruit': 0,
-  'veg': 0,
-  'quantity': 1,
-  'base_grams': null,
+  'fruit': fruit,
+  'veg': veg,
+  'quantity': quantity,
+  'base_amount': baseAmount,
+  'measure_unit': measureUnit,
   'consumed': {
     'carb_g': 0,
     'protein_g': 0,
@@ -108,8 +233,8 @@ Map<String, dynamic> _itemJson({
     'kcal': 0,
     'staple': staple,
     'meat': meat,
-    'fruit': 0,
-    'veg': 0,
+    'fruit': fruit,
+    'veg': veg,
   },
 };
 
@@ -133,13 +258,19 @@ DailyTargetWithRemaining _target({double staple = 12}) =>
 TodayController _controllerWith({
   required DayMealsLog dayLog,
   DailyTargetWithRemaining? target,
+  FakeMealRepository? mealRepository,
 }) {
-  final mealRepository = FakeMealRepository()..logToReturn = dayLog;
+  final resolvedMealRepository = mealRepository ?? FakeMealRepository();
+  resolvedMealRepository.logToReturn = dayLog;
   final targetRepository = FakeDailyTargetRepository()
     ..targetToReturn = target ?? _target();
   return TodayController(
-    GetDayMeals(mealRepository),
+    GetDayMeals(resolvedMealRepository),
     GetDailyTargetWithRemaining(targetRepository),
+    EditMealItem(resolvedMealRepository),
+    DeleteMealItem(resolvedMealRepository),
+    ChangeMealTime(resolvedMealRepository),
+    DeleteMeal(resolvedMealRepository),
   );
 }
 
@@ -149,6 +280,7 @@ Future<void> _pumpTodayScreen(
   void Function(String meal)? onAddToMeal,
   VoidCallback? onAddSnack,
   void Function(String snackName)? onAddToSnackGroup,
+  Future<DateTime?> Function(BuildContext, DateTime, DateTime Function(DateTime))? pickMealTime,
 }) async {
   await controller.load('token-123', '2026-07-18');
   await tester.pumpWidget(
@@ -156,10 +288,13 @@ Future<void> _pumpTodayScreen(
       home: TodayScreen(
         controller: controller,
         signOut: SignOut(FakeAuthRepository()),
+        idToken: 'token-123',
+        day: '2026-07-18',
         onAddToMeal: onAddToMeal,
         onAddSnack: onAddSnack,
         onAddToSnackGroup: onAddToSnackGroup,
         toLocalTime: (dt) => dt,
+        pickMealTime: pickMealTime ?? (_, current, __) async => current,
       ),
     ),
   );
@@ -293,7 +428,7 @@ void main() {
       );
     });
 
-    testWidgets('an item shows only its non-zero consumed categories and is read-only', (
+    testWidgets('an item shows only its non-zero consumed categories, its consumed amount, and is tappable', (
       tester,
     ) async {
       final dayLog = DayMealsLog.fromJson({
@@ -303,7 +438,7 @@ void main() {
             id: 'm1',
             meal: 'breakfast',
             time: '2026-07-18T08:00:00.000Z',
-            items: [_itemJson(id: 'i1', name: '蛋', staple: 0, meat: 1)],
+            items: [_itemJson(id: 'i1', name: '蛋', staple: 0, meat: 1, quantity: 1)],
           ),
         ],
         'totals': {
@@ -318,11 +453,13 @@ void main() {
       expect(find.text('蛋'), findsOneWidget);
       // Only one "meat 1" pill for the item row itself; no lone "0" shown.
       expect(find.text('${loc.dietCategoryStaple} 0'), findsNothing);
+      // Consumed amount shown ("蛋" has no "/" unit segment -> generic word).
+      expect(find.text('1 ${loc.dietQuantityLabel}'), findsOneWidget);
 
-      final itemTile = tester.widget<ListTile>(
-        find.ancestor(of: find.text('蛋'), matching: find.byType(ListTile)),
+      final itemRow = tester.widget<InkWell>(
+        find.ancestor(of: find.text('蛋'), matching: find.byType(InkWell)),
       );
-      expect(itemTile.onTap, isNull);
+      expect(itemRow.onTap, isNotNull);
     });
 
     testWidgets('a snack card shows its own meal value verbatim, with the snack emoji', (
@@ -414,5 +551,446 @@ void main() {
 
       expect(tapped, isTrue);
     });
+  });
+
+  group('TodayScreen inline item edit', () {
+    testWidgets('tapping a dictionary item reveals an inline editor in quantity mode', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [_itemJson(id: 'i1', name: '飯/1碗', staple: 4, quantity: 1)],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 4, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final controller = _controllerWith(dayLog: dayLog);
+      await _pumpTodayScreen(tester, controller);
+
+      expect(find.byKey(const Key('item-editor-i1')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('item-editor-i1')), findsOneWidget);
+      // Quantity mode: no measure toggle for an item with no base measure.
+      expect(find.byType(SegmentedButton<bool>), findsNothing);
+    });
+
+    testWidgets('a quantity edit persists as {quantity} and Today refreshes', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [_itemJson(id: 'i1', name: '飯/1碗', staple: 4, quantity: 1)],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 4, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add).first);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('save-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedItemId, 'i1');
+      expect(mealRepository.patchedQuantity, 2);
+      expect(mealRepository.patchedMeasure, isNull);
+      expect(find.byKey(const Key('item-editor-i1')), findsNothing);
+    });
+
+    testWidgets('switching to measure mode and typing persists as {measure}', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: '飯/50g',
+                staple: 1,
+                quantity: 1,
+                baseAmount: 50,
+                measureUnit: 'g',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 1, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SegmentedButton<bool>), findsOneWidget);
+
+      await tester.tap(find.text(loc.dietGramsLabel));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, '80');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('save-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedItemId, 'i1');
+      expect(mealRepository.patchedMeasure, 80);
+      expect(mealRepository.patchedQuantity, isNull);
+    });
+
+    testWidgets('switching to measure mode seeds the amount with baseAmount', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: '飯/50g',
+                staple: 1,
+                quantity: 1,
+                baseAmount: 50,
+                measureUnit: 'g',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 1, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(loc.dietGramsLabel));
+      await tester.pumpAndSettle();
+
+      // Seeded with the item's baseAmount (50g), not 0 — saving right after
+      // the mode toggle, without typing anything, must not send
+      // `measure: 0` (which the backend rejects with a 400).
+      await tester.tap(find.byKey(const Key('save-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedItemId, 'i1');
+      expect(mealRepository.patchedMeasure, 50);
+    });
+
+    testWidgets('an amount of 0 cannot be saved: the save button is disabled and no PATCH is sent', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [_itemJson(id: 'i1', name: '飯/1碗', staple: 4, quantity: 1)],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 4, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, '0');
+      await tester.pump();
+
+      final saveButton = tester.widget<FilledButton>(find.byKey(const Key('save-item-i1')));
+      expect(saveButton.onPressed, isNull);
+
+      await tester.tap(find.byKey(const Key('save-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedItemId, isNull);
+      expect(find.byKey(const Key('item-editor-i1')), findsOneWidget);
+    });
+
+    testWidgets('a manual item edit persists as {portions}', (tester) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [
+              _itemJson(
+                id: 'i1',
+                name: '自製便當',
+                staple: 1,
+                meat: 1,
+                foodItemId: null,
+                source: 'manual',
+              ),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 1, 'meat': 1, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      // No AmountStepper for a manual item; four portion fields instead.
+      expect(find.byKey(const Key('edit-staple-i1')), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('edit-staple-i1')), '3');
+      await tester.tap(find.byKey(const Key('save-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedItemId, 'i1');
+      expect(mealRepository.patchedPortions?.staple, 3);
+      expect(mealRepository.patchedPortions?.meat, 1);
+    });
+
+    testWidgets('a delete-item control deletes the item and Today refreshes without it', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(
+            id: 'm1',
+            meal: 'lunch',
+            time: '2026-07-18T12:30:00.000Z',
+            items: [
+              _itemJson(id: 'i1', name: '飯/1碗', staple: 4),
+              _itemJson(id: 'i2', name: '蛋', meat: 1),
+            ],
+          ),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 4, 'meat': 1, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+
+      // The delete control lives in the expanded editor (not the collapsed
+      // row, to avoid a stray tap target next to the expand affordance) —
+      // expand the item first.
+      await tester.tap(find.byKey(const Key('meal-item-i1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('delete-item-i1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.deletedItemId, 'i1');
+      expect(find.text('飯/1碗'), findsNothing);
+      expect(find.text('蛋'), findsOneWidget);
+    });
+  });
+
+  group('TodayScreen meal time + delete meal', () {
+    testWidgets('the change-time control persists the new time and Today refreshes', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      final newTime = DateTime.utc(2026, 7, 18, 9, 0);
+      await _pumpTodayScreen(
+        tester,
+        controller,
+        pickMealTime: (_, __, ___) async => newTime,
+      );
+
+      await tester.tap(find.byKey(const Key('change-meal-time-m1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedMealId, 'm1');
+      expect(mealRepository.patchedTime, newTime);
+      expect(find.text('09:00'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the time picker (returns null) makes no change', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(
+        tester,
+        controller,
+        pickMealTime: (_, __, ___) async => null,
+      );
+
+      await tester.tap(find.byKey(const Key('change-meal-time-m1')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.patchedMealId, isNull);
+      expect(find.text('12:30'), findsOneWidget);
+    });
+
+    testWidgets('deleting a meal asks for confirmation first; dismissing deletes nothing', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.byKey(const Key('delete-meal-m1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.dietDeleteMealConfirmTitle), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('delete-meal-cancel')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.deletedMealId, isNull);
+      expect(find.text(loc.dietMealLunch), findsOneWidget);
+    });
+
+    testWidgets('confirming deletes the meal and Today refreshes without it', (
+      tester,
+    ) async {
+      final dayLog = DayMealsLog.fromJson({
+        'day': '2026-07-18',
+        'meals': [
+          _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+        ],
+        'totals': {
+          'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+          'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+        },
+      });
+      final mealRepository = FakeMealRepository();
+      final controller = _controllerWith(dayLog: dayLog, mealRepository: mealRepository);
+      await _pumpTodayScreen(tester, controller, onAddToMeal: (_) {});
+
+      await tester.tap(find.byKey(const Key('delete-meal-m1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('delete-meal-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.deletedMealId, 'm1');
+      final loc = lookupAppLocalizations(const Locale('en'));
+      // The lunch meal is gone; only the empty-card fallback remains.
+      expect(find.byKey(const Key('meal-total-lunch')), findsNothing);
+      expect(find.text(loc.dietMealEmptyLabel), findsWidgets);
+    });
+  });
+
+  group('TodayScreen narrow width', () {
+    testWidgets(
+      'a collapsed item row with several non-zero portion pills does not overflow at 320/360dp',
+      (tester) async {
+        final dayLog = DayMealsLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            _mealJson(
+              id: 'm1',
+              meal: 'lunch',
+              time: '2026-07-18T12:30:00.000Z',
+              items: [
+                _itemJson(
+                  id: 'i1',
+                  name: '綜合豐盛便當',
+                  staple: 4,
+                  meat: 3,
+                  fruit: 2,
+                  veg: 1,
+                ),
+              ],
+            ),
+          ],
+          'totals': {
+            'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+            'staple': 4, 'meat': 3, 'fruit': 2, 'veg': 1,
+          },
+        });
+
+        for (final width in [320.0, 360.0]) {
+          await tester.binding.setSurfaceSize(Size(width, 800));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final controller = _controllerWith(dayLog: dayLog);
+          await _pumpTodayScreen(tester, controller);
+
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
   });
 }

@@ -1,11 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 
-Map<String, dynamic> _itemJson({
+Map<String, dynamic> _dictItemJson({
   String id = 'item-1',
   String? name = '飯/1碗',
   double stapleConsumed = 4,
   double meatConsumed = 0,
+  double quantity = 1,
+  double? baseAmount,
+  String? measureUnit,
 }) => {
   'id': id,
   'food_item_id': 'rice-1',
@@ -23,8 +26,9 @@ Map<String, dynamic> _itemJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'quantity': 1,
-  'base_grams': null,
+  'quantity': quantity,
+  'base_amount': baseAmount,
+  'measure_unit': measureUnit,
   'consumed': {
     'carb_g': 60,
     'protein_g': 4,
@@ -39,10 +43,49 @@ Map<String, dynamic> _itemJson({
   },
 };
 
+Map<String, dynamic> _manualItemJson({
+  String id = 'item-2',
+  String? name = '自製便當',
+  double staple = 2,
+  double meat = 1,
+}) => {
+  'id': id,
+  'food_item_id': null,
+  'name': name,
+  'photo_ref': null,
+  'source': 'manual',
+  'unclassified': false,
+  'carb_g': 0,
+  'protein_g': 0,
+  'fat_g': 0,
+  'sugar_g': 0,
+  'fiber_g': 0,
+  'kcal': 0,
+  'staple': staple,
+  'meat': meat,
+  'fruit': 0,
+  'veg': 0,
+  'quantity': 1,
+  'base_amount': null,
+  'measure_unit': null,
+  'consumed': {
+    'carb_g': 0,
+    'protein_g': 0,
+    'fat_g': 0,
+    'sugar_g': 0,
+    'fiber_g': 0,
+    'kcal': 0,
+    'staple': staple,
+    'meat': meat,
+    'fruit': 0,
+    'veg': 0,
+  },
+};
+
 void main() {
-  group('MealItem.fromJson', () {
+  group('MealItem.fromJson — dictionary item', () {
     test('parses the nested consumed object as Portions', () {
-      final item = MealItem.fromJson(_itemJson());
+      final item = MealItem.fromJson(_dictItemJson());
 
       expect(item.id, 'item-1');
       expect(item.name, '飯/1碗');
@@ -53,18 +96,62 @@ void main() {
     });
 
     test('a null name (unnamed dictionary item) parses as null', () {
-      final item = MealItem.fromJson(_itemJson(name: null));
+      final item = MealItem.fromJson(_dictItemJson(name: null));
 
       expect(item.name, isNull);
     });
 
     test('an item consuming only meat parses that category', () {
       final item = MealItem.fromJson(
-        _itemJson(stapleConsumed: 0, meatConsumed: 1),
+        _dictItemJson(stapleConsumed: 0, meatConsumed: 1),
       );
 
       expect(item.consumed.staple, 0);
       expect(item.consumed.meat, 1);
+    });
+
+    test('parses food_item_id, source, quantity — and is not manual', () {
+      final item = MealItem.fromJson(_dictItemJson(quantity: 2));
+
+      expect(item.foodItemId, 'rice-1');
+      expect(item.source, 'dict');
+      expect(item.quantity, 2);
+      expect(item.isManual, isFalse);
+    });
+
+    test('base_amount and measure_unit are null when the item has no base measure', () {
+      final item = MealItem.fromJson(_dictItemJson());
+
+      expect(item.baseAmount, isNull);
+      expect(item.measureUnit, isNull);
+    });
+
+    test('parses base_amount + measure_unit when the item has a base measure', () {
+      final item = MealItem.fromJson(
+        _dictItemJson(baseAmount: 50, measureUnit: 'g'),
+      );
+
+      expect(item.baseAmount, 50);
+      expect(item.measureUnit, 'g');
+    });
+  });
+
+  group('MealItem.fromJson — manual item', () {
+    test('a manual item has source manual, null food_item_id, and is manual', () {
+      final item = MealItem.fromJson(_manualItemJson());
+
+      expect(item.source, 'manual');
+      expect(item.foodItemId, isNull);
+      expect(item.isManual, isTrue);
+    });
+
+    test('a manual item\'s flat per-unit fields are its entered portions', () {
+      final item = MealItem.fromJson(_manualItemJson(staple: 3, meat: 1));
+
+      expect(item.staple, 3);
+      expect(item.meat, 1);
+      expect(item.fruit, 0);
+      expect(item.veg, 0);
     });
   });
 
@@ -74,7 +161,7 @@ void main() {
         'id': 'meal-1',
         'meal': 'lunch',
         'time': '2026-07-18T12:30:00.000Z',
-        'items': [_itemJson()],
+        'items': [_dictItemJson()],
       });
 
       expect(meal.id, 'meal-1');

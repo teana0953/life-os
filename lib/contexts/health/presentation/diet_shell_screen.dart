@@ -229,6 +229,8 @@ class _DietShellScreenState extends State<DietShellScreen> {
                 child: TodayScreen(
                   controller: widget.todayController,
                   signOut: widget.signOut ?? SignOut(widget.authRepository),
+                  idToken: idToken ?? '',
+                  day: _day,
                   onAddToMeal: _openFoodSearch,
                   onAddSnack: _openAddSnack,
                   onAddToSnackGroup: _openFoodSearch,

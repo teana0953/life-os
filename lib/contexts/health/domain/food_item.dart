@@ -15,9 +15,14 @@ class FoodItem {
   final double fruit;
   final double veg;
 
-  /// Gram weight of one dictionary unit; `null` when the unit has no
-  /// defined gram weight (grams entry is unavailable for this item).
-  final double? baseGrams;
+  /// The measure of one dictionary unit (e.g. `50` for `飯/50g`); `null` when
+  /// the item has no defined base measure.
+  final double? baseAmount;
+
+  /// The unit [baseAmount] is expressed in — `'g'` or `'ml'` — or `null`
+  /// when the item has no defined base measure. Kept as a raw string rather
+  /// than an enum: it is only ever a display-label lookup and a passthrough.
+  final String? measureUnit;
 
   const FoodItem({
     required this.id,
@@ -33,7 +38,8 @@ class FoodItem {
     required this.meat,
     required this.fruit,
     required this.veg,
-    required this.baseGrams,
+    required this.baseAmount,
+    required this.measureUnit,
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -51,7 +57,8 @@ class FoodItem {
       meat: (json['meat'] as num).toDouble(),
       fruit: (json['fruit'] as num).toDouble(),
       veg: (json['veg'] as num).toDouble(),
-      baseGrams: (json['base_grams'] as num?)?.toDouble(),
+      baseAmount: (json['base_amount'] as num?)?.toDouble(),
+      measureUnit: json['measure_unit'] as String?,
     );
   }
 }

@@ -406,5 +406,57 @@
   "dietUnnamedItemLabel": "Unnamed item",
   "@dietUnnamedItemLabel": {
     "description": "Fallback title shown on a Today meal item row for a dictionary item that has no name."
+  },
+  "dietMeasureUnitMl": "Milliliters",
+  "@dietMeasureUnitMl": {
+    "description": "Label for the measure segment of the portion/measure toggle when the food's measure unit is millilitres (never a bare \"ml\")."
+  },
+  "dietManualEntryLink": "Not found? Enter manually",
+  "@dietManualEntryLink": {
+    "description": "Link/button on the full-screen food search that opens the manual-entry form for a food not in the dictionary."
+  },
+  "dietManualEntryTitle": "Manual entry",
+  "@dietManualEntryTitle": {
+    "description": "Title of the manual food-entry form."
+  },
+  "dietManualEntryNameLabel": "Name",
+  "@dietManualEntryNameLabel": {
+    "description": "Label/hint for the manual-entry form's food name field."
+  },
+  "dietManualEntryAddButton": "Add",
+  "@dietManualEntryAddButton": {
+    "description": "Label for the manual-entry form's button that adds the entered food to the current-meal tray."
+  },
+  "dietDeleteItemTooltip": "Delete",
+  "@dietDeleteItemTooltip": {
+    "description": "Tooltip/accessible label for a Today meal item row's delete control."
+  },
+  "dietDeleteMealTooltip": "Delete meal",
+  "@dietDeleteMealTooltip": {
+    "description": "Tooltip/accessible label for a Today meal card's delete-meal control."
+  },
+  "dietDeleteMealConfirmTitle": "Delete this meal?",
+  "@dietDeleteMealConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a whole meal."
+  },
+  "dietDeleteMealConfirmMessage": "This removes all of its items.",
+  "@dietDeleteMealConfirmMessage": {
+    "description": "Body text of the confirmation dialog shown before deleting a whole meal."
+  },
+  "dietDeleteMealConfirmButton": "Delete",
+  "@dietDeleteMealConfirmButton": {
+    "description": "Label for the confirm button on the delete-meal confirmation dialog."
+  },
+  "dietChangeTimeTooltip": "Change time",
+  "@dietChangeTimeTooltip": {
+    "description": "Tooltip/accessible label for a Today meal card's change-time control."
+  },
+  "errorDietItemNotFound": "This entry no longer exists.",
+  "@errorDietItemNotFound": {
+    "description": "Shown when editing/deleting a meal or item fails because it no longer exists (or isn't owned by the caller)."
+  },
+  "dietSaveEditButton": "Save",
+  "@dietSaveEditButton": {
+    "description": "Label for the inline item editor's save/commit control on Today."
   }
 }

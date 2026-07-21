@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/application/sign_out.dart';
-import '../domain/food_item.dart';
 import '../domain/portion_preview.dart';
 import '../domain/portions.dart';
 import 'amount_stepper.dart';
@@ -10,43 +9,38 @@ import 'create_meal_controller.dart';
 import 'dictionary_controller.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
+import 'unit_label.dart';
 
-/// Extracts the dictionary-basis unit from an item's name (e.g. `飯/1碗` ->
-/// `碗`, stripping the leading digits), for the tray row's [AmountStepper]
-/// unit label. Falls back to a generic quantity word when the name has no
-/// `/` unit segment.
-String _unitLabelFor(FoodItem item, AppLocalizations loc) {
-  final slash = item.name.indexOf('/');
-  if (slash == -1 || slash == item.name.length - 1) return loc.dietQuantityLabel;
-  final segment = item.name.substring(slash + 1);
-  final digits = RegExp(r'^[0-9.]+').firstMatch(segment);
-  final unit = digits == null ? segment : segment.substring(digits.end);
-  return unit.isEmpty ? loc.dietQuantityLabel : unit;
-}
-
-/// The effective quantity previewed for a tray row: the entered unit
-/// quantity, or (in gram mode) the grams-derived quantity via the item's
-/// base grams — `null` when a gram amount can't yet be converted.
+/// The effective quantity previewed for a dictionary tray row: the entered
+/// unit quantity, or (in measure mode) the measure-derived quantity via the
+/// item's base amount — `null` when a measure amount can't yet be
+/// converted.
 double? _effectiveQuantity(TrayItem trayItem) {
-  if (!trayItem.grams) return trayItem.amount;
-  return quantityFromGrams(trayItem.amount, trayItem.item.baseGrams);
+  if (!trayItem.measureMode) return trayItem.amount;
+  return quantityFromMeasure(trayItem.amount, trayItem.item.baseAmount);
 }
 
-/// A tray row's previewed portions (per-unit × effective quantity), or
-/// `null` when the quantity can't be resolved yet (gram mode with no valid
-/// conversion).
-Portions? _previewFor(TrayItem trayItem) {
-  final quantity = _effectiveQuantity(trayItem);
-  if (quantity == null) return null;
-  return previewPortionsForQuantity(trayItem.item, quantity);
+/// A tray row's previewed portions: a dictionary row's per-unit × effective
+/// quantity (`null` when the quantity can't be resolved yet — measure mode
+/// with no valid conversion), or a manual row's entered portions directly.
+Portions? _previewFor(TrayEntry entry) {
+  switch (entry) {
+    case TrayItem():
+      final quantity = _effectiveQuantity(entry);
+      if (quantity == null) return null;
+      return previewPortionsForQuantity(entry.item, quantity);
+    case ManualTrayItem():
+      return entry.portions;
+  }
 }
 
-/// Sums every tray item's preview (treating an unresolved gram preview as a
-/// zero contribution, rather than excluding the row) into a running total.
-Portions _trayTotal(List<TrayItem> tray) {
+/// Sums every tray entry's preview (treating an unresolved measure preview
+/// as a zero contribution, rather than excluding the row) into a running
+/// total.
+Portions _trayTotal(List<TrayEntry> tray) {
   var staple = 0.0, meat = 0.0, fruit = 0.0, veg = 0.0;
-  for (final trayItem in tray) {
-    final preview = _previewFor(trayItem);
+  for (final entry in tray) {
+    final preview = _previewFor(entry);
     if (preview == null) continue;
     staple += preview.staple;
     meat += preview.meat;
@@ -112,6 +106,16 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     if (success && mounted) Navigator.of(context).pop(true);
   }
 
+  Future<void> _openManualEntry() async {
+    final result = await showDialog<(String, Portions)>(
+      context: context,
+      builder: (_) => const _ManualEntryDialog(),
+    );
+    if (result != null) {
+      widget.createMealController.addManual(result.$1, result.$2);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -129,11 +133,22 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: TextField(
               key: const Key('food-search-field'),
               decoration: InputDecoration(hintText: loc.dietSearchFoodHint),
               onChanged: dictionary.search,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('manual-entry-link'),
+                onPressed: _openManualEntry,
+                child: Text(loc.dietManualEntryLink),
+              ),
             ),
           ),
           Expanded(
@@ -222,7 +237,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 
 /// The current-meal tray shown at the bottom of [FoodSearchScreen]: a
 /// running total pill (sum of every row's preview) and one row per tray
-/// item.
+/// entry (dictionary or manual).
 class _TrayPanel extends StatelessWidget {
   final CreateMealController controller;
   final AppLocalizations loc;
@@ -269,17 +284,21 @@ class _TrayPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: controller.tray.length,
               itemBuilder: (context, index) {
-                final trayItem = controller.tray[index];
-                final preview = _previewFor(trayItem) ?? const Portions(staple: 0, meat: 0, fruit: 0, veg: 0);
+                final entry = controller.tray[index];
+                final preview = _previewFor(entry) ?? const Portions(staple: 0, meat: 0, fruit: 0, veg: 0);
+                final name = switch (entry) {
+                  TrayItem() => entry.item.name,
+                  ManualTrayItem() => entry.name,
+                };
                 return Padding(
                   key: Key('tray-item-$index'),
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   // Two rows rather than one wide Row: the name + preview
-                  // pills + close button on top, and the full AmountStepper
-                  // (−/field/+/unit/portion-gram toggle) below — a single
-                  // row of all of it overflows on narrow phones (~360dp),
-                  // especially for gram-enabled items with the extra
-                  // SegmentedButton.
+                  // pills + close button on top, and (for a dictionary row)
+                  // the full AmountStepper (−/field/+/unit/portion-measure
+                  // toggle) below — a single row of all of it overflows on
+                  // narrow phones (~360dp), especially for measure-enabled
+                  // items with the extra SegmentedButton.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -287,7 +306,7 @@ class _TrayPanel extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              trayItem.item.name,
+                              name,
                               style: theme.textTheme.bodyMedium,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -304,19 +323,21 @@ class _TrayPanel extends StatelessWidget {
                           IconButton(
                             tooltip: loc.dietRemoveItemTooltip,
                             icon: const Icon(Icons.close),
-                            onPressed: () => controller.remove(trayItem),
+                            onPressed: () => controller.remove(entry),
                           ),
                         ],
                       ),
-                      AmountStepper(
-                        value: trayItem.amount,
-                        onChanged: (value) => controller.setAmount(trayItem, value),
-                        unitLabel: _unitLabelFor(trayItem.item, loc),
-                        allowGrams: trayItem.item.baseGrams != null,
-                        grams: trayItem.grams,
-                        onModeChanged: (grams) =>
-                            controller.toggleGrams(trayItem, grams),
-                      ),
+                      if (entry is TrayItem)
+                        AmountStepper(
+                          value: entry.amount,
+                          onChanged: (value) => controller.setAmount(entry, value),
+                          unitLabel: unitLabelForName(entry.item.name, loc),
+                          allowMeasure: entry.item.baseAmount != null && entry.item.measureUnit != null,
+                          measureMode: entry.measureMode,
+                          measureLabel: measureLabelFor(entry.item.measureUnit, loc),
+                          onModeChanged: (measureMode) =>
+                              controller.toggleMeasure(entry, measureMode),
+                        ),
                     ],
                   ),
                 );
@@ -325,6 +346,107 @@ class _TrayPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Manual food-entry dialog: a name field + the four category portion
+/// inputs (staple/meat/fruit/veg), following the numeric empty-zero
+/// convention. Pops `(name, Portions)` on submit, `null` on cancel.
+class _ManualEntryDialog extends StatefulWidget {
+  const _ManualEntryDialog();
+
+  @override
+  State<_ManualEntryDialog> createState() => _ManualEntryDialogState();
+}
+
+class _ManualEntryDialogState extends State<_ManualEntryDialog> {
+  final _name = TextEditingController();
+  final _staple = TextEditingController();
+  final _meat = TextEditingController();
+  final _fruit = TextEditingController();
+  final _veg = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _staple.dispose();
+    _meat.dispose();
+    _fruit.dispose();
+    _veg.dispose();
+    super.dispose();
+  }
+
+  double _parse(TextEditingController controller) => double.tryParse(controller.text) ?? 0;
+
+  void _submit() {
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop((
+      name,
+      Portions(
+        staple: _parse(_staple),
+        meat: _parse(_meat),
+        fruit: _parse(_fruit),
+        veg: _parse(_veg),
+      ),
+    ));
+  }
+
+  Widget _portionField(Key key, TextEditingController controller, String label) {
+    return SizedBox(
+      width: 80,
+      child: TextField(
+        key: key,
+        controller: controller,
+        textAlign: TextAlign.center,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, hintText: '0'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    return AlertDialog(
+      title: Text(loc.dietManualEntryTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('manual-entry-name-field'),
+              controller: _name,
+              decoration: InputDecoration(labelText: loc.dietManualEntryNameLabel),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _portionField(const Key('manual-entry-staple-field'), _staple, loc.dietCategoryStaple),
+                _portionField(const Key('manual-entry-meat-field'), _meat, loc.dietCategoryMeat),
+                _portionField(const Key('manual-entry-fruit-field'), _fruit, loc.dietCategoryFruit),
+                _portionField(const Key('manual-entry-veg-field'), _veg, loc.dietCategoryVeg),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+        ),
+        FilledButton(
+          key: const Key('manual-entry-add-button'),
+          onPressed: _submit,
+          child: Text(loc.dietManualEntryAddButton),
+        ),
+      ],
     );
   }
 }

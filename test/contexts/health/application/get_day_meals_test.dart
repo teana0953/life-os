@@ -3,6 +3,7 @@ import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 
 class FakeMealRepository implements MealRepository {
   DayMealsLog? logToReturn;
@@ -29,6 +30,32 @@ class FakeMealRepository implements MealRepository {
 
   @override
   Future<List<String>> loggedDays(String idToken, String month) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {
     throw UnimplementedError();
   }
 }

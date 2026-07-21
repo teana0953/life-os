@@ -13,12 +13,12 @@ Portions previewPortionsForQuantity(FoodItem item, double quantity) {
   );
 }
 
-/// Converts a gram amount to a quantity via the item's base grams. Returns
-/// `null` when the item has no base grams, or when either input is not a
-/// positive number — mirrors the backend's `gramsToQuantity`/
-/// `NullBaseGramsError` guards.
-double? quantityFromGrams(double grams, double? baseGrams) {
-  if (baseGrams == null || baseGrams <= 0) return null;
-  if (grams <= 0) return null;
-  return grams / baseGrams;
+/// Converts a measure amount (in the item's `measureUnit`) to a quantity via
+/// the item's base amount. Returns `null` when the item has no base amount,
+/// or when either input is not a positive number — mirrors the backend's
+/// `measureToQuantity`/`NullBaseMeasureError` guards.
+double? quantityFromMeasure(double measure, double? baseAmount) {
+  if (baseAmount == null || baseAmount <= 0) return null;
+  if (measure <= 0) return null;
+  return measure / baseAmount;
 }

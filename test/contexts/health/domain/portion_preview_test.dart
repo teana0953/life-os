@@ -16,7 +16,8 @@ FoodItem _riceBowl() => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': null,
+  'base_amount': null,
+  'measure_unit': null,
 });
 
 FoodItem _rice50g() => FoodItem.fromJson({
@@ -33,7 +34,8 @@ FoodItem _rice50g() => FoodItem.fromJson({
   'meat': 0,
   'fruit': 0,
   'veg': 0,
-  'base_grams': 50,
+  'base_amount': 50,
+  'measure_unit': 'g',
 });
 
 void main() {
@@ -46,24 +48,24 @@ void main() {
     });
   });
 
-  group('quantityFromGrams', () {
-    test('converts grams to quantity via base grams — 33g of 飯/50g -> ~0.66', () {
-      final quantity = quantityFromGrams(33, _rice50g().baseGrams);
+  group('quantityFromMeasure', () {
+    test('converts a measure amount to quantity via base amount — 33g of 飯/50g -> ~0.66', () {
+      final quantity = quantityFromMeasure(33, _rice50g().baseAmount);
 
       expect(quantity, closeTo(0.66, 0.001));
     });
 
-    test('returns null when base grams is null', () {
-      expect(quantityFromGrams(33, null), isNull);
+    test('returns null when base amount is null', () {
+      expect(quantityFromMeasure(33, null), isNull);
     });
 
-    test('returns null for non-positive grams', () {
-      expect(quantityFromGrams(0, 50), isNull);
-      expect(quantityFromGrams(-5, 50), isNull);
+    test('returns null for non-positive measure', () {
+      expect(quantityFromMeasure(0, 50), isNull);
+      expect(quantityFromMeasure(-5, 50), isNull);
     });
 
-    test('returns null for non-positive base grams', () {
-      expect(quantityFromGrams(10, 0), isNull);
+    test('returns null for non-positive base amount', () {
+      expect(quantityFromMeasure(10, 0), isNull);
     });
   });
 }
