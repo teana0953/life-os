@@ -88,6 +88,12 @@ class _Pill extends StatelessWidget {
       child: Text(
         '$label ${_formatPortion(value)}',
         style: theme.textTheme.bodyMedium,
+        // Keep the label on one line so a width-starved pill stays a capsule
+        // instead of wrapping its text and rounding into a blob. The Wrap
+        // parent flows a too-wide pill onto the next line rather than
+        // compressing it.
+        maxLines: 1,
+        softWrap: false,
       ),
     );
   }

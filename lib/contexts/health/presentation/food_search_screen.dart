@@ -293,12 +293,12 @@ class _TrayPanel extends StatelessWidget {
                 return Padding(
                   key: Key('tray-item-$index'),
                   padding: const EdgeInsets.symmetric(vertical: 6),
-                  // Two rows rather than one wide Row: the name + preview
-                  // pills + close button on top, and (for a dictionary row)
-                  // the full AmountStepper (−/field/+/unit/portion-measure
-                  // toggle) below — a single row of all of it overflows on
-                  // narrow phones (~360dp), especially for measure-enabled
-                  // items with the extra SegmentedButton.
+                  // Stacked rows, never one wide Row: name + close on top, the
+                  // preview pills on their own full-width line, then (for a
+                  // dictionary row) the full AmountStepper below. Squeezing the
+                  // pills into a Flexible slot beside the name compresses a
+                  // pill below its intrinsic width and wraps its label into a
+                  // rounded blob on narrow phones — the pills need a full line.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -311,15 +311,6 @@ class _TrayPanel extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: PortionPills(
-                              staple: preview.staple,
-                              meat: preview.meat,
-                              fruit: preview.fruit,
-                              veg: preview.veg,
-                            ),
-                          ),
                           IconButton(
                             tooltip: loc.dietRemoveItemTooltip,
                             icon: const Icon(Icons.close),
@@ -327,6 +318,16 @@ class _TrayPanel extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (preview.staple != 0 ||
+                          preview.meat != 0 ||
+                          preview.fruit != 0 ||
+                          preview.veg != 0)
+                        PortionPills(
+                          staple: preview.staple,
+                          meat: preview.meat,
+                          fruit: preview.fruit,
+                          veg: preview.veg,
+                        ),
                       if (entry is TrayItem)
                         AmountStepper(
                           value: entry.amount,
