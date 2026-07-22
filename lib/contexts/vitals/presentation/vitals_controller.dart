@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
 
 import '../application/get_vitals_day.dart';
 import '../application/save_vitals_day.dart';
@@ -20,7 +21,25 @@ class VitalsController extends ChangeNotifier {
   final GetVitalsDay _getDay;
   final SaveVitalsDay _saveDay;
 
-  VitalsController(this._getDay, this._saveDay);
+  /// Injectable clock used to default a newly added reading's time to "now".
+  /// Defaults to [TimeOfDay.now]; tests pin it so "defaults to now" is
+  /// deterministic.
+  final TimeOfDay Function() _clock;
+
+  VitalsController(
+    this._getDay,
+    this._saveDay, {
+    TimeOfDay Function() clock = TimeOfDay.now,
+  }) : _clock = clock;
+
+  /// The current time as a strict ASCII "HH:mm" — manual zero-pad (NOT
+  /// `formatTimeOfDay`, which can localize digits/separators) so the wire
+  /// format the backend requires stays exact.
+  String _nowHHmm() {
+    final t = _clock();
+    return '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
+  }
 
   VitalsStatus status = VitalsStatus.loading;
   VitalsError? error;
@@ -81,7 +100,7 @@ class VitalsController extends ChangeNotifier {
   void addBpReading() {
     bpReadings = [
       ...bpReadings,
-      const BpReading(systolic: 0, diastolic: 0, pulse: null),
+      BpReading(systolic: 0, diastolic: 0, pulse: null, time: _nowHHmm()),
     ];
     notifyListeners();
   }
@@ -99,7 +118,7 @@ class VitalsController extends ChangeNotifier {
   void addGlucoseReading() {
     glucoseReadings = [
       ...glucoseReadings,
-      const GlucoseReading(label: '', value: 0),
+      GlucoseReading(label: '', value: 0, time: _nowHHmm()),
     ];
     notifyListeners();
   }
@@ -117,7 +136,7 @@ class VitalsController extends ChangeNotifier {
   void addSpo2Reading() {
     spo2Readings = [
       ...spo2Readings,
-      const Spo2Reading(spo2: 0, pulse: null),
+      Spo2Reading(spo2: 0, pulse: null, time: _nowHHmm()),
     ];
     notifyListeners();
   }
@@ -148,10 +167,18 @@ class VitalsController extends ChangeNotifier {
             day: day,
             weightKg: weightKg,
             bodyFatPct: bodyFatPct,
-            bpReadings: bpReadings.where((r) => !_isEmptyBp(r)).toList(),
-            glucoseReadings:
-                glucoseReadings.where((r) => !_isEmptyGlucose(r)).toList(),
-            spo2Readings: spo2Readings.where((r) => !_isEmptySpo2(r)).toList(),
+            bpReadings: bpReadings
+                .where((r) => !_isEmptyBp(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
+            glucoseReadings: glucoseReadings
+                .where((r) => !_isEmptyGlucose(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
+            spo2Readings: spo2Readings
+                .where((r) => !_isEmptySpo2(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
           ),
         ),
       );

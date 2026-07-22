@@ -157,6 +157,7 @@
   "vitalsAddReading": "加一筆",
   "vitalsRemoveReading": "移除",
   "vitalsSaveButton": "儲存",
+  "vitalsTimeLabel": "時間",
   "vitalsUnsavedChanges": "尚未儲存",
   "vitalsSaveFailed": "儲存失敗,請再試一次",
   "errorVitalsLoadFailed": "無法載入數值資料,請再試一次。",

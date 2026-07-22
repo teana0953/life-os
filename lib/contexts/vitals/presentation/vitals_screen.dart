@@ -60,6 +60,67 @@ class _VitalsScreenState extends State<VitalsScreen> {
     }
   }
 
+  /// Opens the Material time picker seeded from a reading's stored "HH:mm"
+  /// (parsed with a guard — see [_parseTime]) and, on a pick, writes the
+  /// manually zero-padded "HH:mm" back through the existing per-list update.
+  Future<void> _editBpTime(int index) async {
+    final reading = widget.controller.bpReadings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateBpReading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
+  Future<void> _editGlucoseTime(int index) async {
+    final reading = widget.controller.glucoseReadings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateGlucoseReading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
+  Future<void> _editSpo2Time(int index) async {
+    final reading = widget.controller.spo2Readings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateSpo2Reading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
+  /// Builds the shared, themed time control for a reading row. Placed
+  /// per-list inside each `rowBuilder` (see below) so it sits where it doesn't
+  /// crowd the fields — e.g. on BP's second/pulse line.
+  Widget _timeChip({
+    required String sectionId,
+    required int index,
+    required String time,
+    required bool busy,
+    required void Function(int index) onEdit,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    return _TimeChip(
+      chipKey: Key('vitals-$sectionId-time-$index'),
+      time: time,
+      tooltip: loc.vitalsTimeLabel,
+      onPressed: busy ? null : () => onEdit(index),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -210,6 +271,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
     // Systolic/diastolic share the first line and pulse sits on the second so
     // three numeric fields (plus the mmHg/bpm units) don't overflow a narrow
     // phone row. mmHg lives in the section title; pulse carries a `bpm` suffix.
+    // The time control rides the pulse line's trailing space so it never
+    // squeezes the widest (first) field line.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -259,7 +322,13 @@ class _VitalsScreenState extends State<VitalsScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Spacer(),
+            _timeChip(
+              sectionId: 'bp',
+              index: index,
+              time: reading.time,
+              busy: busy,
+              onEdit: _editBpTime,
+            ),
           ],
         ),
       ],
@@ -331,6 +400,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       reading.copyWith(label: loc.vitalsGlucoseAfterMeal),
                     ),
             ),
+            // Rides the quick-pick line; the surrounding `Wrap` lets it drop to
+            // its own line rather than overflow on a narrow phone.
+            _timeChip(
+              sectionId: 'glucose',
+              index: index,
+              time: reading.time,
+              busy: busy,
+              onEdit: _editGlucoseTime,
+            ),
           ],
         ),
       ],
@@ -345,32 +423,50 @@ class _VitalsScreenState extends State<VitalsScreen> {
   ) {
     final loc = AppLocalizations.of(context)!;
     final reading = controller.spo2Readings[index];
-    return Row(
+    // SpO2/pulse fill the first line; the time control sits on its own second
+    // line (both fields are `Expanded`, so an inline chip would squeeze them).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-spo2-value-$index'),
-            label: loc.vitalsSpo2Label,
-            text: reading.spo2 == 0 ? '' : '${reading.spo2}',
-            enabled: !busy,
-            onChanged: (v) => controller.updateSpo2Reading(
-              index,
-              reading.copyWith(spo2: num.tryParse(v) ?? 0),
+        Row(
+          children: [
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-spo2-value-$index'),
+                label: loc.vitalsSpo2Label,
+                text: reading.spo2 == 0 ? '' : '${reading.spo2}',
+                enabled: !busy,
+                onChanged: (v) => controller.updateSpo2Reading(
+                  index,
+                  reading.copyWith(spo2: num.tryParse(v) ?? 0),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-spo2-pulse-$index'),
+                label: loc.vitalsPulseLabel,
+                text: reading.pulse == null ? '' : '${reading.pulse}',
+                enabled: !busy,
+                suffixText: loc.vitalsPulseUnit,
+                onChanged: (v) => controller.updateSpo2Reading(
+                  index,
+                  reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-spo2-pulse-$index'),
-            label: loc.vitalsPulseLabel,
-            text: reading.pulse == null ? '' : '${reading.pulse}',
-            enabled: !busy,
-            suffixText: loc.vitalsPulseUnit,
-            onChanged: (v) => controller.updateSpo2Reading(
-              index,
-              reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
-            ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _timeChip(
+            sectionId: 'spo2',
+            index: index,
+            time: reading.time,
+            busy: busy,
+            onEdit: _editSpo2Time,
           ),
         ),
       ],
@@ -418,6 +514,10 @@ class _ReadingListSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // The per-row time control now lives inside `rowBuilder`
+                  // (placed per-list so it doesn't tax field width — e.g. on
+                  // BP's second/pulse line); only the remove control stays in
+                  // this uniform trailing slot.
                   Expanded(child: rowBuilder(index)),
                   IconButton(
                     key: Key('vitals-$sectionId-remove-$index'),
@@ -645,9 +745,90 @@ class _QuickPick extends StatelessWidget {
   }
 }
 
+/// A compact per-row time control showing a reading's "HH:mm": a themed pastel
+/// pill (schedule icon + time) matching the app's design language, with a tap
+/// ripple as its affordance. Tapping opens the Material time picker (via
+/// [onPressed]). Colors derive from [Theme]. An empty (pre-time) reading shows
+/// a `--:--` placeholder rather than an empty label.
+class _TimeChip extends StatelessWidget {
+  final Key chipKey;
+  final String time;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _TimeChip({
+    required this.chipKey,
+    required this.time,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: scheme.secondary.withValues(alpha: 0.18),
+        shape: StadiumBorder(
+          side: BorderSide(color: scheme.outline, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: chipKey,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  time.isEmpty ? '--:--' : time,
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Parses a field's text to its numeric value for external-change detection:
 /// empty (or blank) is `null`, otherwise `num.tryParse`. Two strings that parse
 /// equal (e.g. the raw "72." and the parsed echo "72.0") are treated as the
 /// same value, so a keystroke's own rebuild never re-seeds the field.
 num? _parseNum(String text) =>
     text.trim().isEmpty ? null : num.tryParse(text);
+
+/// Parses a stored "HH:mm" to a [TimeOfDay], GUARDING against an empty or
+/// malformed value (a pre-time reading has `time == ''`) — falls back to the
+/// current time instead of crashing.
+TimeOfDay _parseTime(String hhmm) {
+  final parts = hhmm.split(':');
+  if (parts.length == 2) {
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h != null && m != null && h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return TimeOfDay(hour: h, minute: m);
+    }
+  }
+  return TimeOfDay.now();
+}
+
+/// Formats a [TimeOfDay] as a strict ASCII "HH:mm" — manual zero-pad (NOT
+/// `formatTimeOfDay`, which can localize digits/separators) so the stored/wire
+/// format the backend requires stays exact.
+String _zeroPad(TimeOfDay t) =>
+    '${t.hour.toString().padLeft(2, '0')}:'
+    '${t.minute.toString().padLeft(2, '0')}';

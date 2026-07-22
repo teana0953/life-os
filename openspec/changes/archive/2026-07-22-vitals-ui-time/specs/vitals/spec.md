@@ -1,15 +1,4 @@
-# vitals Specification
-
-## Purpose
-TBD - created by archiving change vitals-ui. Update Purpose after archive.
-## Requirements
-### Requirement: Vitals tab in the daily-log shell
-
-The daily-log shell SHALL offer a vitals tab in its bottom navigation alongside the Today, Target, Water, and Bowel tabs, and selecting it SHALL show the vitals screen for the shell's currently viewed day. The vitals tab SHALL follow the shell's day navigation, so changing the viewed day updates the vitals screen too.
-
-#### Scenario: The vitals tab is reachable from the daily-log shell
-- **WHEN** the user opens the daily-log shell and taps the vitals destination in the bottom navigation
-- **THEN** the vitals screen is shown for the shell's currently viewed day, and the Today, Target, Water, and Bowel tabs remain reachable
+## MODIFIED Requirements
 
 ### Requirement: Record the day's vitals
 
@@ -38,4 +27,3 @@ The vitals screen SHALL let the user record, for the viewed day, their weight an
 #### Scenario: A save failure is surfaced
 - **WHEN** saving the day's vitals fails
 - **THEN** the user is shown a failure message and the entered values are still present
-
