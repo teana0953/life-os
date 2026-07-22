@@ -365,18 +365,34 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
           children: [
             Text(loc.exerciseActivityLabel, style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
-            _ActivityGroup(
-              title: loc.exerciseCategoryAerobic,
-              activities: aerobic,
-              selectedId: _activityId,
-              onSelected: (id) => setState(() => _activityId = id),
-            ),
-            const SizedBox(height: 8),
-            _ActivityGroup(
-              title: loc.exerciseCategoryAnaerobic,
-              activities: anaerobic,
-              selectedId: _activityId,
-              onSelected: (id) => setState(() => _activityId = id),
+            // Bound the activity picker's height with its own scroll so the
+            // duration + note fields below stay visible above the on-screen
+            // keyboard on phones. Without this, the wrapped chips take the whole
+            // dialog height and push the inputs below the fold / behind the
+            // keyboard (the fields "disappear" when tapped).
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ActivityGroup(
+                      title: loc.exerciseCategoryAerobic,
+                      activities: aerobic,
+                      selectedId: _activityId,
+                      onSelected: (id) => setState(() => _activityId = id),
+                    ),
+                    const SizedBox(height: 8),
+                    _ActivityGroup(
+                      title: loc.exerciseCategoryAnaerobic,
+                      activities: anaerobic,
+                      selectedId: _activityId,
+                      onSelected: (id) => setState(() => _activityId = id),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             NumericAmountField(
