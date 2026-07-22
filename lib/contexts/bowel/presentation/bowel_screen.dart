@@ -88,6 +88,7 @@ class _BowelScreenState extends State<BowelScreen> {
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
+            appBar: AppBar(title: Text(loc.dietTabBowel)),
             body: Center(
               child: Text(
                 loc.errorBowelLoadFailed,
@@ -98,6 +99,7 @@ class _BowelScreenState extends State<BowelScreen> {
         }
 
         return Scaffold(
+          appBar: AppBar(title: Text(loc.dietTabBowel)),
           body: SafeArea(
             child: Column(
               children: [

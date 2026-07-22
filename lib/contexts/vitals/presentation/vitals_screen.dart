@@ -137,6 +137,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
+            appBar: AppBar(title: Text(loc.dietTabVitals)),
             body: Center(
               child: Text(
                 loc.errorVitalsLoadFailed,
@@ -147,6 +148,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
         }
 
         return Scaffold(
+          appBar: AppBar(title: Text(loc.dietTabVitals)),
           body: SafeArea(
             child: Column(
               children: [

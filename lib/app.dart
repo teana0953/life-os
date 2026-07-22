@@ -7,6 +7,7 @@ import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/bowel/presentation/bowel_controller.dart';
+import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -68,6 +69,7 @@ class App extends StatefulWidget {
   final WaterController waterController;
   final BowelController bowelController;
   final VitalsController vitalsController;
+  final ExerciseController exerciseController;
   final PwaUpdateController pwaUpdateController;
 
   const App({
@@ -87,6 +89,7 @@ class App extends StatefulWidget {
     required this.waterController,
     required this.bowelController,
     required this.vitalsController,
+    required this.exerciseController,
     required this.pwaUpdateController,
   });
 
@@ -181,6 +184,7 @@ class _AppState extends State<App> {
                   waterController: widget.waterController,
                   bowelController: widget.bowelController,
                   vitalsController: widget.vitalsController,
+                  exerciseController: widget.exerciseController,
                 );
               }
               return LoginScreen(
@@ -210,6 +214,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final WaterController waterController;
   final BowelController bowelController;
   final VitalsController vitalsController;
+  final ExerciseController exerciseController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -225,6 +230,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.waterController,
     required this.bowelController,
     required this.vitalsController,
+    required this.exerciseController,
   });
 
   @override
@@ -259,6 +265,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       waterController: widget.waterController,
       bowelController: widget.bowelController,
       vitalsController: widget.vitalsController,
+      exerciseController: widget.exerciseController,
     );
   }
 }

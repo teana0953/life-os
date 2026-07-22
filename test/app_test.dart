@@ -50,6 +50,13 @@ import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
+import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/get_exercise_day.dart';
+import 'package:life_os/contexts/exercise/application/list_exercise_activities.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
+import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -218,6 +225,27 @@ class _FakeVitalsRepository implements VitalsRepository {
   Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
 }
 
+class _FakeExerciseRepository implements ExerciseRepository {
+  @override
+  Future<List<ExerciseActivity>> listActivities(String idToken) async => const [];
+
+  @override
+  Future<ExerciseDay> getDay(String idToken, String day) async =>
+      ExerciseDay(day: day, entries: const [], totalMinutes: 0);
+
+  @override
+  Future<ExerciseEntry> addEntry(
+    String idToken, {
+    required String day,
+    required String activityId,
+    required int durationMinutes,
+    required String note,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> deleteEntry(String idToken, String entryId) async => true;
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -229,6 +257,7 @@ class _FakeVitalsRepository implements VitalsRepository {
   WaterController water,
   BowelController bowel,
   VitalsController vitals,
+  ExerciseController exercise,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -236,6 +265,7 @@ class _FakeVitalsRepository implements VitalsRepository {
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
   final vitalsRepository = _FakeVitalsRepository();
+  final exerciseRepository = _FakeExerciseRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -269,6 +299,12 @@ class _FakeVitalsRepository implements VitalsRepository {
     vitals: VitalsController(
       GetVitalsDay(vitalsRepository),
       SaveVitalsDay(vitalsRepository),
+    ),
+    exercise: ExerciseController(
+      ListExerciseActivities(exerciseRepository),
+      GetExerciseDay(exerciseRepository),
+      AddExerciseEntry(exerciseRepository),
+      DeleteExerciseEntry(exerciseRepository),
     ),
   );
 }
@@ -396,6 +432,7 @@ Future<LocaleController> pumpApp(
       waterController: health.water,
       bowelController: health.bowel,
       vitalsController: health.vitals,
+      exerciseController: health.exercise,
       // Not started (no timer): on the VM the stub reports no update, and
       // these tests don't exercise the update banner.
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),

@@ -683,6 +683,92 @@
   "@errorVitalsLoadFailed": {
     "description": "Shown on the vitals screen when loading the day's record fails (not an auth failure)."
   },
+  "dietTabMore": "More",
+  "@dietTabMore": {
+    "description": "Label for the More (overflow) destination in the daily-log shell's bottom navigation, alongside Today, Target, and Water; it opens a menu of the lower-frequency trackers."
+  },
+  "dietMoreTitle": "More trackers",
+  "@dietMoreTitle": {
+    "description": "Heading shown above the list of overflow tracker tiles on the daily-log shell's More menu."
+  },
+  "dietTabExercise": "Exercise",
+  "@dietTabExercise": {
+    "description": "Label for the Exercise tracker tile in the daily-log shell's More menu, and the base name of the exercise tracker."
+  },
+  "exerciseTitle": "Today's exercise",
+  "@exerciseTitle": {
+    "description": "Heading on the exercise screen, above the entry list, when the viewed day is today."
+  },
+  "exerciseHistoryTitle": "Exercise log",
+  "@exerciseHistoryTitle": {
+    "description": "Heading on the exercise screen, above the entry list, when viewing a past day."
+  },
+  "exerciseTotalMinutes": "{minutes} min total",
+  "@exerciseTotalMinutes": {
+    "description": "The day's total exercise duration shown at the top of the exercise screen, e.g. '50 min total'.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEntryDuration": "{minutes} min",
+  "@exerciseEntryDuration": {
+    "description": "A single exercise entry's duration in whole minutes, shown on its row, e.g. '30 min'.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEmptyLabel": "No exercise logged yet",
+  "@exerciseEmptyLabel": {
+    "description": "Shown on the exercise screen for a day that has no entries yet."
+  },
+  "exerciseAddButton": "Log exercise",
+  "@exerciseAddButton": {
+    "description": "Label for the control on the exercise screen that opens the add-entry dialog."
+  },
+  "exerciseAddDialogTitle": "Log exercise",
+  "@exerciseAddDialogTitle": {
+    "description": "Title of the dialog for adding an exercise entry (choose an activity, enter minutes, optional note)."
+  },
+  "exerciseActivityLabel": "Activity",
+  "@exerciseActivityLabel": {
+    "description": "Caption above the activity picker in the add-exercise dialog."
+  },
+  "exerciseDurationLabel": "Minutes",
+  "@exerciseDurationLabel": {
+    "description": "Label for the whole-minutes duration field in the add-exercise dialog (empty means zero, via the numeric empty-zero convention)."
+  },
+  "exerciseNoteLabel": "Note",
+  "@exerciseNoteLabel": {
+    "description": "Label/hint for the optional free-text note field in the add-exercise dialog."
+  },
+  "exerciseCategoryAerobic": "Aerobic",
+  "@exerciseCategoryAerobic": {
+    "description": "Group heading for aerobic activities in the add-exercise dialog's activity picker."
+  },
+  "exerciseCategoryAnaerobic": "Anaerobic",
+  "@exerciseCategoryAnaerobic": {
+    "description": "Group heading for anaerobic activities in the add-exercise dialog's activity picker."
+  },
+  "exerciseAddConfirmButton": "Add",
+  "@exerciseAddConfirmButton": {
+    "description": "Label for the confirm button in the add-exercise dialog that appends the entry."
+  },
+  "exerciseRemoveEntry": "Remove",
+  "@exerciseRemoveEntry": {
+    "description": "Tooltip/accessible label for the control that removes an exercise entry from the day's list."
+  },
+  "exerciseSaveFailed": "Couldn't save — try again",
+  "@exerciseSaveFailed": {
+    "description": "Transient SnackBar shown on the exercise screen when appending or removing an entry fails (not an auth failure)."
+  },
+  "errorExerciseLoadFailed": "Unable to load your exercise data. Please try again.",
+  "@errorExerciseLoadFailed": {
+    "description": "Shown on the exercise screen when loading the day's entries fails (not an auth failure)."
+  },
   "updateAvailableTitle": "A new version is available",
   "@updateAvailableTitle": {
     "description": "Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload."

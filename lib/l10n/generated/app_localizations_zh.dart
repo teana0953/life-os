@@ -515,6 +515,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
 
   @override
+  String get dietTabMore => '更多';
+
+  @override
+  String get dietMoreTitle => '更多記錄';
+
+  @override
+  String get dietTabExercise => '運動';
+
+  @override
+  String get exerciseTitle => '今日運動';
+
+  @override
+  String get exerciseHistoryTitle => '運動記錄';
+
+  @override
+  String exerciseTotalMinutes(int minutes) {
+    return '共 $minutes 分鐘';
+  }
+
+  @override
+  String exerciseEntryDuration(int minutes) {
+    return '$minutes 分鐘';
+  }
+
+  @override
+  String get exerciseEmptyLabel => '尚未記錄運動';
+
+  @override
+  String get exerciseAddButton => '記錄運動';
+
+  @override
+  String get exerciseAddDialogTitle => '記錄運動';
+
+  @override
+  String get exerciseActivityLabel => '項目';
+
+  @override
+  String get exerciseDurationLabel => '分鐘';
+
+  @override
+  String get exerciseNoteLabel => '備註';
+
+  @override
+  String get exerciseCategoryAerobic => '有氧';
+
+  @override
+  String get exerciseCategoryAnaerobic => '無氧';
+
+  @override
+  String get exerciseAddConfirmButton => '新增';
+
+  @override
+  String get exerciseRemoveEntry => '移除';
+
+  @override
+  String get exerciseSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';
+
+  @override
   String get updateAvailableTitle => '有新版本可用';
 
   @override
@@ -1033,6 +1094,67 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
+
+  @override
+  String get dietTabMore => '更多';
+
+  @override
+  String get dietMoreTitle => '更多記錄';
+
+  @override
+  String get dietTabExercise => '運動';
+
+  @override
+  String get exerciseTitle => '今日運動';
+
+  @override
+  String get exerciseHistoryTitle => '運動記錄';
+
+  @override
+  String exerciseTotalMinutes(int minutes) {
+    return '共 $minutes 分鐘';
+  }
+
+  @override
+  String exerciseEntryDuration(int minutes) {
+    return '$minutes 分鐘';
+  }
+
+  @override
+  String get exerciseEmptyLabel => '尚未記錄運動';
+
+  @override
+  String get exerciseAddButton => '記錄運動';
+
+  @override
+  String get exerciseAddDialogTitle => '記錄運動';
+
+  @override
+  String get exerciseActivityLabel => '項目';
+
+  @override
+  String get exerciseDurationLabel => '分鐘';
+
+  @override
+  String get exerciseNoteLabel => '備註';
+
+  @override
+  String get exerciseCategoryAerobic => '有氧';
+
+  @override
+  String get exerciseCategoryAnaerobic => '無氧';
+
+  @override
+  String get exerciseAddConfirmButton => '新增';
+
+  @override
+  String get exerciseRemoveEntry => '移除';
+
+  @override
+  String get exerciseSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';
 
   @override
   String get updateAvailableTitle => '有新版本可用';

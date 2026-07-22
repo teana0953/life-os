@@ -44,6 +44,13 @@ import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
+import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/get_exercise_day.dart';
+import 'package:life_os/contexts/exercise/application/list_exercise_activities.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
+import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
@@ -244,6 +251,27 @@ class _FakeVitalsRepository implements VitalsRepository {
   Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
 }
 
+class _FakeExerciseRepository implements ExerciseRepository {
+  @override
+  Future<List<ExerciseActivity>> listActivities(String idToken) async => const [];
+
+  @override
+  Future<ExerciseDay> getDay(String idToken, String day) async =>
+      ExerciseDay(day: day, entries: const [], totalMinutes: 0);
+
+  @override
+  Future<ExerciseEntry> addEntry(
+    String idToken, {
+    required String day,
+    required String activityId,
+    required int durationMinutes,
+    required String note,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> deleteEntry(String idToken, String entryId) async => true;
+}
+
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -265,6 +293,7 @@ Future<void> pumpHomeScreen(
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
   final vitalsRepository = _FakeVitalsRepository();
+  final exerciseRepository = _FakeExerciseRepository();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -309,6 +338,12 @@ Future<void> pumpHomeScreen(
         vitalsController: VitalsController(
           GetVitalsDay(vitalsRepository),
           SaveVitalsDay(vitalsRepository),
+        ),
+        exerciseController: ExerciseController(
+          ListExerciseActivities(exerciseRepository),
+          GetExerciseDay(exerciseRepository),
+          AddExerciseEntry(exerciseRepository),
+          DeleteExerciseEntry(exerciseRepository),
         ),
         clock: clock ?? DateTime.now,
       ),

@@ -14,6 +14,12 @@ import 'contexts/bowel/application/get_bowel_day.dart';
 import 'contexts/bowel/application/save_bowel_day.dart';
 import 'contexts/bowel/infrastructure/http_bowel_repository.dart';
 import 'contexts/bowel/presentation/bowel_controller.dart';
+import 'contexts/exercise/application/add_exercise_entry.dart';
+import 'contexts/exercise/application/delete_exercise_entry.dart';
+import 'contexts/exercise/application/get_exercise_day.dart';
+import 'contexts/exercise/application/list_exercise_activities.dart';
+import 'contexts/exercise/infrastructure/http_exercise_repository.dart';
+import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
 import 'contexts/health/application/delete_meal.dart';
@@ -131,6 +137,16 @@ Future<void> main() async {
     GetVitalsDay(vitalsRepository),
     SaveVitalsDay(vitalsRepository),
   );
+  final exerciseRepository = HttpExerciseRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final exerciseController = ExerciseController(
+    ListExerciseActivities(exerciseRepository),
+    GetExerciseDay(exerciseRepository),
+    AddExerciseEntry(exerciseRepository),
+    DeleteExerciseEntry(exerciseRepository),
+  );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
 
@@ -151,6 +167,7 @@ Future<void> main() async {
       waterController: waterController,
       bowelController: bowelController,
       vitalsController: vitalsController,
+      exerciseController: exerciseController,
       pwaUpdateController: pwaUpdateController,
     ),
   );
