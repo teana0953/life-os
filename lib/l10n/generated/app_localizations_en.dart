@@ -665,6 +665,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menstrualNextMonth => 'Next month';
 
   @override
+  String menstrualDaySemanticPeriod(String date) {
+    return '$date, period day';
+  }
+
+  @override
+  String menstrualDaySemanticPredicted(String date) {
+    return '$date, predicted next period';
+  }
+
+  @override
+  String menstrualDaySemanticToday(String date) {
+    return '$date, today';
+  }
+
+  @override
+  String get menstrualLegendPeriod => 'Period';
+
+  @override
+  String get menstrualLegendPredicted => 'Predicted next';
+
+  @override
+  String get menstrualEmptyHint =>
+      'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.';
+
+  @override
   String get errorMenstrualLoadFailed =>
       'Unable to load your period data. Please try again.';
 

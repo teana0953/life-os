@@ -653,6 +653,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menstrualNextMonth => '下個月';
 
   @override
+  String menstrualDaySemanticPeriod(String date) {
+    return '$date,經期';
+  }
+
+  @override
+  String menstrualDaySemanticPredicted(String date) {
+    return '$date,預測下次';
+  }
+
+  @override
+  String menstrualDaySemanticToday(String date) {
+    return '$date,今天';
+  }
+
+  @override
+  String get menstrualLegendPeriod => '經期';
+
+  @override
+  String get menstrualLegendPredicted => '預測下次';
+
+  @override
+  String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
+
+  @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
 
   @override
@@ -1312,6 +1336,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get menstrualNextMonth => '下個月';
+
+  @override
+  String menstrualDaySemanticPeriod(String date) {
+    return '$date,經期';
+  }
+
+  @override
+  String menstrualDaySemanticPredicted(String date) {
+    return '$date,預測下次';
+  }
+
+  @override
+  String menstrualDaySemanticToday(String date) {
+    return '$date,今天';
+  }
+
+  @override
+  String get menstrualLegendPeriod => '經期';
+
+  @override
+  String get menstrualLegendPredicted => '預測下次';
+
+  @override
+  String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
 
   @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';

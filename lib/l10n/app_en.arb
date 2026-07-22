@@ -872,6 +872,39 @@
   "@menstrualNextMonth": {
     "description": "Tooltip for the control that moves the menstrual mini-calendar to the next month."
   },
+  "menstrualDaySemanticPeriod": "{date}, period day",
+  "@menstrualDaySemanticPeriod": {
+    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualDaySemanticPredicted": "{date}, predicted next period",
+  "@menstrualDaySemanticPredicted": {
+    "description": "Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualDaySemanticToday": "{date}, today",
+  "@menstrualDaySemanticToday": {
+    "description": "Screen-reader label for the menstrual calendar day cell representing today (when it is neither a period day nor the predicted next start). {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualLegendPeriod": "Period",
+  "@menstrualLegendPeriod": {
+    "description": "Legend label under the menstrual calendar for the filled marker meaning a recorded period day."
+  },
+  "menstrualLegendPredicted": "Predicted next",
+  "@menstrualLegendPredicted": {
+    "description": "Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start."
+  },
+  "menstrualEmptyHint": "No periods recorded yet. Tap a day on the calendar or 'Log period' to start tracking.",
+  "@menstrualEmptyHint": {
+    "description": "First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken."
+  },
   "errorMenstrualLoadFailed": "Unable to load your period data. Please try again.",
   "@errorMenstrualLoadFailed": {
     "description": "Shown on the menstrual screen when loading the overview fails (not an auth failure)."

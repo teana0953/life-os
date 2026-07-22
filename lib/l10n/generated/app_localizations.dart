@@ -1329,6 +1329,42 @@ abstract class AppLocalizations {
   /// **'Next month'**
   String get menstrualNextMonth;
 
+  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, period day'**
+  String menstrualDaySemanticPeriod(String date);
+
+  /// Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, predicted next period'**
+  String menstrualDaySemanticPredicted(String date);
+
+  /// Screen-reader label for the menstrual calendar day cell representing today (when it is neither a period day nor the predicted next start). {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, today'**
+  String menstrualDaySemanticToday(String date);
+
+  /// Legend label under the menstrual calendar for the filled marker meaning a recorded period day.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get menstrualLegendPeriod;
+
+  /// Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start.
+  ///
+  /// In en, this message translates to:
+  /// **'Predicted next'**
+  String get menstrualLegendPredicted;
+
+  /// First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken.
+  ///
+  /// In en, this message translates to:
+  /// **'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.'**
+  String get menstrualEmptyHint;
+
   /// Shown on the menstrual screen when loading the overview fails (not an auth failure).
   ///
   /// In en, this message translates to:

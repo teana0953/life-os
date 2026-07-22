@@ -215,6 +215,20 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
                       ),
                       const SizedBox(height: 16),
                       _StatsCard(overview: overview),
+                      if (overview.periods.isEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          loc.menstrualEmptyHint,
+                          key: const Key('menstrual-empty-hint'),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       FilledButton.icon(
                         key: const Key('menstrual-add-button'),
@@ -332,7 +346,13 @@ class _StatRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(value, style: theme.textTheme.titleMedium),
+        Flexible(
+          child: Text(
+            value,
+            style: theme.textTheme.titleMedium,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -387,10 +407,16 @@ class _PeriodDialogState extends State<_PeriodDialog> {
 
   bool get _canSubmit => _start != null && !_endBeforeStart;
 
+  /// Clamps a desired [initial] date to [widget.today] so it never exceeds the
+  /// picker's `lastDate` (which would trip the framework's
+  /// `initialDate <= lastDate` assert when a future day was prefilled).
+  DateTime _clampToToday(DateTime initial) =>
+      initial.isAfter(widget.today) ? widget.today : initial;
+
   Future<void> _pickStart() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _start ?? widget.today,
+      initialDate: _clampToToday(_start ?? widget.today),
       firstDate: DateTime(2000),
       lastDate: widget.today,
     );
@@ -402,7 +428,7 @@ class _PeriodDialogState extends State<_PeriodDialog> {
   Future<void> _pickEnd() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _end ?? _start ?? widget.today,
+      initialDate: _clampToToday(_end ?? _start ?? widget.today),
       firstDate: DateTime(2000),
       lastDate: widget.today,
     );

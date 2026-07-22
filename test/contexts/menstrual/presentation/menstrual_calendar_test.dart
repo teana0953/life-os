@@ -3,10 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/presentation/menstrual_calendar.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
 
 void main() {
+  final loc = lookupAppLocalizations(const Locale('en'));
+
   group('marking helpers', () {
     test('a day within a closed period range is a period day', () {
       final periods = [
@@ -141,6 +144,41 @@ void main() {
       final decoration = marker.decoration as BoxDecoration;
       expect(decoration.color, isNull, reason: 'predicted day is not filled');
       expect(decoration.border, isNotNull, reason: 'predicted day is outlined');
+    });
+
+    testWidgets('a period day cell exposes a period Semantics label', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final overview = MenstrualOverview(
+        periods: [
+          MenstrualPeriod(
+            id: 'p1',
+            startDate: DateTime(2026, 7, 1),
+            endDate: DateTime(2026, 7, 5),
+          ),
+        ],
+        stats: const MenstrualStats(),
+      );
+      await tester.pumpWidget(calendar(overview));
+
+      final expected = loc.menstrualDaySemanticPeriod(
+        DateFormat.yMMMd().format(DateTime(2026, 7, 1)),
+      );
+      expect(find.bySemanticsLabel(expected), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('renders a legend explaining the two markers', (tester) async {
+      await tester.pumpWidget(
+        calendar(
+          const MenstrualOverview(periods: [], stats: MenstrualStats()),
+        ),
+      );
+
+      expect(find.byKey(const Key('menstrual-legend')), findsOneWidget);
+      expect(find.text(loc.menstrualLegendPeriod), findsOneWidget);
+      expect(find.text(loc.menstrualLegendPredicted), findsOneWidget);
     });
   });
 }

@@ -189,6 +189,54 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
                 ),
             ],
           ),
+        const SizedBox(height: 8),
+        Row(
+          key: const Key('menstrual-legend'),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _LegendItem(filled: true, label: loc.menstrualLegendPeriod),
+            const SizedBox(width: 20),
+            _LegendItem(filled: false, label: loc.menstrualLegendPredicted),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// One entry in the calendar legend: a small marker matching the day-cell
+/// styling (filled circle for a period day, outline ring for the predicted
+/// next start) followed by its [label]. Colors come from [Theme.of(context)].
+class _LegendItem extends StatelessWidget {
+  final bool filled;
+  final String label;
+
+  const _LegendItem({required this.filled, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: filled ? theme.colorScheme.primary : null,
+            border: filled
+                ? null
+                : Border.all(color: theme.colorScheme.primary, width: 2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -215,9 +263,22 @@ class _MenstrualDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final dayString = _dayString(date);
     final isToday = menstrualDateOnly(date) == today;
+    final dateLabel = DateFormat.yMMMd().format(date);
+
+    final String semanticLabel;
+    if (isPeriod) {
+      semanticLabel = loc.menstrualDaySemanticPeriod(dateLabel);
+    } else if (isPredicted) {
+      semanticLabel = loc.menstrualDaySemanticPredicted(dateLabel);
+    } else if (isToday) {
+      semanticLabel = loc.menstrualDaySemanticToday(dateLabel);
+    } else {
+      semanticLabel = dateLabel;
+    }
 
     final Color textColor;
     if (isPeriod) {
@@ -229,29 +290,35 @@ class _MenstrualDayCell extends StatelessWidget {
     return InkWell(
       key: Key('menstrual-day-$dayString'),
       onTap: () => onTap(date),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Center(
-          child: Container(
-            key: Key('menstrual-day-marker-$dayString'),
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isPeriod ? theme.colorScheme.primary : null,
-              border: isPredicted
-                  ? Border.all(color: theme.colorScheme.primary, width: 2)
-                  : (isToday
-                        ? Border.all(
-                            color: theme.colorScheme.outline,
-                            width: 1,
-                          )
-                        : null),
-            ),
-            child: Text(
-              '${date.day}',
-              style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+      child: Semantics(
+        label: semanticLabel,
+        button: true,
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Center(
+              child: Container(
+                key: Key('menstrual-day-marker-$dayString'),
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isPeriod ? theme.colorScheme.primary : null,
+                  border: isPredicted
+                      ? Border.all(color: theme.colorScheme.primary, width: 2)
+                      : (isToday
+                            ? Border.all(
+                                color: theme.colorScheme.outline,
+                                width: 1,
+                              )
+                            : null),
+                ),
+                child: Text(
+                  '${date.day}',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+                ),
+              ),
             ),
           ),
         ),

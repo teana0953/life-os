@@ -163,6 +163,33 @@ void main() {
 
       expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
     });
+
+    testWidgets('shows first-run guidance when there are no periods', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      expect(find.byKey(const Key('menstrual-empty-hint')), findsOneWidget);
+      expect(find.text(loc.menstrualEmptyHint), findsOneWidget);
+    });
+
+    testWidgets('hides the first-run guidance once a period exists', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository()
+        ..periods.add(
+          MenstrualPeriod(
+            id: 'p1',
+            startDate: DateTime(2026, 7, 3),
+            endDate: DateTime(2026, 7, 7),
+          ),
+        );
+      await _pumpScreen(tester, repo);
+
+      expect(find.byKey(const Key('menstrual-empty-hint')), findsNothing);
+    });
   });
 
   group('MenstrualScreen add/edit/delete', () {
@@ -273,6 +300,32 @@ void main() {
 
       expect(controller.overview!.periods, isEmpty);
     });
+
+    testWidgets(
+      'opening the start picker for a future-dated day does not assert',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpScreen(tester, FakeMenstrualRepository());
+
+        // Navigate the calendar to the next (future) month and tap a day that
+        // is after "today" (2026-07-22), prefilling the add dialog with a
+        // future start date.
+        await tester.tap(find.byKey(const Key('menstrual-next-month')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('menstrual-day-2026-08-15')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('menstrual-start-date')), findsOneWidget);
+
+        // Opening the start date picker must not trip the framework's
+        // initialDate <= lastDate assert (initialDate is clamped to today).
+        await tester.tap(find.byKey(const Key('menstrual-start-date')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DatePickerDialog), findsOneWidget);
+      },
+    );
 
     testWidgets('an end date before the start disables save', (tester) async {
       final repo = FakeMenstrualRepository()
