@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
+import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
+import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -168,6 +173,22 @@ class _FakeWaterRepository implements WaterRepository {
   }) async => targetMl;
 }
 
+class _FakeBowelRepository implements BowelRepository {
+  @override
+  Future<BowelDay> getDay(String idToken, String day) async =>
+      BowelDay(day: day, count: 0, isNormal: null, note: '');
+
+  @override
+  Future<BowelDay> save(
+    String idToken, {
+    required String day,
+    required int count,
+    required bool? isNormal,
+    required String note,
+  }) async =>
+      BowelDay(day: day, count: count, isNormal: isNormal, note: note);
+}
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -215,6 +236,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
+  final bowelRepository = _FakeBowelRepository();
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,
@@ -250,6 +272,10 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
           GetWaterDay(waterRepository),
           AddWater(waterRepository),
           SetWaterTarget(waterRepository),
+        ),
+        bowelController: BowelController(
+          GetBowelDay(bowelRepository),
+          SaveBowelDay(bowelRepository),
         ),
       ),
     ),

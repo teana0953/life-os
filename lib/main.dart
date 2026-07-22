@@ -10,6 +10,10 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
+import 'contexts/bowel/application/get_bowel_day.dart';
+import 'contexts/bowel/application/save_bowel_day.dart';
+import 'contexts/bowel/infrastructure/http_bowel_repository.dart';
+import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
 import 'contexts/health/application/delete_meal.dart';
@@ -105,6 +109,14 @@ Future<void> main() async {
     AddWater(waterRepository),
     SetWaterTarget(waterRepository),
   );
+  final bowelRepository = HttpBowelRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final bowelController = BowelController(
+    GetBowelDay(bowelRepository),
+    SaveBowelDay(bowelRepository),
+  );
 
   runApp(
     App(
@@ -121,6 +133,7 @@ Future<void> main() async {
       healthCreateMealController: healthCreateMealController,
       healthGetLoggedDays: healthGetLoggedDays,
       waterController: waterController,
+      bowelController: bowelController,
     ),
   );
 }

@@ -403,4 +403,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get waterGoalMet => 'Goal met';
+
+  @override
+  String get dietTabBowel => 'Bowel';
+
+  @override
+  String get bowelTitle => 'Today\'s bowel';
+
+  @override
+  String get bowelHistoryTitle => 'Bowel log';
+
+  @override
+  String get bowelCountLabel => 'Count';
+
+  @override
+  String get bowelNormalityLabel => 'Normal / abnormal';
+
+  @override
+  String get bowelNormalLabel => 'Normal';
+
+  @override
+  String get bowelAbnormalLabel => 'Abnormal';
+
+  @override
+  String get bowelNoteLabel => 'Note';
+
+  @override
+  String get bowelSaveButton => 'Save';
+
+  @override
+  String get bowelUnsavedChanges => 'Unsaved changes';
+
+  @override
+  String get bowelSaveFailed => 'Couldn\'t save — try again';
+
+  @override
+  String get errorBowelLoadFailed =>
+      'Unable to load your bowel data. Please try again.';
 }

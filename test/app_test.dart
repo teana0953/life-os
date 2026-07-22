@@ -40,6 +40,11 @@ import 'package:life_os/contexts/hydration/application/set_water_target.dart';
 import 'package:life_os/contexts/hydration/domain/water_day.dart';
 import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
+import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
+import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
+import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
+import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -175,6 +180,22 @@ class _FakeWaterRepository implements WaterRepository {
   }) async => targetMl;
 }
 
+class _FakeBowelRepository implements BowelRepository {
+  @override
+  Future<BowelDay> getDay(String idToken, String day) async =>
+      BowelDay(day: day, count: 0, isNormal: null, note: '');
+
+  @override
+  Future<BowelDay> save(
+    String idToken, {
+    required String day,
+    required int count,
+    required bool? isNormal,
+    required String note,
+  }) async =>
+      BowelDay(day: day, count: count, isNormal: isNormal, note: note);
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -184,11 +205,13 @@ class _FakeWaterRepository implements WaterRepository {
   CreateMealController createMeal,
   GetLoggedDays getLoggedDays,
   WaterController water,
+  BowelController bowel,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
+  final bowelRepository = _FakeBowelRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -214,6 +237,10 @@ class _FakeWaterRepository implements WaterRepository {
       GetWaterDay(waterRepository),
       AddWater(waterRepository),
       SetWaterTarget(waterRepository),
+    ),
+    bowel: BowelController(
+      GetBowelDay(bowelRepository),
+      SaveBowelDay(bowelRepository),
     ),
   );
 }
@@ -339,6 +366,7 @@ Future<LocaleController> pumpApp(
       healthCreateMealController: health.createMeal,
       healthGetLoggedDays: health.getLoggedDays,
       waterController: health.water,
+      bowelController: health.bowel,
     ),
   );
   return resolvedLocaleController;

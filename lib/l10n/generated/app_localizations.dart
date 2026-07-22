@@ -830,6 +830,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Goal met'**
   String get waterGoalMet;
+
+  /// Label for the Bowel destination in the daily-log shell's bottom navigation, alongside Today, Target, and Water.
+  ///
+  /// In en, this message translates to:
+  /// **'Bowel'**
+  String get dietTabBowel;
+
+  /// Heading on the bowel screen, above the record form, when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s bowel'**
+  String get bowelTitle;
+
+  /// Heading on the bowel screen, above the record form, when viewing a past day.
+  ///
+  /// In en, this message translates to:
+  /// **'Bowel log'**
+  String get bowelHistoryTitle;
+
+  /// Label for the bowel-movement count stepper on the bowel screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Count'**
+  String get bowelCountLabel;
+
+  /// Caption above the bowel screen's normal/abnormal toggle, naming the section (its empty state means 'not recorded yet').
+  ///
+  /// In en, this message translates to:
+  /// **'Normal / abnormal'**
+  String get bowelNormalityLabel;
+
+  /// Label for the 'normal' option of the bowel screen's normal/abnormal toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get bowelNormalLabel;
+
+  /// Label for the 'abnormal' option of the bowel screen's normal/abnormal toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Abnormal'**
+  String get bowelAbnormalLabel;
+
+  /// Label/hint for the free-text note field on the bowel screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get bowelNoteLabel;
+
+  /// Label for the button that saves (upserts) the day's whole bowel record.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get bowelSaveButton;
+
+  /// Cue shown above the Save button when the bowel draft has edits not yet saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get bowelUnsavedChanges;
+
+  /// Transient SnackBar shown on the bowel screen when saving the day's record fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again'**
+  String get bowelSaveFailed;
+
+  /// Shown on the bowel screen when loading the day's record fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your bowel data. Please try again.'**
+  String get errorBowelLoadFailed;
 }
 
 class _AppLocalizationsDelegate

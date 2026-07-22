@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/amount_entry_dialog.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/tracker_day_header.dart';
 import 'water_controller.dart';
 
 /// Water section: the day's total against its target with a progress bar,
@@ -107,7 +107,6 @@ class _WaterScreenState extends State<WaterScreen> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
 
     final busy =
         controller.status == WaterStatus.loading ||
@@ -134,13 +133,6 @@ class _WaterScreenState extends State<WaterScreen> {
 
         final day = controller.day!;
 
-        final viewedDate = DateTime.parse(widget.day);
-        final now = widget.clock();
-        final isToday =
-            daysBetween(viewedDate, DateTime(now.year, now.month, now.day)) ==
-            0;
-        final title = isToday ? loc.waterTitle : loc.waterHistoryTitle;
-
         final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
 
         return Scaffold(
@@ -166,13 +158,11 @@ class _WaterScreenState extends State<WaterScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(title, style: theme.textTheme.titleLarge),
-                            const SizedBox(height: 4),
-                            Text(
-                              fullDateLabel(context, viewedDate),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                            TrackerDayHeader(
+                              day: widget.day,
+                              clock: widget.clock,
+                              todayTitle: loc.waterTitle,
+                              historyTitle: loc.waterHistoryTitle,
                             ),
                             const SizedBox(height: 16),
                             _WaterProgressBar(
