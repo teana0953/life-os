@@ -9,6 +9,12 @@ import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
+import 'package:life_os/contexts/body_profile/application/get_body_profile.dart';
+import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
+import 'package:life_os/contexts/body_profile/application/set_body_profile.dart';
+import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
+import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
+import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -278,6 +284,23 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   Future<bool> deletePeriod(String idToken, String id) async => true;
 }
 
+class _FakeBodyProfileRepository implements BodyProfileRepository {
+  @override
+  Future<WeightGoal> getWeightGoal(String idToken) async =>
+      const WeightGoal(targetWeightKg: 51);
+
+  @override
+  Future<BodyProfile> getBodyProfile(String idToken) async =>
+      const BodyProfile(heightCm: 165);
+
+  @override
+  Future<BodyProfile> setBodyProfile(
+    String idToken, {
+    double? heightCm,
+    double? targetWeightKg,
+  }) async => BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -291,6 +314,7 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   VitalsController vitals,
   ExerciseController exercise,
   MenstrualController menstrual,
+  WeightGoalController weightGoal,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -300,6 +324,7 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   final vitalsRepository = _FakeVitalsRepository();
   final exerciseRepository = _FakeExerciseRepository();
   final menstrualRepository = _FakeMenstrualRepository();
+  final bodyProfileRepository = _FakeBodyProfileRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -345,6 +370,11 @@ class _FakeMenstrualRepository implements MenstrualRepository {
       AddPeriod(menstrualRepository),
       UpdatePeriod(menstrualRepository),
       DeletePeriod(menstrualRepository),
+    ),
+    weightGoal: WeightGoalController(
+      GetWeightGoal(bodyProfileRepository),
+      GetBodyProfile(bodyProfileRepository),
+      SetBodyProfile(bodyProfileRepository),
     ),
   );
 }
@@ -474,6 +504,7 @@ Future<LocaleController> pumpApp(
       vitalsController: health.vitals,
       exerciseController: health.exercise,
       menstrualController: health.menstrual,
+      weightGoalController: health.weightGoal,
       // Not started (no timer): on the VM the stub reports no update, and
       // these tests don't exercise the update banner.
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),

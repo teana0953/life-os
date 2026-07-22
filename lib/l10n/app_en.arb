@@ -920,5 +920,81 @@
   "updateDismiss": "Dismiss",
   "@updateDismiss": {
     "description": "Tooltip/accessible label for the update banner's dismiss (X) control, which hides the banner for this session."
+  },
+  "dashboardTitle": "Overview",
+  "@dashboardTitle": {
+    "description": "App-bar title of the health module's overview dashboard (the landing screen), a scrollable stack of cards."
+  },
+  "dashboardRecordEntryTitle": "Today's log",
+  "@dashboardRecordEntryTitle": {
+    "description": "Title of the dashboard entry that opens the daily-log tab shell for recording food, water, etc."
+  },
+  "dashboardRecordEntrySubtitle": "Record food, water, and more",
+  "@dashboardRecordEntrySubtitle": {
+    "description": "Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records."
+  },
+  "goalCardTitle": "Weight goal",
+  "@goalCardTitle": {
+    "description": "Title of the goal card on the overview dashboard, showing target/current/remaining weight, an achievement ring, and BMI."
+  },
+  "goalTargetLabel": "Target",
+  "@goalTargetLabel": {
+    "description": "Label for the target weight figure on the goal card."
+  },
+  "goalCurrentLabel": "Current",
+  "@goalCurrentLabel": {
+    "description": "Label for the current weight figure on the goal card."
+  },
+  "goalRemainingLabel": "Remaining",
+  "@goalRemainingLabel": {
+    "description": "Label for the remaining-to-target weight figure on the goal card."
+  },
+  "goalKgUnit": "kg",
+  "@goalKgUnit": {
+    "description": "Kilogram unit suffix shown after the weight figures on the goal card."
+  },
+  "goalAchievementLabel": "Achievement",
+  "@goalAchievementLabel": {
+    "description": "Label for the achievement-rate ring on the goal card."
+  },
+  "goalBmiLabel": "BMI",
+  "@goalBmiLabel": {
+    "description": "Label for the BMI figure on the goal card (body mass index)."
+  },
+  "goalPlaceholder": "—",
+  "@goalPlaceholder": {
+    "description": "Placeholder shown in place of a weight or BMI figure on the goal card when the value is null / not yet known."
+  },
+  "goalNoData": "No data",
+  "@goalNoData": {
+    "description": "Screen-reader label for the achievement ring on the goal card when the achievement rate is not yet known, spoken instead of the visual dash placeholder."
+  },
+  "goalUnsetPrompt": "Set your height and target weight to start tracking your goal.",
+  "@goalUnsetPrompt": {
+    "description": "Prompt shown on the goal card when neither height nor target weight has been set, instead of a row of empty placeholders."
+  },
+  "goalSetButton": "Set your goal",
+  "@goalSetButton": {
+    "description": "Button on the unset goal card that opens the edit sheet to set height and target weight."
+  },
+  "goalEditTitle": "Set your goal",
+  "@goalEditTitle": {
+    "description": "Title of the goal edit bottom sheet where the user enters height and target weight."
+  },
+  "goalHeightLabel": "Height (cm)",
+  "@goalHeightLabel": {
+    "description": "Label for the height (centimetres) number field in the goal edit sheet."
+  },
+  "goalTargetWeightLabel": "Target weight (kg)",
+  "@goalTargetWeightLabel": {
+    "description": "Label for the target weight (kilograms) number field in the goal edit sheet."
+  },
+  "goalSaveButton": "Save",
+  "@goalSaveButton": {
+    "description": "Label for the button that saves the entered height and target weight in the goal edit sheet."
+  },
+  "errorWeightGoalLoadFailed": "Unable to load your goal. Please try again.",
+  "@errorWeightGoalLoadFailed": {
+    "description": "Shown on the goal card / dashboard when loading (or saving) the weight goal fails (not an auth failure)."
   }
 }

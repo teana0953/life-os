@@ -10,6 +10,11 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
+import 'contexts/body_profile/application/get_body_profile.dart';
+import 'contexts/body_profile/application/get_weight_goal.dart';
+import 'contexts/body_profile/application/set_body_profile.dart';
+import 'contexts/body_profile/infrastructure/http_body_profile_repository.dart';
+import 'contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'contexts/bowel/application/get_bowel_day.dart';
 import 'contexts/bowel/application/save_bowel_day.dart';
 import 'contexts/bowel/infrastructure/http_bowel_repository.dart';
@@ -163,6 +168,15 @@ Future<void> main() async {
     UpdatePeriod(menstrualRepository),
     DeletePeriod(menstrualRepository),
   );
+  final bodyProfileRepository = HttpBodyProfileRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final weightGoalController = WeightGoalController(
+    GetWeightGoal(bodyProfileRepository),
+    GetBodyProfile(bodyProfileRepository),
+    SetBodyProfile(bodyProfileRepository),
+  );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
 
@@ -185,6 +199,7 @@ Future<void> main() async {
       vitalsController: vitalsController,
       exerciseController: exerciseController,
       menstrualController: menstrualController,
+      weightGoalController: weightGoalController,
       pwaUpdateController: pwaUpdateController,
     ),
   );

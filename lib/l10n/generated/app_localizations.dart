@@ -1388,6 +1388,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dismiss'**
   String get updateDismiss;
+
+  /// App-bar title of the health module's overview dashboard (the landing screen), a scrollable stack of cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get dashboardTitle;
+
+  /// Title of the dashboard entry that opens the daily-log tab shell for recording food, water, etc.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s log'**
+  String get dashboardRecordEntryTitle;
+
+  /// Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records.
+  ///
+  /// In en, this message translates to:
+  /// **'Record food, water, and more'**
+  String get dashboardRecordEntrySubtitle;
+
+  /// Title of the goal card on the overview dashboard, showing target/current/remaining weight, an achievement ring, and BMI.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight goal'**
+  String get goalCardTitle;
+
+  /// Label for the target weight figure on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get goalTargetLabel;
+
+  /// Label for the current weight figure on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get goalCurrentLabel;
+
+  /// Label for the remaining-to-target weight figure on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining'**
+  String get goalRemainingLabel;
+
+  /// Kilogram unit suffix shown after the weight figures on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'kg'**
+  String get goalKgUnit;
+
+  /// Label for the achievement-rate ring on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'Achievement'**
+  String get goalAchievementLabel;
+
+  /// Label for the BMI figure on the goal card (body mass index).
+  ///
+  /// In en, this message translates to:
+  /// **'BMI'**
+  String get goalBmiLabel;
+
+  /// Placeholder shown in place of a weight or BMI figure on the goal card when the value is null / not yet known.
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get goalPlaceholder;
+
+  /// Screen-reader label for the achievement ring on the goal card when the achievement rate is not yet known, spoken instead of the visual dash placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get goalNoData;
+
+  /// Prompt shown on the goal card when neither height nor target weight has been set, instead of a row of empty placeholders.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your height and target weight to start tracking your goal.'**
+  String get goalUnsetPrompt;
+
+  /// Button on the unset goal card that opens the edit sheet to set height and target weight.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your goal'**
+  String get goalSetButton;
+
+  /// Title of the goal edit bottom sheet where the user enters height and target weight.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your goal'**
+  String get goalEditTitle;
+
+  /// Label for the height (centimetres) number field in the goal edit sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Height (cm)'**
+  String get goalHeightLabel;
+
+  /// Label for the target weight (kilograms) number field in the goal edit sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Target weight (kg)'**
+  String get goalTargetWeightLabel;
+
+  /// Label for the button that saves the entered height and target weight in the goal edit sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get goalSaveButton;
+
+  /// Shown on the goal card / dashboard when loading (or saving) the weight goal fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your goal. Please try again.'**
+  String get errorWeightGoalLoadFailed;
 }
 
 class _AppLocalizationsDelegate

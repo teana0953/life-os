@@ -701,4 +701,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateDismiss => 'Dismiss';
+
+  @override
+  String get dashboardTitle => 'Overview';
+
+  @override
+  String get dashboardRecordEntryTitle => 'Today\'s log';
+
+  @override
+  String get dashboardRecordEntrySubtitle => 'Record food, water, and more';
+
+  @override
+  String get goalCardTitle => 'Weight goal';
+
+  @override
+  String get goalTargetLabel => 'Target';
+
+  @override
+  String get goalCurrentLabel => 'Current';
+
+  @override
+  String get goalRemainingLabel => 'Remaining';
+
+  @override
+  String get goalKgUnit => 'kg';
+
+  @override
+  String get goalAchievementLabel => 'Achievement';
+
+  @override
+  String get goalBmiLabel => 'BMI';
+
+  @override
+  String get goalPlaceholder => '—';
+
+  @override
+  String get goalNoData => 'No data';
+
+  @override
+  String get goalUnsetPrompt =>
+      'Set your height and target weight to start tracking your goal.';
+
+  @override
+  String get goalSetButton => 'Set your goal';
+
+  @override
+  String get goalEditTitle => 'Set your goal';
+
+  @override
+  String get goalHeightLabel => 'Height (cm)';
+
+  @override
+  String get goalTargetWeightLabel => 'Target weight (kg)';
+
+  @override
+  String get goalSaveButton => 'Save';
+
+  @override
+  String get errorWeightGoalLoadFailed =>
+      'Unable to load your goal. Please try again.';
 }

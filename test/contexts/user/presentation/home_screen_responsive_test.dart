@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/body_profile/application/get_body_profile.dart';
+import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
+import 'package:life_os/contexts/body_profile/application/set_body_profile.dart';
+import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
+import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
+import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
 import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
@@ -269,6 +275,23 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   Future<bool> deletePeriod(String idToken, String id) async => true;
 }
 
+class _FakeBodyProfileRepository implements BodyProfileRepository {
+  @override
+  Future<WeightGoal> getWeightGoal(String idToken) async =>
+      const WeightGoal(targetWeightKg: 51);
+
+  @override
+  Future<BodyProfile> getBodyProfile(String idToken) async =>
+      const BodyProfile(heightCm: 165);
+
+  @override
+  Future<BodyProfile> setBodyProfile(
+    String idToken, {
+    double? heightCm,
+    double? targetWeightKg,
+  }) async => BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
+}
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -320,6 +343,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   final vitalsRepository = _FakeVitalsRepository();
   final exerciseRepository = _FakeExerciseRepository();
   final menstrualRepository = _FakeMenstrualRepository();
+  final bodyProfileRepository = _FakeBodyProfileRepository();
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,
@@ -375,6 +399,11 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
           AddPeriod(menstrualRepository),
           UpdatePeriod(menstrualRepository),
           DeletePeriod(menstrualRepository),
+        ),
+        weightGoalController: WeightGoalController(
+          GetWeightGoal(bodyProfileRepository),
+          GetBodyProfile(bodyProfileRepository),
+          SetBodyProfile(bodyProfileRepository),
         ),
       ),
     ),
