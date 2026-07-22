@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -48,6 +50,14 @@ import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
+import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
+import 'package:life_os/contexts/exercise/application/get_exercise_day.dart';
+import 'package:life_os/contexts/exercise/application/list_exercise_activities.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
+import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
+import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
+import 'package:life_os/contexts/exercise/presentation/exercise_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/mascot.dart';
 
@@ -65,6 +75,25 @@ class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<String?> idToken() async => 'fake-token';
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+}
+
+/// An auth repository whose `idToken()` never completes, so the shell's
+/// auth-token load stays pending and `_idToken` remains null.
+class _PendingAuthRepository implements AuthRepository {
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() => Completer<String?>().future;
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -250,6 +279,31 @@ class FakeVitalsRepository implements VitalsRepository {
   Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
 }
 
+class FakeExerciseRepository implements ExerciseRepository {
+  final List<String> receivedDays = [];
+
+  @override
+  Future<List<ExerciseActivity>> listActivities(String idToken) async => const [];
+
+  @override
+  Future<ExerciseDay> getDay(String idToken, String day) async {
+    receivedDays.add(day);
+    return ExerciseDay(day: day, entries: const [], totalMinutes: 0);
+  }
+
+  @override
+  Future<ExerciseEntry> addEntry(
+    String idToken, {
+    required String day,
+    required String activityId,
+    required int durationMinutes,
+    required String note,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> deleteEntry(String idToken, String entryId) async => true;
+}
+
 FoodItem _riceItem() => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
@@ -288,11 +342,13 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
 DietShellScreen _dietShell({
   required FakeMealRepository mealRepository,
+  AuthRepository? authRepository,
   FakeDailyTargetRepository? dailyTargetRepository,
   FakeFoodDictionaryRepository? foodDictionaryRepository,
   FakeWaterRepository? waterRepository,
   FakeBowelRepository? bowelRepository,
   FakeVitalsRepository? vitalsRepository,
+  FakeExerciseRepository? exerciseRepository,
   DateTime Function() clock = _defaultClock,
 }) {
   final resolvedDailyTargetRepository =
@@ -302,8 +358,10 @@ DietShellScreen _dietShell({
   final resolvedWaterRepository = waterRepository ?? FakeWaterRepository();
   final resolvedBowelRepository = bowelRepository ?? FakeBowelRepository();
   final resolvedVitalsRepository = vitalsRepository ?? FakeVitalsRepository();
+  final resolvedExerciseRepository =
+      exerciseRepository ?? FakeExerciseRepository();
   return DietShellScreen(
-    authRepository: FakeAuthRepository(),
+    authRepository: authRepository ?? FakeAuthRepository(),
     todayController: TodayController(
       GetDayMeals(mealRepository),
       GetDailyTargetWithRemaining(resolvedDailyTargetRepository),
@@ -334,6 +392,12 @@ DietShellScreen _dietShell({
     vitalsController: VitalsController(
       GetVitalsDay(resolvedVitalsRepository),
       SaveVitalsDay(resolvedVitalsRepository),
+    ),
+    exerciseController: ExerciseController(
+      ListExerciseActivities(resolvedExerciseRepository),
+      GetExerciseDay(resolvedExerciseRepository),
+      AddExerciseEntry(resolvedExerciseRepository),
+      DeleteExerciseEntry(resolvedExerciseRepository),
     ),
     createMealController: CreateMealController(CreateMeal(mealRepository)),
     getLoggedDays: GetLoggedDays(mealRepository),
@@ -842,51 +906,183 @@ void main() {
     });
   });
 
-  group('DietShellScreen bowel tab', () {
+  group('DietShellScreen bottom navigation', () {
     testWidgets(
-      'selecting the bowel destination shows the bowel screen for the '
-      'viewed day, and Today/Target/Water remain reachable',
+      'shows exactly four destinations (Today, Target, Water, More)',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 1400));
         addTearDown(() => tester.binding.setSurfaceSize(null));
-        final bowelRepository = FakeBowelRepository();
-        await tester.pumpWidget(
-          l10nTestApp(
-            home: _dietShell(
-              mealRepository: FakeMealRepository(),
-              bowelRepository: bowelRepository,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await _pumpShell(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
 
-        expect(find.byType(BowelScreen), findsNothing);
-        // The shell loaded the bowel tab for its viewed day even before it is
-        // shown (the shell owns loading).
-        expect(bowelRepository.receivedDays, contains('2026-07-18'));
+        final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+        expect(navBar.destinations, hasLength(4));
 
-        await tester.tap(find.text(loc.dietTabBowel));
-        await tester.pumpAndSettle();
-
-        expect(find.byType(BowelScreen), findsOneWidget);
-        expect(find.text(loc.bowelTitle), findsOneWidget);
-        // Today, Target, and Water are still reachable.
         expect(find.text(loc.dietTabToday), findsWidgets);
         expect(find.text(loc.dietTabTarget), findsWidgets);
         expect(find.text(loc.dietTabWater), findsWidgets);
+        expect(find.text(loc.dietTabMore), findsWidgets);
+        // Bowel and Vitals are no longer bottom-bar destinations (they live in
+        // the More menu, which is not open yet).
+        expect(find.text(loc.bowelTitle), findsNothing);
+        expect(find.text(loc.vitalsTitle), findsNothing);
       },
     );
+  });
 
-    testWidgets('the bowel tab follows the shell day navigation', (tester) async {
+  group('DietShellScreen More menu', () {
+    Future<void> pumpAndOpenMore(
+      WidgetTester tester, {
+      FakeBowelRepository? bowelRepository,
+      FakeVitalsRepository? vitalsRepository,
+      FakeExerciseRepository? exerciseRepository,
+    }) async {
       await tester.binding.setSurfaceSize(const Size(800, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final bowelRepository = FakeBowelRepository();
       await tester.pumpWidget(
         l10nTestApp(
           home: _dietShell(
             mealRepository: FakeMealRepository(),
             bowelRepository: bowelRepository,
+            vitalsRepository: vitalsRepository,
+            exerciseRepository: exerciseRepository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(find.text(loc.dietTabMore));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'tapping More lists the Bowel, Vitals, and Exercise trackers',
+      (tester) async {
+        await pumpAndOpenMore(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.text(loc.dietTabBowel), findsOneWidget);
+        expect(find.text(loc.dietTabVitals), findsOneWidget);
+        expect(find.text(loc.dietTabExercise), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'selecting Exercise shows the exercise screen for the viewed day',
+      (tester) async {
+        final exerciseRepository = FakeExerciseRepository();
+        await pumpAndOpenMore(tester, exerciseRepository: exerciseRepository);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // The shell loaded exercise for its viewed day (the shell owns loading).
+        expect(exerciseRepository.receivedDays, contains('2026-07-18'));
+
+        await tester.tap(find.byKey(const Key('more-tile-exercise')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ExerciseScreen), findsOneWidget);
+        expect(find.text(loc.exerciseTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets('Bowel remains reachable via More', (tester) async {
+      final bowelRepository = FakeBowelRepository();
+      await pumpAndOpenMore(tester, bowelRepository: bowelRepository);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(bowelRepository.receivedDays, contains('2026-07-18'));
+
+      await tester.tap(find.byKey(const Key('more-tile-bowel')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BowelScreen), findsOneWidget);
+      expect(find.text(loc.bowelTitle), findsOneWidget);
+    });
+
+    testWidgets('Vitals remains reachable via More', (tester) async {
+      final vitalsRepository = FakeVitalsRepository();
+      await pumpAndOpenMore(tester, vitalsRepository: vitalsRepository);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(vitalsRepository.receivedDays, contains('2026-07-18'));
+
+      await tester.tap(find.byKey(const Key('more-tile-vitals')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VitalsScreen), findsOneWidget);
+      expect(find.text(loc.vitalsTitle), findsOneWidget);
+    });
+
+    testWidgets(
+      'a pushed tracker has a back button that returns to the More menu',
+      (tester) async {
+        await pumpAndOpenMore(tester);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.byKey(const Key('more-tile-exercise')));
+        await tester.pumpAndSettle();
+
+        // The pushed full-screen tracker exposes a visible back affordance
+        // (the AppBar's automatic back button) — without it a web/PWA user
+        // would be trapped with no way back to the More menu.
+        expect(find.byType(ExerciseScreen), findsOneWidget);
+        expect(find.byType(BackButton), findsOneWidget);
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+
+        // Back on the More menu: the tracker screen is gone and the tiles
+        // are reachable again.
+        expect(find.byType(ExerciseScreen), findsNothing);
+        expect(find.byKey(const Key('more-tile-exercise')), findsOneWidget);
+        expect(find.text(loc.dietMoreTitle), findsOneWidget);
+      },
+    );
+  });
+
+  group('DietShellScreen More menu loading', () {
+    testWidgets(
+      'shows a loading indicator in More while the auth token is not ready',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: _dietShell(
+              mealRepository: FakeMealRepository(),
+              authRepository: _PendingAuthRepository(),
+            ),
+          ),
+        );
+        // Do not settle: the token future never completes, so the shell's
+        // _idToken stays null.
+        await tester.pump();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.text(loc.dietTabMore));
+        await tester.pump();
+
+        expect(find.byKey(const Key('more-loading')), findsOneWidget);
+      },
+    );
+  });
+
+  group('DietShellScreen overflow trackers follow day navigation', () {
+    testWidgets('bowel, vitals, and exercise all reload on day navigation', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bowelRepository = FakeBowelRepository();
+      final vitalsRepository = FakeVitalsRepository();
+      final exerciseRepository = FakeExerciseRepository();
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: _dietShell(
+            mealRepository: FakeMealRepository(),
+            bowelRepository: bowelRepository,
+            vitalsRepository: vitalsRepository,
+            exerciseRepository: exerciseRepository,
           ),
         ),
       );
@@ -896,66 +1092,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bowelRepository.receivedDays.last, '2026-07-17');
-    });
-  });
-
-  group('DietShellScreen vitals tab', () {
-    testWidgets(
-      'selecting the vitals destination shows the vitals screen for the '
-      'viewed day, and Today/Target/Water/Bowel remain reachable',
-      (tester) async {
-        await tester.binding.setSurfaceSize(const Size(800, 1400));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-        final vitalsRepository = FakeVitalsRepository();
-        await tester.pumpWidget(
-          l10nTestApp(
-            home: _dietShell(
-              mealRepository: FakeMealRepository(),
-              vitalsRepository: vitalsRepository,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final loc = lookupAppLocalizations(const Locale('en'));
-
-        expect(find.byType(VitalsScreen), findsNothing);
-        // The shell loaded the vitals tab for its viewed day even before it is
-        // shown (the shell owns loading).
-        expect(vitalsRepository.receivedDays, contains('2026-07-18'));
-
-        await tester.tap(find.text(loc.dietTabVitals));
-        await tester.pumpAndSettle();
-
-        expect(find.byType(VitalsScreen), findsOneWidget);
-        expect(find.text(loc.vitalsTitle), findsOneWidget);
-        // Today, Target, Water, and Bowel are still reachable.
-        expect(find.text(loc.dietTabToday), findsWidgets);
-        expect(find.text(loc.dietTabTarget), findsWidgets);
-        expect(find.text(loc.dietTabWater), findsWidgets);
-        expect(find.text(loc.dietTabBowel), findsWidgets);
-      },
-    );
-
-    testWidgets('the vitals tab follows the shell day navigation', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(800, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final vitalsRepository = FakeVitalsRepository();
-      await tester.pumpWidget(
-        l10nTestApp(
-          home: _dietShell(
-            mealRepository: FakeMealRepository(),
-            vitalsRepository: vitalsRepository,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('day-nav-previous')));
-      await tester.pumpAndSettle();
-
       expect(vitalsRepository.receivedDays.last, '2026-07-17');
+      expect(exerciseRepository.receivedDays.last, '2026-07-17');
     });
   });
 }

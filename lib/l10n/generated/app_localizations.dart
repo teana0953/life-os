@@ -1065,6 +1065,132 @@ abstract class AppLocalizations {
   /// **'Unable to load your vitals data. Please try again.'**
   String get errorVitalsLoadFailed;
 
+  /// Label for the More (overflow) destination in the daily-log shell's bottom navigation, alongside Today, Target, and Water; it opens a menu of the lower-frequency trackers.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get dietTabMore;
+
+  /// Heading shown above the list of overflow tracker tiles on the daily-log shell's More menu.
+  ///
+  /// In en, this message translates to:
+  /// **'More trackers'**
+  String get dietMoreTitle;
+
+  /// Label for the Exercise tracker tile in the daily-log shell's More menu, and the base name of the exercise tracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise'**
+  String get dietTabExercise;
+
+  /// Heading on the exercise screen, above the entry list, when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s exercise'**
+  String get exerciseTitle;
+
+  /// Heading on the exercise screen, above the entry list, when viewing a past day.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise log'**
+  String get exerciseHistoryTitle;
+
+  /// The day's total exercise duration shown at the top of the exercise screen, e.g. '50 min total'.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min total'**
+  String exerciseTotalMinutes(int minutes);
+
+  /// A single exercise entry's duration in whole minutes, shown on its row, e.g. '30 min'.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String exerciseEntryDuration(int minutes);
+
+  /// Shown on the exercise screen for a day that has no entries yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No exercise logged yet'**
+  String get exerciseEmptyLabel;
+
+  /// Label for the control on the exercise screen that opens the add-entry dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Log exercise'**
+  String get exerciseAddButton;
+
+  /// Title of the dialog for adding an exercise entry (choose an activity, enter minutes, optional note).
+  ///
+  /// In en, this message translates to:
+  /// **'Log exercise'**
+  String get exerciseAddDialogTitle;
+
+  /// Caption above the activity picker in the add-exercise dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get exerciseActivityLabel;
+
+  /// Label for the whole-minutes duration field in the add-exercise dialog (empty means zero, via the numeric empty-zero convention).
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes'**
+  String get exerciseDurationLabel;
+
+  /// Label/hint for the optional free-text note field in the add-exercise dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get exerciseNoteLabel;
+
+  /// Group heading for aerobic activities in the add-exercise dialog's activity picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Aerobic'**
+  String get exerciseCategoryAerobic;
+
+  /// Group heading for anaerobic activities in the add-exercise dialog's activity picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Anaerobic'**
+  String get exerciseCategoryAnaerobic;
+
+  /// Label for the confirm button in the add-exercise dialog that appends the entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get exerciseAddConfirmButton;
+
+  /// Tooltip/accessible label for the control that removes an exercise entry from the day's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get exerciseRemoveEntry;
+
+  /// Transient SnackBar shown on the exercise screen when appending or removing an entry fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again'**
+  String get exerciseSaveFailed;
+
+  /// Transient SnackBar shown on the exercise screen after an entry is removed, paired with an Undo action.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise removed'**
+  String get exerciseEntryRemoved;
+
+  /// Action label on the exercise 'removed' SnackBar that re-adds the just-removed entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get exerciseUndo;
+
+  /// Shown on the exercise screen when loading the day's entries fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your exercise data. Please try again.'**
+  String get errorExerciseLoadFailed;
+
   /// Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload.
   ///
   /// In en, this message translates to:

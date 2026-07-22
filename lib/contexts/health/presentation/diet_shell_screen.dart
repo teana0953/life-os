@@ -8,6 +8,8 @@ import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../bowel/presentation/bowel_controller.dart';
 import '../../bowel/presentation/bowel_screen.dart';
+import '../../exercise/presentation/exercise_controller.dart';
+import '../../exercise/presentation/exercise_screen.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../hydration/presentation/water_screen.dart';
 import '../../vitals/presentation/vitals_controller.dart';
@@ -70,6 +72,7 @@ class DietShellScreen extends StatefulWidget {
   final WaterController waterController;
   final BowelController bowelController;
   final VitalsController vitalsController;
+  final ExerciseController exerciseController;
   final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
@@ -87,6 +90,7 @@ class DietShellScreen extends StatefulWidget {
     required this.waterController,
     required this.bowelController,
     required this.vitalsController,
+    required this.exerciseController,
     required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
@@ -118,6 +122,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.waterController.load(token, _day);
     await widget.bowelController.load(token, _day);
     await widget.vitalsController.load(token, _day);
+    await widget.exerciseController.load(token, _day);
   }
 
   Future<void> _reloadCurrentDay() async {
@@ -128,6 +133,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.waterController.load(token, _day);
     await widget.bowelController.load(token, _day);
     await widget.vitalsController.load(token, _day);
+    await widget.exerciseController.load(token, _day);
   }
 
   Future<void> _setViewedDate(DateTime date) async {
@@ -257,22 +263,14 @@ class _DietShellScreenState extends State<DietShellScreen> {
               day: _day,
               clock: widget.clock,
             ),
-      idToken == null
-          ? const Center(child: CircularProgressIndicator())
-          : BowelScreen(
-              controller: widget.bowelController,
-              idToken: idToken,
-              day: _day,
-              clock: widget.clock,
-            ),
-      idToken == null
-          ? const Center(child: CircularProgressIndicator())
-          : VitalsScreen(
-              controller: widget.vitalsController,
-              idToken: idToken,
-              day: _day,
-              clock: widget.clock,
-            ),
+      _MoreMenuScreen(
+        idToken: idToken,
+        day: _day,
+        clock: widget.clock,
+        bowelController: widget.bowelController,
+        vitalsController: widget.vitalsController,
+        exerciseController: widget.exerciseController,
+      ),
     ];
 
     return Scaffold(
@@ -294,14 +292,114 @@ class _DietShellScreenState extends State<DietShellScreen> {
             label: loc.dietTabWater,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.wc),
-            label: loc.dietTabBowel,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.monitor_heart),
-            label: loc.dietTabVitals,
+            icon: const Icon(Icons.more_horiz),
+            label: loc.dietTabMore,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The 更多 overflow menu: lists the lower-frequency trackers (Bowel, Vitals,
+/// Exercise) as tiles that push the respective tracker screen for the shell's
+/// currently viewed [day]. The shell owns loading (each controller was already
+/// `load`ed for [day]); this is only the entry point. Future surfaces (period,
+/// dashboard) add tiles here without another bottom-bar restructure.
+class _MoreMenuScreen extends StatelessWidget {
+  final String? idToken;
+  final String day;
+  final DateTime Function() clock;
+  final BowelController bowelController;
+  final VitalsController vitalsController;
+  final ExerciseController exerciseController;
+
+  const _MoreMenuScreen({
+    required this.idToken,
+    required this.day,
+    required this.clock,
+    required this.bowelController,
+    required this.vitalsController,
+    required this.exerciseController,
+  });
+
+  void _push(BuildContext context, Widget screen) {
+    if (idToken == null) return;
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final token = idToken;
+    if (token == null) {
+      // The token is still loading (the shell owns the auth-token load); show a
+      // loading indicator rather than silently disabled tiles.
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(key: Key('more-loading')),
+        ),
+      );
+    }
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  loc.dietMoreTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  key: const Key('more-tile-bowel'),
+                  leading: const Icon(Icons.wc),
+                  title: Text(loc.dietTabBowel),
+                  onTap: () => _push(
+                    context,
+                    BowelScreen(
+                      controller: bowelController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  key: const Key('more-tile-vitals'),
+                  leading: const Icon(Icons.monitor_heart),
+                  title: Text(loc.dietTabVitals),
+                  onTap: () => _push(
+                    context,
+                    VitalsScreen(
+                      controller: vitalsController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  key: const Key('more-tile-exercise'),
+                  leading: const Icon(Icons.fitness_center),
+                  title: Text(loc.dietTabExercise),
+                  onTap: () => _push(
+                    context,
+                    ExerciseScreen(
+                      controller: exerciseController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -525,6 +525,74 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load your vitals data. Please try again.';
 
   @override
+  String get dietTabMore => 'More';
+
+  @override
+  String get dietMoreTitle => 'More trackers';
+
+  @override
+  String get dietTabExercise => 'Exercise';
+
+  @override
+  String get exerciseTitle => 'Today\'s exercise';
+
+  @override
+  String get exerciseHistoryTitle => 'Exercise log';
+
+  @override
+  String exerciseTotalMinutes(int minutes) {
+    return '$minutes min total';
+  }
+
+  @override
+  String exerciseEntryDuration(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get exerciseEmptyLabel => 'No exercise logged yet';
+
+  @override
+  String get exerciseAddButton => 'Log exercise';
+
+  @override
+  String get exerciseAddDialogTitle => 'Log exercise';
+
+  @override
+  String get exerciseActivityLabel => 'Activity';
+
+  @override
+  String get exerciseDurationLabel => 'Minutes';
+
+  @override
+  String get exerciseNoteLabel => 'Note';
+
+  @override
+  String get exerciseCategoryAerobic => 'Aerobic';
+
+  @override
+  String get exerciseCategoryAnaerobic => 'Anaerobic';
+
+  @override
+  String get exerciseAddConfirmButton => 'Add';
+
+  @override
+  String get exerciseRemoveEntry => 'Remove';
+
+  @override
+  String get exerciseSaveFailed => 'Couldn\'t save — try again';
+
+  @override
+  String get exerciseEntryRemoved => 'Exercise removed';
+
+  @override
+  String get exerciseUndo => 'Undo';
+
+  @override
+  String get errorExerciseLoadFailed =>
+      'Unable to load your exercise data. Please try again.';
+
+  @override
   String get updateAvailableTitle => 'A new version is available';
 
   @override
