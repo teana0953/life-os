@@ -1,12 +1,13 @@
 {
-    "name": "life_os",
-    "short_name": "life_os",
+    "name": "LifeOS",
+    "short_name": "LifeOS",
+    "description": "Your calm daily life tracker — food, water, and more.",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FBF1E1",
+    "theme_color": "#FBF1E1",
     "orientation": "portrait-primary",
+    "lang": "en",
     "prefer_related_applications": false,
     "icons": [
         {
