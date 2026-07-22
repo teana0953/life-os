@@ -38,6 +38,11 @@ import 'package:life_os/contexts/hydration/application/set_water_target.dart';
 import 'package:life_os/contexts/hydration/domain/water_day.dart';
 import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
+import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -189,6 +194,21 @@ class _FakeBowelRepository implements BowelRepository {
       BowelDay(day: day, count: count, isNormal: isNormal, note: note);
 }
 
+class _FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
+    day: day,
+    weightKg: null,
+    bodyFatPct: null,
+    bpReadings: const [],
+    glucoseReadings: const [],
+    spo2Readings: const [],
+  );
+
+  @override
+  Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
+}
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -237,6 +257,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
+  final vitalsRepository = _FakeVitalsRepository();
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,
@@ -276,6 +297,10 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
         bowelController: BowelController(
           GetBowelDay(bowelRepository),
           SaveBowelDay(bowelRepository),
+        ),
+        vitalsController: VitalsController(
+          GetVitalsDay(vitalsRepository),
+          SaveVitalsDay(vitalsRepository),
         ),
       ),
     ),

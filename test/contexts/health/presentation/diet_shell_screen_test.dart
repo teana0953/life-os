@@ -42,6 +42,12 @@ import 'package:life_os/contexts/hydration/domain/water_day.dart';
 import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
 import 'package:life_os/contexts/hydration/presentation/water_screen.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
+import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
+import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/mascot.dart';
 
@@ -224,6 +230,26 @@ class FakeBowelRepository implements BowelRepository {
       BowelDay(day: day, count: count, isNormal: isNormal, note: note);
 }
 
+class FakeVitalsRepository implements VitalsRepository {
+  final List<String> receivedDays = [];
+
+  @override
+  Future<VitalsDay> getDay(String idToken, String day) async {
+    receivedDays.add(day);
+    return VitalsDay(
+      day: day,
+      weightKg: null,
+      bodyFatPct: null,
+      bpReadings: const [],
+      glucoseReadings: const [],
+      spo2Readings: const [],
+    );
+  }
+
+  @override
+  Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
+}
+
 FoodItem _riceItem() => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
@@ -266,6 +292,7 @@ DietShellScreen _dietShell({
   FakeFoodDictionaryRepository? foodDictionaryRepository,
   FakeWaterRepository? waterRepository,
   FakeBowelRepository? bowelRepository,
+  FakeVitalsRepository? vitalsRepository,
   DateTime Function() clock = _defaultClock,
 }) {
   final resolvedDailyTargetRepository =
@@ -274,6 +301,7 @@ DietShellScreen _dietShell({
       foodDictionaryRepository ?? FakeFoodDictionaryRepository();
   final resolvedWaterRepository = waterRepository ?? FakeWaterRepository();
   final resolvedBowelRepository = bowelRepository ?? FakeBowelRepository();
+  final resolvedVitalsRepository = vitalsRepository ?? FakeVitalsRepository();
   return DietShellScreen(
     authRepository: FakeAuthRepository(),
     todayController: TodayController(
@@ -302,6 +330,10 @@ DietShellScreen _dietShell({
     bowelController: BowelController(
       GetBowelDay(resolvedBowelRepository),
       SaveBowelDay(resolvedBowelRepository),
+    ),
+    vitalsController: VitalsController(
+      GetVitalsDay(resolvedVitalsRepository),
+      SaveVitalsDay(resolvedVitalsRepository),
     ),
     createMealController: CreateMealController(CreateMeal(mealRepository)),
     getLoggedDays: GetLoggedDays(mealRepository),
@@ -864,6 +896,66 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bowelRepository.receivedDays.last, '2026-07-17');
+    });
+  });
+
+  group('DietShellScreen vitals tab', () {
+    testWidgets(
+      'selecting the vitals destination shows the vitals screen for the '
+      'viewed day, and Today/Target/Water/Bowel remain reachable',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final vitalsRepository = FakeVitalsRepository();
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: _dietShell(
+              mealRepository: FakeMealRepository(),
+              vitalsRepository: vitalsRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.byType(VitalsScreen), findsNothing);
+        // The shell loaded the vitals tab for its viewed day even before it is
+        // shown (the shell owns loading).
+        expect(vitalsRepository.receivedDays, contains('2026-07-18'));
+
+        await tester.tap(find.text(loc.dietTabVitals));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(VitalsScreen), findsOneWidget);
+        expect(find.text(loc.vitalsTitle), findsOneWidget);
+        // Today, Target, Water, and Bowel are still reachable.
+        expect(find.text(loc.dietTabToday), findsWidgets);
+        expect(find.text(loc.dietTabTarget), findsWidgets);
+        expect(find.text(loc.dietTabWater), findsWidgets);
+        expect(find.text(loc.dietTabBowel), findsWidgets);
+      },
+    );
+
+    testWidgets('the vitals tab follows the shell day navigation', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final vitalsRepository = FakeVitalsRepository();
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: _dietShell(
+            mealRepository: FakeMealRepository(),
+            vitalsRepository: vitalsRepository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('day-nav-previous')));
+      await tester.pumpAndSettle();
+
+      expect(vitalsRepository.receivedDays.last, '2026-07-17');
     });
   });
 }

@@ -45,6 +45,11 @@ import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
 import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
+import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -196,6 +201,21 @@ class _FakeBowelRepository implements BowelRepository {
       BowelDay(day: day, count: count, isNormal: isNormal, note: note);
 }
 
+class _FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
+    day: day,
+    weightKg: null,
+    bodyFatPct: null,
+    bpReadings: const [],
+    glucoseReadings: const [],
+    spo2Readings: const [],
+  );
+
+  @override
+  Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -206,12 +226,14 @@ class _FakeBowelRepository implements BowelRepository {
   GetLoggedDays getLoggedDays,
   WaterController water,
   BowelController bowel,
+  VitalsController vitals,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
+  final vitalsRepository = _FakeVitalsRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -241,6 +263,10 @@ class _FakeBowelRepository implements BowelRepository {
     bowel: BowelController(
       GetBowelDay(bowelRepository),
       SaveBowelDay(bowelRepository),
+    ),
+    vitals: VitalsController(
+      GetVitalsDay(vitalsRepository),
+      SaveVitalsDay(vitalsRepository),
     ),
   );
 }
@@ -367,6 +393,7 @@ Future<LocaleController> pumpApp(
       healthGetLoggedDays: health.getLoggedDays,
       waterController: health.water,
       bowelController: health.bowel,
+      vitalsController: health.vitals,
     ),
   );
   return resolvedLocaleController;

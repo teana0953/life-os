@@ -10,6 +10,8 @@ import '../../bowel/presentation/bowel_controller.dart';
 import '../../bowel/presentation/bowel_screen.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../hydration/presentation/water_screen.dart';
+import '../../vitals/presentation/vitals_controller.dart';
+import '../../vitals/presentation/vitals_screen.dart';
 import '../application/get_logged_days.dart';
 import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
@@ -67,6 +69,7 @@ class DietShellScreen extends StatefulWidget {
   final DailyTargetController dailyTargetController;
   final WaterController waterController;
   final BowelController bowelController;
+  final VitalsController vitalsController;
   final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
@@ -83,6 +86,7 @@ class DietShellScreen extends StatefulWidget {
     required this.dailyTargetController,
     required this.waterController,
     required this.bowelController,
+    required this.vitalsController,
     required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
@@ -113,6 +117,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.dailyTargetController.load(token, _day);
     await widget.waterController.load(token, _day);
     await widget.bowelController.load(token, _day);
+    await widget.vitalsController.load(token, _day);
   }
 
   Future<void> _reloadCurrentDay() async {
@@ -122,6 +127,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.dailyTargetController.load(token, _day);
     await widget.waterController.load(token, _day);
     await widget.bowelController.load(token, _day);
+    await widget.vitalsController.load(token, _day);
   }
 
   Future<void> _setViewedDate(DateTime date) async {
@@ -259,6 +265,14 @@ class _DietShellScreenState extends State<DietShellScreen> {
               day: _day,
               clock: widget.clock,
             ),
+      idToken == null
+          ? const Center(child: CircularProgressIndicator())
+          : VitalsScreen(
+              controller: widget.vitalsController,
+              idToken: idToken,
+              day: _day,
+              clock: widget.clock,
+            ),
     ];
 
     return Scaffold(
@@ -282,6 +296,10 @@ class _DietShellScreenState extends State<DietShellScreen> {
           NavigationDestination(
             icon: const Icon(Icons.wc),
             label: loc.dietTabBowel,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.monitor_heart),
+            label: loc.dietTabVitals,
           ),
         ],
       ),
