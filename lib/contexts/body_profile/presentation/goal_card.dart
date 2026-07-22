@@ -69,11 +69,15 @@ class _GoalCardState extends State<GoalCard> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final loc = AppLocalizations.of(context)!;
+    final goal = controller.goal;
+    final saving = controller.status == WeightGoalStatus.saving;
 
-    // An in-flight load (first fetch) or save → a card-sized spinner, so a save
-    // of an already-set goal also gets feedback (not just the unset case).
+    // The first fetch — or a save with no already-set card to keep — gets a
+    // card-sized spinner. A save of an already-set goal keeps its card content
+    // (below) with a lightweight inline indicator instead, so the card doesn't
+    // collapse to a spinner and regrow.
     if (controller.status == WeightGoalStatus.loading ||
-        controller.status == WeightGoalStatus.saving) {
+        (saving && (goal == null || !goal.isProfileSet))) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
         child: Center(
@@ -113,22 +117,27 @@ class _GoalCardState extends State<GoalCard> {
       );
     }
 
-    final goal = controller.goal;
     if (goal == null || !goal.isProfileSet) {
       return _UnsetGoalCard(onSetGoal: _openEditSheet);
     }
-    return _SetGoalCard(goal: goal, onEdit: _openEditSheet);
+    return _SetGoalCard(goal: goal, onEdit: _openEditSheet, saving: saving);
   }
 }
 
 /// The goal card when a profile is set: an achievement ring, the target /
 /// current / remaining weight figures, and BMI. Tapping anywhere opens the edit
-/// sheet.
+/// sheet. While [saving] a partial update, the card keeps its content and shows
+/// a thin inline progress bar at the top rather than collapsing to a spinner.
 class _SetGoalCard extends StatelessWidget {
   final WeightGoal goal;
   final VoidCallback onEdit;
+  final bool saving;
 
-  const _SetGoalCard({required this.goal, required this.onEdit});
+  const _SetGoalCard({
+    required this.goal,
+    required this.onEdit,
+    this.saving = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +154,14 @@ class _SetGoalCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (saving)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator(
+                    key: Key('goal-card-saving'),
+                    minHeight: 2,
+                  ),
+                ),
               Row(
                 children: [
                   Expanded(
@@ -169,7 +186,7 @@ class _SetGoalCard extends StatelessWidget {
                   _AchievementRing(
                     rate: goal.achievementRate,
                     label: loc.goalAchievementLabel,
-                    placeholder: loc.goalPlaceholder,
+                    noDataLabel: loc.goalNoData,
                   ),
                   const SizedBox(width: 20),
                   Expanded(
@@ -258,16 +275,17 @@ class _GoalStat extends StatelessWidget {
 /// rate, with a "達成率" [label] beneath so the percentage reads as achievement.
 /// A null rate shows an empty ring (value 0) and no percentage — never a false
 /// number. Exposes a single Semantics node (the label followed by the rate
-/// percentage, or the placeholder when null) for screen readers.
+/// percentage, or a spoken "no data" phrase when null — not the visual "—"
+/// glyph, which reads as meaningless punctuation) for screen readers.
 class _AchievementRing extends StatelessWidget {
   final int? rate;
   final String label;
-  final String placeholder;
+  final String noDataLabel;
 
   const _AchievementRing({
     required this.rate,
     required this.label,
-    required this.placeholder,
+    required this.noDataLabel,
   });
 
   @override
@@ -277,7 +295,7 @@ class _AchievementRing extends StatelessWidget {
     return Semantics(
       container: true,
       excludeSemantics: true,
-      label: '$label ${rate == null ? placeholder : '$rate%'}',
+      label: '$label ${rate == null ? noDataLabel : '$rate%'}',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

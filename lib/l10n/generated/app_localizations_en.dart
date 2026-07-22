@@ -736,6 +736,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goalPlaceholder => '—';
 
   @override
+  String get goalNoData => 'No data';
+
+  @override
   String get goalUnsetPrompt =>
       'Set your height and target weight to start tracking your goal.';
 

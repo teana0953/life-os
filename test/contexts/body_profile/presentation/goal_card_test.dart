@@ -138,6 +138,16 @@ void main() {
       );
       // No false achievement number is rendered.
       expect(find.byKey(const Key('goal-achievement')), findsNothing);
+      // The ring's screen-reader label speaks "no data", not the bare "—"
+      // glyph (which reads as meaningless punctuation).
+      expect(
+        find.bySemanticsLabel('${_loc.goalAchievementLabel} ${_loc.goalNoData}'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('${_loc.goalAchievementLabel} —'),
+        findsNothing,
+      );
     });
   });
 
@@ -188,7 +198,8 @@ void main() {
   });
 
   group('GoalCard saving', () {
-    testWidgets('saving an already-set goal shows a spinner', (tester) async {
+    testWidgets('saving an already-set goal keeps the card, no full spinner',
+        (tester) async {
       final repository = _FakeRepository()
         ..goalToReturn = const WeightGoal(heightCm: 165, targetWeightKg: 51);
       final controller = await _loadedController(repository);
@@ -200,13 +211,17 @@ void main() {
       unawaited(controller.saveProfile('token', targetWeightKg: 50));
       await tester.pump();
 
-      // The save gives feedback even though a goal is already set.
-      expect(find.byKey(const Key('goal-card-loading')), findsOneWidget);
+      // The card content stays put (no collapse-and-regrow): the target value
+      // is still shown, the card-sized spinner never appears, and a lightweight
+      // inline indicator gives the save feedback.
+      expect(find.text('51'), findsOneWidget);
+      expect(find.byKey(const Key('goal-card-loading')), findsNothing);
+      expect(find.byKey(const Key('goal-card-saving')), findsOneWidget);
 
-      // Completing the save returns to the loaded card.
+      // Completing the save returns to the plain loaded card.
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('goal-card-loading')), findsNothing);
+      expect(find.byKey(const Key('goal-card-saving')), findsNothing);
     });
   });
 

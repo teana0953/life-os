@@ -1455,6 +1455,12 @@ abstract class AppLocalizations {
   /// **'—'**
   String get goalPlaceholder;
 
+  /// Screen-reader label for the achievement ring on the goal card when the achievement rate is not yet known, spoken instead of the visual dash placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get goalNoData;
+
   /// Prompt shown on the goal card when neither height nor target weight has been set, instead of a row of empty placeholders.
   ///
   /// In en, this message translates to:

@@ -722,6 +722,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goalPlaceholder => '—';
 
   @override
+  String get goalNoData => '無資料';
+
+  @override
   String get goalUnsetPrompt => '設定身高與目標體重,開始追蹤你的目標。';
 
   @override
@@ -1459,6 +1462,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get goalPlaceholder => '—';
+
+  @override
+  String get goalNoData => '無資料';
 
   @override
   String get goalUnsetPrompt => '設定身高與目標體重,開始追蹤你的目標。';

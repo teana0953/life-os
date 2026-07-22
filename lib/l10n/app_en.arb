@@ -965,6 +965,10 @@
   "@goalPlaceholder": {
     "description": "Placeholder shown in place of a weight or BMI figure on the goal card when the value is null / not yet known."
   },
+  "goalNoData": "No data",
+  "@goalNoData": {
+    "description": "Screen-reader label for the achievement ring on the goal card when the achievement rate is not yet known, spoken instead of the visual dash placeholder."
+  },
   "goalUnsetPrompt": "Set your height and target weight to start tracking your goal.",
   "@goalUnsetPrompt": {
     "description": "Prompt shown on the goal card when neither height nor target weight has been set, instead of a row of empty placeholders."

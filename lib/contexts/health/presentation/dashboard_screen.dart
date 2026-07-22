@@ -54,6 +54,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// Signs out, then pops this pushed dashboard (if it can) so the app-level
+  /// auth routing — which by then has flipped `MaterialApp.home` to
+  /// `LoginScreen` — becomes visible. Without the pop the dashboard would stay
+  /// on top of the now-stale route, hiding the login screen (mirrors
+  /// `SettingsScreen`'s sign-out-and-close).
+  Future<void> _signOutAndClose() async {
+    await widget.signOut();
+    if (!mounted) return;
+    if (Navigator.canPop(context)) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _load() async {
     final token = await widget.authRepository.idToken() ?? '';
     if (!mounted) return;
@@ -89,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               FilledButton(
                 key: const Key('dashboard-sign-in-again-button'),
-                onPressed: widget.signOut.call,
+                onPressed: _signOutAndClose,
                 child: Text(loc.signInAgain),
               ),
             ],

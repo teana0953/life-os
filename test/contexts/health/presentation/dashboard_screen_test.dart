@@ -135,4 +135,46 @@ void main() {
 
     expect(auth.signedOut, isTrue);
   });
+
+  testWidgets(
+      'the re-auth exit pops the pushed dashboard so the login screen shows',
+      (tester) async {
+    final auth = _FakeAuthRepository();
+    final repository = _FakeRepository()
+      ..getError = const BodyProfileReauthenticationRequired();
+    final dashboard = DashboardScreen(
+      weightGoalController: _controller(repository: repository),
+      authRepository: auth,
+      signOut: SignOut(auth),
+      onOpenLog: () {},
+    );
+
+    // Push the dashboard on top of a root route, mirroring how home pushes it.
+    await tester.pumpWidget(
+      l10nTestApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => dashboard),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DashboardScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('dashboard-sign-in-again-button')));
+    await tester.pumpAndSettle();
+
+    // Signed out, and the pushed dashboard is gone (revealing the root route).
+    expect(auth.signedOut, isTrue);
+    expect(find.byType(DashboardScreen), findsNothing);
+  });
 }

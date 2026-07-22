@@ -226,6 +226,7 @@
   "goalAchievementLabel": "達成率",
   "goalBmiLabel": "BMI",
   "goalPlaceholder": "—",
+  "goalNoData": "無資料",
   "goalUnsetPrompt": "設定身高與目標體重,開始追蹤你的目標。",
   "goalSetButton": "設定你的目標",
   "goalEditTitle": "設定你的目標",
