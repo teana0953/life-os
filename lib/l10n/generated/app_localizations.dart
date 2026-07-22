@@ -387,6 +387,24 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get languageSectionTitle;
 
+  /// Heading for the install-app section of the settings page (shown only in the web PWA when the app can be installed or an iOS add-to-home hint applies).
+  ///
+  /// In en, this message translates to:
+  /// **'Install app'**
+  String get settingsInstallSectionTitle;
+
+  /// Label for the button in settings that triggers the browser's PWA install prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Install LifeOS'**
+  String get settingsInstallButton;
+
+  /// Instruction shown in settings on iOS Safari (which has no install prompt) explaining how to add the app to the home screen via the share sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Home Screen: Share → Add to Home Screen'**
+  String get settingsInstallIosHint;
+
   /// Diet shell bottom navigation label and screen title for the Today section.
   ///
   /// In en, this message translates to:

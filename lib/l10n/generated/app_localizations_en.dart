@@ -157,6 +157,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageSectionTitle => 'Language';
 
   @override
+  String get settingsInstallSectionTitle => 'Install app';
+
+  @override
+  String get settingsInstallButton => 'Install LifeOS';
+
+  @override
+  String get settingsInstallIosHint =>
+      'Add to Home Screen: Share → Add to Home Screen';
+
+  @override
   String get dietTabToday => 'Today';
 
   @override

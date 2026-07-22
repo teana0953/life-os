@@ -192,6 +192,18 @@
   "@languageSectionTitle": {
     "description": "Heading for the language section of the settings page."
   },
+  "settingsInstallSectionTitle": "Install app",
+  "@settingsInstallSectionTitle": {
+    "description": "Heading for the install-app section of the settings page (shown only in the web PWA when the app can be installed or an iOS add-to-home hint applies)."
+  },
+  "settingsInstallButton": "Install LifeOS",
+  "@settingsInstallButton": {
+    "description": "Label for the button in settings that triggers the browser's PWA install prompt."
+  },
+  "settingsInstallIosHint": "Add to Home Screen: Share → Add to Home Screen",
+  "@settingsInstallIosHint": {
+    "description": "Instruction shown in settings on iOS Safari (which has no install prompt) explaining how to add the app to the home screen via the share sheet."
+  },
   "dietTabToday": "Today",
   "@dietTabToday": {
     "description": "Diet shell bottom navigation label and screen title for the Today section."

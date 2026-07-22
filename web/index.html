@@ -113,71 +113,6 @@
       border-bottom: 1px solid var(--lifeos-outline);
     }
     #lifeos-offline.lifeos-show { display: block; }
-
-    /* Dismissible install banner, bottom, safe-area aware. */
-    #lifeos-install {
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: calc(env(safe-area-inset-bottom) + 12px);
-      z-index: 2147483646;
-      display: none;
-      align-items: center;
-      gap: 12px;
-      max-width: 440px;
-      margin: 0 auto;
-      padding: 12px 14px;
-      background-color: var(--lifeos-surface);
-      color: var(--lifeos-ink);
-      border: 2px solid var(--lifeos-outline);
-      border-radius: 18px;
-      box-shadow: 0 4px 0 rgba(216, 195, 166, 0.55);
-    }
-    #lifeos-install.lifeos-show { display: flex; }
-    #lifeos-install .lifeos-install-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      flex: 0 0 auto;
-    }
-    #lifeos-install .lifeos-install-text {
-      flex: 1 1 auto;
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-    #lifeos-install button {
-      font-family: inherit;
-      cursor: pointer;
-    }
-    #lifeos-install .lifeos-install-btn {
-      flex: 0 0 auto;
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--lifeos-ink);
-      background-color: var(--lifeos-primary);
-      border: 2px solid var(--lifeos-outline);
-      border-radius: 999px;
-    }
-    #lifeos-install .lifeos-install-close {
-      flex: 0 0 auto;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      font-size: 16px;
-      line-height: 1;
-      color: var(--lifeos-ink);
-      background: transparent;
-      border: none;
-    }
-    @media (prefers-color-scheme: dark) {
-      #lifeos-install {
-        background-color: #3A2F27;
-        color: #F3E7D6;
-      }
-      #lifeos-install .lifeos-install-close { color: #F3E7D6; }
-    }
   </style>
 </head>
 <body>
@@ -189,16 +124,6 @@
 
   <!-- Offline indicator (top). -->
   <div id="lifeos-offline">離線中 — 部分功能無法使用 / You're offline</div>
-
-  <!-- Install / add-to-home banner (bottom). -->
-  <div id="lifeos-install">
-    <img class="lifeos-install-icon" src="icons/Icon-192.png" alt="">
-    <div class="lifeos-install-text" id="lifeos-install-text">
-      安裝 LifeOS / Install LifeOS
-    </div>
-    <button class="lifeos-install-btn" id="lifeos-install-btn">Install</button>
-    <button class="lifeos-install-close" id="lifeos-install-close" aria-label="Dismiss">✕</button>
-  </div>
 
   <script>
     (function () {
@@ -229,62 +154,45 @@
       window.addEventListener('offline', updateOnline);
       updateOnline();
 
-      // ---- Install prompt (add-to-home).
-      var DISMISS_KEY = 'lifeos-install-dismissed';
-      var banner = document.getElementById('lifeos-install');
-      var installBtn = document.getElementById('lifeos-install-btn');
-      var closeBtn = document.getElementById('lifeos-install-close');
-      var textEl = document.getElementById('lifeos-install-text');
+      // ---- Install bridge (add-to-home). No visible banner here anymore:
+      // the install entry point lives in the app's Settings screen, which
+      // reads this `window.pwaInstall` bridge and calls prompt() on it.
+      var isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+      var isStandalone = window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
       var deferredPrompt = null;
 
-      function dismissed() {
-        try { return localStorage.getItem(DISMISS_KEY) === '1'; }
-        catch (e) { return false; }
-      }
-      function rememberDismiss() {
-        try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
-      }
-      function hideBanner() { banner.classList.remove('lifeos-show'); }
+      window.pwaInstall = {
+        // A beforeinstallprompt is pending (Chromium Android/desktop).
+        available: false,
+        // Already running as an installed / standalone PWA.
+        standalone: isStandalone,
+        // iOS Safari has no beforeinstallprompt — needs the manual hint.
+        iosHint: isIOS && !isStandalone,
+        // Triggers the stashed prompt; resolves once the user chooses.
+        // No-op (resolved) when nothing is pending.
+        prompt: function () {
+          if (!deferredPrompt) return Promise.resolve();
+          var p = deferredPrompt;
+          deferredPrompt = null;
+          window.pwaInstall.available = false;
+          p.prompt();
+          return p.userChoice;
+        }
+      };
 
-      closeBtn.addEventListener('click', function () {
-        hideBanner();
-        rememberDismiss();
-      });
-
-      // Chromium: stash the event and reveal our own banner.
+      // Chromium: stash the event and mark install available for Flutter.
       window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         deferredPrompt = e;
-        if (dismissed()) return;
-        installBtn.style.display = '';
-        textEl.textContent = '安裝 LifeOS / Install LifeOS';
-        banner.classList.add('lifeos-show');
-      });
-
-      installBtn.addEventListener('click', function () {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.finally(function () {
-          deferredPrompt = null;
-          hideBanner();
-        });
+        window.pwaInstall.available = true;
       });
 
       window.addEventListener('appinstalled', function () {
         deferredPrompt = null;
-        hideBanner();
-        rememberDismiss();
+        window.pwaInstall.available = false;
+        window.pwaInstall.iosHint = false;
       });
-
-      // iOS Safari has no beforeinstallprompt: show a share-sheet hint instead.
-      var isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-      var isStandalone = window.navigator.standalone === true ||
-        window.matchMedia('(display-mode: standalone)').matches;
-      if (isIOS && !isStandalone && !dismissed()) {
-        installBtn.style.display = 'none';
-        textEl.textContent = '加到主畫面:分享 → 加入主畫面 / Add to Home Screen: Share → Add to Home Screen';
-        banner.classList.add('lifeos-show');
-      }
     })();
   </script>
 

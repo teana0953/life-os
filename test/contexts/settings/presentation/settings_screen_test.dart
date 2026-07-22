@@ -5,10 +5,32 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/settings/presentation/settings_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
+import 'package:life_os/shared/pwa/pwa_install.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/l10n_test_app.dart';
+
+class _FakePwaInstall implements PwaInstall {
+  @override
+  final bool canInstall;
+  @override
+  final bool isIosHint;
+  @override
+  final bool isStandalone;
+  bool promptInstallCalled = false;
+
+  _FakePwaInstall({
+    this.canInstall = false,
+    this.isIosHint = false,
+    this.isStandalone = false,
+  });
+
+  @override
+  Future<void> promptInstall() async {
+    promptInstallCalled = true;
+  }
+}
 
 class _FakeAuthRepository implements AuthRepository {
   bool signOutCalled = false;
@@ -44,7 +66,11 @@ Future<
     _FakeAuthRepository authRepository,
   })
 >
-_pumpSettingsScreen(WidgetTester tester, {Locale locale = const Locale('en')}) async {
+_pumpSettingsScreen(
+  WidgetTester tester, {
+  Locale locale = const Locale('en'),
+  PwaInstall? pwaInstall,
+}) async {
   // The settings list (three theme rows + three language rows + sign-out)
   // exceeds the default 800x600 test viewport, so widen it to keep
   // everything on-screen without needing scroll gymnastics in every test.
@@ -62,6 +88,7 @@ _pumpSettingsScreen(WidgetTester tester, {Locale locale = const Locale('en')}) a
         themeController: themeController,
         localeController: localeController,
         signOut: SignOut(authRepository),
+        pwaInstall: pwaInstall ?? _FakePwaInstall(isStandalone: true),
       ),
     ),
   );
@@ -177,6 +204,62 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.authRepository.signOutCalled, isTrue);
+    });
+  });
+
+  group('SettingsScreen install section', () {
+    testWidgets('shows Install button when canInstall and tapping it prompts', (
+      tester,
+    ) async {
+      final pwa = _FakePwaInstall(canInstall: true);
+      await _pumpSettingsScreen(tester, pwaInstall: pwa);
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(en.settingsInstallSectionTitle), findsOneWidget);
+      expect(find.byKey(const Key('settings-install-button')), findsOneWidget);
+      expect(find.text(en.settingsInstallIosHint), findsNothing);
+
+      await tester.tap(find.byKey(const Key('settings-install-button')));
+      await tester.pumpAndSettle();
+
+      expect(pwa.promptInstallCalled, isTrue);
+    });
+
+    testWidgets('shows the iOS hint (no button) when isIosHint', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        pwaInstall: _FakePwaInstall(isIosHint: true),
+      );
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(en.settingsInstallSectionTitle), findsOneWidget);
+      expect(find.text(en.settingsInstallIosHint), findsOneWidget);
+      expect(find.byKey(const Key('settings-install-button')), findsNothing);
+    });
+
+    testWidgets('shows nothing when isStandalone', (tester) async {
+      await _pumpSettingsScreen(
+        tester,
+        pwaInstall: _FakePwaInstall(isStandalone: true),
+      );
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(en.settingsInstallSectionTitle), findsNothing);
+      expect(find.byKey(const Key('settings-install-button')), findsNothing);
+      expect(find.text(en.settingsInstallIosHint), findsNothing);
+    });
+
+    testWidgets('shows nothing when neither installable nor iOS', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(tester, pwaInstall: _FakePwaInstall());
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(en.settingsInstallSectionTitle), findsNothing);
+      expect(find.byKey(const Key('settings-install-button')), findsNothing);
+      expect(find.text(en.settingsInstallIosHint), findsNothing);
     });
   });
 

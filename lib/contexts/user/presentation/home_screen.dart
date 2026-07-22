@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
 import '../../../shared/i18n/locale_controller.dart';
+import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/mascot.dart';
@@ -101,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
           themeController: widget.themeController,
           localeController: widget.localeController,
           signOut: widget.signOut,
+          pwaInstall: const PwaInstallImpl(),
         ),
       ),
     );
