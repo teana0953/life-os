@@ -153,6 +153,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageSectionTitle => '語言';
 
   @override
+  String get settingsInstallSectionTitle => '安裝應用程式';
+
+  @override
+  String get settingsInstallButton => '安裝 LifeOS';
+
+  @override
+  String get settingsInstallIosHint => '加到主畫面:分享 → 加入主畫面';
+
+  @override
   String get dietTabToday => '今日';
 
   @override
@@ -581,6 +590,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get languageSectionTitle => '語言';
+
+  @override
+  String get settingsInstallSectionTitle => '安裝應用程式';
+
+  @override
+  String get settingsInstallButton => '安裝 LifeOS';
+
+  @override
+  String get settingsInstallIosHint => '加到主畫面:分享 → 加入主畫面';
 
   @override
   String get dietTabToday => '今日';

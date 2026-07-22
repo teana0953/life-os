@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/locale_controller.dart';
+import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
@@ -18,12 +19,14 @@ class SettingsScreen extends StatefulWidget {
   final ThemeController themeController;
   final LocaleController localeController;
   final SignOut signOut;
+  final PwaInstall pwaInstall;
 
   const SettingsScreen({
     super.key,
     required this.themeController,
     required this.localeController,
     required this.signOut,
+    required this.pwaInstall,
   });
 
   @override
@@ -55,6 +58,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (context.mounted && Navigator.canPop(context)) {
       Navigator.of(context).pop();
     }
+  }
+
+  /// The web-PWA install affordance. Renders nothing (native/mobile builds,
+  /// already-installed standalone sessions, or browsers with nothing to offer),
+  /// an "Install LifeOS" button when the browser has a pending install prompt,
+  /// or a short add-to-home instruction on iOS Safari.
+  List<Widget> _buildInstallSection(BuildContext context, AppLocalizations loc) {
+    final pwa = widget.pwaInstall;
+    if (pwa.isStandalone) return const [];
+
+    final Widget content;
+    if (pwa.canInstall) {
+      content = FilledButton(
+        key: const Key('settings-install-button'),
+        onPressed: pwa.promptInstall,
+        child: Text(loc.settingsInstallButton),
+      );
+    } else if (pwa.isIosHint) {
+      content = ListTile(title: Text(loc.settingsInstallIosHint));
+    } else {
+      return const [];
+    }
+
+    return [
+      const SizedBox(height: 20),
+      _SettingsSection(
+        title: loc.settingsInstallSectionTitle,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: content,
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -125,6 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                ..._buildInstallSection(context, loc),
                 const SizedBox(height: 20),
                 OutlinedButton(
                   key: const Key('settings-sign-out-button'),
