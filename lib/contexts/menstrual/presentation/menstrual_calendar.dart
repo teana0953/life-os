@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../domain/menstrual_period.dart';
 
 /// Strips the time-of-day, keeping only the calendar date.
@@ -121,7 +121,7 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
             ),
             Expanded(
               child: Text(
-                DateFormat.yMMM().format(_visibleMonth),
+                monthYearLabel(context, _visibleMonth),
                 key: const Key('menstrual-month-label'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge,
@@ -267,7 +267,7 @@ class _MenstrualDayCell extends StatelessWidget {
     final theme = Theme.of(context);
     final dayString = _dayString(date);
     final isToday = menstrualDateOnly(date) == today;
-    final dateLabel = DateFormat.yMMMd().format(date);
+    final dateLabel = mediumDateLabel(context, date);
 
     final String semanticLabel;
     if (isPeriod) {

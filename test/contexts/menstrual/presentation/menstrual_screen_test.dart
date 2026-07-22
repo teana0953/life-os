@@ -86,11 +86,13 @@ Future<MenstrualController> _pumpScreen(
   WidgetTester tester,
   FakeMenstrualRepository repo, {
   bool load = true,
+  Locale locale = const Locale('en'),
 }) async {
   final controller = _controllerFor(repo);
   if (load) await controller.load('tok');
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: MenstrualScreen(
         controller: controller,
         idToken: 'tok',
@@ -114,6 +116,46 @@ void main() {
       expect(find.text(loc.menstrualTitle), findsWidgets);
       expect(find.byKey(const Key('menstrual-month-label')), findsOneWidget);
     });
+
+    testWidgets(
+      'formats dates in the active locale and shows the full last period range',
+      (tester) async {
+        final repo = FakeMenstrualRepository();
+        repo.periods.add(
+          MenstrualPeriod(
+            id: '1',
+            startDate: DateTime(2026, 7, 13),
+            endDate: DateTime(2026, 7, 22),
+          ),
+        );
+        await _pumpScreen(
+          tester,
+          repo,
+          locale: const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        );
+
+        // Month header follows the locale (Chinese "年", not the English "Jul").
+        final monthLabel = tester.widget<Text>(
+          find.byKey(const Key('menstrual-month-label')),
+        );
+        expect(monthLabel.data, contains('年'));
+        expect(monthLabel.data, isNot(contains('Jul')));
+
+        // The last period shows BOTH endpoints in full (not ellipsis-truncated).
+        final lastValue = tester
+            .widgetList<Text>(
+              find.descendant(
+                of: find.byKey(const Key('menstrual-last-period')),
+                matching: find.byType(Text),
+              ),
+            )
+            .last
+            .data!;
+        expect(lastValue, contains('13'));
+        expect(lastValue, contains('22'));
+        expect(lastValue, contains('–'));
+      },
+    );
 
     testWidgets('shows statistics values when available', (tester) async {
       final repo = FakeMenstrualRepository(

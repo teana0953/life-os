@@ -20,3 +20,18 @@ String fullDateLabel(BuildContext context, DateTime viewedDate) {
   final pattern = languageTag.startsWith('zh') ? 'M月d日 EEEE' : 'EEE, MMM d';
   return DateFormat(pattern, languageTag).format(viewedDate);
 }
+
+/// The month-and-year header text, formatted per the active locale
+/// (e.g. "2026年7月" for Chinese, "Jul 2026" otherwise). `DateFormat` must be
+/// given the locale explicitly — without it, it falls back to English.
+String monthYearLabel(BuildContext context, DateTime month) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat.yMMM(languageTag).format(month);
+}
+
+/// A medium full date, formatted per the active locale (e.g. "2026年7月13日"
+/// for Chinese, "Jul 13, 2026" otherwise).
+String mediumDateLabel(BuildContext context, DateTime date) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat.yMMMd(languageTag).format(date);
+}
