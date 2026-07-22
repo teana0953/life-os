@@ -777,6 +777,138 @@
   "@errorExerciseLoadFailed": {
     "description": "Shown on the exercise screen when loading the day's entries fails (not an auth failure)."
   },
+  "menstrualTitle": "Period",
+  "@menstrualTitle": {
+    "description": "Label for the menstrual (period) tracker tile in the daily-log shell's More menu, and the title of the menstrual screen's app bar."
+  },
+  "menstrualAverageCycleLabel": "Average cycle",
+  "@menstrualAverageCycleLabel": {
+    "description": "Label on the menstrual screen's statistics card for the average number of days between period starts."
+  },
+  "menstrualAveragePeriodLabel": "Average period",
+  "@menstrualAveragePeriodLabel": {
+    "description": "Label on the menstrual screen's statistics card for the average length of a period in days."
+  },
+  "menstrualPredictedNextLabel": "Predicted next",
+  "@menstrualPredictedNextLabel": {
+    "description": "Label on the menstrual screen's statistics card for the predicted start date of the next period."
+  },
+  "menstrualDaysValue": "{days} days",
+  "@menstrualDaysValue": {
+    "description": "A statistic value expressed as a whole number of days, e.g. '28 days'.",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "menstrualStatPlaceholder": "—",
+  "@menstrualStatPlaceholder": {
+    "description": "Placeholder shown on the menstrual screen in place of a statistic that is not yet available (not enough data)."
+  },
+  "menstrualLastPeriodLabel": "Last period",
+  "@menstrualLastPeriodLabel": {
+    "description": "Label on the menstrual screen for the most recent recorded period's date range."
+  },
+  "menstrualOngoingLabel": "Ongoing",
+  "@menstrualOngoingLabel": {
+    "description": "Shown in place of an end date for a period that is still open (no end date recorded yet)."
+  },
+  "menstrualAddButton": "Log period",
+  "@menstrualAddButton": {
+    "description": "Label for the control on the menstrual screen that opens the dialog to record a new period."
+  },
+  "menstrualAddDialogTitle": "Log period",
+  "@menstrualAddDialogTitle": {
+    "description": "Title of the dialog for recording a new menstrual period."
+  },
+  "menstrualEditDialogTitle": "Edit period",
+  "@menstrualEditDialogTitle": {
+    "description": "Title of the dialog for editing an existing menstrual period."
+  },
+  "menstrualStartDateLabel": "Start date",
+  "@menstrualStartDateLabel": {
+    "description": "Label for the required start-date field in the menstrual add/edit dialog."
+  },
+  "menstrualEndDateLabel": "End date",
+  "@menstrualEndDateLabel": {
+    "description": "Label for the optional end-date field in the menstrual add/edit dialog."
+  },
+  "menstrualSelectDate": "Select",
+  "@menstrualSelectDate": {
+    "description": "Placeholder shown on a date-picker control in the menstrual dialog when no date has been chosen yet."
+  },
+  "menstrualClearEndDate": "Clear end date",
+  "@menstrualClearEndDate": {
+    "description": "Tooltip/label for the control in the menstrual edit dialog that clears the end date, reopening a completed period."
+  },
+  "menstrualEndBeforeStartError": "The end date can't be before the start date.",
+  "@menstrualEndBeforeStartError": {
+    "description": "Validation message shown in the menstrual dialog when the chosen end date is earlier than the start date."
+  },
+  "menstrualSavePeriod": "Save",
+  "@menstrualSavePeriod": {
+    "description": "Label for the confirm button in the menstrual add/edit dialog that saves the period."
+  },
+  "menstrualDeletePeriod": "Delete",
+  "@menstrualDeletePeriod": {
+    "description": "Label for the control in the menstrual edit dialog that deletes the period."
+  },
+  "menstrualPeriodDeleted": "Period deleted",
+  "@menstrualPeriodDeleted": {
+    "description": "Transient SnackBar shown after a menstrual period is deleted, paired with an Undo action."
+  },
+  "menstrualUndo": "Undo",
+  "@menstrualUndo": {
+    "description": "Action label on the menstrual 'deleted' SnackBar that re-adds the just-deleted period."
+  },
+  "menstrualSaveFailed": "Couldn't save — try again",
+  "@menstrualSaveFailed": {
+    "description": "Transient SnackBar shown on the menstrual screen when saving a period fails (not an auth failure)."
+  },
+  "menstrualPrevMonth": "Previous month",
+  "@menstrualPrevMonth": {
+    "description": "Tooltip for the control that moves the menstrual mini-calendar to the previous month."
+  },
+  "menstrualNextMonth": "Next month",
+  "@menstrualNextMonth": {
+    "description": "Tooltip for the control that moves the menstrual mini-calendar to the next month."
+  },
+  "menstrualDaySemanticPeriod": "{date}, period day",
+  "@menstrualDaySemanticPeriod": {
+    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualDaySemanticPredicted": "{date}, predicted next period",
+  "@menstrualDaySemanticPredicted": {
+    "description": "Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualDaySemanticToday": "{date}, today",
+  "@menstrualDaySemanticToday": {
+    "description": "Screen-reader label for the menstrual calendar day cell representing today (when it is neither a period day nor the predicted next start). {date} is the localized date.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "menstrualLegendPeriod": "Period",
+  "@menstrualLegendPeriod": {
+    "description": "Legend label under the menstrual calendar for the filled marker meaning a recorded period day."
+  },
+  "menstrualLegendPredicted": "Predicted next",
+  "@menstrualLegendPredicted": {
+    "description": "Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start."
+  },
+  "menstrualEmptyHint": "No periods recorded yet. Tap a day on the calendar or 'Log period' to start tracking.",
+  "@menstrualEmptyHint": {
+    "description": "First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken."
+  },
+  "errorMenstrualLoadFailed": "Unable to load your period data. Please try again.",
+  "@errorMenstrualLoadFailed": {
+    "description": "Shown on the menstrual screen when loading the overview fails (not an auth failure)."
+  },
   "updateAvailableTitle": "A new version is available",
   "@updateAvailableTitle": {
     "description": "Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload."

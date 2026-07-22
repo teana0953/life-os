@@ -58,6 +58,14 @@ import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
 import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
 import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
 import 'package:life_os/contexts/exercise/presentation/exercise_screen.dart';
+import 'package:life_os/contexts/menstrual/application/add_period.dart';
+import 'package:life_os/contexts/menstrual/application/delete_period.dart';
+import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
+import 'package:life_os/contexts/menstrual/application/update_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/mascot.dart';
 
@@ -304,6 +312,35 @@ class FakeExerciseRepository implements ExerciseRepository {
   Future<bool> deleteEntry(String idToken, String entryId) async => true;
 }
 
+class FakeMenstrualRepository implements MenstrualRepository {
+  int getOverviewCallCount = 0;
+
+  @override
+  Future<MenstrualOverview> getOverview(String idToken) async {
+    getOverviewCallCount++;
+    return const MenstrualOverview(periods: [], stats: MenstrualStats());
+  }
+
+  @override
+  Future<MenstrualPeriod> addPeriod(
+    String idToken, {
+    required DateTime startDate,
+    DateTime? endDate,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<MenstrualPeriod> updatePeriod(
+    String idToken,
+    String id, {
+    DateTime? startDate,
+    DateTime? endDate,
+    bool clearEndDate = false,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> deletePeriod(String idToken, String id) async => true;
+}
+
 FoodItem _riceItem() => FoodItem.fromJson({
   'id': 'rice-1',
   'owner_user_id': null,
@@ -349,6 +386,7 @@ DietShellScreen _dietShell({
   FakeBowelRepository? bowelRepository,
   FakeVitalsRepository? vitalsRepository,
   FakeExerciseRepository? exerciseRepository,
+  FakeMenstrualRepository? menstrualRepository,
   DateTime Function() clock = _defaultClock,
 }) {
   final resolvedDailyTargetRepository =
@@ -360,6 +398,8 @@ DietShellScreen _dietShell({
   final resolvedVitalsRepository = vitalsRepository ?? FakeVitalsRepository();
   final resolvedExerciseRepository =
       exerciseRepository ?? FakeExerciseRepository();
+  final resolvedMenstrualRepository =
+      menstrualRepository ?? FakeMenstrualRepository();
   return DietShellScreen(
     authRepository: authRepository ?? FakeAuthRepository(),
     todayController: TodayController(
@@ -398,6 +438,12 @@ DietShellScreen _dietShell({
       GetExerciseDay(resolvedExerciseRepository),
       AddExerciseEntry(resolvedExerciseRepository),
       DeleteExerciseEntry(resolvedExerciseRepository),
+    ),
+    menstrualController: MenstrualController(
+      GetMenstrualOverview(resolvedMenstrualRepository),
+      AddPeriod(resolvedMenstrualRepository),
+      UpdatePeriod(resolvedMenstrualRepository),
+      DeletePeriod(resolvedMenstrualRepository),
     ),
     createMealController: CreateMealController(CreateMeal(mealRepository)),
     getLoggedDays: GetLoggedDays(mealRepository),
@@ -936,6 +982,7 @@ void main() {
       FakeBowelRepository? bowelRepository,
       FakeVitalsRepository? vitalsRepository,
       FakeExerciseRepository? exerciseRepository,
+      FakeMenstrualRepository? menstrualRepository,
     }) async {
       await tester.binding.setSurfaceSize(const Size(800, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -946,6 +993,7 @@ void main() {
             bowelRepository: bowelRepository,
             vitalsRepository: vitalsRepository,
             exerciseRepository: exerciseRepository,
+            menstrualRepository: menstrualRepository,
           ),
         ),
       );
@@ -956,7 +1004,7 @@ void main() {
     }
 
     testWidgets(
-      'tapping More lists the Bowel, Vitals, and Exercise trackers',
+      'tapping More lists the Bowel, Vitals, Exercise, and Period trackers',
       (tester) async {
         await pumpAndOpenMore(tester);
         final loc = lookupAppLocalizations(const Locale('en'));
@@ -964,6 +1012,66 @@ void main() {
         expect(find.text(loc.dietTabBowel), findsOneWidget);
         expect(find.text(loc.dietTabVitals), findsOneWidget);
         expect(find.text(loc.dietTabExercise), findsOneWidget);
+        expect(find.text(loc.menstrualTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the shell loads the menstrual overview once (day-independent)',
+      (tester) async {
+        final menstrualRepository = FakeMenstrualRepository();
+        await pumpAndOpenMore(tester, menstrualRepository: menstrualRepository);
+
+        // Loaded exactly once by the shell's _load (not per viewed day).
+        expect(menstrualRepository.getOverviewCallCount, 1);
+      },
+    );
+
+    testWidgets(
+      'selecting Period shows the menstrual screen with a back control',
+      (tester) async {
+        await pumpAndOpenMore(
+          tester,
+          menstrualRepository: FakeMenstrualRepository(),
+        );
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.byKey(const Key('more-tile-menstrual')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MenstrualScreen), findsOneWidget);
+        expect(find.byType(BackButton), findsOneWidget);
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MenstrualScreen), findsNothing);
+        expect(find.text(loc.dietMoreTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the menstrual overview is not reloaded on day navigation',
+      (tester) async {
+        final menstrualRepository = FakeMenstrualRepository();
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: _dietShell(
+              mealRepository: FakeMealRepository(),
+              menstrualRepository: menstrualRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(menstrualRepository.getOverviewCallCount, 1);
+
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        // Changing the viewed day does not re-read the day-independent overview.
+        expect(menstrualRepository.getOverviewCallCount, 1);
       },
     );
 

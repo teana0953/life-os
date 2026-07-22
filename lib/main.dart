@@ -45,6 +45,12 @@ import 'contexts/hydration/application/get_water_day.dart';
 import 'contexts/hydration/application/set_water_target.dart';
 import 'contexts/hydration/infrastructure/http_water_repository.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
+import 'contexts/menstrual/application/add_period.dart';
+import 'contexts/menstrual/application/delete_period.dart';
+import 'contexts/menstrual/application/get_menstrual_overview.dart';
+import 'contexts/menstrual/application/update_period.dart';
+import 'contexts/menstrual/infrastructure/http_menstrual_repository.dart';
+import 'contexts/menstrual/presentation/menstrual_controller.dart';
 import 'contexts/vitals/application/get_vitals_day.dart';
 import 'contexts/vitals/application/save_vitals_day.dart';
 import 'contexts/vitals/infrastructure/http_vitals_repository.dart';
@@ -147,6 +153,16 @@ Future<void> main() async {
     AddExerciseEntry(exerciseRepository),
     DeleteExerciseEntry(exerciseRepository),
   );
+  final menstrualRepository = HttpMenstrualRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final menstrualController = MenstrualController(
+    GetMenstrualOverview(menstrualRepository),
+    AddPeriod(menstrualRepository),
+    UpdatePeriod(menstrualRepository),
+    DeletePeriod(menstrualRepository),
+  );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
 
@@ -168,6 +184,7 @@ Future<void> main() async {
       bowelController: bowelController,
       vitalsController: vitalsController,
       exerciseController: exerciseController,
+      menstrualController: menstrualController,
       pwaUpdateController: pwaUpdateController,
     ),
   );

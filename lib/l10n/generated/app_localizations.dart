@@ -1191,6 +1191,186 @@ abstract class AppLocalizations {
   /// **'Unable to load your exercise data. Please try again.'**
   String get errorExerciseLoadFailed;
 
+  /// Label for the menstrual (period) tracker tile in the daily-log shell's More menu, and the title of the menstrual screen's app bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get menstrualTitle;
+
+  /// Label on the menstrual screen's statistics card for the average number of days between period starts.
+  ///
+  /// In en, this message translates to:
+  /// **'Average cycle'**
+  String get menstrualAverageCycleLabel;
+
+  /// Label on the menstrual screen's statistics card for the average length of a period in days.
+  ///
+  /// In en, this message translates to:
+  /// **'Average period'**
+  String get menstrualAveragePeriodLabel;
+
+  /// Label on the menstrual screen's statistics card for the predicted start date of the next period.
+  ///
+  /// In en, this message translates to:
+  /// **'Predicted next'**
+  String get menstrualPredictedNextLabel;
+
+  /// A statistic value expressed as a whole number of days, e.g. '28 days'.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days'**
+  String menstrualDaysValue(int days);
+
+  /// Placeholder shown on the menstrual screen in place of a statistic that is not yet available (not enough data).
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get menstrualStatPlaceholder;
+
+  /// Label on the menstrual screen for the most recent recorded period's date range.
+  ///
+  /// In en, this message translates to:
+  /// **'Last period'**
+  String get menstrualLastPeriodLabel;
+
+  /// Shown in place of an end date for a period that is still open (no end date recorded yet).
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing'**
+  String get menstrualOngoingLabel;
+
+  /// Label for the control on the menstrual screen that opens the dialog to record a new period.
+  ///
+  /// In en, this message translates to:
+  /// **'Log period'**
+  String get menstrualAddButton;
+
+  /// Title of the dialog for recording a new menstrual period.
+  ///
+  /// In en, this message translates to:
+  /// **'Log period'**
+  String get menstrualAddDialogTitle;
+
+  /// Title of the dialog for editing an existing menstrual period.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit period'**
+  String get menstrualEditDialogTitle;
+
+  /// Label for the required start-date field in the menstrual add/edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get menstrualStartDateLabel;
+
+  /// Label for the optional end-date field in the menstrual add/edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'End date'**
+  String get menstrualEndDateLabel;
+
+  /// Placeholder shown on a date-picker control in the menstrual dialog when no date has been chosen yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get menstrualSelectDate;
+
+  /// Tooltip/label for the control in the menstrual edit dialog that clears the end date, reopening a completed period.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear end date'**
+  String get menstrualClearEndDate;
+
+  /// Validation message shown in the menstrual dialog when the chosen end date is earlier than the start date.
+  ///
+  /// In en, this message translates to:
+  /// **'The end date can\'t be before the start date.'**
+  String get menstrualEndBeforeStartError;
+
+  /// Label for the confirm button in the menstrual add/edit dialog that saves the period.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get menstrualSavePeriod;
+
+  /// Label for the control in the menstrual edit dialog that deletes the period.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get menstrualDeletePeriod;
+
+  /// Transient SnackBar shown after a menstrual period is deleted, paired with an Undo action.
+  ///
+  /// In en, this message translates to:
+  /// **'Period deleted'**
+  String get menstrualPeriodDeleted;
+
+  /// Action label on the menstrual 'deleted' SnackBar that re-adds the just-deleted period.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get menstrualUndo;
+
+  /// Transient SnackBar shown on the menstrual screen when saving a period fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again'**
+  String get menstrualSaveFailed;
+
+  /// Tooltip for the control that moves the menstrual mini-calendar to the previous month.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get menstrualPrevMonth;
+
+  /// Tooltip for the control that moves the menstrual mini-calendar to the next month.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get menstrualNextMonth;
+
+  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, period day'**
+  String menstrualDaySemanticPeriod(String date);
+
+  /// Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, predicted next period'**
+  String menstrualDaySemanticPredicted(String date);
+
+  /// Screen-reader label for the menstrual calendar day cell representing today (when it is neither a period day nor the predicted next start). {date} is the localized date.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, today'**
+  String menstrualDaySemanticToday(String date);
+
+  /// Legend label under the menstrual calendar for the filled marker meaning a recorded period day.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get menstrualLegendPeriod;
+
+  /// Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start.
+  ///
+  /// In en, this message translates to:
+  /// **'Predicted next'**
+  String get menstrualLegendPredicted;
+
+  /// First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken.
+  ///
+  /// In en, this message translates to:
+  /// **'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.'**
+  String get menstrualEmptyHint;
+
+  /// Shown on the menstrual screen when loading the overview fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your period data. Please try again.'**
+  String get errorMenstrualLoadFailed;
+
   /// Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload.
   ///
   /// In en, this message translates to:

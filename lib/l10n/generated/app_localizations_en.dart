@@ -593,6 +593,107 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load your exercise data. Please try again.';
 
   @override
+  String get menstrualTitle => 'Period';
+
+  @override
+  String get menstrualAverageCycleLabel => 'Average cycle';
+
+  @override
+  String get menstrualAveragePeriodLabel => 'Average period';
+
+  @override
+  String get menstrualPredictedNextLabel => 'Predicted next';
+
+  @override
+  String menstrualDaysValue(int days) {
+    return '$days days';
+  }
+
+  @override
+  String get menstrualStatPlaceholder => '—';
+
+  @override
+  String get menstrualLastPeriodLabel => 'Last period';
+
+  @override
+  String get menstrualOngoingLabel => 'Ongoing';
+
+  @override
+  String get menstrualAddButton => 'Log period';
+
+  @override
+  String get menstrualAddDialogTitle => 'Log period';
+
+  @override
+  String get menstrualEditDialogTitle => 'Edit period';
+
+  @override
+  String get menstrualStartDateLabel => 'Start date';
+
+  @override
+  String get menstrualEndDateLabel => 'End date';
+
+  @override
+  String get menstrualSelectDate => 'Select';
+
+  @override
+  String get menstrualClearEndDate => 'Clear end date';
+
+  @override
+  String get menstrualEndBeforeStartError =>
+      'The end date can\'t be before the start date.';
+
+  @override
+  String get menstrualSavePeriod => 'Save';
+
+  @override
+  String get menstrualDeletePeriod => 'Delete';
+
+  @override
+  String get menstrualPeriodDeleted => 'Period deleted';
+
+  @override
+  String get menstrualUndo => 'Undo';
+
+  @override
+  String get menstrualSaveFailed => 'Couldn\'t save — try again';
+
+  @override
+  String get menstrualPrevMonth => 'Previous month';
+
+  @override
+  String get menstrualNextMonth => 'Next month';
+
+  @override
+  String menstrualDaySemanticPeriod(String date) {
+    return '$date, period day';
+  }
+
+  @override
+  String menstrualDaySemanticPredicted(String date) {
+    return '$date, predicted next period';
+  }
+
+  @override
+  String menstrualDaySemanticToday(String date) {
+    return '$date, today';
+  }
+
+  @override
+  String get menstrualLegendPeriod => 'Period';
+
+  @override
+  String get menstrualLegendPredicted => 'Predicted next';
+
+  @override
+  String get menstrualEmptyHint =>
+      'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.';
+
+  @override
+  String get errorMenstrualLoadFailed =>
+      'Unable to load your period data. Please try again.';
+
+  @override
   String get updateAvailableTitle => 'A new version is available';
 
   @override
