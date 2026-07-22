@@ -95,9 +95,16 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   Future<void> _openAddDialog() async {
-    final result = await showDialog<_NewEntry>(
+    // A modal bottom sheet (not an AlertDialog): with `isScrollControlled` and a
+    // bottom `viewInsets` padding, the sheet lifts above the on-screen keyboard
+    // so the duration/note fields stay visible while typing — an AlertDialog
+    // centred behind the keyboard hid them.
+    final result = await showModalBottomSheet<_NewEntry>(
       context: context,
-      builder: (_) => _AddExerciseDialog(activities: widget.controller.activities),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _AddExerciseSheet(activities: widget.controller.activities),
     );
     if (result == null) return;
     await _runMutation(
@@ -304,16 +311,16 @@ class _NewEntry {
 /// anaerobic), a whole-minutes duration field (empty-zero convention via
 /// [NumericAmountField]), and an optional note. The confirm control is disabled
 /// until an activity is chosen and the duration is a positive whole number.
-class _AddExerciseDialog extends StatefulWidget {
+class _AddExerciseSheet extends StatefulWidget {
   final List<ExerciseActivity> activities;
 
-  const _AddExerciseDialog({required this.activities});
+  const _AddExerciseSheet({required this.activities});
 
   @override
-  State<_AddExerciseDialog> createState() => _AddExerciseDialogState();
+  State<_AddExerciseSheet> createState() => _AddExerciseSheetState();
 }
 
-class _AddExerciseDialogState extends State<_AddExerciseDialog> {
+class _AddExerciseSheetState extends State<_AddExerciseSheet> {
   String? _activityId;
   final _durationController = TextEditingController();
   final _noteController = TextEditingController();
@@ -356,74 +363,71 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
         .where((a) => a.category == 'anaerobic')
         .toList();
 
-    return AlertDialog(
-      title: Text(loc.exerciseAddDialogTitle),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(loc.exerciseActivityLabel, style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            // Bound the activity picker's height with its own scroll so the
-            // duration + note fields below stay visible above the on-screen
-            // keyboard on phones. Without this, the wrapped chips take the whole
-            // dialog height and push the inputs below the fold / behind the
-            // keyboard (the fields "disappear" when tapped).
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ActivityGroup(
-                      title: loc.exerciseCategoryAerobic,
-                      activities: aerobic,
-                      selectedId: _activityId,
-                      onSelected: (id) => setState(() => _activityId = id),
-                    ),
-                    const SizedBox(height: 8),
-                    _ActivityGroup(
-                      title: loc.exerciseCategoryAnaerobic,
-                      activities: anaerobic,
-                      selectedId: _activityId,
-                      onSelected: (id) => setState(() => _activityId = id),
-                    ),
-                  ],
+    final theme = Theme.of(context);
+    return Padding(
+      // Lift the sheet's content above the on-screen keyboard so the duration
+      // and note fields stay visible while the user types.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                loc.exerciseAddDialogTitle,
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              Text(loc.exerciseActivityLabel, style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              _ActivityGroup(
+                title: loc.exerciseCategoryAerobic,
+                activities: aerobic,
+                selectedId: _activityId,
+                onSelected: (id) => setState(() => _activityId = id),
+              ),
+              const SizedBox(height: 8),
+              _ActivityGroup(
+                title: loc.exerciseCategoryAnaerobic,
+                activities: anaerobic,
+                selectedId: _activityId,
+                onSelected: (id) => setState(() => _activityId = id),
+              ),
+              const SizedBox(height: 16),
+              NumericAmountField(
+                fieldKey: const Key('exercise-duration-field'),
+                controller: _durationController,
+                label: loc.exerciseDurationLabel,
+                // Exercise minutes are whole numbers only — an integer keyboard
+                // avoids letting the user type a decimal the confirm silently
+                // rejects.
+                allowDecimal: false,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('exercise-note-field'),
+                controller: _noteController,
+                decoration: InputDecoration(labelText: loc.exerciseNoteLabel),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const Key('exercise-add-confirm'),
+                  onPressed: _canSubmit
+                      ? () => Navigator.of(context).pop(
+                          _NewEntry(_activityId!, _minutes!, _noteController.text.trim()),
+                        )
+                      : null,
+                  child: Text(loc.exerciseAddConfirmButton),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            NumericAmountField(
-              fieldKey: const Key('exercise-duration-field'),
-              controller: _durationController,
-              label: loc.exerciseDurationLabel,
-              // Exercise minutes are whole numbers only — an integer keyboard
-              // avoids letting the user type a decimal the confirm silently
-              // rejects.
-              allowDecimal: false,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('exercise-note-field'),
-              controller: _noteController,
-              decoration: InputDecoration(labelText: loc.exerciseNoteLabel),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      actions: [
-        FilledButton(
-          key: const Key('exercise-add-confirm'),
-          onPressed: _canSubmit
-              ? () => Navigator.of(context).pop(
-                  _NewEntry(_activityId!, _minutes!, _noteController.text.trim()),
-                )
-              : null,
-          child: Text(loc.exerciseAddConfirmButton),
-        ),
-      ],
     );
   }
 }
