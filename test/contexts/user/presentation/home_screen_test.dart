@@ -39,6 +39,11 @@ import 'package:life_os/contexts/hydration/application/set_water_target.dart';
 import 'package:life_os/contexts/hydration/domain/water_day.dart';
 import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
+import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
@@ -224,6 +229,21 @@ class _FakeBowelRepository implements BowelRepository {
       BowelDay(day: day, count: count, isNormal: isNormal, note: note);
 }
 
+class _FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
+    day: day,
+    weightKg: null,
+    bodyFatPct: null,
+    bpReadings: const [],
+    glucoseReadings: const [],
+    spo2Readings: const [],
+  );
+
+  @override
+  Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
+}
+
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -244,6 +264,7 @@ Future<void> pumpHomeScreen(
   final foodDictionaryRepository = _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
+  final vitalsRepository = _FakeVitalsRepository();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -284,6 +305,10 @@ Future<void> pumpHomeScreen(
         bowelController: BowelController(
           GetBowelDay(bowelRepository),
           SaveBowelDay(bowelRepository),
+        ),
+        vitalsController: VitalsController(
+          GetVitalsDay(vitalsRepository),
+          SaveVitalsDay(vitalsRepository),
         ),
         clock: clock ?? DateTime.now,
       ),

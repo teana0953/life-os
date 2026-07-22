@@ -13,6 +13,7 @@ import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
+import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -64,6 +65,7 @@ class App extends StatefulWidget {
   final GetLoggedDays healthGetLoggedDays;
   final WaterController waterController;
   final BowelController bowelController;
+  final VitalsController vitalsController;
 
   const App({
     super.key,
@@ -81,6 +83,7 @@ class App extends StatefulWidget {
     required this.healthGetLoggedDays,
     required this.waterController,
     required this.bowelController,
+    required this.vitalsController,
   });
 
   @override
@@ -163,6 +166,7 @@ class _AppState extends State<App> {
                   healthGetLoggedDays: widget.healthGetLoggedDays,
                   waterController: widget.waterController,
                   bowelController: widget.bowelController,
+                  vitalsController: widget.vitalsController,
                 );
               }
               return LoginScreen(
@@ -191,6 +195,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final GetLoggedDays healthGetLoggedDays;
   final WaterController waterController;
   final BowelController bowelController;
+  final VitalsController vitalsController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -205,6 +210,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.healthGetLoggedDays,
     required this.waterController,
     required this.bowelController,
+    required this.vitalsController,
   });
 
   @override
@@ -238,6 +244,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       healthGetLoggedDays: widget.healthGetLoggedDays,
       waterController: widget.waterController,
       bowelController: widget.bowelController,
+      vitalsController: widget.vitalsController,
     );
   }
 }

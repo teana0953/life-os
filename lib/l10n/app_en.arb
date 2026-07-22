@@ -586,5 +586,93 @@
   "errorBowelLoadFailed": "Unable to load your bowel data. Please try again.",
   "@errorBowelLoadFailed": {
     "description": "Shown on the bowel screen when loading the day's record fails (not an auth failure)."
+  },
+  "dietTabVitals": "Vitals",
+  "@dietTabVitals": {
+    "description": "Label for the Vitals destination in the daily-log shell's bottom navigation, alongside Today, Target, Water, and Bowel."
+  },
+  "vitalsTitle": "Today's vitals",
+  "@vitalsTitle": {
+    "description": "Heading on the vitals screen, above the record form, when the viewed day is today."
+  },
+  "vitalsHistoryTitle": "Vitals log",
+  "@vitalsHistoryTitle": {
+    "description": "Heading on the vitals screen, above the record form, when viewing a past day."
+  },
+  "vitalsWeightLabel": "Weight (kg)",
+  "@vitalsWeightLabel": {
+    "description": "Label for the optional weight field (kilograms) on the vitals screen; empty means not recorded."
+  },
+  "vitalsBodyFatLabel": "Body fat (%)",
+  "@vitalsBodyFatLabel": {
+    "description": "Label for the optional body-fat percentage field on the vitals screen; empty means not recorded."
+  },
+  "vitalsBloodPressureSection": "Blood pressure",
+  "@vitalsBloodPressureSection": {
+    "description": "Section title for the blood-pressure reading list on the vitals screen."
+  },
+  "vitalsGlucoseSection": "Blood glucose",
+  "@vitalsGlucoseSection": {
+    "description": "Section title for the blood-glucose reading list on the vitals screen."
+  },
+  "vitalsSpo2Section": "Blood oxygen",
+  "@vitalsSpo2Section": {
+    "description": "Section title for the blood-oxygen (SpO2) reading list on the vitals screen."
+  },
+  "vitalsSystolicLabel": "Systolic",
+  "@vitalsSystolicLabel": {
+    "description": "Label for the systolic value field of a blood-pressure reading row."
+  },
+  "vitalsDiastolicLabel": "Diastolic",
+  "@vitalsDiastolicLabel": {
+    "description": "Label for the diastolic value field of a blood-pressure reading row."
+  },
+  "vitalsPulseLabel": "Pulse",
+  "@vitalsPulseLabel": {
+    "description": "Label for the optional pulse field of a blood-pressure or blood-oxygen reading row; empty means not recorded."
+  },
+  "vitalsGlucoseLabelField": "Label",
+  "@vitalsGlucoseLabelField": {
+    "description": "Label for the free-text label field of a blood-glucose reading row (e.g. before/after a meal)."
+  },
+  "vitalsGlucoseValueLabel": "mg/dL",
+  "@vitalsGlucoseValueLabel": {
+    "description": "Label for the numeric value field (milligrams per deciliter) of a blood-glucose reading row."
+  },
+  "vitalsSpo2Label": "SpO₂ (%)",
+  "@vitalsSpo2Label": {
+    "description": "Label for the SpO2 percentage field of a blood-oxygen reading row."
+  },
+  "vitalsGlucoseBeforeMeal": "Before meal",
+  "@vitalsGlucoseBeforeMeal": {
+    "description": "Quick-pick label setting a glucose reading's label to 'before meal'."
+  },
+  "vitalsGlucoseAfterMeal": "After meal",
+  "@vitalsGlucoseAfterMeal": {
+    "description": "Quick-pick label setting a glucose reading's label to 'after meal'."
+  },
+  "vitalsAddReading": "Add",
+  "@vitalsAddReading": {
+    "description": "Label for the control that appends a new reading row to a vitals list (blood pressure, glucose, or blood oxygen)."
+  },
+  "vitalsRemoveReading": "Remove",
+  "@vitalsRemoveReading": {
+    "description": "Tooltip for the control that removes a reading row from a vitals list."
+  },
+  "vitalsSaveButton": "Save",
+  "@vitalsSaveButton": {
+    "description": "Label for the button that saves (upserts) the day's whole vitals record."
+  },
+  "vitalsUnsavedChanges": "Unsaved changes",
+  "@vitalsUnsavedChanges": {
+    "description": "Cue shown above the Save button when the vitals draft has edits not yet saved."
+  },
+  "vitalsSaveFailed": "Couldn't save — try again",
+  "@vitalsSaveFailed": {
+    "description": "Transient SnackBar shown on the vitals screen when saving the day's record fails (not an auth failure)."
+  },
+  "errorVitalsLoadFailed": "Unable to load your vitals data. Please try again.",
+  "@errorVitalsLoadFailed": {
+    "description": "Shown on the vitals screen when loading the day's record fails (not an auth failure)."
   }
 }

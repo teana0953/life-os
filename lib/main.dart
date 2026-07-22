@@ -39,6 +39,10 @@ import 'contexts/hydration/application/get_water_day.dart';
 import 'contexts/hydration/application/set_water_target.dart';
 import 'contexts/hydration/infrastructure/http_water_repository.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
+import 'contexts/vitals/application/get_vitals_day.dart';
+import 'contexts/vitals/application/save_vitals_day.dart';
+import 'contexts/vitals/infrastructure/http_vitals_repository.dart';
+import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
 import 'contexts/user/presentation/home_controller.dart';
@@ -117,6 +121,14 @@ Future<void> main() async {
     GetBowelDay(bowelRepository),
     SaveBowelDay(bowelRepository),
   );
+  final vitalsRepository = HttpVitalsRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final vitalsController = VitalsController(
+    GetVitalsDay(vitalsRepository),
+    SaveVitalsDay(vitalsRepository),
+  );
 
   runApp(
     App(
@@ -134,6 +146,7 @@ Future<void> main() async {
       healthGetLoggedDays: healthGetLoggedDays,
       waterController: waterController,
       bowelController: bowelController,
+      vitalsController: vitalsController,
     ),
   );
 }

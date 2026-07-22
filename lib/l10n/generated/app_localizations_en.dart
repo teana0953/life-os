@@ -450,4 +450,71 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorBowelLoadFailed =>
       'Unable to load your bowel data. Please try again.';
+
+  @override
+  String get dietTabVitals => 'Vitals';
+
+  @override
+  String get vitalsTitle => 'Today\'s vitals';
+
+  @override
+  String get vitalsHistoryTitle => 'Vitals log';
+
+  @override
+  String get vitalsWeightLabel => 'Weight (kg)';
+
+  @override
+  String get vitalsBodyFatLabel => 'Body fat (%)';
+
+  @override
+  String get vitalsBloodPressureSection => 'Blood pressure';
+
+  @override
+  String get vitalsGlucoseSection => 'Blood glucose';
+
+  @override
+  String get vitalsSpo2Section => 'Blood oxygen';
+
+  @override
+  String get vitalsSystolicLabel => 'Systolic';
+
+  @override
+  String get vitalsDiastolicLabel => 'Diastolic';
+
+  @override
+  String get vitalsPulseLabel => 'Pulse';
+
+  @override
+  String get vitalsGlucoseLabelField => 'Label';
+
+  @override
+  String get vitalsGlucoseValueLabel => 'mg/dL';
+
+  @override
+  String get vitalsSpo2Label => 'SpO₂ (%)';
+
+  @override
+  String get vitalsGlucoseBeforeMeal => 'Before meal';
+
+  @override
+  String get vitalsGlucoseAfterMeal => 'After meal';
+
+  @override
+  String get vitalsAddReading => 'Add';
+
+  @override
+  String get vitalsRemoveReading => 'Remove';
+
+  @override
+  String get vitalsSaveButton => 'Save';
+
+  @override
+  String get vitalsUnsavedChanges => 'Unsaved changes';
+
+  @override
+  String get vitalsSaveFailed => 'Couldn\'t save — try again';
+
+  @override
+  String get errorVitalsLoadFailed =>
+      'Unable to load your vitals data. Please try again.';
 }

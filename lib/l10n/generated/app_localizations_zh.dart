@@ -441,6 +441,72 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorBowelLoadFailed => '無法載入排便資料,請再試一次。';
+
+  @override
+  String get dietTabVitals => '數值';
+
+  @override
+  String get vitalsTitle => '今日數值';
+
+  @override
+  String get vitalsHistoryTitle => '數值紀錄';
+
+  @override
+  String get vitalsWeightLabel => '體重(公斤)';
+
+  @override
+  String get vitalsBodyFatLabel => '體脂(%)';
+
+  @override
+  String get vitalsBloodPressureSection => '血壓';
+
+  @override
+  String get vitalsGlucoseSection => '血糖';
+
+  @override
+  String get vitalsSpo2Section => '血氧';
+
+  @override
+  String get vitalsSystolicLabel => '收縮壓';
+
+  @override
+  String get vitalsDiastolicLabel => '舒張壓';
+
+  @override
+  String get vitalsPulseLabel => '脈搏';
+
+  @override
+  String get vitalsGlucoseLabelField => '標籤';
+
+  @override
+  String get vitalsGlucoseValueLabel => 'mg/dL';
+
+  @override
+  String get vitalsSpo2Label => '血氧 (%)';
+
+  @override
+  String get vitalsGlucoseBeforeMeal => '餐前';
+
+  @override
+  String get vitalsGlucoseAfterMeal => '餐後';
+
+  @override
+  String get vitalsAddReading => '加一筆';
+
+  @override
+  String get vitalsRemoveReading => '移除';
+
+  @override
+  String get vitalsSaveButton => '儲存';
+
+  @override
+  String get vitalsUnsavedChanges => '尚未儲存';
+
+  @override
+  String get vitalsSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -880,4 +946,70 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorBowelLoadFailed => '無法載入排便資料,請再試一次。';
+
+  @override
+  String get dietTabVitals => '數值';
+
+  @override
+  String get vitalsTitle => '今日數值';
+
+  @override
+  String get vitalsHistoryTitle => '數值紀錄';
+
+  @override
+  String get vitalsWeightLabel => '體重(公斤)';
+
+  @override
+  String get vitalsBodyFatLabel => '體脂(%)';
+
+  @override
+  String get vitalsBloodPressureSection => '血壓';
+
+  @override
+  String get vitalsGlucoseSection => '血糖';
+
+  @override
+  String get vitalsSpo2Section => '血氧';
+
+  @override
+  String get vitalsSystolicLabel => '收縮壓';
+
+  @override
+  String get vitalsDiastolicLabel => '舒張壓';
+
+  @override
+  String get vitalsPulseLabel => '脈搏';
+
+  @override
+  String get vitalsGlucoseLabelField => '標籤';
+
+  @override
+  String get vitalsGlucoseValueLabel => 'mg/dL';
+
+  @override
+  String get vitalsSpo2Label => '血氧 (%)';
+
+  @override
+  String get vitalsGlucoseBeforeMeal => '餐前';
+
+  @override
+  String get vitalsGlucoseAfterMeal => '餐後';
+
+  @override
+  String get vitalsAddReading => '加一筆';
+
+  @override
+  String get vitalsRemoveReading => '移除';
+
+  @override
+  String get vitalsSaveButton => '儲存';
+
+  @override
+  String get vitalsUnsavedChanges => '尚未儲存';
+
+  @override
+  String get vitalsSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
 }

@@ -920,6 +920,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your bowel data. Please try again.'**
   String get errorBowelLoadFailed;
+
+  /// Label for the Vitals destination in the daily-log shell's bottom navigation, alongside Today, Target, Water, and Bowel.
+  ///
+  /// In en, this message translates to:
+  /// **'Vitals'**
+  String get dietTabVitals;
+
+  /// Heading on the vitals screen, above the record form, when the viewed day is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s vitals'**
+  String get vitalsTitle;
+
+  /// Heading on the vitals screen, above the record form, when viewing a past day.
+  ///
+  /// In en, this message translates to:
+  /// **'Vitals log'**
+  String get vitalsHistoryTitle;
+
+  /// Label for the optional weight field (kilograms) on the vitals screen; empty means not recorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight (kg)'**
+  String get vitalsWeightLabel;
+
+  /// Label for the optional body-fat percentage field on the vitals screen; empty means not recorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Body fat (%)'**
+  String get vitalsBodyFatLabel;
+
+  /// Section title for the blood-pressure reading list on the vitals screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Blood pressure'**
+  String get vitalsBloodPressureSection;
+
+  /// Section title for the blood-glucose reading list on the vitals screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Blood glucose'**
+  String get vitalsGlucoseSection;
+
+  /// Section title for the blood-oxygen (SpO2) reading list on the vitals screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Blood oxygen'**
+  String get vitalsSpo2Section;
+
+  /// Label for the systolic value field of a blood-pressure reading row.
+  ///
+  /// In en, this message translates to:
+  /// **'Systolic'**
+  String get vitalsSystolicLabel;
+
+  /// Label for the diastolic value field of a blood-pressure reading row.
+  ///
+  /// In en, this message translates to:
+  /// **'Diastolic'**
+  String get vitalsDiastolicLabel;
+
+  /// Label for the optional pulse field of a blood-pressure or blood-oxygen reading row; empty means not recorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse'**
+  String get vitalsPulseLabel;
+
+  /// Label for the free-text label field of a blood-glucose reading row (e.g. before/after a meal).
+  ///
+  /// In en, this message translates to:
+  /// **'Label'**
+  String get vitalsGlucoseLabelField;
+
+  /// Label for the numeric value field (milligrams per deciliter) of a blood-glucose reading row.
+  ///
+  /// In en, this message translates to:
+  /// **'mg/dL'**
+  String get vitalsGlucoseValueLabel;
+
+  /// Label for the SpO2 percentage field of a blood-oxygen reading row.
+  ///
+  /// In en, this message translates to:
+  /// **'SpO₂ (%)'**
+  String get vitalsSpo2Label;
+
+  /// Quick-pick label setting a glucose reading's label to 'before meal'.
+  ///
+  /// In en, this message translates to:
+  /// **'Before meal'**
+  String get vitalsGlucoseBeforeMeal;
+
+  /// Quick-pick label setting a glucose reading's label to 'after meal'.
+  ///
+  /// In en, this message translates to:
+  /// **'After meal'**
+  String get vitalsGlucoseAfterMeal;
+
+  /// Label for the control that appends a new reading row to a vitals list (blood pressure, glucose, or blood oxygen).
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get vitalsAddReading;
+
+  /// Tooltip for the control that removes a reading row from a vitals list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get vitalsRemoveReading;
+
+  /// Label for the button that saves (upserts) the day's whole vitals record.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get vitalsSaveButton;
+
+  /// Cue shown above the Save button when the vitals draft has edits not yet saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get vitalsUnsavedChanges;
+
+  /// Transient SnackBar shown on the vitals screen when saving the day's record fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again'**
+  String get vitalsSaveFailed;
+
+  /// Shown on the vitals screen when loading the day's record fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your vitals data. Please try again.'**
+  String get errorVitalsLoadFailed;
 }
 
 class _AppLocalizationsDelegate
