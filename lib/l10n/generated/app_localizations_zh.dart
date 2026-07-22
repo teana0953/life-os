@@ -510,6 +510,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
+
+  @override
+  String get updateAvailableTitle => '有新版本可用';
+
+  @override
+  String get updateButton => '更新';
+
+  @override
+  String get updateDismiss => '關閉';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1018,4 +1027,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorVitalsLoadFailed => '無法載入數值資料,請再試一次。';
+
+  @override
+  String get updateAvailableTitle => '有新版本可用';
+
+  @override
+  String get updateButton => '更新';
+
+  @override
+  String get updateDismiss => '關閉';
 }

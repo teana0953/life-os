@@ -159,5 +159,8 @@
   "vitalsSaveButton": "儲存",
   "vitalsUnsavedChanges": "尚未儲存",
   "vitalsSaveFailed": "儲存失敗,請再試一次",
-  "errorVitalsLoadFailed": "無法載入數值資料,請再試一次。"
+  "errorVitalsLoadFailed": "無法載入數值資料,請再試一次。",
+  "updateAvailableTitle": "有新版本可用",
+  "updateButton": "更新",
+  "updateDismiss": "關閉"
 }

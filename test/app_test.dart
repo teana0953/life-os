@@ -55,6 +55,8 @@ import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
+import 'package:life_os/shared/pwa/pwa_update.dart';
+import 'package:life_os/shared/pwa/pwa_update_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -394,6 +396,9 @@ Future<LocaleController> pumpApp(
       waterController: health.water,
       bowelController: health.bowel,
       vitalsController: health.vitals,
+      // Not started (no timer): on the VM the stub reports no update, and
+      // these tests don't exercise the update banner.
+      pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
     ),
   );
   return resolvedLocaleController;

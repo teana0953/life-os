@@ -1058,6 +1058,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your vitals data. Please try again.'**
   String get errorVitalsLoadFailed;
+
+  /// Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload.
+  ///
+  /// In en, this message translates to:
+  /// **'A new version is available'**
+  String get updateAvailableTitle;
+
+  /// Label for the button in the update banner that reloads the app onto the new version.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get updateButton;
+
+  /// Tooltip/accessible label for the update banner's dismiss (X) control, which hides the banner for this session.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get updateDismiss;
 }
 
 class _AppLocalizationsDelegate

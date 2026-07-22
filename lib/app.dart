@@ -18,6 +18,8 @@ import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/pwa/pwa_update_banner.dart';
+import 'shared/pwa/pwa_update_controller.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_controller.dart';
 
@@ -66,6 +68,7 @@ class App extends StatefulWidget {
   final WaterController waterController;
   final BowelController bowelController;
   final VitalsController vitalsController;
+  final PwaUpdateController pwaUpdateController;
 
   const App({
     super.key,
@@ -84,6 +87,7 @@ class App extends StatefulWidget {
     required this.waterController,
     required this.bowelController,
     required this.vitalsController,
+    required this.pwaUpdateController,
   });
 
   @override
@@ -122,6 +126,16 @@ class _AppState extends State<App> {
           locale: widget.localeController.locale,
           localeResolutionCallback: (locale, supported) =>
               resolveLocale(locale, supported),
+          // App-wide "update available" banner: sits above the routed content
+          // over any screen, driven by the injected PwaUpdateController.
+          builder: (context, child) {
+            return Column(
+              children: [
+                PwaUpdateBanner(controller: widget.pwaUpdateController),
+                Expanded(child: child ?? const SizedBox.shrink()),
+              ],
+            );
+          },
           home: StreamBuilder<bool>(
             stream: _authStateChanges,
             builder: (context, snapshot) {

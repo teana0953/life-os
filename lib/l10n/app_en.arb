@@ -678,5 +678,17 @@
   "errorVitalsLoadFailed": "Unable to load your vitals data. Please try again.",
   "@errorVitalsLoadFailed": {
     "description": "Shown on the vitals screen when loading the day's record fails (not an auth failure)."
+  },
+  "updateAvailableTitle": "A new version is available",
+  "@updateAvailableTitle": {
+    "description": "Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload."
+  },
+  "updateButton": "Update",
+  "@updateButton": {
+    "description": "Label for the button in the update banner that reloads the app onto the new version."
+  },
+  "updateDismiss": "Dismiss",
+  "@updateDismiss": {
+    "description": "Tooltip/accessible label for the update banner's dismiss (X) control, which hides the banner for this session."
   }
 }
