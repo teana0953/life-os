@@ -190,4 +190,33 @@ void main() {
       expect(controller.status, BowelStatus.needsReauth);
     });
   });
+
+  group('BowelController.hasUnsavedChanges', () {
+    test('is false right after a load and true after a draft edit', () async {
+      final repository = FakeBowelRepository()
+        ..dayToReturn = const BowelDay(
+          day: '2026-07-18',
+          count: 1,
+          isNormal: true,
+          note: 'ok',
+        );
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.setCount(2);
+      expect(controller.hasUnsavedChanges, isTrue);
+    });
+
+    test('returns to false after a successful save', () async {
+      final repository = FakeBowelRepository();
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      controller.setNote('changed');
+      expect(controller.hasUnsavedChanges, isTrue);
+
+      await controller.save('token', '2026-07-18');
+      expect(controller.hasUnsavedChanges, isFalse);
+    });
+  });
 }

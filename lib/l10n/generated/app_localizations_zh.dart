@@ -410,6 +410,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bowelCountLabel => '次數';
 
   @override
+  String get bowelNormalityLabel => '是否正常';
+
+  @override
   String get bowelNormalLabel => '正常';
 
   @override
@@ -420,6 +423,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bowelSaveButton => '儲存';
+
+  @override
+  String get bowelUnsavedChanges => '尚未儲存';
 
   @override
   String get bowelSaveFailed => '儲存失敗,請再試一次';
@@ -834,6 +840,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get bowelCountLabel => '次數';
 
   @override
+  String get bowelNormalityLabel => '是否正常';
+
+  @override
   String get bowelNormalLabel => '正常';
 
   @override
@@ -844,6 +853,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get bowelSaveButton => '儲存';
+
+  @override
+  String get bowelUnsavedChanges => '尚未儲存';
 
   @override
   String get bowelSaveFailed => '儲存失敗,請再試一次';

@@ -126,10 +126,12 @@
   "bowelTitle": "今日排便",
   "bowelHistoryTitle": "排便紀錄",
   "bowelCountLabel": "次數",
+  "bowelNormalityLabel": "是否正常",
   "bowelNormalLabel": "正常",
   "bowelAbnormalLabel": "異常",
   "bowelNoteLabel": "備註",
   "bowelSaveButton": "儲存",
+  "bowelUnsavedChanges": "尚未儲存",
   "bowelSaveFailed": "儲存失敗,請再試一次",
   "errorBowelLoadFailed": "無法載入排便資料,請再試一次。"
 }

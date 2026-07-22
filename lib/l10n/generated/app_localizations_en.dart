@@ -417,6 +417,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bowelCountLabel => 'Count';
 
   @override
+  String get bowelNormalityLabel => 'Normal / abnormal';
+
+  @override
   String get bowelNormalLabel => 'Normal';
 
   @override
@@ -427,6 +430,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bowelSaveButton => 'Save';
+
+  @override
+  String get bowelUnsavedChanges => 'Unsaved changes';
 
   @override
   String get bowelSaveFailed => 'Couldn\'t save — try again';

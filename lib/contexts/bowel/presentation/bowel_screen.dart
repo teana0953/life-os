@@ -132,6 +132,11 @@ class _BowelScreenState extends State<BowelScreen> {
                               onChanged: busy ? null : controller.setCount,
                             ),
                             const SizedBox(height: 20),
+                            Text(
+                              loc.bowelNormalityLabel,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                            const SizedBox(height: 8),
                             SegmentedButton<bool>(
                               key: const Key('bowel-normal-segment'),
                               emptySelectionAllowed: true,
@@ -172,9 +177,26 @@ class _BowelScreenState extends State<BowelScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      if (controller.hasUnsavedChanges)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            loc.bowelUnsavedChanges,
+                            key: const Key('bowel-unsaved-indicator'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
                       FilledButton(
                         key: const Key('bowel-save-button'),
-                        onPressed: busy ? null : _save,
+                        onPressed: (busy || !controller.hasUnsavedChanges)
+                            ? null
+                            : _save,
                         child: Text(loc.bowelSaveButton),
                       ),
                     ],

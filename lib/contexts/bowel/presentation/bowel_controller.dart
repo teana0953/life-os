@@ -34,6 +34,13 @@ class BowelController extends ChangeNotifier {
   bool? isNormal;
   String note = '';
 
+  /// Whether the draft differs from the last loaded/saved record — i.e. there
+  /// are edits not yet persisted. False before the first load and right after a
+  /// successful save. Drives the screen's unsaved-changes cue and Save button.
+  bool get hasUnsavedChanges =>
+      day != null &&
+      (count != day!.count || isNormal != day!.isNormal || note != day!.note);
+
   Future<void> load(String idToken, String day) async {
     status = BowelStatus.loading;
     error = null;

@@ -855,6 +855,12 @@ abstract class AppLocalizations {
   /// **'Count'**
   String get bowelCountLabel;
 
+  /// Caption above the bowel screen's normal/abnormal toggle, naming the section (its empty state means 'not recorded yet').
+  ///
+  /// In en, this message translates to:
+  /// **'Normal / abnormal'**
+  String get bowelNormalityLabel;
+
   /// Label for the 'normal' option of the bowel screen's normal/abnormal toggle.
   ///
   /// In en, this message translates to:
@@ -878,6 +884,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get bowelSaveButton;
+
+  /// Cue shown above the Save button when the bowel draft has edits not yet saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get bowelUnsavedChanges;
 
   /// Transient SnackBar shown on the bowel screen when saving the day's record fails (not an auth failure).
   ///

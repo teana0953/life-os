@@ -250,5 +250,41 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
+
+    testWidgets('captions the normal/abnormal segment', (tester) async {
+      await _pumpScreen(tester, repository: FakeBowelRepository());
+
+      expect(find.text(loc.bowelNormalityLabel), findsOneWidget);
+    });
+
+    testWidgets(
+      'shows an unsaved cue and enables Save only after an edit',
+      (tester) async {
+        await _pumpScreen(tester, repository: FakeBowelRepository());
+
+        // A freshly loaded, unedited day has nothing to save.
+        expect(find.byKey(const Key('bowel-unsaved-indicator')), findsNothing);
+        expect(
+          tester
+              .widget<FilledButton>(find.byKey(const Key('bowel-save-button')))
+              .onPressed,
+          isNull,
+        );
+
+        // Editing the draft surfaces the cue and enables Save.
+        await tester.tap(find.byKey(const Key('bowel-count-increment')));
+        await tester.pump();
+        expect(
+          find.byKey(const Key('bowel-unsaved-indicator')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(find.byKey(const Key('bowel-save-button')))
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
   });
 }
