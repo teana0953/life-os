@@ -48,8 +48,15 @@ class FakeVitalsRepository implements VitalsRepository {
   }
 }
 
+/// A pinned clock so a newly added reading's default time is deterministic.
+TimeOfDay _pinnedClock() => const TimeOfDay(hour: 9, minute: 0);
+
 VitalsController _controller(FakeVitalsRepository repository) =>
-    VitalsController(GetVitalsDay(repository), SaveVitalsDay(repository));
+    VitalsController(
+      GetVitalsDay(repository),
+      SaveVitalsDay(repository),
+      clock: _pinnedClock,
+    );
 
 Future<VitalsController> _pumpScreen(
   WidgetTester tester, {
@@ -202,11 +209,20 @@ void main() {
         expect(repository.savedDay!.weightKg, 65.5);
         expect(
           repository.savedDay!.bpReadings.single,
-          const BpReading(systolic: 120, diastolic: 80, pulse: null),
+          const BpReading(
+            systolic: 120,
+            diastolic: 80,
+            pulse: null,
+            time: '09:00',
+          ),
         );
         expect(
           repository.savedDay!.glucoseReadings.single,
-          GlucoseReading(label: loc.vitalsGlucoseBeforeMeal, value: 95),
+          GlucoseReading(
+            label: loc.vitalsGlucoseBeforeMeal,
+            value: 95,
+            time: '09:00',
+          ),
         );
       },
     );
@@ -219,7 +235,9 @@ void main() {
             day: '2026-07-18',
             weightKg: null,
             bodyFatPct: null,
-            bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
+            bpReadings: [
+              BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+            ],
             glucoseReadings: [],
             spo2Readings: [],
           ),
@@ -232,6 +250,80 @@ void main() {
 
       expect(controller.bpReadings, isEmpty);
       expect(find.byKey(const Key('vitals-bp-systolic-0')), findsNothing);
+    });
+
+    testWidgets('each reading row shows a time control with its HH:mm', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeVitalsRepository(
+          stored: const VitalsDay(
+            day: '2026-07-18',
+            weightKg: null,
+            bodyFatPct: null,
+            bpReadings: [
+              BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+            ],
+            glucoseReadings: [
+              GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+            ],
+            spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '10:00')],
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('vitals-bp-time-0')), findsOneWidget);
+      expect(find.byKey(const Key('vitals-glucose-time-0')), findsOneWidget);
+      expect(find.byKey(const Key('vitals-spo2-time-0')), findsOneWidget);
+      expect(find.text('08:30'), findsOneWidget);
+      expect(find.text('07:45'), findsOneWidget);
+      expect(find.text('10:00'), findsOneWidget);
+    });
+
+    testWidgets('a freshly added reading shows a non-empty current time', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, repository: FakeVitalsRepository());
+
+      await tester.tap(find.byKey(const Key('vitals-bp-add')));
+      await tester.pump();
+
+      // The pinned clock (_pinnedClock -> 09:00) makes the default
+      // deterministic; the row's time control shows it.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('vitals-bp-time-0')),
+          matching: find.text('09:00'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping a reading\'s time control opens the time picker', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeVitalsRepository(
+          stored: const VitalsDay(
+            day: '2026-07-18',
+            weightKg: null,
+            bodyFatPct: null,
+            bpReadings: [
+              BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+            ],
+            glucoseReadings: [],
+            spo2Readings: [],
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('vitals-bp-time-0')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('Save is disabled until there are unsaved edits', (
@@ -336,10 +428,19 @@ void main() {
                   weightKg: 65.5,
                   bodyFatPct: 20,
                   bpReadings: [
-                    BpReading(systolic: 120, diastolic: 80, pulse: 70),
+                    BpReading(
+                      systolic: 120,
+                      diastolic: 80,
+                      pulse: 70,
+                      time: '08:30',
+                    ),
                   ],
-                  glucoseReadings: [GlucoseReading(label: '餐前', value: 95)],
-                  spo2Readings: [Spo2Reading(spo2: 98, pulse: 70)],
+                  glucoseReadings: [
+                    GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+                  ],
+                  spo2Readings: [
+                    Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),
+                  ],
                 ),
               ),
             );

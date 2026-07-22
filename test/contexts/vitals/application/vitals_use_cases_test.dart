@@ -43,7 +43,9 @@ void main() {
       day: '2026-07-18',
       weightKg: 65,
       bodyFatPct: null,
-      bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: null)],
+      bpReadings: [
+        BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
+      ],
       glucoseReadings: [],
       spo2Readings: [],
     );

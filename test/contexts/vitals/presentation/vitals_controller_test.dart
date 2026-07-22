@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
@@ -35,8 +36,14 @@ class FakeVitalsRepository implements VitalsRepository {
   }
 }
 
-VitalsController _controller(FakeVitalsRepository repository) =>
-    VitalsController(GetVitalsDay(repository), SaveVitalsDay(repository));
+VitalsController _controller(
+  FakeVitalsRepository repository, {
+  TimeOfDay Function()? clock,
+}) => VitalsController(
+  GetVitalsDay(repository),
+  SaveVitalsDay(repository),
+  clock: clock ?? TimeOfDay.now,
+);
 
 void main() {
   group('VitalsController.load', () {
@@ -46,9 +53,13 @@ void main() {
           day: '2026-07-18',
           weightKg: 65.5,
           bodyFatPct: 20,
-          bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
-          glucoseReadings: [GlucoseReading(label: '餐前', value: 95)],
-          spo2Readings: [Spo2Reading(spo2: 98, pulse: null)],
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+          ],
+          glucoseReadings: [
+            GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+          ],
+          spo2Readings: [Spo2Reading(spo2: 98, pulse: null, time: '10:00')],
         );
       final controller = _controller(repository);
 
@@ -89,7 +100,9 @@ void main() {
           day: '2026-07-18',
           weightKg: 65,
           bodyFatPct: null,
-          bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+          ],
           glucoseReadings: [],
           spo2Readings: [],
         );
@@ -158,6 +171,23 @@ void main() {
       );
       expect(controller.spo2Readings.single.spo2, 98);
     });
+
+    test('a newly added reading defaults its time to now (HH:mm, zero-padded)',
+        () async {
+      final controller = _controller(
+        FakeVitalsRepository(),
+        clock: () => const TimeOfDay(hour: 9, minute: 5),
+      );
+      await controller.load('token', '2026-07-18');
+
+      controller.addBpReading();
+      controller.addGlucoseReading();
+      controller.addSpo2Reading();
+
+      expect(controller.bpReadings.single.time, '09:05');
+      expect(controller.glucoseReadings.single.time, '09:05');
+      expect(controller.spo2Readings.single.time, '09:05');
+    });
   });
 
   group('VitalsController.save', () {
@@ -170,12 +200,17 @@ void main() {
       controller.addBpReading();
       controller.updateBpReading(
         0,
-        const BpReading(systolic: 120, diastolic: 80, pulse: null),
+        const BpReading(
+          systolic: 120,
+          diastolic: 80,
+          pulse: null,
+          time: '08:30',
+        ),
       );
       controller.addGlucoseReading();
       controller.updateGlucoseReading(
         0,
-        const GlucoseReading(label: '餐前', value: 95),
+        const GlucoseReading(label: '餐前', value: 95, time: '07:45'),
       );
       await controller.save('token', '2026-07-18');
 
@@ -222,7 +257,7 @@ void main() {
       controller.addBpReading();
       controller.updateBpReading(
         0,
-        const BpReading(systolic: 120, diastolic: 80, pulse: 70),
+        const BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
       );
       controller.addBpReading();
 
@@ -230,7 +265,7 @@ void main() {
       controller.addGlucoseReading();
       controller.updateGlucoseReading(
         0,
-        const GlucoseReading(label: '餐前', value: 95),
+        const GlucoseReading(label: '餐前', value: 95, time: '07:45'),
       );
       controller.addGlucoseReading();
 
@@ -238,7 +273,7 @@ void main() {
       controller.addSpo2Reading();
       controller.updateSpo2Reading(
         0,
-        const Spo2Reading(spo2: 98, pulse: 70),
+        const Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),
       );
       controller.addSpo2Reading();
 
@@ -247,15 +282,17 @@ void main() {
       // Only the non-empty readings reach the repository.
       expect(
         repository.savedDay!.bpReadings,
-        const [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
+        const [
+          BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+        ],
       );
       expect(
         repository.savedDay!.glucoseReadings,
-        const [GlucoseReading(label: '餐前', value: 95)],
+        const [GlucoseReading(label: '餐前', value: 95, time: '07:45')],
       );
       expect(
         repository.savedDay!.spo2Readings,
-        const [Spo2Reading(spo2: 98, pulse: 70)],
+        const [Spo2Reading(spo2: 98, pulse: 70, time: '10:00')],
       );
     });
   });
@@ -268,7 +305,9 @@ void main() {
           day: '2026-07-18',
           weightKg: 65,
           bodyFatPct: null,
-          bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+          ],
           glucoseReadings: [],
           spo2Readings: [],
         );
@@ -283,6 +322,29 @@ void main() {
       controller.updateBpReading(
         0,
         controller.bpReadings[0].copyWith(systolic: 121),
+      );
+      expect(controller.hasUnsavedChanges, isTrue);
+    });
+
+    test('editing a reading\'s time flips it true', () async {
+      final repository = FakeVitalsRepository()
+        ..dayToReturn = const VitalsDay(
+          day: '2026-07-18',
+          weightKg: 65,
+          bodyFatPct: null,
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+          ],
+          glucoseReadings: [],
+          spo2Readings: [],
+        );
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.updateBpReading(
+        0,
+        controller.bpReadings[0].copyWith(time: '09:15'),
       );
       expect(controller.hasUnsavedChanges, isTrue);
     });

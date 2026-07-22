@@ -512,6 +512,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vitalsSaveButton => 'Save';
 
   @override
+  String get vitalsTimeLabel => 'Time';
+
+  @override
   String get vitalsUnsavedChanges => 'Unsaved changes';
 
   @override

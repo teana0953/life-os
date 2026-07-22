@@ -60,6 +60,48 @@ class _VitalsScreenState extends State<VitalsScreen> {
     }
   }
 
+  /// Opens the Material time picker seeded from a reading's stored "HH:mm"
+  /// (parsed with a guard — see [_parseTime]) and, on a pick, writes the
+  /// manually zero-padded "HH:mm" back through the existing per-list update.
+  Future<void> _editBpTime(int index) async {
+    final reading = widget.controller.bpReadings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateBpReading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
+  Future<void> _editGlucoseTime(int index) async {
+    final reading = widget.controller.glucoseReadings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateGlucoseReading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
+  Future<void> _editSpo2Time(int index) async {
+    final reading = widget.controller.spo2Readings[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseTime(reading.time),
+    );
+    if (picked == null || !mounted) return;
+    widget.controller.updateSpo2Reading(
+      index,
+      reading.copyWith(time: _zeroPad(picked)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -140,6 +182,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addBpReading,
                         onRemove: controller.removeBpReading,
+                        timeOf: (index) => controller.bpReadings[index].time,
+                        onEditTime: (index) => _editBpTime(index),
                         rowBuilder: (index) =>
                             _bpRow(context, controller, index, busy),
                       ),
@@ -151,6 +195,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addGlucoseReading,
                         onRemove: controller.removeGlucoseReading,
+                        timeOf: (index) =>
+                            controller.glucoseReadings[index].time,
+                        onEditTime: (index) => _editGlucoseTime(index),
                         rowBuilder: (index) =>
                             _glucoseRow(context, controller, index, busy),
                       ),
@@ -162,6 +209,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addSpo2Reading,
                         onRemove: controller.removeSpo2Reading,
+                        timeOf: (index) => controller.spo2Readings[index].time,
+                        onEditTime: (index) => _editSpo2Time(index),
                         rowBuilder: (index) =>
                             _spo2Row(context, controller, index, busy),
                       ),
@@ -389,6 +438,12 @@ class _ReadingListSection extends StatelessWidget {
   final bool enabled;
   final VoidCallback onAdd;
   final void Function(int index) onRemove;
+
+  /// The stored "HH:mm" for the reading at [index], shown on its time control.
+  final String Function(int index) timeOf;
+
+  /// Opens the time picker for the reading at [index] and writes the pick back.
+  final void Function(int index) onEditTime;
   final Widget Function(int index) rowBuilder;
 
   const _ReadingListSection({
@@ -398,6 +453,8 @@ class _ReadingListSection extends StatelessWidget {
     required this.enabled,
     required this.onAdd,
     required this.onRemove,
+    required this.timeOf,
+    required this.onEditTime,
     required this.rowBuilder,
   });
 
@@ -419,6 +476,13 @@ class _ReadingListSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: rowBuilder(index)),
+                  const SizedBox(width: 8),
+                  _TimeChip(
+                    chipKey: Key('vitals-$sectionId-time-$index'),
+                    time: timeOf(index),
+                    tooltip: loc.vitalsTimeLabel,
+                    onPressed: enabled ? () => onEditTime(index) : null,
+                  ),
                   IconButton(
                     key: Key('vitals-$sectionId-remove-$index'),
                     tooltip: loc.vitalsRemoveReading,
@@ -645,9 +709,59 @@ class _QuickPick extends StatelessWidget {
   }
 }
 
+/// A compact per-row time control showing a reading's "HH:mm"; tapping opens
+/// the Material time picker (via [onPressed]). Colors from [Theme]. An empty
+/// (pre-time) reading shows a `--:--` placeholder rather than an empty label.
+class _TimeChip extends StatelessWidget {
+  final Key chipKey;
+  final String time;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _TimeChip({
+    required this.chipKey,
+    required this.time,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      key: chipKey,
+      tooltip: tooltip,
+      avatar: const Icon(Icons.schedule, size: 18),
+      label: Text(time.isEmpty ? '--:--' : time),
+      onPressed: onPressed,
+    );
+  }
+}
+
 /// Parses a field's text to its numeric value for external-change detection:
 /// empty (or blank) is `null`, otherwise `num.tryParse`. Two strings that parse
 /// equal (e.g. the raw "72." and the parsed echo "72.0") are treated as the
 /// same value, so a keystroke's own rebuild never re-seeds the field.
 num? _parseNum(String text) =>
     text.trim().isEmpty ? null : num.tryParse(text);
+
+/// Parses a stored "HH:mm" to a [TimeOfDay], GUARDING against an empty or
+/// malformed value (a pre-time reading has `time == ''`) — falls back to the
+/// current time instead of crashing.
+TimeOfDay _parseTime(String hhmm) {
+  final parts = hhmm.split(':');
+  if (parts.length == 2) {
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h != null && m != null && h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return TimeOfDay(hour: h, minute: m);
+    }
+  }
+  return TimeOfDay.now();
+}
+
+/// Formats a [TimeOfDay] as a strict ASCII "HH:mm" — manual zero-pad (NOT
+/// `formatTimeOfDay`, which can localize digits/separators) so the stored/wire
+/// format the backend requires stays exact.
+String _zeroPad(TimeOfDay t) =>
+    '${t.hour.toString().padLeft(2, '0')}:'
+    '${t.minute.toString().padLeft(2, '0')}';

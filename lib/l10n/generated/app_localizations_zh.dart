@@ -503,6 +503,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vitalsSaveButton => '儲存';
 
   @override
+  String get vitalsTimeLabel => '時間';
+
+  @override
   String get vitalsUnsavedChanges => '尚未儲存';
 
   @override
@@ -1018,6 +1021,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get vitalsSaveButton => '儲存';
+
+  @override
+  String get vitalsTimeLabel => '時間';
 
   @override
   String get vitalsUnsavedChanges => '尚未儲存';

@@ -7,40 +7,53 @@ class BpReading {
   final int diastolic;
   final int? pulse;
 
+  /// When the reading was taken, as a strict "HH:mm" (24h) string. Required by
+  /// the backend; may be `''` when tolerantly parsed from a pre-time record.
+  final String time;
+
   const BpReading({
     required this.systolic,
     required this.diastolic,
     required this.pulse,
+    required this.time,
   });
 
   factory BpReading.fromJson(Map<String, dynamic> json) => BpReading(
     systolic: (json['systolic'] as num).toInt(),
     diastolic: (json['diastolic'] as num).toInt(),
     pulse: (json['pulse'] as num?)?.toInt(),
+    time: (json['time'] as String?) ?? '',
   );
 
   Map<String, dynamic> toJson() => {
     'systolic': systolic,
     'diastolic': diastolic,
     'pulse': pulse,
+    'time': time,
   };
 
-  BpReading copyWith({int? systolic, int? diastolic, Object? pulse = _unset}) =>
-      BpReading(
-        systolic: systolic ?? this.systolic,
-        diastolic: diastolic ?? this.diastolic,
-        pulse: pulse == _unset ? this.pulse : pulse as int?,
-      );
+  BpReading copyWith({
+    int? systolic,
+    int? diastolic,
+    Object? pulse = _unset,
+    String? time,
+  }) => BpReading(
+    systolic: systolic ?? this.systolic,
+    diastolic: diastolic ?? this.diastolic,
+    pulse: pulse == _unset ? this.pulse : pulse as int?,
+    time: time ?? this.time,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is BpReading &&
       other.systolic == systolic &&
       other.diastolic == diastolic &&
-      other.pulse == pulse;
+      other.pulse == pulse &&
+      other.time == time;
 
   @override
-  int get hashCode => Object.hash(systolic, diastolic, pulse);
+  int get hashCode => Object.hash(systolic, diastolic, pulse, time);
 }
 
 /// A single blood-glucose reading: a [label] (e.g. "餐前"/"餐後" or free text)
@@ -49,26 +62,44 @@ class GlucoseReading {
   final String label;
   final num value;
 
-  const GlucoseReading({required this.label, required this.value});
+  /// When the reading was taken, as a strict "HH:mm" (24h) string. Required by
+  /// the backend; may be `''` when tolerantly parsed from a pre-time record.
+  final String time;
+
+  const GlucoseReading({
+    required this.label,
+    required this.value,
+    required this.time,
+  });
 
   factory GlucoseReading.fromJson(Map<String, dynamic> json) => GlucoseReading(
     label: (json['label'] as String?) ?? '',
     value: json['value'] as num,
+    time: (json['time'] as String?) ?? '',
   );
 
-  Map<String, dynamic> toJson() => {'label': label, 'value': value};
+  Map<String, dynamic> toJson() => {
+    'label': label,
+    'value': value,
+    'time': time,
+  };
 
-  GlucoseReading copyWith({String? label, num? value}) => GlucoseReading(
-    label: label ?? this.label,
-    value: value ?? this.value,
-  );
+  GlucoseReading copyWith({String? label, num? value, String? time}) =>
+      GlucoseReading(
+        label: label ?? this.label,
+        value: value ?? this.value,
+        time: time ?? this.time,
+      );
 
   @override
   bool operator ==(Object other) =>
-      other is GlucoseReading && other.label == label && other.value == value;
+      other is GlucoseReading &&
+      other.label == label &&
+      other.value == value &&
+      other.time == time;
 
   @override
-  int get hashCode => Object.hash(label, value);
+  int get hashCode => Object.hash(label, value, time);
 }
 
 /// A single blood-oxygen reading: [spo2] percentage with an optional [pulse]
@@ -78,26 +109,40 @@ class Spo2Reading {
   final num spo2;
   final int? pulse;
 
-  const Spo2Reading({required this.spo2, required this.pulse});
+  /// When the reading was taken, as a strict "HH:mm" (24h) string. Required by
+  /// the backend; may be `''` when tolerantly parsed from a pre-time record.
+  final String time;
+
+  const Spo2Reading({
+    required this.spo2,
+    required this.pulse,
+    required this.time,
+  });
 
   factory Spo2Reading.fromJson(Map<String, dynamic> json) => Spo2Reading(
     spo2: json['spo2'] as num,
     pulse: (json['pulse'] as num?)?.toInt(),
+    time: (json['time'] as String?) ?? '',
   );
 
-  Map<String, dynamic> toJson() => {'spo2': spo2, 'pulse': pulse};
+  Map<String, dynamic> toJson() => {'spo2': spo2, 'pulse': pulse, 'time': time};
 
-  Spo2Reading copyWith({num? spo2, Object? pulse = _unset}) => Spo2Reading(
-    spo2: spo2 ?? this.spo2,
-    pulse: pulse == _unset ? this.pulse : pulse as int?,
-  );
+  Spo2Reading copyWith({num? spo2, Object? pulse = _unset, String? time}) =>
+      Spo2Reading(
+        spo2: spo2 ?? this.spo2,
+        pulse: pulse == _unset ? this.pulse : pulse as int?,
+        time: time ?? this.time,
+      );
 
   @override
   bool operator ==(Object other) =>
-      other is Spo2Reading && other.spo2 == spo2 && other.pulse == pulse;
+      other is Spo2Reading &&
+      other.spo2 == spo2 &&
+      other.pulse == pulse &&
+      other.time == time;
 
   @override
-  int get hashCode => Object.hash(spo2, pulse);
+  int get hashCode => Object.hash(spo2, pulse, time);
 }
 
 /// Sentinel distinguishing "argument omitted" from an explicit `null` in the

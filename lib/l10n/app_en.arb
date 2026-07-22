@@ -667,6 +667,10 @@
   "@vitalsSaveButton": {
     "description": "Label for the button that saves (upserts) the day's whole vitals record."
   },
+  "vitalsTimeLabel": "Time",
+  "@vitalsTimeLabel": {
+    "description": "Tooltip/accessible label for the per-reading time control on the vitals screen; the reading's time is shown as HH:mm."
+  },
   "vitalsUnsavedChanges": "Unsaved changes",
   "@vitalsUnsavedChanges": {
     "description": "Cue shown above the Save button when the vitals draft has edits not yet saved."

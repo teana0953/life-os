@@ -21,14 +21,19 @@ void main() {
             'weight_kg': 65.5,
             'body_fat_pct': 20,
             'bp_readings': [
-              {'systolic': 120, 'diastolic': 80, 'pulse': 70},
-              {'systolic': 118, 'diastolic': 78, 'pulse': null},
+              {'systolic': 120, 'diastolic': 80, 'pulse': 70, 'time': '08:30'},
+              {
+                'systolic': 118,
+                'diastolic': 78,
+                'pulse': null,
+                'time': '09:15',
+              },
             ],
             'glucose_readings': [
-              {'label': '餐前', 'value': 95},
+              {'label': '餐前', 'value': 95, 'time': '07:45'},
             ],
             'spo2_readings': [
-              {'spo2': 98, 'pulse': null},
+              {'spo2': 98, 'pulse': null, 'time': '10:00'},
             ],
           }),
           200,
@@ -51,8 +56,12 @@ void main() {
       expect(day.bpReadings.length, 2);
       // The null pulse round-trips.
       expect(day.bpReadings[1].pulse, isNull);
+      // The time round-trips on each reading type.
+      expect(day.bpReadings[0].time, '08:30');
       expect(day.glucoseReadings.single.label, '餐前');
+      expect(day.glucoseReadings.single.time, '07:45');
       expect(day.spo2Readings.single.pulse, isNull);
+      expect(day.spo2Readings.single.time, '10:00');
     });
 
     test('save PUTs the full snake_case body and returns the saved record',
@@ -81,9 +90,13 @@ void main() {
           day: '2026-07-18',
           weightKg: 65.5,
           bodyFatPct: null,
-          bpReadings: [BpReading(systolic: 120, diastolic: 80, pulse: null)],
-          glucoseReadings: [GlucoseReading(label: '餐後', value: 110)],
-          spo2Readings: [Spo2Reading(spo2: 97, pulse: 66)],
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
+          ],
+          glucoseReadings: [
+            GlucoseReading(label: '餐後', value: 110, time: '12:30'),
+          ],
+          spo2Readings: [Spo2Reading(spo2: 97, pulse: 66, time: '22:05')],
         ),
       );
 
@@ -95,10 +108,12 @@ void main() {
         'systolic': 120,
         'diastolic': 80,
         'pulse': null,
+        'time': '08:30',
       });
       expect((capturedBody!['glucose_readings'] as List).single, {
         'label': '餐後',
         'value': 110,
+        'time': '12:30',
       });
       // The saved record parses back, including the three arrays.
       expect(saved.weightKg, 65.5);

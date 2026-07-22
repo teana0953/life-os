@@ -1041,6 +1041,12 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get vitalsSaveButton;
 
+  /// Tooltip/accessible label for the per-reading time control on the vitals screen; the reading's time is shown as HH:mm.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get vitalsTimeLabel;
+
   /// Cue shown above the Save button when the vitals draft has edits not yet saved.
   ///
   /// In en, this message translates to:
