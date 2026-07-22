@@ -179,6 +179,8 @@
   "exerciseAddConfirmButton": "新增",
   "exerciseRemoveEntry": "移除",
   "exerciseSaveFailed": "儲存失敗,請再試一次",
+  "exerciseEntryRemoved": "已移除運動紀錄",
+  "exerciseUndo": "復原",
   "errorExerciseLoadFailed": "無法載入運動資料,請再試一次。",
   "updateAvailableTitle": "有新版本可用",
   "updateButton": "更新",

@@ -573,6 +573,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exerciseSaveFailed => '儲存失敗,請再試一次';
 
   @override
+  String get exerciseEntryRemoved => '已移除運動紀錄';
+
+  @override
+  String get exerciseUndo => '復原';
+
+  @override
   String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';
 
   @override
@@ -1152,6 +1158,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get exerciseSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get exerciseEntryRemoved => '已移除運動紀錄';
+
+  @override
+  String get exerciseUndo => '復原';
 
   @override
   String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';

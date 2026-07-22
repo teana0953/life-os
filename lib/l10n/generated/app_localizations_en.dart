@@ -583,6 +583,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exerciseSaveFailed => 'Couldn\'t save — try again';
 
   @override
+  String get exerciseEntryRemoved => 'Exercise removed';
+
+  @override
+  String get exerciseUndo => 'Undo';
+
+  @override
   String get errorExerciseLoadFailed =>
       'Unable to load your exercise data. Please try again.';
 

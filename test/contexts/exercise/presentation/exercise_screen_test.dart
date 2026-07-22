@@ -219,4 +219,120 @@ void main() {
 
     expect(find.text(_loc.errorExerciseLoadFailed), findsOneWidget);
   });
+
+  testWidgets(
+    'the loading state still shows an app bar (back affordance) plus a spinner',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // Do NOT load: the controller stays in its initial loading state
+      // (day == null), so AsyncStateScaffold renders its loading Scaffold.
+      final controller = _controller(FakeExerciseRepository());
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: ExerciseScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _clock,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(controller.status, ExerciseStatus.loading);
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a reauth after entering the pushed tracker keeps a back button (not trapped)',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repo = FakeExerciseRepository()
+        ..failGetDay = const ExerciseReauthenticationRequired();
+      final controller = _controller(repo);
+      await controller.load('token', '2026-07-18');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  key: const Key('open-exercise'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ExerciseScreen(
+                        controller: controller,
+                        idToken: 'token',
+                        day: '2026-07-18',
+                        clock: _clock,
+                      ),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-exercise')));
+      await tester.pumpAndSettle();
+
+      expect(controller.status, ExerciseStatus.needsReauth);
+      expect(find.text(_loc.pleaseSignInAgain), findsOneWidget);
+      // The reauth state still exposes the pushed route's back button.
+      expect(find.byType(BackButton), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'removing an entry shows an Undo SnackBar that re-adds it',
+    (tester) async {
+      await _pumpScreen(tester, repository: FakeExerciseRepository());
+
+      await _addEntry(
+        tester,
+        activityKey: 'exercise-activity-jogging',
+        minutes: '30',
+      );
+      expect(find.text('慢跑'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+      await tester.pumpAndSettle();
+
+      // Removed, and an Undo SnackBar is offered.
+      expect(find.text('慢跑'), findsNothing);
+      expect(find.text(_loc.exerciseEntryRemoved), findsOneWidget);
+      expect(find.text(_loc.exerciseUndo), findsOneWidget);
+
+      // Undo re-adds it via a fresh addEntry (the fake repo records the add,
+      // so the entry and its minutes reappear).
+      await tester.tap(find.text(_loc.exerciseUndo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('慢跑'), findsOneWidget);
+      expect(find.text(_loc.exerciseTotalMinutes(30)), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the duration field uses an integer (non-decimal) keyboard',
+    (tester) async {
+      await _pumpScreen(tester, repository: FakeExerciseRepository());
+
+      await tester.tap(find.byKey(const Key('exercise-add-button')));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('exercise-duration-field')),
+      );
+      expect(field.keyboardType.decimal, isFalse);
+    },
+  );
 }

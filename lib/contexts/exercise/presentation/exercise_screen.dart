@@ -63,6 +63,37 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     }
   }
 
+  /// Deletes [entry], then — on success — surfaces a SnackBar with an Undo
+  /// action that re-adds it (a fresh POST; the backend assigns a new id/
+  /// createdAt, which is acceptable). A failed/needs-reauth delete falls through
+  /// to `_runMutation`'s own handling (error SnackBar / reauth screen) and shows
+  /// no undo prompt.
+  Future<void> _removeEntry(ExerciseEntry entry) async {
+    await _runMutation(
+      () => widget.controller.deleteEntry(widget.idToken, widget.day, entry.id),
+    );
+    if (!mounted) return;
+    if (widget.controller.status != ExerciseStatus.loaded) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(loc.exerciseEntryRemoved),
+        action: SnackBarAction(
+          label: loc.exerciseUndo,
+          onPressed: () => _runMutation(
+            () => widget.controller.addEntry(
+              widget.idToken,
+              widget.day,
+              activityId: entry.activityId,
+              durationMinutes: entry.durationMinutes,
+              note: entry.note,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openAddDialog() async {
     final result = await showDialog<_NewEntry>(
       context: context,
@@ -89,14 +120,21 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         controller.status == ExerciseStatus.loading ||
         controller.status == ExerciseStatus.saving;
 
+    // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
+    // Scaffolds so the pushed full-screen tracker keeps a back button in every
+    // state (only one Scaffold is built per pass, so reusing the instance is
+    // safe).
+    final appBar = AppBar(title: Text(loc.dietTabExercise));
+
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
       isReauth: controller.status == ExerciseStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      appBar: appBar,
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
-            appBar: AppBar(title: Text(loc.dietTabExercise)),
+            appBar: appBar,
             body: Center(
               child: Text(
                 loc.errorExerciseLoadFailed,
@@ -109,7 +147,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         final day = controller.day!;
 
         return Scaffold(
-          appBar: AppBar(title: Text(loc.dietTabExercise)),
+          appBar: appBar,
           body: SafeArea(
             child: Column(
               children: [
@@ -170,13 +208,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                               index: index,
                               entry: day.entries[index],
                               enabled: !busy,
-                              onRemove: () => _runMutation(
-                                () => controller.deleteEntry(
-                                  widget.idToken,
-                                  widget.day,
-                                  day.entries[index].id,
-                                ),
-                              ),
+                              onRemove: () =>
+                                  _removeEntry(day.entries[index]),
                             ),
                           ),
                       const SizedBox(height: 8),
@@ -350,6 +383,10 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
               fieldKey: const Key('exercise-duration-field'),
               controller: _durationController,
               label: loc.exerciseDurationLabel,
+              // Exercise minutes are whole numbers only — an integer keyboard
+              // avoids letting the user type a decimal the confirm silently
+              // rejects.
+              allowDecimal: false,
             ),
             const SizedBox(height: 16),
             TextField(

@@ -130,14 +130,21 @@ class _VitalsScreenState extends State<VitalsScreen> {
         controller.status == VitalsStatus.loading ||
         controller.status == VitalsStatus.saving;
 
+    // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
+    // Scaffolds so the pushed full-screen tracker keeps a back button in every
+    // state (only one Scaffold is built per pass, so reusing the instance is
+    // safe).
+    final appBar = AppBar(title: Text(loc.dietTabVitals));
+
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
       isReauth: controller.status == VitalsStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      appBar: appBar,
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
-            appBar: AppBar(title: Text(loc.dietTabVitals)),
+            appBar: appBar,
             body: Center(
               child: Text(
                 loc.errorVitalsLoadFailed,
@@ -148,7 +155,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: Text(loc.dietTabVitals)),
+          appBar: appBar,
           body: SafeArea(
             child: Column(
               children: [

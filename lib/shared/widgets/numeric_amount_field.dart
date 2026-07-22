@@ -12,11 +12,18 @@ class NumericAmountField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
 
+  /// Whether the numeric keyboard offers a decimal point. Defaults to `true`
+  /// (portion/quantity fields accept fractions). Callers that only accept whole
+  /// numbers (e.g. exercise minutes) pass `false` so the keyboard can't offer a
+  /// decimal the field would silently reject.
+  final bool allowDecimal;
+
   const NumericAmountField({
     super.key,
     required this.fieldKey,
     required this.controller,
     required this.label,
+    this.allowDecimal = true,
   });
 
   @override
@@ -27,7 +34,7 @@ class NumericAmountField extends StatelessWidget {
         key: fieldKey,
         controller: controller,
         textAlign: TextAlign.center,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: TextInputType.numberWithOptions(decimal: allowDecimal),
         decoration: InputDecoration(labelText: label, hintText: '0'),
       ),
     );

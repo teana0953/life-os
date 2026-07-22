@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -73,6 +75,25 @@ class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<String?> idToken() async => 'fake-token';
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+}
+
+/// An auth repository whose `idToken()` never completes, so the shell's
+/// auth-token load stays pending and `_idToken` remains null.
+class _PendingAuthRepository implements AuthRepository {
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<String?> idToken() => Completer<String?>().future;
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -321,6 +342,7 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
 DietShellScreen _dietShell({
   required FakeMealRepository mealRepository,
+  AuthRepository? authRepository,
   FakeDailyTargetRepository? dailyTargetRepository,
   FakeFoodDictionaryRepository? foodDictionaryRepository,
   FakeWaterRepository? waterRepository,
@@ -339,7 +361,7 @@ DietShellScreen _dietShell({
   final resolvedExerciseRepository =
       exerciseRepository ?? FakeExerciseRepository();
   return DietShellScreen(
-    authRepository: FakeAuthRepository(),
+    authRepository: authRepository ?? FakeAuthRepository(),
     todayController: TodayController(
       GetDayMeals(mealRepository),
       GetDailyTargetWithRemaining(resolvedDailyTargetRepository),
@@ -1014,6 +1036,33 @@ void main() {
         expect(find.byType(ExerciseScreen), findsNothing);
         expect(find.byKey(const Key('more-tile-exercise')), findsOneWidget);
         expect(find.text(loc.dietMoreTitle), findsOneWidget);
+      },
+    );
+  });
+
+  group('DietShellScreen More menu loading', () {
+    testWidgets(
+      'shows a loading indicator in More while the auth token is not ready',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: _dietShell(
+              mealRepository: FakeMealRepository(),
+              authRepository: _PendingAuthRepository(),
+            ),
+          ),
+        );
+        // Do not settle: the token future never completes, so the shell's
+        // _idToken stays null.
+        await tester.pump();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.text(loc.dietTabMore));
+        await tester.pump();
+
+        expect(find.byKey(const Key('more-loading')), findsOneWidget);
       },
     );
   });

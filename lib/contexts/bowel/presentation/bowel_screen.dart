@@ -81,14 +81,21 @@ class _BowelScreenState extends State<BowelScreen> {
         controller.status == BowelStatus.loading ||
         controller.status == BowelStatus.saving;
 
+    // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
+    // Scaffolds so the pushed full-screen tracker keeps a back button in every
+    // state (only one Scaffold is built per pass, so reusing the instance is
+    // safe).
+    final appBar = AppBar(title: Text(loc.dietTabBowel));
+
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
       isReauth: controller.status == BowelStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      appBar: appBar,
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
-            appBar: AppBar(title: Text(loc.dietTabBowel)),
+            appBar: appBar,
             body: Center(
               child: Text(
                 loc.errorBowelLoadFailed,
@@ -99,7 +106,7 @@ class _BowelScreenState extends State<BowelScreen> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: Text(loc.dietTabBowel)),
+          appBar: appBar,
           body: SafeArea(
             child: Column(
               children: [

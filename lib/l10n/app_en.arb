@@ -765,6 +765,14 @@
   "@exerciseSaveFailed": {
     "description": "Transient SnackBar shown on the exercise screen when appending or removing an entry fails (not an auth failure)."
   },
+  "exerciseEntryRemoved": "Exercise removed",
+  "@exerciseEntryRemoved": {
+    "description": "Transient SnackBar shown on the exercise screen after an entry is removed, paired with an Undo action."
+  },
+  "exerciseUndo": "Undo",
+  "@exerciseUndo": {
+    "description": "Action label on the exercise 'removed' SnackBar that re-adds the just-removed entry."
+  },
   "errorExerciseLoadFailed": "Unable to load your exercise data. Please try again.",
   "@errorExerciseLoadFailed": {
     "description": "Shown on the exercise screen when loading the day's entries fails (not an auth failure)."

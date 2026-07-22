@@ -332,6 +332,15 @@ class _MoreMenuScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final token = idToken;
+    if (token == null) {
+      // The token is still loading (the shell owns the auth-token load); show a
+      // loading indicator rather than silently disabled tiles.
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(key: Key('more-loading')),
+        ),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -349,49 +358,43 @@ class _MoreMenuScreen extends StatelessWidget {
                   key: const Key('more-tile-bowel'),
                   leading: const Icon(Icons.wc),
                   title: Text(loc.dietTabBowel),
-                  onTap: token == null
-                      ? null
-                      : () => _push(
-                          context,
-                          BowelScreen(
-                            controller: bowelController,
-                            idToken: token,
-                            day: day,
-                            clock: clock,
-                          ),
-                        ),
+                  onTap: () => _push(
+                    context,
+                    BowelScreen(
+                      controller: bowelController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
                 ),
                 ListTile(
                   key: const Key('more-tile-vitals'),
                   leading: const Icon(Icons.monitor_heart),
                   title: Text(loc.dietTabVitals),
-                  onTap: token == null
-                      ? null
-                      : () => _push(
-                          context,
-                          VitalsScreen(
-                            controller: vitalsController,
-                            idToken: token,
-                            day: day,
-                            clock: clock,
-                          ),
-                        ),
+                  onTap: () => _push(
+                    context,
+                    VitalsScreen(
+                      controller: vitalsController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
                 ),
                 ListTile(
                   key: const Key('more-tile-exercise'),
                   leading: const Icon(Icons.fitness_center),
                   title: Text(loc.dietTabExercise),
-                  onTap: token == null
-                      ? null
-                      : () => _push(
-                          context,
-                          ExerciseScreen(
-                            controller: exerciseController,
-                            idToken: token,
-                            day: day,
-                            clock: clock,
-                          ),
-                        ),
+                  onTap: () => _push(
+                    context,
+                    ExerciseScreen(
+                      controller: exerciseController,
+                      idToken: token,
+                      day: day,
+                      clock: clock,
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -1173,6 +1173,18 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save — try again'**
   String get exerciseSaveFailed;
 
+  /// Transient SnackBar shown on the exercise screen after an entry is removed, paired with an Undo action.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise removed'**
+  String get exerciseEntryRemoved;
+
+  /// Action label on the exercise 'removed' SnackBar that re-adds the just-removed entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get exerciseUndo;
+
   /// Shown on the exercise screen when loading the day's entries fails (not an auth failure).
   ///
   /// In en, this message translates to:
