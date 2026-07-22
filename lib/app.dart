@@ -14,6 +14,7 @@ import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
+import 'contexts/menstrual/presentation/menstrual_controller.dart';
 import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
@@ -70,6 +71,7 @@ class App extends StatefulWidget {
   final BowelController bowelController;
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
+  final MenstrualController menstrualController;
   final PwaUpdateController pwaUpdateController;
 
   const App({
@@ -90,6 +92,7 @@ class App extends StatefulWidget {
     required this.bowelController,
     required this.vitalsController,
     required this.exerciseController,
+    required this.menstrualController,
     required this.pwaUpdateController,
   });
 
@@ -185,6 +188,7 @@ class _AppState extends State<App> {
                   bowelController: widget.bowelController,
                   vitalsController: widget.vitalsController,
                   exerciseController: widget.exerciseController,
+                  menstrualController: widget.menstrualController,
                 );
               }
               return LoginScreen(
@@ -215,6 +219,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final BowelController bowelController;
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
+  final MenstrualController menstrualController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -231,6 +236,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.bowelController,
     required this.vitalsController,
     required this.exerciseController,
+    required this.menstrualController,
   });
 
   @override
@@ -266,6 +272,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       bowelController: widget.bowelController,
       vitalsController: widget.vitalsController,
       exerciseController: widget.exerciseController,
+      menstrualController: widget.menstrualController,
     );
   }
 }

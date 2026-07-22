@@ -1,0 +1,312 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/menstrual/application/add_period.dart';
+import 'package:life_os/contexts/menstrual/application/delete_period.dart';
+import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
+import 'package:life_os/contexts/menstrual/application/update_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_exceptions.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_screen.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+
+import '../../../support/l10n_test_app.dart';
+
+/// A stateful in-memory fake mirroring the controller-test fake, so mutations
+/// followed by a re-read reflect the change.
+class FakeMenstrualRepository implements MenstrualRepository {
+  final List<MenstrualPeriod> periods = [];
+  MenstrualStats stats;
+  int _nextId = 1;
+  Object? failGetOverview;
+
+  FakeMenstrualRepository({this.stats = const MenstrualStats()});
+
+  @override
+  Future<MenstrualOverview> getOverview(String idToken) async {
+    if (failGetOverview != null) throw failGetOverview!;
+    return MenstrualOverview(
+      periods: List.of(periods),
+      stats: stats,
+      lastPeriod: periods.isEmpty ? null : periods.last,
+    );
+  }
+
+  @override
+  Future<MenstrualPeriod> addPeriod(
+    String idToken, {
+    required DateTime startDate,
+    DateTime? endDate,
+  }) async {
+    final period = MenstrualPeriod(
+      id: 'p${_nextId++}',
+      startDate: startDate,
+      endDate: endDate,
+    );
+    periods.add(period);
+    return period;
+  }
+
+  @override
+  Future<MenstrualPeriod> updatePeriod(
+    String idToken,
+    String id, {
+    DateTime? startDate,
+    DateTime? endDate,
+    bool clearEndDate = false,
+  }) async {
+    final index = periods.indexWhere((p) => p.id == id);
+    final existing = periods[index];
+    final updated = MenstrualPeriod(
+      id: id,
+      startDate: startDate ?? existing.startDate,
+      endDate: clearEndDate ? null : (endDate ?? existing.endDate),
+    );
+    periods[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<bool> deletePeriod(String idToken, String id) async {
+    periods.removeWhere((p) => p.id == id);
+    return true;
+  }
+}
+
+MenstrualController _controllerFor(FakeMenstrualRepository repo) =>
+    MenstrualController(
+      GetMenstrualOverview(repo),
+      AddPeriod(repo),
+      UpdatePeriod(repo),
+      DeletePeriod(repo),
+    );
+
+Future<MenstrualController> _pumpScreen(
+  WidgetTester tester,
+  FakeMenstrualRepository repo, {
+  bool load = true,
+}) async {
+  final controller = _controllerFor(repo);
+  if (load) await controller.load('tok');
+  await tester.pumpWidget(
+    l10nTestApp(
+      home: MenstrualScreen(
+        controller: controller,
+        idToken: 'tok',
+        clock: () => DateTime(2026, 7, 22),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return controller;
+}
+
+void main() {
+  final loc = lookupAppLocalizations(const Locale('en'));
+
+  group('MenstrualScreen', () {
+    testWidgets('shows an app bar with a back affordance and the calendar', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      expect(find.text(loc.menstrualTitle), findsWidgets);
+      expect(find.byKey(const Key('menstrual-month-label')), findsOneWidget);
+    });
+
+    testWidgets('shows statistics values when available', (tester) async {
+      final repo = FakeMenstrualRepository(
+        stats: MenstrualStats(
+          averageCycleDays: 28,
+          averagePeriodDays: 5,
+          predictedNextStart: DateTime(2026, 7, 24),
+        ),
+      );
+      await _pumpScreen(tester, repo);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('menstrual-avg-cycle')),
+          matching: find.text(loc.menstrualDaysValue(28)),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows a placeholder for null statistics', (tester) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('menstrual-avg-cycle')),
+          matching: find.text(loc.menstrualStatPlaceholder),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a load failure shows an error state, not a crash', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository()
+        ..failGetOverview = const MenstrualFetchFailure();
+      await _pumpScreen(tester, repo);
+
+      expect(find.byKey(const Key('menstrual-error')), findsOneWidget);
+    });
+
+    testWidgets('a 401 shows the reauth message', (tester) async {
+      final repo = FakeMenstrualRepository()
+        ..failGetOverview = const MenstrualReauthenticationRequired();
+      await _pumpScreen(tester, repo);
+
+      expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+    });
+  });
+
+  group('MenstrualScreen add/edit/delete', () {
+    testWidgets('the add button opens the add dialog', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      await tester.tap(find.byKey(const Key('menstrual-add-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('menstrual-start-date')), findsOneWidget);
+      expect(find.byKey(const Key('menstrual-save-period')), findsOneWidget);
+    });
+
+    testWidgets('tapping a calendar day opens a dialog prefilled with that day',
+        (tester) async {
+      final repo = FakeMenstrualRepository();
+      await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-10')));
+      await tester.pumpAndSettle();
+
+      // The dialog opens and the save control is enabled (start prefilled).
+      expect(find.text(loc.menstrualAddDialogTitle), findsOneWidget);
+      final save = tester.widget<FilledButton>(
+        find.byKey(const Key('menstrual-save-period')),
+      );
+      expect(save.onPressed, isNotNull);
+    });
+
+    testWidgets('adding a period (via a tapped day) re-reads and marks it', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository();
+      final controller = await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-10')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-save-period')));
+      await tester.pumpAndSettle();
+
+      expect(controller.overview!.periods, hasLength(1));
+      final marker = tester.widget<Container>(
+        find.byKey(const Key('menstrual-day-marker-2026-07-10')),
+      );
+      expect((marker.decoration as BoxDecoration).color, isNotNull);
+    });
+
+    testWidgets('tapping a day within a period opens the edit dialog', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository()
+        ..periods.add(
+          MenstrualPeriod(
+            id: 'p1',
+            startDate: DateTime(2026, 7, 3),
+            endDate: DateTime(2026, 7, 7),
+          ),
+        );
+      await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-05')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.menstrualEditDialogTitle), findsOneWidget);
+      expect(find.byKey(const Key('menstrual-delete-period')), findsOneWidget);
+    });
+
+    testWidgets('clearing the end date reopens the period', (tester) async {
+      final repo = FakeMenstrualRepository()
+        ..periods.add(
+          MenstrualPeriod(
+            id: 'p1',
+            startDate: DateTime(2026, 7, 3),
+            endDate: DateTime(2026, 7, 7),
+          ),
+        );
+      final controller = await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-05')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-clear-end')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-save-period')));
+      await tester.pumpAndSettle();
+
+      expect(controller.overview!.periods.single.endDate, isNull);
+    });
+
+    testWidgets('deleting a period removes it after the re-read', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository()
+        ..periods.add(
+          MenstrualPeriod(
+            id: 'p1',
+            startDate: DateTime(2026, 7, 3),
+            endDate: DateTime(2026, 7, 7),
+          ),
+        );
+      final controller = await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-05')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-delete-period')));
+      await tester.pumpAndSettle();
+
+      expect(controller.overview!.periods, isEmpty);
+    });
+
+    testWidgets('an end date before the start disables save', (tester) async {
+      final repo = FakeMenstrualRepository()
+        ..periods.add(
+          MenstrualPeriod(id: 'p1', startDate: DateTime(2026, 7, 10)),
+        );
+      await _pumpScreen(tester, repo);
+
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-10')));
+      await tester.pumpAndSettle();
+
+      // Pick an end date (the 5th) earlier than the start (the 10th). Scope
+      // the day tap to the date picker — the screen's own calendar behind the
+      // dialog also renders a "5".
+      await tester.tap(find.byKey(const Key('menstrual-end-date')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DatePickerDialog),
+          matching: find.text('5'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('menstrual-end-before-start-error')),
+        findsOneWidget,
+      );
+      final save = tester.widget<FilledButton>(
+        find.byKey(const Key('menstrual-save-period')),
+      );
+      expect(save.onPressed, isNull);
+    });
+  });
+}

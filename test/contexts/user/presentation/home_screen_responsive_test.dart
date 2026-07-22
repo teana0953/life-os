@@ -50,6 +50,13 @@ import 'package:life_os/contexts/exercise/application/list_exercise_activities.d
 import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
 import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
 import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
+import 'package:life_os/contexts/menstrual/application/add_period.dart';
+import 'package:life_os/contexts/menstrual/application/delete_period.dart';
+import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
+import 'package:life_os/contexts/menstrual/application/update_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -237,6 +244,31 @@ class _FakeExerciseRepository implements ExerciseRepository {
   Future<bool> deleteEntry(String idToken, String entryId) async => true;
 }
 
+class _FakeMenstrualRepository implements MenstrualRepository {
+  @override
+  Future<MenstrualOverview> getOverview(String idToken) async =>
+      const MenstrualOverview(periods: [], stats: MenstrualStats());
+
+  @override
+  Future<MenstrualPeriod> addPeriod(
+    String idToken, {
+    required DateTime startDate,
+    DateTime? endDate,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<MenstrualPeriod> updatePeriod(
+    String idToken,
+    String id, {
+    DateTime? startDate,
+    DateTime? endDate,
+    bool clearEndDate = false,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> deletePeriod(String idToken, String id) async => true;
+}
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -287,6 +319,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   final bowelRepository = _FakeBowelRepository();
   final vitalsRepository = _FakeVitalsRepository();
   final exerciseRepository = _FakeExerciseRepository();
+  final menstrualRepository = _FakeMenstrualRepository();
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,
@@ -336,6 +369,12 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
           GetExerciseDay(exerciseRepository),
           AddExerciseEntry(exerciseRepository),
           DeleteExerciseEntry(exerciseRepository),
+        ),
+        menstrualController: MenstrualController(
+          GetMenstrualOverview(menstrualRepository),
+          AddPeriod(menstrualRepository),
+          UpdatePeriod(menstrualRepository),
+          DeletePeriod(menstrualRepository),
         ),
       ),
     ),

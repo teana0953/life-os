@@ -582,6 +582,80 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';
 
   @override
+  String get menstrualTitle => '生理期';
+
+  @override
+  String get menstrualAverageCycleLabel => '平均週期';
+
+  @override
+  String get menstrualAveragePeriodLabel => '平均經期';
+
+  @override
+  String get menstrualPredictedNextLabel => '預測下次';
+
+  @override
+  String menstrualDaysValue(int days) {
+    return '$days 天';
+  }
+
+  @override
+  String get menstrualStatPlaceholder => '—';
+
+  @override
+  String get menstrualLastPeriodLabel => '最近一次週期';
+
+  @override
+  String get menstrualOngoingLabel => '進行中';
+
+  @override
+  String get menstrualAddButton => '新增週期';
+
+  @override
+  String get menstrualAddDialogTitle => '新增週期';
+
+  @override
+  String get menstrualEditDialogTitle => '編輯週期';
+
+  @override
+  String get menstrualStartDateLabel => '開始日期';
+
+  @override
+  String get menstrualEndDateLabel => '結束日期';
+
+  @override
+  String get menstrualSelectDate => '選擇';
+
+  @override
+  String get menstrualClearEndDate => '清除結束日期';
+
+  @override
+  String get menstrualEndBeforeStartError => '結束日期不能早於開始日期。';
+
+  @override
+  String get menstrualSavePeriod => '儲存';
+
+  @override
+  String get menstrualDeletePeriod => '刪除';
+
+  @override
+  String get menstrualPeriodDeleted => '已刪除週期';
+
+  @override
+  String get menstrualUndo => '復原';
+
+  @override
+  String get menstrualSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get menstrualPrevMonth => '上個月';
+
+  @override
+  String get menstrualNextMonth => '下個月';
+
+  @override
+  String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
+
+  @override
   String get updateAvailableTitle => '有新版本可用';
 
   @override
@@ -1167,6 +1241,80 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorExerciseLoadFailed => '無法載入運動資料,請再試一次。';
+
+  @override
+  String get menstrualTitle => '生理期';
+
+  @override
+  String get menstrualAverageCycleLabel => '平均週期';
+
+  @override
+  String get menstrualAveragePeriodLabel => '平均經期';
+
+  @override
+  String get menstrualPredictedNextLabel => '預測下次';
+
+  @override
+  String menstrualDaysValue(int days) {
+    return '$days 天';
+  }
+
+  @override
+  String get menstrualStatPlaceholder => '—';
+
+  @override
+  String get menstrualLastPeriodLabel => '最近一次週期';
+
+  @override
+  String get menstrualOngoingLabel => '進行中';
+
+  @override
+  String get menstrualAddButton => '新增週期';
+
+  @override
+  String get menstrualAddDialogTitle => '新增週期';
+
+  @override
+  String get menstrualEditDialogTitle => '編輯週期';
+
+  @override
+  String get menstrualStartDateLabel => '開始日期';
+
+  @override
+  String get menstrualEndDateLabel => '結束日期';
+
+  @override
+  String get menstrualSelectDate => '選擇';
+
+  @override
+  String get menstrualClearEndDate => '清除結束日期';
+
+  @override
+  String get menstrualEndBeforeStartError => '結束日期不能早於開始日期。';
+
+  @override
+  String get menstrualSavePeriod => '儲存';
+
+  @override
+  String get menstrualDeletePeriod => '刪除';
+
+  @override
+  String get menstrualPeriodDeleted => '已刪除週期';
+
+  @override
+  String get menstrualUndo => '復原';
+
+  @override
+  String get menstrualSaveFailed => '儲存失敗,請再試一次';
+
+  @override
+  String get menstrualPrevMonth => '上個月';
+
+  @override
+  String get menstrualNextMonth => '下個月';
+
+  @override
+  String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
 
   @override
   String get updateAvailableTitle => '有新版本可用';

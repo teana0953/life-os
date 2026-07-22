@@ -12,6 +12,8 @@ import '../../exercise/presentation/exercise_controller.dart';
 import '../../exercise/presentation/exercise_screen.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../hydration/presentation/water_screen.dart';
+import '../../menstrual/presentation/menstrual_controller.dart';
+import '../../menstrual/presentation/menstrual_screen.dart';
 import '../../vitals/presentation/vitals_controller.dart';
 import '../../vitals/presentation/vitals_screen.dart';
 import '../application/get_logged_days.dart';
@@ -73,6 +75,7 @@ class DietShellScreen extends StatefulWidget {
   final BowelController bowelController;
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
+  final MenstrualController menstrualController;
   final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
@@ -91,6 +94,7 @@ class DietShellScreen extends StatefulWidget {
     required this.bowelController,
     required this.vitalsController,
     required this.exerciseController,
+    required this.menstrualController,
     required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
@@ -123,6 +127,9 @@ class _DietShellScreenState extends State<DietShellScreen> {
     await widget.bowelController.load(token, _day);
     await widget.vitalsController.load(token, _day);
     await widget.exerciseController.load(token, _day);
+    // Menstrual is not day-keyed — load the whole overview once, independent of
+    // the viewed day (so it stays out of _reloadCurrentDay).
+    await widget.menstrualController.load(token);
   }
 
   Future<void> _reloadCurrentDay() async {
@@ -270,6 +277,7 @@ class _DietShellScreenState extends State<DietShellScreen> {
         bowelController: widget.bowelController,
         vitalsController: widget.vitalsController,
         exerciseController: widget.exerciseController,
+        menstrualController: widget.menstrualController,
       ),
     ];
 
@@ -313,6 +321,7 @@ class _MoreMenuScreen extends StatelessWidget {
   final BowelController bowelController;
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
+  final MenstrualController menstrualController;
 
   const _MoreMenuScreen({
     required this.idToken,
@@ -321,6 +330,7 @@ class _MoreMenuScreen extends StatelessWidget {
     required this.bowelController,
     required this.vitalsController,
     required this.exerciseController,
+    required this.menstrualController,
   });
 
   void _push(BuildContext context, Widget screen) {
@@ -392,6 +402,19 @@ class _MoreMenuScreen extends StatelessWidget {
                       controller: exerciseController,
                       idToken: token,
                       day: day,
+                      clock: clock,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  key: const Key('more-tile-menstrual'),
+                  leading: const Icon(Icons.calendar_month),
+                  title: Text(loc.menstrualTitle),
+                  onTap: () => _push(
+                    context,
+                    MenstrualScreen(
+                      controller: menstrualController,
+                      idToken: token,
                       clock: clock,
                     ),
                   ),
