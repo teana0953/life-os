@@ -21,8 +21,9 @@ class DashboardScreen extends StatefulWidget {
   final SignOut signOut;
 
   /// Opens the daily-log tab shell (the home wires this to push
-  /// `DietShellScreen`).
-  final VoidCallback onOpenLog;
+  /// `DietShellScreen`). Returns when the shell is popped, so the dashboard can
+  /// reload the goal (e.g. after a weight was recorded).
+  final Future<void> Function() onOpenLog;
 
   const DashboardScreen({
     super.key,
@@ -132,7 +133,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: Text(loc.dashboardRecordEntryTitle),
                     subtitle: Text(loc.dashboardRecordEntrySubtitle),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: widget.onOpenLog,
+                    // Reload the goal after returning from the log shell so a
+                    // weight just recorded is reflected without a manual refresh.
+                    onTap: () async {
+                      await widget.onOpenLog();
+                      if (mounted) await _load();
+                    },
                   ),
                 ),
               ],

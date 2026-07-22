@@ -195,24 +195,43 @@ class _SetGoalCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _GoalStat(
+                          label: loc.goalHeightShortLabel,
+                          value: _fmt(goal.heightCm),
+                          unit: loc.goalCmUnit,
+                        ),
+                        const SizedBox(height: 6),
+                        _GoalStat(
                           label: loc.goalTargetLabel,
                           value: _fmt(goal.targetWeightKg),
+                          unit: loc.goalKgUnit,
                         ),
                         const SizedBox(height: 6),
                         _GoalStat(
                           label: loc.goalCurrentLabel,
                           value: _fmt(goal.currentWeightKg),
+                          unit: loc.goalKgUnit,
                         ),
                         const SizedBox(height: 6),
                         _GoalStat(
                           label: loc.goalRemainingLabel,
                           value: _fmt(goal.remainingKg),
+                          unit: loc.goalKgUnit,
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
+              if (goal.achievementRate == null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  loc.goalAchievementHint,
+                  key: const Key('goal-achievement-hint'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -242,8 +261,9 @@ class _SetGoalCard extends StatelessWidget {
 class _GoalStat extends StatelessWidget {
   final String label;
   final String? value;
+  final String unit;
 
-  const _GoalStat({required this.label, required this.value});
+  const _GoalStat({required this.label, required this.value, required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +284,7 @@ class _GoalStat extends StatelessWidget {
           Text(loc.goalPlaceholder, style: theme.textTheme.titleMedium)
         else ...[
           Text(value!, style: theme.textTheme.titleMedium),
-          Text(' ${loc.goalKgUnit}', style: theme.textTheme.bodySmall),
+          Text(' $unit', style: theme.textTheme.bodySmall),
         ],
       ],
     );

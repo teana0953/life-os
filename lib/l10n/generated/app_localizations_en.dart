@@ -727,7 +727,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goalKgUnit => 'kg';
 
   @override
+  String get goalCmUnit => 'cm';
+
+  @override
+  String get goalHeightShortLabel => 'Height';
+
+  @override
   String get goalAchievementLabel => 'Achievement';
+
+  @override
+  String get goalAchievementHint =>
+      'Record your weight on another day to see progress toward your goal.';
 
   @override
   String get goalBmiLabel => 'BMI';
