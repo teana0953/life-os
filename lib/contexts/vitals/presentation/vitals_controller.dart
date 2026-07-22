@@ -167,10 +167,18 @@ class VitalsController extends ChangeNotifier {
             day: day,
             weightKg: weightKg,
             bodyFatPct: bodyFatPct,
-            bpReadings: bpReadings.where((r) => !_isEmptyBp(r)).toList(),
-            glucoseReadings:
-                glucoseReadings.where((r) => !_isEmptyGlucose(r)).toList(),
-            spo2Readings: spo2Readings.where((r) => !_isEmptySpo2(r)).toList(),
+            bpReadings: bpReadings
+                .where((r) => !_isEmptyBp(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
+            glucoseReadings: glucoseReadings
+                .where((r) => !_isEmptyGlucose(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
+            spo2Readings: spo2Readings
+                .where((r) => !_isEmptySpo2(r))
+                .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
+                .toList(),
           ),
         ),
       );

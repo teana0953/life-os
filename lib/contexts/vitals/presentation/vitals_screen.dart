@@ -102,6 +102,25 @@ class _VitalsScreenState extends State<VitalsScreen> {
     );
   }
 
+  /// Builds the shared, themed time control for a reading row. Placed
+  /// per-list inside each `rowBuilder` (see below) so it sits where it doesn't
+  /// crowd the fields — e.g. on BP's second/pulse line.
+  Widget _timeChip({
+    required String sectionId,
+    required int index,
+    required String time,
+    required bool busy,
+    required void Function(int index) onEdit,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    return _TimeChip(
+      chipKey: Key('vitals-$sectionId-time-$index'),
+      time: time,
+      tooltip: loc.vitalsTimeLabel,
+      onPressed: busy ? null : () => onEdit(index),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -182,8 +201,6 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addBpReading,
                         onRemove: controller.removeBpReading,
-                        timeOf: (index) => controller.bpReadings[index].time,
-                        onEditTime: (index) => _editBpTime(index),
                         rowBuilder: (index) =>
                             _bpRow(context, controller, index, busy),
                       ),
@@ -195,9 +212,6 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addGlucoseReading,
                         onRemove: controller.removeGlucoseReading,
-                        timeOf: (index) =>
-                            controller.glucoseReadings[index].time,
-                        onEditTime: (index) => _editGlucoseTime(index),
                         rowBuilder: (index) =>
                             _glucoseRow(context, controller, index, busy),
                       ),
@@ -209,8 +223,6 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         enabled: !busy,
                         onAdd: controller.addSpo2Reading,
                         onRemove: controller.removeSpo2Reading,
-                        timeOf: (index) => controller.spo2Readings[index].time,
-                        onEditTime: (index) => _editSpo2Time(index),
                         rowBuilder: (index) =>
                             _spo2Row(context, controller, index, busy),
                       ),
@@ -259,6 +271,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
     // Systolic/diastolic share the first line and pulse sits on the second so
     // three numeric fields (plus the mmHg/bpm units) don't overflow a narrow
     // phone row. mmHg lives in the section title; pulse carries a `bpm` suffix.
+    // The time control rides the pulse line's trailing space so it never
+    // squeezes the widest (first) field line.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -308,7 +322,13 @@ class _VitalsScreenState extends State<VitalsScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Spacer(),
+            _timeChip(
+              sectionId: 'bp',
+              index: index,
+              time: reading.time,
+              busy: busy,
+              onEdit: _editBpTime,
+            ),
           ],
         ),
       ],
@@ -380,6 +400,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       reading.copyWith(label: loc.vitalsGlucoseAfterMeal),
                     ),
             ),
+            // Rides the quick-pick line; the surrounding `Wrap` lets it drop to
+            // its own line rather than overflow on a narrow phone.
+            _timeChip(
+              sectionId: 'glucose',
+              index: index,
+              time: reading.time,
+              busy: busy,
+              onEdit: _editGlucoseTime,
+            ),
           ],
         ),
       ],
@@ -394,32 +423,50 @@ class _VitalsScreenState extends State<VitalsScreen> {
   ) {
     final loc = AppLocalizations.of(context)!;
     final reading = controller.spo2Readings[index];
-    return Row(
+    // SpO2/pulse fill the first line; the time control sits on its own second
+    // line (both fields are `Expanded`, so an inline chip would squeeze them).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-spo2-value-$index'),
-            label: loc.vitalsSpo2Label,
-            text: reading.spo2 == 0 ? '' : '${reading.spo2}',
-            enabled: !busy,
-            onChanged: (v) => controller.updateSpo2Reading(
-              index,
-              reading.copyWith(spo2: num.tryParse(v) ?? 0),
+        Row(
+          children: [
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-spo2-value-$index'),
+                label: loc.vitalsSpo2Label,
+                text: reading.spo2 == 0 ? '' : '${reading.spo2}',
+                enabled: !busy,
+                onChanged: (v) => controller.updateSpo2Reading(
+                  index,
+                  reading.copyWith(spo2: num.tryParse(v) ?? 0),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-spo2-pulse-$index'),
+                label: loc.vitalsPulseLabel,
+                text: reading.pulse == null ? '' : '${reading.pulse}',
+                enabled: !busy,
+                suffixText: loc.vitalsPulseUnit,
+                onChanged: (v) => controller.updateSpo2Reading(
+                  index,
+                  reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-spo2-pulse-$index'),
-            label: loc.vitalsPulseLabel,
-            text: reading.pulse == null ? '' : '${reading.pulse}',
-            enabled: !busy,
-            suffixText: loc.vitalsPulseUnit,
-            onChanged: (v) => controller.updateSpo2Reading(
-              index,
-              reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
-            ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _timeChip(
+            sectionId: 'spo2',
+            index: index,
+            time: reading.time,
+            busy: busy,
+            onEdit: _editSpo2Time,
           ),
         ),
       ],
@@ -438,12 +485,6 @@ class _ReadingListSection extends StatelessWidget {
   final bool enabled;
   final VoidCallback onAdd;
   final void Function(int index) onRemove;
-
-  /// The stored "HH:mm" for the reading at [index], shown on its time control.
-  final String Function(int index) timeOf;
-
-  /// Opens the time picker for the reading at [index] and writes the pick back.
-  final void Function(int index) onEditTime;
   final Widget Function(int index) rowBuilder;
 
   const _ReadingListSection({
@@ -453,8 +494,6 @@ class _ReadingListSection extends StatelessWidget {
     required this.enabled,
     required this.onAdd,
     required this.onRemove,
-    required this.timeOf,
-    required this.onEditTime,
     required this.rowBuilder,
   });
 
@@ -475,14 +514,11 @@ class _ReadingListSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // The per-row time control now lives inside `rowBuilder`
+                  // (placed per-list so it doesn't tax field width — e.g. on
+                  // BP's second/pulse line); only the remove control stays in
+                  // this uniform trailing slot.
                   Expanded(child: rowBuilder(index)),
-                  const SizedBox(width: 8),
-                  _TimeChip(
-                    chipKey: Key('vitals-$sectionId-time-$index'),
-                    time: timeOf(index),
-                    tooltip: loc.vitalsTimeLabel,
-                    onPressed: enabled ? () => onEditTime(index) : null,
-                  ),
                   IconButton(
                     key: Key('vitals-$sectionId-remove-$index'),
                     tooltip: loc.vitalsRemoveReading,
@@ -709,9 +745,11 @@ class _QuickPick extends StatelessWidget {
   }
 }
 
-/// A compact per-row time control showing a reading's "HH:mm"; tapping opens
-/// the Material time picker (via [onPressed]). Colors from [Theme]. An empty
-/// (pre-time) reading shows a `--:--` placeholder rather than an empty label.
+/// A compact per-row time control showing a reading's "HH:mm": a themed pastel
+/// pill (schedule icon + time) matching the app's design language, with a tap
+/// ripple as its affordance. Tapping opens the Material time picker (via
+/// [onPressed]). Colors derive from [Theme]. An empty (pre-time) reading shows
+/// a `--:--` placeholder rather than an empty label.
 class _TimeChip extends StatelessWidget {
   final Key chipKey;
   final String time;
@@ -727,12 +765,41 @@ class _TimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      key: chipKey,
-      tooltip: tooltip,
-      avatar: const Icon(Icons.schedule, size: 18),
-      label: Text(time.isEmpty ? '--:--' : time),
-      onPressed: onPressed,
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: scheme.secondary.withValues(alpha: 0.18),
+        shape: StadiumBorder(
+          side: BorderSide(color: scheme.outline, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: chipKey,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  time.isEmpty ? '--:--' : time,
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

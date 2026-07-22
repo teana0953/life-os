@@ -236,6 +236,33 @@ void main() {
       expect(controller.bpReadings, isNotEmpty);
     });
 
+    test('coerces an empty reading time to now in the save payload', () async {
+      final repository = FakeVitalsRepository()
+        ..dayToReturn = const VitalsDay(
+          day: '2026-07-18',
+          weightKg: null,
+          bodyFatPct: null,
+          // Legacy/pre-time rows loaded with an empty time; re-saving must
+          // never PUT an empty time (the backend requires a strict HH:mm).
+          bpReadings: [
+            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: ''),
+          ],
+          glucoseReadings: [GlucoseReading(label: '餐前', value: 95, time: '')],
+          spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '')],
+        );
+      final controller = _controller(
+        repository,
+        clock: () => const TimeOfDay(hour: 9, minute: 5),
+      );
+      await controller.load('token', '2026-07-18');
+
+      await controller.save('token', '2026-07-18');
+
+      expect(repository.savedDay!.bpReadings.single.time, '09:05');
+      expect(repository.savedDay!.glucoseReadings.single.time, '09:05');
+      expect(repository.savedDay!.spo2Readings.single.time, '09:05');
+    });
+
     test('a save 401 surfaces needsReauth', () async {
       final repository = FakeVitalsRepository()
         ..saveError = const VitalsReauthenticationRequired();
