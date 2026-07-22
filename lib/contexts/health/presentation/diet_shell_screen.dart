@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -681,7 +680,7 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                 ),
                 Expanded(
                   child: Text(
-                    DateFormat.yMMM().format(_visibleMonth),
+                    monthYearLabel(context, _visibleMonth),
                     key: const Key('calendar-month-label'),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge,
