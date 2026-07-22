@@ -520,4 +520,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorVitalsLoadFailed =>
       'Unable to load your vitals data. Please try again.';
+
+  @override
+  String get updateAvailableTitle => 'A new version is available';
+
+  @override
+  String get updateButton => 'Update';
+
+  @override
+  String get updateDismiss => 'Dismiss';
 }

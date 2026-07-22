@@ -49,6 +49,8 @@ import 'contexts/user/presentation/home_controller.dart';
 import 'firebase_options.dart';
 import 'shared/config.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/pwa/pwa_update.dart';
+import 'shared/pwa/pwa_update_controller.dart';
 import 'shared/theme/theme_controller.dart';
 
 Future<void> main() async {
@@ -129,6 +131,8 @@ Future<void> main() async {
     GetVitalsDay(vitalsRepository),
     SaveVitalsDay(vitalsRepository),
   );
+  final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
+    ..start();
 
   runApp(
     App(
@@ -147,6 +151,7 @@ Future<void> main() async {
       waterController: waterController,
       bowelController: bowelController,
       vitalsController: vitalsController,
+      pwaUpdateController: pwaUpdateController,
     ),
   );
 }

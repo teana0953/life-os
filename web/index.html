@@ -193,6 +193,76 @@
         window.pwaInstall.available = false;
         window.pwaInstall.iosHint = false;
       });
+
+      // ---- Update bridge (new-version-available). The Flutter service
+      // worker installs a new version in the background but keeps serving the
+      // old cached shell until reload. This exposes window.pwaUpdate so the
+      // app's Settings-style banner can DETECT a ready update and apply it.
+      window.pwaUpdate = {
+        // A newer version has installed behind the controlling worker.
+        available: false,
+        // Reliably load the new version (see applyUpdate below).
+        apply: function () { return applyUpdate(); }
+      };
+
+      function markUpdateReady() {
+        window.pwaUpdate.available = true;
+      }
+
+      // The Flutter SW doesn't honor skipWaiting, so the guaranteed path is to
+      // unregister every registration and reload; SKIP_WAITING is best-effort.
+      async function applyUpdate() {
+        try {
+          var reg = await navigator.serviceWorker.getRegistration();
+          if (reg && reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        } catch (e) { /* ignore */ }
+        try {
+          var regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        } catch (e) { /* ignore */ }
+        location.reload();
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(function (registration) {
+          // A new worker only counts as an *update* (not first install) when
+          // an old one is already controlling the page.
+          function onInstalled(worker) {
+            if (worker.state === 'installed' &&
+                navigator.serviceWorker.controller) {
+              markUpdateReady();
+            }
+          }
+          function watch(worker) {
+            if (!worker) return;
+            worker.addEventListener('statechange', function () {
+              onInstalled(worker);
+            });
+          }
+
+          // A worker may already be waiting from a previous visit.
+          if (registration.waiting && navigator.serviceWorker.controller) {
+            markUpdateReady();
+          }
+          watch(registration.installing);
+          registration.addEventListener('updatefound', function () {
+            watch(registration.installing);
+          });
+
+          // Proactively check for a fresh deploy: on load, when the tab
+          // becomes visible again, and on a periodic timer.
+          function checkForUpdate() {
+            registration.update().catch(function () { /* ignore */ });
+          }
+          checkForUpdate();
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') checkForUpdate();
+          });
+          setInterval(checkForUpdate, 30 * 60 * 1000);
+        }).catch(function () { /* ignore */ });
+      }
     })();
   </script>
 
