@@ -18,21 +18,276 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Your calm daily life tracker — food, water, and more.">
+
+  <!-- Notch-safe viewport. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <!-- Branded status-bar / theme color: cream in light, dark ground in dark. -->
+  <meta name="theme-color" content="#FBF1E1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#231D19" media="(prefers-color-scheme: dark)">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="life_os">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="LifeOS">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>life_os</title>
+  <title>LifeOS</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* ---- Chiikawa pastel PWA chrome (splash / install / offline) ---- */
+    :root {
+      --lifeos-cream: #FBF1E1;
+      --lifeos-dark: #231D19;
+      --lifeos-surface: #FFFDF8;
+      --lifeos-ink: #5A4A3E;
+      --lifeos-outline: #D8C3A6;
+      --lifeos-primary: #8FD3E6;
+      --lifeos-amber: #F4D9A0;
+    }
+
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background-color: var(--lifeos-cream);
+      font-family: "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background-color: var(--lifeos-dark); }
+    }
+
+    /* Branded splash overlay: shown immediately, removed on first frame. */
+    #lifeos-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background-color: var(--lifeos-cream);
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left);
+      opacity: 1;
+      transition: opacity 0.35s ease;
+    }
+    #lifeos-splash.lifeos-hide { opacity: 0; }
+    #lifeos-splash img {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+      box-shadow: 0 4px 0 rgba(216, 195, 166, 0.55);
+    }
+    #lifeos-splash .lifeos-wordmark {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--lifeos-ink);
+    }
+    @media (prefers-color-scheme: dark) {
+      #lifeos-splash { background-color: var(--lifeos-dark); }
+      #lifeos-splash .lifeos-wordmark { color: #F3E7D6; }
+    }
+
+    /* Slim offline indicator across the top. */
+    #lifeos-offline {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 2147483646;
+      display: none;
+      padding: calc(env(safe-area-inset-top) + 6px) 12px 6px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--lifeos-ink);
+      background-color: var(--lifeos-amber);
+      border-bottom: 1px solid var(--lifeos-outline);
+    }
+    #lifeos-offline.lifeos-show { display: block; }
+
+    /* Dismissible install banner, bottom, safe-area aware. */
+    #lifeos-install {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(env(safe-area-inset-bottom) + 12px);
+      z-index: 2147483646;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 12px 14px;
+      background-color: var(--lifeos-surface);
+      color: var(--lifeos-ink);
+      border: 2px solid var(--lifeos-outline);
+      border-radius: 18px;
+      box-shadow: 0 4px 0 rgba(216, 195, 166, 0.55);
+    }
+    #lifeos-install.lifeos-show { display: flex; }
+    #lifeos-install .lifeos-install-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      flex: 0 0 auto;
+    }
+    #lifeos-install .lifeos-install-text {
+      flex: 1 1 auto;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    #lifeos-install button {
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #lifeos-install .lifeos-install-btn {
+      flex: 0 0 auto;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--lifeos-ink);
+      background-color: var(--lifeos-primary);
+      border: 2px solid var(--lifeos-outline);
+      border-radius: 999px;
+    }
+    #lifeos-install .lifeos-install-close {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+      color: var(--lifeos-ink);
+      background: transparent;
+      border: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      #lifeos-install {
+        background-color: #3A2F27;
+        color: #F3E7D6;
+      }
+      #lifeos-install .lifeos-install-close { color: #F3E7D6; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Branded splash: replaces the blank white flash before Flutter boots. -->
+  <div id="lifeos-splash">
+    <img src="icons/Icon-192.png" alt="LifeOS">
+    <div class="lifeos-wordmark">LifeOS</div>
+  </div>
+
+  <!-- Offline indicator (top). -->
+  <div id="lifeos-offline">離線中 — 部分功能無法使用 / You're offline</div>
+
+  <!-- Install / add-to-home banner (bottom). -->
+  <div id="lifeos-install">
+    <img class="lifeos-install-icon" src="icons/Icon-192.png" alt="">
+    <div class="lifeos-install-text" id="lifeos-install-text">
+      安裝 LifeOS / Install LifeOS
+    </div>
+    <button class="lifeos-install-btn" id="lifeos-install-btn">Install</button>
+    <button class="lifeos-install-close" id="lifeos-install-close" aria-label="Dismiss">✕</button>
+  </div>
+
+  <script>
+    (function () {
+      // ---- Splash: fade out + remove once Flutter renders its first frame.
+      window.addEventListener('flutter-first-frame', function () {
+        var splash = document.getElementById('lifeos-splash');
+        if (!splash) return;
+        splash.classList.add('lifeos-hide');
+        splash.addEventListener('transitionend', function () {
+          if (splash.parentNode) splash.parentNode.removeChild(splash);
+        });
+        // Fallback removal in case transitionend doesn't fire.
+        setTimeout(function () {
+          if (splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 600);
+      });
+
+      // ---- Offline indicator.
+      var offlineBar = document.getElementById('lifeos-offline');
+      function updateOnline() {
+        if (navigator.onLine) {
+          offlineBar.classList.remove('lifeos-show');
+        } else {
+          offlineBar.classList.add('lifeos-show');
+        }
+      }
+      window.addEventListener('online', updateOnline);
+      window.addEventListener('offline', updateOnline);
+      updateOnline();
+
+      // ---- Install prompt (add-to-home).
+      var DISMISS_KEY = 'lifeos-install-dismissed';
+      var banner = document.getElementById('lifeos-install');
+      var installBtn = document.getElementById('lifeos-install-btn');
+      var closeBtn = document.getElementById('lifeos-install-close');
+      var textEl = document.getElementById('lifeos-install-text');
+      var deferredPrompt = null;
+
+      function dismissed() {
+        try { return localStorage.getItem(DISMISS_KEY) === '1'; }
+        catch (e) { return false; }
+      }
+      function rememberDismiss() {
+        try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
+      }
+      function hideBanner() { banner.classList.remove('lifeos-show'); }
+
+      closeBtn.addEventListener('click', function () {
+        hideBanner();
+        rememberDismiss();
+      });
+
+      // Chromium: stash the event and reveal our own banner.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (dismissed()) return;
+        installBtn.style.display = '';
+        textEl.textContent = '安裝 LifeOS / Install LifeOS';
+        banner.classList.add('lifeos-show');
+      });
+
+      installBtn.addEventListener('click', function () {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.finally(function () {
+          deferredPrompt = null;
+          hideBanner();
+        });
+      });
+
+      window.addEventListener('appinstalled', function () {
+        deferredPrompt = null;
+        hideBanner();
+        rememberDismiss();
+      });
+
+      // iOS Safari has no beforeinstallprompt: show a share-sheet hint instead.
+      var isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+      var isStandalone = window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+      if (isIOS && !isStandalone && !dismissed()) {
+        installBtn.style.display = 'none';
+        textEl.textContent = '加到主畫面:分享 → 加入主畫面 / Add to Home Screen: Share → Add to Home Screen';
+        banner.classList.add('lifeos-show');
+      }
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
