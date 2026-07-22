@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/menstrual_period.dart';
@@ -259,6 +259,7 @@ class _StatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final stats = overview.stats;
     final placeholder = loc.menstrualStatPlaceholder;
 
@@ -270,17 +271,17 @@ class _StatsCard extends StatelessWidget {
         : loc.menstrualDaysValue(stats.averagePeriodDays!);
     final predicted = stats.predictedNextStart == null
         ? placeholder
-        : DateFormat.yMMMd().format(stats.predictedNextStart!);
+        : mediumDateLabel(context, stats.predictedNextStart!);
 
     final last = overview.lastPeriod;
     final String lastText;
     if (last == null) {
       lastText = placeholder;
     } else {
-      final start = DateFormat.yMMMd().format(last.startDate);
+      final start = mediumDateLabel(context, last.startDate);
       final end = last.endDate == null
           ? loc.menstrualOngoingLabel
-          : DateFormat.yMMMd().format(last.endDate!);
+          : mediumDateLabel(context, last.endDate!);
       lastText = '$start – $end';
     }
 
@@ -307,10 +308,22 @@ class _StatsCard extends StatelessWidget {
             value: predicted,
           ),
           const Divider(height: 24),
-          _StatRow(
-            rowKey: const Key('menstrual-last-period'),
-            label: loc.menstrualLastPeriodLabel,
-            value: lastText,
+          // The last period is a date RANGE (long, especially localized), so it
+          // gets its own full-width line below the label rather than sharing a
+          // row — otherwise it truncates with an ellipsis.
+          Column(
+            key: const Key('menstrual-last-period'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                loc.menstrualLastPeriodLabel,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(lastText, style: theme.textTheme.titleMedium),
+            ],
           ),
         ],
       ),
@@ -550,7 +563,7 @@ class _DateField extends StatelessWidget {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              value == null ? placeholder : DateFormat.yMMMd().format(value!),
+              value == null ? placeholder : mediumDateLabel(context, value!),
             ),
           ),
         ),
