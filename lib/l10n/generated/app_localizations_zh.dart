@@ -713,7 +713,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goalKgUnit => '公斤';
 
   @override
+  String get goalCmUnit => '公分';
+
+  @override
+  String get goalHeightShortLabel => '身高';
+
+  @override
   String get goalAchievementLabel => '達成率';
+
+  @override
+  String get goalAchievementHint => '另一天再記一次體重,就會顯示往目標的進度。';
 
   @override
   String get goalBmiLabel => 'BMI';
@@ -1455,7 +1464,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get goalKgUnit => '公斤';
 
   @override
+  String get goalCmUnit => '公分';
+
+  @override
+  String get goalHeightShortLabel => '身高';
+
+  @override
   String get goalAchievementLabel => '達成率';
+
+  @override
+  String get goalAchievementHint => '另一天再記一次體重,就會顯示往目標的進度。';
 
   @override
   String get goalBmiLabel => 'BMI';

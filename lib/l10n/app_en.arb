@@ -953,9 +953,21 @@
   "@goalKgUnit": {
     "description": "Kilogram unit suffix shown after the weight figures on the goal card."
   },
+  "goalCmUnit": "cm",
+  "@goalCmUnit": {
+    "description": "Centimetre unit suffix shown after the height figure on the goal card."
+  },
+  "goalHeightShortLabel": "Height",
+  "@goalHeightShortLabel": {
+    "description": "Short label for the height row on the goal card (the cm unit is shown separately)."
+  },
   "goalAchievementLabel": "Achievement",
   "@goalAchievementLabel": {
     "description": "Label for the achievement-rate ring on the goal card."
+  },
+  "goalAchievementHint": "Record your weight on another day to see progress toward your goal.",
+  "@goalAchievementHint": {
+    "description": "Hint shown under the goal card's achievement ring when there isn't enough weight history (only one day) to compute progress."
   },
   "goalBmiLabel": "BMI",
   "@goalBmiLabel": {

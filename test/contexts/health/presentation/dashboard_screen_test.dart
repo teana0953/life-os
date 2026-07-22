@@ -16,9 +16,11 @@ import '../../../support/l10n_test_app.dart';
 
 class _FakeRepository implements BodyProfileRepository {
   Object? getError;
+  int getWeightGoalCalls = 0;
 
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
+    getWeightGoalCalls++;
     if (getError != null) throw getError!;
     return const WeightGoal(targetWeightKg: 51);
   }
@@ -77,7 +79,7 @@ void main() {
           weightGoalController: _controller(),
           authRepository: auth,
           signOut: SignOut(auth),
-          onOpenLog: () {},
+          onOpenLog: () async {},
         ),
       ),
     );
@@ -97,7 +99,7 @@ void main() {
           weightGoalController: _controller(),
           authRepository: auth,
           signOut: SignOut(auth),
-          onOpenLog: () => opened = true,
+          onOpenLog: () async { opened = true; },
         ),
       ),
     );
@@ -107,6 +109,31 @@ void main() {
     await tester.pump();
 
     expect(opened, isTrue);
+  });
+
+  testWidgets('reloads the goal after returning from the record shell',
+      (tester) async {
+    final auth = _FakeAuthRepository();
+    final repo = _FakeRepository();
+    await tester.pumpWidget(
+      l10nTestApp(
+        home: DashboardScreen(
+          weightGoalController: _controller(repository: repo),
+          authRepository: auth,
+          signOut: SignOut(auth),
+          onOpenLog: () async {}, // shell opened then popped immediately
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repo.getWeightGoalCalls, 1); // initial load
+
+    await tester.tap(find.byKey(const Key('dashboard-record-entry')));
+    await tester.pumpAndSettle();
+
+    // Returning from the shell reloads, so a weight just recorded shows without
+    // a manual refresh.
+    expect(repo.getWeightGoalCalls, 2);
   });
 
   testWidgets(
@@ -121,7 +148,7 @@ void main() {
           weightGoalController: _controller(repository: repository),
           authRepository: auth,
           signOut: SignOut(auth),
-          onOpenLog: () {},
+          onOpenLog: () async {},
         ),
       ),
     );
@@ -146,7 +173,7 @@ void main() {
       weightGoalController: _controller(repository: repository),
       authRepository: auth,
       signOut: SignOut(auth),
-      onOpenLog: () {},
+      onOpenLog: () async {},
     );
 
     // Push the dashboard on top of a root route, mirroring how home pushes it.

@@ -95,9 +95,12 @@ void main() {
       final controller = await _loadedController(repository);
       await _pumpCard(tester, controller);
 
+      expect(find.text('165'), findsOneWidget); // height is shown
       expect(find.text('51'), findsOneWidget);
       expect(find.text('52'), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
+      // A computed achievement rate shows no "need more data" hint.
+      expect(find.byKey(const Key('goal-achievement-hint')), findsNothing);
       expect(
         tester
             .widget<CircularProgressIndicator>(find.byKey(const Key('goal-ring')))
@@ -138,6 +141,8 @@ void main() {
       );
       // No false achievement number is rendered.
       expect(find.byKey(const Key('goal-achievement')), findsNothing);
+      // Instead, a hint explains why (needs weight on another day).
+      expect(find.byKey(const Key('goal-achievement-hint')), findsOneWidget);
       // The ring's screen-reader label speaks "no data", not the bare "—"
       // glyph (which reads as meaningless punctuation).
       expect(

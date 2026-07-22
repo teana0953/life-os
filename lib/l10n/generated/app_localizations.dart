@@ -1437,11 +1437,29 @@ abstract class AppLocalizations {
   /// **'kg'**
   String get goalKgUnit;
 
+  /// Centimetre unit suffix shown after the height figure on the goal card.
+  ///
+  /// In en, this message translates to:
+  /// **'cm'**
+  String get goalCmUnit;
+
+  /// Short label for the height row on the goal card (the cm unit is shown separately).
+  ///
+  /// In en, this message translates to:
+  /// **'Height'**
+  String get goalHeightShortLabel;
+
   /// Label for the achievement-rate ring on the goal card.
   ///
   /// In en, this message translates to:
   /// **'Achievement'**
   String get goalAchievementLabel;
+
+  /// Hint shown under the goal card's achievement ring when there isn't enough weight history (only one day) to compute progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Record your weight on another day to see progress toward your goal.'**
+  String get goalAchievementHint;
 
   /// Label for the BMI figure on the goal card (body mass index).
   ///
