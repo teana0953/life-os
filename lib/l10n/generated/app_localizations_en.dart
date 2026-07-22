@@ -467,7 +467,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vitalsBodyFatLabel => 'Body fat (%)';
 
   @override
-  String get vitalsBloodPressureSection => 'Blood pressure';
+  String get vitalsBloodPressureSection => 'Blood pressure (mmHg)';
 
   @override
   String get vitalsGlucoseSection => 'Blood glucose';
@@ -483,6 +483,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vitalsPulseLabel => 'Pulse';
+
+  @override
+  String get vitalsPulseUnit => 'bpm';
 
   @override
   String get vitalsGlucoseLabelField => 'Label';

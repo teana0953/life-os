@@ -607,9 +607,9 @@
   "@vitalsBodyFatLabel": {
     "description": "Label for the optional body-fat percentage field on the vitals screen; empty means not recorded."
   },
-  "vitalsBloodPressureSection": "Blood pressure",
+  "vitalsBloodPressureSection": "Blood pressure (mmHg)",
   "@vitalsBloodPressureSection": {
-    "description": "Section title for the blood-pressure reading list on the vitals screen."
+    "description": "Section title for the blood-pressure reading list on the vitals screen; carries the mmHg unit for the systolic/diastolic fields."
   },
   "vitalsGlucoseSection": "Blood glucose",
   "@vitalsGlucoseSection": {
@@ -630,6 +630,10 @@
   "vitalsPulseLabel": "Pulse",
   "@vitalsPulseLabel": {
     "description": "Label for the optional pulse field of a blood-pressure or blood-oxygen reading row; empty means not recorded."
+  },
+  "vitalsPulseUnit": "bpm",
+  "@vitalsPulseUnit": {
+    "description": "Compact unit suffix (beats per minute) shown inside the pulse field on both the blood-pressure and blood-oxygen reading rows."
   },
   "vitalsGlucoseLabelField": "Label",
   "@vitalsGlucoseLabelField": {

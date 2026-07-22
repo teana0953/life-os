@@ -148,9 +148,10 @@ class VitalsController extends ChangeNotifier {
             day: day,
             weightKg: weightKg,
             bodyFatPct: bodyFatPct,
-            bpReadings: bpReadings,
-            glucoseReadings: glucoseReadings,
-            spo2Readings: spo2Readings,
+            bpReadings: bpReadings.where((r) => !_isEmptyBp(r)).toList(),
+            glucoseReadings:
+                glucoseReadings.where((r) => !_isEmptyGlucose(r)).toList(),
+            spo2Readings: spo2Readings.where((r) => !_isEmptySpo2(r)).toList(),
           ),
         ),
       );
@@ -166,6 +167,15 @@ class VitalsController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// An untouched, all-empty reading — dropped from the save payload so an
+  /// accidental "Add" that was never filled in doesn't persist as a 0/0
+  /// reading (the draft lists themselves are left untouched mid-edit).
+  static bool _isEmptyBp(BpReading r) =>
+      r.systolic == 0 && r.diastolic == 0 && r.pulse == null;
+  static bool _isEmptyGlucose(GlucoseReading r) =>
+      r.value == 0 && r.label.trim() == '';
+  static bool _isEmptySpo2(Spo2Reading r) => r.spo2 == 0 && r.pulse == null;
 
   void _applyRecord(VitalsDay record) {
     day = record;

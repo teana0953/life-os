@@ -951,10 +951,10 @@ abstract class AppLocalizations {
   /// **'Body fat (%)'**
   String get vitalsBodyFatLabel;
 
-  /// Section title for the blood-pressure reading list on the vitals screen.
+  /// Section title for the blood-pressure reading list on the vitals screen; carries the mmHg unit for the systolic/diastolic fields.
   ///
   /// In en, this message translates to:
-  /// **'Blood pressure'**
+  /// **'Blood pressure (mmHg)'**
   String get vitalsBloodPressureSection;
 
   /// Section title for the blood-glucose reading list on the vitals screen.
@@ -986,6 +986,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pulse'**
   String get vitalsPulseLabel;
+
+  /// Compact unit suffix (beats per minute) shown inside the pulse field on both the blood-pressure and blood-oxygen reading rows.
+  ///
+  /// In en, this message translates to:
+  /// **'bpm'**
+  String get vitalsPulseUnit;
 
   /// Label for the free-text label field of a blood-glucose reading row (e.g. before/after a meal).
   ///

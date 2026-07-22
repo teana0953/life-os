@@ -207,45 +207,60 @@ class _VitalsScreenState extends State<VitalsScreen> {
   ) {
     final loc = AppLocalizations.of(context)!;
     final reading = controller.bpReadings[index];
-    return Row(
+    // Systolic/diastolic share the first line and pulse sits on the second so
+    // three numeric fields (plus the mmHg/bpm units) don't overflow a narrow
+    // phone row. mmHg lives in the section title; pulse carries a `bpm` suffix.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-bp-systolic-$index'),
-            label: loc.vitalsSystolicLabel,
-            text: reading.systolic == 0 ? '' : '${reading.systolic}',
-            enabled: !busy,
-            onChanged: (v) => controller.updateBpReading(
-              index,
-              reading.copyWith(systolic: int.tryParse(v) ?? 0),
+        Row(
+          children: [
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-bp-systolic-$index'),
+                label: loc.vitalsSystolicLabel,
+                text: reading.systolic == 0 ? '' : '${reading.systolic}',
+                enabled: !busy,
+                onChanged: (v) => controller.updateBpReading(
+                  index,
+                  reading.copyWith(systolic: int.tryParse(v) ?? 0),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-bp-diastolic-$index'),
+                label: loc.vitalsDiastolicLabel,
+                text: reading.diastolic == 0 ? '' : '${reading.diastolic}',
+                enabled: !busy,
+                onChanged: (v) => controller.updateBpReading(
+                  index,
+                  reading.copyWith(diastolic: int.tryParse(v) ?? 0),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-bp-diastolic-$index'),
-            label: loc.vitalsDiastolicLabel,
-            text: reading.diastolic == 0 ? '' : '${reading.diastolic}',
-            enabled: !busy,
-            onChanged: (v) => controller.updateBpReading(
-              index,
-              reading.copyWith(diastolic: int.tryParse(v) ?? 0),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _RowNumberField(
+                fieldKey: Key('vitals-bp-pulse-$index'),
+                label: loc.vitalsPulseLabel,
+                text: reading.pulse == null ? '' : '${reading.pulse}',
+                enabled: !busy,
+                suffixText: loc.vitalsPulseUnit,
+                onChanged: (v) => controller.updateBpReading(
+                  index,
+                  reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _RowNumberField(
-            fieldKey: Key('vitals-bp-pulse-$index'),
-            label: loc.vitalsPulseLabel,
-            text: reading.pulse == null ? '' : '${reading.pulse}',
-            enabled: !busy,
-            onChanged: (v) => controller.updateBpReading(
-              index,
-              reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
-            ),
-          ),
+            const SizedBox(width: 8),
+            const Spacer(),
+          ],
         ),
       ],
     );
@@ -292,7 +307,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             _QuickPick(
               pickKey: Key('vitals-glucose-before-$index'),
@@ -304,7 +321,6 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       reading.copyWith(label: loc.vitalsGlucoseBeforeMeal),
                     ),
             ),
-            const SizedBox(width: 8),
             _QuickPick(
               pickKey: Key('vitals-glucose-after-$index'),
               label: loc.vitalsGlucoseAfterMeal,
@@ -350,6 +366,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
             label: loc.vitalsPulseLabel,
             text: reading.pulse == null ? '' : '${reading.pulse}',
             enabled: !busy,
+            suffixText: loc.vitalsPulseUnit,
             onChanged: (v) => controller.updateSpo2Reading(
               index,
               reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
@@ -501,12 +518,17 @@ class _RowNumberField extends StatefulWidget {
   final bool enabled;
   final ValueChanged<String> onChanged;
 
+  /// Optional compact unit shown inside the field (e.g. `bpm`), used where the
+  /// unit doesn't fit the floating label without crowding a narrow row.
+  final String? suffixText;
+
   const _RowNumberField({
     required this.fieldKey,
     required this.label,
     required this.text,
     required this.enabled,
     required this.onChanged,
+    this.suffixText,
   });
 
   @override
@@ -539,7 +561,11 @@ class _RowNumberFieldState extends State<_RowNumberField> {
       controller: _controller,
       enabled: widget.enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: widget.label, hintText: '0'),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: '0',
+        suffixText: widget.suffixText,
+      ),
       onChanged: widget.onChanged,
     );
   }

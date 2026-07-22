@@ -319,5 +319,48 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
+
+    for (final width in const [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'BP/glucose/spo2 rows do not overflow at ${width.toInt()}dp '
+          '(${locale.toLanguageTag()})',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 1600));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final controller = _controller(
+              FakeVitalsRepository(
+                stored: const VitalsDay(
+                  day: '2026-07-18',
+                  weightKg: 65.5,
+                  bodyFatPct: 20,
+                  bpReadings: [
+                    BpReading(systolic: 120, diastolic: 80, pulse: 70),
+                  ],
+                  glucoseReadings: [GlucoseReading(label: '餐前', value: 95)],
+                  spo2Readings: [Spo2Reading(spo2: 98, pulse: 70)],
+                ),
+              ),
+            );
+            await controller.load('token', '2026-07-18');
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: VitalsScreen(
+                  controller: controller,
+                  idToken: 'token',
+                  day: '2026-07-18',
+                  clock: _defaultClock,
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

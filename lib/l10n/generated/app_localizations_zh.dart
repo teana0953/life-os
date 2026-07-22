@@ -458,7 +458,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vitalsBodyFatLabel => '體脂(%)';
 
   @override
-  String get vitalsBloodPressureSection => '血壓';
+  String get vitalsBloodPressureSection => '血壓 (mmHg)';
 
   @override
   String get vitalsGlucoseSection => '血糖';
@@ -474,6 +474,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get vitalsPulseLabel => '脈搏';
+
+  @override
+  String get vitalsPulseUnit => 'bpm';
 
   @override
   String get vitalsGlucoseLabelField => '標籤';
@@ -963,7 +966,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get vitalsBodyFatLabel => '體脂(%)';
 
   @override
-  String get vitalsBloodPressureSection => '血壓';
+  String get vitalsBloodPressureSection => '血壓 (mmHg)';
 
   @override
   String get vitalsGlucoseSection => '血糖';
@@ -979,6 +982,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get vitalsPulseLabel => '脈搏';
+
+  @override
+  String get vitalsPulseUnit => 'bpm';
 
   @override
   String get vitalsGlucoseLabelField => '標籤';

@@ -211,6 +211,53 @@ void main() {
 
       expect(controller.status, VitalsStatus.needsReauth);
     });
+
+    test('drops untouched empty rows from the save payload but keeps real ones',
+        () async {
+      final repository = FakeVitalsRepository();
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+
+      // A real BP reading plus an untouched (all-zero) one appended after.
+      controller.addBpReading();
+      controller.updateBpReading(
+        0,
+        const BpReading(systolic: 120, diastolic: 80, pulse: 70),
+      );
+      controller.addBpReading();
+
+      // A real glucose reading plus an untouched (0 / blank) one.
+      controller.addGlucoseReading();
+      controller.updateGlucoseReading(
+        0,
+        const GlucoseReading(label: '餐前', value: 95),
+      );
+      controller.addGlucoseReading();
+
+      // A real SpO2 reading plus an untouched (0 / null pulse) one.
+      controller.addSpo2Reading();
+      controller.updateSpo2Reading(
+        0,
+        const Spo2Reading(spo2: 98, pulse: 70),
+      );
+      controller.addSpo2Reading();
+
+      await controller.save('token', '2026-07-18');
+
+      // Only the non-empty readings reach the repository.
+      expect(
+        repository.savedDay!.bpReadings,
+        const [BpReading(systolic: 120, diastolic: 80, pulse: 70)],
+      );
+      expect(
+        repository.savedDay!.glucoseReadings,
+        const [GlucoseReading(label: '餐前', value: 95)],
+      );
+      expect(
+        repository.savedDay!.spo2Readings,
+        const [Spo2Reading(spo2: 98, pulse: 70)],
+      );
+    });
   });
 
   group('VitalsController.hasUnsavedChanges', () {
