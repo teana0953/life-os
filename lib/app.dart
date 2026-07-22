@@ -6,6 +6,7 @@ import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -72,6 +73,7 @@ class App extends StatefulWidget {
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
+  final WeightGoalController weightGoalController;
   final PwaUpdateController pwaUpdateController;
 
   const App({
@@ -93,6 +95,7 @@ class App extends StatefulWidget {
     required this.vitalsController,
     required this.exerciseController,
     required this.menstrualController,
+    required this.weightGoalController,
     required this.pwaUpdateController,
   });
 
@@ -189,6 +192,7 @@ class _AppState extends State<App> {
                   vitalsController: widget.vitalsController,
                   exerciseController: widget.exerciseController,
                   menstrualController: widget.menstrualController,
+                  weightGoalController: widget.weightGoalController,
                 );
               }
               return LoginScreen(
@@ -220,6 +224,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
+  final WeightGoalController weightGoalController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -237,6 +242,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.vitalsController,
     required this.exerciseController,
     required this.menstrualController,
+    required this.weightGoalController,
   });
 
   @override
@@ -273,6 +279,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       vitalsController: widget.vitalsController,
       exerciseController: widget.exerciseController,
       menstrualController: widget.menstrualController,
+      weightGoalController: widget.weightGoalController,
     );
   }
 }

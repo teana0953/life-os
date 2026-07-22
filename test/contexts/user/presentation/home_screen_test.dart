@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/body_profile/application/get_body_profile.dart';
+import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
+import 'package:life_os/contexts/body_profile/application/set_body_profile.dart';
+import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
+import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
+import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
+import 'package:life_os/contexts/health/presentation/dashboard_screen.dart';
 import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
 import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
@@ -304,6 +311,23 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   Future<bool> deletePeriod(String idToken, String id) async => true;
 }
 
+class _FakeBodyProfileRepository implements BodyProfileRepository {
+  @override
+  Future<WeightGoal> getWeightGoal(String idToken) async =>
+      const WeightGoal(targetWeightKg: 51);
+
+  @override
+  Future<BodyProfile> getBodyProfile(String idToken) async =>
+      const BodyProfile(heightCm: 165);
+
+  @override
+  Future<BodyProfile> setBodyProfile(
+    String idToken, {
+    double? heightCm,
+    double? targetWeightKg,
+  }) async => BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
+}
+
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -327,6 +351,7 @@ Future<void> pumpHomeScreen(
   final vitalsRepository = _FakeVitalsRepository();
   final exerciseRepository = _FakeExerciseRepository();
   final menstrualRepository = _FakeMenstrualRepository();
+  final bodyProfileRepository = _FakeBodyProfileRepository();
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
@@ -384,6 +409,11 @@ Future<void> pumpHomeScreen(
           UpdatePeriod(menstrualRepository),
           DeletePeriod(menstrualRepository),
         ),
+        weightGoalController: WeightGoalController(
+          GetWeightGoal(bodyProfileRepository),
+          GetBodyProfile(bodyProfileRepository),
+          SetBodyProfile(bodyProfileRepository),
+        ),
         clock: clock ?? DateTime.now,
       ),
     ),
@@ -417,7 +447,8 @@ void main() {
     );
 
     testWidgets(
-      'tapping the health tile navigates to the DietShellScreen',
+      'tapping the health tile navigates to the DashboardScreen, and the '
+      'dashboard\'s record entry reaches the DietShellScreen',
       (tester) async {
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
@@ -435,9 +466,17 @@ void main() {
         await controller.load('token-123');
         await pumpHomeScreen(tester, controller, authRepository: authRepository);
 
-        expect(find.byType(DietShellScreen), findsNothing);
+        expect(find.byType(DashboardScreen), findsNothing);
 
         await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+
+        // The health module now lands on the dashboard, not the shell directly.
+        expect(find.byType(DashboardScreen), findsOneWidget);
+        expect(find.byType(DietShellScreen), findsNothing);
+
+        // The shell is one tap away via the dashboard's "record" entry.
+        await tester.tap(find.byKey(const Key('dashboard-record-entry')));
         await tester.pumpAndSettle();
 
         expect(find.byType(DietShellScreen), findsOneWidget);

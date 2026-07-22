@@ -687,6 +687,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateDismiss => '關閉';
+
+  @override
+  String get dashboardTitle => '總覽';
+
+  @override
+  String get dashboardRecordEntryTitle => '今日記錄';
+
+  @override
+  String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
+
+  @override
+  String get goalCardTitle => '體重目標';
+
+  @override
+  String get goalTargetLabel => '目標';
+
+  @override
+  String get goalCurrentLabel => '目前';
+
+  @override
+  String get goalRemainingLabel => '剩餘';
+
+  @override
+  String get goalKgUnit => '公斤';
+
+  @override
+  String get goalAchievementLabel => '達成率';
+
+  @override
+  String get goalBmiLabel => 'BMI';
+
+  @override
+  String get goalPlaceholder => '—';
+
+  @override
+  String get goalUnsetPrompt => '設定身高與目標體重,開始追蹤你的目標。';
+
+  @override
+  String get goalSetButton => '設定你的目標';
+
+  @override
+  String get goalEditTitle => '設定你的目標';
+
+  @override
+  String get goalHeightLabel => '身高(公分)';
+
+  @override
+  String get goalTargetWeightLabel => '目標體重(公斤)';
+
+  @override
+  String get goalSaveButton => '儲存';
+
+  @override
+  String get errorWeightGoalLoadFailed => '無法載入目標資料,請再試一次。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1372,4 +1426,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get updateDismiss => '關閉';
+
+  @override
+  String get dashboardTitle => '總覽';
+
+  @override
+  String get dashboardRecordEntryTitle => '今日記錄';
+
+  @override
+  String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
+
+  @override
+  String get goalCardTitle => '體重目標';
+
+  @override
+  String get goalTargetLabel => '目標';
+
+  @override
+  String get goalCurrentLabel => '目前';
+
+  @override
+  String get goalRemainingLabel => '剩餘';
+
+  @override
+  String get goalKgUnit => '公斤';
+
+  @override
+  String get goalAchievementLabel => '達成率';
+
+  @override
+  String get goalBmiLabel => 'BMI';
+
+  @override
+  String get goalPlaceholder => '—';
+
+  @override
+  String get goalUnsetPrompt => '設定身高與目標體重,開始追蹤你的目標。';
+
+  @override
+  String get goalSetButton => '設定你的目標';
+
+  @override
+  String get goalEditTitle => '設定你的目標';
+
+  @override
+  String get goalHeightLabel => '身高(公分)';
+
+  @override
+  String get goalTargetWeightLabel => '目標體重(公斤)';
+
+  @override
+  String get goalSaveButton => '儲存';
+
+  @override
+  String get errorWeightGoalLoadFailed => '無法載入目標資料,請再試一次。';
 }

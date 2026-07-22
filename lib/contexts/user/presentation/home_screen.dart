@@ -9,11 +9,13 @@ import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
+import '../../body_profile/presentation/weight_goal_controller.dart';
 import '../../bowel/presentation/bowel_controller.dart';
 import '../../exercise/presentation/exercise_controller.dart';
 import '../../health/application/get_logged_days.dart';
 import '../../health/presentation/create_meal_controller.dart';
 import '../../health/presentation/daily_target_controller.dart';
+import '../../health/presentation/dashboard_screen.dart';
 import '../../health/presentation/dictionary_controller.dart';
 import '../../health/presentation/diet_shell_screen.dart';
 import '../../health/presentation/today_controller.dart';
@@ -59,6 +61,7 @@ class HomeScreen extends StatefulWidget {
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
+  final WeightGoalController weightGoalController;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -82,6 +85,7 @@ class HomeScreen extends StatefulWidget {
     required this.vitalsController,
     required this.exerciseController,
     required this.menstrualController,
+    required this.weightGoalController,
     this.clock = DateTime.now,
   });
 
@@ -120,19 +124,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openHealth(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DietShellScreen(
+        builder: (_) => DashboardScreen(
+          weightGoalController: widget.weightGoalController,
           authRepository: widget.authRepository,
-          todayController: widget.healthTodayController,
-          dictionaryController: widget.healthDictionaryController,
-          dailyTargetController: widget.healthDailyTargetController,
-          waterController: widget.waterController,
-          bowelController: widget.bowelController,
-          vitalsController: widget.vitalsController,
-          exerciseController: widget.exerciseController,
-          menstrualController: widget.menstrualController,
-          createMealController: widget.healthCreateMealController,
-          getLoggedDays: widget.healthGetLoggedDays,
           signOut: widget.signOut,
+          onOpenLog: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => DietShellScreen(
+                authRepository: widget.authRepository,
+                todayController: widget.healthTodayController,
+                dictionaryController: widget.healthDictionaryController,
+                dailyTargetController: widget.healthDailyTargetController,
+                waterController: widget.waterController,
+                bowelController: widget.bowelController,
+                vitalsController: widget.vitalsController,
+                exerciseController: widget.exerciseController,
+                menstrualController: widget.menstrualController,
+                createMealController: widget.healthCreateMealController,
+                getLoggedDays: widget.healthGetLoggedDays,
+                signOut: widget.signOut,
+              ),
+            ),
+          ),
         ),
       ),
     );
