@@ -33,7 +33,7 @@ class TrendCard extends StatefulWidget {
 }
 
 class _TrendCardState extends State<TrendCard> {
-  VitalsMetric _selected = VitalsMetric.weight;
+  TrendView _selected = TrendView.weight;
 
   @override
   void initState() {
@@ -49,6 +49,17 @@ class _TrendCardState extends State<TrendCard> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// The metric-picker label for a [view].
+  String _viewLabel(AppLocalizations loc, TrendView view) => switch (view) {
+    TrendView.weight => loc.trendMetricWeight,
+    TrendView.bodyFat => loc.trendMetricBodyFat,
+    TrendView.bloodPressurePulse => loc.trendMetricBloodPressurePulse,
+    TrendView.glucose => loc.trendMetricGlucose,
+    TrendView.spo2 => loc.trendMetricSpo2,
+  };
+
+  /// The legend label for a single [metric] line (used for the combined view's
+  /// per-line legend).
   String _metricLabel(AppLocalizations loc, VitalsMetric metric) =>
       switch (metric) {
         VitalsMetric.weight => loc.trendMetricWeight,
@@ -60,17 +71,26 @@ class _TrendCardState extends State<TrendCard> {
         VitalsMetric.spo2 => loc.trendMetricSpo2,
       };
 
-  /// The unit suffix shown for [metric] (near the card title), so the plotted
-  /// numbers aren't ambiguous.
-  String _metricUnit(AppLocalizations loc, VitalsMetric metric) =>
+  /// The unit suffix shown for [view] (near the card title), so the plotted
+  /// numbers aren't ambiguous. The combined view mixes mmHg and bpm.
+  String _viewUnit(AppLocalizations loc, TrendView view) => switch (view) {
+    TrendView.weight => loc.trendUnitKg,
+    TrendView.bodyFat => loc.trendUnitPercent,
+    TrendView.bloodPressurePulse => '${loc.trendUnitMmhg} · ${loc.trendUnitBpm}',
+    TrendView.glucose => loc.trendUnitMgdl,
+    TrendView.spo2 => loc.trendUnitPercent,
+  };
+
+  /// The Theme-derived line color for [metric] within the combined view, so the
+  /// three lines stay visually distinct. Three well-separated hues that each read
+  /// against the pale card: blue (systolic), muted ink (diastolic), pink (pulse).
+  /// The `tertiary` accent is a pale yellow — too low-contrast for a thin line —
+  /// so it is avoided here.
+  Color _metricColor(ColorScheme scheme, VitalsMetric metric) =>
       switch (metric) {
-        VitalsMetric.weight => loc.trendUnitKg,
-        VitalsMetric.bodyFat => loc.trendUnitPercent,
-        VitalsMetric.systolic => loc.trendUnitMmhg,
-        VitalsMetric.diastolic => loc.trendUnitMmhg,
-        VitalsMetric.pulse => loc.trendUnitBpm,
-        VitalsMetric.glucose => loc.trendUnitMgdl,
-        VitalsMetric.spo2 => loc.trendUnitPercent,
+        VitalsMetric.diastolic => scheme.onSurfaceVariant,
+        VitalsMetric.pulse => scheme.secondary,
+        _ => scheme.primary,
       };
 
   @override
@@ -122,33 +142,53 @@ class _TrendCardState extends State<TrendCard> {
       );
     }
 
+    final scheme = theme.colorScheme;
     final range = controller.range;
-    final points = range == null
-        ? const <SeriesPoint>[]
-        : seriesFor(range.series, _selected);
+    // The lines plotted for the selected view: one per metric (a single line
+    // for most views; three for the blood pressure & pulse view).
+    final metrics = metricsForView(_selected);
+    final lines = [
+      for (final metric in metrics)
+        _ChartLine(
+          points: range == null
+              ? const <SeriesPoint>[]
+              : seriesFor(range.series, metric),
+          color: _metricColor(scheme, metric),
+          label: _metricLabel(loc, metric),
+        ),
+    ];
+    final hasChart = range != null && lines.any((l) => l.points.isNotEmpty);
     // A span-switch reload (status is loading but a previous range is still
     // held): keep the shell and overlay a thin progress bar over the chart.
     final reloading = controller.status == TrendStatus.loading;
 
-    // The normal reference band for the selected metric (null → no band and no
-    // legend). Its subtle fill is Theme-derived so it reads in light and dark.
-    final normal = normalRangeFor(_selected, heightCm: widget.heightCm);
-    final bandColor = theme.colorScheme.tertiary.withValues(alpha: 0.14);
-    final hasChart = points.isNotEmpty && range != null;
+    // The normal reference band applies to single-metric views only; combining
+    // three overlapping clinical bands (BP & pulse) would be noise, so that
+    // view shows none. Its subtle fill is Theme-derived so it reads in both
+    // light and dark.
+    final normal = metrics.length == 1
+        ? normalRangeFor(metrics.single, heightCm: widget.heightCm)
+        : null;
+    final bandColor = scheme.tertiary.withValues(alpha: 0.14);
 
     // Screen-reader summary of the chart (fl_chart renders no semantics of its
-    // own): selected metric + range in days + latest value with unit, or a
-    // "no data" summary when the metric has no points in the range.
-    final chartSemantics = points.isEmpty
+    // own): the view + range in days, plus the latest value with unit for a
+    // single-line view, or a "no data" summary when nothing is plotted.
+    final chartSemantics = !hasChart
         ? loc.trendChartSemanticsEmpty(
-            _metricLabel(loc, _selected),
+            _viewLabel(loc, _selected),
             controller.spanDays,
           )
-        : loc.trendChartSemantics(
-            _metricLabel(loc, _selected),
+        : metrics.length == 1
+        ? loc.trendChartSemantics(
+            _viewLabel(loc, _selected),
             controller.spanDays,
-            points.last.value,
-            _metricUnit(loc, _selected),
+            lines.single.points.last.value,
+            _viewUnit(loc, _selected),
+          )
+        : loc.trendChartSemanticsMulti(
+            _viewLabel(loc, _selected),
+            controller.spanDays,
           );
 
     return LedgeCard(
@@ -166,7 +206,7 @@ class _TrendCardState extends State<TrendCard> {
                 ),
               ),
               Text(
-                _metricUnit(loc, _selected),
+                _viewUnit(loc, _selected),
                 key: const Key('trend-unit'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -179,12 +219,12 @@ class _TrendCardState extends State<TrendCard> {
             spacing: 8,
             runSpacing: 4,
             children: [
-              for (final metric in VitalsMetric.values)
+              for (final view in TrendView.values)
                 ChoiceChip(
-                  key: Key('trend-metric-${metric.name}'),
-                  label: Text(_metricLabel(loc, metric)),
-                  selected: _selected == metric,
-                  onSelected: (_) => setState(() => _selected = metric),
+                  key: Key('trend-view-${view.name}'),
+                  label: Text(_viewLabel(loc, view)),
+                  selected: _selected == view,
+                  onSelected: (_) => setState(() => _selected = view),
                 ),
             ],
           ),
@@ -211,7 +251,7 @@ class _TrendCardState extends State<TrendCard> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: points.isEmpty || range == null
+                    child: !hasChart
                         ? Center(
                             child: Text(
                               loc.trendEmpty,
@@ -222,7 +262,7 @@ class _TrendCardState extends State<TrendCard> {
                             ),
                           )
                         : _TrendChart(
-                            points: points,
+                            lines: lines,
                             from: range.from,
                             normal: normal,
                             bandColor: bandColor,
@@ -242,29 +282,29 @@ class _TrendCardState extends State<TrendCard> {
               ),
             ),
           ),
-          if (normal != null && hasChart) ...[
+          if (hasChart && lines.length > 1) ...[
             const SizedBox(height: 8),
-            Row(
-              key: const Key('trend-normal-range-legend'),
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              key: const Key('trend-lines-legend'),
+              spacing: 16,
+              runSpacing: 4,
               children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: bandColor,
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  loc.trendNormalRangeLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                for (final line in lines)
+                  if (line.points.isNotEmpty)
+                    _LegendEntry(
+                      color: line.color,
+                      label: line.label,
+                      outlined: false,
+                    ),
               ],
+            ),
+          ] else if (normal != null && hasChart) ...[
+            const SizedBox(height: 8),
+            _LegendEntry(
+              key: const Key('trend-normal-range-legend'),
+              color: bandColor,
+              label: loc.trendNormalRangeLabel,
+              outlined: true,
             ),
           ],
         ],
@@ -273,21 +313,80 @@ class _TrendCardState extends State<TrendCard> {
   }
 }
 
-/// The fl_chart line plot of [points] over the range starting at [from]. The
-/// x value of each point is its day offset from [from], computed with
+/// A legend row: a small [color] swatch and its [label]. [outlined] draws a
+/// swatch border (used for the soft normal-range band, which needs an edge to
+/// read against the card) versus a solid dot (used for the line legend).
+class _LegendEntry extends StatelessWidget {
+  final Color color;
+  final String label;
+  final bool outlined;
+
+  const _LegendEntry({
+    super.key,
+    required this.color,
+    required this.label,
+    required this.outlined,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+            border: outlined
+                ? Border.all(color: theme.colorScheme.outlineVariant)
+                : null,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A single plotted line: its daily [points], a Theme-derived [color], and a
+/// [label] for the multi-line legend.
+class _ChartLine {
+  final List<SeriesPoint> points;
+  final Color color;
+  final String label;
+
+  const _ChartLine({
+    required this.points,
+    required this.color,
+    required this.label,
+  });
+}
+
+/// The fl_chart plot of one or more [lines] over the range starting at [from].
+/// The x value of each point is its day offset from [from], computed with
 /// UTC/date-component arithmetic so a DST boundary can't shift it by a day.
 class _TrendChart extends StatelessWidget {
-  final List<SeriesPoint> points;
+  final List<_ChartLine> lines;
   final DateTime from;
 
-  /// The selected metric's normal range, or null when it has none (no band).
+  /// The single-metric view's normal range, or null when it has none (no band
+  /// — including every multi-line view).
   final NormalRange? normal;
 
   /// The band's Theme-derived fill (shared with the card's legend swatch).
   final Color bandColor;
 
   const _TrendChart({
-    required this.points,
+    required this.lines,
     required this.from,
     required this.normal,
     required this.bandColor,
@@ -298,18 +397,28 @@ class _TrendChart extends StatelessWidget {
     final theme = Theme.of(context);
     final languageTag = Localizations.localeOf(context).toLanguageTag();
     final dateFormat = DateFormat.Md(languageTag);
-    final spots = [
-      for (final p in points) FlSpot(_dayOffset(p.day, from), p.value),
+    final spotsPerLine = [
+      for (final line in lines)
+        [for (final p in line.points) FlSpot(_dayOffset(p.day, from), p.value)],
     ];
+    final allSpots = [for (final spots in spotsPerLine) ...spots];
     // The x axis runs 0 (range start) → maxX (last day offset). A handful of
     // evenly spaced date labels (~4: start, thirds, end) so a point can be tied
     // to a day and the 7 / 30 / 90-day spans read differently — without so many
     // labels that they overlap.
-    final maxX = spots.fold<double>(0, (m, s) => s.x > m ? s.x : m);
+    final maxX = allSpots.fold<double>(0, (m, s) => s.x > m ? s.x : m);
     final bottomInterval = maxX <= 0 ? 1.0 : maxX / 3;
     // With many points the per-point dots merge into a blob, so only show them
-    // on sparse series.
-    final showDots = spots.length <= 14;
+    // on sparse series — judged per line (the busiest line) so a multi-line view
+    // isn't pushed over the threshold by its lines' combined count. A single-line
+    // view fills the area under its line; the multi-line view omits fills so
+    // overlapping lines stay readable.
+    final maxLinePoints = spotsPerLine.fold<int>(
+      0,
+      (m, s) => s.length > m ? s.length : m,
+    );
+    final showDots = maxLinePoints <= 14;
+    final singleLine = lines.length == 1;
 
     // When the metric has a normal range, draw a shaded band over it and widen
     // the y axis to include both the data and the band (with padding) so the
@@ -328,7 +437,7 @@ class _TrendChart extends StatelessWidget {
     double? minY;
     double? maxY;
     if (normal != null) {
-      final values = [...spots.map((s) => s.y), normal!.min, normal!.max];
+      final values = [...allSpots.map((s) => s.y), normal!.min, normal!.max];
       final dataMin = values.reduce((a, b) => a < b ? a : b);
       final dataMax = values.reduce((a, b) => a > b ? a : b);
       final pad = (dataMax - dataMin) * 0.1;
@@ -404,17 +513,18 @@ class _TrendChart extends StatelessWidget {
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: false,
-            color: theme.colorScheme.primary,
-            barWidth: 3,
-            dotData: FlDotData(show: showDots),
-            belowBarData: BarAreaData(
-              show: true,
-              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+          for (var i = 0; i < lines.length; i++)
+            LineChartBarData(
+              spots: spotsPerLine[i],
+              isCurved: false,
+              color: lines[i].color,
+              barWidth: 3,
+              dotData: FlDotData(show: showDots),
+              belowBarData: BarAreaData(
+                show: singleLine,
+                color: lines[i].color.withValues(alpha: 0.12),
+              ),
             ),
-          ),
         ],
       ),
     );

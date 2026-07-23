@@ -1,0 +1,108 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter gen-l10n
+
+## exception
+
+FileSystemException: FileSystemException: Failed to decode data using encoding 'utf-8', path = '/Users/tliang/workspace/claude/code/lifeos/life-os/lib/l10n/app_zh.arb'
+
+```
+#0      _File._tryDecode (dart:io/file_impl.dart:708:7)
+#1      _File.readAsStringSync (dart:io/file_impl.dart:719:7)
+#2      ForwardingFile.readAsStringSync (package:file/src/forwarding/forwarding_file.dart:99:16)
+#3      ErrorHandlingFile.readAsStringSync.<anonymous closure> (package:flutter_tools/src/base/error_handling_io.dart:212:22)
+#4      _runSync (package:flutter_tools/src/base/error_handling_io.dart:552:14)
+#5      ErrorHandlingFile.readAsStringSync (package:flutter_tools/src/base/error_handling_io.dart:211:12)
+#6      new AppResourceBundle (package:flutter_tools/src/localizations/gen_l10n_types.dart:623:35)
+#7      new AppResourceBundleCollection (package:flutter_tools/src/localizations/gen_l10n_types.dart:733:22)
+#8      LocalizationsGenerator._allBundles (package:flutter_tools/src/localizations/gen_l10n.dart:606:28)
+#9      LocalizationsGenerator._allBundles (package:flutter_tools/src/localizations/gen_l10n.dart)
+#10     LocalizationsGenerator.loadResources.<anonymous closure> (package:flutter_tools/src/localizations/gen_l10n.dart:991:13)
+#11     MappedIterator.moveNext (dart:_internal/iterable.dart:420:20)
+#12     new _GrowableList._ofOther (dart:core-patch/growable_array.dart:207:26)
+#13     new _GrowableList.of (dart:core-patch/growable_array.dart:156:26)
+#14     new List.of (dart:core-patch/array_patch.dart:39:18)
+#15     Iterable.toList (dart:core/iterable.dart:517:7)
+#16     LocalizationsGenerator.loadResources (package:flutter_tools/src/localizations/gen_l10n.dart:999:10)
+#17     generateLocalizations (package:flutter_tools/src/localizations/gen_l10n.dart:78:13)
+#18     GenerateLocalizationsCommand.runCommand (package:flutter_tools/src/commands/generate_localizations.dart:263:11)
+#19     FlutterCommand.verifyThenRunCommand (package:flutter_tools/src/runner/flutter_command.dart:1904:12)
+<asynchronous suspension>
+#20     FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1581:27)
+<asynchronous suspension>
+#21     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#22     CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#23     FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:503:9)
+<asynchronous suspension>
+#24     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#25     FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:438:5)
+<asynchronous suspension>
+#26     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:98:11)
+<asynchronous suspension>
+#27     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#28     main (package:flutter_tools/executable.dart:101:3)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.35.4, on macOS 15.7.4 24G517 darwin-arm64, locale zh-Hant-TW) [386ms]
+    • Flutter version 3.35.4 on channel stable at /Users/tliang/tools/flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision d693b4b9db (10 months ago), 2025-09-16 14:27:41 +0000
+    • Engine revision c298091351
+    • Dart version 3.9.2
+    • DevTools version 2.48.0
+    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-lldb-debugging
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 36.1.0-rc1) [1,499ms]
+    • Android SDK at /Users/tliang/Library/Android/sdk
+    • Emulator version 36.1.9.0 (build_id 13823996) (CL:N/A)
+    • Platform android-36, build-tools 36.1.0-rc1
+    • Java binary at: /Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    • Java version OpenJDK Runtime Environment (build 21.0.7+-13880790-b1038.58)
+    • All Android licenses accepted.
+
+[!] Xcode - develop for iOS and macOS (Xcode 16.4) [482ms]
+    • Xcode at /Applications/Xcode.app/Contents/Developer
+    • Build 16F6
+    ✗ CocoaPods not installed.
+        CocoaPods is a package manager for iOS or macOS platform code.
+        Without CocoaPods, plugins will not work on iOS or macOS.
+        For more info, see https://flutter.dev/to/platform-plugins
+      For installation instructions, see https://guides.cocoapods.org/using/getting-started.html#installation
+
+[✓] Chrome - develop for the web [5ms]
+    • Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[✓] Android Studio (version 2025.1) [5ms]
+    • Android Studio at /Applications/Android Studio.app/Contents
+    • Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    • Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+    • Java version OpenJDK Runtime Environment (build 21.0.7+-13880790-b1038.58)
+
+[✓] VS Code (version 1.124.2) [3ms]
+    • VS Code at /Applications/Visual Studio Code.app/Contents
+    • Flutter extension version 3.138.0
+
+[✓] Connected device (2 available) [10.0s]
+    • macOS (desktop) • macos  • darwin-arm64   • macOS 15.7.4 24G517 darwin-arm64
+    • Chrome (web)    • chrome • web-javascript • Google Chrome 150.0.7871.129
+
+[✓] Network resources [1,214ms]
+    • All expected network resources are available.
+
+! Doctor found issues in 1 category.
+```
