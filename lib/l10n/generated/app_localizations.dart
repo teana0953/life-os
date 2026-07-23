@@ -1628,6 +1628,23 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'mg/dL'**
   String get trendUnitMgdl;
+
+  /// Screen-reader summary of the trend chart: the selected metric, the range in days, and the latest value with its unit.
+  ///
+  /// In en, this message translates to:
+  /// **'{metric} trend, last {days} days, latest {value} {unit}'**
+  String trendChartSemantics(
+    String metric,
+    int days,
+    double value,
+    String unit,
+  );
+
+  /// Screen-reader summary of the trend chart when the selected metric has no data in the range.
+  ///
+  /// In en, this message translates to:
+  /// **'{metric} trend, last {days} days, no data'**
+  String trendChartSemanticsEmpty(String metric, int days);
 }
 
 class _AppLocalizationsDelegate

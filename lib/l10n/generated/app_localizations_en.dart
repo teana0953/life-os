@@ -824,4 +824,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trendUnitMgdl => 'mg/dL';
+
+  @override
+  String trendChartSemantics(
+    String metric,
+    int days,
+    double value,
+    String unit,
+  ) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$metric trend, last $days days, latest $valueString $unit';
+  }
+
+  @override
+  String trendChartSemanticsEmpty(String metric, int days) {
+    return '$metric trend, last $days days, no data';
+  }
 }

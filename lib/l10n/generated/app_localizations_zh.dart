@@ -807,6 +807,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trendUnitMgdl => 'mg/dL';
+
+  @override
+  String trendChartSemantics(
+    String metric,
+    int days,
+    double value,
+    String unit,
+  ) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$metric趨勢,近 $days 天,最新 $valueString $unit';
+  }
+
+  @override
+  String trendChartSemanticsEmpty(String metric, int days) {
+    return '$metric趨勢,近 $days 天,無資料';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1612,4 +1631,23 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get trendUnitMgdl => 'mg/dL';
+
+  @override
+  String trendChartSemantics(
+    String metric,
+    int days,
+    double value,
+    String unit,
+  ) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$metric趨勢,近 $days 天,最新 $valueString $unit';
+  }
+
+  @override
+  String trendChartSemanticsEmpty(String metric, int days) {
+    return '$metric趨勢,近 $days 天,無資料';
+  }
 }

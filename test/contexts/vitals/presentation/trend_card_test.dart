@@ -71,11 +71,13 @@ Future<TrendController> _pump(
   WidgetTester tester,
   _FakeVitalsRepository repository, {
   bool load = true,
+  Locale locale = const Locale('en'),
 }) async {
   final controller = _controller(repository);
   if (load) await controller.load('token');
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: Scaffold(
         body: SingleChildScrollView(
           child: TrendCard(controller: controller, idToken: 'token'),
@@ -114,6 +116,59 @@ void main() {
     // so a point can be tied to a day. The left axis shows plain numbers.
     expect(find.textContaining('/'), findsWidgets);
   });
+
+  testWidgets(
+    'the chart renders localized date labels under a zh-Hant locale',
+    (tester) async {
+      // Locks in that DateFormat.Md is initialized for the active locale (a
+      // non-initialized locale would throw); zh-Hant's Md is also "M/d".
+      await _pump(
+        tester,
+        _FakeVitalsRepository(),
+        locale: const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('/'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'the chart exposes a screen-reader summary when the metric has data',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _FakeVitalsRepository());
+
+      // Default metric weight, default 30-day span, latest weight point is 64.
+      expect(
+        find.bySemanticsLabel(
+          _en.trendChartSemantics(_en.trendMetricWeight, 30, 64, _en.trendUnitKg),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
+    },
+  );
+
+  testWidgets(
+    'the chart summary announces no data for an empty metric',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _FakeVitalsRepository());
+
+      // Body fat has no points → the empty summary is exposed instead.
+      await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel(
+          _en.trendChartSemanticsEmpty(_en.trendMetricBodyFat, 30),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
+    },
+  );
 
   testWidgets('the card shows the selected metric unit', (tester) async {
     await _pump(tester, _FakeVitalsRepository());

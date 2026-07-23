@@ -121,6 +121,21 @@ class _TrendCardState extends State<TrendCard> {
     // held): keep the shell and overlay a thin progress bar over the chart.
     final reloading = controller.status == TrendStatus.loading;
 
+    // Screen-reader summary of the chart (fl_chart renders no semantics of its
+    // own): selected metric + range in days + latest value with unit, or a
+    // "no data" summary when the metric has no points in the range.
+    final chartSemantics = points.isEmpty
+        ? loc.trendChartSemanticsEmpty(
+            _metricLabel(loc, _selected),
+            controller.spanDays,
+          )
+        : loc.trendChartSemantics(
+            _metricLabel(loc, _selected),
+            controller.spanDays,
+            points.last.value,
+            _metricUnit(loc, _selected),
+          );
+
     return LedgeCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -174,32 +189,37 @@ class _TrendCardState extends State<TrendCard> {
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: points.isEmpty || range == null
-                      ? Center(
-                          child: Text(
-                            loc.trendEmpty,
-                            key: const Key('trend-empty'),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              label: chartSemantics,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: points.isEmpty || range == null
+                        ? Center(
+                            child: Text(
+                              loc.trendEmpty,
+                              key: const Key('trend-empty'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                        )
-                      : _TrendChart(points: points, from: range.from),
-                ),
-                if (reloading)
-                  const Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: LinearProgressIndicator(
-                      key: Key('trend-card-reloading'),
-                      minHeight: 2,
-                    ),
+                          )
+                        : _TrendChart(points: points, from: range.from),
                   ),
-              ],
+                  if (reloading)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(
+                        key: Key('trend-card-reloading'),
+                        minHeight: 2,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -242,10 +262,8 @@ class _TrendChart extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => FlLine(
-            color: theme.colorScheme.outlineVariant,
-            strokeWidth: 1,
-          ),
+          getDrawingHorizontalLine: (_) =>
+              FlLine(color: theme.colorScheme.outlineVariant, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           show: true,
@@ -262,10 +280,11 @@ class _TrendChart extends StatelessWidget {
               interval: bottomInterval,
               getTitlesWidget: (value, meta) => SideTitleWidget(
                 meta: meta,
+                // Nudge the edge labels inward so the rightmost (and leftmost)
+                // date isn't clipped by the chart's right/left border.
+                fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
                 child: Text(
-                  dateFormat.format(
-                    from.add(Duration(days: value.round())),
-                  ),
+                  dateFormat.format(from.add(Duration(days: value.round()))),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

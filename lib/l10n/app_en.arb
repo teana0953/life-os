@@ -1080,5 +1080,36 @@
   "trendUnitMgdl": "mg/dL",
   "@trendUnitMgdl": {
     "description": "Unit suffix shown near the trend card title for the blood-glucose metric (milligrams per decilitre)."
+  },
+  "trendChartSemantics": "{metric} trend, last {days} days, latest {value} {unit}",
+  "@trendChartSemantics": {
+    "description": "Screen-reader summary of the trend chart: the selected metric, the range in days, and the latest value with its unit.",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      },
+      "value": {
+        "type": "double",
+        "format": "decimalPattern"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "trendChartSemanticsEmpty": "{metric} trend, last {days} days, no data",
+  "@trendChartSemanticsEmpty": {
+    "description": "Screen-reader summary of the trend chart when the selected metric has no data in the range.",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
   }
 }

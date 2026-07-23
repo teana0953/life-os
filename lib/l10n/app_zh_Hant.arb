@@ -254,5 +254,7 @@
   "trendUnitPercent": "%",
   "trendUnitMmhg": "mmHg",
   "trendUnitBpm": "bpm",
-  "trendUnitMgdl": "mg/dL"
+  "trendUnitMgdl": "mg/dL",
+  "trendChartSemantics": "{metric}趨勢,近 {days} 天,最新 {value} {unit}",
+  "trendChartSemanticsEmpty": "{metric}趨勢,近 {days} 天,無資料"
 }
