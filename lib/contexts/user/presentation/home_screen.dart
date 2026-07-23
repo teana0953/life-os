@@ -16,9 +16,8 @@ import '../../exercise/presentation/exercise_controller.dart';
 import '../../health/application/get_logged_days.dart';
 import '../../health/presentation/create_meal_controller.dart';
 import '../../health/presentation/daily_target_controller.dart';
-import '../../health/presentation/dashboard_screen.dart';
 import '../../health/presentation/dictionary_controller.dart';
-import '../../health/presentation/diet_shell_screen.dart';
+import '../../health/presentation/health_scaffold.dart';
 import '../../health/presentation/today_controller.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../menstrual/presentation/menstrual_controller.dart';
@@ -130,30 +129,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openHealth(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DashboardScreen(
+        builder: (_) => HealthScaffold(
+          authRepository: widget.authRepository,
+          signOut: widget.signOut,
+          clock: widget.clock,
           weightGoalController: widget.weightGoalController,
           trendController: widget.trendController,
           healthCalendarController: widget.healthCalendarController,
-          authRepository: widget.authRepository,
-          signOut: widget.signOut,
-          onOpenLog: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => DietShellScreen(
-                authRepository: widget.authRepository,
-                todayController: widget.healthTodayController,
-                dictionaryController: widget.healthDictionaryController,
-                dailyTargetController: widget.healthDailyTargetController,
-                waterController: widget.waterController,
-                bowelController: widget.bowelController,
-                vitalsController: widget.vitalsController,
-                exerciseController: widget.exerciseController,
-                menstrualController: widget.menstrualController,
-                createMealController: widget.healthCreateMealController,
-                getLoggedDays: widget.healthGetLoggedDays,
-                signOut: widget.signOut,
-              ),
-            ),
-          ),
+          todayController: widget.healthTodayController,
+          dictionaryController: widget.healthDictionaryController,
+          dailyTargetController: widget.healthDailyTargetController,
+          createMealController: widget.healthCreateMealController,
+          getLoggedDays: widget.healthGetLoggedDays,
+          waterController: widget.waterController,
+          bowelController: widget.bowelController,
+          vitalsController: widget.vitalsController,
+          exerciseController: widget.exerciseController,
+          menstrualController: widget.menstrualController,
+          onOpenSettings: () => _openSettings(context),
         ),
       ),
     );

@@ -405,12 +405,6 @@ abstract class AppLocalizations {
   /// **'Add to Home Screen: Share → Add to Home Screen'**
   String get settingsInstallIosHint;
 
-  /// Diet shell bottom navigation label and screen title for the Today section.
-  ///
-  /// In en, this message translates to:
-  /// **'Today'**
-  String get dietTabToday;
-
   /// Diet shell bottom navigation label and screen title for the daily target section.
   ///
   /// In en, this message translates to:
@@ -1059,12 +1053,6 @@ abstract class AppLocalizations {
   /// **'More'**
   String get dietTabMore;
 
-  /// Heading shown above the list of overflow tracker tiles on the daily-log shell's More menu.
-  ///
-  /// In en, this message translates to:
-  /// **'More trackers'**
-  String get dietMoreTitle;
-
   /// Label for the Exercise tracker tile in the daily-log shell's More menu, and the base name of the exercise tracker.
   ///
   /// In en, this message translates to:
@@ -1383,17 +1371,17 @@ abstract class AppLocalizations {
   /// **'Overview'**
   String get dashboardTitle;
 
-  /// Title of the dashboard entry that opens the daily-log tab shell for recording food, water, etc.
+  /// Bottom-nav label for the health module's recording hub (all trackers).
   ///
   /// In en, this message translates to:
-  /// **'Today\'s log'**
-  String get dashboardRecordEntryTitle;
+  /// **'Record'**
+  String get healthTabRecord;
 
-  /// Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records.
+  /// Record-hub tile label for the diet / food log.
   ///
   /// In en, this message translates to:
-  /// **'Record food, water, and more'**
-  String get dashboardRecordEntrySubtitle;
+  /// **'Food'**
+  String get healthRecordDiet;
 
   /// Title of the dashboard card showing the month's logged-days calendar and adherence rings.
   ///

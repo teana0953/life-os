@@ -204,10 +204,6 @@
   "@settingsInstallIosHint": {
     "description": "Instruction shown in settings on iOS Safari (which has no install prompt) explaining how to add the app to the home screen via the share sheet."
   },
-  "dietTabToday": "Today",
-  "@dietTabToday": {
-    "description": "Diet shell bottom navigation label and screen title for the Today section."
-  },
   "dietTabTarget": "Target",
   "@dietTabTarget": {
     "description": "Diet shell bottom navigation label and screen title for the daily target section."
@@ -679,10 +675,6 @@
   "@dietTabMore": {
     "description": "Label for the More (overflow) destination in the daily-log shell's bottom navigation, alongside Today, Target, and Water; it opens a menu of the lower-frequency trackers."
   },
-  "dietMoreTitle": "More trackers",
-  "@dietMoreTitle": {
-    "description": "Heading shown above the list of overflow tracker tiles on the daily-log shell's More menu."
-  },
   "dietTabExercise": "Exercise",
   "@dietTabExercise": {
     "description": "Label for the Exercise tracker tile in the daily-log shell's More menu, and the base name of the exercise tracker."
@@ -917,13 +909,13 @@
   "@dashboardTitle": {
     "description": "App-bar title of the health module's overview dashboard (the landing screen), a scrollable stack of cards."
   },
-  "dashboardRecordEntryTitle": "Today's log",
-  "@dashboardRecordEntryTitle": {
-    "description": "Title of the dashboard entry that opens the daily-log tab shell for recording food, water, etc."
+  "healthTabRecord": "Record",
+  "@healthTabRecord": {
+    "description": "Bottom-nav label for the health module's recording hub (all trackers)."
   },
-  "dashboardRecordEntrySubtitle": "Record food, water, and more",
-  "@dashboardRecordEntrySubtitle": {
-    "description": "Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records."
+  "healthRecordDiet": "Food",
+  "@healthRecordDiet": {
+    "description": "Record-hub tile label for the diet / food log."
   },
   "healthCalendarTitle": "This month",
   "@healthCalendarTitle": {

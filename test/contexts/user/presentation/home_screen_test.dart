@@ -12,7 +12,8 @@ import 'package:life_os/contexts/health_calendar/application/get_health_calendar
 import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
 import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
-import 'package:life_os/contexts/health/presentation/dashboard_screen.dart';
+import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
+import 'package:life_os/contexts/health/presentation/health_scaffold.dart';
 import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
 import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
@@ -42,7 +43,8 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
-import 'package:life_os/contexts/health/presentation/diet_shell_screen.dart';
+import 'package:life_os/contexts/health/presentation/daily_target_screen.dart';
+import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/hydration/application/add_water.dart';
 import 'package:life_os/contexts/hydration/application/get_water_day.dart';
@@ -475,11 +477,9 @@ void main() {
     );
 
     testWidgets(
-      'tapping the health tile navigates to the DashboardScreen, and the '
-      'dashboard\'s record entry reaches the DietShellScreen',
+      'tapping the health tile lands on HealthScaffold; the 記錄 tab reaches '
+      'the diet day screen',
       (tester) async {
-        // A taller surface so the dashboard's record entry (now below the goal
-        // and trend cards) is laid out and tappable in the lazy list.
         await tester.binding.setSurfaceSize(const Size(700, 1600));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final profileRepository = FakeProfileRepository()
@@ -498,20 +498,45 @@ void main() {
         await controller.load('token-123');
         await pumpHomeScreen(tester, controller, authRepository: authRepository);
 
-        expect(find.byType(DashboardScreen), findsNothing);
+        expect(find.byType(HealthScaffold), findsNothing);
 
         await tester.tap(find.byKey(const Key('health-tile')));
         await tester.pumpAndSettle();
 
-        // The health module now lands on the dashboard, not the shell directly.
-        expect(find.byType(DashboardScreen), findsOneWidget);
-        expect(find.byType(DietShellScreen), findsNothing);
+        // The health module now lands on the persistent-nav scaffold, on 總覽.
+        expect(find.byType(HealthScaffold), findsOneWidget);
+        expect(find.byType(DietDayScreen), findsNothing);
+        expect(find.byType(GoalCard), findsOneWidget); // 總覽 shows the goal card
 
-        // The shell is one tap away via the dashboard's "record" entry.
-        await tester.tap(find.byKey(const Key('dashboard-record-entry')));
+        // Recording is one tap away: the 記錄 tab shows every tracker as a tile.
+        await tester.tap(find.byIcon(Icons.edit_note));
         await tester.pumpAndSettle();
+        for (final t in const [
+          'hub-tile-diet',
+          'hub-tile-water',
+          'hub-tile-vitals',
+          'hub-tile-exercise',
+          'hub-tile-bowel',
+          'hub-tile-menstrual',
+        ]) {
+          expect(find.byKey(Key(t)), findsOneWidget);
+        }
 
-        expect(find.byType(DietShellScreen), findsOneWidget);
+        // 更多 reaches settings; 記錄 → the diet tile opens the diet day screen.
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('health-more-settings')), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.edit_note));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('hub-tile-diet')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DietDayScreen), findsOneWidget);
+
+        // The daily target is now an app-bar action within the diet screen.
+        await tester.tap(find.byKey(const Key('diet-open-target')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DailyTargetScreen), findsOneWidget);
       },
     );
 
