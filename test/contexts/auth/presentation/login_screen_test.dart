@@ -91,7 +91,7 @@ Future<void> pumpLoginScreen(
 }) async {
   final localeController = await testLocaleController();
   await tester.pumpWidget(
-    l10nTestApp(
+    l10nRouterTestApp(
       locale: locale,
       localeController: localeController,
       home: LoginScreen(

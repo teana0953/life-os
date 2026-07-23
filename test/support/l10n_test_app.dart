@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,5 +51,42 @@ Widget l10nTestApp({
       supportedLocales: testSupportedLocales,
       home: home,
     ),
+  );
+}
+
+/// Like [l10nTestApp] but backed by a `go_router` so a unit under test that
+/// navigates with `context.push`/`context.pop` resolves (mirrors `lib/app.dart`,
+/// where pushed full screens ride in `state.extra`). [home] is the `/` route;
+/// any pushed path renders the widget carried in `extra`, so
+/// `context.push('/whatever', extra: SomeScreen())` shows `SomeScreen` and back
+/// returns to [home]. Depths up to three segments are covered.
+Widget l10nRouterTestApp({
+  required Widget home,
+  Locale locale = const Locale('en'),
+  ThemeData? theme,
+  LocaleController? localeController,
+}) {
+  Widget extra(GoRouterState state) =>
+      state.extra is Widget ? state.extra as Widget : const SizedBox.shrink();
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (context, state) => home),
+      GoRoute(path: '/:a', builder: (context, state) => extra(state)),
+      GoRoute(path: '/:a/:b', builder: (context, state) => extra(state)),
+      GoRoute(path: '/:a/:b/:c', builder: (context, state) => extra(state)),
+    ],
+  );
+  MaterialApp buildApp(Locale effectiveLocale) => MaterialApp.router(
+    theme: theme,
+    locale: effectiveLocale,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: testSupportedLocales,
+    routerConfig: router,
+  );
+  if (localeController == null) return buildApp(locale);
+  return AnimatedBuilder(
+    animation: localeController,
+    builder: (context, _) => buildApp(localeController.locale ?? locale),
   );
 }

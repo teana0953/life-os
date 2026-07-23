@@ -381,8 +381,7 @@ Future<void> pumpHomeScreen(
   final menstrualRepository = _FakeMenstrualRepository();
   final bodyProfileRepository = _FakeBodyProfileRepository();
   await tester.pumpWidget(
-    l10nTestApp(
-      locale: locale,
+    l10nRouterTestApp(      locale: locale,
       localeController: localeController,
       home: HomeScreen(
         controller: controller,

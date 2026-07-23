@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -152,7 +153,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   Future<void> _signOutAndClose() async {
     await widget.signOut();
     if (!mounted) return;
-    if (Navigator.canPop(context)) Navigator.of(context).pop();
+    if (context.canPop()) context.pop();
   }
 
   String _title(AppLocalizations loc) => switch (_index) {
@@ -397,8 +398,10 @@ class _RecordHub extends StatelessWidget {
       '${clock().month.toString().padLeft(2, '0')}-'
       '${clock().day.toString().padLeft(2, '0')}';
 
-  void _push(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  /// Pushes a tracker [screen] as a distinct route (`/health/<name>`) so each
+  /// is its own browser-history entry; the built screen rides in `extra`.
+  void _push(BuildContext context, String name, Widget screen) {
+    context.push('/health/$name', extra: screen);
   }
 
   @override
@@ -417,6 +420,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.healthRecordDiet,
                 onTap: () => _push(
                   context,
+                  'diet',
                   DietDayScreen(
                     authRepository: authRepository,
                     idToken: idToken,
@@ -436,6 +440,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.dietTabWater,
                 onTap: () => _push(
                   context,
+                  'water',
                   WaterScreen(controller: waterController, idToken: idToken, day: _today, clock: clock),
                 ),
               ),
@@ -445,6 +450,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.dietTabVitals,
                 onTap: () => _push(
                   context,
+                  'vitals',
                   VitalsScreen(controller: vitalsController, idToken: idToken, day: _today, clock: clock),
                 ),
               ),
@@ -454,6 +460,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.dietTabExercise,
                 onTap: () => _push(
                   context,
+                  'exercise',
                   ExerciseScreen(controller: exerciseController, idToken: idToken, day: _today, clock: clock),
                 ),
               ),
@@ -463,6 +470,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.dietTabBowel,
                 onTap: () => _push(
                   context,
+                  'bowel',
                   BowelScreen(controller: bowelController, idToken: idToken, day: _today, clock: clock),
                 ),
               ),
@@ -472,6 +480,7 @@ class _RecordHub extends StatelessWidget {
                 label: loc.menstrualTitle,
                 onTap: () => _push(
                   context,
+                  'menstrual',
                   MenstrualScreen(controller: menstrualController, idToken: idToken, clock: clock),
                 ),
               ),

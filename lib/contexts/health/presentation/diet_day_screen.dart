@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -112,16 +113,15 @@ class _DietDayScreenState extends State<DietDayScreen> {
     final idToken = _idToken;
     widget.createMealController.start(meal);
     widget.dictionaryController.clearSearch();
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => FoodSearchScreen(
-          meal: meal,
-          dictionaryController: widget.dictionaryController,
-          createMealController: widget.createMealController,
-          idToken: idToken,
-          day: _day,
-          signOut: widget.signOut ?? SignOut(widget.authRepository),
-        ),
+    final result = await context.push<bool>(
+      '/health/diet/food-search',
+      extra: FoodSearchScreen(
+        meal: meal,
+        dictionaryController: widget.dictionaryController,
+        createMealController: widget.createMealController,
+        idToken: idToken,
+        day: _day,
+        signOut: widget.signOut ?? SignOut(widget.authRepository),
       ),
     );
     if (result == true) {
@@ -168,15 +168,14 @@ class _DietDayScreenState extends State<DietDayScreen> {
         actions: [
           TextButton.icon(
             key: const Key('diet-open-target'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DailyTargetScreen(
-                  controller: widget.dailyTargetController,
-                  idToken: _idToken,
-                  day: _day,
-                  // Refresh Today's portion progress after the target changes.
-                  onSaved: () => widget.todayController.load(_idToken, _day),
-                ),
+            onPressed: () => context.push(
+              '/health/diet/target',
+              extra: DailyTargetScreen(
+                controller: widget.dailyTargetController,
+                idToken: _idToken,
+                day: _day,
+                // Refresh Today's portion progress after the target changes.
+                onSaved: () => widget.todayController.load(_idToken, _day),
               ),
             ),
             icon: const Icon(Icons.flag_outlined),

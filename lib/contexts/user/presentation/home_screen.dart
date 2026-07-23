@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
@@ -114,22 +115,21 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onControllerChanged() => setState(() {});
 
   void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SettingsScreen(
-          themeController: widget.themeController,
-          localeController: widget.localeController,
-          signOut: widget.signOut,
-          pwaInstall: const PwaInstallImpl(),
-        ),
+    context.push(
+      '/settings',
+      extra: SettingsScreen(
+        themeController: widget.themeController,
+        localeController: widget.localeController,
+        signOut: widget.signOut,
+        pwaInstall: const PwaInstallImpl(),
       ),
     );
   }
 
   void _openHealth(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => HealthScaffold(
+    context.push(
+      '/health',
+      extra: HealthScaffold(
           authRepository: widget.authRepository,
           signOut: widget.signOut,
           clock: widget.clock,
@@ -147,7 +147,6 @@ class _HomeScreenState extends State<HomeScreen> {
           exerciseController: widget.exerciseController,
           menstrualController: widget.menstrualController,
           onOpenSettings: () => _openSettings(context),
-        ),
       ),
     );
   }

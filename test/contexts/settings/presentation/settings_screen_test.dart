@@ -81,7 +81,7 @@ _pumpSettingsScreen(
   final localeController = await testLocaleController();
   final authRepository = _FakeAuthRepository();
   await tester.pumpWidget(
-    l10nTestApp(
+    l10nRouterTestApp(
       locale: locale,
       localeController: localeController,
       home: SettingsScreen(

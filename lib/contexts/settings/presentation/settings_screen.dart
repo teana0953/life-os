@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/locale_controller.dart';
@@ -55,8 +56,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// switched `MaterialApp.home` to [LoginScreen] — becomes visible again.
   Future<void> _signOut(BuildContext context) async {
     await widget.signOut();
-    if (context.mounted && Navigator.canPop(context)) {
-      Navigator.of(context).pop();
+    if (context.mounted && context.canPop()) {
+      context.pop();
     }
   }
 

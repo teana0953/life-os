@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
@@ -163,7 +164,7 @@ Future<FakeMealRepository> _pumpScreen(
     ..start(meal);
 
   await tester.pumpWidget(
-    l10nTestApp(
+    l10nRouterTestApp(
       locale: locale,
       home: FoodSearchScreen(
         meal: meal,
@@ -323,7 +324,6 @@ void main() {
       tester,
     ) async {
       bool? poppedResult;
-      final navigatorKey = GlobalKey<NavigatorState>();
       final dictionaryRepository = FakeFoodDictionaryRepository();
       final mealRepository = FakeMealRepository();
       final dictionaryController = _dictionaryController(dictionaryRepository);
@@ -332,30 +332,25 @@ void main() {
         ..start('lunch');
 
       await tester.pumpWidget(
-        l10nTestApp(
-          home: Navigator(
-            key: navigatorKey,
-            onGenerateRoute: (_) => MaterialPageRoute(
-              builder: (_) => Scaffold(
-                body: Center(
-                  child: TextButton(
-                    onPressed: () async {
-                      final result = await navigatorKey.currentState!.push(
-                        MaterialPageRoute(
-                          builder: (_) => FoodSearchScreen(
-                            meal: 'lunch',
-                            dictionaryController: dictionaryController,
-                            createMealController: createMealController,
-                            idToken: 'token-123',
-                            day: '2026-07-18',
-                            signOut: SignOut(FakeAuthRepository()),
-                          ),
-                        ),
-                      );
-                      poppedResult = result as bool?;
-                    },
-                    child: const Text('open'),
-                  ),
+        l10nRouterTestApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () async {
+                    poppedResult = await context.push<bool>(
+                      '/health/diet/food-search',
+                      extra: FoodSearchScreen(
+                        meal: 'lunch',
+                        dictionaryController: dictionaryController,
+                        createMealController: createMealController,
+                        idToken: 'token-123',
+                        day: '2026-07-18',
+                        signOut: SignOut(FakeAuthRepository()),
+                      ),
+                    );
+                  },
+                  child: const Text('open'),
                 ),
               ),
             ),
@@ -545,7 +540,7 @@ void main() {
       final createMealController =
           CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
       await tester.pumpWidget(
-        l10nTestApp(
+        l10nRouterTestApp(
           home: FoodSearchScreen(
             meal: 'lunch',
             dictionaryController: dictionaryController,
