@@ -56,11 +56,40 @@ class BpReading {
   int get hashCode => Object.hash(systolic, diastolic, pulse, time);
 }
 
-/// A single blood-glucose reading: a [label] (e.g. "餐前"/"餐後" or free text)
-/// and a numeric [value] (mg/dL). Value type for element-wise draft comparison.
+/// When a glucose reading was taken relative to eating. Mirrors the backend's
+/// snake_case wire values (`fasting` / `pre_meal` / `post_meal`).
+enum GlucoseMealContext {
+  fasting('fasting'),
+  preMeal('pre_meal'),
+  postMeal('post_meal');
+
+  const GlucoseMealContext(this.wire);
+
+  /// The backend's snake_case value for this context.
+  final String wire;
+
+  /// The context for a wire value, or null when absent/unrecognized.
+  static GlucoseMealContext? fromWire(Object? wire) => switch (wire) {
+    'fasting' => GlucoseMealContext.fasting,
+    'pre_meal' => GlucoseMealContext.preMeal,
+    'post_meal' => GlucoseMealContext.postMeal,
+    _ => null,
+  };
+}
+
+/// Sentinel so [GlucoseReading.copyWith] can tell "leave mealContext unchanged"
+/// apart from "clear it to null".
+const Object _unsetMealContext = Object();
+
+/// A single blood-glucose reading: an optional free-text [label], a numeric
+/// [value] (mg/dL), and an optional [mealContext] (空腹/餐前/餐後). Value type for
+/// element-wise draft comparison.
 class GlucoseReading {
   final String label;
   final num value;
+
+  /// The reading's meal context, or null when unspecified.
+  final GlucoseMealContext? mealContext;
 
   /// When the reading was taken, as a strict "HH:mm" (24h) string. Required by
   /// the backend; may be `''` when tolerantly parsed from a pre-time record.
@@ -69,37 +98,48 @@ class GlucoseReading {
   const GlucoseReading({
     required this.label,
     required this.value,
+    required this.mealContext,
     required this.time,
   });
 
   factory GlucoseReading.fromJson(Map<String, dynamic> json) => GlucoseReading(
     label: (json['label'] as String?) ?? '',
     value: json['value'] as num,
+    mealContext: GlucoseMealContext.fromWire(json['meal_context']),
     time: (json['time'] as String?) ?? '',
   );
 
   Map<String, dynamic> toJson() => {
     'label': label,
     'value': value,
+    'meal_context': mealContext?.wire,
     'time': time,
   };
 
-  GlucoseReading copyWith({String? label, num? value, String? time}) =>
-      GlucoseReading(
-        label: label ?? this.label,
-        value: value ?? this.value,
-        time: time ?? this.time,
-      );
+  GlucoseReading copyWith({
+    String? label,
+    num? value,
+    Object? mealContext = _unsetMealContext,
+    String? time,
+  }) => GlucoseReading(
+    label: label ?? this.label,
+    value: value ?? this.value,
+    mealContext: identical(mealContext, _unsetMealContext)
+        ? this.mealContext
+        : mealContext as GlucoseMealContext?,
+    time: time ?? this.time,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is GlucoseReading &&
       other.label == label &&
       other.value == value &&
+      other.mealContext == mealContext &&
       other.time == time;
 
   @override
-  int get hashCode => Object.hash(label, value, time);
+  int get hashCode => Object.hash(label, value, mealContext, time);
 }
 
 /// A single blood-oxygen reading: [spo2] percentage with an optional [pulse]

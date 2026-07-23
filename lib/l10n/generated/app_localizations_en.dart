@@ -497,12 +497,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vitalsSpo2Label => 'SpO₂ (%)';
 
   @override
-  String get vitalsGlucoseBeforeMeal => 'Before meal';
-
-  @override
-  String get vitalsGlucoseAfterMeal => 'After meal';
-
-  @override
   String get vitalsAddReading => 'Add';
 
   @override
@@ -797,6 +791,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trendMetricBloodPressurePulse => 'BP & pulse';
+
+  @override
+  String get glucoseContextFasting => 'Fasting';
+
+  @override
+  String get glucoseContextPreMeal => 'Before meal';
+
+  @override
+  String get glucoseContextPostMeal => 'After meal';
+
+  @override
+  String get glucoseContextUnspecified => 'Unspecified';
 
   @override
   String get trendRange7 => '7 days';

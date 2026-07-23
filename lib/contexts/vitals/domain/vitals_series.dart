@@ -1,14 +1,26 @@
-/// A single daily point in a vitals metric series: a date-only [day] and its
-/// numeric [value].
+import 'vitals_day.dart';
+
+/// A single point in a vitals metric series: a date-only [day], the [time] of
+/// day it was taken (`HH:mm`, empty for scalar/legacy points), its numeric
+/// [value], and — for glucose points — the reading's [mealContext].
 class SeriesPoint {
   final DateTime day;
+  final String time;
   final double value;
+  final GlucoseMealContext? mealContext;
 
-  const SeriesPoint({required this.day, required this.value});
+  const SeriesPoint({
+    required this.day,
+    required this.time,
+    required this.value,
+    this.mealContext,
+  });
 
   factory SeriesPoint.fromJson(Map<String, dynamic> json) => SeriesPoint(
     day: _parseDay(json['day'] as String),
+    time: (json['time'] as String?) ?? '',
     value: (json['value'] as num).toDouble(),
+    mealContext: GlucoseMealContext.fromWire(json['meal_context']),
   );
 }
 

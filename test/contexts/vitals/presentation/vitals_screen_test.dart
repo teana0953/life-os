@@ -215,7 +215,9 @@ void main() {
 
         await tester.tap(find.byKey(const Key('vitals-glucose-add')));
         await tester.pump();
-        await tester.tap(find.byKey(const Key('vitals-glucose-before-0')));
+        await tester.tap(
+          find.byKey(const Key('vitals-glucose-context-fasting-0')),
+        );
         await tester.pump();
         await tester.enterText(
           find.byKey(const Key('vitals-glucose-value-0')),
@@ -238,9 +240,10 @@ void main() {
         );
         expect(
           repository.savedDay!.glucoseReadings.single,
-          GlucoseReading(
-            label: loc.vitalsGlucoseBeforeMeal,
+          const GlucoseReading(
+            label: '',
             value: 95,
+            mealContext: GlucoseMealContext.fasting,
             time: '09:00',
           ),
         );
@@ -286,7 +289,7 @@ void main() {
               BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
             ],
             glucoseReadings: [
-              GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+              GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
             ],
             spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '10:00')],
           ),
@@ -456,7 +459,7 @@ void main() {
                     ),
                   ],
                   glucoseReadings: [
-                    GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+                    GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
                   ],
                   spo2Readings: [
                     Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),

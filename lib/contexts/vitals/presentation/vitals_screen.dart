@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_header.dart';
+import '../domain/vitals_day.dart';
 import 'vitals_controller.dart';
 
 /// Vitals section: a form recording the day's weight and body fat (each
@@ -344,6 +345,13 @@ class _VitalsScreenState extends State<VitalsScreen> {
     );
   }
 
+  String _glucoseContextLabel(AppLocalizations loc, GlucoseMealContext context) =>
+      switch (context) {
+        GlucoseMealContext.fasting => loc.glucoseContextFasting,
+        GlucoseMealContext.preMeal => loc.glucoseContextPreMeal,
+        GlucoseMealContext.postMeal => loc.glucoseContextPostMeal,
+      };
+
   Widget _glucoseRow(
     BuildContext context,
     VitalsController controller,
@@ -389,27 +397,22 @@ class _VitalsScreenState extends State<VitalsScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _QuickPick(
-              pickKey: Key('vitals-glucose-before-$index'),
-              label: loc.vitalsGlucoseBeforeMeal,
-              onTap: busy
-                  ? null
-                  : () => controller.updateGlucoseReading(
-                      index,
-                      reading.copyWith(label: loc.vitalsGlucoseBeforeMeal),
-                    ),
-            ),
-            _QuickPick(
-              pickKey: Key('vitals-glucose-after-$index'),
-              label: loc.vitalsGlucoseAfterMeal,
-              onTap: busy
-                  ? null
-                  : () => controller.updateGlucoseReading(
-                      index,
-                      reading.copyWith(label: loc.vitalsGlucoseAfterMeal),
-                    ),
-            ),
-            // Rides the quick-pick line; the surrounding `Wrap` lets it drop to
+            // Structured meal-context picker: tapping the selected chip clears it.
+            for (final context in GlucoseMealContext.values)
+              ChoiceChip(
+                key: Key('vitals-glucose-context-${context.name}-$index'),
+                label: Text(_glucoseContextLabel(loc, context)),
+                selected: reading.mealContext == context,
+                onSelected: busy
+                    ? null
+                    : (selected) => controller.updateGlucoseReading(
+                        index,
+                        reading.copyWith(
+                          mealContext: selected ? context : null,
+                        ),
+                      ),
+              ),
+            // Rides the picker line; the surrounding `Wrap` lets it drop to
             // its own line rather than overflow on a narrow phone.
             _timeChip(
               sectionId: 'glucose',
@@ -732,25 +735,6 @@ class _RowTextFieldState extends State<_RowTextField> {
       decoration: InputDecoration(labelText: widget.label),
       onChanged: widget.onChanged,
     );
-  }
-}
-
-/// A small quick-pick chip that fills a glucose row's label. Colors from
-/// [Theme].
-class _QuickPick extends StatelessWidget {
-  final Key pickKey;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _QuickPick({
-    required this.pickKey,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(key: pickKey, label: Text(label), onPressed: onTap);
   }
 }
 

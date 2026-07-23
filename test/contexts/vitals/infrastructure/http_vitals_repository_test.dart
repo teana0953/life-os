@@ -94,7 +94,7 @@ void main() {
             BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
           ],
           glucoseReadings: [
-            GlucoseReading(label: '餐後', value: 110, time: '12:30'),
+            GlucoseReading(label: '餐後', value: 110, mealContext: null, time: '12:30'),
           ],
           spo2Readings: [Spo2Reading(spo2: 97, pulse: 66, time: '22:05')],
         ),
@@ -113,6 +113,7 @@ void main() {
       expect((capturedBody!['glucose_readings'] as List).single, {
         'label': '餐後',
         'value': 110,
+        'meal_context': null,
         'time': '12:30',
       });
       // The saved record parses back, including the three arrays.

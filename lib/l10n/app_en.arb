@@ -647,14 +647,6 @@
   "@vitalsSpo2Label": {
     "description": "Label for the SpO2 percentage field of a blood-oxygen reading row."
   },
-  "vitalsGlucoseBeforeMeal": "Before meal",
-  "@vitalsGlucoseBeforeMeal": {
-    "description": "Quick-pick label setting a glucose reading's label to 'before meal'."
-  },
-  "vitalsGlucoseAfterMeal": "After meal",
-  "@vitalsGlucoseAfterMeal": {
-    "description": "Quick-pick label setting a glucose reading's label to 'after meal'."
-  },
   "vitalsAddReading": "Add",
   "@vitalsAddReading": {
     "description": "Label for the control that appends a new reading row to a vitals list (blood pressure, glucose, or blood oxygen)."
@@ -1044,6 +1036,22 @@
   "trendMetricBloodPressurePulse": "BP & pulse",
   "@trendMetricBloodPressurePulse": {
     "description": "Metric-picker label for the combined view plotting systolic, diastolic, and pulse on one chart."
+  },
+  "glucoseContextFasting": "Fasting",
+  "@glucoseContextFasting": {
+    "description": "Glucose meal-context: a reading taken while fasting. Used by the glucose input picker and the trend legend."
+  },
+  "glucoseContextPreMeal": "Before meal",
+  "@glucoseContextPreMeal": {
+    "description": "Glucose meal-context: a reading taken before a meal."
+  },
+  "glucoseContextPostMeal": "After meal",
+  "@glucoseContextPostMeal": {
+    "description": "Glucose meal-context: a reading taken after a meal."
+  },
+  "glucoseContextUnspecified": "Unspecified",
+  "@glucoseContextUnspecified": {
+    "description": "Glucose meal-context: a reading with no meal context recorded (e.g. legacy data). Shown in the trend legend."
   },
   "trendRange7": "7 days",
   "@trendRange7": {

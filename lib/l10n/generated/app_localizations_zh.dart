@@ -488,12 +488,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vitalsSpo2Label => '血氧 (%)';
 
   @override
-  String get vitalsGlucoseBeforeMeal => '餐前';
-
-  @override
-  String get vitalsGlucoseAfterMeal => '餐後';
-
-  @override
   String get vitalsAddReading => '加一筆';
 
   @override
@@ -780,6 +774,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trendMetricBloodPressurePulse => '血壓・心跳';
+
+  @override
+  String get glucoseContextFasting => '空腹';
+
+  @override
+  String get glucoseContextPreMeal => '餐前';
+
+  @override
+  String get glucoseContextPostMeal => '餐後';
+
+  @override
+  String get glucoseContextUnspecified => '未分類';
 
   @override
   String get trendRange7 => '7 天';
@@ -1323,12 +1329,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get vitalsSpo2Label => '血氧 (%)';
 
   @override
-  String get vitalsGlucoseBeforeMeal => '餐前';
-
-  @override
-  String get vitalsGlucoseAfterMeal => '餐後';
-
-  @override
   String get vitalsAddReading => '加一筆';
 
   @override
@@ -1615,6 +1615,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get trendMetricBloodPressurePulse => '血壓・心跳';
+
+  @override
+  String get glucoseContextFasting => '空腹';
+
+  @override
+  String get glucoseContextPreMeal => '餐前';
+
+  @override
+  String get glucoseContextPostMeal => '餐後';
+
+  @override
+  String get glucoseContextUnspecified => '未分類';
 
   @override
   String get trendRange7 => '7 天';
