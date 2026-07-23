@@ -23,6 +23,11 @@ class _FakeVitalsRepository implements VitalsRepository {
   /// Whether the weight series has points (so the empty-state test can toggle).
   bool weightHasData = true;
 
+  /// Whether the spo2 / body-fat series have points (so the normal-range band
+  /// tests can plot a clinical metric and a range-less metric with a chart).
+  bool spo2HasData = false;
+  bool bodyFatHasData = false;
+
   /// When set, getRange blocks on this until it completes (so a reload's
   /// loading state can be observed mid-flight).
   Completer<void>? gate;
@@ -45,12 +50,22 @@ class _FakeVitalsRepository implements VitalsRepository {
               ]
             : const [],
         // body fat has no points → its empty-state can be asserted.
-        bodyFat: const [],
+        bodyFat: bodyFatHasData
+            ? [
+                SeriesPoint(day: from, value: 20),
+                SeriesPoint(day: to, value: 21),
+              ]
+            : const [],
         systolic: const [],
         diastolic: const [],
         pulse: const [],
         glucose: const [],
-        spo2: const [],
+        spo2: spo2HasData
+            ? [
+                SeriesPoint(day: from, value: 98),
+                SeriesPoint(day: to, value: 97),
+              ]
+            : const [],
       ),
     );
   }
@@ -72,6 +87,7 @@ Future<TrendController> _pump(
   _FakeVitalsRepository repository, {
   bool load = true,
   Locale locale = const Locale('en'),
+  double? heightCm,
 }) async {
   final controller = _controller(repository);
   if (load) await controller.load('token');
@@ -80,7 +96,11 @@ Future<TrendController> _pump(
       locale: locale,
       home: Scaffold(
         body: SingleChildScrollView(
-          child: TrendCard(controller: controller, idToken: 'token'),
+          child: TrendCard(
+            controller: controller,
+            idToken: 'token',
+            heightCm: heightCm,
+          ),
         ),
       ),
     ),
@@ -262,4 +282,65 @@ void main() {
     expect(controller.status, TrendStatus.loaded);
     expect(find.byType(LineChart), findsOneWidget);
   });
+
+  List<HorizontalRangeAnnotation> bands(WidgetTester tester) => tester
+      .widget<LineChart>(find.byType(LineChart))
+      .data
+      .rangeAnnotations
+      .horizontalRangeAnnotations;
+
+  testWidgets(
+    'a clinical metric shows a normal-range band and legend',
+    (tester) async {
+      await _pump(tester, _FakeVitalsRepository()..spo2HasData = true);
+
+      await tester.tap(find.byKey(const Key('trend-metric-spo2')));
+      await tester.pumpAndSettle();
+
+      // The chart carries a single horizontal band, and the legend labels it.
+      expect(bands(tester), hasLength(1));
+      expect(find.text(_en.trendNormalRangeLabel), findsOneWidget);
+
+      // The y-axis extent includes the whole band so it can't be clipped.
+      final chart = tester.widget<LineChart>(find.byType(LineChart)).data;
+      final band = bands(tester).single;
+      expect(chart.minY <= band.y1, isTrue);
+      expect(chart.maxY >= band.y2, isTrue);
+    },
+  );
+
+  testWidgets(
+    'a range-less metric (body fat) shows no band and no legend',
+    (tester) async {
+      await _pump(tester, _FakeVitalsRepository()..bodyFatHasData = true);
+
+      await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+      await tester.pumpAndSettle();
+
+      // Body fat has a chart (it has points) but no normal range → no band.
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(bands(tester), isEmpty);
+      expect(find.text(_en.trendNormalRangeLabel), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the weight band appears only when a height is provided',
+    (tester) async {
+      // Default metric is weight, which has data. With a height, a band shows.
+      await _pump(tester, _FakeVitalsRepository(), heightCm: 165);
+      expect(bands(tester), hasLength(1));
+      expect(find.text(_en.trendNormalRangeLabel), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the weight band is absent when no height is provided',
+    (tester) async {
+      await _pump(tester, _FakeVitalsRepository());
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(bands(tester), isEmpty);
+      expect(find.text(_en.trendNormalRangeLabel), findsNothing);
+    },
+  );
 }

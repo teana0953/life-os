@@ -138,6 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 TrendCard(
                   controller: widget.trendController,
                   idToken: idToken,
+                  heightCm: widget.weightGoalController.goal?.heightCm,
                 ),
                 const SizedBox(height: 16),
                 LedgeCard(

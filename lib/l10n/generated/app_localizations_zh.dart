@@ -791,6 +791,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get trendEmpty => '尚無資料';
 
   @override
+  String get trendNormalRangeLabel => '正常範圍';
+
+  @override
   String get trendLoadFailed => '無法載入趨勢資料,請再試一次。';
 
   @override
@@ -1613,6 +1616,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get trendEmpty => '尚無資料';
+
+  @override
+  String get trendNormalRangeLabel => '正常範圍';
 
   @override
   String get trendLoadFailed => '無法載入趨勢資料,請再試一次。';

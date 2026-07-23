@@ -808,6 +808,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendEmpty => 'No data yet';
 
   @override
+  String get trendNormalRangeLabel => 'Normal range';
+
+  @override
   String get trendLoadFailed => 'Unable to load your trends. Please try again.';
 
   @override

@@ -89,6 +89,43 @@ List<SeriesPoint> seriesFor(VitalsSeries series, VitalsMetric metric) =>
       VitalsMetric.spo2 => series.spo2,
     };
 
+/// A metric's normal reference range, from [min] to [max] (inclusive), in the
+/// metric's own unit.
+class NormalRange {
+  final double min;
+  final double max;
+
+  const NormalRange(this.min, this.max);
+}
+
+/// The normal reference range for [metric], or null when the metric has none.
+///
+/// Blood pressure, pulse, glucose, and blood oxygen use fixed clinical ranges.
+/// Weight derives its range from a healthy BMI (18.5–24.9) and [heightCm]
+/// (`weight = bmi × (height/100)²`), rounded to one decimal; it has no range
+/// when [heightCm] is null or not positive. Body fat has no range.
+NormalRange? normalRangeFor(VitalsMetric metric, {double? heightCm}) =>
+    switch (metric) {
+      VitalsMetric.systolic => const NormalRange(90, 120),
+      VitalsMetric.diastolic => const NormalRange(60, 80),
+      VitalsMetric.pulse => const NormalRange(60, 100),
+      VitalsMetric.glucose => const NormalRange(70, 140),
+      VitalsMetric.spo2 => const NormalRange(95, 100),
+      VitalsMetric.bodyFat => null,
+      VitalsMetric.weight => (heightCm == null || heightCm <= 0)
+          ? null
+          : () {
+              final heightM2 = (heightCm / 100) * (heightCm / 100);
+              return NormalRange(
+                _round1(18.5 * heightM2),
+                _round1(24.9 * heightM2),
+              );
+            }(),
+    };
+
+/// Rounds [value] to one decimal place.
+double _round1(double value) => (value * 10).round() / 10;
+
 /// Parses a "YYYY-MM-DD" string into a date-only [DateTime] (local midnight).
 DateTime _parseDay(String day) {
   final parts = day.split('-');

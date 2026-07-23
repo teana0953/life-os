@@ -1593,6 +1593,12 @@ abstract class AppLocalizations {
   /// **'No data yet'**
   String get trendEmpty;
 
+  /// Legend label for the shaded band on the trend chart marking the metric's normal reference range.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal range'**
+  String get trendNormalRangeLabel;
+
   /// Shown on the trend card when loading the trend range fails (not an auth failure).
   ///
   /// In en, this message translates to:

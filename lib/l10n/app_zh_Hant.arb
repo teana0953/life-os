@@ -249,6 +249,7 @@
   "trendRange30": "30 天",
   "trendRange90": "90 天",
   "trendEmpty": "尚無資料",
+  "trendNormalRangeLabel": "正常範圍",
   "trendLoadFailed": "無法載入趨勢資料,請再試一次。",
   "trendUnitKg": "kg",
   "trendUnitPercent": "%",
