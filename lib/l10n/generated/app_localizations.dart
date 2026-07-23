@@ -1699,6 +1699,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{metric} trend, last {days} days'**
   String trendChartSemanticsMulti(String metric, int days);
+
+  /// Title of the chaodays import entry tile (health module's More tab) and the import screen's app bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from chaodays'**
+  String get importTitle;
+
+  /// Label for the chaodays account/username field on the import screen.
+  ///
+  /// In en, this message translates to:
+  /// **'chaodays account'**
+  String get importAccountLabel;
+
+  /// Label for the chaodays password field on the import screen.
+  ///
+  /// In en, this message translates to:
+  /// **'chaodays password'**
+  String get importPasswordLabel;
+
+  /// Label for the import date range's start date picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get importStartDateLabel;
+
+  /// Label for the import date range's end date picker.
+  ///
+  /// In en, this message translates to:
+  /// **'End date'**
+  String get importEndDateLabel;
+
+  /// Placeholder shown on an unset date picker button on the import screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get importSelectDateLabel;
+
+  /// Button that starts the chaodays import.
+  ///
+  /// In en, this message translates to:
+  /// **'Start import'**
+  String get importSubmitButton;
+
+  /// Shown after all four chaodays data types finished importing.
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete.'**
+  String get importDoneMessage;
+
+  /// Reassurance note shown on the import screen explaining the credentials aren't stored.
+  ///
+  /// In en, this message translates to:
+  /// **'Your chaodays credentials are used only for this import and are never stored.'**
+  String get importCredentialsNote;
+
+  /// Label for the weight/body-fat row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight & body fat'**
+  String get importTypeWeight;
+
+  /// Label for the diet/glucose row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Diet & glucose'**
+  String get importTypeDiet;
+
+  /// Label for the water row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Water'**
+  String get importTypeWater;
+
+  /// Label for the bowel row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Bowel'**
+  String get importTypeBowel;
+
+  /// Per-type chaodays import result summary (counts of imported vs. already-present records).
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {imported} · Skipped {skipped}'**
+  String importResultSummary(int imported, int skipped);
+
+  /// Appended to the diet row's result summary when glucose readings were also imported.
+  ///
+  /// In en, this message translates to:
+  /// **' · Glucose {count}'**
+  String importResultGlucoseSuffix(int count);
+
+  /// Shown on a per-type row when that type's import failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get importTypeFailed;
+
+  /// Error banner shown when chaodays rejects the provided credentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong chaodays account or password. Please correct and try again.'**
+  String get importErrorAuthFailed;
+
+  /// Error banner shown when chaodays can't be reached (backend 502, or any other unexpected import failure).
+  ///
+  /// In en, this message translates to:
+  /// **'chaodays is temporarily unavailable. Please try again later.'**
+  String get importErrorUnavailable;
 }
 
 class _AppLocalizationsDelegate

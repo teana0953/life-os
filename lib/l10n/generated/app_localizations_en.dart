@@ -873,4 +873,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String trendChartSemanticsMulti(String metric, int days) {
     return '$metric trend, last $days days';
   }
+
+  @override
+  String get importTitle => 'Import from chaodays';
+
+  @override
+  String get importAccountLabel => 'chaodays account';
+
+  @override
+  String get importPasswordLabel => 'chaodays password';
+
+  @override
+  String get importStartDateLabel => 'Start date';
+
+  @override
+  String get importEndDateLabel => 'End date';
+
+  @override
+  String get importSelectDateLabel => 'Select';
+
+  @override
+  String get importSubmitButton => 'Start import';
+
+  @override
+  String get importDoneMessage => 'Import complete.';
+
+  @override
+  String get importCredentialsNote =>
+      'Your chaodays credentials are used only for this import and are never stored.';
+
+  @override
+  String get importTypeWeight => 'Weight & body fat';
+
+  @override
+  String get importTypeDiet => 'Diet & glucose';
+
+  @override
+  String get importTypeWater => 'Water';
+
+  @override
+  String get importTypeBowel => 'Bowel';
+
+  @override
+  String importResultSummary(int imported, int skipped) {
+    return 'Imported $imported · Skipped $skipped';
+  }
+
+  @override
+  String importResultGlucoseSuffix(int count) {
+    return ' · Glucose $count';
+  }
+
+  @override
+  String get importTypeFailed => 'Failed';
+
+  @override
+  String get importErrorAuthFailed =>
+      'Wrong chaodays account or password. Please correct and try again.';
+
+  @override
+  String get importErrorUnavailable =>
+      'chaodays is temporarily unavailable. Please try again later.';
 }

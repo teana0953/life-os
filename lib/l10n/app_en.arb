@@ -1155,5 +1155,90 @@
         "type": "int"
       }
     }
+  },
+  "importTitle": "Import from chaodays",
+  "@importTitle": {
+    "description": "Title of the chaodays import entry tile (health module's More tab) and the import screen's app bar."
+  },
+  "importAccountLabel": "chaodays account",
+  "@importAccountLabel": {
+    "description": "Label for the chaodays account/username field on the import screen."
+  },
+  "importPasswordLabel": "chaodays password",
+  "@importPasswordLabel": {
+    "description": "Label for the chaodays password field on the import screen."
+  },
+  "importStartDateLabel": "Start date",
+  "@importStartDateLabel": {
+    "description": "Label for the import date range's start date picker."
+  },
+  "importEndDateLabel": "End date",
+  "@importEndDateLabel": {
+    "description": "Label for the import date range's end date picker."
+  },
+  "importSelectDateLabel": "Select",
+  "@importSelectDateLabel": {
+    "description": "Placeholder shown on an unset date picker button on the import screen."
+  },
+  "importSubmitButton": "Start import",
+  "importDoneMessage": "Import complete.",
+  "@importDoneMessage": {
+    "description": "Shown after all four chaodays data types finished importing."
+  },
+  "@importSubmitButton": {
+    "description": "Button that starts the chaodays import."
+  },
+  "importCredentialsNote": "Your chaodays credentials are used only for this import and are never stored.",
+  "@importCredentialsNote": {
+    "description": "Reassurance note shown on the import screen explaining the credentials aren't stored."
+  },
+  "importTypeWeight": "Weight & body fat",
+  "@importTypeWeight": {
+    "description": "Label for the weight/body-fat row in the chaodays import results."
+  },
+  "importTypeDiet": "Diet & glucose",
+  "@importTypeDiet": {
+    "description": "Label for the diet/glucose row in the chaodays import results."
+  },
+  "importTypeWater": "Water",
+  "@importTypeWater": {
+    "description": "Label for the water row in the chaodays import results."
+  },
+  "importTypeBowel": "Bowel",
+  "@importTypeBowel": {
+    "description": "Label for the bowel row in the chaodays import results."
+  },
+  "importResultSummary": "Imported {imported} · Skipped {skipped}",
+  "@importResultSummary": {
+    "description": "Per-type chaodays import result summary (counts of imported vs. already-present records).",
+    "placeholders": {
+      "imported": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "importResultGlucoseSuffix": " · Glucose {count}",
+  "@importResultGlucoseSuffix": {
+    "description": "Appended to the diet row's result summary when glucose readings were also imported.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importTypeFailed": "Failed",
+  "@importTypeFailed": {
+    "description": "Shown on a per-type row when that type's import failed."
+  },
+  "importErrorAuthFailed": "Wrong chaodays account or password. Please correct and try again.",
+  "@importErrorAuthFailed": {
+    "description": "Error banner shown when chaodays rejects the provided credentials."
+  },
+  "importErrorUnavailable": "chaodays is temporarily unavailable. Please try again later.",
+  "@importErrorUnavailable": {
+    "description": "Error banner shown when chaodays can't be reached (backend 502, or any other unexpected import failure)."
   }
 }

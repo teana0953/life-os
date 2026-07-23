@@ -855,6 +855,64 @@ class AppLocalizationsZh extends AppLocalizations {
   String trendChartSemanticsMulti(String metric, int days) {
     return '$metric趨勢,近 $days 天';
   }
+
+  @override
+  String get importTitle => '從 chaodays 匯入';
+
+  @override
+  String get importAccountLabel => 'chaodays 帳號';
+
+  @override
+  String get importPasswordLabel => 'chaodays 密碼';
+
+  @override
+  String get importStartDateLabel => '起始日期';
+
+  @override
+  String get importEndDateLabel => '結束日期';
+
+  @override
+  String get importSelectDateLabel => '選擇';
+
+  @override
+  String get importSubmitButton => '開始匯入';
+
+  @override
+  String get importDoneMessage => '匯入完成';
+
+  @override
+  String get importCredentialsNote => '帳密僅用於這次匯入,不會儲存。';
+
+  @override
+  String get importTypeWeight => '體重體脂';
+
+  @override
+  String get importTypeDiet => '飲食血糖';
+
+  @override
+  String get importTypeWater => '飲水';
+
+  @override
+  String get importTypeBowel => '排便';
+
+  @override
+  String importResultSummary(int imported, int skipped) {
+    return '匯入 $imported・跳過 $skipped';
+  }
+
+  @override
+  String importResultGlucoseSuffix(int count) {
+    return '・血糖 $count';
+  }
+
+  @override
+  String get importTypeFailed => '失敗';
+
+  @override
+  String get importErrorAuthFailed => 'chaodays 帳號或密碼錯誤,請確認後再試一次。';
+
+  @override
+  String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1708,4 +1766,62 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String trendChartSemanticsMulti(String metric, int days) {
     return '$metric趨勢,近 $days 天';
   }
+
+  @override
+  String get importTitle => '從 chaodays 匯入';
+
+  @override
+  String get importAccountLabel => 'chaodays 帳號';
+
+  @override
+  String get importPasswordLabel => 'chaodays 密碼';
+
+  @override
+  String get importStartDateLabel => '起始日期';
+
+  @override
+  String get importEndDateLabel => '結束日期';
+
+  @override
+  String get importSelectDateLabel => '選擇';
+
+  @override
+  String get importSubmitButton => '開始匯入';
+
+  @override
+  String get importDoneMessage => '匯入完成';
+
+  @override
+  String get importCredentialsNote => '帳密僅用於這次匯入,不會儲存。';
+
+  @override
+  String get importTypeWeight => '體重體脂';
+
+  @override
+  String get importTypeDiet => '飲食血糖';
+
+  @override
+  String get importTypeWater => '飲水';
+
+  @override
+  String get importTypeBowel => '排便';
+
+  @override
+  String importResultSummary(int imported, int skipped) {
+    return '匯入 $imported・跳過 $skipped';
+  }
+
+  @override
+  String importResultGlucoseSuffix(int count) {
+    return '・血糖 $count';
+  }
+
+  @override
+  String get importTypeFailed => '失敗';
+
+  @override
+  String get importErrorAuthFailed => 'chaodays 帳號或密碼錯誤,請確認後再試一次。';
+
+  @override
+  String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
 }

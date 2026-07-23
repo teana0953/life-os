@@ -60,6 +60,9 @@ class HealthScaffold extends StatefulWidget {
   /// Opens the app settings (theme / language / sign-out), wired by the caller.
   final VoidCallback onOpenSettings;
 
+  /// Opens the chaodays import screen, wired by the caller.
+  final VoidCallback onOpenImport;
+
   final DateTime Function() clock;
 
   const HealthScaffold({
@@ -80,6 +83,7 @@ class HealthScaffold extends StatefulWidget {
     required this.exerciseController,
     required this.menstrualController,
     required this.onOpenSettings,
+    required this.onOpenImport,
     this.clock = DateTime.now,
   });
 
@@ -207,7 +211,10 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             idToken: idToken,
             heightCm: widget.weightGoalController.goal?.heightCm,
           ),
-          _MoreBody(onOpenSettings: widget.onOpenSettings),
+          _MoreBody(
+            onOpenSettings: widget.onOpenSettings,
+            onOpenImport: widget.onOpenImport,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -303,11 +310,14 @@ class _TrendBody extends StatelessWidget {
   }
 }
 
-/// 更多: app settings entry (theme / language / sign-out live in SettingsScreen).
+/// 更多: app settings + chaodays import entries (theme / language / sign-out
+/// live in SettingsScreen; the chaodays import form lives in
+/// ChaodaysImportScreen).
 class _MoreBody extends StatelessWidget {
   final VoidCallback onOpenSettings;
+  final VoidCallback onOpenImport;
 
-  const _MoreBody({required this.onOpenSettings});
+  const _MoreBody({required this.onOpenSettings, required this.onOpenImport});
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +329,16 @@ class _MoreBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              LedgeCard(
+                child: ListTile(
+                  key: const Key('health-more-import'),
+                  leading: const Icon(Icons.cloud_download),
+                  title: Text(loc.importTitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: onOpenImport,
+                ),
+              ),
+              const SizedBox(height: 12),
               LedgeCard(
                 child: ListTile(
                   key: const Key('health-more-settings'),
