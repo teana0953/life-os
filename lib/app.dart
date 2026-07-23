@@ -14,6 +14,8 @@ import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
+import 'contexts/import/presentation/chaodays_import_controller.dart';
+import 'contexts/import/presentation/chaodays_import_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -94,6 +96,7 @@ class App extends StatefulWidget {
   final TrendController trendController;
   final HealthCalendarController healthCalendarController;
   final PwaUpdateController pwaUpdateController;
+  final ChaodaysImportController chaodaysImportController;
 
   const App({
     super.key,
@@ -118,6 +121,7 @@ class App extends StatefulWidget {
     required this.trendController,
     required this.healthCalendarController,
     required this.pwaUpdateController,
+    required this.chaodaysImportController,
   });
 
   @override
@@ -247,6 +251,15 @@ class _AppState extends State<App> {
             pwaInstall: const PwaInstallImpl(),
           ),
         ),
+        // No `extra`: built purely from injected DI, so a web refresh on this
+        // URL reconstructs the screen.
+        GoRoute(
+          path: '/import/chaodays',
+          builder: (context, state) => ChaodaysImportScreen(
+            controller: widget.chaodaysImportController,
+            authRepository: widget.authRepository,
+          ),
+        ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL
         // (flat routes rebuilt only the leaf, collapsing back-navigation to the
         // grid). Screens are built from injected controllers — not carried in
@@ -270,6 +283,7 @@ class _AppState extends State<App> {
             exerciseController: widget.exerciseController,
             menstrualController: widget.menstrualController,
             onOpenSettings: () => context.push('/settings'),
+            onOpenImport: () => context.push('/import/chaodays'),
           ),
           routes: [
             GoRoute(

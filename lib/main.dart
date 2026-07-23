@@ -44,6 +44,12 @@ import 'contexts/health/application/unfavorite_food.dart';
 import 'contexts/health/infrastructure/http_daily_target_repository.dart';
 import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
 import 'contexts/health/infrastructure/http_meal_repository.dart';
+import 'contexts/import/application/import_bowel.dart';
+import 'contexts/import/application/import_diet.dart';
+import 'contexts/import/application/import_water.dart';
+import 'contexts/import/application/import_weight.dart';
+import 'contexts/import/infrastructure/http_import_repository.dart';
+import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
@@ -190,6 +196,16 @@ Future<void> main() async {
   );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
+  final importRepository = HttpImportRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final chaodaysImportController = ChaodaysImportController(
+    ImportWeight(importRepository),
+    ImportDiet(importRepository),
+    ImportWater(importRepository),
+    ImportBowel(importRepository),
+  );
 
   runApp(
     App(
@@ -214,6 +230,7 @@ Future<void> main() async {
       trendController: trendController,
       healthCalendarController: healthCalendarController,
       pwaUpdateController: pwaUpdateController,
+      chaodaysImportController: chaodaysImportController,
     ),
   );
 }

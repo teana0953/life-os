@@ -33,6 +33,13 @@ import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
+import 'package:life_os/contexts/import/application/import_bowel.dart';
+import 'package:life_os/contexts/import/application/import_diet.dart';
+import 'package:life_os/contexts/import/application/import_water.dart';
+import 'package:life_os/contexts/import/application/import_weight.dart';
+import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
+import 'package:life_os/contexts/import/domain/import_repository.dart';
+import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
@@ -311,6 +318,46 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   Future<bool> deletePeriod(String idToken, String id) async => true;
 }
 
+class _FakeImportRepository implements ImportRepository {
+  static const _summary = ChaodaysImportSummary(imported: 0, skipped: 0);
+
+  @override
+  Future<ChaodaysImportSummary> importWeight(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
+
+  @override
+  Future<ChaodaysImportSummary> importDiet(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
+
+  @override
+  Future<ChaodaysImportSummary> importWater(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
+
+  @override
+  Future<ChaodaysImportSummary> importBowel(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -527,6 +574,7 @@ Future<LocaleController> pumpApp(
   ThemeController? themeController,
   SignOut? signOut,
   SignUp? signUp,
+  ChaodaysImportController? chaodaysImportController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -535,6 +583,17 @@ Future<LocaleController> pumpApp(
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
   final health = testHealthControllers();
+  final resolvedChaodaysImportController =
+      chaodaysImportController ??
+      () {
+        final importRepository = _FakeImportRepository();
+        return ChaodaysImportController(
+          ImportWeight(importRepository),
+          ImportDiet(importRepository),
+          ImportWater(importRepository),
+          ImportBowel(importRepository),
+        );
+      }();
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
@@ -560,6 +619,7 @@ Future<LocaleController> pumpApp(
       // Not started (no timer): on the VM the stub reports no update, and
       // these tests don't exercise the update banner.
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
+      chaodaysImportController: resolvedChaodaysImportController,
     ),
   );
   return resolvedLocaleController;
@@ -759,6 +819,37 @@ void main() {
 
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(find.byKey(const Key('auth-retry-button')), findsOneWidget);
+      },
+    );
+  });
+
+  group('App chaodays import entry', () {
+    testWidgets(
+      'the health module\'s More tab import tile navigates to /import/chaodays',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('health-more-import')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('health-more-import')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('import-account-field')), findsOneWidget);
       },
     );
   });
