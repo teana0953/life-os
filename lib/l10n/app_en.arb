@@ -925,6 +925,34 @@
   "@dashboardRecordEntrySubtitle": {
     "description": "Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records."
   },
+  "healthCalendarTitle": "This month",
+  "@healthCalendarTitle": {
+    "description": "Title of the dashboard card showing the month's logged-days calendar and adherence rings."
+  },
+  "healthCalendarLoggingRate": "Logged",
+  "@healthCalendarLoggingRate": {
+    "description": "Ring label: share of the month's elapsed days with any tracker entry."
+  },
+  "healthCalendarDietRate": "Diet met",
+  "@healthCalendarDietRate": {
+    "description": "Ring label: share of the month's elapsed days that met the diet target."
+  },
+  "healthCalendarWeightRate": "Weight",
+  "@healthCalendarWeightRate": {
+    "description": "Ring label: the weight-goal achievement rate (reused from the goal card)."
+  },
+  "healthCalendarLoggedLegend": "Logged",
+  "@healthCalendarLoggedLegend": {
+    "description": "Legend for the calendar dot marking a day that has a tracker entry."
+  },
+  "healthCalendarNoData": "No data",
+  "@healthCalendarNoData": {
+    "description": "Spoken (screen-reader) value for a ring with no percentage yet."
+  },
+  "healthCalendarLoadFailed": "Unable to load this month. Please try again.",
+  "@healthCalendarLoadFailed": {
+    "description": "Shown on the health-calendar card when loading the month summary fails (not an auth failure)."
+  },
   "goalCardTitle": "Weight goal",
   "@goalCardTitle": {
     "description": "Title of the goal card on the overview dashboard, showing target/current/remaining weight, an achievement ring, and BMI."

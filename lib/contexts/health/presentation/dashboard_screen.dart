@@ -6,6 +6,8 @@ import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../body_profile/presentation/goal_card.dart';
 import '../../body_profile/presentation/weight_goal_controller.dart';
+import '../../health_calendar/presentation/health_calendar_card.dart';
+import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../vitals/presentation/trend_card.dart';
 import '../../vitals/presentation/trend_controller.dart';
 
@@ -17,6 +19,7 @@ import '../../vitals/presentation/trend_controller.dart';
 class DashboardScreen extends StatefulWidget {
   final WeightGoalController weightGoalController;
   final TrendController trendController;
+  final HealthCalendarController healthCalendarController;
   final AuthRepository authRepository;
 
   /// Signs the user out; wired to the needsReauth "sign in again" exit,
@@ -32,6 +35,7 @@ class DashboardScreen extends StatefulWidget {
     super.key,
     required this.weightGoalController,
     required this.trendController,
+    required this.healthCalendarController,
     required this.authRepository,
     required this.signOut,
     required this.onOpenLog,
@@ -49,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     widget.weightGoalController.addListener(_onControllerChanged);
     widget.trendController.addListener(_onControllerChanged);
+    widget.healthCalendarController.addListener(_onControllerChanged);
     _load();
   }
 
@@ -56,6 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     widget.weightGoalController.removeListener(_onControllerChanged);
     widget.trendController.removeListener(_onControllerChanged);
+    widget.healthCalendarController.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -78,8 +84,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final token = await widget.authRepository.idToken() ?? '';
     if (!mounted) return;
     setState(() => _idToken = token);
-    await widget.weightGoalController.load(token);
-    await widget.trendController.load(token);
+    // The three cards' loads are independent — run them concurrently so the
+    // dashboard isn't gated on three sequential round-trips.
+    await Future.wait([
+      widget.weightGoalController.load(token),
+      widget.trendController.load(token),
+      widget.healthCalendarController.load(token),
+    ]);
   }
 
   @override
@@ -101,7 +112,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // consistent with the other screens. The pushed dashboard keeps its app-bar
     // back button.
     if (widget.weightGoalController.status == WeightGoalStatus.needsReauth ||
-        widget.trendController.status == TrendStatus.needsReauth) {
+        widget.trendController.status == TrendStatus.needsReauth ||
+        widget.healthCalendarController.status ==
+            HealthCalendarStatus.needsReauth) {
       return Scaffold(
         appBar: appBar,
         body: Center(
@@ -139,6 +152,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   controller: widget.trendController,
                   idToken: idToken,
                   heightCm: widget.weightGoalController.goal?.heightCm,
+                ),
+                const SizedBox(height: 16),
+                HealthCalendarCard(
+                  controller: widget.healthCalendarController,
+                  idToken: idToken,
+                  weightAchievementRate:
+                      widget.weightGoalController.goal?.achievementRate,
                 ),
                 const SizedBox(height: 16),
                 LedgeCard(

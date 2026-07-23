@@ -10,6 +10,7 @@ import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../body_profile/presentation/weight_goal_controller.dart';
+import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../bowel/presentation/bowel_controller.dart';
 import '../../exercise/presentation/exercise_controller.dart';
 import '../../health/application/get_logged_days.dart';
@@ -64,6 +65,7 @@ class HomeScreen extends StatefulWidget {
   final MenstrualController menstrualController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
+  final HealthCalendarController healthCalendarController;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -89,6 +91,7 @@ class HomeScreen extends StatefulWidget {
     required this.menstrualController,
     required this.weightGoalController,
     required this.trendController,
+    required this.healthCalendarController,
     this.clock = DateTime.now,
   });
 
@@ -130,6 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => DashboardScreen(
           weightGoalController: widget.weightGoalController,
           trendController: widget.trendController,
+          healthCalendarController: widget.healthCalendarController,
           authRepository: widget.authRepository,
           signOut: widget.signOut,
           onOpenLog: () => Navigator.of(context).push(

@@ -1,0 +1,135 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_exceptions.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_card.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+
+import '../../../support/l10n_test_app.dart';
+
+class _FakeRepository implements HealthCalendarRepository {
+  Object? error;
+  int getCalls = 0;
+  HealthCalendar Function(int year, int month) build =
+      (year, month) => HealthCalendar(
+            year: year,
+            month: month,
+            loggedDays: const {'2026-07-03', '2026-07-04'},
+            daysElapsed: 5,
+            loggingRate: 20,
+            dietAdherenceRate: 40,
+          );
+
+  @override
+  Future<HealthCalendar> getCalendar(
+    String idToken, {
+    required int year,
+    required int month,
+    required String today,
+  }) async {
+    getCalls++;
+    if (error != null) throw error!;
+    return build(year, month);
+  }
+}
+
+Future<HealthCalendarController> _pump(
+  WidgetTester tester,
+  _FakeRepository repo, {
+  int? weightAchievementRate = 75,
+}) async {
+  final controller = HealthCalendarController(
+    GetHealthCalendar(repo),
+    clock: () => DateTime(2026, 7, 5),
+  );
+  await controller.load('token');
+  await tester.pumpWidget(
+    l10nTestApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: HealthCalendarCard(
+            controller: controller,
+            idToken: 'token',
+            weightAchievementRate: weightAchievementRate,
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return controller;
+}
+
+AppLocalizations get _en => lookupAppLocalizations(const Locale('en'));
+
+void main() {
+  testWidgets('shows three rings, the month dots, and a legend', (tester) async {
+    await _pump(tester, _FakeRepository());
+
+    // Three adherence rings.
+    expect(find.byKey(const Key('health-calendar-ring-logging')), findsOneWidget);
+    expect(find.byKey(const Key('health-calendar-ring-diet')), findsOneWidget);
+    expect(find.byKey(const Key('health-calendar-ring-weight')), findsOneWidget);
+
+    // The month rates + the reused weight-goal rate are shown.
+    expect(find.text('20%'), findsOneWidget); // logging rate
+    expect(find.text('40%'), findsOneWidget); // diet adherence
+    expect(find.text('75%'), findsOneWidget); // weight achievement (reused)
+
+    // Dots mark the two logged days but not an unlogged one.
+    expect(find.byKey(const Key('health-calendar-dot-3')), findsOneWidget);
+    expect(find.byKey(const Key('health-calendar-dot-4')), findsOneWidget);
+    expect(find.byKey(const Key('health-calendar-dot-15')), findsNothing);
+
+    expect(find.byKey(const Key('health-calendar-legend')), findsOneWidget);
+  });
+
+  testWidgets('a null rate shows an empty ring and no percentage', (tester) async {
+    final repo = _FakeRepository()
+      ..build = (year, month) => HealthCalendar(
+            year: year,
+            month: month,
+            loggedDays: const {},
+            daysElapsed: 0,
+            loggingRate: null,
+            dietAdherenceRate: null,
+          );
+    await _pump(tester, repo, weightAchievementRate: null);
+
+    // No percentage text anywhere (all three rings are null).
+    expect(find.textContaining('%'), findsNothing);
+  });
+
+  testWidgets('an error shows a retry that reloads', (tester) async {
+    final repo = _FakeRepository()..error = const HealthCalendarFetchFailure();
+    final controller = HealthCalendarController(
+      GetHealthCalendar(repo),
+      clock: () => DateTime(2026, 7, 5),
+    );
+    await controller.load('token');
+    await tester.pumpWidget(
+      l10nTestApp(
+        home: Scaffold(
+          body: HealthCalendarCard(
+            controller: controller,
+            idToken: 'token',
+            weightAchievementRate: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(_en.healthCalendarLoadFailed), findsOneWidget);
+
+    repo.error = null;
+    await tester.tap(find.byKey(const Key('health-calendar-retry')));
+    await tester.pumpAndSettle();
+
+    expect(controller.status, HealthCalendarStatus.loaded);
+    expect(find.byKey(const Key('health-calendar-ring-logging')), findsOneWidget);
+  });
+}

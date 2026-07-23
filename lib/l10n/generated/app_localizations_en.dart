@@ -706,6 +706,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardRecordEntrySubtitle => 'Record food, water, and more';
 
   @override
+  String get healthCalendarTitle => 'This month';
+
+  @override
+  String get healthCalendarLoggingRate => 'Logged';
+
+  @override
+  String get healthCalendarDietRate => 'Diet met';
+
+  @override
+  String get healthCalendarWeightRate => 'Weight';
+
+  @override
+  String get healthCalendarLoggedLegend => 'Logged';
+
+  @override
+  String get healthCalendarNoData => 'No data';
+
+  @override
+  String get healthCalendarLoadFailed =>
+      'Unable to load this month. Please try again.';
+
+  @override
   String get goalCardTitle => 'Weight goal';
 
   @override

@@ -15,6 +15,10 @@ import 'package:life_os/contexts/body_profile/application/set_body_profile.dart'
 import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
 import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
+import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -338,6 +342,7 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   MenstrualController menstrual,
   WeightGoalController weightGoal,
   TrendController trend,
+  HealthCalendarController healthCalendar,
 }) testHealthControllers() {
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -400,6 +405,26 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
       SetBodyProfile(bodyProfileRepository),
     ),
     trend: TrendController(GetVitalsTrends(vitalsRepository)),
+    healthCalendar: HealthCalendarController(
+      GetHealthCalendar(_FakeHealthCalendarRepository()),
+    ),
+  );
+}
+
+class _FakeHealthCalendarRepository implements HealthCalendarRepository {
+  @override
+  Future<HealthCalendar> getCalendar(
+    String idToken, {
+    required int year,
+    required int month,
+    required String today,
+  }) async => HealthCalendar(
+    year: year,
+    month: month,
+    loggedDays: const {},
+    daysElapsed: 0,
+    loggingRate: null,
+    dietAdherenceRate: null,
   );
 }
 
@@ -530,6 +555,7 @@ Future<LocaleController> pumpApp(
       menstrualController: health.menstrual,
       weightGoalController: health.weightGoal,
       trendController: health.trend,
+      healthCalendarController: health.healthCalendar,
       // Not started (no timer): on the VM the stub reports no update, and
       // these tests don't exercise the update banner.
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
