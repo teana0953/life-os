@@ -6,6 +6,7 @@ import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_exceptions.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -15,6 +16,25 @@ import '../../../support/l10n_test_app.dart';
 /// A backend-like fake: keeps the last-saved record so save→reload round-trips
 /// read back real state.
 class FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async => VitalsRange(
+    from: from,
+    to: to,
+    series: const VitalsSeries(
+      weight: [],
+      bodyFat: [],
+      systolic: [],
+      diastolic: [],
+      pulse: [],
+      glucose: [],
+      spo2: [],
+    ),
+  );
+
   VitalsDay stored;
   Object? getError;
   Object? saveError;

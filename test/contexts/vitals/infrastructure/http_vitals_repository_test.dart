@@ -121,6 +121,135 @@ void main() {
       expect(saved.spo2Readings.single.pulse, 66);
     });
 
+    test('getRange GETs /api/vitals/range?from=&to= and maps the series',
+        () async {
+      Uri? capturedUri;
+      String? capturedAuthHeader;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedAuthHeader = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode({
+            'from': '2026-07-01',
+            'to': '2026-07-03',
+            'series': {
+              'weight': [
+                {'day': '2026-07-01', 'value': 65.5},
+                {'day': '2026-07-03', 'value': 65.0},
+              ],
+              'body_fat': [
+                {'day': '2026-07-01', 'value': 20},
+              ],
+              'systolic': [
+                {'day': '2026-07-02', 'value': 120},
+              ],
+              'diastolic': [
+                {'day': '2026-07-02', 'value': 80},
+              ],
+              'pulse': [
+                {'day': '2026-07-02', 'value': 70},
+              ],
+              'glucose': [
+                {'day': '2026-07-01', 'value': 95},
+              ],
+              'spo2': [
+                {'day': '2026-07-01', 'value': 98},
+              ],
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+      final repository = HttpVitalsRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final range = await repository.getRange(
+        'token-123',
+        DateTime(2026, 7, 1),
+        DateTime(2026, 7, 3),
+      );
+
+      expect(
+        capturedUri,
+        Uri.parse(
+          'https://example.test/api/vitals/range?from=2026-07-01&to=2026-07-03',
+        ),
+      );
+      expect(capturedAuthHeader, 'Bearer token-123');
+      expect(range.from, DateTime(2026, 7, 1));
+      expect(range.to, DateTime(2026, 7, 3));
+      expect(range.series.weight.length, 2);
+      expect(range.series.weight.first.value, 65.5);
+      expect(range.series.bodyFat.single.value, 20);
+      expect(range.series.spo2.single.value, 98);
+    });
+
+    test('getRange formats single-digit month/day as zero-padded YYYY-MM-DD',
+        () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(
+          jsonEncode({'from': '2026-03-05', 'to': '2026-03-09', 'series': {}}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+      final repository = HttpVitalsRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.getRange(
+        'token-123',
+        DateTime(2026, 3, 5),
+        DateTime(2026, 3, 9),
+      );
+
+      expect(
+        capturedUri,
+        Uri.parse(
+          'https://example.test/api/vitals/range?from=2026-03-05&to=2026-03-09',
+        ),
+      );
+    });
+
+    test('getRange throws VitalsReauthenticationRequired on 401', () async {
+      final client = MockClient(
+        (request) async => http.Response('Unauthorized', 401),
+      );
+      final repository = HttpVitalsRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () =>
+            repository.getRange('expired', DateTime(2026, 7, 1), DateTime(2026, 7, 3)),
+        throwsA(isA<VitalsReauthenticationRequired>()),
+      );
+    });
+
+    test('getRange throws VitalsFetchFailure on other non-2xx responses',
+        () async {
+      final client = MockClient(
+        (request) async => http.Response('Internal Server Error', 500),
+      );
+      final repository = HttpVitalsRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () =>
+            repository.getRange('token', DateTime(2026, 7, 1), DateTime(2026, 7, 3)),
+        throwsA(isA<VitalsFetchFailure>()),
+      );
+    });
+
     test('throws VitalsReauthenticationRequired on 401', () async {
       final client = MockClient(
         (request) async => http.Response('Unauthorized', 401),

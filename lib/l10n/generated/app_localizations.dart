@@ -1520,6 +1520,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your goal. Please try again.'**
   String get errorWeightGoalLoadFailed;
+
+  /// Title of the dashboard trend card showing a line chart of a vitals metric over time.
+  ///
+  /// In en, this message translates to:
+  /// **'Trends'**
+  String get trendCardTitle;
+
+  /// Metric-picker label for the body-weight trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight'**
+  String get trendMetricWeight;
+
+  /// Metric-picker label for the body-fat-percentage trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Body fat'**
+  String get trendMetricBodyFat;
+
+  /// Metric-picker label for the systolic blood-pressure trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Systolic'**
+  String get trendMetricSystolic;
+
+  /// Metric-picker label for the diastolic blood-pressure trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Diastolic'**
+  String get trendMetricDiastolic;
+
+  /// Metric-picker label for the pulse (heart-rate) trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse'**
+  String get trendMetricPulse;
+
+  /// Metric-picker label for the blood-glucose trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Glucose'**
+  String get trendMetricGlucose;
+
+  /// Metric-picker label for the blood-oxygen (SpO2) trend series.
+  ///
+  /// In en, this message translates to:
+  /// **'Blood oxygen'**
+  String get trendMetricSpo2;
+
+  /// Range-selector label for a 7-day trend window.
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get trendRange7;
+
+  /// Range-selector label for a 30-day trend window.
+  ///
+  /// In en, this message translates to:
+  /// **'30 days'**
+  String get trendRange30;
+
+  /// Range-selector label for a 90-day trend window.
+  ///
+  /// In en, this message translates to:
+  /// **'90 days'**
+  String get trendRange90;
+
+  /// Shown in the trend card's chart area when the selected metric has no recorded points in the range.
+  ///
+  /// In en, this message translates to:
+  /// **'No data yet'**
+  String get trendEmpty;
+
+  /// Shown on the trend card when loading the trend range fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load your trends. Please try again.'**
+  String get trendLoadFailed;
+
+  /// Unit suffix shown near the trend card title for the weight metric (kilograms).
+  ///
+  /// In en, this message translates to:
+  /// **'kg'**
+  String get trendUnitKg;
+
+  /// Unit suffix shown near the trend card title for the body-fat and blood-oxygen metrics (percentage).
+  ///
+  /// In en, this message translates to:
+  /// **'%'**
+  String get trendUnitPercent;
+
+  /// Unit suffix shown near the trend card title for the systolic and diastolic blood-pressure metrics (millimetres of mercury).
+  ///
+  /// In en, this message translates to:
+  /// **'mmHg'**
+  String get trendUnitMmhg;
+
+  /// Unit suffix shown near the trend card title for the pulse metric (beats per minute).
+  ///
+  /// In en, this message translates to:
+  /// **'bpm'**
+  String get trendUnitBpm;
+
+  /// Unit suffix shown near the trend card title for the blood-glucose metric (milligrams per decilitre).
+  ///
+  /// In en, this message translates to:
+  /// **'mg/dL'**
+  String get trendUnitMgdl;
 }
 
 class _AppLocalizationsDelegate

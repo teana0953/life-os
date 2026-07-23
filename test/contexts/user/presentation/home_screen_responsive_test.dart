@@ -48,6 +48,9 @@ import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
+import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
 import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
@@ -215,6 +218,25 @@ class _FakeBowelRepository implements BowelRepository {
 }
 
 class _FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async => VitalsRange(
+    from: from,
+    to: to,
+    series: const VitalsSeries(
+      weight: [],
+      bodyFat: [],
+      systolic: [],
+      diastolic: [],
+      pulse: [],
+      glucose: [],
+      spo2: [],
+    ),
+  );
+
   @override
   Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
     day: day,
@@ -405,6 +427,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
           GetBodyProfile(bodyProfileRepository),
           SetBodyProfile(bodyProfileRepository),
         ),
+        trendController: TrendController(GetVitalsTrends(vitalsRepository)),
       ),
     ),
   );

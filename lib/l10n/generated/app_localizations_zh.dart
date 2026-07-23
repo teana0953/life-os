@@ -753,6 +753,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorWeightGoalLoadFailed => '無法載入目標資料,請再試一次。';
+
+  @override
+  String get trendCardTitle => '趨勢';
+
+  @override
+  String get trendMetricWeight => '體重';
+
+  @override
+  String get trendMetricBodyFat => '體脂';
+
+  @override
+  String get trendMetricSystolic => '收縮壓';
+
+  @override
+  String get trendMetricDiastolic => '舒張壓';
+
+  @override
+  String get trendMetricPulse => '心跳';
+
+  @override
+  String get trendMetricGlucose => '血糖';
+
+  @override
+  String get trendMetricSpo2 => '血氧';
+
+  @override
+  String get trendRange7 => '7 天';
+
+  @override
+  String get trendRange30 => '30 天';
+
+  @override
+  String get trendRange90 => '90 天';
+
+  @override
+  String get trendEmpty => '尚無資料';
+
+  @override
+  String get trendLoadFailed => '無法載入趨勢資料,請再試一次。';
+
+  @override
+  String get trendUnitKg => 'kg';
+
+  @override
+  String get trendUnitPercent => '%';
+
+  @override
+  String get trendUnitMmhg => 'mmHg';
+
+  @override
+  String get trendUnitBpm => 'bpm';
+
+  @override
+  String get trendUnitMgdl => 'mg/dL';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1504,4 +1558,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorWeightGoalLoadFailed => '無法載入目標資料,請再試一次。';
+
+  @override
+  String get trendCardTitle => '趨勢';
+
+  @override
+  String get trendMetricWeight => '體重';
+
+  @override
+  String get trendMetricBodyFat => '體脂';
+
+  @override
+  String get trendMetricSystolic => '收縮壓';
+
+  @override
+  String get trendMetricDiastolic => '舒張壓';
+
+  @override
+  String get trendMetricPulse => '心跳';
+
+  @override
+  String get trendMetricGlucose => '血糖';
+
+  @override
+  String get trendMetricSpo2 => '血氧';
+
+  @override
+  String get trendRange7 => '7 天';
+
+  @override
+  String get trendRange30 => '30 天';
+
+  @override
+  String get trendRange90 => '90 天';
+
+  @override
+  String get trendEmpty => '尚無資料';
+
+  @override
+  String get trendLoadFailed => '無法載入趨勢資料,請再試一次。';
+
+  @override
+  String get trendUnitKg => 'kg';
+
+  @override
+  String get trendUnitPercent => '%';
+
+  @override
+  String get trendUnitMmhg => 'mmHg';
+
+  @override
+  String get trendUnitBpm => 'bpm';
+
+  @override
+  String get trendUnitMgdl => 'mg/dL';
 }

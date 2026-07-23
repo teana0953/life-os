@@ -5,9 +5,29 @@ import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_exceptions.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 
 class FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async => VitalsRange(
+    from: from,
+    to: to,
+    series: const VitalsSeries(
+      weight: [],
+      bodyFat: [],
+      systolic: [],
+      diastolic: [],
+      pulse: [],
+      glucose: [],
+      spo2: [],
+    ),
+  );
+
   VitalsDay dayToReturn = const VitalsDay(
     day: '2026-07-18',
     weightKg: null,

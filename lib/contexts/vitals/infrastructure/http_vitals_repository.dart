@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../domain/vitals_day.dart';
 import '../domain/vitals_exceptions.dart';
 import '../domain/vitals_repository.dart';
+import '../domain/vitals_series.dart';
 
 /// [VitalsRepository] driven adapter backed by the `/api/vitals` HTTP endpoints.
 class HttpVitalsRepository implements VitalsRepository {
@@ -65,6 +66,40 @@ class HttpVitalsRepository implements VitalsRepository {
       );
     }
     return _parse(response.body);
+  }
+
+  @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse(
+          '$baseUrl/api/vitals/range?from=${_fmtDay(from)}&to=${_fmtDay(to)}',
+        ),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw VitalsFetchFailure(
+        'Failed to load the vitals trends (status ${response.statusCode}).',
+      );
+    }
+    try {
+      return VitalsRange.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      throw const VitalsFetchFailure(_genericFailureMessage);
+    }
+  }
+
+  static String _fmtDay(DateTime day) {
+    final month = day.month.toString().padLeft(2, '0');
+    final dayOfMonth = day.day.toString().padLeft(2, '0');
+    return '${day.year}-$month-$dayOfMonth';
   }
 
   VitalsDay _parse(String body) {

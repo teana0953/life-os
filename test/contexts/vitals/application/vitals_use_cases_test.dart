@@ -3,8 +3,28 @@ import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 
 class _FakeVitalsRepository implements VitalsRepository {
+  @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async => VitalsRange(
+    from: from,
+    to: to,
+    series: const VitalsSeries(
+      weight: [],
+      bodyFat: [],
+      systolic: [],
+      diastolic: [],
+      pulse: [],
+      glucose: [],
+      spo2: [],
+    ),
+  );
+
   String? gotDay;
   VitalsDay? savedDay;
 
