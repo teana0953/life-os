@@ -9,7 +9,6 @@ import '../../auth/domain/auth_repository.dart';
 import '../application/get_logged_days.dart';
 import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
-import 'daily_target_screen.dart';
 import 'dictionary_controller.dart';
 import 'food_search_screen.dart';
 import 'snack_naming.dart';
@@ -110,19 +109,11 @@ class _DietDayScreenState extends State<DietDayScreen> {
   /// result (the tray was saved), reloads Today + the target for the
   /// current day.
   Future<void> _openFoodSearch(String meal) async {
-    final idToken = _idToken;
     widget.createMealController.start(meal);
     widget.dictionaryController.clearSearch();
     final result = await context.push<bool>(
       '/health/diet/food-search',
-      extra: FoodSearchScreen(
-        meal: meal,
-        dictionaryController: widget.dictionaryController,
-        createMealController: widget.createMealController,
-        idToken: idToken,
-        day: _day,
-        signOut: widget.signOut ?? SignOut(widget.authRepository),
-      ),
+      extra: (meal: meal, day: _day),
     );
     if (result == true) {
       await _reloadCurrentDay();
@@ -168,16 +159,7 @@ class _DietDayScreenState extends State<DietDayScreen> {
         actions: [
           TextButton.icon(
             key: const Key('diet-open-target'),
-            onPressed: () => context.push(
-              '/health/diet/target',
-              extra: DailyTargetScreen(
-                controller: widget.dailyTargetController,
-                idToken: _idToken,
-                day: _day,
-                // Refresh Today's portion progress after the target changes.
-                onSaved: () => widget.todayController.load(_idToken, _day),
-              ),
-            ),
+            onPressed: () => context.push('/health/diet/target', extra: _day),
             icon: const Icon(Icons.flag_outlined),
             label: Text(loc.dietTabTarget),
           ),

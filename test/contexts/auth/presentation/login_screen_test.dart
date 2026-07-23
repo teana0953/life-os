@@ -8,7 +8,6 @@ import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
-import 'package:life_os/contexts/auth/presentation/register_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -309,11 +308,11 @@ void main() {
         final controller = LoginController(SignIn(repository));
         await pumpLoginScreen(tester, controller, authRepository: repository);
 
-        expect(find.byType(RegisterScreen), findsNothing);
         await tester.tap(find.byKey(const Key('register-link')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(RegisterScreen), findsOneWidget);
+        // Login pushes `/register`; the app router builds RegisterScreen there.
+        expect(find.text('/register'), findsOneWidget);
       },
     );
   });

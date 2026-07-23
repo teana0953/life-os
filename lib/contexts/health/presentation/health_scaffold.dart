@@ -8,24 +8,18 @@ import '../../auth/domain/auth_repository.dart';
 import '../../body_profile/presentation/goal_card.dart';
 import '../../body_profile/presentation/weight_goal_controller.dart';
 import '../../bowel/presentation/bowel_controller.dart';
-import '../../bowel/presentation/bowel_screen.dart';
 import '../../exercise/presentation/exercise_controller.dart';
-import '../../exercise/presentation/exercise_screen.dart';
 import '../../health_calendar/presentation/health_calendar_card.dart';
 import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../hydration/presentation/water_controller.dart';
-import '../../hydration/presentation/water_screen.dart';
 import '../../menstrual/presentation/menstrual_controller.dart';
-import '../../menstrual/presentation/menstrual_screen.dart';
 import '../../vitals/presentation/trend_card.dart';
 import '../../vitals/presentation/trend_controller.dart';
 import '../../vitals/presentation/vitals_controller.dart';
-import '../../vitals/presentation/vitals_screen.dart';
 import '../application/get_logged_days.dart';
 import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
 import 'dictionary_controller.dart';
-import 'diet_day_screen.dart';
 import 'today_controller.dart';
 
 String _todayString(DateTime time) =>
@@ -207,22 +201,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             healthCalendarController: widget.healthCalendarController,
             idToken: idToken,
           ),
-          _RecordHub(
-            idToken: idToken,
-            clock: widget.clock,
-            authRepository: widget.authRepository,
-            signOut: widget.signOut,
-            todayController: widget.todayController,
-            dictionaryController: widget.dictionaryController,
-            dailyTargetController: widget.dailyTargetController,
-            createMealController: widget.createMealController,
-            getLoggedDays: widget.getLoggedDays,
-            waterController: widget.waterController,
-            bowelController: widget.bowelController,
-            vitalsController: widget.vitalsController,
-            exerciseController: widget.exerciseController,
-            menstrualController: widget.menstrualController,
-          ),
+          const _RecordHub(),
           _TrendBody(
             controller: widget.trendController,
             idToken: idToken,
@@ -361,48 +340,12 @@ class _MoreBody extends StatelessWidget {
 /// today. Replaces the old bottom-nav tabs + nested 更多 menu — every tracker is
 /// one tap from here.
 class _RecordHub extends StatelessWidget {
-  final String idToken;
-  final DateTime Function() clock;
-  final AuthRepository authRepository;
-  final SignOut signOut;
-  final TodayController todayController;
-  final DictionaryController dictionaryController;
-  final DailyTargetController dailyTargetController;
-  final CreateMealController createMealController;
-  final GetLoggedDays getLoggedDays;
-  final WaterController waterController;
-  final BowelController bowelController;
-  final VitalsController vitalsController;
-  final ExerciseController exerciseController;
-  final MenstrualController menstrualController;
+  const _RecordHub();
 
-  const _RecordHub({
-    required this.idToken,
-    required this.clock,
-    required this.authRepository,
-    required this.signOut,
-    required this.todayController,
-    required this.dictionaryController,
-    required this.dailyTargetController,
-    required this.createMealController,
-    required this.getLoggedDays,
-    required this.waterController,
-    required this.bowelController,
-    required this.vitalsController,
-    required this.exerciseController,
-    required this.menstrualController,
-  });
-
-  String get _today =>
-      '${clock().year.toString().padLeft(4, '0')}-'
-      '${clock().month.toString().padLeft(2, '0')}-'
-      '${clock().day.toString().padLeft(2, '0')}';
-
-  /// Pushes a tracker [screen] as a distinct route (`/health/<name>`) so each
-  /// is its own browser-history entry; the built screen rides in `extra`.
-  void _push(BuildContext context, String name, Widget screen) {
-    context.push('/health/$name', extra: screen);
-  }
+  /// Navigates to a tracker's route (`/health/<name>`). The screen is built by
+  /// the app router (from injected controllers), nested under `/health`, so a
+  /// web back / refresh reconstructs the full stack from the URL.
+  void _push(BuildContext context, String name) => context.push('/health/$name');
 
   @override
   Widget build(BuildContext context) {
@@ -418,71 +361,37 @@ class _RecordHub extends StatelessWidget {
                 tileKey: const Key('hub-tile-diet'),
                 icon: Icons.restaurant,
                 label: loc.healthRecordDiet,
-                onTap: () => _push(
-                  context,
-                  'diet',
-                  DietDayScreen(
-                    authRepository: authRepository,
-                    idToken: idToken,
-                    todayController: todayController,
-                    dictionaryController: dictionaryController,
-                    dailyTargetController: dailyTargetController,
-                    createMealController: createMealController,
-                    getLoggedDays: getLoggedDays,
-                    signOut: signOut,
-                    clock: clock,
-                  ),
-                ),
+                onTap: () => _push(context, 'diet'),
               ),
               _HubTile(
                 tileKey: const Key('hub-tile-water'),
                 icon: Icons.water_drop,
                 label: loc.dietTabWater,
-                onTap: () => _push(
-                  context,
-                  'water',
-                  WaterScreen(controller: waterController, idToken: idToken, day: _today, clock: clock),
-                ),
+                onTap: () => _push(context, 'water'),
               ),
               _HubTile(
                 tileKey: const Key('hub-tile-vitals'),
                 icon: Icons.monitor_heart,
                 label: loc.dietTabVitals,
-                onTap: () => _push(
-                  context,
-                  'vitals',
-                  VitalsScreen(controller: vitalsController, idToken: idToken, day: _today, clock: clock),
-                ),
+                onTap: () => _push(context, 'vitals'),
               ),
               _HubTile(
                 tileKey: const Key('hub-tile-exercise'),
                 icon: Icons.fitness_center,
                 label: loc.dietTabExercise,
-                onTap: () => _push(
-                  context,
-                  'exercise',
-                  ExerciseScreen(controller: exerciseController, idToken: idToken, day: _today, clock: clock),
-                ),
+                onTap: () => _push(context, 'exercise'),
               ),
               _HubTile(
                 tileKey: const Key('hub-tile-bowel'),
                 icon: Icons.wc,
                 label: loc.dietTabBowel,
-                onTap: () => _push(
-                  context,
-                  'bowel',
-                  BowelScreen(controller: bowelController, idToken: idToken, day: _today, clock: clock),
-                ),
+                onTap: () => _push(context, 'bowel'),
               ),
               _HubTile(
                 tileKey: const Key('hub-tile-menstrual'),
                 icon: Icons.calendar_month,
                 label: loc.menstrualTitle,
-                onTap: () => _push(
-                  context,
-                  'menstrual',
-                  MenstrualScreen(controller: menstrualController, idToken: idToken, clock: clock),
-                ),
+                onTap: () => _push(context, 'menstrual'),
               ),
             ],
           ),

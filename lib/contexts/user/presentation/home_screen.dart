@@ -3,28 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
-import '../../../shared/i18n/locale_controller.dart';
-import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/app_theme.dart';
-import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/mascot.dart';
-import '../../auth/application/sign_out.dart';
-import '../../auth/domain/auth_repository.dart';
-import '../../body_profile/presentation/weight_goal_controller.dart';
-import '../../health_calendar/presentation/health_calendar_controller.dart';
-import '../../bowel/presentation/bowel_controller.dart';
-import '../../exercise/presentation/exercise_controller.dart';
-import '../../health/application/get_logged_days.dart';
-import '../../health/presentation/create_meal_controller.dart';
-import '../../health/presentation/daily_target_controller.dart';
-import '../../health/presentation/dictionary_controller.dart';
-import '../../health/presentation/health_scaffold.dart';
-import '../../health/presentation/today_controller.dart';
-import '../../hydration/presentation/water_controller.dart';
-import '../../menstrual/presentation/menstrual_controller.dart';
-import '../../vitals/presentation/trend_controller.dart';
-import '../../vitals/presentation/vitals_controller.dart';
-import '../../settings/presentation/settings_screen.dart';
 import 'home_controller.dart';
 
 const _contentMaxWidth = 960.0;
@@ -49,23 +29,6 @@ GreetingPeriod greetingPeriodFor(DateTime time) {
 
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
-  final LocaleController localeController;
-  final ThemeController themeController;
-  final SignOut signOut;
-  final AuthRepository authRepository;
-  final TodayController healthTodayController;
-  final DictionaryController healthDictionaryController;
-  final DailyTargetController healthDailyTargetController;
-  final CreateMealController healthCreateMealController;
-  final GetLoggedDays healthGetLoggedDays;
-  final WaterController waterController;
-  final BowelController bowelController;
-  final VitalsController vitalsController;
-  final ExerciseController exerciseController;
-  final MenstrualController menstrualController;
-  final WeightGoalController weightGoalController;
-  final TrendController trendController;
-  final HealthCalendarController healthCalendarController;
 
   /// Returns the current time, used to pick the home screen's time-of-day
   /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
@@ -75,23 +38,6 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.controller,
-    required this.localeController,
-    required this.themeController,
-    required this.signOut,
-    required this.authRepository,
-    required this.healthTodayController,
-    required this.healthDictionaryController,
-    required this.healthDailyTargetController,
-    required this.healthCreateMealController,
-    required this.healthGetLoggedDays,
-    required this.waterController,
-    required this.bowelController,
-    required this.vitalsController,
-    required this.exerciseController,
-    required this.menstrualController,
-    required this.weightGoalController,
-    required this.trendController,
-    required this.healthCalendarController,
     this.clock = DateTime.now,
   });
 
@@ -114,42 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onControllerChanged() => setState(() {});
 
-  void _openSettings(BuildContext context) {
-    context.push(
-      '/settings',
-      extra: SettingsScreen(
-        themeController: widget.themeController,
-        localeController: widget.localeController,
-        signOut: widget.signOut,
-        pwaInstall: const PwaInstallImpl(),
-      ),
-    );
-  }
+  // Navigation targets are built by the app router (from injected controllers),
+  // so these just push the path — no screen construction here.
+  void _openSettings(BuildContext context) => context.push('/settings');
 
-  void _openHealth(BuildContext context) {
-    context.push(
-      '/health',
-      extra: HealthScaffold(
-          authRepository: widget.authRepository,
-          signOut: widget.signOut,
-          clock: widget.clock,
-          weightGoalController: widget.weightGoalController,
-          trendController: widget.trendController,
-          healthCalendarController: widget.healthCalendarController,
-          todayController: widget.healthTodayController,
-          dictionaryController: widget.healthDictionaryController,
-          dailyTargetController: widget.healthDailyTargetController,
-          createMealController: widget.healthCreateMealController,
-          getLoggedDays: widget.healthGetLoggedDays,
-          waterController: widget.waterController,
-          bowelController: widget.bowelController,
-          vitalsController: widget.vitalsController,
-          exerciseController: widget.exerciseController,
-          menstrualController: widget.menstrualController,
-          onOpenSettings: () => _openSettings(context),
-      ),
-    );
-  }
+  void _openHealth(BuildContext context) => context.push('/health');
 
   @override
   Widget build(BuildContext context) {

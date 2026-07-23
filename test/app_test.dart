@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/app.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
@@ -663,6 +664,79 @@ void main() {
 
         expect(authRepository.signOutCalled, isTrue);
         expect(find.byKey(const Key('email-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'regression: back from a deep diet route returns one level, not to the grid',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.edit_note));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('hub-tile-diet')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('hub-tile-diet')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('diet-open-target')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('diet-open-target')), findsNothing);
+
+        // Back from the target screen must return to the diet day screen —
+        // NOT collapse all the way to the grid.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+        expect(find.byKey(const Key('health-tile')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'regression: a URL-driven deep route (go) pops one level via the real '
+      'router, not to the grid',
+      (tester) async {
+        // Drives the REAL app router by URL — what a web browser back / refresh
+        // does — to prove the nested routes rebuild the stack (the flat-route
+        // version collapsed a URL-reached leaf straight to the grid on pop).
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/water');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('water-add-250')), findsOneWidget);
+
+        router.pop();
+        await tester.pumpAndSettle();
+        // One level up = the health module (its bottom nav), NOT the grid.
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.byKey(const Key('water-add-250')), findsNothing);
+        expect(find.byKey(const Key('health-tile')), findsNothing);
       },
     );
 
