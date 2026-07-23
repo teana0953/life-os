@@ -779,6 +779,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get trendMetricSpo2 => '血氧';
 
   @override
+  String get trendMetricBloodPressurePulse => '血壓・心跳';
+
+  @override
   String get trendRange7 => '7 天';
 
   @override
@@ -828,6 +831,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String trendChartSemanticsEmpty(String metric, int days) {
     return '$metric趨勢,近 $days 天,無資料';
+  }
+
+  @override
+  String trendChartSemanticsMulti(String metric, int days) {
+    return '$metric趨勢,近 $days 天';
   }
 }
 
@@ -1606,6 +1614,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get trendMetricSpo2 => '血氧';
 
   @override
+  String get trendMetricBloodPressurePulse => '血壓・心跳';
+
+  @override
   String get trendRange7 => '7 天';
 
   @override
@@ -1655,5 +1666,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String trendChartSemanticsEmpty(String metric, int days) {
     return '$metric趨勢,近 $days 天,無資料';
+  }
+
+  @override
+  String trendChartSemanticsMulti(String metric, int days) {
+    return '$metric趨勢,近 $days 天';
   }
 }

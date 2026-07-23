@@ -101,6 +101,23 @@ void main() {
     });
   });
 
+  group('metricsForView', () {
+    test('single-metric views map to one metric', () {
+      expect(metricsForView(TrendView.weight), [VitalsMetric.weight]);
+      expect(metricsForView(TrendView.bodyFat), [VitalsMetric.bodyFat]);
+      expect(metricsForView(TrendView.glucose), [VitalsMetric.glucose]);
+      expect(metricsForView(TrendView.spo2), [VitalsMetric.spo2]);
+    });
+
+    test('blood pressure & pulse view combines three metrics in draw order', () {
+      expect(metricsForView(TrendView.bloodPressurePulse), [
+        VitalsMetric.systolic,
+        VitalsMetric.diastolic,
+        VitalsMetric.pulse,
+      ]);
+    });
+  });
+
   group('normalRangeFor', () {
     test('clinical metrics have fixed ranges', () {
       expect(normalRangeFor(VitalsMetric.systolic)!.min, 90);

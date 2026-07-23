@@ -77,6 +77,25 @@ class VitalsRange {
 /// The metrics the trend card can plot, one at a time.
 enum VitalsMetric { weight, bodyFat, systolic, diastolic, pulse, glucose, spo2 }
 
+/// A selectable trend view: what the user picks in the trend card. Most views
+/// map to a single [VitalsMetric], but [bloodPressurePulse] plots systolic,
+/// diastolic, and pulse together on one chart.
+enum TrendView { weight, bodyFat, bloodPressurePulse, glucose, spo2 }
+
+/// The metrics plotted for [view], in draw order. Single-metric views return a
+/// one-element list; [TrendView.bloodPressurePulse] returns its three lines.
+List<VitalsMetric> metricsForView(TrendView view) => switch (view) {
+  TrendView.weight => const [VitalsMetric.weight],
+  TrendView.bodyFat => const [VitalsMetric.bodyFat],
+  TrendView.bloodPressurePulse => const [
+    VitalsMetric.systolic,
+    VitalsMetric.diastolic,
+    VitalsMetric.pulse,
+  ],
+  TrendView.glucose => const [VitalsMetric.glucose],
+  TrendView.spo2 => const [VitalsMetric.spo2],
+};
+
 /// The series for [metric] within [series].
 List<SeriesPoint> seriesFor(VitalsSeries series, VitalsMetric metric) =>
     switch (metric) {

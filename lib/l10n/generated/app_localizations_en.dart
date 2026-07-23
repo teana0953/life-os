@@ -796,6 +796,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendMetricSpo2 => 'Blood oxygen';
 
   @override
+  String get trendMetricBloodPressurePulse => 'BP & pulse';
+
+  @override
   String get trendRange7 => '7 days';
 
   @override
@@ -845,5 +848,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String trendChartSemanticsEmpty(String metric, int days) {
     return '$metric trend, last $days days, no data';
+  }
+
+  @override
+  String trendChartSemanticsMulti(String metric, int days) {
+    return '$metric trend, last $days days';
   }
 }

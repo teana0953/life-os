@@ -28,6 +28,10 @@ class _FakeVitalsRepository implements VitalsRepository {
   bool spo2HasData = false;
   bool bodyFatHasData = false;
 
+  /// Whether the systolic / diastolic / pulse series have points (so the
+  /// combined blood pressure & pulse view can be plotted).
+  bool bpHasData = false;
+
   /// When set, getRange blocks on this until it completes (so a reload's
   /// loading state can be observed mid-flight).
   Completer<void>? gate;
@@ -56,9 +60,24 @@ class _FakeVitalsRepository implements VitalsRepository {
                 SeriesPoint(day: to, value: 21),
               ]
             : const [],
-        systolic: const [],
-        diastolic: const [],
-        pulse: const [],
+        systolic: bpHasData
+            ? [
+                SeriesPoint(day: from, value: 120),
+                SeriesPoint(day: to, value: 118),
+              ]
+            : const [],
+        diastolic: bpHasData
+            ? [
+                SeriesPoint(day: from, value: 80),
+                SeriesPoint(day: to, value: 78),
+              ]
+            : const [],
+        pulse: bpHasData
+            ? [
+                SeriesPoint(day: from, value: 72),
+                SeriesPoint(day: to, value: 70),
+              ]
+            : const [],
         glucose: const [],
         spo2: spo2HasData
             ? [
@@ -116,9 +135,10 @@ void main() {
       (tester) async {
     await _pump(tester, _FakeVitalsRepository());
 
-    // The 7 metric labels and 3 range labels are present.
+    // The 5 view labels and 3 range labels are present.
     expect(find.text(_en.trendMetricWeight), findsOneWidget);
     expect(find.text(_en.trendMetricBodyFat), findsOneWidget);
+    expect(find.text(_en.trendMetricBloodPressurePulse), findsOneWidget);
     expect(find.text(_en.trendMetricSpo2), findsOneWidget);
     expect(find.text(_en.trendRange7), findsOneWidget);
     expect(find.text(_en.trendRange30), findsOneWidget);
@@ -177,7 +197,7 @@ void main() {
       await _pump(tester, _FakeVitalsRepository());
 
       // Body fat has no points → the empty summary is exposed instead.
-      await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+      await tester.tap(find.byKey(const Key('trend-view-bodyFat')));
       await tester.pumpAndSettle();
 
       expect(
@@ -197,7 +217,7 @@ void main() {
     expect(find.byKey(const Key('trend-unit')), findsOneWidget);
     expect(find.text(_en.trendUnitKg), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('trend-metric-spo2')));
+    await tester.tap(find.byKey(const Key('trend-view-spo2')));
     await tester.pumpAndSettle();
     expect(find.text(_en.trendUnitPercent), findsOneWidget);
   });
@@ -207,7 +227,7 @@ void main() {
     await _pump(tester, _FakeVitalsRepository());
 
     // Switch to body fat, which has no points.
-    await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+    await tester.tap(find.byKey(const Key('trend-view-bodyFat')));
     await tester.pumpAndSettle();
 
     expect(find.text(_en.trendEmpty), findsOneWidget);
@@ -218,11 +238,11 @@ void main() {
       (tester) async {
     await _pump(tester, _FakeVitalsRepository());
 
-    await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+    await tester.tap(find.byKey(const Key('trend-view-bodyFat')));
     await tester.pumpAndSettle();
     expect(find.byType(LineChart), findsNothing);
 
-    await tester.tap(find.byKey(const Key('trend-metric-weight')));
+    await tester.tap(find.byKey(const Key('trend-view-weight')));
     await tester.pumpAndSettle();
     expect(find.byType(LineChart), findsOneWidget);
   });
@@ -255,7 +275,7 @@ void main() {
 
     // The shell survives: metric chips + range selector still there, a
     // lightweight reload bar shows, and it did NOT collapse to the card spinner.
-    expect(find.byKey(const Key('trend-metric-weight')), findsOneWidget);
+    expect(find.byKey(const Key('trend-view-weight')), findsOneWidget);
     expect(find.byKey(const Key('trend-range-selector')), findsOneWidget);
     expect(find.byKey(const Key('trend-card-reloading')), findsOneWidget);
     expect(find.byKey(const Key('trend-card-loading')), findsNothing);
@@ -294,7 +314,7 @@ void main() {
     (tester) async {
       await _pump(tester, _FakeVitalsRepository()..spo2HasData = true);
 
-      await tester.tap(find.byKey(const Key('trend-metric-spo2')));
+      await tester.tap(find.byKey(const Key('trend-view-spo2')));
       await tester.pumpAndSettle();
 
       // The chart carries a single horizontal band, and the legend labels it.
@@ -314,7 +334,7 @@ void main() {
     (tester) async {
       await _pump(tester, _FakeVitalsRepository()..bodyFatHasData = true);
 
-      await tester.tap(find.byKey(const Key('trend-metric-bodyFat')));
+      await tester.tap(find.byKey(const Key('trend-view-bodyFat')));
       await tester.pumpAndSettle();
 
       // Body fat has a chart (it has points) but no normal range → no band.
@@ -341,6 +361,59 @@ void main() {
       expect(find.byType(LineChart), findsOneWidget);
       expect(bands(tester), isEmpty);
       expect(find.text(_en.trendNormalRangeLabel), findsNothing);
+    },
+  );
+
+  int lineCount(WidgetTester tester) =>
+      tester.widget<LineChart>(find.byType(LineChart)).data.lineBarsData.length;
+
+  testWidgets(
+    'the BP & pulse view plots three lines with a per-line legend and no band',
+    (tester) async {
+      await _pump(tester, _FakeVitalsRepository()..bpHasData = true);
+
+      await tester.tap(
+        find.byKey(const Key('trend-view-bloodPressurePulse')),
+      );
+      await tester.pumpAndSettle();
+
+      // One chart, three lines (systolic / diastolic / pulse), no shaded band.
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(lineCount(tester), 3);
+      expect(bands(tester), isEmpty);
+      expect(find.text(_en.trendNormalRangeLabel), findsNothing);
+
+      // The per-line legend names all three series.
+      expect(find.byKey(const Key('trend-lines-legend')), findsOneWidget);
+      expect(find.text(_en.trendMetricSystolic), findsOneWidget);
+      expect(find.text(_en.trendMetricDiastolic), findsOneWidget);
+      expect(find.text(_en.trendMetricPulse), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the BP & pulse view uses the multi-line screen-reader summary',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _FakeVitalsRepository()..bpHasData = true);
+
+      await tester.tap(
+        find.byKey(const Key('trend-view-bloodPressurePulse')),
+      );
+      await tester.pumpAndSettle();
+
+      // A multi-line view has no single latest value, so it uses the
+      // value-less summary (not the single-metric one).
+      expect(
+        find.bySemanticsLabel(
+          _en.trendChartSemanticsMulti(
+            _en.trendMetricBloodPressurePulse,
+            30,
+          ),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
     },
   );
 }

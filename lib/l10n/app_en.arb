@@ -1041,6 +1041,10 @@
   "@trendMetricSpo2": {
     "description": "Metric-picker label for the blood-oxygen (SpO2) trend series."
   },
+  "trendMetricBloodPressurePulse": "BP & pulse",
+  "@trendMetricBloodPressurePulse": {
+    "description": "Metric-picker label for the combined view plotting systolic, diastolic, and pulse on one chart."
+  },
   "trendRange7": "7 days",
   "@trendRange7": {
     "description": "Range-selector label for a 7-day trend window."
@@ -1107,6 +1111,18 @@
   "trendChartSemanticsEmpty": "{metric} trend, last {days} days, no data",
   "@trendChartSemanticsEmpty": {
     "description": "Screen-reader summary of the trend chart when the selected metric has no data in the range.",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "trendChartSemanticsMulti": "{metric} trend, last {days} days",
+  "@trendChartSemanticsMulti": {
+    "description": "Screen-reader summary of the trend chart for a multi-line view (e.g. BP & pulse), which has several series and so no single latest value.",
     "placeholders": {
       "metric": {
         "type": "String"

@@ -1569,6 +1569,12 @@ abstract class AppLocalizations {
   /// **'Blood oxygen'**
   String get trendMetricSpo2;
 
+  /// Metric-picker label for the combined view plotting systolic, diastolic, and pulse on one chart.
+  ///
+  /// In en, this message translates to:
+  /// **'BP & pulse'**
+  String get trendMetricBloodPressurePulse;
+
   /// Range-selector label for a 7-day trend window.
   ///
   /// In en, this message translates to:
@@ -1651,6 +1657,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{metric} trend, last {days} days, no data'**
   String trendChartSemanticsEmpty(String metric, int days);
+
+  /// Screen-reader summary of the trend chart for a multi-line view (e.g. BP & pulse), which has several series and so no single latest value.
+  ///
+  /// In en, this message translates to:
+  /// **'{metric} trend, last {days} days'**
+  String trendChartSemanticsMulti(String metric, int days);
 }
 
 class _AppLocalizationsDelegate

@@ -245,6 +245,7 @@
   "trendMetricPulse": "心跳",
   "trendMetricGlucose": "血糖",
   "trendMetricSpo2": "血氧",
+  "trendMetricBloodPressurePulse": "血壓・心跳",
   "trendRange7": "7 天",
   "trendRange30": "30 天",
   "trendRange90": "90 天",
@@ -257,5 +258,6 @@
   "trendUnitBpm": "bpm",
   "trendUnitMgdl": "mg/dL",
   "trendChartSemantics": "{metric}趨勢,近 {days} 天,最新 {value} {unit}",
-  "trendChartSemanticsEmpty": "{metric}趨勢,近 {days} 天,無資料"
+  "trendChartSemanticsEmpty": "{metric}趨勢,近 {days} 天,無資料",
+  "trendChartSemanticsMulti": "{metric}趨勢,近 {days} 天"
 }
