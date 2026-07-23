@@ -7,24 +7,37 @@ import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/auth/presentation/register_screen.dart';
 import 'contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'contexts/bowel/presentation/bowel_controller.dart';
+import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
+import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
+import 'contexts/health/presentation/daily_target_screen.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/diet_day_screen.dart';
+import 'contexts/health/presentation/food_search_screen.dart';
+import 'contexts/health/presentation/health_scaffold.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
+import 'contexts/hydration/presentation/water_screen.dart';
 import 'contexts/menstrual/presentation/menstrual_controller.dart';
+import 'contexts/menstrual/presentation/menstrual_screen.dart';
+import 'contexts/settings/presentation/settings_screen.dart';
 import 'contexts/vitals/presentation/trend_controller.dart';
 import 'contexts/vitals/presentation/vitals_controller.dart';
+import 'contexts/vitals/presentation/vitals_screen.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
+import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/routing/auth_router_notifier.dart';
+import 'shared/pwa/pwa_install.dart';
 import 'shared/pwa/pwa_update_banner.dart';
 import 'shared/pwa/pwa_update_controller.dart';
 import 'shared/theme/app_theme.dart';
@@ -123,14 +136,59 @@ class _AppState extends State<App> {
     super.dispose();
   }
 
-  /// Returns the screen carried in [state].extra, or — when it is absent (e.g.
-  /// a browser refresh landed directly on a pushed route, which has no in-memory
-  /// extra) — a redirect back to the home grid. The app has no deep-linking, so
-  /// a refreshed deep route safely resets to `/`.
-  Widget _extraScreen(GoRouterState state) {
-    final extra = state.extra;
-    return extra is Widget ? extra : const _RedirectToHome();
+  String get _idToken => _authNotifier.idToken ?? '';
+  String get _today => dayString(DateTime.now());
+
+  /// Builds a day-keyed tracker screen for the `/health/<name>` route. Nested
+  /// under `/health` so the URL hierarchy — which is what a web browser back /
+  /// refresh reconstructs the page stack from — implies [HealthScaffold] below
+  /// it. An unknown name resets to the record hub.
+  Widget _trackerFor(String? name) {
+    switch (name) {
+      case 'water':
+        return WaterScreen(
+          controller: widget.waterController,
+          idToken: _idToken,
+          day: _today,
+        );
+      case 'vitals':
+        return VitalsScreen(
+          controller: widget.vitalsController,
+          idToken: _idToken,
+          day: _today,
+        );
+      case 'bowel':
+        return BowelScreen(
+          controller: widget.bowelController,
+          idToken: _idToken,
+          day: _today,
+        );
+      case 'exercise':
+        return ExerciseScreen(
+          controller: widget.exerciseController,
+          idToken: _idToken,
+          day: _today,
+        );
+      case 'menstrual':
+        return MenstrualScreen(
+          controller: widget.menstrualController,
+          idToken: _idToken,
+        );
+      default:
+        return const _Redirect(to: '/health');
+    }
   }
+
+  Widget _dietDayScreen() => DietDayScreen(
+    authRepository: widget.authRepository,
+    idToken: _idToken,
+    todayController: widget.healthTodayController,
+    dictionaryController: widget.healthDictionaryController,
+    dailyTargetController: widget.healthDailyTargetController,
+    createMealController: widget.healthCreateMealController,
+    getLoggedDays: widget.healthGetLoggedDays,
+    signOut: widget.signOut,
+  );
 
   GoRouter _buildRouter() {
     return GoRouter(
@@ -166,48 +224,103 @@ class _AppState extends State<App> {
             signUp: widget.signUp,
           ),
         ),
-        // Pushed full screens carry their (already DI-wired) widget in `extra`,
-        // so navigation stays at the call site and this file needs no rewiring.
-        GoRoute(path: '/register', builder: (context, state) => _extraScreen(state)),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => RegisterScreen(
+            signUp: widget.signUp,
+            localeController: widget.localeController,
+          ),
+        ),
         GoRoute(
           path: '/',
           builder: (context, state) => _AuthenticatedHome(
             authRepository: widget.authRepository,
             homeController: widget.homeController,
-            localeController: widget.localeController,
+          ),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => SettingsScreen(
             themeController: widget.themeController,
+            localeController: widget.localeController,
             signOut: widget.signOut,
-            healthTodayController: widget.healthTodayController,
-            healthDictionaryController: widget.healthDictionaryController,
-            healthDailyTargetController: widget.healthDailyTargetController,
-            healthCreateMealController: widget.healthCreateMealController,
-            healthGetLoggedDays: widget.healthGetLoggedDays,
+            pwaInstall: const PwaInstallImpl(),
+          ),
+        ),
+        // Nested so a web back / refresh rebuilds the whole stack from the URL
+        // (flat routes rebuilt only the leaf, collapsing back-navigation to the
+        // grid). Screens are built from injected controllers — not carried in
+        // `extra` — so a URL-driven rebuild reconstructs them.
+        GoRoute(
+          path: '/health',
+          builder: (context, state) => HealthScaffold(
+            authRepository: widget.authRepository,
+            signOut: widget.signOut,
+            weightGoalController: widget.weightGoalController,
+            trendController: widget.trendController,
+            healthCalendarController: widget.healthCalendarController,
+            todayController: widget.healthTodayController,
+            dictionaryController: widget.healthDictionaryController,
+            dailyTargetController: widget.healthDailyTargetController,
+            createMealController: widget.healthCreateMealController,
+            getLoggedDays: widget.healthGetLoggedDays,
             waterController: widget.waterController,
             bowelController: widget.bowelController,
             vitalsController: widget.vitalsController,
             exerciseController: widget.exerciseController,
             menstrualController: widget.menstrualController,
-            weightGoalController: widget.weightGoalController,
-            trendController: widget.trendController,
-            healthCalendarController: widget.healthCalendarController,
+            onOpenSettings: () => context.push('/settings'),
           ),
-        ),
-        GoRoute(path: '/settings', builder: (context, state) => _extraScreen(state)),
-        GoRoute(path: '/health', builder: (context, state) => _extraScreen(state)),
-        GoRoute(
-          path: '/health/diet/target',
-          builder: (context, state) => _extraScreen(state),
-        ),
-        GoRoute(
-          path: '/health/diet/food-search',
-          builder: (context, state) => _extraScreen(state),
-        ),
-        // The day-keyed trackers (water / vitals / bowel / exercise / menstrual /
-        // diet) — one path each (via :name) so every push is a distinct history
-        // entry; the screen itself rides in `extra`.
-        GoRoute(
-          path: '/health/:name',
-          builder: (context, state) => _extraScreen(state),
+          routes: [
+            GoRoute(
+              path: 'diet',
+              builder: (context, state) => _dietDayScreen(),
+              routes: [
+                GoRoute(
+                  path: 'target',
+                  // The viewed day is a per-navigation arg (diet may be browsing
+                  // a past day), so it rides in `extra`; a URL-driven rebuild
+                  // with no extra resets to the diet day.
+                  builder: (context, state) {
+                    final day = state.extra;
+                    if (day is! String) return const _Redirect(to: '/health/diet');
+                    return DailyTargetScreen(
+                      controller: widget.healthDailyTargetController,
+                      idToken: _idToken,
+                      day: day,
+                      onSaved: () =>
+                          widget.healthTodayController.load(_idToken, day),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'food-search',
+                  // The meal and the viewed day are per-navigation args, so they
+                  // ride in `extra`; a URL-driven rebuild with no extra resets to
+                  // the diet day.
+                  builder: (context, state) {
+                    final args = state.extra;
+                    if (args is! ({String meal, String day})) {
+                      return const _Redirect(to: '/health/diet');
+                    }
+                    return FoodSearchScreen(
+                      meal: args.meal,
+                      dictionaryController: widget.healthDictionaryController,
+                      createMealController: widget.healthCreateMealController,
+                      idToken: _idToken,
+                      day: args.day,
+                      signOut: widget.signOut,
+                    );
+                  },
+                ),
+              ],
+            ),
+            GoRoute(
+              path: ':name',
+              builder: (context, state) =>
+                  _trackerFor(state.pathParameters['name']),
+            ),
+          ],
         ),
       ],
     );
@@ -280,21 +393,23 @@ class _AuthErrorScreen extends StatelessWidget {
   }
 }
 
-/// Shown when a pushed route is reached without its `extra` screen (a browser
-/// refresh on a deep URL): resets to the home grid after the frame.
-class _RedirectToHome extends StatefulWidget {
-  const _RedirectToHome();
+/// Redirects to [to] after the frame — used when a route can't be built for the
+/// current URL (an unknown tracker name, or a food-search rebuilt by a URL-driven
+/// navigation with no `extra` meal).
+class _Redirect extends StatefulWidget {
+  final String to;
+  const _Redirect({required this.to});
 
   @override
-  State<_RedirectToHome> createState() => _RedirectToHomeState();
+  State<_Redirect> createState() => _RedirectState();
 }
 
-class _RedirectToHomeState extends State<_RedirectToHome> {
+class _RedirectState extends State<_Redirect> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) GoRouter.of(context).go('/');
+      if (mounted) GoRouter.of(context).go(widget.to);
     });
   }
 
@@ -306,42 +421,10 @@ class _RedirectToHomeState extends State<_RedirectToHome> {
 class _AuthenticatedHome extends StatefulWidget {
   final AuthRepository authRepository;
   final HomeController homeController;
-  final LocaleController localeController;
-  final ThemeController themeController;
-  final SignOut signOut;
-  final TodayController healthTodayController;
-  final DictionaryController healthDictionaryController;
-  final DailyTargetController healthDailyTargetController;
-  final CreateMealController healthCreateMealController;
-  final GetLoggedDays healthGetLoggedDays;
-  final WaterController waterController;
-  final BowelController bowelController;
-  final VitalsController vitalsController;
-  final ExerciseController exerciseController;
-  final MenstrualController menstrualController;
-  final WeightGoalController weightGoalController;
-  final TrendController trendController;
-  final HealthCalendarController healthCalendarController;
 
   const _AuthenticatedHome({
     required this.authRepository,
     required this.homeController,
-    required this.localeController,
-    required this.themeController,
-    required this.signOut,
-    required this.healthTodayController,
-    required this.healthDictionaryController,
-    required this.healthDailyTargetController,
-    required this.healthCreateMealController,
-    required this.healthGetLoggedDays,
-    required this.waterController,
-    required this.bowelController,
-    required this.vitalsController,
-    required this.exerciseController,
-    required this.menstrualController,
-    required this.weightGoalController,
-    required this.trendController,
-    required this.healthCalendarController,
   });
 
   @override
@@ -362,25 +445,6 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
 
   @override
   Widget build(BuildContext context) {
-    return HomeScreen(
-      controller: widget.homeController,
-      localeController: widget.localeController,
-      themeController: widget.themeController,
-      signOut: widget.signOut,
-      authRepository: widget.authRepository,
-      healthTodayController: widget.healthTodayController,
-      healthDictionaryController: widget.healthDictionaryController,
-      healthDailyTargetController: widget.healthDailyTargetController,
-      healthCreateMealController: widget.healthCreateMealController,
-      healthGetLoggedDays: widget.healthGetLoggedDays,
-      waterController: widget.waterController,
-      bowelController: widget.bowelController,
-      vitalsController: widget.vitalsController,
-      exerciseController: widget.exerciseController,
-      menstrualController: widget.menstrualController,
-      weightGoalController: widget.weightGoalController,
-      trendController: widget.trendController,
-      healthCalendarController: widget.healthCalendarController,
-    );
+    return HomeScreen(controller: widget.homeController);
   }
 }

@@ -24,7 +24,6 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
-import 'package:life_os/contexts/health/presentation/daily_target_screen.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
@@ -217,13 +216,14 @@ void main() {
     },
   );
 
-  testWidgets('the target action opens the daily target screen', (tester) async {
+  testWidgets('the target action navigates to the daily target route', (tester) async {
     await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('diet-open-target')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(DailyTargetScreen), findsOneWidget);
+    // Diet pushes `/health/diet/target`; the app router builds the screen there.
+    expect(find.text('/health/diet/target'), findsOneWidget);
   });
 }

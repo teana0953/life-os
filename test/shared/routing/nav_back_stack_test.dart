@@ -39,6 +39,55 @@ class _Pusher extends StatelessWidget {
 
 void main() {
   testWidgets(
+    'a URL-driven deep route (go) rebuilds the whole nested stack, so pop '
+    'returns one level — not to the base',
+    (tester) async {
+      // `go()` mirrors what a web browser back / refresh does: it reconstructs
+      // the page stack from the URL. With FLAT top-level routes this rebuilt only
+      // the leaf, so a pop collapsed to `/` (the reported "back goes to grid"
+      // bug). Nested routes rebuild every ancestor, so pop steps up one level.
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (c, s) => const Scaffold(body: Text('BASE'))),
+          GoRoute(
+            path: '/health',
+            builder: (c, s) => const Scaffold(body: Text('HEALTH')),
+            routes: [
+              GoRoute(
+                path: 'diet',
+                builder: (c, s) => const Scaffold(body: Text('DIET')),
+                routes: [
+                  GoRoute(
+                    path: 'target',
+                    builder: (c, s) => const Scaffold(body: Text('TARGET')),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+
+      router.go('/health/diet/target');
+      await tester.pumpAndSettle();
+      expect(find.text('TARGET'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('DIET'), findsOneWidget);
+      expect(find.text('BASE'), findsNothing);
+
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('HEALTH'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'two system-backs from a two-push stack return to base in order',
     (tester) async {
       await tester.pumpWidget(

@@ -1,84 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
-import 'package:life_os/contexts/body_profile/application/get_body_profile.dart';
-import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
-import 'package:life_os/contexts/body_profile/application/set_body_profile.dart';
-import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
-import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
-import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
-import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
-import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
-import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
-import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
-import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
-import 'package:life_os/contexts/health/presentation/health_scaffold.dart';
-import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
-import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
-import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
-import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
-import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
-import 'package:life_os/contexts/health/application/change_meal_time.dart';
-import 'package:life_os/contexts/health/application/create_meal.dart';
-import 'package:life_os/contexts/health/application/delete_meal.dart';
-import 'package:life_os/contexts/health/application/delete_meal_item.dart';
-import 'package:life_os/contexts/health/application/edit_meal_item.dart';
-import 'package:life_os/contexts/health/application/favorite_food.dart';
-import 'package:life_os/contexts/health/application/get_day_meals.dart';
-import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
-import 'package:life_os/contexts/health/application/get_logged_days.dart';
-import 'package:life_os/contexts/health/application/list_favorites.dart';
-import 'package:life_os/contexts/health/application/search_dictionary.dart';
-import 'package:life_os/contexts/health/application/set_daily_target.dart';
-import 'package:life_os/contexts/health/application/unfavorite_food.dart';
-import 'package:life_os/contexts/health/domain/daily_target.dart';
-import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
-import 'package:life_os/contexts/health/domain/day_meals_log.dart';
-import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
-import 'package:life_os/contexts/health/domain/food_item.dart';
-import 'package:life_os/contexts/health/domain/meal_entry.dart';
-import 'package:life_os/contexts/health/domain/meal_repository.dart';
-import 'package:life_os/contexts/health/domain/portions.dart';
-import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
-import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
-import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
-import 'package:life_os/contexts/health/presentation/daily_target_screen.dart';
-import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
-import 'package:life_os/contexts/health/presentation/today_controller.dart';
-import 'package:life_os/contexts/hydration/application/add_water.dart';
-import 'package:life_os/contexts/hydration/application/get_water_day.dart';
-import 'package:life_os/contexts/hydration/application/set_water_target.dart';
-import 'package:life_os/contexts/hydration/domain/water_day.dart';
-import 'package:life_os/contexts/hydration/domain/water_repository.dart';
-import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
-import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
-import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
-import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
-import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
-import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
-import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
-import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
-import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
-import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
-import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
-import 'package:life_os/contexts/exercise/application/get_exercise_day.dart';
-import 'package:life_os/contexts/exercise/application/list_exercise_activities.dart';
-import 'package:life_os/contexts/exercise/domain/exercise_day.dart';
-import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
-import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
-import 'package:life_os/contexts/menstrual/application/add_period.dart';
-import 'package:life_os/contexts/menstrual/application/delete_period.dart';
-import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
-import 'package:life_os/contexts/menstrual/application/update_period.dart';
-import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
-import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
-import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
-import 'package:life_os/contexts/settings/presentation/settings_screen.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -119,243 +47,6 @@ class FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
-class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
-  @override
-  Future<List<FoodItem>> search(String idToken, String query) async => [];
-
-  @override
-  Future<List<FoodItem>> listFavorites(String idToken) async => [];
-
-  @override
-  Future<void> favorite(String idToken, String foodItemId) async {}
-
-  @override
-  Future<void> unfavorite(String idToken, String foodItemId) async {}
-}
-
-class _FakeMealRepository implements MealRepository {
-  @override
-  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
-    return DayMealsLog.fromJson({
-      'day': day,
-      'meals': <dynamic>[],
-      'totals': {
-        'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
-        'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
-      },
-    });
-  }
-
-  @override
-  Future<MealEntry> createMeal(
-    String idToken, {
-    required String day,
-    required String meal,
-    DateTime? time,
-    required List<CreateMealItem> items,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<List<String>> loggedDays(String idToken, String month) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> patchMealItem(
-    String idToken,
-    String id, {
-    double? quantity,
-    double? measure,
-    Portions? portions,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deleteMealItem(String idToken, String id) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> patchMealTime(String idToken, String id, DateTime time) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> deleteMeal(String idToken, String id) async {
-    throw UnimplementedError();
-  }
-}
-
-class _FakeDailyTargetRepository implements DailyTargetRepository {
-  @override
-  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
-    return DailyTargetWithRemaining.fromJson({
-      'day': day,
-      'base': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
-      'bonus': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
-      'effective': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
-      'logged': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
-      'remaining': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
-    });
-  }
-
-  @override
-  Future<DailyTarget> setTarget(
-    String idToken, {
-    required String day,
-    required double baseStaple,
-    required double baseMeat,
-    required double baseFruit,
-    required double baseVeg,
-    double? bonusStaple,
-    double? bonusMeat,
-    double? bonusFruit,
-    double? bonusVeg,
-  }) async {
-    throw UnimplementedError();
-  }
-}
-
-class _FakeWaterRepository implements WaterRepository {
-  @override
-  Future<WaterDay> getDay(String idToken, String day) async => WaterDay(
-    day: day,
-    totalMl: 0,
-    targetMl: 2000,
-    remainingMl: 2000,
-  );
-
-  @override
-  Future<int> addWater(
-    String idToken, {
-    required String day,
-    required int addMl,
-  }) async => 0;
-
-  @override
-  Future<int> setTarget(
-    String idToken, {
-    required String day,
-    required int targetMl,
-  }) async => targetMl;
-}
-
-class _FakeBowelRepository implements BowelRepository {
-  @override
-  Future<BowelDay> getDay(String idToken, String day) async =>
-      BowelDay(day: day, count: 0, isNormal: null, note: '');
-
-  @override
-  Future<BowelDay> save(
-    String idToken, {
-    required String day,
-    required int count,
-    required bool? isNormal,
-    required String note,
-  }) async =>
-      BowelDay(day: day, count: count, isNormal: isNormal, note: note);
-}
-
-class _FakeVitalsRepository implements VitalsRepository {
-  @override
-  Future<VitalsRange> getRange(
-    String idToken,
-    DateTime from,
-    DateTime to,
-  ) async => VitalsRange(
-    from: from,
-    to: to,
-    series: const VitalsSeries(
-      weight: [],
-      bodyFat: [],
-      systolic: [],
-      diastolic: [],
-      pulse: [],
-      glucose: [],
-      spo2: [],
-    ),
-  );
-
-  @override
-  Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
-    day: day,
-    weightKg: null,
-    bodyFatPct: null,
-    bpReadings: const [],
-    glucoseReadings: const [],
-    spo2Readings: const [],
-  );
-
-  @override
-  Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
-}
-
-class _FakeExerciseRepository implements ExerciseRepository {
-  @override
-  Future<List<ExerciseActivity>> listActivities(String idToken) async => const [];
-
-  @override
-  Future<ExerciseDay> getDay(String idToken, String day) async =>
-      ExerciseDay(day: day, entries: const [], totalMinutes: 0);
-
-  @override
-  Future<ExerciseEntry> addEntry(
-    String idToken, {
-    required String day,
-    required String activityId,
-    required int durationMinutes,
-    required String note,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<bool> deleteEntry(String idToken, String entryId) async => true;
-}
-
-class _FakeMenstrualRepository implements MenstrualRepository {
-  @override
-  Future<MenstrualOverview> getOverview(String idToken) async =>
-      const MenstrualOverview(periods: [], stats: MenstrualStats());
-
-  @override
-  Future<MenstrualPeriod> addPeriod(
-    String idToken, {
-    required DateTime startDate,
-    DateTime? endDate,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<MenstrualPeriod> updatePeriod(
-    String idToken,
-    String id, {
-    DateTime? startDate,
-    DateTime? endDate,
-    bool clearEndDate = false,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<bool> deletePeriod(String idToken, String id) async => true;
-}
-
-class _FakeBodyProfileRepository implements BodyProfileRepository {
-  @override
-  Future<WeightGoal> getWeightGoal(String idToken) async =>
-      const WeightGoal(targetWeightKg: 51);
-
-  @override
-  Future<BodyProfile> getBodyProfile(String idToken) async =>
-      const BodyProfile(heightCm: 165);
-
-  @override
-  Future<BodyProfile> setBodyProfile(
-    String idToken, {
-    double? heightCm,
-    double? targetWeightKg,
-  }) async => BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
-}
-
 Future<ThemeController> testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -370,80 +61,37 @@ Future<void> pumpHomeScreen(
   AuthRepository? authRepository,
 }) async {
   final localeController = await testLocaleController();
-  final themeController = await testThemeController();
-  final mealRepository = _FakeMealRepository();
-  final dailyTargetRepository = _FakeDailyTargetRepository();
-  final foodDictionaryRepository = _FakeFoodDictionaryRepository();
-  final waterRepository = _FakeWaterRepository();
-  final bowelRepository = _FakeBowelRepository();
-  final vitalsRepository = _FakeVitalsRepository();
-  final exerciseRepository = _FakeExerciseRepository();
-  final menstrualRepository = _FakeMenstrualRepository();
-  final bodyProfileRepository = _FakeBodyProfileRepository();
+  // HomeScreen now navigates by pushing routes (the app router builds the target
+  // screens), so give it a router with marker destinations for `/health` and
+  // `/settings` to assert the tile/icon navigate there.
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) =>
+            HomeScreen(controller: controller, clock: clock ?? DateTime.now),
+      ),
+      GoRoute(
+        path: '/health',
+        builder: (context, state) =>
+            const Scaffold(body: Text('HEALTH-ROUTE')),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) =>
+            const Scaffold(body: Text('SETTINGS-ROUTE')),
+      ),
+    ],
+  );
   await tester.pumpWidget(
-    l10nRouterTestApp(      locale: locale,
-      localeController: localeController,
-      home: HomeScreen(
-        controller: controller,
-        localeController: localeController,
-        themeController: themeController,
-        signOut: SignOut(FakeAuthRepository()),
-        authRepository: authRepository ?? FakeAuthRepository(),
-        healthTodayController: TodayController(
-          GetDayMeals(mealRepository),
-          GetDailyTargetWithRemaining(dailyTargetRepository),
-          EditMealItem(mealRepository),
-          DeleteMealItem(mealRepository),
-          ChangeMealTime(mealRepository),
-          DeleteMeal(mealRepository),
-        ),
-        healthDictionaryController: DictionaryController(
-          SearchDictionary(foodDictionaryRepository),
-          ListFavorites(foodDictionaryRepository),
-          FavoriteFood(foodDictionaryRepository),
-          UnfavoriteFood(foodDictionaryRepository),
-        ),
-        healthDailyTargetController: DailyTargetController(
-          GetDailyTargetWithRemaining(dailyTargetRepository),
-          SetDailyTarget(dailyTargetRepository),
-        ),
-        healthCreateMealController: CreateMealController(
-          CreateMeal(mealRepository),
-        ),
-        healthGetLoggedDays: GetLoggedDays(mealRepository),
-        waterController: WaterController(
-          GetWaterDay(waterRepository),
-          AddWater(waterRepository),
-          SetWaterTarget(waterRepository),
-        ),
-        bowelController: BowelController(
-          GetBowelDay(bowelRepository),
-          SaveBowelDay(bowelRepository),
-        ),
-        vitalsController: VitalsController(
-          GetVitalsDay(vitalsRepository),
-          SaveVitalsDay(vitalsRepository),
-        ),
-        exerciseController: ExerciseController(
-          ListExerciseActivities(exerciseRepository),
-          GetExerciseDay(exerciseRepository),
-          AddExerciseEntry(exerciseRepository),
-          DeleteExerciseEntry(exerciseRepository),
-        ),
-        menstrualController: MenstrualController(
-          GetMenstrualOverview(menstrualRepository),
-          AddPeriod(menstrualRepository),
-          UpdatePeriod(menstrualRepository),
-          DeletePeriod(menstrualRepository),
-        ),
-        weightGoalController: WeightGoalController(
-          GetWeightGoal(bodyProfileRepository),
-          GetBodyProfile(bodyProfileRepository),
-          SetBodyProfile(bodyProfileRepository),
-        ),
-        trendController: TrendController(GetVitalsTrends(vitalsRepository)),
-        healthCalendarController: HealthCalendarController(GetHealthCalendar(_FakeHealthCalendarRepository())),
-        clock: clock ?? DateTime.now,
+    AnimatedBuilder(
+      animation: localeController,
+      builder: (context, _) => MaterialApp.router(
+        locale: localeController.locale ?? locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: testSupportedLocales,
+        routerConfig: router,
       ),
     ),
   );
@@ -476,11 +124,8 @@ void main() {
     );
 
     testWidgets(
-      'tapping the health tile lands on HealthScaffold; the 記錄 tab reaches '
-      'the diet day screen',
+      'tapping the health tile navigates to the health route',
       (tester) async {
-        await tester.binding.setSurfaceSize(const Size(700, 1600));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
             id: 'user-1',
@@ -489,53 +134,21 @@ void main() {
             displayName: 'Test User',
             createdAt: '2026-01-01T00:00:00.000Z',
           );
-        final authRepository = FakeAuthRepository();
         final controller = HomeController(
           GetProfile(profileRepository),
-          SignOut(authRepository),
+          SignOut(FakeAuthRepository()),
         );
         await controller.load('token-123');
-        await pumpHomeScreen(tester, controller, authRepository: authRepository);
+        await pumpHomeScreen(tester, controller);
 
-        expect(find.byType(HealthScaffold), findsNothing);
+        expect(find.text('HEALTH-ROUTE'), findsNothing);
 
         await tester.tap(find.byKey(const Key('health-tile')));
         await tester.pumpAndSettle();
 
-        // The health module now lands on the persistent-nav scaffold, on 總覽.
-        expect(find.byType(HealthScaffold), findsOneWidget);
-        expect(find.byType(DietDayScreen), findsNothing);
-        expect(find.byType(GoalCard), findsOneWidget); // 總覽 shows the goal card
-
-        // Recording is one tap away: the 記錄 tab shows every tracker as a tile.
-        await tester.tap(find.byIcon(Icons.edit_note));
-        await tester.pumpAndSettle();
-        for (final t in const [
-          'hub-tile-diet',
-          'hub-tile-water',
-          'hub-tile-vitals',
-          'hub-tile-exercise',
-          'hub-tile-bowel',
-          'hub-tile-menstrual',
-        ]) {
-          expect(find.byKey(Key(t)), findsOneWidget);
-        }
-
-        // 更多 reaches settings; 記錄 → the diet tile opens the diet day screen.
-        await tester.tap(find.byIcon(Icons.more_horiz));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('health-more-settings')), findsOneWidget);
-
-        await tester.tap(find.byIcon(Icons.edit_note));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('hub-tile-diet')));
-        await tester.pumpAndSettle();
-        expect(find.byType(DietDayScreen), findsOneWidget);
-
-        // The daily target is now an app-bar action within the diet screen.
-        await tester.tap(find.byKey(const Key('diet-open-target')));
-        await tester.pumpAndSettle();
-        expect(find.byType(DailyTargetScreen), findsOneWidget);
+        // HomeScreen pushes `/health`; the app router builds the module there.
+        // The full grid → health → diet flow is covered at the app level.
+        expect(find.text('HEALTH-ROUTE'), findsOneWidget);
       },
     );
 
@@ -668,7 +281,7 @@ void main() {
     );
 
     testWidgets(
-      'tapping the settings icon navigates to the SettingsScreen',
+      'tapping the settings icon navigates to the settings route',
       (tester) async {
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
@@ -678,20 +291,19 @@ void main() {
             displayName: 'Test User',
             createdAt: '2026-01-01T00:00:00.000Z',
           );
-        final authRepository = FakeAuthRepository();
         final controller = HomeController(
           GetProfile(profileRepository),
-          SignOut(authRepository),
+          SignOut(FakeAuthRepository()),
         );
         await controller.load('token-123');
         await pumpHomeScreen(tester, controller);
 
-        expect(find.byType(SettingsScreen), findsNothing);
+        expect(find.text('SETTINGS-ROUTE'), findsNothing);
 
         await tester.tap(find.byKey(const Key('settings-icon-button')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(SettingsScreen), findsOneWidget);
+        expect(find.text('SETTINGS-ROUTE'), findsOneWidget);
       },
     );
 
@@ -787,19 +399,3 @@ void main() {
   });
 }
 
-class _FakeHealthCalendarRepository implements HealthCalendarRepository {
-  @override
-  Future<HealthCalendar> getCalendar(
-    String idToken, {
-    required int year,
-    required int month,
-    required String today,
-  }) async => HealthCalendar(
-    year: year,
-    month: month,
-    loggedDays: const {},
-    daysElapsed: 0,
-    loggingRate: null,
-    dietAdherenceRate: null,
-  );
-}

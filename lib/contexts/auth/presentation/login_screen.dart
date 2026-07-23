@@ -8,7 +8,6 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../application/sign_up.dart';
 import 'login_controller.dart';
-import 'register_screen.dart';
 
 /// Card width above which the sign-in card stops growing (design.md:
 /// centered, bounded-width card on wide/desktop viewports).
@@ -183,16 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 key: const Key('register-link'),
                                 onPressed: isLoading
                                     ? null
-                                    : () {
-                                        context.push(
-                                          '/register',
-                                          extra: RegisterScreen(
-                                            signUp: widget.signUp,
-                                            localeController:
-                                                widget.localeController,
-                                          ),
-                                        );
-                                      },
+                                    : () => context.push('/register'),
                                 child: Text(loc.noAccountLink),
                               ),
                             ],

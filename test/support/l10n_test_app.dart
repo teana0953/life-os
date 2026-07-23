@@ -66,8 +66,12 @@ Widget l10nRouterTestApp({
   ThemeData? theme,
   LocaleController? localeController,
 }) {
-  Widget extra(GoRouterState state) =>
-      state.extra is Widget ? state.extra as Widget : const SizedBox.shrink();
+  // A pushed full screen may ride in `extra`; when it doesn't (the app router
+  // builds it from DI in production), render the matched location so a unit test
+  // can still assert *where* a tap navigated.
+  Widget extra(GoRouterState state) => state.extra is Widget
+      ? state.extra as Widget
+      : Scaffold(body: Text(state.matchedLocation));
   final router = GoRouter(
     initialLocation: '/',
     routes: [
