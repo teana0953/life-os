@@ -264,7 +264,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietBonusNote =>
-      '✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).';
+      '✳️ Exercise adds bonus portions to the day\'s target (staple & meat).';
 
   @override
   String get dietTodayTitle => 'Today\'s Food';

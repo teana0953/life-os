@@ -561,10 +561,10 @@ abstract class AppLocalizations {
   /// **'Unable to load your diet data. Please try again.'**
   String get errorDietLoadFailed;
 
-  /// Muted, non-editable note on the daily target screen about a future exercise-based bonus.
+  /// Muted, non-editable note on the daily target screen explaining that logging exercise raises the day's staple and meat portion target.
   ///
   /// In en, this message translates to:
-  /// **'✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).'**
+  /// **'✳️ Exercise adds bonus portions to the day\'s target (staple & meat).'**
   String get dietBonusNote;
 
   /// Header title shown above the day-navigation row when the viewed day is today.

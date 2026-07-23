@@ -329,9 +329,9 @@
   "@errorDietLoadFailed": {
     "description": "Shown when diet data (today's log, dictionary, or target) fails to load."
   },
-  "dietBonusNote": "✳️ Bonus portions from exercise can be added later (exercise module integration coming soon).",
+  "dietBonusNote": "✳️ Exercise adds bonus portions to the day's target (staple & meat).",
   "@dietBonusNote": {
-    "description": "Muted, non-editable note on the daily target screen about a future exercise-based bonus."
+    "description": "Muted, non-editable note on the daily target screen explaining that logging exercise raises the day's staple and meat portion target."
   },
   "dietTodayTitle": "Today's Food",
   "@dietTodayTitle": {
