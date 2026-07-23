@@ -77,7 +77,7 @@ void main() {
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],
           glucoseReadings: [
-            GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+            GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
           ],
           spo2Readings: [Spo2Reading(spo2: 98, pulse: null, time: '10:00')],
         );
@@ -230,7 +230,7 @@ void main() {
       controller.addGlucoseReading();
       controller.updateGlucoseReading(
         0,
-        const GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
       );
       await controller.save('token', '2026-07-18');
 
@@ -267,7 +267,7 @@ void main() {
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: ''),
           ],
-          glucoseReadings: [GlucoseReading(label: '餐前', value: 95, time: '')],
+          glucoseReadings: [GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '')],
           spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '')],
         );
       final controller = _controller(
@@ -312,7 +312,7 @@ void main() {
       controller.addGlucoseReading();
       controller.updateGlucoseReading(
         0,
-        const GlucoseReading(label: '餐前', value: 95, time: '07:45'),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
       );
       controller.addGlucoseReading();
 
@@ -335,7 +335,7 @@ void main() {
       );
       expect(
         repository.savedDay!.glucoseReadings,
-        const [GlucoseReading(label: '餐前', value: 95, time: '07:45')],
+        const [GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45')],
       );
       expect(
         repository.savedDay!.spo2Readings,

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../domain/vitals_day.dart';
 import '../domain/vitals_series.dart';
 import 'trend_controller.dart';
 
@@ -144,32 +145,73 @@ class _TrendCardState extends State<TrendCard> {
 
     final scheme = theme.colorScheme;
     final range = controller.range;
-    // The lines plotted for the selected view: one per metric (a single line
-    // for most views; three for the blood pressure & pulse view).
-    final metrics = metricsForView(_selected);
-    final lines = [
-      for (final metric in metrics)
+    final isGlucose = _selected == TrendView.glucose;
+
+    // The lines plotted for the selected view. Most views map to their metrics
+    // (one line each; three for blood pressure & pulse). The glucose view is
+    // special: its single glucose series is split by meal context into up to
+    // four coloured lines (fasting / pre-meal / post-meal / unspecified).
+    final List<_ChartLine> lines;
+    if (isGlucose) {
+      final glucose = range?.series.glucose ?? const <SeriesPoint>[];
+      List<SeriesPoint> pointsFor(GlucoseMealContext? context) =>
+          [for (final p in glucose) if (p.mealContext == context) p];
+      lines = [
         _ChartLine(
-          points: range == null
-              ? const <SeriesPoint>[]
-              : seriesFor(range.series, metric),
-          color: _metricColor(scheme, metric),
-          label: _metricLabel(loc, metric),
+          points: pointsFor(GlucoseMealContext.fasting),
+          color: scheme.primary,
+          label: loc.glucoseContextFasting,
         ),
-    ];
+        _ChartLine(
+          points: pointsFor(GlucoseMealContext.preMeal),
+          color: scheme.secondary,
+          label: loc.glucoseContextPreMeal,
+        ),
+        _ChartLine(
+          points: pointsFor(GlucoseMealContext.postMeal),
+          color: scheme.onSurfaceVariant,
+          label: loc.glucoseContextPostMeal,
+        ),
+        _ChartLine(
+          points: pointsFor(null),
+          color: scheme.tertiary,
+          label: loc.glucoseContextUnspecified,
+        ),
+      ];
+    } else {
+      final metrics = metricsForView(_selected);
+      lines = [
+        for (final metric in metrics)
+          _ChartLine(
+            points: range == null
+                ? const <SeriesPoint>[]
+                : seriesFor(range.series, metric),
+            color: _metricColor(scheme, metric),
+            label: _metricLabel(loc, metric),
+          ),
+      ];
+    }
     final hasChart = range != null && lines.any((l) => l.points.isNotEmpty);
     // A span-switch reload (status is loading but a previous range is still
     // held): keep the shell and overlay a thin progress bar over the chart.
     final reloading = controller.status == TrendStatus.loading;
 
-    // The normal reference band applies to single-metric views only; combining
-    // three overlapping clinical bands (BP & pulse) would be noise, so that
-    // view shows none. Its subtle fill is Theme-derived so it reads in both
-    // light and dark.
-    final normal = metrics.length == 1
-        ? normalRangeFor(metrics.single, heightCm: widget.heightCm)
-        : null;
+    // The normal reference band: a single-metric view uses its metric's range;
+    // the glucose view keeps a general glucose band (70–140) behind its
+    // per-context lines; the BP & pulse view shows none (three overlapping
+    // clinical bands would be noise). Its subtle fill is Theme-derived so it
+    // reads in both light and dark.
+    final NormalRange? normal;
+    if (isGlucose) {
+      normal = normalRangeFor(VitalsMetric.glucose);
+    } else {
+      final metrics = metricsForView(_selected);
+      normal = metrics.length == 1
+          ? normalRangeFor(metrics.single, heightCm: widget.heightCm)
+          : null;
+    }
     final bandColor = scheme.tertiary.withValues(alpha: 0.14);
+    final isMultiLine = lines.length > 1;
 
     // Screen-reader summary of the chart (fl_chart renders no semantics of its
     // own): the view + range in days, plus the latest value with unit for a
@@ -179,7 +221,7 @@ class _TrendCardState extends State<TrendCard> {
             _viewLabel(loc, _selected),
             controller.spanDays,
           )
-        : metrics.length == 1
+        : !isMultiLine
         ? loc.trendChartSemantics(
             _viewLabel(loc, _selected),
             controller.spanDays,
@@ -282,7 +324,9 @@ class _TrendCardState extends State<TrendCard> {
               ),
             ),
           ),
-          if (hasChart && lines.length > 1) ...[
+          // A multi-line view labels each line; a view with a band labels it.
+          // The glucose view has both (per-context lines over a glucose band).
+          if (hasChart && isMultiLine) ...[
             const SizedBox(height: 8),
             Wrap(
               key: const Key('trend-lines-legend'),
@@ -298,7 +342,8 @@ class _TrendCardState extends State<TrendCard> {
                     ),
               ],
             ),
-          ] else if (normal != null && hasChart) ...[
+          ],
+          if (hasChart && normal != null) ...[
             const SizedBox(height: 8),
             _LegendEntry(
               key: const Key('trend-normal-range-legend'),
@@ -372,8 +417,9 @@ class _ChartLine {
 }
 
 /// The fl_chart plot of one or more [lines] over the range starting at [from].
-/// The x value of each point is its day offset from [from], computed with
-/// UTC/date-component arithmetic so a DST boundary can't shift it by a day.
+/// The x value of each point is its day offset from [from] plus the fraction of
+/// the day its time represents, so several readings on one day spread across
+/// that day's slot; day arithmetic uses UTC components so DST can't shift it.
 class _TrendChart extends StatelessWidget {
   final List<_ChartLine> lines;
   final DateTime from;
@@ -399,7 +445,10 @@ class _TrendChart extends StatelessWidget {
     final dateFormat = DateFormat.Md(languageTag);
     final spotsPerLine = [
       for (final line in lines)
-        [for (final p in line.points) FlSpot(_dayOffset(p.day, from), p.value)],
+        [
+          for (final p in line.points)
+            FlSpot(_pointX(p.day, p.time, from), p.value),
+        ],
     ];
     final allSpots = [for (final spots in spotsPerLine) ...spots];
     // The x axis runs 0 (range start) → maxX (last day offset). A handful of
@@ -537,4 +586,21 @@ double _dayOffset(DateTime day, DateTime from) {
   final d = DateTime.utc(day.year, day.month, day.day);
   final f = DateTime.utc(from.year, from.month, from.day);
   return d.difference(f).inDays.toDouble();
+}
+
+/// The x position of a point: its whole-day offset plus the fraction of the day
+/// its [time] (`HH:mm`) represents, so several readings on one day spread across
+/// that day's slot instead of stacking. An empty/invalid time contributes 0.
+double _pointX(DateTime day, String time, DateTime from) =>
+    _dayOffset(day, from) + _dayFraction(time);
+
+/// The fraction of a day (0–1) that an `HH:mm` [time] represents; 0 when empty
+/// or malformed.
+double _dayFraction(String time) {
+  final parts = time.split(':');
+  if (parts.length != 2) return 0;
+  final h = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) return 0;
+  return (h * 60 + m) / 1440;
 }

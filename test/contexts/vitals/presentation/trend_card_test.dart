@@ -32,6 +32,10 @@ class _FakeVitalsRepository implements VitalsRepository {
   /// combined blood pressure & pulse view can be plotted).
   bool bpHasData = false;
 
+  /// Whether the glucose series has points (with meal contexts) so the
+  /// per-context glucose view can be plotted.
+  bool glucoseHasData = false;
+
   /// When set, getRange blocks on this until it completes (so a reload's
   /// loading state can be observed mid-flight).
   Completer<void>? gate;
@@ -49,40 +53,57 @@ class _FakeVitalsRepository implements VitalsRepository {
       series: VitalsSeries(
         weight: weightHasData
             ? [
-                SeriesPoint(day: from, value: 65),
-                SeriesPoint(day: to, value: 64),
+                SeriesPoint(day: from, time: '', value: 65),
+                SeriesPoint(day: to, time: '', value: 64),
               ]
             : const [],
         // body fat has no points → its empty-state can be asserted.
         bodyFat: bodyFatHasData
             ? [
-                SeriesPoint(day: from, value: 20),
-                SeriesPoint(day: to, value: 21),
+                SeriesPoint(day: from, time: '', value: 20),
+                SeriesPoint(day: to, time: '', value: 21),
               ]
             : const [],
         systolic: bpHasData
             ? [
-                SeriesPoint(day: from, value: 120),
-                SeriesPoint(day: to, value: 118),
+                SeriesPoint(day: from, time: '', value: 120),
+                SeriesPoint(day: to, time: '', value: 118),
               ]
             : const [],
         diastolic: bpHasData
             ? [
-                SeriesPoint(day: from, value: 80),
-                SeriesPoint(day: to, value: 78),
+                SeriesPoint(day: from, time: '', value: 80),
+                SeriesPoint(day: to, time: '', value: 78),
               ]
             : const [],
         pulse: bpHasData
             ? [
-                SeriesPoint(day: from, value: 72),
-                SeriesPoint(day: to, value: 70),
+                SeriesPoint(day: from, time: '', value: 72),
+                SeriesPoint(day: to, time: '', value: 70),
               ]
             : const [],
-        glucose: const [],
+        glucose: glucoseHasData
+            ? [
+                // Two contexts + one untagged reading (the 未分類 line).
+                SeriesPoint(
+                  day: from,
+                  time: '07:00',
+                  value: 95,
+                  mealContext: GlucoseMealContext.fasting,
+                ),
+                SeriesPoint(
+                  day: from,
+                  time: '13:00',
+                  value: 130,
+                  mealContext: GlucoseMealContext.postMeal,
+                ),
+                SeriesPoint(day: to, time: '18:00', value: 110),
+              ]
+            : const [],
         spo2: spo2HasData
             ? [
-                SeriesPoint(day: from, value: 98),
-                SeriesPoint(day: to, value: 97),
+                SeriesPoint(day: from, time: '', value: 98),
+                SeriesPoint(day: to, time: '', value: 97),
               ]
             : const [],
       ),
@@ -414,6 +435,32 @@ void main() {
         findsOneWidget,
       );
       handle.dispose();
+    },
+  );
+
+  testWidgets(
+    'the glucose view splits by meal context into lines and keeps a band',
+    (tester) async {
+      await _pump(tester, _FakeVitalsRepository()..glucoseHasData = true);
+
+      await tester.tap(find.byKey(const Key('trend-view-glucose')));
+      await tester.pumpAndSettle();
+
+      // Fasting + post-meal + untagged → three lines (pre-meal has no data).
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(lineCount(tester), 4); // one bar per context (empty ones plot nothing)
+      // The per-context legend names the contexts that have data.
+      expect(find.byKey(const Key('trend-lines-legend')), findsOneWidget);
+      expect(find.text(_en.glucoseContextFasting), findsOneWidget);
+      expect(find.text(_en.glucoseContextPostMeal), findsOneWidget);
+      expect(find.text(_en.glucoseContextUnspecified), findsOneWidget);
+      // Pre-meal has no data, so it's absent from the legend.
+      expect(find.text(_en.glucoseContextPreMeal), findsNothing);
+
+      // The glucose band (70–140) is kept, with its normal-range legend.
+      expect(bands(tester), hasLength(1));
+      expect(find.byKey(const Key('trend-normal-range-legend')), findsOneWidget);
+      expect(find.text(_en.trendNormalRangeLabel), findsOneWidget);
     },
   );
 }

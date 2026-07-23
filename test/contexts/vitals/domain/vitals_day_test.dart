@@ -45,8 +45,8 @@ void main() {
       expect(reading, isNot(reading.copyWith(time: '09:15')));
       expect(reading.copyWith(time: '09:15').time, '09:15');
       expect(
-        const GlucoseReading(label: '餐前', value: 95, time: '08:30'),
-        isNot(const GlucoseReading(label: '餐前', value: 95, time: '09:15')),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '08:30'),
+        isNot(const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '09:15')),
       );
       expect(
         const Spo2Reading(spo2: 98, pulse: null, time: '08:30'),
@@ -56,12 +56,12 @@ void main() {
 
     test('GlucoseReading compares by value', () {
       expect(
-        const GlucoseReading(label: '餐前', value: 95, time: '08:30'),
-        const GlucoseReading(label: '餐前', value: 95, time: '08:30'),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '08:30'),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '08:30'),
       );
       expect(
-        const GlucoseReading(label: '餐前', value: 95, time: '08:30'),
-        isNot(const GlucoseReading(label: '餐後', value: 95, time: '08:30')),
+        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '08:30'),
+        isNot(const GlucoseReading(label: '餐後', value: 95, mealContext: null, time: '08:30')),
       );
     });
 
@@ -157,7 +157,7 @@ void main() {
           BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
         ],
         glucoseReadings: [
-          GlucoseReading(label: '餐後', value: 110, time: '12:30'),
+          GlucoseReading(label: '餐後', value: 110, mealContext: null, time: '12:30'),
         ],
         spo2Readings: [Spo2Reading(spo2: 97, pulse: 66, time: '22:05')],
       );

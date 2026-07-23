@@ -1011,18 +1011,6 @@ abstract class AppLocalizations {
   /// **'SpO₂ (%)'**
   String get vitalsSpo2Label;
 
-  /// Quick-pick label setting a glucose reading's label to 'before meal'.
-  ///
-  /// In en, this message translates to:
-  /// **'Before meal'**
-  String get vitalsGlucoseBeforeMeal;
-
-  /// Quick-pick label setting a glucose reading's label to 'after meal'.
-  ///
-  /// In en, this message translates to:
-  /// **'After meal'**
-  String get vitalsGlucoseAfterMeal;
-
   /// Label for the control that appends a new reading row to a vitals list (blood pressure, glucose, or blood oxygen).
   ///
   /// In en, this message translates to:
@@ -1574,6 +1562,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'BP & pulse'**
   String get trendMetricBloodPressurePulse;
+
+  /// Glucose meal-context: a reading taken while fasting. Used by the glucose input picker and the trend legend.
+  ///
+  /// In en, this message translates to:
+  /// **'Fasting'**
+  String get glucoseContextFasting;
+
+  /// Glucose meal-context: a reading taken before a meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Before meal'**
+  String get glucoseContextPreMeal;
+
+  /// Glucose meal-context: a reading taken after a meal.
+  ///
+  /// In en, this message translates to:
+  /// **'After meal'**
+  String get glucoseContextPostMeal;
+
+  /// Glucose meal-context: a reading with no meal context recorded (e.g. legacy data). Shown in the trend legend.
+  ///
+  /// In en, this message translates to:
+  /// **'Unspecified'**
+  String get glucoseContextUnspecified;
 
   /// Range-selector label for a 7-day trend window.
   ///

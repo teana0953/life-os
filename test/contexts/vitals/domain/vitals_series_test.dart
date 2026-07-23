@@ -82,13 +82,13 @@ void main() {
   group('seriesFor', () {
     test('maps each metric to its corresponding series', () {
       final series = VitalsSeries(
-        weight: [SeriesPoint(day: DateTime(2026, 7, 1), value: 65)],
-        bodyFat: [SeriesPoint(day: DateTime(2026, 7, 1), value: 20)],
-        systolic: [SeriesPoint(day: DateTime(2026, 7, 1), value: 120)],
-        diastolic: [SeriesPoint(day: DateTime(2026, 7, 1), value: 80)],
-        pulse: [SeriesPoint(day: DateTime(2026, 7, 1), value: 70)],
-        glucose: [SeriesPoint(day: DateTime(2026, 7, 1), value: 95)],
-        spo2: [SeriesPoint(day: DateTime(2026, 7, 1), value: 98)],
+        weight: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 65)],
+        bodyFat: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 20)],
+        systolic: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 120)],
+        diastolic: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 80)],
+        pulse: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 70)],
+        glucose: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 95)],
+        spo2: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 98)],
       );
 
       expect(seriesFor(series, VitalsMetric.weight).single.value, 65);

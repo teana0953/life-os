@@ -118,7 +118,7 @@ class VitalsController extends ChangeNotifier {
   void addGlucoseReading() {
     glucoseReadings = [
       ...glucoseReadings,
-      GlucoseReading(label: '', value: 0, time: _nowHHmm()),
+      GlucoseReading(label: '', value: 0, mealContext: null, time: _nowHHmm()),
     ];
     notifyListeners();
   }
