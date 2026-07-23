@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_header.dart';
+import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/vitals_day.dart';
 import 'vitals_controller.dart';
 
@@ -32,7 +33,14 @@ class VitalsScreen extends StatefulWidget {
   State<VitalsScreen> createState() => _VitalsScreenState();
 }
 
-class _VitalsScreenState extends State<VitalsScreen> {
+class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
+  @override
+  String get initialDay => widget.day;
+  @override
+  DateTime Function() get clock => widget.clock;
+  @override
+  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +59,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
   /// transient save-failed snackbar over the still-rendered form. `needsReauth`
   /// routes via [build] instead, so it is left alone.
   Future<void> _save() async {
-    await widget.controller.save(widget.idToken, widget.day);
+    await widget.controller.save(widget.idToken, viewedDay);
     if (!mounted) return;
     if (widget.controller.status == VitalsStatus.error) {
       final loc = AppLocalizations.of(context)!;
@@ -132,10 +140,10 @@ class _VitalsScreenState extends State<VitalsScreen> {
         controller.status == VitalsStatus.saving;
 
     // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
-    // Scaffolds so the pushed full-screen tracker keeps a back button in every
-    // state (only one Scaffold is built per pass, so reusing the instance is
-    // safe).
-    final appBar = AppBar(title: Text(loc.dietTabVitals));
+    // Scaffolds so the pushed full-screen tracker keeps a back button + day nav
+    // in every state (only one Scaffold is built per pass, so reusing the
+    // instance is safe).
+    final appBar = dayAppBar(loc.dietTabVitals);
 
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
@@ -179,7 +187,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TrackerDayHeader(
-                              day: widget.day,
+                              day: viewedDay,
                               clock: widget.clock,
                               todayTitle: loc.vitalsTitle,
                               historyTitle: loc.vitalsHistoryTitle,

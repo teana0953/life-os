@@ -5,6 +5,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../../shared/widgets/tracker_day_header.dart';
+import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/exercise_day.dart';
 import 'exercise_controller.dart';
 
@@ -34,7 +35,14 @@ class ExerciseScreen extends StatefulWidget {
   State<ExerciseScreen> createState() => _ExerciseScreenState();
 }
 
-class _ExerciseScreenState extends State<ExerciseScreen> {
+class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
+  @override
+  String get initialDay => widget.day;
+  @override
+  DateTime Function() get clock => widget.clock;
+  @override
+  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+
   @override
   void initState() {
     super.initState();
@@ -69,8 +77,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   /// to `_runMutation`'s own handling (error SnackBar / reauth screen) and shows
   /// no undo prompt.
   Future<void> _removeEntry(ExerciseEntry entry) async {
+    // Pin the day at delete time so a later Undo re-adds to the day the entry
+    // was removed from — not whichever day the user has since browsed to.
+    final day = viewedDay;
     await _runMutation(
-      () => widget.controller.deleteEntry(widget.idToken, widget.day, entry.id),
+      () => widget.controller.deleteEntry(widget.idToken, day, entry.id),
     );
     if (!mounted) return;
     if (widget.controller.status != ExerciseStatus.loaded) return;
@@ -83,7 +94,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           onPressed: () => _runMutation(
             () => widget.controller.addEntry(
               widget.idToken,
-              widget.day,
+              day,
               activityId: entry.activityId,
               durationMinutes: entry.durationMinutes,
               note: entry.note,
@@ -110,7 +121,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     await _runMutation(
       () => widget.controller.addEntry(
         widget.idToken,
-        widget.day,
+        viewedDay,
         activityId: result.activityId,
         durationMinutes: result.durationMinutes,
         note: result.note,
@@ -128,10 +139,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         controller.status == ExerciseStatus.saving;
 
     // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
-    // Scaffolds so the pushed full-screen tracker keeps a back button in every
-    // state (only one Scaffold is built per pass, so reusing the instance is
-    // safe).
-    final appBar = AppBar(title: Text(loc.dietTabExercise));
+    // Scaffolds so the pushed full-screen tracker keeps a back button + day nav
+    // in every state (only one Scaffold is built per pass, so reusing the
+    // instance is safe).
+    final appBar = dayAppBar(loc.dietTabExercise);
 
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
@@ -177,7 +188,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TrackerDayHeader(
-                              day: widget.day,
+                              day: viewedDay,
                               clock: widget.clock,
                               todayTitle: loc.exerciseTitle,
                               historyTitle: loc.exerciseHistoryTitle,

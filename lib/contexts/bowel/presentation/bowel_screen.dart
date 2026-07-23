@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_header.dart';
+import '../../../shared/widgets/tracker_day_nav.dart';
 import 'bowel_controller.dart';
 
 /// Bowel section: a small form recording the day's bowel-movement count, an
@@ -30,10 +31,17 @@ class BowelScreen extends StatefulWidget {
   State<BowelScreen> createState() => _BowelScreenState();
 }
 
-class _BowelScreenState extends State<BowelScreen> {
+class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
   late final TextEditingController _noteController = TextEditingController(
     text: widget.controller.note,
   );
+
+  @override
+  String get initialDay => widget.day;
+  @override
+  DateTime Function() get clock => widget.clock;
+  @override
+  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
 
   @override
   void initState() {
@@ -62,7 +70,7 @@ class _BowelScreenState extends State<BowelScreen> {
   /// transient save-failed snackbar over the still-rendered form. `needsReauth`
   /// routes via [build] instead, so it is left alone.
   Future<void> _save() async {
-    await widget.controller.save(widget.idToken, widget.day);
+    await widget.controller.save(widget.idToken, viewedDay);
     if (!mounted) return;
     if (widget.controller.status == BowelStatus.error) {
       final loc = AppLocalizations.of(context)!;
@@ -82,10 +90,10 @@ class _BowelScreenState extends State<BowelScreen> {
         controller.status == BowelStatus.saving;
 
     // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
-    // Scaffolds so the pushed full-screen tracker keeps a back button in every
-    // state (only one Scaffold is built per pass, so reusing the instance is
-    // safe).
-    final appBar = AppBar(title: Text(loc.dietTabBowel));
+    // Scaffolds so the pushed full-screen tracker keeps a back button + day nav
+    // in every state (only one Scaffold is built per pass, so reusing the
+    // instance is safe).
+    final appBar = dayAppBar(loc.dietTabBowel);
 
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
@@ -129,7 +137,7 @@ class _BowelScreenState extends State<BowelScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TrackerDayHeader(
-                              day: widget.day,
+                              day: viewedDay,
                               clock: widget.clock,
                               todayTitle: loc.bowelTitle,
                               historyTitle: loc.bowelHistoryTitle,

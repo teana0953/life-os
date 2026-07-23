@@ -6,6 +6,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_header.dart';
+import '../../../shared/widgets/tracker_day_nav.dart';
 import 'water_controller.dart';
 
 /// Water section: the day's total against its target with a progress bar,
@@ -33,7 +34,14 @@ class WaterScreen extends StatefulWidget {
   State<WaterScreen> createState() => _WaterScreenState();
 }
 
-class _WaterScreenState extends State<WaterScreen> {
+class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
+  @override
+  String get initialDay => widget.day;
+  @override
+  DateTime Function() get clock => widget.clock;
+  @override
+  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+
   @override
   void initState() {
     super.initState();
@@ -77,7 +85,7 @@ class _WaterScreenState extends State<WaterScreen> {
     );
     if (amount != null && amount != 0) {
       await _runMutation(
-        () => widget.controller.addWater(widget.idToken, widget.day, amount),
+        () => widget.controller.addWater(widget.idToken, viewedDay, amount),
       );
     }
   }
@@ -98,7 +106,7 @@ class _WaterScreenState extends State<WaterScreen> {
     );
     if (target != null) {
       await _runMutation(
-        () => widget.controller.setTarget(widget.idToken, widget.day, target),
+        () => widget.controller.setTarget(widget.idToken, viewedDay, target),
       );
     }
   }
@@ -112,10 +120,10 @@ class _WaterScreenState extends State<WaterScreen> {
         controller.status == WaterStatus.loading ||
         controller.status == WaterStatus.saving;
 
-    // A back-able header (like the other trackers): water used to be a tab in
-    // the diet shell, so it had none; now it's pushed from the record hub and
-    // needs its own app bar so the user isn't trapped.
-    final appBar = AppBar(title: Text(loc.dietTabWater));
+    // A back-able header with a day switcher (like the other trackers): water
+    // used to be a tab in the diet shell that owned the day; pushed from the
+    // record hub it needs its own app bar + day nav.
+    final appBar = dayAppBar(loc.dietTabWater);
 
     // Full-screen spinner only on the very first load, when there is no data
     // to show yet. Once a day is loaded, mutations/reloads keep the content
@@ -167,7 +175,7 @@ class _WaterScreenState extends State<WaterScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TrackerDayHeader(
-                              day: widget.day,
+                              day: viewedDay,
                               clock: widget.clock,
                               todayTitle: loc.waterTitle,
                               historyTitle: loc.waterHistoryTitle,
@@ -202,7 +210,7 @@ class _WaterScreenState extends State<WaterScreen> {
                                         : () => _runMutation(
                                             () => controller.addWater(
                                               widget.idToken,
-                                              widget.day,
+                                              viewedDay,
                                               250,
                                             ),
                                           ),
@@ -218,7 +226,7 @@ class _WaterScreenState extends State<WaterScreen> {
                                         : () => _runMutation(
                                             () => controller.addWater(
                                               widget.idToken,
-                                              widget.day,
+                                              viewedDay,
                                               500,
                                             ),
                                           ),
@@ -246,7 +254,7 @@ class _WaterScreenState extends State<WaterScreen> {
                                         : () => _runMutation(
                                             () => controller.correct(
                                               widget.idToken,
-                                              widget.day,
+                                              viewedDay,
                                               -250,
                                             ),
                                           ),
