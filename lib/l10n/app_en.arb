@@ -1008,5 +1008,108 @@
   "errorWeightGoalLoadFailed": "Unable to load your goal. Please try again.",
   "@errorWeightGoalLoadFailed": {
     "description": "Shown on the goal card / dashboard when loading (or saving) the weight goal fails (not an auth failure)."
+  },
+  "trendCardTitle": "Trends",
+  "@trendCardTitle": {
+    "description": "Title of the dashboard trend card showing a line chart of a vitals metric over time."
+  },
+  "trendMetricWeight": "Weight",
+  "@trendMetricWeight": {
+    "description": "Metric-picker label for the body-weight trend series."
+  },
+  "trendMetricBodyFat": "Body fat",
+  "@trendMetricBodyFat": {
+    "description": "Metric-picker label for the body-fat-percentage trend series."
+  },
+  "trendMetricSystolic": "Systolic",
+  "@trendMetricSystolic": {
+    "description": "Metric-picker label for the systolic blood-pressure trend series."
+  },
+  "trendMetricDiastolic": "Diastolic",
+  "@trendMetricDiastolic": {
+    "description": "Metric-picker label for the diastolic blood-pressure trend series."
+  },
+  "trendMetricPulse": "Pulse",
+  "@trendMetricPulse": {
+    "description": "Metric-picker label for the pulse (heart-rate) trend series."
+  },
+  "trendMetricGlucose": "Glucose",
+  "@trendMetricGlucose": {
+    "description": "Metric-picker label for the blood-glucose trend series."
+  },
+  "trendMetricSpo2": "Blood oxygen",
+  "@trendMetricSpo2": {
+    "description": "Metric-picker label for the blood-oxygen (SpO2) trend series."
+  },
+  "trendRange7": "7 days",
+  "@trendRange7": {
+    "description": "Range-selector label for a 7-day trend window."
+  },
+  "trendRange30": "30 days",
+  "@trendRange30": {
+    "description": "Range-selector label for a 30-day trend window."
+  },
+  "trendRange90": "90 days",
+  "@trendRange90": {
+    "description": "Range-selector label for a 90-day trend window."
+  },
+  "trendEmpty": "No data yet",
+  "@trendEmpty": {
+    "description": "Shown in the trend card's chart area when the selected metric has no recorded points in the range."
+  },
+  "trendLoadFailed": "Unable to load your trends. Please try again.",
+  "@trendLoadFailed": {
+    "description": "Shown on the trend card when loading the trend range fails (not an auth failure)."
+  },
+  "trendUnitKg": "kg",
+  "@trendUnitKg": {
+    "description": "Unit suffix shown near the trend card title for the weight metric (kilograms)."
+  },
+  "trendUnitPercent": "%",
+  "@trendUnitPercent": {
+    "description": "Unit suffix shown near the trend card title for the body-fat and blood-oxygen metrics (percentage)."
+  },
+  "trendUnitMmhg": "mmHg",
+  "@trendUnitMmhg": {
+    "description": "Unit suffix shown near the trend card title for the systolic and diastolic blood-pressure metrics (millimetres of mercury)."
+  },
+  "trendUnitBpm": "bpm",
+  "@trendUnitBpm": {
+    "description": "Unit suffix shown near the trend card title for the pulse metric (beats per minute)."
+  },
+  "trendUnitMgdl": "mg/dL",
+  "@trendUnitMgdl": {
+    "description": "Unit suffix shown near the trend card title for the blood-glucose metric (milligrams per decilitre)."
+  },
+  "trendChartSemantics": "{metric} trend, last {days} days, latest {value} {unit}",
+  "@trendChartSemantics": {
+    "description": "Screen-reader summary of the trend chart: the selected metric, the range in days, and the latest value with its unit.",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      },
+      "value": {
+        "type": "double",
+        "format": "decimalPattern"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "trendChartSemanticsEmpty": "{metric} trend, last {days} days, no data",
+  "@trendChartSemanticsEmpty": {
+    "description": "Screen-reader summary of the trend chart when the selected metric has no data in the range.",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
   }
 }

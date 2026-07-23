@@ -770,4 +770,77 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorWeightGoalLoadFailed =>
       'Unable to load your goal. Please try again.';
+
+  @override
+  String get trendCardTitle => 'Trends';
+
+  @override
+  String get trendMetricWeight => 'Weight';
+
+  @override
+  String get trendMetricBodyFat => 'Body fat';
+
+  @override
+  String get trendMetricSystolic => 'Systolic';
+
+  @override
+  String get trendMetricDiastolic => 'Diastolic';
+
+  @override
+  String get trendMetricPulse => 'Pulse';
+
+  @override
+  String get trendMetricGlucose => 'Glucose';
+
+  @override
+  String get trendMetricSpo2 => 'Blood oxygen';
+
+  @override
+  String get trendRange7 => '7 days';
+
+  @override
+  String get trendRange30 => '30 days';
+
+  @override
+  String get trendRange90 => '90 days';
+
+  @override
+  String get trendEmpty => 'No data yet';
+
+  @override
+  String get trendLoadFailed => 'Unable to load your trends. Please try again.';
+
+  @override
+  String get trendUnitKg => 'kg';
+
+  @override
+  String get trendUnitPercent => '%';
+
+  @override
+  String get trendUnitMmhg => 'mmHg';
+
+  @override
+  String get trendUnitBpm => 'bpm';
+
+  @override
+  String get trendUnitMgdl => 'mg/dL';
+
+  @override
+  String trendChartSemantics(
+    String metric,
+    int days,
+    double value,
+    String unit,
+  ) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$metric trend, last $days days, latest $valueString $unit';
+  }
+
+  @override
+  String trendChartSemanticsEmpty(String metric, int days) {
+    return '$metric trend, last $days days, no data';
+  }
 }

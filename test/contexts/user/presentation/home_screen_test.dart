@@ -50,6 +50,9 @@ import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
+import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
 import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
@@ -252,6 +255,25 @@ class _FakeBowelRepository implements BowelRepository {
 
 class _FakeVitalsRepository implements VitalsRepository {
   @override
+  Future<VitalsRange> getRange(
+    String idToken,
+    DateTime from,
+    DateTime to,
+  ) async => VitalsRange(
+    from: from,
+    to: to,
+    series: const VitalsSeries(
+      weight: [],
+      bodyFat: [],
+      systolic: [],
+      diastolic: [],
+      pulse: [],
+      glucose: [],
+      spo2: [],
+    ),
+  );
+
+  @override
   Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
     day: day,
     weightKg: null,
@@ -414,6 +436,7 @@ Future<void> pumpHomeScreen(
           GetBodyProfile(bodyProfileRepository),
           SetBodyProfile(bodyProfileRepository),
         ),
+        trendController: TrendController(GetVitalsTrends(vitalsRepository)),
         clock: clock ?? DateTime.now,
       ),
     ),
@@ -450,6 +473,10 @@ void main() {
       'tapping the health tile navigates to the DashboardScreen, and the '
       'dashboard\'s record entry reaches the DietShellScreen',
       (tester) async {
+        // A taller surface so the dashboard's record entry (now below the goal
+        // and trend cards) is laid out and tappable in the lazy list.
+        await tester.binding.setSurfaceSize(const Size(700, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
             id: 'user-1',

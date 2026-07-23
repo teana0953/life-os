@@ -57,8 +57,10 @@ import 'contexts/menstrual/application/update_period.dart';
 import 'contexts/menstrual/infrastructure/http_menstrual_repository.dart';
 import 'contexts/menstrual/presentation/menstrual_controller.dart';
 import 'contexts/vitals/application/get_vitals_day.dart';
+import 'contexts/vitals/application/get_vitals_trends.dart';
 import 'contexts/vitals/application/save_vitals_day.dart';
 import 'contexts/vitals/infrastructure/http_vitals_repository.dart';
+import 'contexts/vitals/presentation/trend_controller.dart';
 import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
@@ -148,6 +150,7 @@ Future<void> main() async {
     GetVitalsDay(vitalsRepository),
     SaveVitalsDay(vitalsRepository),
   );
+  final trendController = TrendController(GetVitalsTrends(vitalsRepository));
   final exerciseRepository = HttpExerciseRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -200,6 +203,7 @@ Future<void> main() async {
       exerciseController: exerciseController,
       menstrualController: menstrualController,
       weightGoalController: weightGoalController,
+      trendController: trendController,
       pwaUpdateController: pwaUpdateController,
     ),
   );

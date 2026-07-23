@@ -6,6 +6,8 @@ import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../body_profile/presentation/goal_card.dart';
 import '../../body_profile/presentation/weight_goal_controller.dart';
+import '../../vitals/presentation/trend_card.dart';
+import '../../vitals/presentation/trend_controller.dart';
 
 /// The health module's landing screen: a 總覽 (Overview) dashboard — a
 /// scrollable stack of cards. For this change it holds the goal card plus a
@@ -14,6 +16,7 @@ import '../../body_profile/presentation/weight_goal_controller.dart';
 /// loads the weight goal on first build.
 class DashboardScreen extends StatefulWidget {
   final WeightGoalController weightGoalController;
+  final TrendController trendController;
   final AuthRepository authRepository;
 
   /// Signs the user out; wired to the needsReauth "sign in again" exit,
@@ -28,6 +31,7 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     super.key,
     required this.weightGoalController,
+    required this.trendController,
     required this.authRepository,
     required this.signOut,
     required this.onOpenLog,
@@ -44,12 +48,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     widget.weightGoalController.addListener(_onControllerChanged);
+    widget.trendController.addListener(_onControllerChanged);
     _load();
   }
 
   @override
   void dispose() {
     widget.weightGoalController.removeListener(_onControllerChanged);
+    widget.trendController.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -73,6 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
     setState(() => _idToken = token);
     await widget.weightGoalController.load(token);
+    await widget.trendController.load(token);
   }
 
   @override
@@ -90,9 +97,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // A 401 surfaces a re-authentication exit, consistent with the other
-    // screens. The pushed dashboard keeps its app-bar back button.
-    if (widget.weightGoalController.status == WeightGoalStatus.needsReauth) {
+    // A 401 on either the goal or the trend surfaces a re-authentication exit,
+    // consistent with the other screens. The pushed dashboard keeps its app-bar
+    // back button.
+    if (widget.weightGoalController.status == WeightGoalStatus.needsReauth ||
+        widget.trendController.status == TrendStatus.needsReauth) {
       return Scaffold(
         appBar: appBar,
         body: Center(
@@ -123,6 +132,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 GoalCard(
                   controller: widget.weightGoalController,
+                  idToken: idToken,
+                ),
+                const SizedBox(height: 16),
+                TrendCard(
+                  controller: widget.trendController,
                   idToken: idToken,
                 ),
                 const SizedBox(height: 16),
