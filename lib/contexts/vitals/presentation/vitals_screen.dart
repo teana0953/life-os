@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
-import '../../../shared/widgets/tracker_day_header.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/vitals_day.dart';
 import 'vitals_controller.dart';
@@ -140,10 +139,9 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
         controller.status == VitalsStatus.saving;
 
     // Shared across the loading/reauth (AsyncStateScaffold) and loaded/error
-    // Scaffolds so the pushed full-screen tracker keeps a back button + day nav
-    // in every state (only one Scaffold is built per pass, so reusing the
-    // instance is safe).
-    final appBar = dayAppBar(loc.dietTabVitals);
+    // Scaffolds so the pushed full-screen tracker keeps a back button in every
+    // state; the day switcher lives in the body's shared header below.
+    final appBar = AppBar(title: Text(loc.dietTabVitals));
 
     return AsyncStateScaffold(
       isLoading: busy && controller.day == null,
@@ -181,18 +179,16 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
+                      dayNavHeader(
+                        todayTitle: loc.vitalsTitle,
+                        historyTitle: loc.vitalsHistoryTitle,
+                      ),
+                      const SizedBox(height: 16),
                       LedgeCard(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            TrackerDayHeader(
-                              day: viewedDay,
-                              clock: widget.clock,
-                              todayTitle: loc.vitalsTitle,
-                              historyTitle: loc.vitalsHistoryTitle,
-                            ),
-                            const SizedBox(height: 16),
                             _NullableNumberField(
                               fieldKey: const Key('vitals-weight-field'),
                               label: loc.vitalsWeightLabel,

@@ -615,12 +615,6 @@ abstract class AppLocalizations {
   /// **'Open calendar'**
   String get dietCalendarOpenTooltip;
 
-  /// Tooltip/accessible label for the button in the diet module's Today header that returns to the home "your spaces" screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Home'**
-  String get dietGoHomeTooltip;
-
   /// Tooltip/accessible label for the calendar dialog's previous-month button.
   ///
   /// In en, this message translates to:

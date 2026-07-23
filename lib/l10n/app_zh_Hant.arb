@@ -83,7 +83,6 @@
   "dietDayPrevTooltip": "前一天",
   "dietDayNextTooltip": "後一天",
   "dietCalendarOpenTooltip": "開啟日曆",
-  "dietGoHomeTooltip": "回首頁",
   "dietCalendarPrevMonth": "上個月",
   "dietCalendarNextMonth": "下個月",
   "dietAddToMealA11yLabel": "加到{meal}",

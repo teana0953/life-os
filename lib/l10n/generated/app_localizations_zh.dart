@@ -284,9 +284,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietCalendarOpenTooltip => '開啟日曆';
 
   @override
-  String get dietGoHomeTooltip => '回首頁';
-
-  @override
   String get dietCalendarPrevMonth => '上個月';
 
   @override
@@ -1138,9 +1135,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietCalendarOpenTooltip => '開啟日曆';
-
-  @override
-  String get dietGoHomeTooltip => '回首頁';
 
   @override
   String get dietCalendarPrevMonth => '上個月';

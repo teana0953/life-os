@@ -5,7 +5,6 @@ import '../../../shared/widgets/amount_entry_dialog.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
-import '../../../shared/widgets/tracker_day_header.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'water_controller.dart';
 
@@ -120,10 +119,9 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
         controller.status == WaterStatus.loading ||
         controller.status == WaterStatus.saving;
 
-    // A back-able header with a day switcher (like the other trackers): water
-    // used to be a tab in the diet shell that owned the day; pushed from the
-    // record hub it needs its own app bar + day nav.
-    final appBar = dayAppBar(loc.dietTabWater);
+    // A back-able app bar (the pushed tracker keeps a back button in every
+    // state); the day switcher lives in the body's shared header below.
+    final appBar = AppBar(title: Text(loc.dietTabWater));
 
     // Full-screen spinner only on the very first load, when there is no data
     // to show yet. Once a day is loaded, mutations/reloads keep the content
@@ -170,17 +168,15 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
+                      dayNavHeader(
+                        todayTitle: loc.waterTitle,
+                        historyTitle: loc.waterHistoryTitle,
+                      ),
+                      const SizedBox(height: 16),
                       _WaterSectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            TrackerDayHeader(
-                              day: viewedDay,
-                              clock: widget.clock,
-                              todayTitle: loc.waterTitle,
-                              historyTitle: loc.waterHistoryTitle,
-                            ),
-                            const SizedBox(height: 16),
                             _WaterProgressBar(
                               key: const Key('water-progress'),
                               totalMl: day.totalMl,
