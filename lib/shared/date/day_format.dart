@@ -12,6 +12,12 @@ int daysBetween(DateTime from, DateTime to) {
   return toUtc.difference(fromUtc).inDays;
 }
 
+/// The `YYYY-MM-DD` calendar-date string for [date] (its date components).
+String dayString(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
 /// The full, always-shown date text, formatted per the active locale:
 /// `M月d日 EEEE` for Chinese (e.g. "7月19日 星期六"), `EEE, MMM d` otherwise
 /// (e.g. "Sat, Jul 19"). Shared by the diet shell header and the water screen.
