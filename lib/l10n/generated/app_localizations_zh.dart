@@ -722,7 +722,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goalAchievementLabel => '達成率';
 
   @override
-  String get goalAchievementHint => '另一天再記一次體重,就會顯示往目標的進度。';
+  String get goalAchievementHint => '再記一天體重即可顯示進度。';
 
   @override
   String get goalBmiLabel => 'BMI';
@@ -1473,7 +1473,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get goalAchievementLabel => '達成率';
 
   @override
-  String get goalAchievementHint => '另一天再記一次體重,就會顯示往目標的進度。';
+  String get goalAchievementHint => '再記一天體重即可顯示進度。';
 
   @override
   String get goalBmiLabel => 'BMI';

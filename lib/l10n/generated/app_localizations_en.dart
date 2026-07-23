@@ -737,7 +737,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get goalAchievementHint =>
-      'Record your weight on another day to see progress toward your goal.';
+      'Log another day\'s weight to see progress.';
 
   @override
   String get goalBmiLabel => 'BMI';
