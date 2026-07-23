@@ -1395,6 +1395,18 @@ abstract class AppLocalizations {
   /// **'Record food, water, and more'**
   String get dashboardRecordEntrySubtitle;
 
+  /// Bottom-nav label for the health module's recording hub (all trackers).
+  ///
+  /// In en, this message translates to:
+  /// **'Record'**
+  String get healthTabRecord;
+
+  /// Record-hub tile label for the diet / food log.
+  ///
+  /// In en, this message translates to:
+  /// **'Food'**
+  String get healthRecordDiet;
+
   /// Title of the dashboard card showing the month's logged-days calendar and adherence rings.
   ///
   /// In en, this message translates to:

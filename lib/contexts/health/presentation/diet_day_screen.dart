@@ -5,16 +5,6 @@ import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
-import '../../bowel/presentation/bowel_controller.dart';
-import '../../bowel/presentation/bowel_screen.dart';
-import '../../exercise/presentation/exercise_controller.dart';
-import '../../exercise/presentation/exercise_screen.dart';
-import '../../hydration/presentation/water_controller.dart';
-import '../../hydration/presentation/water_screen.dart';
-import '../../menstrual/presentation/menstrual_controller.dart';
-import '../../menstrual/presentation/menstrual_screen.dart';
-import '../../vitals/presentation/vitals_controller.dart';
-import '../../vitals/presentation/vitals_screen.dart';
 import '../application/get_logged_days.dart';
 import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
@@ -65,16 +55,14 @@ String _nextSnackNameForDay(AppLocalizations loc, List<String> mealNames) {
 /// pushing the full-screen [FoodSearchScreen] for a target meal — there is
 /// no dictionary tab or bottom sheet. Owns the auth-token load (mirroring
 /// `_AuthenticatedHome`) and passes it down to each section's controller.
-class DietShellScreen extends StatefulWidget {
+class DietDayScreen extends StatefulWidget {
   final AuthRepository authRepository;
+
+  /// The auth token, resolved by the health scaffold (which pre-loaded today).
+  final String idToken;
   final TodayController todayController;
   final DictionaryController dictionaryController;
   final DailyTargetController dailyTargetController;
-  final WaterController waterController;
-  final BowelController bowelController;
-  final VitalsController vitalsController;
-  final ExerciseController exerciseController;
-  final MenstrualController menstrualController;
   final CreateMealController createMealController;
   final GetLoggedDays getLoggedDays;
   final SignOut? signOut;
@@ -83,17 +71,13 @@ class DietShellScreen extends StatefulWidget {
   /// [DateTime.now]; tests inject a fixed clock.
   final DateTime Function() clock;
 
-  const DietShellScreen({
+  const DietDayScreen({
     super.key,
     required this.authRepository,
+    required this.idToken,
     required this.todayController,
     required this.dictionaryController,
     required this.dailyTargetController,
-    required this.waterController,
-    required this.bowelController,
-    required this.vitalsController,
-    required this.exerciseController,
-    required this.menstrualController,
     required this.createMealController,
     required this.getLoggedDays,
     this.signOut,
@@ -101,45 +85,26 @@ class DietShellScreen extends StatefulWidget {
   });
 
   @override
-  State<DietShellScreen> createState() => _DietShellScreenState();
+  State<DietDayScreen> createState() => _DietDayScreenState();
 }
 
-class _DietShellScreenState extends State<DietShellScreen> {
-  int _index = 0;
-  String? _idToken;
+class _DietDayScreenState extends State<DietDayScreen> {
+  late final String _idToken = widget.idToken;
   late DateTime _viewedDate = _dateOnly(widget.clock());
   late String _day = _dayString(_viewedDate);
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final token = await widget.authRepository.idToken() ?? '';
-    setState(() => _idToken = token);
-    await widget.todayController.load(token, _day);
-    await widget.dictionaryController.load(token);
-    await widget.dailyTargetController.load(token, _day);
-    await widget.waterController.load(token, _day);
-    await widget.bowelController.load(token, _day);
-    await widget.vitalsController.load(token, _day);
-    await widget.exerciseController.load(token, _day);
-    // Menstrual is not day-keyed — load the whole overview once, independent of
-    // the viewed day (so it stays out of _reloadCurrentDay).
-    await widget.menstrualController.load(token);
+    // The diet controllers are shared and the day-nav mutates them to a browsed
+    // day; reload today's meals/target on mount so re-entering the screen always
+    // starts on today rather than the last day browsed in a previous visit.
+    _reloadCurrentDay();
   }
 
   Future<void> _reloadCurrentDay() async {
-    final token = _idToken;
-    if (token == null) return;
-    await widget.todayController.load(token, _day);
-    await widget.dailyTargetController.load(token, _day);
-    await widget.waterController.load(token, _day);
-    await widget.bowelController.load(token, _day);
-    await widget.vitalsController.load(token, _day);
-    await widget.exerciseController.load(token, _day);
+    await widget.todayController.load(_idToken, _day);
+    await widget.dailyTargetController.load(_idToken, _day);
   }
 
   Future<void> _setViewedDate(DateTime date) async {
@@ -156,7 +121,6 @@ class _DietShellScreenState extends State<DietShellScreen> {
   /// current day.
   Future<void> _openFoodSearch(String meal) async {
     final idToken = _idToken;
-    if (idToken == null) return;
     widget.createMealController.start(meal);
     widget.dictionaryController.clearSearch();
     final result = await Navigator.of(context).push<bool>(
@@ -186,7 +150,6 @@ class _DietShellScreenState extends State<DietShellScreen> {
 
   Future<void> _openCalendar() async {
     final idToken = _idToken;
-    if (idToken == null) return;
     final today = _dateOnly(widget.clock());
     final picked = await showDialog<DateTime>(
       context: context,
@@ -205,217 +168,64 @@ class _DietShellScreenState extends State<DietShellScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final idToken = _idToken;
     final today = _dateOnly(widget.clock());
     final isToday = _viewedDate == today;
 
-    final screens = [
-      Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: _DayNavBar(
-                  viewedDate: _viewedDate,
-                  today: today,
-                  // `DateUtils.addDaysToDate` does pure calendar-component
-                  // arithmetic (year/month/day), not `Duration` math on an
-                  // absolute instant, so it can't drift a day off across a
-                  // DST transition the way
-                  // `_viewedDate.add(Duration(days: 1))` could.
-                  onPrevious: () =>
-                      _setViewedDate(DateUtils.addDaysToDate(_viewedDate, -1)),
-                  onNext: isToday
-                      ? null
-                      : () => _setViewedDate(
-                          DateUtils.addDaysToDate(_viewedDate, 1),
-                        ),
-                  onOpenCalendar: _openCalendar,
-                  onGoHome: () => Navigator.of(context).pop(),
-                ),
-              ),
-              Expanded(
-                child: TodayScreen(
-                  controller: widget.todayController,
-                  signOut: widget.signOut ?? SignOut(widget.authRepository),
-                  idToken: idToken ?? '',
-                  day: _day,
-                  onAddToMeal: _openFoodSearch,
-                  onAddSnack: _openAddSnack,
-                  onAddToSnackGroup: _openFoodSearch,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      idToken == null
-          ? const Center(child: CircularProgressIndicator())
-          : DailyTargetScreen(
-              controller: widget.dailyTargetController,
-              idToken: idToken,
-              day: _day,
-              // Refresh Today's portion progress after the target changes,
-              // so switching back to Today reflects the new target.
-              onSaved: () => widget.todayController.load(idToken, _day),
-            ),
-      idToken == null
-          ? const Center(child: CircularProgressIndicator())
-          : WaterScreen(
-              controller: widget.waterController,
-              idToken: idToken,
-              day: _day,
-              clock: widget.clock,
-            ),
-      _MoreMenuScreen(
-        idToken: idToken,
-        day: _day,
-        clock: widget.clock,
-        bowelController: widget.bowelController,
-        vitalsController: widget.vitalsController,
-        exerciseController: widget.exerciseController,
-        menstrualController: widget.menstrualController,
-      ),
-    ];
-
     return Scaffold(
-      body: IndexedStack(index: _index, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.today),
-            label: loc.dietTabToday,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.flag),
-            label: loc.dietTabTarget,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.water_drop),
-            label: loc.dietTabWater,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.more_horiz),
-            label: loc.dietTabMore,
+      appBar: AppBar(
+        title: Text(isToday ? loc.dietTodayTitle : loc.dietHistoryTitle),
+        actions: [
+          TextButton.icon(
+            key: const Key('diet-open-target'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => DailyTargetScreen(
+                  controller: widget.dailyTargetController,
+                  idToken: _idToken,
+                  day: _day,
+                  // Refresh Today's portion progress after the target changes.
+                  onSaved: () => widget.todayController.load(_idToken, _day),
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.flag_outlined),
+            label: Text(loc.dietTabTarget),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// The 更多 overflow menu: lists the lower-frequency trackers (Bowel, Vitals,
-/// Exercise) as tiles that push the respective tracker screen for the shell's
-/// currently viewed [day]. The shell owns loading (each controller was already
-/// `load`ed for [day]); this is only the entry point. Future surfaces (period,
-/// dashboard) add tiles here without another bottom-bar restructure.
-class _MoreMenuScreen extends StatelessWidget {
-  final String? idToken;
-  final String day;
-  final DateTime Function() clock;
-  final BowelController bowelController;
-  final VitalsController vitalsController;
-  final ExerciseController exerciseController;
-  final MenstrualController menstrualController;
-
-  const _MoreMenuScreen({
-    required this.idToken,
-    required this.day,
-    required this.clock,
-    required this.bowelController,
-    required this.vitalsController,
-    required this.exerciseController,
-    required this.menstrualController,
-  });
-
-  void _push(BuildContext context, Widget screen) {
-    if (idToken == null) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final token = idToken;
-    if (token == null) {
-      // The token is still loading (the shell owns the auth-token load); show a
-      // loading indicator rather than silently disabled tiles.
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(key: Key('more-loading')),
-        ),
-      );
-    }
-    return Scaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
+            child: Column(
               children: [
-                Text(
-                  loc.dietMoreTitle,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  key: const Key('more-tile-bowel'),
-                  leading: const Icon(Icons.wc),
-                  title: Text(loc.dietTabBowel),
-                  onTap: () => _push(
-                    context,
-                    BowelScreen(
-                      controller: bowelController,
-                      idToken: token,
-                      day: day,
-                      clock: clock,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: _DayNavBar(
+                    viewedDate: _viewedDate,
+                    today: today,
+                    // Pure calendar-component arithmetic (not Duration math on
+                    // an instant) so it can't drift a day across a DST boundary.
+                    onPrevious: () =>
+                        _setViewedDate(DateUtils.addDaysToDate(_viewedDate, -1)),
+                    onNext: isToday
+                        ? null
+                        : () => _setViewedDate(
+                            DateUtils.addDaysToDate(_viewedDate, 1),
+                          ),
+                    onOpenCalendar: _openCalendar,
+                    onGoHome: () => Navigator.of(context).pop(),
                   ),
                 ),
-                ListTile(
-                  key: const Key('more-tile-vitals'),
-                  leading: const Icon(Icons.monitor_heart),
-                  title: Text(loc.dietTabVitals),
-                  onTap: () => _push(
-                    context,
-                    VitalsScreen(
-                      controller: vitalsController,
-                      idToken: token,
-                      day: day,
-                      clock: clock,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  key: const Key('more-tile-exercise'),
-                  leading: const Icon(Icons.fitness_center),
-                  title: Text(loc.dietTabExercise),
-                  onTap: () => _push(
-                    context,
-                    ExerciseScreen(
-                      controller: exerciseController,
-                      idToken: token,
-                      day: day,
-                      clock: clock,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  key: const Key('more-tile-menstrual'),
-                  leading: const Icon(Icons.calendar_month),
-                  title: Text(loc.menstrualTitle),
-                  onTap: () => _push(
-                    context,
-                    MenstrualScreen(
-                      controller: menstrualController,
-                      idToken: token,
-                      clock: clock,
-                    ),
+                Expanded(
+                  child: TodayScreen(
+                    controller: widget.todayController,
+                    signOut: widget.signOut ?? SignOut(widget.authRepository),
+                    idToken: _idToken,
+                    day: _day,
+                    onAddToMeal: _openFoodSearch,
+                    onAddSnack: _openAddSnack,
+                    onAddToSnackGroup: _openFoodSearch,
                   ),
                 ),
               ],

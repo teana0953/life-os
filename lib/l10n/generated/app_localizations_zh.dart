@@ -692,6 +692,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
 
   @override
+  String get healthTabRecord => '記錄';
+
+  @override
+  String get healthRecordDiet => '飲食';
+
+  @override
   String get healthCalendarTitle => '本月記錄';
 
   @override
@@ -1552,6 +1558,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
+
+  @override
+  String get healthTabRecord => '記錄';
+
+  @override
+  String get healthRecordDiet => '飲食';
 
   @override
   String get healthCalendarTitle => '本月記錄';

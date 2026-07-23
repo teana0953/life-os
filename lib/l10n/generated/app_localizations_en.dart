@@ -706,6 +706,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardRecordEntrySubtitle => 'Record food, water, and more';
 
   @override
+  String get healthTabRecord => 'Record';
+
+  @override
+  String get healthRecordDiet => 'Food';
+
+  @override
   String get healthCalendarTitle => 'This month';
 
   @override

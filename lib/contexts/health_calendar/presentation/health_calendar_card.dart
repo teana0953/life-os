@@ -9,7 +9,7 @@ import 'health_calendar_controller.dart';
 /// day with any tracker entry) plus three adherence rings — logging rate and
 /// diet-adherence rate (this month) and the weight-goal achievement rate (reused
 /// from the goal card). Loading and error states render inside the card;
-/// `needsReauth` is left to the [DashboardScreen]. Colors come from [Theme] only.
+/// `needsReauth` is left to the [HealthScaffold]. Colors come from [Theme] only.
 class HealthCalendarCard extends StatefulWidget {
   final HealthCalendarController controller;
   final String idToken;

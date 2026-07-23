@@ -216,6 +216,8 @@
   "dashboardTitle": "總覽",
   "dashboardRecordEntryTitle": "今日記錄",
   "dashboardRecordEntrySubtitle": "記錄飲食、飲水等",
+  "healthTabRecord": "記錄",
+  "healthRecordDiet": "飲食",
   "healthCalendarTitle": "本月記錄",
   "healthCalendarLoggingRate": "記錄率",
   "healthCalendarDietRate": "飲食達標",

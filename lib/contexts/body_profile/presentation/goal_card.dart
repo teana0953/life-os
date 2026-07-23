@@ -19,7 +19,7 @@ String? _fmt(double? value) {
 /// and BMI; when neither height nor target has been set it shows a "set your
 /// goal" prompt. Tapping the card (or the prompt's button) opens the edit
 /// bottom sheet. Loading and error states render inside the card; `needsReauth`
-/// is left to the [DashboardScreen] layer. Colors come from [Theme] only.
+/// is left to the [HealthScaffold] layer. Colors come from [Theme] only.
 class GoalCard extends StatefulWidget {
   final WeightGoalController controller;
   final String idToken;

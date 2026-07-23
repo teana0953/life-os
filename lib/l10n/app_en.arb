@@ -925,6 +925,14 @@
   "@dashboardRecordEntrySubtitle": {
     "description": "Subtitle of the dashboard's 'today's log' entry describing what the daily-log shell records."
   },
+  "healthTabRecord": "Record",
+  "@healthTabRecord": {
+    "description": "Bottom-nav label for the health module's recording hub (all trackers)."
+  },
+  "healthRecordDiet": "Food",
+  "@healthRecordDiet": {
+    "description": "Record-hub tile label for the diet / food log."
+  },
   "healthCalendarTitle": "This month",
   "@healthCalendarTitle": {
     "description": "Title of the dashboard card showing the month's logged-days calendar and adherence rings."

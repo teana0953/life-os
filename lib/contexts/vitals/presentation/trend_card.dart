@@ -13,7 +13,7 @@ import 'trend_controller.dart';
 /// selected metric is card-local state (switching it only re-plots); the range
 /// span drives [TrendController.setSpan] (which reloads). Loading and error
 /// states render inside the card; `needsReauth` is left to the
-/// [DashboardScreen] layer. Colors come from [Theme] only.
+/// [HealthScaffold] layer. Colors come from [Theme] only.
 class TrendCard extends StatefulWidget {
   final TrendController controller;
   final String idToken;
@@ -100,7 +100,7 @@ class _TrendCardState extends State<TrendCard> {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
 
-    // needsReauth is handled by the DashboardScreen (which replaces the whole
+    // needsReauth is handled by the HealthScaffold (which replaces the whole
     // body with a sign-in-again exit), so the card renders nothing for it.
     // Only the *initial* load (no range fetched yet) gets a card-sized spinner;
     // a span-switch reload keeps the card shell (title + pickers + previous
