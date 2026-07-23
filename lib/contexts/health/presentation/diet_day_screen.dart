@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
-import '../../../shared/widgets/mascot.dart';
+import '../../../shared/widgets/tracker_day_nav_header.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../application/get_logged_days.dart';
@@ -32,17 +32,6 @@ String _monthString(DateTime time) {
 /// "zone" [time] is already expressed in — callers are responsible for
 /// passing a value that already represents the intended wall-clock day).
 DateTime _dateOnly(DateTime time) => DateTime(time.year, time.month, time.day);
-
-String? _dayChipLabel(
-  AppLocalizations loc,
-  DateTime viewedDate,
-  DateTime today,
-) {
-  final diff = daysBetween(viewedDate, today);
-  if (diff == 0) return loc.dietDayToday;
-  if (diff == 1) return loc.dietDayYesterday;
-  return null;
-}
 
 /// The next name in a day's snack series, from [dayLog]'s current meal
 /// names: seeds a brand-new snack session (the Today "＋ new snack"
@@ -173,7 +162,9 @@ class _DietDayScreenState extends State<DietDayScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isToday ? loc.dietTodayTitle : loc.dietHistoryTitle),
+        // Generic tracker name (like water/vitals/…); the today-aware title
+        // lives in the shared day header in the body below.
+        title: Text(loc.healthRecordDiet),
         actions: [
           TextButton.icon(
             key: const Key('diet-open-target'),
@@ -201,9 +192,11 @@ class _DietDayScreenState extends State<DietDayScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: _DayNavBar(
+                  child: TrackerDayNavHeader(
                     viewedDate: _viewedDate,
                     today: today,
+                    todayTitle: loc.dietTodayTitle,
+                    historyTitle: loc.dietHistoryTitle,
                     // Pure calendar-component arithmetic (not Duration math on
                     // an instant) so it can't drift a day across a DST boundary.
                     onPrevious: () =>
@@ -214,7 +207,6 @@ class _DietDayScreenState extends State<DietDayScreen> {
                             DateUtils.addDaysToDate(_viewedDate, 1),
                           ),
                     onOpenCalendar: _openCalendar,
-                    onGoHome: () => Navigator.of(context).pop(),
                   ),
                 ),
                 Expanded(
@@ -237,152 +229,6 @@ class _DietDayScreenState extends State<DietDayScreen> {
   }
 }
 
-/// Diet header shown above the Today section: a mascot beside a title
-/// ("Today's Food" / "Food Log", depending on whether the viewed day is
-/// today) and a day-navigation row (`‹ date ›`, where the date itself is the
-/// calendar entry point). [onNext] is `null` to disable the "next day"
-/// control when the viewed day is today. [onGoHome] wires the header's home
-/// control, returning to the home "your spaces" screen the diet module was
-/// pushed from.
-class _DayNavBar extends StatelessWidget {
-  final DateTime viewedDate;
-  final DateTime today;
-  final VoidCallback onPrevious;
-  final VoidCallback? onNext;
-  final VoidCallback onOpenCalendar;
-  final VoidCallback onGoHome;
-
-  const _DayNavBar({
-    required this.viewedDate,
-    required this.today,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onOpenCalendar,
-    required this.onGoHome,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final loc = AppLocalizations.of(context)!;
-    final isToday = daysBetween(viewedDate, today) == 0;
-    final title = isToday ? loc.dietTodayTitle : loc.dietHistoryTitle;
-    final chipLabel = _dayChipLabel(loc, viewedDate, today);
-    final dateText = fullDateLabel(context, viewedDate);
-
-    // Two rows: the title + header actions on top, and the day navigation on
-    // its own full-width row below. Keeping the date on its own line (rather
-    // than sharing the top row with the mascot and the trailing button)
-    // gives it the whole width, so the date label isn't squeezed down to an
-    // unreadable ellipsis on narrow phones.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Mascot(size: 34),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            IconButton(
-              key: const Key('today-home-button'),
-              tooltip: loc.dietGoHomeTooltip,
-              onPressed: onGoHome,
-              icon: const Icon(Icons.home),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            IconButton(
-              key: const Key('day-nav-previous'),
-              tooltip: loc.dietDayPrevTooltip,
-              onPressed: onPrevious,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Tooltip(
-                message: loc.dietCalendarOpenTooltip,
-                child: Semantics(
-                  button: true,
-                  child: InkWell(
-                    key: const Key('day-nav-label'),
-                    onTap: onOpenCalendar,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 4,
-                      ),
-                      child: Row(
-                        // Centre the [chip · date · calendar] group between the
-                        // prev/next arrows rather than letting it hug the left.
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (chipLabel != null) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                chipLabel,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          // Ellipsize only as a last resort — with the date on
-                          // its own full-width row it normally shows in full.
-                          Flexible(
-                            child: Text(
-                              dateText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.calendar_month,
-                            size: 16,
-                            color: theme.colorScheme.outline,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              key: const Key('day-nav-next'),
-              tooltip: loc.dietDayNextTooltip,
-              onPressed: onNext,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
 
 /// Month calendar dialog: dots mark days with at least one meal (via
 /// [getLoggedDays]); dates after [today] are dimmed and non-selectable;

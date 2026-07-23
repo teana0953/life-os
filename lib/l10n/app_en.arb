@@ -365,10 +365,6 @@
   "@dietCalendarOpenTooltip": {
     "description": "Tooltip/accessible label for the day-navigation button that opens the calendar dialog."
   },
-  "dietGoHomeTooltip": "Home",
-  "@dietGoHomeTooltip": {
-    "description": "Tooltip/accessible label for the button in the diet module's Today header that returns to the home \"your spaces\" screen."
-  },
   "dietCalendarPrevMonth": "Previous month",
   "@dietCalendarPrevMonth": {
     "description": "Tooltip/accessible label for the calendar dialog's previous-month button."

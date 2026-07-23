@@ -291,9 +291,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietCalendarOpenTooltip => 'Open calendar';
 
   @override
-  String get dietGoHomeTooltip => 'Home';
-
-  @override
   String get dietCalendarPrevMonth => 'Previous month';
 
   @override
