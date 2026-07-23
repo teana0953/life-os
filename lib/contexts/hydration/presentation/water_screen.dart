@@ -112,16 +112,23 @@ class _WaterScreenState extends State<WaterScreen> {
         controller.status == WaterStatus.loading ||
         controller.status == WaterStatus.saving;
 
+    // A back-able header (like the other trackers): water used to be a tab in
+    // the diet shell, so it had none; now it's pushed from the record hub and
+    // needs its own app bar so the user isn't trapped.
+    final appBar = AppBar(title: Text(loc.dietTabWater));
+
     // Full-screen spinner only on the very first load, when there is no data
     // to show yet. Once a day is loaded, mutations/reloads keep the content
     // on screen with a subtle busy indicator instead of blanking the tab.
     return AsyncStateScaffold(
+      appBar: appBar,
       isLoading: busy && controller.day == null,
       isReauth: controller.status == WaterStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(
+            appBar: appBar,
             body: Center(
               child: Text(
                 loc.errorWaterLoadFailed,
@@ -136,6 +143,7 @@ class _WaterScreenState extends State<WaterScreen> {
         final goalMet = day.targetMl > 0 && day.totalMl >= day.targetMl;
 
         return Scaffold(
+          appBar: appBar,
           body: SafeArea(
             child: Column(
               children: [
