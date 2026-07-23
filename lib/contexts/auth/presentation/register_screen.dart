@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/language_switcher.dart';
@@ -60,8 +61,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Registration succeeded: authStateChanges only swaps the app's bottom
     // route, it doesn't discard routes pushed on top of it, so this screen
     // must pop itself (see design.md D4).
-    if (_controller.succeeded && Navigator.canPop(context)) {
-      Navigator.of(context).pop();
+    if (_controller.succeeded && context.canPop()) {
+      context.pop();
     }
   }
 
@@ -220,8 +221,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 onPressed: isLoading
                                     ? null
                                     : () {
-                                        if (Navigator.canPop(context)) {
-                                          Navigator.of(context).pop();
+                                        if (context.canPop()) {
+                                          context.pop();
                                         }
                                       },
                                 child: Text(loc.haveAccountLink),

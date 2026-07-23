@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/language_switcher.dart';
@@ -183,13 +184,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onPressed: isLoading
                                     ? null
                                     : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => RegisterScreen(
-                                              signUp: widget.signUp,
-                                              localeController:
-                                                  widget.localeController,
-                                            ),
+                                        context.push(
+                                          '/register',
+                                          extra: RegisterScreen(
+                                            signUp: widget.signUp,
+                                            localeController:
+                                                widget.localeController,
                                           ),
                                         );
                                       },

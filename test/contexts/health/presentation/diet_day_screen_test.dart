@@ -163,7 +163,7 @@ AppLocalizations get _en => lookupAppLocalizations(const Locale('en'));
 void main() {
   testWidgets('loads today on mount', (tester) async {
     final meals = _FakeMealRepository();
-    await tester.pumpWidget(l10nTestApp(home: _dietDay(meals: meals)));
+    await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
     await tester.pumpAndSettle();
 
     expect(meals.receivedDays.last, '2026-07-15');
@@ -171,7 +171,7 @@ void main() {
 
   testWidgets('browsing to the previous day loads that day', (tester) async {
     final meals = _FakeMealRepository();
-    await tester.pumpWidget(l10nTestApp(home: _dietDay(meals: meals)));
+    await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip(_en.dietDayPrevTooltip));
@@ -194,7 +194,7 @@ void main() {
         createMeal: first.createMealController,
         getLoggedDays: first.getLoggedDays,
       );
-      await tester.pumpWidget(l10nTestApp(home: first));
+      await tester.pumpWidget(l10nRouterTestApp(home: first));
       await tester.pumpAndSettle();
 
       // Browse to a past day: the shared controllers now hold that day.
@@ -205,10 +205,10 @@ void main() {
       // Fully unmount, then re-mount a fresh screen with the same controllers —
       // exactly what re-opening the diet tile (a new pushed route) does, so
       // initState runs again.
-      await tester.pumpWidget(l10nTestApp(home: const SizedBox.shrink()));
+      await tester.pumpWidget(l10nRouterTestApp(home: const SizedBox.shrink()));
       await tester.pumpAndSettle();
       await tester.pumpWidget(
-        l10nTestApp(home: _dietDay(meals: meals, reuse: shared)),
+        l10nRouterTestApp(home: _dietDay(meals: meals, reuse: shared)),
       );
       await tester.pumpAndSettle();
 
@@ -218,7 +218,7 @@ void main() {
   );
 
   testWidgets('the target action opens the daily target screen', (tester) async {
-    await tester.pumpWidget(l10nTestApp(home: _dietDay(meals: _FakeMealRepository())));
+    await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('diet-open-target')));

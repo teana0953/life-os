@@ -580,7 +580,7 @@ void main() {
           SignOut(authRepository),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('email-field')), findsOneWidget);
     });
@@ -619,7 +619,7 @@ void main() {
           SignOut(authRepository),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       await tester.enterText(
         find.byKey(const Key('email-field')),
@@ -681,7 +681,7 @@ void main() {
             SignOut(authRepository),
           ),
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(find.byKey(const Key('auth-retry-button')), findsOneWidget);
@@ -704,7 +704,7 @@ void main() {
             SignOut(authRepository),
           ),
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         final materialApp = tester.widget<MaterialApp>(
           find.byType(MaterialApp),
@@ -740,7 +740,7 @@ void main() {
           ),
           themeController: themeController,
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(
           tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
@@ -748,7 +748,7 @@ void main() {
         );
 
         await themeController.setThemeMode(ThemeMode.dark);
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(
           tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
@@ -778,7 +778,7 @@ void main() {
           SignOut(authRepository),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.text('Retry'), findsOneWidget);
     });
@@ -806,7 +806,7 @@ void main() {
           SignOut(authRepository),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.text('重試'), findsOneWidget);
     });
@@ -825,13 +825,13 @@ void main() {
             SignOut(authRepository),
           ),
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.text('Retry'), findsOneWidget);
 
         await localeController.setLocale(
           const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('重試'), findsOneWidget);
         expect(find.text('Retry'), findsNothing);
@@ -859,7 +859,7 @@ void main() {
         ),
         localeController: localeController,
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.text('重試'), findsOneWidget);
     });

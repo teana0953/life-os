@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
@@ -197,7 +198,7 @@ void main() {
       final repository = FakeAuthRepository();
       final localeController = await testLocaleController();
       await tester.pumpWidget(
-        l10nTestApp(
+        l10nRouterTestApp(
           localeController: localeController,
           home: Builder(
             builder: (context) => Scaffold(
@@ -205,12 +206,11 @@ void main() {
                 child: ElevatedButton(
                   key: const Key('open-register'),
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => RegisterScreen(
-                          signUp: SignUp(repository),
-                          localeController: localeController,
-                        ),
+                    context.push(
+                      '/register',
+                      extra: RegisterScreen(
+                        signUp: SignUp(repository),
+                        localeController: localeController,
                       ),
                     );
                   },
@@ -252,7 +252,7 @@ void main() {
       final repository = FakeAuthRepository();
       final localeController = await testLocaleController();
       await tester.pumpWidget(
-        l10nTestApp(
+        l10nRouterTestApp(
           localeController: localeController,
           home: Builder(
             builder: (context) => Scaffold(
@@ -260,12 +260,11 @@ void main() {
                 child: ElevatedButton(
                   key: const Key('open-register'),
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => RegisterScreen(
-                          signUp: SignUp(repository),
-                          localeController: localeController,
-                        ),
+                    context.push(
+                      '/register',
+                      extra: RegisterScreen(
+                        signUp: SignUp(repository),
+                        localeController: localeController,
                       ),
                     );
                   },

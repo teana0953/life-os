@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
@@ -103,7 +104,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
       widget.idToken,
       widget.day,
     );
-    if (success && mounted) Navigator.of(context).pop(true);
+    if (success && mounted && context.canPop()) context.pop(true);
   }
 
   Future<void> _openManualEntry() async {
