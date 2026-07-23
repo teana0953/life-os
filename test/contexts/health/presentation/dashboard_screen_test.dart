@@ -11,6 +11,10 @@ import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'package:life_os/contexts/health/presentation/dashboard_screen.dart';
+import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_exceptions.dart';
@@ -109,6 +113,28 @@ WeightGoalController _controller({_FakeRepository? repository}) {
   );
 }
 
+class _FakeHealthCalendarRepository implements HealthCalendarRepository {
+  @override
+  Future<HealthCalendar> getCalendar(
+    String idToken, {
+    required int year,
+    required int month,
+    required String today,
+  }) async => HealthCalendar(
+    year: year,
+    month: month,
+    loggedDays: const {},
+    daysElapsed: 10,
+    loggingRate: 50,
+    dietAdherenceRate: 30,
+  );
+}
+
+HealthCalendarController _healthCalendarController() =>
+    HealthCalendarController(
+      GetHealthCalendar(_FakeHealthCalendarRepository()),
+    );
+
 void main() {
   testWidgets('the dashboard shows the goal card and a record entry',
       (tester) async {
@@ -120,6 +146,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(),
           trendController: _trendController(),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {},
@@ -143,6 +170,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(),
           trendController: _trendController(),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async { opened = true; },
@@ -168,6 +196,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(repository: repo),
           trendController: _trendController(),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {}, // shell opened then popped immediately
@@ -198,6 +227,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(repository: repository),
           trendController: _trendController(),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {},
@@ -226,6 +256,7 @@ void main() {
     final dashboard = DashboardScreen(
       weightGoalController: _controller(repository: repository),
       trendController: _trendController(),
+      healthCalendarController: _healthCalendarController(),
       authRepository: auth,
       signOut: SignOut(auth),
       onOpenLog: () async {},
@@ -269,6 +300,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(),
           trendController: _trendController(),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {},
@@ -301,6 +333,7 @@ void main() {
         home: DashboardScreen(
           weightGoalController: _controller(),
           trendController: _trendController(repository: trendRepo),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {},
@@ -330,6 +363,7 @@ void main() {
           // The goal loads fine; only the trend hits a 401.
           weightGoalController: _controller(),
           trendController: _trendController(repository: trendRepo),
+          healthCalendarController: _healthCalendarController(),
           authRepository: auth,
           signOut: SignOut(auth),
           onOpenLog: () async {},

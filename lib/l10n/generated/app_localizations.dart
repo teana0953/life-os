@@ -1395,6 +1395,48 @@ abstract class AppLocalizations {
   /// **'Record food, water, and more'**
   String get dashboardRecordEntrySubtitle;
 
+  /// Title of the dashboard card showing the month's logged-days calendar and adherence rings.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get healthCalendarTitle;
+
+  /// Ring label: share of the month's elapsed days with any tracker entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged'**
+  String get healthCalendarLoggingRate;
+
+  /// Ring label: share of the month's elapsed days that met the diet target.
+  ///
+  /// In en, this message translates to:
+  /// **'Diet met'**
+  String get healthCalendarDietRate;
+
+  /// Ring label: the weight-goal achievement rate (reused from the goal card).
+  ///
+  /// In en, this message translates to:
+  /// **'Weight'**
+  String get healthCalendarWeightRate;
+
+  /// Legend for the calendar dot marking a day that has a tracker entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged'**
+  String get healthCalendarLoggedLegend;
+
+  /// Spoken (screen-reader) value for a ring with no percentage yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get healthCalendarNoData;
+
+  /// Shown on the health-calendar card when loading the month summary fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load this month. Please try again.'**
+  String get healthCalendarLoadFailed;
+
   /// Title of the goal card on the overview dashboard, showing target/current/remaining weight, an achievement ring, and BMI.
   ///
   /// In en, this message translates to:

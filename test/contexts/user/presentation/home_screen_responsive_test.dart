@@ -8,6 +8,10 @@ import 'package:life_os/contexts/body_profile/application/set_body_profile.dart'
 import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
 import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
+import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/bowel/application/get_bowel_day.dart';
 import 'package:life_os/contexts/bowel/application/save_bowel_day.dart';
 import 'package:life_os/contexts/bowel/domain/bowel_day.dart';
@@ -428,6 +432,7 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
           SetBodyProfile(bodyProfileRepository),
         ),
         trendController: TrendController(GetVitalsTrends(vitalsRepository)),
+        healthCalendarController: HealthCalendarController(GetHealthCalendar(_FakeHealthCalendarRepository())),
       ),
     ),
   );
@@ -460,4 +465,21 @@ void main() {
       expect(_gridDelegate(tester).crossAxisCount, 4);
     });
   });
+}
+
+class _FakeHealthCalendarRepository implements HealthCalendarRepository {
+  @override
+  Future<HealthCalendar> getCalendar(
+    String idToken, {
+    required int year,
+    required int month,
+    required String today,
+  }) async => HealthCalendar(
+    year: year,
+    month: month,
+    loggedDays: const {},
+    daysElapsed: 0,
+    loggingRate: null,
+    dietAdherenceRate: null,
+  );
 }

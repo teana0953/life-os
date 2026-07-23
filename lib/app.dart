@@ -7,6 +7,7 @@ import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/body_profile/presentation/weight_goal_controller.dart';
+import 'contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -76,6 +77,7 @@ class App extends StatefulWidget {
   final MenstrualController menstrualController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
+  final HealthCalendarController healthCalendarController;
   final PwaUpdateController pwaUpdateController;
 
   const App({
@@ -99,6 +101,7 @@ class App extends StatefulWidget {
     required this.menstrualController,
     required this.weightGoalController,
     required this.trendController,
+    required this.healthCalendarController,
     required this.pwaUpdateController,
   });
 
@@ -197,6 +200,7 @@ class _AppState extends State<App> {
                   menstrualController: widget.menstrualController,
                   weightGoalController: widget.weightGoalController,
                   trendController: widget.trendController,
+                  healthCalendarController: widget.healthCalendarController,
                 );
               }
               return LoginScreen(
@@ -230,6 +234,7 @@ class _AuthenticatedHome extends StatefulWidget {
   final MenstrualController menstrualController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
+  final HealthCalendarController healthCalendarController;
 
   const _AuthenticatedHome({
     required this.authRepository,
@@ -249,6 +254,7 @@ class _AuthenticatedHome extends StatefulWidget {
     required this.menstrualController,
     required this.weightGoalController,
     required this.trendController,
+    required this.healthCalendarController,
   });
 
   @override
@@ -287,6 +293,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
       menstrualController: widget.menstrualController,
       weightGoalController: widget.weightGoalController,
       trendController: widget.trendController,
+      healthCalendarController: widget.healthCalendarController,
     );
   }
 }

@@ -692,6 +692,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
 
   @override
+  String get healthCalendarTitle => '本月記錄';
+
+  @override
+  String get healthCalendarLoggingRate => '記錄率';
+
+  @override
+  String get healthCalendarDietRate => '飲食達標';
+
+  @override
+  String get healthCalendarWeightRate => '體重達成';
+
+  @override
+  String get healthCalendarLoggedLegend => '有記錄';
+
+  @override
+  String get healthCalendarNoData => '無資料';
+
+  @override
+  String get healthCalendarLoadFailed => '無法載入本月記錄,請再試一次。';
+
+  @override
   String get goalCardTitle => '體重目標';
 
   @override
@@ -1531,6 +1552,27 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
+
+  @override
+  String get healthCalendarTitle => '本月記錄';
+
+  @override
+  String get healthCalendarLoggingRate => '記錄率';
+
+  @override
+  String get healthCalendarDietRate => '飲食達標';
+
+  @override
+  String get healthCalendarWeightRate => '體重達成';
+
+  @override
+  String get healthCalendarLoggedLegend => '有記錄';
+
+  @override
+  String get healthCalendarNoData => '無資料';
+
+  @override
+  String get healthCalendarLoadFailed => '無法載入本月記錄,請再試一次。';
 
   @override
   String get goalCardTitle => '體重目標';

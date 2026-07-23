@@ -15,6 +15,9 @@ import 'contexts/body_profile/application/get_weight_goal.dart';
 import 'contexts/body_profile/application/set_body_profile.dart';
 import 'contexts/body_profile/infrastructure/http_body_profile_repository.dart';
 import 'contexts/body_profile/presentation/weight_goal_controller.dart';
+import 'contexts/health_calendar/application/get_health_calendar.dart';
+import 'contexts/health_calendar/infrastructure/http_health_calendar_repository.dart';
+import 'contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'contexts/bowel/application/get_bowel_day.dart';
 import 'contexts/bowel/application/save_bowel_day.dart';
 import 'contexts/bowel/infrastructure/http_bowel_repository.dart';
@@ -180,6 +183,11 @@ Future<void> main() async {
     GetBodyProfile(bodyProfileRepository),
     SetBodyProfile(bodyProfileRepository),
   );
+  final healthCalendarController = HealthCalendarController(
+    GetHealthCalendar(
+      HttpHealthCalendarRepository(baseUrl: apiBaseUrl, client: httpClient),
+    ),
+  );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
 
@@ -204,6 +212,7 @@ Future<void> main() async {
       menstrualController: menstrualController,
       weightGoalController: weightGoalController,
       trendController: trendController,
+      healthCalendarController: healthCalendarController,
       pwaUpdateController: pwaUpdateController,
     ),
   );
