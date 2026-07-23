@@ -226,7 +226,7 @@
   "goalCmUnit": "公分",
   "goalHeightShortLabel": "身高",
   "goalAchievementLabel": "達成率",
-  "goalAchievementHint": "另一天再記一次體重,就會顯示往目標的進度。",
+  "goalAchievementHint": "再記一天體重即可顯示進度。",
   "goalBmiLabel": "BMI",
   "goalPlaceholder": "—",
   "goalNoData": "無資料",

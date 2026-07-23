@@ -965,7 +965,7 @@
   "@goalAchievementLabel": {
     "description": "Label for the achievement-rate ring on the goal card."
   },
-  "goalAchievementHint": "Record your weight on another day to see progress toward your goal.",
+  "goalAchievementHint": "Log another day's weight to see progress.",
   "@goalAchievementHint": {
     "description": "Hint shown under the goal card's achievement ring when there isn't enough weight history (only one day) to compute progress."
   },

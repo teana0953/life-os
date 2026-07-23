@@ -1458,7 +1458,7 @@ abstract class AppLocalizations {
   /// Hint shown under the goal card's achievement ring when there isn't enough weight history (only one day) to compute progress.
   ///
   /// In en, this message translates to:
-  /// **'Record your weight on another day to see progress toward your goal.'**
+  /// **'Log another day\'s weight to see progress.'**
   String get goalAchievementHint;
 
   /// Label for the BMI figure on the goal card (body mass index).
