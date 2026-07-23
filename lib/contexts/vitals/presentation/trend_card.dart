@@ -17,7 +17,16 @@ class TrendCard extends StatefulWidget {
   final TrendController controller;
   final String idToken;
 
-  const TrendCard({super.key, required this.controller, required this.idToken});
+  /// The user's height in cm, used to derive the weight metric's normal-range
+  /// band (null when unset → no weight band).
+  final double? heightCm;
+
+  const TrendCard({
+    super.key,
+    required this.controller,
+    required this.idToken,
+    this.heightCm,
+  });
 
   @override
   State<TrendCard> createState() => _TrendCardState();
@@ -121,6 +130,12 @@ class _TrendCardState extends State<TrendCard> {
     // held): keep the shell and overlay a thin progress bar over the chart.
     final reloading = controller.status == TrendStatus.loading;
 
+    // The normal reference band for the selected metric (null → no band and no
+    // legend). Its subtle fill is Theme-derived so it reads in light and dark.
+    final normal = normalRangeFor(_selected, heightCm: widget.heightCm);
+    final bandColor = theme.colorScheme.tertiary.withValues(alpha: 0.14);
+    final hasChart = points.isNotEmpty && range != null;
+
     // Screen-reader summary of the chart (fl_chart renders no semantics of its
     // own): selected metric + range in days + latest value with unit, or a
     // "no data" summary when the metric has no points in the range.
@@ -206,7 +221,12 @@ class _TrendCardState extends State<TrendCard> {
                               ),
                             ),
                           )
-                        : _TrendChart(points: points, from: range.from),
+                        : _TrendChart(
+                            points: points,
+                            from: range.from,
+                            normal: normal,
+                            bandColor: bandColor,
+                          ),
                   ),
                   if (reloading)
                     const Positioned(
@@ -222,6 +242,31 @@ class _TrendCardState extends State<TrendCard> {
               ),
             ),
           ),
+          if (normal != null && hasChart) ...[
+            const SizedBox(height: 8),
+            Row(
+              key: const Key('trend-normal-range-legend'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: bandColor,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  loc.trendNormalRangeLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -235,7 +280,18 @@ class _TrendChart extends StatelessWidget {
   final List<SeriesPoint> points;
   final DateTime from;
 
-  const _TrendChart({required this.points, required this.from});
+  /// The selected metric's normal range, or null when it has none (no band).
+  final NormalRange? normal;
+
+  /// The band's Theme-derived fill (shared with the card's legend swatch).
+  final Color bandColor;
+
+  const _TrendChart({
+    required this.points,
+    required this.from,
+    required this.normal,
+    required this.bandColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -255,10 +311,51 @@ class _TrendChart extends StatelessWidget {
     // on sparse series.
     final showDots = spots.length <= 14;
 
+    // When the metric has a normal range, draw a shaded band over it and widen
+    // the y axis to include both the data and the band (with padding) so the
+    // band can't be clipped; otherwise leave fl_chart's automatic y range.
+    final rangeAnnotations = normal == null
+        ? const RangeAnnotations()
+        : RangeAnnotations(
+            horizontalRangeAnnotations: [
+              HorizontalRangeAnnotation(
+                y1: normal!.min,
+                y2: normal!.max,
+                color: bandColor,
+              ),
+            ],
+          );
+    double? minY;
+    double? maxY;
+    if (normal != null) {
+      final values = [...spots.map((s) => s.y), normal!.min, normal!.max];
+      final dataMin = values.reduce((a, b) => a < b ? a : b);
+      final dataMax = values.reduce((a, b) => a > b ? a : b);
+      final pad = (dataMax - dataMin) * 0.1;
+      final effectivePad = pad > 1 ? pad : 1.0;
+      minY = dataMin - effectivePad;
+      maxY = dataMax + effectivePad;
+    }
+    // Faint edges at the band's min/max so the range reads clearly even when the
+    // band fill is close to the line's own area fill.
+    final bandEdge = bandColor.withValues(alpha: 0.5);
+    final extraLinesData = normal == null
+        ? const ExtraLinesData()
+        : ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(y: normal!.min, color: bandEdge, strokeWidth: 1),
+              HorizontalLine(y: normal!.max, color: bandEdge, strokeWidth: 1),
+            ],
+          );
+
     return LineChart(
       LineChartData(
         minX: 0,
         maxX: maxX <= 0 ? 1 : maxX,
+        minY: minY,
+        maxY: maxY,
+        rangeAnnotations: rangeAnnotations,
+        extraLinesData: extraLinesData,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,

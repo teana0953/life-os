@@ -100,4 +100,35 @@ void main() {
       expect(seriesFor(series, VitalsMetric.spo2).single.value, 98);
     });
   });
+
+  group('normalRangeFor', () {
+    test('clinical metrics have fixed ranges', () {
+      expect(normalRangeFor(VitalsMetric.systolic)!.min, 90);
+      expect(normalRangeFor(VitalsMetric.systolic)!.max, 120);
+      expect(normalRangeFor(VitalsMetric.diastolic)!.min, 60);
+      expect(normalRangeFor(VitalsMetric.diastolic)!.max, 80);
+      expect(normalRangeFor(VitalsMetric.pulse)!.min, 60);
+      expect(normalRangeFor(VitalsMetric.pulse)!.max, 100);
+      expect(normalRangeFor(VitalsMetric.glucose)!.min, 70);
+      expect(normalRangeFor(VitalsMetric.glucose)!.max, 140);
+      expect(normalRangeFor(VitalsMetric.spo2)!.min, 95);
+      expect(normalRangeFor(VitalsMetric.spo2)!.max, 100);
+    });
+
+    test('weight derives a healthy-BMI range from height (165 cm)', () {
+      final range = normalRangeFor(VitalsMetric.weight, heightCm: 165);
+      expect(range!.min, 50.4);
+      expect(range.max, 67.8);
+    });
+
+    test('weight has no range without a (positive) height', () {
+      expect(normalRangeFor(VitalsMetric.weight), isNull);
+      expect(normalRangeFor(VitalsMetric.weight, heightCm: 0), isNull);
+      expect(normalRangeFor(VitalsMetric.weight, heightCm: -5), isNull);
+    });
+
+    test('body fat has no range', () {
+      expect(normalRangeFor(VitalsMetric.bodyFat, heightCm: 165), isNull);
+    });
+  });
 }

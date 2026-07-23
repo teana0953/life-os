@@ -1057,6 +1057,10 @@
   "@trendEmpty": {
     "description": "Shown in the trend card's chart area when the selected metric has no recorded points in the range."
   },
+  "trendNormalRangeLabel": "Normal range",
+  "@trendNormalRangeLabel": {
+    "description": "Legend label for the shaded band on the trend chart marking the metric's normal reference range."
+  },
   "trendLoadFailed": "Unable to load your trends. Please try again.",
   "@trendLoadFailed": {
     "description": "Shown on the trend card when loading the trend range fails (not an auth failure)."
