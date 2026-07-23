@@ -74,7 +74,7 @@
   "dietFavoriteTooltip": "加入常用",
   "dietUnfavoriteTooltip": "移除常用",
   "errorDietLoadFailed": "無法載入飲食資料，請再試一次。",
-  "dietBonusNote": "✳️ 運動後可加成份數（之後串運動模組）",
+  "dietBonusNote": "✳️ 運動會加成當日目標份數(主食・肉類)。",
   "dietTodayTitle": "今日飲食",
   "dietHistoryTitle": "飲食紀錄",
   "dietDayToday": "今日",

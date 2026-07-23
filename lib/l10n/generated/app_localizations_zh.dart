@@ -257,7 +257,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 
   @override
-  String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
+  String get dietBonusNote => '✳️ 運動會加成當日目標份數(主食・肉類)。';
 
   @override
   String get dietTodayTitle => '今日飲食';
@@ -1119,7 +1119,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get errorDietLoadFailed => '無法載入飲食資料，請再試一次。';
 
   @override
-  String get dietBonusNote => '✳️ 運動後可加成份數（之後串運動模組）';
+  String get dietBonusNote => '✳️ 運動會加成當日目標份數(主食・肉類)。';
 
   @override
   String get dietTodayTitle => '今日飲食';
