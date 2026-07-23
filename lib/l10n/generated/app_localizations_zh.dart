@@ -162,9 +162,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsInstallIosHint => '加到主畫面:分享 → 加入主畫面';
 
   @override
-  String get dietTabToday => '今日';
-
-  @override
   String get dietTabTarget => '目標';
 
   @override
@@ -512,9 +509,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietTabMore => '更多';
 
   @override
-  String get dietMoreTitle => '更多記錄';
-
-  @override
   String get dietTabExercise => '運動';
 
   @override
@@ -684,12 +678,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dashboardTitle => '總覽';
-
-  @override
-  String get dashboardRecordEntryTitle => '今日記錄';
-
-  @override
-  String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
 
   @override
   String get healthTabRecord => '記錄';
@@ -1030,9 +1018,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsInstallIosHint => '加到主畫面:分享 → 加入主畫面';
 
   @override
-  String get dietTabToday => '今日';
-
-  @override
   String get dietTabTarget => '目標';
 
   @override
@@ -1380,9 +1365,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dietTabMore => '更多';
 
   @override
-  String get dietMoreTitle => '更多記錄';
-
-  @override
   String get dietTabExercise => '運動';
 
   @override
@@ -1552,12 +1534,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dashboardTitle => '總覽';
-
-  @override
-  String get dashboardRecordEntryTitle => '今日記錄';
-
-  @override
-  String get dashboardRecordEntrySubtitle => '記錄飲食、飲水等';
 
   @override
   String get healthTabRecord => '記錄';

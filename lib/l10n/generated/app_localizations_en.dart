@@ -167,9 +167,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Add to Home Screen: Share → Add to Home Screen';
 
   @override
-  String get dietTabToday => 'Today';
-
-  @override
   String get dietTabTarget => 'Target';
 
   @override
@@ -522,9 +519,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dietTabMore => 'More';
 
   @override
-  String get dietMoreTitle => 'More trackers';
-
-  @override
   String get dietTabExercise => 'Exercise';
 
   @override
@@ -698,12 +692,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardTitle => 'Overview';
-
-  @override
-  String get dashboardRecordEntryTitle => 'Today\'s log';
-
-  @override
-  String get dashboardRecordEntrySubtitle => 'Record food, water, and more';
 
   @override
   String get healthTabRecord => 'Record';
