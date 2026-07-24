@@ -1188,6 +1188,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careTodaySummarySeeAll => '查看全部';
+
+  @override
+  String get careTodaySummaryManage => '管理';
+
+  @override
+  String get careTodaySummarySetupTitle => '還沒有照護提醒';
+
+  @override
+  String get careTodaySummarySetupCta => '設定';
+
+  @override
+  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+
+  @override
+  String get careRemindersPushOffAction => '開啟通知';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2374,4 +2389,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careTodaySummarySeeAll => '查看全部';
+
+  @override
+  String get careTodaySummaryManage => '管理';
+
+  @override
+  String get careTodaySummarySetupTitle => '還沒有照護提醒';
+
+  @override
+  String get careTodaySummarySetupCta => '設定';
+
+  @override
+  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+
+  @override
+  String get careRemindersPushOffAction => '開啟通知';
 }

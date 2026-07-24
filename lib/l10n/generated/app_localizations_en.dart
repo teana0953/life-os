@@ -1218,4 +1218,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get careTodaySummarySeeAll => 'See all';
+
+  @override
+  String get careTodaySummaryManage => 'Manage';
+
+  @override
+  String get careTodaySummarySetupTitle => 'No care reminders yet';
+
+  @override
+  String get careTodaySummarySetupCta => 'Set up';
+
+  @override
+  String get careRemindersPushOffBanner =>
+      'Notifications aren\'t on — reminders won\'t be delivered';
+
+  @override
+  String get careRemindersPushOffAction => 'Turn on notifications';
 }

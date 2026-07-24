@@ -365,5 +365,10 @@
   "careTodayStatusMissed": "未完成",
   "careTodaySummaryProgress": "{done}/{total} 完成",
   "careTodaySummaryMoreCount": "還有 {n} 項",
-  "careTodaySummarySeeAll": "查看全部"
+  "careTodaySummarySeeAll": "查看全部",
+  "careTodaySummaryManage": "管理",
+  "careTodaySummarySetupTitle": "還沒有照護提醒",
+  "careTodaySummarySetupCta": "設定",
+  "careRemindersPushOffBanner": "通知未開啟，提醒不會送達",
+  "careRemindersPushOffAction": "開啟通知"
 }
