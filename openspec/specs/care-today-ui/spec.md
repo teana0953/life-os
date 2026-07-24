@@ -65,7 +65,11 @@ general failure — never a crash, never losing the list.
 
 The health module's 總覽 (Overview, the default tab) SHALL present a today-care summary at the
 top of its content that reflects today's care urgency and lets the user act without leaving the
-overview. It SHALL NOT be shown when there are no care schedules today.
+overview. When there are care schedules it SHALL also offer a way to reach care-reminder
+management; when there are NO care schedules today it SHALL show a slim setup prompt that opens
+care-reminder management (rather than showing nothing), so a user with no reminders can still
+reach setup from the overview. It SHALL still show nothing while loading or on an error/reauth
+state (so it never blocks the rest of the overview).
 
 #### Scenario: Overdue care shows an urgent summary
 - **WHEN** today has an overdue care slot
@@ -79,9 +83,17 @@ overview. It SHALL NOT be shown when there are no care schedules today.
 - **WHEN** today has care schedules but no pending or overdue slot
 - **THEN** the overview care summary shows an all-done celebration
 
-#### Scenario: No schedules hides the summary
-- **WHEN** today has no care schedules
-- **THEN** no care summary is shown on the overview and the existing goal card is the first card
+#### Scenario: The summary offers management access
+- **WHEN** the overview care summary is shown for a day that has care schedules
+- **THEN** it presents a manage entry that opens care-reminder management
+
+#### Scenario: No schedules shows a setup prompt, not nothing
+- **WHEN** today has no care schedules and today's care has loaded
+- **THEN** the overview shows a slim setup prompt that opens care-reminder management, instead of hiding the card entirely
+
+#### Scenario: Loading or error still shows nothing
+- **WHEN** today's care is still loading, or is in an error/reauth state
+- **THEN** no care card or setup prompt is shown on the overview and the rest of the overview is unaffected
 
 #### Scenario: Marking done from the overview does not disrupt the page
 - **WHEN** the user taps done on the overview care summary
