@@ -986,4 +986,122 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get reminderStillBlocked =>
       'Notifications are still blocked — enable them in your browser settings, then check again.';
+
+  @override
+  String get medicationRemindersTitle => 'Medication reminders';
+
+  @override
+  String get medicationRemindersEmptyTitle => 'No medication reminders yet';
+
+  @override
+  String get medicationRemindersEmptyBody =>
+      'Add a reminder so you don\'t miss a dose.';
+
+  @override
+  String get medicationRemindersAddButton => 'Add reminder';
+
+  @override
+  String get medicationReminderFormTitleAdd => 'Add medication reminder';
+
+  @override
+  String get medicationReminderFormTitleEdit => 'Edit medication reminder';
+
+  @override
+  String get medicationReminderLabelField => 'Label';
+
+  @override
+  String get medicationReminderTimesLabel => 'Times';
+
+  @override
+  String get medicationReminderAddTimeButton => 'Add time';
+
+  @override
+  String get medicationReminderRemoveTimeTooltip => 'Remove time';
+
+  @override
+  String get medicationReminderWeekdaysLabel => 'Repeat on';
+
+  @override
+  String medicationReminderWeekIntervalValue(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Every $n weeks',
+      one: 'Every week',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String medicationReminderCadenceSuffix(int n) {
+    return '· every $n weeks';
+  }
+
+  @override
+  String get medicationReminderAnchorDateLabel => 'Starting';
+
+  @override
+  String get medicationReminderEnabledLabel => 'Enabled';
+
+  @override
+  String get medicationReminderIncompleteHint =>
+      'Add a label, at least one time, and at least one weekday to save.';
+
+  @override
+  String get medicationReminderSaveButton => 'Save';
+
+  @override
+  String get medicationReminderCancelButton => 'Cancel';
+
+  @override
+  String get medicationReminderDeleteConfirmTitle => 'Delete this reminder?';
+
+  @override
+  String get medicationReminderDeleteConfirmMessage =>
+      'This reminder will stop firing.';
+
+  @override
+  String get medicationReminderDeleteConfirmButton => 'Delete';
+
+  @override
+  String get medicationReminderErrorGeneric =>
+      'Something went wrong. Please try again.';
+
+  @override
+  String get medicationReminderTimezoneLabel => 'Timezone';
+
+  @override
+  String get medicationReminderTimezoneEdit => 'Change';
+
+  @override
+  String get medicationReminderTimezoneNote =>
+      'Reminders fire in this timezone.';
+
+  @override
+  String get medicationReminderTimezoneSaveButton => 'Save';
+
+  @override
+  String get medicationReminderTimezoneError =>
+      'That timezone isn\'t valid. Please try again.';
+
+  @override
+  String get weekdayShortSun => 'Sun';
+
+  @override
+  String get weekdayShortMon => 'Mon';
+
+  @override
+  String get weekdayShortTue => 'Tue';
+
+  @override
+  String get weekdayShortWed => 'Wed';
+
+  @override
+  String get weekdayShortThu => 'Thu';
+
+  @override
+  String get weekdayShortFri => 'Fri';
+
+  @override
+  String get weekdayShortSat => 'Sat';
 }

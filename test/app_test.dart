@@ -41,10 +41,13 @@ import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
 import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
+import 'package:life_os/contexts/notifications/application/medication_reminders.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
+import 'package:life_os/contexts/notifications/domain/medication_reminder.dart';
 import 'package:life_os/contexts/notifications/domain/push_repository.dart';
 import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
 import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
+import 'package:life_os/contexts/notifications/presentation/medication_reminders_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
@@ -394,6 +397,28 @@ class _FakeWebPushGateway implements WebPushGateway {
       null;
 }
 
+class _FakeMedicationReminderRepository
+    implements MedicationReminderRepository {
+  @override
+  Future<List<MedicationReminder>> list(String idToken) async => const [];
+
+  @override
+  Future<void> create(String idToken, MedicationReminderDraft draft) async {}
+
+  @override
+  Future<void> update(
+    String idToken,
+    String id,
+    MedicationReminderUpdate update,
+  ) async {}
+
+  @override
+  Future<void> delete(String idToken, String id) async {}
+
+  @override
+  Future<void> setTimezone(String idToken, String timezone) async {}
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -612,6 +637,7 @@ Future<LocaleController> pumpApp(
   SignUp? signUp,
   ChaodaysImportController? chaodaysImportController,
   ReminderSettingsController? reminderSettingsController,
+  MedicationRemindersController? medicationRemindersController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -642,6 +668,22 @@ Future<LocaleController> pumpApp(
           SendTestPush(pushRepository),
         );
       }();
+  MedicationRemindersController resolvedMedicationRemindersController;
+  if (medicationRemindersController != null) {
+    resolvedMedicationRemindersController = medicationRemindersController;
+  } else {
+    final repository = _FakeMedicationReminderRepository();
+    SharedPreferences.setMockInitialValues({});
+    final medicationPrefs = await SharedPreferences.getInstance();
+    resolvedMedicationRemindersController = MedicationRemindersController(
+      ListMedicationReminders(repository),
+      CreateMedicationReminder(repository),
+      UpdateMedicationReminder(repository),
+      DeleteMedicationReminder(repository),
+      SetReminderTimezone(repository),
+      medicationPrefs,
+    );
+  }
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
@@ -669,6 +711,7 @@ Future<LocaleController> pumpApp(
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
       chaodaysImportController: resolvedChaodaysImportController,
       reminderSettingsController: resolvedReminderSettingsController,
+      medicationRemindersController: resolvedMedicationRemindersController,
     ),
   );
   return resolvedLocaleController;
@@ -930,6 +973,46 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('reminder-enable-button')), findsOneWidget);
+      },
+    );
+  });
+
+  group('App medication reminders entry', () {
+    testWidgets(
+      'the health module\'s More tab medication-reminders tile navigates to '
+      '/medication-reminders',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('health-more-medication-reminders')),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('health-more-medication-reminders')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('medication-reminders-add-fab')),
+          findsOneWidget,
+        );
       },
     );
   });

@@ -958,6 +958,112 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
+
+  @override
+  String get medicationRemindersTitle => '用藥提醒';
+
+  @override
+  String get medicationRemindersEmptyTitle => '還沒有用藥提醒';
+
+  @override
+  String get medicationRemindersEmptyBody => '新增一筆提醒,準時吃藥不漏掉。';
+
+  @override
+  String get medicationRemindersAddButton => '新增提醒';
+
+  @override
+  String get medicationReminderFormTitleAdd => '新增用藥提醒';
+
+  @override
+  String get medicationReminderFormTitleEdit => '編輯用藥提醒';
+
+  @override
+  String get medicationReminderLabelField => '藥物名稱';
+
+  @override
+  String get medicationReminderTimesLabel => '時間';
+
+  @override
+  String get medicationReminderAddTimeButton => '新增時間';
+
+  @override
+  String get medicationReminderRemoveTimeTooltip => '移除時間';
+
+  @override
+  String get medicationReminderWeekdaysLabel => '重複星期';
+
+  @override
+  String medicationReminderWeekIntervalValue(int n) {
+    return '每 $n 週';
+  }
+
+  @override
+  String medicationReminderCadenceSuffix(int n) {
+    return '·每 $n 週';
+  }
+
+  @override
+  String get medicationReminderAnchorDateLabel => '起始日';
+
+  @override
+  String get medicationReminderEnabledLabel => '啟用';
+
+  @override
+  String get medicationReminderIncompleteHint => '請輸入藥物名稱、至少一個時間、至少一個星期,才能儲存。';
+
+  @override
+  String get medicationReminderSaveButton => '儲存';
+
+  @override
+  String get medicationReminderCancelButton => '取消';
+
+  @override
+  String get medicationReminderDeleteConfirmTitle => '刪除這筆提醒?';
+
+  @override
+  String get medicationReminderDeleteConfirmMessage => '刪除後將不再提醒用藥。';
+
+  @override
+  String get medicationReminderDeleteConfirmButton => '刪除';
+
+  @override
+  String get medicationReminderErrorGeneric => '發生問題,請再試一次。';
+
+  @override
+  String get medicationReminderTimezoneLabel => '時區';
+
+  @override
+  String get medicationReminderTimezoneEdit => '變更';
+
+  @override
+  String get medicationReminderTimezoneNote => '提醒會依照此時區發送。';
+
+  @override
+  String get medicationReminderTimezoneSaveButton => '儲存';
+
+  @override
+  String get medicationReminderTimezoneError => '時區無效,請重新輸入。';
+
+  @override
+  String get weekdayShortSun => '週日';
+
+  @override
+  String get weekdayShortMon => '週一';
+
+  @override
+  String get weekdayShortTue => '週二';
+
+  @override
+  String get weekdayShortWed => '週三';
+
+  @override
+  String get weekdayShortThu => '週四';
+
+  @override
+  String get weekdayShortFri => '週五';
+
+  @override
+  String get weekdayShortSat => '週六';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1914,4 +2020,111 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
+
+  @override
+  String get medicationRemindersTitle => '用藥提醒';
+
+  @override
+  String get medicationRemindersEmptyTitle => '還沒有用藥提醒';
+
+  @override
+  String get medicationRemindersEmptyBody => '新增一筆提醒,準時吃藥不漏掉。';
+
+  @override
+  String get medicationRemindersAddButton => '新增提醒';
+
+  @override
+  String get medicationReminderFormTitleAdd => '新增用藥提醒';
+
+  @override
+  String get medicationReminderFormTitleEdit => '編輯用藥提醒';
+
+  @override
+  String get medicationReminderLabelField => '藥物名稱';
+
+  @override
+  String get medicationReminderTimesLabel => '時間';
+
+  @override
+  String get medicationReminderAddTimeButton => '新增時間';
+
+  @override
+  String get medicationReminderRemoveTimeTooltip => '移除時間';
+
+  @override
+  String get medicationReminderWeekdaysLabel => '重複星期';
+
+  @override
+  String medicationReminderWeekIntervalValue(int n) {
+    return '每 $n 週';
+  }
+
+  @override
+  String medicationReminderCadenceSuffix(int n) {
+    return '· 每 $n 週';
+  }
+
+  @override
+  String get medicationReminderAnchorDateLabel => '起始日';
+
+  @override
+  String get medicationReminderEnabledLabel => '啟用';
+
+  @override
+  String get medicationReminderIncompleteHint =>
+      '請輸入藥物名稱、至少一個時間、至少選一個星期幾,才能儲存。';
+
+  @override
+  String get medicationReminderSaveButton => '儲存';
+
+  @override
+  String get medicationReminderCancelButton => '取消';
+
+  @override
+  String get medicationReminderDeleteConfirmTitle => '刪除這筆提醒?';
+
+  @override
+  String get medicationReminderDeleteConfirmMessage => '刪除後將不再提醒用藥。';
+
+  @override
+  String get medicationReminderDeleteConfirmButton => '刪除';
+
+  @override
+  String get medicationReminderErrorGeneric => '發生問題,請再試一次。';
+
+  @override
+  String get medicationReminderTimezoneLabel => '時區';
+
+  @override
+  String get medicationReminderTimezoneEdit => '變更';
+
+  @override
+  String get medicationReminderTimezoneNote => '提醒會依照此時區發送。';
+
+  @override
+  String get medicationReminderTimezoneSaveButton => '儲存';
+
+  @override
+  String get medicationReminderTimezoneError => '時區無效,請重新輸入。';
+
+  @override
+  String get weekdayShortSun => '週日';
+
+  @override
+  String get weekdayShortMon => '週一';
+
+  @override
+  String get weekdayShortTue => '週二';
+
+  @override
+  String get weekdayShortWed => '週三';
+
+  @override
+  String get weekdayShortThu => '週四';
+
+  @override
+  String get weekdayShortFri => '週五';
+
+  @override
+  String get weekdayShortSat => '週六';
 }
