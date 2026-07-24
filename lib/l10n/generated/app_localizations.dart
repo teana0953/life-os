@@ -2282,10 +2282,10 @@ abstract class AppLocalizations {
   /// **'Missed'**
   String get careTodayStatusMissed;
 
-  /// Progress pill on the overview care summary card's header, e.g. '2/5' (done vs. total slots today).
+  /// Progress pill on the overview care summary card's header, e.g. '2/5 done' (done vs. total slots today).
   ///
   /// In en, this message translates to:
-  /// **'{done}/{total}'**
+  /// **'{done}/{total} done'**
   String careTodaySummaryProgress(int done, int total);
 
   /// Footer text on the overview care summary card naming how many additional slots exist beyond the one shown as focus.
@@ -2294,7 +2294,7 @@ abstract class AppLocalizations {
   /// **'{n} more'**
   String careTodaySummaryMoreCount(int n);
 
-  /// Footer text on the overview care summary card (shown alongside careTodaySummaryMoreCount when the focus slot is overdue), hinting that tapping the card opens the full Today checklist.
+  /// Footer text on the overview care summary card, always shown alongside a trailing arrow as an open affordance (and alongside careTodaySummaryMoreCount when extra slots exist), hinting that tapping the card opens the full Today checklist.
   ///
   /// In en, this message translates to:
   /// **'See all'**

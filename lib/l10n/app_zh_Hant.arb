@@ -363,7 +363,7 @@
   "careTodayUpNext": "接下來",
   "careTodayStatusSkipped": "略過",
   "careTodayStatusMissed": "未完成",
-  "careTodaySummaryProgress": "{done}/{total}",
+  "careTodaySummaryProgress": "{done}/{total} 完成",
   "careTodaySummaryMoreCount": "還有 {n} 項",
-  "careTodaySummarySeeAll": "全部"
+  "careTodaySummarySeeAll": "查看全部"
 }

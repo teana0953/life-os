@@ -98,7 +98,6 @@ class CareTodaySummaryCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
-            key: const Key('care-today-summary-open'),
             onTap: () => context.push('/care-today'),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -134,18 +133,17 @@ class CareTodaySummaryCard extends StatelessWidget {
                           ? () => _mark(context, focus, controller.markSkipped)
                           : null,
                     ),
-                  if (focus != null && moreCount > 0) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      isOverdue
-                          ? '${loc.careTodaySummaryMoreCount(moreCount)} · '
-                                '${loc.careTodaySummarySeeAll} →'
-                          : '${loc.careTodaySummaryMoreCount(moreCount)} →',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                  const SizedBox(height: 8),
+                  Text(
+                    key: const Key('care-today-summary-open'),
+                    moreCount > 0
+                        ? '${loc.careTodaySummaryMoreCount(moreCount)} · '
+                              '${loc.careTodaySummarySeeAll} →'
+                        : '${loc.careTodaySummarySeeAll} →',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -203,6 +201,32 @@ class _CelebrationRow extends StatelessWidget {
   }
 }
 
+/// A small error-tinted status chip flagging the focus row as overdue
+/// before the user reads its title, so urgency isn't conveyed by color
+/// alone (the chip carries its own text label too).
+class _OverdueChip extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+
+  const _OverdueChip({required this.theme, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const Key('care-today-summary-overdue-chip'),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: theme.colorScheme.error.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      label,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: theme.colorScheme.error,
+      ),
+    ),
+  );
+}
+
 /// A small inline spinner sized to sit inside a [FilledButton]/
 /// [OutlinedButton] in place of its label while that button's action is in
 /// flight (mirrors `CareTodayScreen`'s per-row marking spinner).
@@ -247,6 +271,10 @@ class _FocusRow extends StatelessWidget {
               color: isOverdue ? theme.colorScheme.error : null,
             ),
             const SizedBox(width: 8),
+            if (isOverdue) ...[
+              _OverdueChip(theme: theme, label: loc.careTodayOverdueSection),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Text(focus.title, style: theme.textTheme.titleMedium),
             ),

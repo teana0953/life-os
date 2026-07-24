@@ -1605,9 +1605,9 @@
   "@careTodayStatusMissed": {
     "description": "Status label on a Done-group row for a slot that passed with no record, distinguishing it from a deliberate skip."
   },
-  "careTodaySummaryProgress": "{done}/{total}",
+  "careTodaySummaryProgress": "{done}/{total} done",
   "@careTodaySummaryProgress": {
-    "description": "Progress pill on the overview care summary card's header, e.g. '2/5' (done vs. total slots today).",
+    "description": "Progress pill on the overview care summary card's header, e.g. '2/5 done' (done vs. total slots today).",
     "placeholders": {
       "done": {
         "type": "int"
@@ -1628,6 +1628,6 @@
   },
   "careTodaySummarySeeAll": "See all",
   "@careTodaySummarySeeAll": {
-    "description": "Footer text on the overview care summary card (shown alongside careTodaySummaryMoreCount when the focus slot is overdue), hinting that tapping the card opens the full Today checklist."
+    "description": "Footer text on the overview care summary card, always shown alongside a trailing arrow as an open affordance (and alongside careTodaySummaryMoreCount when extra slots exist), hinting that tapping the card opens the full Today checklist."
   }
 }

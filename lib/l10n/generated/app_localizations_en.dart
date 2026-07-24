@@ -1208,7 +1208,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String careTodaySummaryProgress(int done, int total) {
-    return '$done/$total';
+    return '$done/$total done';
   }
 
   @override

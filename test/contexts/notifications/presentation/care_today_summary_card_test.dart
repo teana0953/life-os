@@ -134,6 +134,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining(loc.careTodaySummarySeeAll), findsOneWidget);
+      expect(
+        find.byKey(const Key('care-today-summary-overdue-chip')),
+        findsOneWidget,
+      );
+      expect(find.text(loc.careTodayOverdueSection), findsOneWidget);
     });
 
     testWidgets('pending-only: shows "up next" with an inline Done action '
@@ -151,7 +156,13 @@ void main() {
       expect(find.byKey(const Key('care-today-summary-done')), findsOneWidget);
       expect(find.byKey(const Key('care-today-summary-skip')), findsNothing);
       expect(find.textContaining(loc.careTodaySummaryMoreCount(1)), findsOneWidget);
-      expect(find.textContaining(loc.careTodaySummarySeeAll), findsNothing);
+      // The open affordance is always present, even when the focus isn't
+      // overdue.
+      expect(find.textContaining(loc.careTodaySummarySeeAll), findsOneWidget);
+      expect(
+        find.byKey(const Key('care-today-summary-overdue-chip')),
+        findsNothing,
+      );
     });
 
     testWidgets('all-done: shows a mini celebration and the card is tappable', (
@@ -166,6 +177,9 @@ void main() {
       expect(find.text(loc.careTodayCelebrationTitle), findsOneWidget);
       expect(find.byKey(const Key('care-today-summary-done')), findsNothing);
       expect(find.text(loc.careTodaySummaryProgress(1, 1)), findsOneWidget);
+      // The open affordance stays discoverable even with nothing left to do.
+      expect(find.byKey(const Key('care-today-summary-open')), findsOneWidget);
+      expect(find.textContaining(loc.careTodaySummarySeeAll), findsOneWidget);
     });
 
     testWidgets('no schedules: renders nothing', (tester) async {
@@ -206,6 +220,37 @@ void main() {
 
       final loc = lookupAppLocalizations(const Locale('en'));
       expect(find.text(loc.careTodayCelebrationTitle), findsOneWidget);
+    });
+
+    testWidgets('an in-flight mark shows a spinner on the pressed button and '
+        'disables both buttons', (tester) async {
+      final logCompleter = Completer<void>();
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(
+          date: '2026-07-24',
+          slots: [_slot(careScheduleId: 'sch-overdue', status: CareTodayStatus.overdue)],
+        ),
+      )..logCompleter = logCompleter;
+      final controller = _controllerFor(const [], repository: repository);
+      await controller.load('token-123');
+
+      await _pumpCard(tester, controller);
+
+      await tester.tap(find.byKey(const Key('care-today-summary-done')));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      final doneButton = tester.widget<FilledButton>(
+        find.byKey(const Key('care-today-summary-done')),
+      );
+      expect(doneButton.onPressed, isNull);
+      final skipButton = tester.widget<OutlinedButton>(
+        find.byKey(const Key('care-today-summary-skip')),
+      );
+      expect(skipButton.onPressed, isNull);
+
+      logCompleter.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('tapping the card body pushes /care-today', (tester) async {
