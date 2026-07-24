@@ -284,6 +284,7 @@ class _AppState extends State<App> {
           builder: (context, state) => CareItemsScreen(
             controller: widget.careItemsController,
             authRepository: widget.authRepository,
+            reminderSettingsController: widget.reminderSettingsController,
           ),
         ),
         GoRoute(

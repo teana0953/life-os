@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -8,6 +9,7 @@ import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
 import 'care_item_form.dart';
 import 'care_items_controller.dart';
+import 'reminder_settings_controller.dart';
 
 const _categoryOrder = [
   CareCategory.medication,
@@ -88,10 +90,16 @@ class CareItemsScreen extends StatefulWidget {
   final CareItemsController controller;
   final AuthRepository authRepository;
 
+  /// Read-only: only [ReminderSettingsController.pushOn] is consulted, to
+  /// show a banner when push isn't on. Enabling/testing push remains
+  /// `/reminders`'s job.
+  final ReminderSettingsController reminderSettingsController;
+
   const CareItemsScreen({
     super.key,
     required this.controller,
     required this.authRepository,
+    required this.reminderSettingsController,
   });
 
   @override
@@ -105,12 +113,15 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
+    widget.reminderSettingsController.addListener(_onChanged);
+    widget.reminderSettingsController.load();
     _load();
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
+    widget.reminderSettingsController.removeListener(_onChanged);
     super.dispose();
   }
 
@@ -226,6 +237,30 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
                           loc.careErrorGeneric,
                           key: const Key('care-items-mutation-error'),
                           style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                    if (!widget.reminderSettingsController.pushOn)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: LedgeCard(
+                          key: const Key('care-items-push-off-banner'),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.notifications_off_outlined,
+                                color: theme.colorScheme.error,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(loc.careRemindersPushOffBanner),
+                              ),
+                              TextButton(
+                                key: const Key('care-items-push-off-action'),
+                                onPressed: () => context.push('/reminders'),
+                                child: Text(loc.careRemindersPushOffAction),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     if (controller.items.isEmpty)

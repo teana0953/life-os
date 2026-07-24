@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/notifications/application/care_items.dart';
+import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
+import 'package:life_os/contexts/notifications/application/send_test_push.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
+import 'package:life_os/contexts/notifications/domain/push_repository.dart';
+import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
+import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
 import 'package:life_os/contexts/notifications/presentation/care_items_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_items_screen.dart';
+import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/date/day_format.dart';
 
@@ -151,15 +157,62 @@ CareItemsController _controller({CareItemRepository? repository}) {
   );
 }
 
+class _FakePushRepository implements PushRepository {
+  @override
+  Future<String> fetchVapidPublicKey(String idToken) async => 'fake-vapid-key';
+
+  @override
+  Future<void> saveSubscription(String idToken, PushSubscription subscription) async {}
+
+  @override
+  Future<TestPushResult> sendTest(String idToken) async =>
+      const TestPushResult(sent: 0, failed: 0);
+}
+
+class _FakeWebPushGateway implements WebPushGateway {
+  PushEnvironment environment = const PushEnvironment(
+    supported: true,
+    iosNeedsInstall: false,
+  );
+  PushPermissionStatus permission = PushPermissionStatus.prompt;
+
+  @override
+  PushEnvironment describeEnvironment() => environment;
+
+  @override
+  PushPermissionStatus permissionStatus() => permission;
+
+  @override
+  Future<PushSubscription?> enableAndSubscribe(String vapidPublicKey) async => null;
+}
+
+/// A [ReminderSettingsController] whose [ReminderSettingsController.pushOn]
+/// resolves to [pushOn] once [ReminderSettingsController.load] runs (driven
+/// by the fake gateway's permission status — [ReminderSettingsController]
+/// itself has no settable `pushOn`, only the derived getter under test).
+ReminderSettingsController _reminderSettingsController({required bool pushOn}) {
+  final gateway = _FakeWebPushGateway()
+    ..permission = pushOn ? PushPermissionStatus.granted : PushPermissionStatus.prompt;
+  final repository = _FakePushRepository();
+  return ReminderSettingsController(
+    gateway,
+    EnableReminders(repository, gateway),
+    SendTestPush(repository),
+  );
+}
+
 Future<void> _pumpScreen(
   WidgetTester tester,
-  CareItemsController controller,
-) async {
+  CareItemsController controller, {
+  ReminderSettingsController? reminderSettingsController,
+}) async {
   await tester.pumpWidget(
-    l10nTestApp(
+    l10nRouterTestApp(
       home: CareItemsScreen(
         controller: controller,
         authRepository: _FakeAuthRepository(),
+        reminderSettingsController:
+            reminderSettingsController ?? _reminderSettingsController(pushOn: true),
       ),
     ),
   );
@@ -331,6 +384,43 @@ void main() {
         expect(find.byKey(const Key('care-item-form-error')), findsNothing);
       },
     );
+
+    testWidgets(
+      'pushOn=false: shows the push-off banner and tapping its action '
+      'pushes /reminders',
+      (tester) async {
+        final controller = _controller();
+        await _pumpScreen(
+          tester,
+          controller,
+          reminderSettingsController: _reminderSettingsController(pushOn: false),
+        );
+
+        expect(
+          find.byKey(const Key('care-items-push-off-banner')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('care-items-push-off-action')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('/reminders'), findsOneWidget);
+      },
+    );
+
+    testWidgets('pushOn=true: no push-off banner is shown', (tester) async {
+      final controller = _controller();
+      await _pumpScreen(
+        tester,
+        controller,
+        reminderSettingsController: _reminderSettingsController(pushOn: true),
+      );
+
+      expect(
+        find.byKey(const Key('care-items-push-off-banner')),
+        findsNothing,
+      );
+    });
 
     testWidgets(
       'a load failure shows a retry button that reloads the list',
