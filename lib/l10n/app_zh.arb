@@ -362,5 +362,8 @@
   "careTodayCelebrationBody": "做得好，明天見。",
   "careTodayUpNext": "接下來",
   "careTodayStatusSkipped": "略過",
-  "careTodayStatusMissed": "未完成"
+  "careTodayStatusMissed": "未完成",
+  "careTodaySummaryProgress": "{done}/{total}",
+  "careTodaySummaryMoreCount": "還有 {n} 項",
+  "careTodaySummarySeeAll": "全部"
 }

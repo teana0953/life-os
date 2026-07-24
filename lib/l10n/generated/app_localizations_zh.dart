@@ -1175,6 +1175,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careTodayStatusMissed => '未完成';
+
+  @override
+  String careTodaySummaryProgress(int done, int total) {
+    return '$done/$total';
+  }
+
+  @override
+  String careTodaySummaryMoreCount(int n) {
+    return '還有 $n 項';
+  }
+
+  @override
+  String get careTodaySummarySeeAll => '全部';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2348,4 +2361,17 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careTodayStatusMissed => '未完成';
+
+  @override
+  String careTodaySummaryProgress(int done, int total) {
+    return '$done/$total';
+  }
+
+  @override
+  String careTodaySummaryMoreCount(int n) {
+    return '還有 $n 項';
+  }
+
+  @override
+  String get careTodaySummarySeeAll => '全部';
 }
