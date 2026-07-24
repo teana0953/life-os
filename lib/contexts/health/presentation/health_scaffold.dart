@@ -63,6 +63,9 @@ class HealthScaffold extends StatefulWidget {
   /// Opens the chaodays import screen, wired by the caller.
   final VoidCallback onOpenImport;
 
+  /// Opens the reminder/notification settings screen, wired by the caller.
+  final VoidCallback onOpenReminders;
+
   final DateTime Function() clock;
 
   const HealthScaffold({
@@ -84,6 +87,7 @@ class HealthScaffold extends StatefulWidget {
     required this.menstrualController,
     required this.onOpenSettings,
     required this.onOpenImport,
+    required this.onOpenReminders,
     this.clock = DateTime.now,
   });
 
@@ -214,6 +218,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
           _MoreBody(
             onOpenSettings: widget.onOpenSettings,
             onOpenImport: widget.onOpenImport,
+            onOpenReminders: widget.onOpenReminders,
           ),
         ],
       ),
@@ -310,14 +315,19 @@ class _TrendBody extends StatelessWidget {
   }
 }
 
-/// 更多: app settings + chaodays import entries (theme / language / sign-out
-/// live in SettingsScreen; the chaodays import form lives in
-/// ChaodaysImportScreen).
+/// 更多: app settings + chaodays import + reminders entries (theme / language
+/// / sign-out live in SettingsScreen; the chaodays import form lives in
+/// ChaodaysImportScreen; reminders live in ReminderSettingsScreen).
 class _MoreBody extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenImport;
+  final VoidCallback onOpenReminders;
 
-  const _MoreBody({required this.onOpenSettings, required this.onOpenImport});
+  const _MoreBody({
+    required this.onOpenSettings,
+    required this.onOpenImport,
+    required this.onOpenReminders,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -329,6 +339,16 @@ class _MoreBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              LedgeCard(
+                child: ListTile(
+                  key: const Key('health-more-reminders'),
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: Text(loc.reminderTitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: onOpenReminders,
+                ),
+              ),
+              const SizedBox(height: 12),
               LedgeCard(
                 child: ListTile(
                   key: const Key('health-more-import'),

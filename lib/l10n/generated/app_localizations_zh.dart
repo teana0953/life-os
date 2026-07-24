@@ -913,6 +913,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
+
+  @override
+  String get reminderTitle => '提醒通知';
+
+  @override
+  String get reminderStatusUnsupported => '此瀏覽器或裝置不支援通知功能。';
+
+  @override
+  String get reminderStatusIosNeedsInstall =>
+      '在 iOS 上要接收通知,請在 Safari 點選分享圖示,選擇「加入主畫面」,然後從主畫面開啟 LifeOS 並回到這裡。';
+
+  @override
+  String get reminderStatusPermissionDenied => '此網站的通知已被封鎖,請至瀏覽器設定開啟後再回來。';
+
+  @override
+  String get reminderEnabledStatus => '此裝置已開啟通知。';
+
+  @override
+  String get reminderErrorGeneric => '開啟通知時發生錯誤,請再試一次。';
+
+  @override
+  String get reminderEnableButton => '開啟通知';
+
+  @override
+  String get reminderTestButton => '測試推播';
+
+  @override
+  String reminderTestResult(int sent, int failed) {
+    return '已送出 $sent・失敗 $failed';
+  }
+
+  @override
+  String get reminderTestErrorGeneric => '測試推播失敗,請再試一次。';
+
+  @override
+  String get reminderTestSent => '測試推播已送出,請查看你的裝置通知。';
+
+  @override
+  String get reminderTestNoDevice => '目前沒有已啟用的裝置收到,請再開啟一次通知。';
+
+  @override
+  String get reminderRecheck => '重新檢查';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1824,4 +1866,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
+
+  @override
+  String get reminderTitle => '提醒通知';
+
+  @override
+  String get reminderStatusUnsupported => '此瀏覽器或裝置不支援通知功能。';
+
+  @override
+  String get reminderStatusIosNeedsInstall =>
+      '在 iOS 上要接收通知,請在 Safari 點選分享圖示,選擇「加入主畫面」,然後從主畫面開啟 LifeOS 並回到這裡。';
+
+  @override
+  String get reminderStatusPermissionDenied => '此網站的通知已被封鎖,請至瀏覽器設定開啟後再回來。';
+
+  @override
+  String get reminderEnabledStatus => '此裝置已開啟通知。';
+
+  @override
+  String get reminderErrorGeneric => '開啟通知時發生錯誤,請再試一次。';
+
+  @override
+  String get reminderEnableButton => '開啟通知';
+
+  @override
+  String get reminderTestButton => '測試推播';
+
+  @override
+  String reminderTestResult(int sent, int failed) {
+    return '已送出 $sent・失敗 $failed';
+  }
+
+  @override
+  String get reminderTestErrorGeneric => '測試推播失敗,請再試一次。';
+
+  @override
+  String get reminderTestSent => '測試推播已送出,請查看你的裝置通知。';
+
+  @override
+  String get reminderTestNoDevice => '目前沒有已啟用的裝置收到,請再開啟一次通知。';
+
+  @override
+  String get reminderRecheck => '重新檢查';
 }

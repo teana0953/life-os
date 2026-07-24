@@ -1807,6 +1807,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'chaodays is temporarily unavailable. Please try again later.'**
   String get importErrorUnavailable;
+
+  /// Title for the reminder/notification settings screen, and the label for its entry card in the More tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get reminderTitle;
+
+  /// Shown when the device/browser doesn't support Web Push (no service worker / Push / Notification support).
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications aren\'t supported on this browser or device.'**
+  String get reminderStatusUnsupported;
+
+  /// Guidance shown on iOS Safari before the app has been installed to the Home Screen, where Web Push isn't available yet.
+  ///
+  /// In en, this message translates to:
+  /// **'To get notifications on iOS, tap the Share icon in Safari, choose \"Add to Home Screen\", then open LifeOS from your Home Screen and come back here.'**
+  String get reminderStatusIosNeedsInstall;
+
+  /// Shown after the user denies the browser's notification permission prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked for this site. Enable them in your browser settings, then come back here.'**
+  String get reminderStatusPermissionDenied;
+
+  /// Shown once the device is successfully subscribed to Web Push.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are on for this device.'**
+  String get reminderEnabledStatus;
+
+  /// Shown when enabling notifications fails for a non-auth reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong turning on notifications. Please try again.'**
+  String get reminderErrorGeneric;
+
+  /// Label for the primary button that requests permission and subscribes to Web Push.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get reminderEnableButton;
+
+  /// Label for the secondary button, shown once enabled, that requests a backend test push.
+  ///
+  /// In en, this message translates to:
+  /// **'Send test push'**
+  String get reminderTestButton;
+
+  /// Snack bar message showing the outcome of a test push.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {sent} · Failed {failed}'**
+  String reminderTestResult(int sent, int failed);
+
+  /// Snack bar message shown when a test push request fails for a non-auth reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send the test push. Please try again.'**
+  String get reminderTestErrorGeneric;
+
+  /// Snack bar message shown when a test push was sent to at least one enabled device.
+  ///
+  /// In en, this message translates to:
+  /// **'Test push sent — check your device for the notification.'**
+  String get reminderTestSent;
+
+  /// Snack bar message shown when a test push succeeded but reached zero enabled devices.
+  ///
+  /// In en, this message translates to:
+  /// **'No enabled device received it — try turning notifications on again.'**
+  String get reminderTestNoDevice;
+
+  /// Label for the button shown in the permissionDenied state that re-resolves the environment after the user fixes their browser settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get reminderRecheck;
 }
 
 class _AppLocalizationsDelegate

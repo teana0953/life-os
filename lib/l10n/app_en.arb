@@ -1240,5 +1240,65 @@
   "importErrorUnavailable": "chaodays is temporarily unavailable. Please try again later.",
   "@importErrorUnavailable": {
     "description": "Error banner shown when chaodays can't be reached (backend 502, or any other unexpected import failure)."
+  },
+  "reminderTitle": "Reminders",
+  "@reminderTitle": {
+    "description": "Title for the reminder/notification settings screen, and the label for its entry card in the More tab."
+  },
+  "reminderStatusUnsupported": "Notifications aren't supported on this browser or device.",
+  "@reminderStatusUnsupported": {
+    "description": "Shown when the device/browser doesn't support Web Push (no service worker / Push / Notification support)."
+  },
+  "reminderStatusIosNeedsInstall": "To get notifications on iOS, tap the Share icon in Safari, choose \"Add to Home Screen\", then open LifeOS from your Home Screen and come back here.",
+  "@reminderStatusIosNeedsInstall": {
+    "description": "Guidance shown on iOS Safari before the app has been installed to the Home Screen, where Web Push isn't available yet."
+  },
+  "reminderStatusPermissionDenied": "Notifications are blocked for this site. Enable them in your browser settings, then come back here.",
+  "@reminderStatusPermissionDenied": {
+    "description": "Shown after the user denies the browser's notification permission prompt."
+  },
+  "reminderEnabledStatus": "Notifications are on for this device.",
+  "@reminderEnabledStatus": {
+    "description": "Shown once the device is successfully subscribed to Web Push."
+  },
+  "reminderErrorGeneric": "Something went wrong turning on notifications. Please try again.",
+  "@reminderErrorGeneric": {
+    "description": "Shown when enabling notifications fails for a non-auth reason."
+  },
+  "reminderEnableButton": "Enable notifications",
+  "@reminderEnableButton": {
+    "description": "Label for the primary button that requests permission and subscribes to Web Push."
+  },
+  "reminderTestButton": "Send test push",
+  "@reminderTestButton": {
+    "description": "Label for the secondary button, shown once enabled, that requests a backend test push."
+  },
+  "reminderTestResult": "Sent {sent} · Failed {failed}",
+  "@reminderTestResult": {
+    "description": "Snack bar message showing the outcome of a test push.",
+    "placeholders": {
+      "sent": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "reminderTestErrorGeneric": "Couldn't send the test push. Please try again.",
+  "@reminderTestErrorGeneric": {
+    "description": "Snack bar message shown when a test push request fails for a non-auth reason."
+  },
+  "reminderTestSent": "Test push sent — check your device for the notification.",
+  "@reminderTestSent": {
+    "description": "Snack bar message shown when a test push was sent to at least one enabled device."
+  },
+  "reminderTestNoDevice": "No enabled device received it — try turning notifications on again.",
+  "@reminderTestNoDevice": {
+    "description": "Snack bar message shown when a test push succeeded but reached zero enabled devices."
+  },
+  "reminderRecheck": "Check again",
+  "@reminderRecheck": {
+    "description": "Label for the button shown in the permissionDenied state that re-resolves the environment after the user fixes their browser settings."
   }
 }
