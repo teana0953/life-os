@@ -12,6 +12,9 @@
 - **`pushOn` 判定**:`status == enabled` 不足以判斷(load() 在上次 session 已訂閱時回 idle)。
   併看 `_gateway.permissionStatus() == granted`。新增唯讀 getter,不改 enable/test 邏輯。
   banner 條件 = `!pushOn`;單一文案涵蓋 denied/prompt/unsupported,細節導引交給 `/reminders`。
+  **已知近似(YAGNI)**:`permission==granted` 是「曾授權/訂閱」的 proxy,非「目前訂閱仍有效」;
+  若訂閱被瀏覽器 prune 或授權後訂閱失敗,banner 會被抑制而提醒其實送不到。此近似可接受(不引入
+  訂閱有效性查核);spec 明確把「已開」定義成此 getter,保持可測。
 - **總覽卡 no-schedule 由「隱藏」改「slim CTA」**:這是 #78 明確的設計選擇(當時為零雜訊),
   現因「新使用者要能從總覽找到設定」而反轉——但只在 **loaded 且 slots 空** 時顯示 CTA;
   loading/error/reauth 仍不顯示,維持不阻斷總覽其他卡。需同步改 #78 的對應測試(原斷言不顯示)。
