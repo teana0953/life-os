@@ -132,10 +132,14 @@ class CareTodaySummaryCard extends StatelessWidget {
                         ),
                       ),
                       _ProgressPill(loc: loc, done: done, total: total),
-                      TextButton(
+                      IconButton(
                         key: const Key('care-today-summary-manage'),
                         onPressed: onManage,
-                        child: Text(loc.careTodaySummaryManage),
+                        tooltip: loc.careTodaySummaryManage,
+                        icon: Icon(
+                          Icons.settings_outlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -199,7 +203,10 @@ class _SetupPrompt extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
-                  const Icon(Icons.add_circle_outline),
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

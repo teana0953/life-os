@@ -294,8 +294,8 @@ void main() {
     });
 
     testWidgets(
-      'has schedules: shows a header manage entry and tapping it triggers '
-      'onManage',
+      'has schedules: shows a header manage icon button and tapping it '
+      'triggers onManage',
       (tester) async {
         final controller = _controllerFor([_slot(status: CareTodayStatus.overdue)]);
         await controller.load('token-123');
@@ -304,7 +304,16 @@ void main() {
         await _pumpCard(tester, controller, onManage: () => manageTapped = true);
 
         final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.text(loc.careTodaySummaryManage), findsOneWidget);
+        expect(
+          find.byKey(const Key('care-today-summary-manage')),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<IconButton>(
+            find.byKey(const Key('care-today-summary-manage')),
+          ).tooltip,
+          loc.careTodaySummaryManage,
+        );
 
         await tester.tap(find.byKey(const Key('care-today-summary-manage')));
         await tester.pumpAndSettle();
