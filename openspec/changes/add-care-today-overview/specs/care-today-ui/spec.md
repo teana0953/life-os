@@ -26,6 +26,10 @@ overview. It SHALL NOT be shown when there are no care schedules today.
 - **WHEN** the user taps done on the overview care summary
 - **THEN** the slot is recorded done and the summary updates without the overview dropping to a full-page loading state
 
+#### Scenario: A failed inline mark is surfaced, not silent
+- **WHEN** an inline mark from the overview summary fails for a non-auth reason
+- **THEN** a localized error is surfaced (the summary is not left implying the action succeeded) and the existing summary is kept
+
 #### Scenario: The summary opens the full checklist
 - **WHEN** the user taps the overview care summary body
 - **THEN** the Today care checklist opens
@@ -37,7 +41,7 @@ on it), not the app root.
 
 #### Scenario: Tapping a care notification opens Today
 - **WHEN** the user taps a care reminder notification
-- **THEN** the app opens the Today care checklist
+- **THEN** the app opens the Today care checklist at the app's actual route (the hash form the app's URL strategy uses), not the app root
 
 #### Scenario: A notification without an explicit target defaults to Today
 - **WHEN** a notification carries no explicit target url

@@ -67,12 +67,12 @@
 
 點推播通知目前落在 App 根 `/`,不是能處理的地方。`web/push_sw.js`:
 
-- `push` handler → `showNotification(title, { body, data: { url: data.url || '/care-today' } })`。
-- `notificationclick` → `clients.openWindow(event.notification.data?.url || '/care-today')`
-  取代寫死 `/`。
+- `push` handler → `showNotification(title, { body, data: { url: data.url || '/#/care-today' } })`。
+- `notificationclick` → `clients.openWindow(event.notification.data?.url || '/#/care-today')`
+  取代寫死 `/`。App 走 go_router 預設 hash 策略,故用 hash 形式。
 
 後端未帶 `url` 時退化為今日照護 checklist(現階段推播皆照護提醒),向後相容、不動後端。
-`/care-today` 頂部即最緊急 slot,是「處理位置」。跳到特定 slot 的更深連結需 payload 帶
+`/#/care-today` 頂部即最緊急 slot,是「處理位置」。跳到特定 slot 的更深連結需 payload 帶
 slot id,留待後續。
 
 ## 不做(YAGNI / 範圍外)
@@ -93,8 +93,8 @@ slot id,留待後續。
    仍為第一張卡。
 5. 在卡上點 `完成` → 呼叫 `markDone`,卡片隨控制器安靜重載更新,不觸發
    總覽全頁 loading。
-6. 點卡片主體 → 導到 `/care-today`。
-7. 點推播通知 → 開啟 `/care-today`(而非 App 根),後端未帶 url 時亦然。
+6. 點卡片主體 → 導到 `/#/care-today`。
+7. 點推播通知 → 開啟 `/#/care-today`(而非 App 根),後端未帶 url 時亦然。
 
 ## 後續(另一支 change,不在本次)
 
