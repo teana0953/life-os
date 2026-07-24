@@ -41,13 +41,16 @@ import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
 import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/contexts/notifications/application/care_items.dart';
+import 'package:life_os/contexts/notifications/application/care_today.dart';
 import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
+import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/domain/push_repository.dart';
 import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
 import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
 import 'package:life_os/contexts/notifications/presentation/care_items_controller.dart';
+import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
@@ -434,6 +437,21 @@ class _FakeCareItemRepository implements CareItemRepository {
   Future<void> delete(String idToken, String id) async {}
 }
 
+class _FakeCareTodayRepository implements CareTodayRepository {
+  @override
+  Future<CareToday> getToday(String idToken) async =>
+      const CareToday(date: '2026-07-22', slots: []);
+
+  @override
+  Future<void> logSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -653,6 +671,7 @@ Future<LocaleController> pumpApp(
   ChaodaysImportController? chaodaysImportController,
   ReminderSettingsController? reminderSettingsController,
   CareItemsController? careItemsController,
+  CareTodayController? careTodayController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -694,6 +713,16 @@ Future<LocaleController> pumpApp(
           DeleteCareItem(repository),
         );
       }();
+  final resolvedCareTodayController =
+      careTodayController ??
+      () {
+        final repository = _FakeCareTodayRepository();
+        return CareTodayController(
+          GetCareToday(repository),
+          MarkCareDone(repository),
+          MarkCareSkipped(repository),
+        );
+      }();
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
@@ -722,6 +751,7 @@ Future<LocaleController> pumpApp(
       chaodaysImportController: resolvedChaodaysImportController,
       reminderSettingsController: resolvedReminderSettingsController,
       careItemsController: resolvedCareItemsController,
+      careTodayController: resolvedCareTodayController,
     ),
   );
   return resolvedLocaleController;

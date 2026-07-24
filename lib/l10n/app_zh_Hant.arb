@@ -348,5 +348,19 @@
   "weekdayShortWed": "週三",
   "weekdayShortThu": "週四",
   "weekdayShortFri": "週五",
-  "weekdayShortSat": "週六"
+  "weekdayShortSat": "週六",
+  "careTodayTitle": "今日照護",
+  "careTodayOverdueSection": "逾期",
+  "careTodayLaterSection": "稍後",
+  "careTodayDoneSection": "已完成（{n}）",
+  "careTodayMarkDoneButton": "完成",
+  "careTodaySkipButton": "略過",
+  "careTodayDoneAtLabel": "{time} 完成",
+  "careTodayEmptyTitle": "今天沒有排程",
+  "careTodayEmptyBody": "新增照護提醒後就會顯示在這裡。",
+  "careTodayCelebrationTitle": "今天的照護都完成了！",
+  "careTodayCelebrationBody": "做得好，明天見。",
+  "careTodayUpNext": "接下來",
+  "careTodayStatusSkipped": "略過",
+  "careTodayStatusMissed": "未完成"
 }

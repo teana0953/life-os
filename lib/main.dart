@@ -51,12 +51,15 @@ import 'contexts/import/application/import_weight.dart';
 import 'contexts/import/infrastructure/http_import_repository.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/notifications/application/care_items.dart';
+import 'contexts/notifications/application/care_today.dart';
 import 'contexts/notifications/application/enable_reminders.dart';
 import 'contexts/notifications/application/send_test_push.dart';
 import 'contexts/notifications/infrastructure/browser_web_push_gateway.dart';
 import 'contexts/notifications/infrastructure/http_care_repository.dart';
+import 'contexts/notifications/infrastructure/http_care_today_repository.dart';
 import 'contexts/notifications/infrastructure/http_push_repository.dart';
 import 'contexts/notifications/presentation/care_items_controller.dart';
+import 'contexts/notifications/presentation/care_today_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -234,6 +237,15 @@ Future<void> main() async {
     UpdateCareItem(careItemRepository),
     DeleteCareItem(careItemRepository),
   );
+  final careTodayRepository = HttpCareTodayRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final careTodayController = CareTodayController(
+    GetCareToday(careTodayRepository),
+    MarkCareDone(careTodayRepository),
+    MarkCareSkipped(careTodayRepository),
+  );
 
   runApp(
     App(
@@ -261,6 +273,7 @@ Future<void> main() async {
       chaodaysImportController: chaodaysImportController,
       reminderSettingsController: reminderSettingsController,
       careItemsController: careItemsController,
+      careTodayController: careTodayController,
     ),
   );
 }

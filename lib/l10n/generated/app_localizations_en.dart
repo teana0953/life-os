@@ -1159,4 +1159,50 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weekdayShortSat => 'Sat';
+
+  @override
+  String get careTodayTitle => 'Today care';
+
+  @override
+  String get careTodayOverdueSection => 'Overdue';
+
+  @override
+  String get careTodayLaterSection => 'Later';
+
+  @override
+  String careTodayDoneSection(int n) {
+    return 'Done ($n)';
+  }
+
+  @override
+  String get careTodayMarkDoneButton => 'Done';
+
+  @override
+  String get careTodaySkipButton => 'Skip';
+
+  @override
+  String careTodayDoneAtLabel(String time) {
+    return 'Done at $time';
+  }
+
+  @override
+  String get careTodayEmptyTitle => 'No schedules today';
+
+  @override
+  String get careTodayEmptyBody => 'Add a care reminder to see it here.';
+
+  @override
+  String get careTodayCelebrationTitle => 'All done for today!';
+
+  @override
+  String get careTodayCelebrationBody => 'Nice work — see you tomorrow.';
+
+  @override
+  String get careTodayUpNext => 'Up next';
+
+  @override
+  String get careTodayStatusSkipped => 'Skipped';
+
+  @override
+  String get careTodayStatusMissed => 'Missed';
 }
