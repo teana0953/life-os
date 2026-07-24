@@ -988,7 +988,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notifications are still blocked — enable them in your browser settings, then check again.';
 
   @override
-  String get careRemindersTitle => 'Reminders / care';
+  String get careRemindersTitle => 'Care management';
 
   @override
   String get careRemindersEmptyTitle => 'No care reminders yet';

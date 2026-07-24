@@ -1895,7 +1895,7 @@ abstract class AppLocalizations {
   /// Title for the care reminders screen, and the label for its entry card in the health module's More tab.
   ///
   /// In en, this message translates to:
-  /// **'Reminders / care'**
+  /// **'Care management'**
   String get careRemindersTitle;
 
   /// Heading shown in the empty-state guide when the user has no care reminders.

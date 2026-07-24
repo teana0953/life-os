@@ -960,7 +960,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get careRemindersTitle => '提醒 / 照護';
+  String get careRemindersTitle => '照護管理';
 
   @override
   String get careRemindersEmptyTitle => '還沒有任何提醒';
@@ -2161,7 +2161,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get careRemindersTitle => '提醒 / 照護';
+  String get careRemindersTitle => '照護管理';
 
   @override
   String get careRemindersEmptyTitle => '還沒有任何提醒';

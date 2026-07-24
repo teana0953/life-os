@@ -298,7 +298,7 @@
   "reminderTestNoDevice": "目前沒有已啟用的裝置收到,請再開啟一次通知。",
   "reminderRecheck": "重新檢查",
   "reminderStillBlocked": "通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。",
-  "careRemindersTitle": "提醒 / 照護",
+  "careRemindersTitle": "照護管理",
   "careRemindersEmptyTitle": "還沒有任何提醒",
   "careRemindersEmptyBody": "新增一筆提醒,涵蓋用藥、復健、放療保養或自訂項目。",
   "careRemindersAddButton": "新增提醒",

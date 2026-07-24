@@ -1305,7 +1305,7 @@
   "@reminderStillBlocked": {
     "description": "Snack bar message shown when tapping the re-check button resolves and permission is still denied, so the user can tell the check ran."
   },
-  "careRemindersTitle": "Reminders / care",
+  "careRemindersTitle": "Care management",
   "@careRemindersTitle": {
     "description": "Title for the care reminders screen, and the label for its entry card in the health module's More tab."
   },
