@@ -1892,167 +1892,269 @@ abstract class AppLocalizations {
   /// **'Notifications are still blocked — enable them in your browser settings, then check again.'**
   String get reminderStillBlocked;
 
-  /// Title for the medication reminders screen, and the label for its entry card in the health module's More tab.
+  /// Title for the care reminders screen, and the label for its entry card in the health module's More tab.
   ///
   /// In en, this message translates to:
-  /// **'Medication reminders'**
-  String get medicationRemindersTitle;
+  /// **'Reminders / care'**
+  String get careRemindersTitle;
 
-  /// Heading shown in the empty-state guide when the user has no medication reminders.
+  /// Heading shown in the empty-state guide when the user has no care reminders.
   ///
   /// In en, this message translates to:
-  /// **'No medication reminders yet'**
-  String get medicationRemindersEmptyTitle;
+  /// **'No care reminders yet'**
+  String get careRemindersEmptyTitle;
 
   /// Body text shown under the empty-state heading.
   ///
   /// In en, this message translates to:
-  /// **'Add a reminder so you don\'t miss a dose.'**
-  String get medicationRemindersEmptyBody;
+  /// **'Add one for medication, rehab, radiotherapy care, or a custom reminder.'**
+  String get careRemindersEmptyBody;
 
   /// Label for the button in the empty state that opens the add-reminder form.
   ///
   /// In en, this message translates to:
   /// **'Add reminder'**
-  String get medicationRemindersAddButton;
+  String get careRemindersAddButton;
 
-  /// App bar title for the reminder form when adding a new reminder.
+  /// Category label/group heading for medication reminders.
   ///
   /// In en, this message translates to:
-  /// **'Add medication reminder'**
-  String get medicationReminderFormTitleAdd;
+  /// **'Medication'**
+  String get careCategoryMedication;
 
-  /// App bar title for the reminder form when editing an existing reminder.
+  /// Category label/group heading for rehab reminders.
   ///
   /// In en, this message translates to:
-  /// **'Edit medication reminder'**
-  String get medicationReminderFormTitleEdit;
+  /// **'Rehab'**
+  String get careCategoryRehab;
 
-  /// Label for the reminder form's medication-name text field.
+  /// Category label/group heading for radiotherapy-care reminders.
   ///
   /// In en, this message translates to:
-  /// **'Label'**
-  String get medicationReminderLabelField;
+  /// **'Radiotherapy care'**
+  String get careCategoryRadiotherapyCare;
 
-  /// Section heading for the reminder form's list of times.
+  /// Category label/group heading for custom reminders.
   ///
   /// In en, this message translates to:
-  /// **'Times'**
-  String get medicationReminderTimesLabel;
+  /// **'Custom'**
+  String get careCategoryCustom;
 
-  /// Label for the button that opens a time picker to add another time.
+  /// Shown for a schedule with no weekday selected (empty repeatDays = every day).
   ///
   /// In en, this message translates to:
-  /// **'Add time'**
-  String get medicationReminderAddTimeButton;
+  /// **'Every day'**
+  String get careEveryDay;
 
-  /// Tooltip/accessible label for the control that removes a time from the list.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove time'**
-  String get medicationReminderRemoveTimeTooltip;
-
-  /// Section heading for the reminder form's weekday chip selector.
-  ///
-  /// In en, this message translates to:
-  /// **'Repeat on'**
-  String get medicationReminderWeekdaysLabel;
-
-  /// Shows the current every-N-weeks cadence, with −/+ controls beside it.
-  ///
-  /// In en, this message translates to:
-  /// **'{n, plural, =1{Every week} other{Every {n} weeks}}'**
-  String medicationReminderWeekIntervalValue(int n);
-
-  /// Appended to a reminder list row's subtitle when weekInterval > 1, so a biweekly (or less frequent) reminder is distinguishable from a weekly one.
+  /// Appended to a schedule's summary when weekInterval > 1, so a biweekly (or less frequent) schedule is distinguishable from a weekly one.
   ///
   /// In en, this message translates to:
   /// **'· every {n} weeks'**
-  String medicationReminderCadenceSuffix(int n);
+  String careWeekIntervalSuffix(int n);
 
-  /// Label for the reminder form's anchor-date picker.
+  /// Appended to a schedule's summary when it has an end date.
   ///
   /// In en, this message translates to:
-  /// **'Starting'**
-  String get medicationReminderAnchorDateLabel;
+  /// **'until {date}'**
+  String careScheduleUntil(String date);
 
-  /// Label for the reminder form's enabled switch.
+  /// Appended to a schedule's summary when weekInterval > 1, since the start (anchor) date then matters for figuring out which weeks it falls on.
   ///
   /// In en, this message translates to:
-  /// **'Enabled'**
-  String get medicationReminderEnabledLabel;
+  /// **'from {date}'**
+  String careScheduleFrom(String date);
 
-  /// Inline hint shown under the Save button while it's disabled, explaining what's still required.
+  /// Shown on a medication reminder's row with its remaining stock count.
   ///
   /// In en, this message translates to:
-  /// **'Add a label, at least one time, and at least one weekday to save.'**
-  String get medicationReminderIncompleteHint;
-
-  /// Label for the reminder form's submit button.
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get medicationReminderSaveButton;
-
-  /// Label for a cancel action in the reminder form / dialogs.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get medicationReminderCancelButton;
+  /// **'Stock: {n}'**
+  String careStockLabel(String n);
 
   /// Title of the confirmation dialog shown before deleting a reminder.
   ///
   /// In en, this message translates to:
   /// **'Delete this reminder?'**
-  String get medicationReminderDeleteConfirmTitle;
+  String get careDeleteConfirmTitle;
 
   /// Body text of the delete-reminder confirmation dialog.
   ///
   /// In en, this message translates to:
   /// **'This reminder will stop firing.'**
-  String get medicationReminderDeleteConfirmMessage;
+  String get careDeleteConfirmMessage;
 
   /// Label for the confirm button on the delete-reminder confirmation dialog.
   ///
   /// In en, this message translates to:
   /// **'Delete'**
-  String get medicationReminderDeleteConfirmButton;
+  String get careDeleteConfirmButton;
+
+  /// Label for a cancel action in the care reminder form / dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get careCancelButton;
 
   /// Shown when loading the list, a mutation, or the form's save fails for a non-auth reason.
   ///
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
-  String get medicationReminderErrorGeneric;
+  String get careErrorGeneric;
 
-  /// Label for the timezone section on the medication reminders screen.
+  /// App bar title for the care reminder form when adding a new reminder.
   ///
   /// In en, this message translates to:
-  /// **'Timezone'**
-  String get medicationReminderTimezoneLabel;
+  /// **'Add care reminder'**
+  String get careFormTitleAdd;
 
-  /// Label for the button that opens the timezone-edit dialog.
+  /// App bar title for the care reminder form when editing an existing reminder.
   ///
   /// In en, this message translates to:
-  /// **'Change'**
-  String get medicationReminderTimezoneEdit;
+  /// **'Edit care reminder'**
+  String get careFormTitleEdit;
 
-  /// One-line note clarifying that reminders use the shown timezone.
+  /// Section heading for the care reminder form's category selector.
   ///
   /// In en, this message translates to:
-  /// **'Reminders fire in this timezone.'**
-  String get medicationReminderTimezoneNote;
+  /// **'Category'**
+  String get careCategoryLabel;
 
-  /// Label for the confirm button on the timezone-edit dialog.
+  /// Label for the care reminder form's title text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get careTitleField;
+
+  /// Label for the care reminder form's multi-line note text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get careNoteField;
+
+  /// Label for the medication-only dose text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Dose'**
+  String get careDoseField;
+
+  /// Label for the medication-only stock quantity field.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock'**
+  String get careStockField;
+
+  /// Label for the medication-only low-stock alert threshold field.
+  ///
+  /// In en, this message translates to:
+  /// **'Low-stock alert'**
+  String get careStockAlertField;
+
+  /// Section heading for the care reminder form's list of schedules.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedules'**
+  String get careSchedulesLabel;
+
+  /// Label for the button that opens a time picker to add another schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add schedule'**
+  String get careAddScheduleButton;
+
+  /// Tooltip/accessible label for the control that removes a schedule from the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove schedule'**
+  String get careRemoveScheduleTooltip;
+
+  /// Tooltip/accessible label for the control that reopens the time picker for a schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Change time'**
+  String get careChangeTimeTooltip;
+
+  /// Label shown above a schedule's time button.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get careTimeLabel;
+
+  /// Section heading for a schedule's weekday chip selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat on'**
+  String get careWeekdaysLabel;
+
+  /// Muted helper text under the weekday chips clarifying that no selection means the schedule repeats daily.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave all unselected for every day.'**
+  String get careWeekdaysEmptyHint;
+
+  /// Shows a schedule's current every-N-weeks cadence, with −/+ controls beside it.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =1{Every week} other{Every {n} weeks}}'**
+  String careWeekIntervalValue(int n);
+
+  /// Label for a schedule's start-date picker (shown once weekInterval > 1).
+  ///
+  /// In en, this message translates to:
+  /// **'Starting'**
+  String get careStartDateLabel;
+
+  /// Label for a schedule's optional end-date value.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends'**
+  String get careEndDateLabel;
+
+  /// Label for the button that opens a date picker to set a schedule's optional end date.
+  ///
+  /// In en, this message translates to:
+  /// **'Add end date'**
+  String get careAddEndDateButton;
+
+  /// Tooltip/accessible label for the control that clears a schedule's end date.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove end date'**
+  String get careRemoveEndDateTooltip;
+
+  /// Label for a schedule's medication-only dose-quantity field.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity per dose'**
+  String get careDoseQuantityLabel;
+
+  /// Label for a schedule's nag-interval dropdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder repeat'**
+  String get careNagIntervalLabel;
+
+  /// Dropdown option label for a nag interval of 0 (no repeat nagging).
+  ///
+  /// In en, this message translates to:
+  /// **'Remind once'**
+  String get careNagOnceLabel;
+
+  /// Dropdown option label for a nonzero nag interval.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {n} min'**
+  String careNagEveryNMinutes(int n);
+
+  /// Inline hint shown under the Save button while it's disabled, explaining what's still required.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a title and at least one schedule to save.'**
+  String get careIncompleteHint;
+
+  /// Label for the care reminder form's submit button.
   ///
   /// In en, this message translates to:
   /// **'Save'**
-  String get medicationReminderTimezoneSaveButton;
-
-  /// Shown when setting the timezone is rejected by the backend (400).
-  ///
-  /// In en, this message translates to:
-  /// **'That timezone isn\'t valid. Please try again.'**
-  String get medicationReminderTimezoneError;
+  String get careSaveButton;
 
   /// Short weekday label for the reminder form's weekday chips.
   ///

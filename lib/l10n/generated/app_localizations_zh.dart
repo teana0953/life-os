@@ -960,89 +960,154 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get medicationRemindersTitle => '用藥提醒';
+  String get careRemindersTitle => '提醒 / 照護';
 
   @override
-  String get medicationRemindersEmptyTitle => '還沒有用藥提醒';
+  String get careRemindersEmptyTitle => '還沒有任何提醒';
 
   @override
-  String get medicationRemindersEmptyBody => '新增一筆提醒,準時吃藥不漏掉。';
+  String get careRemindersEmptyBody => '新增一筆提醒,涵蓋用藥、復健、放療保養或自訂項目。';
 
   @override
-  String get medicationRemindersAddButton => '新增提醒';
+  String get careRemindersAddButton => '新增提醒';
 
   @override
-  String get medicationReminderFormTitleAdd => '新增用藥提醒';
+  String get careCategoryMedication => '用藥';
 
   @override
-  String get medicationReminderFormTitleEdit => '編輯用藥提醒';
+  String get careCategoryRehab => '復健';
 
   @override
-  String get medicationReminderLabelField => '藥物名稱';
+  String get careCategoryRadiotherapyCare => '放療保養';
 
   @override
-  String get medicationReminderTimesLabel => '時間';
+  String get careCategoryCustom => '自訂';
 
   @override
-  String get medicationReminderAddTimeButton => '新增時間';
+  String get careEveryDay => '每天';
 
   @override
-  String get medicationReminderRemoveTimeTooltip => '移除時間';
-
-  @override
-  String get medicationReminderWeekdaysLabel => '重複星期';
-
-  @override
-  String medicationReminderWeekIntervalValue(int n) {
-    return '每 $n 週';
+  String careWeekIntervalSuffix(int n) {
+    return '· 每 $n 週';
   }
 
   @override
-  String medicationReminderCadenceSuffix(int n) {
-    return '·每 $n 週';
+  String careScheduleUntil(String date) {
+    return '至 $date';
   }
 
   @override
-  String get medicationReminderAnchorDateLabel => '起始日';
+  String careScheduleFrom(String date) {
+    return '$date 起';
+  }
 
   @override
-  String get medicationReminderEnabledLabel => '啟用';
+  String careStockLabel(String n) {
+    return '庫存:$n';
+  }
 
   @override
-  String get medicationReminderIncompleteHint => '請輸入藥物名稱、至少一個時間、至少一個星期,才能儲存。';
+  String get careDeleteConfirmTitle => '刪除這筆提醒?';
 
   @override
-  String get medicationReminderSaveButton => '儲存';
+  String get careDeleteConfirmMessage => '刪除後將不再提醒。';
 
   @override
-  String get medicationReminderCancelButton => '取消';
+  String get careDeleteConfirmButton => '刪除';
 
   @override
-  String get medicationReminderDeleteConfirmTitle => '刪除這筆提醒?';
+  String get careCancelButton => '取消';
 
   @override
-  String get medicationReminderDeleteConfirmMessage => '刪除後將不再提醒用藥。';
+  String get careErrorGeneric => '發生問題,請再試一次。';
 
   @override
-  String get medicationReminderDeleteConfirmButton => '刪除';
+  String get careFormTitleAdd => '新增照護提醒';
 
   @override
-  String get medicationReminderErrorGeneric => '發生問題,請再試一次。';
+  String get careFormTitleEdit => '編輯照護提醒';
 
   @override
-  String get medicationReminderTimezoneLabel => '時區';
+  String get careCategoryLabel => '分類';
 
   @override
-  String get medicationReminderTimezoneEdit => '變更';
+  String get careTitleField => '標題';
 
   @override
-  String get medicationReminderTimezoneNote => '提醒會依照此時區發送。';
+  String get careNoteField => '備註';
 
   @override
-  String get medicationReminderTimezoneSaveButton => '儲存';
+  String get careDoseField => '劑量說明';
 
   @override
-  String get medicationReminderTimezoneError => '時區無效,請重新輸入。';
+  String get careStockField => '庫存數量';
+
+  @override
+  String get careStockAlertField => '低庫存提醒門檻';
+
+  @override
+  String get careSchedulesLabel => '排程';
+
+  @override
+  String get careAddScheduleButton => '新增排程';
+
+  @override
+  String get careRemoveScheduleTooltip => '移除排程';
+
+  @override
+  String get careChangeTimeTooltip => '變更時間';
+
+  @override
+  String get careTimeLabel => '時間';
+
+  @override
+  String get careWeekdaysLabel => '重複星期';
+
+  @override
+  String get careWeekdaysEmptyHint => '全部不選 = 每天。';
+
+  @override
+  String careWeekIntervalValue(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '每 $n 週',
+      one: '每週',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get careStartDateLabel => '起始日';
+
+  @override
+  String get careEndDateLabel => '結束日';
+
+  @override
+  String get careAddEndDateButton => '新增結束日';
+
+  @override
+  String get careRemoveEndDateTooltip => '移除結束日';
+
+  @override
+  String get careDoseQuantityLabel => '每次劑量';
+
+  @override
+  String get careNagIntervalLabel => '提醒重複頻率';
+
+  @override
+  String get careNagOnceLabel => '只提醒一次';
+
+  @override
+  String careNagEveryNMinutes(int n) {
+    return '每 $n 分鐘';
+  }
+
+  @override
+  String get careIncompleteHint => '請輸入標題並新增至少一筆排程,才能儲存。';
+
+  @override
+  String get careSaveButton => '儲存';
 
   @override
   String get weekdayShortSun => '週日';
@@ -2022,90 +2087,154 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get medicationRemindersTitle => '用藥提醒';
+  String get careRemindersTitle => '提醒 / 照護';
 
   @override
-  String get medicationRemindersEmptyTitle => '還沒有用藥提醒';
+  String get careRemindersEmptyTitle => '還沒有任何提醒';
 
   @override
-  String get medicationRemindersEmptyBody => '新增一筆提醒,準時吃藥不漏掉。';
+  String get careRemindersEmptyBody => '新增一筆提醒,涵蓋用藥、復健、放療保養或自訂項目。';
 
   @override
-  String get medicationRemindersAddButton => '新增提醒';
+  String get careRemindersAddButton => '新增提醒';
 
   @override
-  String get medicationReminderFormTitleAdd => '新增用藥提醒';
+  String get careCategoryMedication => '用藥';
 
   @override
-  String get medicationReminderFormTitleEdit => '編輯用藥提醒';
+  String get careCategoryRehab => '復健';
 
   @override
-  String get medicationReminderLabelField => '藥物名稱';
+  String get careCategoryRadiotherapyCare => '放療保養';
 
   @override
-  String get medicationReminderTimesLabel => '時間';
+  String get careCategoryCustom => '自訂';
 
   @override
-  String get medicationReminderAddTimeButton => '新增時間';
+  String get careEveryDay => '每天';
 
   @override
-  String get medicationReminderRemoveTimeTooltip => '移除時間';
-
-  @override
-  String get medicationReminderWeekdaysLabel => '重複星期';
-
-  @override
-  String medicationReminderWeekIntervalValue(int n) {
-    return '每 $n 週';
-  }
-
-  @override
-  String medicationReminderCadenceSuffix(int n) {
+  String careWeekIntervalSuffix(int n) {
     return '· 每 $n 週';
   }
 
   @override
-  String get medicationReminderAnchorDateLabel => '起始日';
+  String careScheduleUntil(String date) {
+    return '至 $date';
+  }
 
   @override
-  String get medicationReminderEnabledLabel => '啟用';
+  String careScheduleFrom(String date) {
+    return '$date 起';
+  }
 
   @override
-  String get medicationReminderIncompleteHint =>
-      '請輸入藥物名稱、至少一個時間、至少選一個星期幾,才能儲存。';
+  String careStockLabel(String n) {
+    return '庫存:$n';
+  }
 
   @override
-  String get medicationReminderSaveButton => '儲存';
+  String get careDeleteConfirmTitle => '刪除這筆提醒?';
 
   @override
-  String get medicationReminderCancelButton => '取消';
+  String get careDeleteConfirmMessage => '刪除後將不再提醒。';
 
   @override
-  String get medicationReminderDeleteConfirmTitle => '刪除這筆提醒?';
+  String get careDeleteConfirmButton => '刪除';
 
   @override
-  String get medicationReminderDeleteConfirmMessage => '刪除後將不再提醒用藥。';
+  String get careCancelButton => '取消';
 
   @override
-  String get medicationReminderDeleteConfirmButton => '刪除';
+  String get careErrorGeneric => '發生問題,請再試一次。';
 
   @override
-  String get medicationReminderErrorGeneric => '發生問題,請再試一次。';
+  String get careFormTitleAdd => '新增照護提醒';
 
   @override
-  String get medicationReminderTimezoneLabel => '時區';
+  String get careFormTitleEdit => '編輯照護提醒';
 
   @override
-  String get medicationReminderTimezoneEdit => '變更';
+  String get careCategoryLabel => '分類';
 
   @override
-  String get medicationReminderTimezoneNote => '提醒會依照此時區發送。';
+  String get careTitleField => '標題';
 
   @override
-  String get medicationReminderTimezoneSaveButton => '儲存';
+  String get careNoteField => '備註';
 
   @override
-  String get medicationReminderTimezoneError => '時區無效,請重新輸入。';
+  String get careDoseField => '劑量說明';
+
+  @override
+  String get careStockField => '庫存數量';
+
+  @override
+  String get careStockAlertField => '低庫存提醒門檻';
+
+  @override
+  String get careSchedulesLabel => '排程';
+
+  @override
+  String get careAddScheduleButton => '新增排程';
+
+  @override
+  String get careRemoveScheduleTooltip => '移除排程';
+
+  @override
+  String get careChangeTimeTooltip => '變更時間';
+
+  @override
+  String get careTimeLabel => '時間';
+
+  @override
+  String get careWeekdaysLabel => '重複星期';
+
+  @override
+  String get careWeekdaysEmptyHint => '全部不選 = 每天。';
+
+  @override
+  String careWeekIntervalValue(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '每 $n 週',
+      one: '每週',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get careStartDateLabel => '起始日';
+
+  @override
+  String get careEndDateLabel => '結束日';
+
+  @override
+  String get careAddEndDateButton => '新增結束日';
+
+  @override
+  String get careRemoveEndDateTooltip => '移除結束日';
+
+  @override
+  String get careDoseQuantityLabel => '每次劑量';
+
+  @override
+  String get careNagIntervalLabel => '提醒重複頻率';
+
+  @override
+  String get careNagOnceLabel => '只提醒一次';
+
+  @override
+  String careNagEveryNMinutes(int n) {
+    return '每 $n 分鐘';
+  }
+
+  @override
+  String get careIncompleteHint => '請輸入標題並新增至少一筆排程,才能儲存。';
+
+  @override
+  String get careSaveButton => '儲存';
 
   @override
   String get weekdayShortSun => '週日';

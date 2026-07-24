@@ -66,8 +66,9 @@ class HealthScaffold extends StatefulWidget {
   /// Opens the reminder/notification settings screen, wired by the caller.
   final VoidCallback onOpenReminders;
 
-  /// Opens the medication reminders screen, wired by the caller.
-  final VoidCallback onOpenMedicationReminders;
+  /// Opens the care reminders (medication/rehab/radiotherapy care/custom)
+  /// screen, wired by the caller.
+  final VoidCallback onOpenCareItems;
 
   final DateTime Function() clock;
 
@@ -91,7 +92,7 @@ class HealthScaffold extends StatefulWidget {
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
-    required this.onOpenMedicationReminders,
+    required this.onOpenCareItems,
     this.clock = DateTime.now,
   });
 
@@ -223,7 +224,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             onOpenSettings: widget.onOpenSettings,
             onOpenImport: widget.onOpenImport,
             onOpenReminders: widget.onOpenReminders,
-            onOpenMedicationReminders: widget.onOpenMedicationReminders,
+            onOpenCareItems: widget.onOpenCareItems,
           ),
         ],
       ),
@@ -320,22 +321,22 @@ class _TrendBody extends StatelessWidget {
   }
 }
 
-/// 更多: app settings + chaodays import + reminders + medication reminders
-/// entries (theme / language / sign-out live in SettingsScreen; the chaodays
-/// import form lives in ChaodaysImportScreen; push reminders live in
-/// ReminderSettingsScreen; medication reminders live in
-/// MedicationRemindersScreen).
+/// 更多: app settings + chaodays import + reminders + care reminders entries
+/// (theme / language / sign-out live in SettingsScreen; the chaodays import
+/// form lives in ChaodaysImportScreen; push reminders live in
+/// ReminderSettingsScreen; care reminders — medication/rehab/radiotherapy
+/// care/custom — live in CareItemsScreen).
 class _MoreBody extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenImport;
   final VoidCallback onOpenReminders;
-  final VoidCallback onOpenMedicationReminders;
+  final VoidCallback onOpenCareItems;
 
   const _MoreBody({
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
-    required this.onOpenMedicationReminders,
+    required this.onOpenCareItems,
   });
 
   @override
@@ -360,11 +361,11 @@ class _MoreBody extends StatelessWidget {
               const SizedBox(height: 12),
               LedgeCard(
                 child: ListTile(
-                  key: const Key('health-more-medication-reminders'),
-                  leading: const Icon(Icons.medication_outlined),
-                  title: Text(loc.medicationRemindersTitle),
+                  key: const Key('health-more-care-items'),
+                  leading: const Icon(Icons.health_and_safety_outlined),
+                  title: Text(loc.careRemindersTitle),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: onOpenMedicationReminders,
+                  onTap: onOpenCareItems,
                 ),
               ),
               const SizedBox(height: 12),
