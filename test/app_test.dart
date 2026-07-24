@@ -383,7 +383,6 @@ class _FakeWebPushGateway implements WebPushGateway {
   @override
   PushEnvironment describeEnvironment() => const PushEnvironment(
     supported: true,
-    standalone: true,
     iosNeedsInstall: false,
   );
 

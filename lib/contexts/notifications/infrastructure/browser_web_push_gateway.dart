@@ -10,13 +10,12 @@ import '../domain/web_push_gateway.dart';
 
 /// The `window.pwaInstall` bridge object defined in `web/index.html`
 /// (mirrors `PwaInstallImpl`'s binding), read directly here because
-/// `iosHint`/`standalone` feed straight into [PushEnvironment].
+/// `iosHint` feeds straight into [PushEnvironment].
 @JS('pwaInstall')
 external _PwaInstallBridge? get _installBridge;
 
 extension type _PwaInstallBridge(JSObject _) implements JSObject {
   external bool get iosHint;
-  external bool get standalone;
 }
 
 /// [WebPushGateway] driven adapter: the real, on-device browser glue — SW
@@ -40,7 +39,6 @@ class BrowserWebPushGateway implements WebPushGateway {
         window.has('Notification');
     return PushEnvironment(
       supported: supported,
-      standalone: bridge?.standalone ?? false,
       iosNeedsInstall: bridge?.iosHint ?? false,
     );
   }
@@ -97,8 +95,10 @@ Uint8List _base64UrlToBytes(String value) {
 }
 
 /// Encodes a subscription key (`ArrayBuffer`, from `PushSubscription.getKey`)
-/// as base64url — the form the backend stores/uses.
+/// as base64url — the form the backend stores/uses. A missing key means the
+/// subscription is malformed, so this fails visibly rather than sending an
+/// empty p256dh/auth to the backend.
 String _keyToBase64Url(JSArrayBuffer? buffer) {
-  if (buffer == null) return '';
+  if (buffer == null) throw StateError('missing push subscription key');
   return base64Url.encode(buffer.toDart.asUint8List()).replaceAll('=', '');
 }

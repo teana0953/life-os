@@ -41,7 +41,6 @@ class _FakePushRepository implements PushRepository {
 class _FakeWebPushGateway implements WebPushGateway {
   PushEnvironment environment = const PushEnvironment(
     supported: true,
-    standalone: true,
     iosNeedsInstall: false,
   );
   PushSubscription? subscriptionToReturn = const PushSubscription(
@@ -92,7 +91,6 @@ void main() {
       final gateway = _FakeWebPushGateway()
         ..environment = const PushEnvironment(
           supported: false,
-          standalone: false,
           iosNeedsInstall: false,
         );
       final controller = _controller(gateway: gateway);
@@ -107,7 +105,6 @@ void main() {
       final gateway = _FakeWebPushGateway()
         ..environment = const PushEnvironment(
           supported: false,
-          standalone: false,
           iosNeedsInstall: true,
         );
       final controller = _controller(gateway: gateway);
@@ -126,6 +123,15 @@ void main() {
       controller.load();
 
       expect(controller.status, ReminderSettingsStatus.permissionDenied);
+    });
+
+    test('leaves an already-enabled status alone instead of re-resolving '
+        'the environment', () {
+      final controller = _controller()..status = ReminderSettingsStatus.enabled;
+
+      controller.load();
+
+      expect(controller.status, ReminderSettingsStatus.enabled);
     });
   });
 

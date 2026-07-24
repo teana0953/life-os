@@ -35,7 +35,6 @@ class _FakePushRepository implements PushRepository {
 class _FakeWebPushGateway implements WebPushGateway {
   PushEnvironment environment = const PushEnvironment(
     supported: true,
-    standalone: true,
     iosNeedsInstall: false,
   );
   PushSubscription? subscriptionToReturn = const PushSubscription(
@@ -102,7 +101,6 @@ void main() {
         final gateway = _FakeWebPushGateway()
           ..environment = const PushEnvironment(
             supported: false,
-            standalone: false,
             iosNeedsInstall: true,
           );
         final useCase = EnableReminders(repository, gateway);
@@ -120,7 +118,6 @@ void main() {
       final gateway = _FakeWebPushGateway()
         ..environment = const PushEnvironment(
           supported: false,
-          standalone: false,
           iosNeedsInstall: false,
         );
       final useCase = EnableReminders(repository, gateway);
@@ -139,7 +136,6 @@ void main() {
         final gateway = _FakeWebPushGateway()
           ..environment = const PushEnvironment(
             supported: false,
-            standalone: false,
             iosNeedsInstall: true,
           );
         final useCase = EnableReminders(repository, gateway);
