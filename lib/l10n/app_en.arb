@@ -1305,123 +1305,211 @@
   "@reminderStillBlocked": {
     "description": "Snack bar message shown when tapping the re-check button resolves and permission is still denied, so the user can tell the check ran."
   },
-  "medicationRemindersTitle": "Medication reminders",
-  "@medicationRemindersTitle": {
-    "description": "Title for the medication reminders screen, and the label for its entry card in the health module's More tab."
+  "careRemindersTitle": "Reminders / care",
+  "@careRemindersTitle": {
+    "description": "Title for the care reminders screen, and the label for its entry card in the health module's More tab."
   },
-  "medicationRemindersEmptyTitle": "No medication reminders yet",
-  "@medicationRemindersEmptyTitle": {
-    "description": "Heading shown in the empty-state guide when the user has no medication reminders."
+  "careRemindersEmptyTitle": "No care reminders yet",
+  "@careRemindersEmptyTitle": {
+    "description": "Heading shown in the empty-state guide when the user has no care reminders."
   },
-  "medicationRemindersEmptyBody": "Add a reminder so you don't miss a dose.",
-  "@medicationRemindersEmptyBody": {
+  "careRemindersEmptyBody": "Add one for medication, rehab, radiotherapy care, or a custom reminder.",
+  "@careRemindersEmptyBody": {
     "description": "Body text shown under the empty-state heading."
   },
-  "medicationRemindersAddButton": "Add reminder",
-  "@medicationRemindersAddButton": {
+  "careRemindersAddButton": "Add reminder",
+  "@careRemindersAddButton": {
     "description": "Label for the button in the empty state that opens the add-reminder form."
   },
-  "medicationReminderFormTitleAdd": "Add medication reminder",
-  "@medicationReminderFormTitleAdd": {
-    "description": "App bar title for the reminder form when adding a new reminder."
+  "careCategoryMedication": "Medication",
+  "@careCategoryMedication": {
+    "description": "Category label/group heading for medication reminders."
   },
-  "medicationReminderFormTitleEdit": "Edit medication reminder",
-  "@medicationReminderFormTitleEdit": {
-    "description": "App bar title for the reminder form when editing an existing reminder."
+  "careCategoryRehab": "Rehab",
+  "@careCategoryRehab": {
+    "description": "Category label/group heading for rehab reminders."
   },
-  "medicationReminderLabelField": "Label",
-  "@medicationReminderLabelField": {
-    "description": "Label for the reminder form's medication-name text field."
+  "careCategoryRadiotherapyCare": "Radiotherapy care",
+  "@careCategoryRadiotherapyCare": {
+    "description": "Category label/group heading for radiotherapy-care reminders."
   },
-  "medicationReminderTimesLabel": "Times",
-  "@medicationReminderTimesLabel": {
-    "description": "Section heading for the reminder form's list of times."
+  "careCategoryCustom": "Custom",
+  "@careCategoryCustom": {
+    "description": "Category label/group heading for custom reminders."
   },
-  "medicationReminderAddTimeButton": "Add time",
-  "@medicationReminderAddTimeButton": {
-    "description": "Label for the button that opens a time picker to add another time."
+  "careEveryDay": "Every day",
+  "@careEveryDay": {
+    "description": "Shown for a schedule with no weekday selected (empty repeatDays = every day)."
   },
-  "medicationReminderRemoveTimeTooltip": "Remove time",
-  "@medicationReminderRemoveTimeTooltip": {
-    "description": "Tooltip/accessible label for the control that removes a time from the list."
-  },
-  "medicationReminderWeekdaysLabel": "Repeat on",
-  "@medicationReminderWeekdaysLabel": {
-    "description": "Section heading for the reminder form's weekday chip selector."
-  },
-  "medicationReminderWeekIntervalValue": "{n, plural, =1{Every week} other{Every {n} weeks}}",
-  "@medicationReminderWeekIntervalValue": {
-    "description": "Shows the current every-N-weeks cadence, with −/+ controls beside it.",
+  "careWeekIntervalSuffix": "· every {n} weeks",
+  "@careWeekIntervalSuffix": {
+    "description": "Appended to a schedule's summary when weekInterval > 1, so a biweekly (or less frequent) schedule is distinguishable from a weekly one.",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "medicationReminderCadenceSuffix": "· every {n} weeks",
-  "@medicationReminderCadenceSuffix": {
-    "description": "Appended to a reminder list row's subtitle when weekInterval > 1, so a biweekly (or less frequent) reminder is distinguishable from a weekly one.",
+  "careScheduleUntil": "until {date}",
+  "@careScheduleUntil": {
+    "description": "Appended to a schedule's summary when it has an end date.",
     "placeholders": {
-      "n": {
-        "type": "int"
+      "date": {
+        "type": "String"
       }
     }
   },
-  "medicationReminderAnchorDateLabel": "Starting",
-  "@medicationReminderAnchorDateLabel": {
-    "description": "Label for the reminder form's anchor-date picker."
+  "careScheduleFrom": "from {date}",
+  "@careScheduleFrom": {
+    "description": "Appended to a schedule's summary when weekInterval > 1, since the start (anchor) date then matters for figuring out which weeks it falls on.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
-  "medicationReminderEnabledLabel": "Enabled",
-  "@medicationReminderEnabledLabel": {
-    "description": "Label for the reminder form's enabled switch."
+  "careStockLabel": "Stock: {n}",
+  "@careStockLabel": {
+    "description": "Shown on a medication reminder's row with its remaining stock count.",
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
   },
-  "medicationReminderIncompleteHint": "Add a label, at least one time, and at least one weekday to save.",
-  "@medicationReminderIncompleteHint": {
-    "description": "Inline hint shown under the Save button while it's disabled, explaining what's still required."
-  },
-  "medicationReminderSaveButton": "Save",
-  "@medicationReminderSaveButton": {
-    "description": "Label for the reminder form's submit button."
-  },
-  "medicationReminderCancelButton": "Cancel",
-  "@medicationReminderCancelButton": {
-    "description": "Label for a cancel action in the reminder form / dialogs."
-  },
-  "medicationReminderDeleteConfirmTitle": "Delete this reminder?",
-  "@medicationReminderDeleteConfirmTitle": {
+  "careDeleteConfirmTitle": "Delete this reminder?",
+  "@careDeleteConfirmTitle": {
     "description": "Title of the confirmation dialog shown before deleting a reminder."
   },
-  "medicationReminderDeleteConfirmMessage": "This reminder will stop firing.",
-  "@medicationReminderDeleteConfirmMessage": {
+  "careDeleteConfirmMessage": "This reminder will stop firing.",
+  "@careDeleteConfirmMessage": {
     "description": "Body text of the delete-reminder confirmation dialog."
   },
-  "medicationReminderDeleteConfirmButton": "Delete",
-  "@medicationReminderDeleteConfirmButton": {
+  "careDeleteConfirmButton": "Delete",
+  "@careDeleteConfirmButton": {
     "description": "Label for the confirm button on the delete-reminder confirmation dialog."
   },
-  "medicationReminderErrorGeneric": "Something went wrong. Please try again.",
-  "@medicationReminderErrorGeneric": {
+  "careCancelButton": "Cancel",
+  "@careCancelButton": {
+    "description": "Label for a cancel action in the care reminder form / dialogs."
+  },
+  "careErrorGeneric": "Something went wrong. Please try again.",
+  "@careErrorGeneric": {
     "description": "Shown when loading the list, a mutation, or the form's save fails for a non-auth reason."
   },
-  "medicationReminderTimezoneLabel": "Timezone",
-  "@medicationReminderTimezoneLabel": {
-    "description": "Label for the timezone section on the medication reminders screen."
+  "careFormTitleAdd": "Add care reminder",
+  "@careFormTitleAdd": {
+    "description": "App bar title for the care reminder form when adding a new reminder."
   },
-  "medicationReminderTimezoneEdit": "Change",
-  "@medicationReminderTimezoneEdit": {
-    "description": "Label for the button that opens the timezone-edit dialog."
+  "careFormTitleEdit": "Edit care reminder",
+  "@careFormTitleEdit": {
+    "description": "App bar title for the care reminder form when editing an existing reminder."
   },
-  "medicationReminderTimezoneNote": "Reminders fire in this timezone.",
-  "@medicationReminderTimezoneNote": {
-    "description": "One-line note clarifying that reminders use the shown timezone."
+  "careCategoryLabel": "Category",
+  "@careCategoryLabel": {
+    "description": "Section heading for the care reminder form's category selector."
   },
-  "medicationReminderTimezoneSaveButton": "Save",
-  "@medicationReminderTimezoneSaveButton": {
-    "description": "Label for the confirm button on the timezone-edit dialog."
+  "careTitleField": "Title",
+  "@careTitleField": {
+    "description": "Label for the care reminder form's title text field."
   },
-  "medicationReminderTimezoneError": "That timezone isn't valid. Please try again.",
-  "@medicationReminderTimezoneError": {
-    "description": "Shown when setting the timezone is rejected by the backend (400)."
+  "careNoteField": "Note",
+  "@careNoteField": {
+    "description": "Label for the care reminder form's multi-line note text field."
+  },
+  "careDoseField": "Dose",
+  "@careDoseField": {
+    "description": "Label for the medication-only dose text field."
+  },
+  "careStockField": "Stock",
+  "@careStockField": {
+    "description": "Label for the medication-only stock quantity field."
+  },
+  "careStockAlertField": "Low-stock alert",
+  "@careStockAlertField": {
+    "description": "Label for the medication-only low-stock alert threshold field."
+  },
+  "careSchedulesLabel": "Schedules",
+  "@careSchedulesLabel": {
+    "description": "Section heading for the care reminder form's list of schedules."
+  },
+  "careAddScheduleButton": "Add schedule",
+  "@careAddScheduleButton": {
+    "description": "Label for the button that opens a time picker to add another schedule."
+  },
+  "careRemoveScheduleTooltip": "Remove schedule",
+  "@careRemoveScheduleTooltip": {
+    "description": "Tooltip/accessible label for the control that removes a schedule from the list."
+  },
+  "careChangeTimeTooltip": "Change time",
+  "@careChangeTimeTooltip": {
+    "description": "Tooltip/accessible label for the control that reopens the time picker for a schedule."
+  },
+  "careTimeLabel": "Time",
+  "@careTimeLabel": {
+    "description": "Label shown above a schedule's time button."
+  },
+  "careWeekdaysLabel": "Repeat on",
+  "@careWeekdaysLabel": {
+    "description": "Section heading for a schedule's weekday chip selector."
+  },
+  "careWeekdaysEmptyHint": "Leave all unselected for every day.",
+  "@careWeekdaysEmptyHint": {
+    "description": "Muted helper text under the weekday chips clarifying that no selection means the schedule repeats daily."
+  },
+  "careWeekIntervalValue": "{n, plural, =1{Every week} other{Every {n} weeks}}",
+  "@careWeekIntervalValue": {
+    "description": "Shows a schedule's current every-N-weeks cadence, with −/+ controls beside it.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "careStartDateLabel": "Starting",
+  "@careStartDateLabel": {
+    "description": "Label for a schedule's start-date picker (shown once weekInterval > 1)."
+  },
+  "careEndDateLabel": "Ends",
+  "@careEndDateLabel": {
+    "description": "Label for a schedule's optional end-date value."
+  },
+  "careAddEndDateButton": "Add end date",
+  "@careAddEndDateButton": {
+    "description": "Label for the button that opens a date picker to set a schedule's optional end date."
+  },
+  "careRemoveEndDateTooltip": "Remove end date",
+  "@careRemoveEndDateTooltip": {
+    "description": "Tooltip/accessible label for the control that clears a schedule's end date."
+  },
+  "careDoseQuantityLabel": "Quantity per dose",
+  "@careDoseQuantityLabel": {
+    "description": "Label for a schedule's medication-only dose-quantity field."
+  },
+  "careNagIntervalLabel": "Reminder repeat",
+  "@careNagIntervalLabel": {
+    "description": "Label for a schedule's nag-interval dropdown."
+  },
+  "careNagOnceLabel": "Remind once",
+  "@careNagOnceLabel": {
+    "description": "Dropdown option label for a nag interval of 0 (no repeat nagging)."
+  },
+  "careNagEveryNMinutes": "Every {n} min",
+  "@careNagEveryNMinutes": {
+    "description": "Dropdown option label for a nonzero nag interval.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "careIncompleteHint": "Add a title and at least one schedule to save.",
+  "@careIncompleteHint": {
+    "description": "Inline hint shown under the Save button while it's disabled, explaining what's still required."
+  },
+  "careSaveButton": "Save",
+  "@careSaveButton": {
+    "description": "Label for the care reminder form's submit button."
   },
   "weekdayShortSun": "Sun",
   "@weekdayShortSun": {

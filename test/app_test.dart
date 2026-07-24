@@ -40,14 +40,14 @@ import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
 import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
+import 'package:life_os/contexts/notifications/application/care_items.dart';
 import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
-import 'package:life_os/contexts/notifications/application/medication_reminders.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
-import 'package:life_os/contexts/notifications/domain/medication_reminder.dart';
+import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/push_repository.dart';
 import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
 import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
-import 'package:life_os/contexts/notifications/presentation/medication_reminders_controller.dart';
+import 'package:life_os/contexts/notifications/presentation/care_items_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
@@ -397,26 +397,41 @@ class _FakeWebPushGateway implements WebPushGateway {
       null;
 }
 
-class _FakeMedicationReminderRepository
-    implements MedicationReminderRepository {
+class _FakeCareItemRepository implements CareItemRepository {
   @override
-  Future<List<MedicationReminder>> list(String idToken) async => const [];
+  Future<List<CareItem>> list(String idToken) async => const [];
 
   @override
-  Future<void> create(String idToken, MedicationReminderDraft draft) async {}
+  Future<CareItem> create(String idToken, CareItemDraft draft) async =>
+      CareItem(
+        id: 'care-new',
+        category: draft.category,
+        title: draft.title,
+        note: draft.note,
+        dose: draft.dose,
+        stock: draft.stock,
+        stockAlert: draft.stockAlert,
+        schedules: draft.schedules,
+      );
 
   @override
-  Future<void> update(
+  Future<CareItem> update(
     String idToken,
     String id,
-    MedicationReminderUpdate update,
-  ) async {}
+    CareItemUpdate update,
+  ) async => CareItem(
+    id: id,
+    category: update.category,
+    title: update.title,
+    note: update.note,
+    dose: update.dose,
+    stock: update.stock,
+    stockAlert: update.stockAlert,
+    schedules: update.schedules,
+  );
 
   @override
   Future<void> delete(String idToken, String id) async {}
-
-  @override
-  Future<void> setTimezone(String idToken, String timezone) async {}
 }
 
 class _FakeBodyProfileRepository implements BodyProfileRepository {
@@ -637,7 +652,7 @@ Future<LocaleController> pumpApp(
   SignUp? signUp,
   ChaodaysImportController? chaodaysImportController,
   ReminderSettingsController? reminderSettingsController,
-  MedicationRemindersController? medicationRemindersController,
+  CareItemsController? careItemsController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -668,22 +683,17 @@ Future<LocaleController> pumpApp(
           SendTestPush(pushRepository),
         );
       }();
-  MedicationRemindersController resolvedMedicationRemindersController;
-  if (medicationRemindersController != null) {
-    resolvedMedicationRemindersController = medicationRemindersController;
-  } else {
-    final repository = _FakeMedicationReminderRepository();
-    SharedPreferences.setMockInitialValues({});
-    final medicationPrefs = await SharedPreferences.getInstance();
-    resolvedMedicationRemindersController = MedicationRemindersController(
-      ListMedicationReminders(repository),
-      CreateMedicationReminder(repository),
-      UpdateMedicationReminder(repository),
-      DeleteMedicationReminder(repository),
-      SetReminderTimezone(repository),
-      medicationPrefs,
-    );
-  }
+  final resolvedCareItemsController =
+      careItemsController ??
+      () {
+        final repository = _FakeCareItemRepository();
+        return CareItemsController(
+          ListCareItems(repository),
+          CreateCareItem(repository),
+          UpdateCareItem(repository),
+          DeleteCareItem(repository),
+        );
+      }();
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
@@ -711,7 +721,7 @@ Future<LocaleController> pumpApp(
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
       chaodaysImportController: resolvedChaodaysImportController,
       reminderSettingsController: resolvedReminderSettingsController,
-      medicationRemindersController: resolvedMedicationRemindersController,
+      careItemsController: resolvedCareItemsController,
     ),
   );
   return resolvedLocaleController;
@@ -977,10 +987,10 @@ void main() {
     );
   });
 
-  group('App medication reminders entry', () {
+  group('App care reminders entry', () {
     testWidgets(
-      'the health module\'s More tab medication-reminders tile navigates to '
-      '/medication-reminders',
+      'the health module\'s More tab care-items tile navigates to '
+      '/care-items',
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
@@ -1000,19 +1010,14 @@ void main() {
         await tester.tap(find.byIcon(Icons.more_horiz));
         await tester.pumpAndSettle();
         expect(
-          find.byKey(const Key('health-more-medication-reminders')),
+          find.byKey(const Key('health-more-care-items')),
           findsOneWidget,
         );
 
-        await tester.tap(
-          find.byKey(const Key('health-more-medication-reminders')),
-        );
+        await tester.tap(find.byKey(const Key('health-more-care-items')));
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const Key('medication-reminders-add-fab')),
-          findsOneWidget,
-        );
+        expect(find.byKey(const Key('care-items-add-fab')), findsOneWidget);
       },
     );
   });

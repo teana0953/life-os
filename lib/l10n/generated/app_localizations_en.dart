@@ -988,41 +988,115 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notifications are still blocked — enable them in your browser settings, then check again.';
 
   @override
-  String get medicationRemindersTitle => 'Medication reminders';
+  String get careRemindersTitle => 'Reminders / care';
 
   @override
-  String get medicationRemindersEmptyTitle => 'No medication reminders yet';
+  String get careRemindersEmptyTitle => 'No care reminders yet';
 
   @override
-  String get medicationRemindersEmptyBody =>
-      'Add a reminder so you don\'t miss a dose.';
+  String get careRemindersEmptyBody =>
+      'Add one for medication, rehab, radiotherapy care, or a custom reminder.';
 
   @override
-  String get medicationRemindersAddButton => 'Add reminder';
+  String get careRemindersAddButton => 'Add reminder';
 
   @override
-  String get medicationReminderFormTitleAdd => 'Add medication reminder';
+  String get careCategoryMedication => 'Medication';
 
   @override
-  String get medicationReminderFormTitleEdit => 'Edit medication reminder';
+  String get careCategoryRehab => 'Rehab';
 
   @override
-  String get medicationReminderLabelField => 'Label';
+  String get careCategoryRadiotherapyCare => 'Radiotherapy care';
 
   @override
-  String get medicationReminderTimesLabel => 'Times';
+  String get careCategoryCustom => 'Custom';
 
   @override
-  String get medicationReminderAddTimeButton => 'Add time';
+  String get careEveryDay => 'Every day';
 
   @override
-  String get medicationReminderRemoveTimeTooltip => 'Remove time';
+  String careWeekIntervalSuffix(int n) {
+    return '· every $n weeks';
+  }
 
   @override
-  String get medicationReminderWeekdaysLabel => 'Repeat on';
+  String careScheduleUntil(String date) {
+    return 'until $date';
+  }
 
   @override
-  String medicationReminderWeekIntervalValue(int n) {
+  String careScheduleFrom(String date) {
+    return 'from $date';
+  }
+
+  @override
+  String careStockLabel(String n) {
+    return 'Stock: $n';
+  }
+
+  @override
+  String get careDeleteConfirmTitle => 'Delete this reminder?';
+
+  @override
+  String get careDeleteConfirmMessage => 'This reminder will stop firing.';
+
+  @override
+  String get careDeleteConfirmButton => 'Delete';
+
+  @override
+  String get careCancelButton => 'Cancel';
+
+  @override
+  String get careErrorGeneric => 'Something went wrong. Please try again.';
+
+  @override
+  String get careFormTitleAdd => 'Add care reminder';
+
+  @override
+  String get careFormTitleEdit => 'Edit care reminder';
+
+  @override
+  String get careCategoryLabel => 'Category';
+
+  @override
+  String get careTitleField => 'Title';
+
+  @override
+  String get careNoteField => 'Note';
+
+  @override
+  String get careDoseField => 'Dose';
+
+  @override
+  String get careStockField => 'Stock';
+
+  @override
+  String get careStockAlertField => 'Low-stock alert';
+
+  @override
+  String get careSchedulesLabel => 'Schedules';
+
+  @override
+  String get careAddScheduleButton => 'Add schedule';
+
+  @override
+  String get careRemoveScheduleTooltip => 'Remove schedule';
+
+  @override
+  String get careChangeTimeTooltip => 'Change time';
+
+  @override
+  String get careTimeLabel => 'Time';
+
+  @override
+  String get careWeekdaysLabel => 'Repeat on';
+
+  @override
+  String get careWeekdaysEmptyHint => 'Leave all unselected for every day.';
+
+  @override
+  String careWeekIntervalValue(int n) {
     String _temp0 = intl.Intl.pluralLogic(
       n,
       locale: localeName,
@@ -1033,56 +1107,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String medicationReminderCadenceSuffix(int n) {
-    return '· every $n weeks';
+  String get careStartDateLabel => 'Starting';
+
+  @override
+  String get careEndDateLabel => 'Ends';
+
+  @override
+  String get careAddEndDateButton => 'Add end date';
+
+  @override
+  String get careRemoveEndDateTooltip => 'Remove end date';
+
+  @override
+  String get careDoseQuantityLabel => 'Quantity per dose';
+
+  @override
+  String get careNagIntervalLabel => 'Reminder repeat';
+
+  @override
+  String get careNagOnceLabel => 'Remind once';
+
+  @override
+  String careNagEveryNMinutes(int n) {
+    return 'Every $n min';
   }
 
   @override
-  String get medicationReminderAnchorDateLabel => 'Starting';
+  String get careIncompleteHint =>
+      'Add a title and at least one schedule to save.';
 
   @override
-  String get medicationReminderEnabledLabel => 'Enabled';
-
-  @override
-  String get medicationReminderIncompleteHint =>
-      'Add a label, at least one time, and at least one weekday to save.';
-
-  @override
-  String get medicationReminderSaveButton => 'Save';
-
-  @override
-  String get medicationReminderCancelButton => 'Cancel';
-
-  @override
-  String get medicationReminderDeleteConfirmTitle => 'Delete this reminder?';
-
-  @override
-  String get medicationReminderDeleteConfirmMessage =>
-      'This reminder will stop firing.';
-
-  @override
-  String get medicationReminderDeleteConfirmButton => 'Delete';
-
-  @override
-  String get medicationReminderErrorGeneric =>
-      'Something went wrong. Please try again.';
-
-  @override
-  String get medicationReminderTimezoneLabel => 'Timezone';
-
-  @override
-  String get medicationReminderTimezoneEdit => 'Change';
-
-  @override
-  String get medicationReminderTimezoneNote =>
-      'Reminders fire in this timezone.';
-
-  @override
-  String get medicationReminderTimezoneSaveButton => 'Save';
-
-  @override
-  String get medicationReminderTimezoneError =>
-      'That timezone isn\'t valid. Please try again.';
+  String get careSaveButton => 'Save';
 
   @override
   String get weekdayShortSun => 'Sun';

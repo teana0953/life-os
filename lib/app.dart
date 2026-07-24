@@ -16,8 +16,8 @@ import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
-import 'contexts/notifications/presentation/medication_reminders_controller.dart';
-import 'contexts/notifications/presentation/medication_reminders_screen.dart';
+import 'contexts/notifications/presentation/care_items_controller.dart';
+import 'contexts/notifications/presentation/care_items_screen.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -102,7 +102,7 @@ class App extends StatefulWidget {
   final PwaUpdateController pwaUpdateController;
   final ChaodaysImportController chaodaysImportController;
   final ReminderSettingsController reminderSettingsController;
-  final MedicationRemindersController medicationRemindersController;
+  final CareItemsController careItemsController;
 
   const App({
     super.key,
@@ -129,7 +129,7 @@ class App extends StatefulWidget {
     required this.pwaUpdateController,
     required this.chaodaysImportController,
     required this.reminderSettingsController,
-    required this.medicationRemindersController,
+    required this.careItemsController,
   });
 
   @override
@@ -276,9 +276,9 @@ class _AppState extends State<App> {
           ),
         ),
         GoRoute(
-          path: '/medication-reminders',
-          builder: (context, state) => MedicationRemindersScreen(
-            controller: widget.medicationRemindersController,
+          path: '/care-items',
+          builder: (context, state) => CareItemsScreen(
+            controller: widget.careItemsController,
             authRepository: widget.authRepository,
           ),
         ),
@@ -307,8 +307,7 @@ class _AppState extends State<App> {
             onOpenSettings: () => context.push('/settings'),
             onOpenImport: () => context.push('/import/chaodays'),
             onOpenReminders: () => context.push('/reminders'),
-            onOpenMedicationReminders: () =>
-                context.push('/medication-reminders'),
+            onOpenCareItems: () => context.push('/care-items'),
           ),
           routes: [
             GoRoute(
