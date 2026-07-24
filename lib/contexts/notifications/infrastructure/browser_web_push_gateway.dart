@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -69,6 +70,11 @@ class BrowserWebPushGateway implements WebPushGateway {
         .register('push_sw.js'.toJS, web.RegistrationOptions(scope: '/push/'))
         .toDart;
 
+    // First-run race: register() resolves while the worker is still installing,
+    // but pushManager.subscribe needs an ACTIVE worker — otherwise the very
+    // first "enable" tap throws and only a retry (worker now active) succeeds.
+    await _whenActivated(registration);
+
     final subscription = await registration.pushManager
         .subscribe(
           web.PushSubscriptionOptionsInit(
@@ -84,6 +90,26 @@ class BrowserWebPushGateway implements WebPushGateway {
       auth: _keyToBase64Url(subscription.getKey('auth')),
     );
   }
+}
+
+/// Resolves once [registration] has an active service worker. On the first
+/// registration the worker is still `installing`/`waiting` when `register()`
+/// resolves; we wait for its `statechange` to `activated` before subscribing.
+Future<void> _whenActivated(web.ServiceWorkerRegistration registration) async {
+  if (registration.active != null) return;
+  final worker = registration.installing ?? registration.waiting;
+  if (worker == null) return;
+  final completer = Completer<void>();
+  late final JSFunction listener;
+  void check() {
+    if (worker.state == 'activated' && !completer.isCompleted) completer.complete();
+  }
+
+  listener = ((web.Event _) => check()).toJS;
+  worker.addEventListener('statechange', listener);
+  check();
+  await completer.future;
+  worker.removeEventListener('statechange', listener);
 }
 
 /// Decodes a base64url-encoded VAPID public key (as returned by the backend)

@@ -2,6 +2,15 @@
 // separate scope (`/push/`) so it never replaces Flutter's own `/`-scope
 // service worker (flutter_service_worker.js) — see design D2.
 
+// Activate immediately on first install so `pushManager.subscribe` (which needs
+// an active worker) doesn't fail on the very first "enable" tap.
+self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', function (event) {
   var data = {};
   try {
