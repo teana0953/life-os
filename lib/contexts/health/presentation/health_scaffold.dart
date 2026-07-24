@@ -13,6 +13,8 @@ import '../../health_calendar/presentation/health_calendar_card.dart';
 import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../menstrual/presentation/menstrual_controller.dart';
+import '../../notifications/presentation/care_today_controller.dart';
+import '../../notifications/presentation/care_today_summary_card.dart';
 import '../../vitals/presentation/trend_card.dart';
 import '../../vitals/presentation/trend_controller.dart';
 import '../../vitals/presentation/vitals_controller.dart';
@@ -57,6 +59,9 @@ class HealthScaffold extends StatefulWidget {
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
 
+  /// Drives the today-care summary card at the top of 總覽 (Overview).
+  final CareTodayController careTodayController;
+
   /// Opens the app settings (theme / language / sign-out), wired by the caller.
   final VoidCallback onOpenSettings;
 
@@ -93,6 +98,7 @@ class HealthScaffold extends StatefulWidget {
     required this.vitalsController,
     required this.exerciseController,
     required this.menstrualController,
+    required this.careTodayController,
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
@@ -122,6 +128,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     widget.weightGoalController,
     widget.trendController,
     widget.healthCalendarController,
+    widget.careTodayController,
   ];
 
   @override
@@ -153,6 +160,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.vitalsController.load(token, day),
       widget.exerciseController.load(token, day),
       widget.menstrualController.load(token),
+      widget.careTodayController.load(token),
     ]);
   }
 
@@ -217,6 +225,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
           _OverviewBody(
             weightGoalController: widget.weightGoalController,
             healthCalendarController: widget.healthCalendarController,
+            careTodayController: widget.careTodayController,
             idToken: idToken,
           ),
           const _RecordHub(),
@@ -261,15 +270,17 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   }
 }
 
-/// 總覽: the at-a-glance cards (goal + this-month record calendar).
+/// 總覽: the at-a-glance cards (today's care + goal + this-month record calendar).
 class _OverviewBody extends StatelessWidget {
   final WeightGoalController weightGoalController;
   final HealthCalendarController healthCalendarController;
+  final CareTodayController careTodayController;
   final String idToken;
 
   const _OverviewBody({
     required this.weightGoalController,
     required this.healthCalendarController,
+    required this.careTodayController,
     required this.idToken,
   });
 
@@ -282,6 +293,7 @@ class _OverviewBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              CareTodaySummaryCard(controller: careTodayController, idToken: idToken),
               GoalCard(controller: weightGoalController, idToken: idToken),
               const SizedBox(height: 16),
               HealthCalendarCard(
