@@ -1895,7 +1895,7 @@ abstract class AppLocalizations {
   /// Title for the care reminders screen, and the label for its entry card in the health module's More tab.
   ///
   /// In en, this message translates to:
-  /// **'Reminders / care'**
+  /// **'Care management'**
   String get careRemindersTitle;
 
   /// Heading shown in the empty-state guide when the user has no care reminders.
@@ -2299,6 +2299,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'See all'**
   String get careTodaySummarySeeAll;
+
+  /// Header entry on the overview care summary card (shown when today has care schedules), tapped to open care reminders management (medication/rehab/radiotherapy care/custom schedules).
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get careTodaySummaryManage;
+
+  /// Title of the slim setup-prompt card shown on the overview when the user has no care reminders scheduled yet, in place of the today-care summary card.
+  ///
+  /// In en, this message translates to:
+  /// **'No care reminders yet'**
+  String get careTodaySummarySetupTitle;
+
+  /// Action label on the overview setup-prompt card (alongside a trailing arrow appended in code), tapped to go set up a care reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get careTodaySummarySetupCta;
+
+  /// Banner shown at the top of the care reminders management list when push notifications aren't enabled, warning the user their reminders won't actually arrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications aren\'t on — reminders won\'t be delivered'**
+  String get careRemindersPushOffBanner;
+
+  /// Action button on the push-off banner in care reminders management, tapped to open the reminder/notification settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications'**
+  String get careRemindersPushOffAction;
 }
 
 class _AppLocalizationsDelegate

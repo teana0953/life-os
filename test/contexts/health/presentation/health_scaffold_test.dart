@@ -470,15 +470,23 @@ void main() {
       expect(summaryTop.dy, lessThan(goalTop.dy));
     });
 
-    testWidgets('no-schedule: the goal card is the first overview card and '
-        'no summary card is shown', (tester) async {
+    testWidgets('no-schedule: the setup CTA is the first overview card '
+        '(the goal card follows it) and no summary card is shown', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         l10nRouterTestApp(home: _buildScaffold(careTodaySlots: const [])),
       );
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
+      expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
       expect(find.byType(GoalCard), findsOneWidget);
+      final setupTop = tester.getTopLeft(
+        find.byKey(const Key('care-today-summary-setup')),
+      );
+      final goalTop = tester.getTopLeft(find.byType(GoalCard));
+      expect(setupTop.dy, lessThan(goalTop.dy));
     });
   });
 }

@@ -960,7 +960,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get careRemindersTitle => '提醒 / 照護';
+  String get careRemindersTitle => '照護管理';
 
   @override
   String get careRemindersEmptyTitle => '還沒有任何提醒';
@@ -1188,6 +1188,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careTodaySummarySeeAll => '查看全部';
+
+  @override
+  String get careTodaySummaryManage => '管理';
+
+  @override
+  String get careTodaySummarySetupTitle => '還沒有照護提醒';
+
+  @override
+  String get careTodaySummarySetupCta => '設定';
+
+  @override
+  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+
+  @override
+  String get careRemindersPushOffAction => '開啟通知';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2146,7 +2161,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 
   @override
-  String get careRemindersTitle => '提醒 / 照護';
+  String get careRemindersTitle => '照護管理';
 
   @override
   String get careRemindersEmptyTitle => '還沒有任何提醒';
@@ -2374,4 +2389,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careTodaySummarySeeAll => '查看全部';
+
+  @override
+  String get careTodaySummaryManage => '管理';
+
+  @override
+  String get careTodaySummarySetupTitle => '還沒有照護提醒';
+
+  @override
+  String get careTodaySummarySetupCta => '設定';
+
+  @override
+  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+
+  @override
+  String get careRemindersPushOffAction => '開啟通知';
 }
