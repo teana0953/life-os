@@ -40,6 +40,12 @@ import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
 import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
+import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
+import 'package:life_os/contexts/notifications/application/send_test_push.dart';
+import 'package:life_os/contexts/notifications/domain/push_repository.dart';
+import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
+import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
+import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
@@ -358,6 +364,37 @@ class _FakeImportRepository implements ImportRepository {
   }) async => _summary;
 }
 
+class _FakePushRepository implements PushRepository {
+  @override
+  Future<String> fetchVapidPublicKey(String idToken) async => 'fake-vapid-key';
+
+  @override
+  Future<void> saveSubscription(
+    String idToken,
+    PushSubscription subscription,
+  ) async {}
+
+  @override
+  Future<TestPushResult> sendTest(String idToken) async =>
+      const TestPushResult(sent: 0, failed: 0);
+}
+
+class _FakeWebPushGateway implements WebPushGateway {
+  @override
+  PushEnvironment describeEnvironment() => const PushEnvironment(
+    supported: true,
+    standalone: true,
+    iosNeedsInstall: false,
+  );
+
+  @override
+  PushPermissionStatus permissionStatus() => PushPermissionStatus.prompt;
+
+  @override
+  Future<PushSubscription?> enableAndSubscribe(String vapidPublicKey) async =>
+      null;
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -575,6 +612,7 @@ Future<LocaleController> pumpApp(
   SignOut? signOut,
   SignUp? signUp,
   ChaodaysImportController? chaodaysImportController,
+  ReminderSettingsController? reminderSettingsController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -592,6 +630,17 @@ Future<LocaleController> pumpApp(
           ImportDiet(importRepository),
           ImportWater(importRepository),
           ImportBowel(importRepository),
+        );
+      }();
+  final resolvedReminderSettingsController =
+      reminderSettingsController ??
+      () {
+        final pushRepository = _FakePushRepository();
+        final webPushGateway = _FakeWebPushGateway();
+        return ReminderSettingsController(
+          webPushGateway,
+          EnableReminders(pushRepository, webPushGateway),
+          SendTestPush(pushRepository),
         );
       }();
   await tester.pumpWidget(
@@ -620,6 +669,7 @@ Future<LocaleController> pumpApp(
       // these tests don't exercise the update banner.
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
       chaodaysImportController: resolvedChaodaysImportController,
+      reminderSettingsController: resolvedReminderSettingsController,
     ),
   );
   return resolvedLocaleController;
@@ -850,6 +900,37 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('import-account-field')), findsOneWidget);
+      },
+    );
+  });
+
+  group('App reminders entry', () {
+    testWidgets(
+      'the health module\'s More tab reminders tile navigates to /reminders',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('health-more-reminders')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('health-more-reminders')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('reminder-enable-button')), findsOneWidget);
       },
     );
   });

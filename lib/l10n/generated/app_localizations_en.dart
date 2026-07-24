@@ -934,4 +934,52 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get importErrorUnavailable =>
       'chaodays is temporarily unavailable. Please try again later.';
+
+  @override
+  String get reminderTitle => 'Reminders';
+
+  @override
+  String get reminderStatusUnsupported =>
+      'Notifications aren\'t supported on this browser or device.';
+
+  @override
+  String get reminderStatusIosNeedsInstall =>
+      'To get notifications on iOS, tap the Share icon in Safari, choose \"Add to Home Screen\", then open LifeOS from your Home Screen and come back here.';
+
+  @override
+  String get reminderStatusPermissionDenied =>
+      'Notifications are blocked for this site. Enable them in your browser settings, then come back here.';
+
+  @override
+  String get reminderEnabledStatus => 'Notifications are on for this device.';
+
+  @override
+  String get reminderErrorGeneric =>
+      'Something went wrong turning on notifications. Please try again.';
+
+  @override
+  String get reminderEnableButton => 'Enable notifications';
+
+  @override
+  String get reminderTestButton => 'Send test push';
+
+  @override
+  String reminderTestResult(int sent, int failed) {
+    return 'Sent $sent · Failed $failed';
+  }
+
+  @override
+  String get reminderTestErrorGeneric =>
+      'Couldn\'t send the test push. Please try again.';
+
+  @override
+  String get reminderTestSent =>
+      'Test push sent — check your device for the notification.';
+
+  @override
+  String get reminderTestNoDevice =>
+      'No enabled device received it — try turning notifications on again.';
+
+  @override
+  String get reminderRecheck => 'Check again';
 }

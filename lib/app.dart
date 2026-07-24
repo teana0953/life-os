@@ -16,6 +16,8 @@ import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
+import 'contexts/notifications/presentation/reminder_settings_controller.dart';
+import 'contexts/notifications/presentation/reminder_settings_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -97,6 +99,7 @@ class App extends StatefulWidget {
   final HealthCalendarController healthCalendarController;
   final PwaUpdateController pwaUpdateController;
   final ChaodaysImportController chaodaysImportController;
+  final ReminderSettingsController reminderSettingsController;
 
   const App({
     super.key,
@@ -122,6 +125,7 @@ class App extends StatefulWidget {
     required this.healthCalendarController,
     required this.pwaUpdateController,
     required this.chaodaysImportController,
+    required this.reminderSettingsController,
   });
 
   @override
@@ -260,6 +264,13 @@ class _AppState extends State<App> {
             authRepository: widget.authRepository,
           ),
         ),
+        GoRoute(
+          path: '/reminders',
+          builder: (context, state) => ReminderSettingsScreen(
+            controller: widget.reminderSettingsController,
+            authRepository: widget.authRepository,
+          ),
+        ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL
         // (flat routes rebuilt only the leaf, collapsing back-navigation to the
         // grid). Screens are built from injected controllers — not carried in
@@ -284,6 +295,7 @@ class _AppState extends State<App> {
             menstrualController: widget.menstrualController,
             onOpenSettings: () => context.push('/settings'),
             onOpenImport: () => context.push('/import/chaodays'),
+            onOpenReminders: () => context.push('/reminders'),
           ),
           routes: [
             GoRoute(

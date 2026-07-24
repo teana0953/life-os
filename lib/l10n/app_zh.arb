@@ -283,5 +283,18 @@
   "importResultGlucoseSuffix": "・血糖 {count}",
   "importTypeFailed": "失敗",
   "importErrorAuthFailed": "chaodays 帳號或密碼錯誤,請確認後再試一次。",
-  "importErrorUnavailable": "chaodays 暫時無法連線,請稍後再試。"
+  "importErrorUnavailable": "chaodays 暫時無法連線,請稍後再試。",
+  "reminderTitle": "提醒通知",
+  "reminderStatusUnsupported": "此瀏覽器或裝置不支援通知功能。",
+  "reminderStatusIosNeedsInstall": "在 iOS 上要接收通知,請在 Safari 點選分享圖示,選擇「加入主畫面」,然後從主畫面開啟 LifeOS 並回到這裡。",
+  "reminderStatusPermissionDenied": "此網站的通知已被封鎖,請至瀏覽器設定開啟後再回來。",
+  "reminderEnabledStatus": "此裝置已開啟通知。",
+  "reminderErrorGeneric": "開啟通知時發生錯誤,請再試一次。",
+  "reminderEnableButton": "開啟通知",
+  "reminderTestButton": "測試推播",
+  "reminderTestResult": "已送出 {sent}・失敗 {failed}",
+  "reminderTestErrorGeneric": "測試推播失敗,請再試一次。",
+  "reminderTestSent": "測試推播已送出,請查看你的裝置通知。",
+  "reminderTestNoDevice": "目前沒有已啟用的裝置收到,請再開啟一次通知。",
+  "reminderRecheck": "重新檢查"
 }

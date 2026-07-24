@@ -210,17 +210,21 @@
       }
 
       // The Flutter SW doesn't honor skipWaiting, so the guaranteed path is to
-      // unregister every registration and reload; SKIP_WAITING is best-effort.
+      // unregister it and reload; SKIP_WAITING is best-effort. Only Flutter's
+      // own (root-scope) registration is unregistered here — NOT the separate
+      // `/push/`-scope push service worker (see push_sw.js), which must
+      // survive an app update or its push subscription would be silently
+      // destroyed until the user re-enables notifications (design D6b).
       async function applyUpdate() {
+        var flutterReg = null;
         try {
-          var reg = await navigator.serviceWorker.getRegistration();
-          if (reg && reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          flutterReg = await navigator.serviceWorker.getRegistration();
+          if (flutterReg && flutterReg.waiting) {
+            flutterReg.waiting.postMessage({ type: 'SKIP_WAITING' });
           }
         } catch (e) { /* ignore */ }
         try {
-          var regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+          if (flutterReg) await flutterReg.unregister();
         } catch (e) { /* ignore */ }
         location.reload();
       }
