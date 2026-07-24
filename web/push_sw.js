@@ -19,8 +19,17 @@ self.addEventListener('push', function (event) {
     data = {};
   }
   var title = data.title || 'LifeOS';
+  // The app never calls usePathUrlStrategy(), so go_router stays on its
+  // default hash strategy (routes live at '/#/...') — a bare '/care-today'
+  // has no hash fragment and falls back to the app root. No explicit url
+  // from the backend yet (reminders are all care reminders today), so
+  // default to the Today care checklist — the place to act on it, not the
+  // app root.
   event.waitUntil(
-    self.registration.showNotification(title, { body: data.body || '' })
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      data: { url: data.url || '/#/care-today' },
+    })
   );
 });
 
@@ -28,6 +37,7 @@ self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   // A `/push/`-scoped worker can't focus an existing `/`-scope app tab
   // (clients.matchAll only sees clients within this registration's scope),
-  // so just open the app root — may open a new tab (design D6a).
-  event.waitUntil(clients.openWindow('/'));
+  // so just open the target url — may open a new tab (design D6a).
+  var url = (event.notification.data && event.notification.data.url) || '/#/care-today';
+  event.waitUntil(clients.openWindow(url));
 });

@@ -316,6 +316,7 @@ class _AppState extends State<App> {
             vitalsController: widget.vitalsController,
             exerciseController: widget.exerciseController,
             menstrualController: widget.menstrualController,
+            careTodayController: widget.careTodayController,
             onOpenSettings: () => context.push('/settings'),
             onOpenImport: () => context.push('/import/chaodays'),
             onOpenReminders: () => context.push('/reminders'),

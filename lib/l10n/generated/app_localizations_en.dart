@@ -1205,4 +1205,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get careTodayStatusMissed => 'Missed';
+
+  @override
+  String careTodaySummaryProgress(int done, int total) {
+    return '$done/$total done';
+  }
+
+  @override
+  String careTodaySummaryMoreCount(int n) {
+    return '$n more';
+  }
+
+  @override
+  String get careTodaySummarySeeAll => 'See all';
 }
