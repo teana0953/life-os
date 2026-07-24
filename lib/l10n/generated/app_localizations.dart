@@ -1885,6 +1885,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Check again'**
   String get reminderRecheck;
+
+  /// Snack bar message shown when tapping the re-check button resolves and permission is still denied, so the user can tell the check ran.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are still blocked — enable them in your browser settings, then check again.'**
+  String get reminderStillBlocked;
 }
 
 class _AppLocalizationsDelegate

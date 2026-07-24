@@ -1300,5 +1300,9 @@
   "reminderRecheck": "Check again",
   "@reminderRecheck": {
     "description": "Label for the button shown in the permissionDenied state that re-resolves the environment after the user fixes their browser settings."
+  },
+  "reminderStillBlocked": "Notifications are still blocked — enable them in your browser settings, then check again.",
+  "@reminderStillBlocked": {
+    "description": "Snack bar message shown when tapping the re-check button resolves and permission is still denied, so the user can tell the check ran."
   }
 }

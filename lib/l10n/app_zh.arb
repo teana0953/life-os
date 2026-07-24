@@ -296,5 +296,6 @@
   "reminderTestErrorGeneric": "測試推播失敗,請再試一次。",
   "reminderTestSent": "測試推播已送出,請查看你的裝置通知。",
   "reminderTestNoDevice": "目前沒有已啟用的裝置收到,請再開啟一次通知。",
-  "reminderRecheck": "重新檢查"
+  "reminderRecheck": "重新檢查",
+  "reminderStillBlocked": "通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。"
 }

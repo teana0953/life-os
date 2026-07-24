@@ -46,8 +46,13 @@ class ReminderSettingsController extends ChangeNotifier {
   TestPushResult? testResult;
   Object? testError;
 
-  /// Resolves the environment without prompting for permission.
+  /// Resolves the environment without prompting for permission. A no-op if
+  /// [status] is already [ReminderSettingsStatus.enabled] — the screen calls
+  /// [load] on every open (`initState`), and since the controller is a
+  /// singleton, re-resolving would otherwise reset an already-enabled state
+  /// back to idle and re-offer "Enable".
   void load() {
+    if (status == ReminderSettingsStatus.enabled) return;
     final env = _gateway.describeEnvironment();
     if (env.iosNeedsInstall) {
       status = ReminderSettingsStatus.iosNeedsInstall;

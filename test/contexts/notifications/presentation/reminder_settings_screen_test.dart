@@ -57,7 +57,6 @@ class _FakePushRepository implements PushRepository {
 class _FakeWebPushGateway implements WebPushGateway {
   PushEnvironment environment = const PushEnvironment(
     supported: true,
-    standalone: true,
     iosNeedsInstall: false,
   );
   PushSubscription? subscriptionToReturn = const PushSubscription(
@@ -125,7 +124,6 @@ void main() {
       final gateway = _FakeWebPushGateway()
         ..environment = const PushEnvironment(
           supported: false,
-          standalone: false,
           iosNeedsInstall: false,
         );
       final controller = _controller(gateway: gateway);
@@ -143,7 +141,6 @@ void main() {
         final gateway = _FakeWebPushGateway()
           ..environment = const PushEnvironment(
             supported: false,
-            standalone: false,
             iosNeedsInstall: true,
           );
         final controller = _controller(gateway: gateway);
@@ -215,7 +212,38 @@ void main() {
 
       expect(find.byKey(const Key('reminder-enable-button')), findsOneWidget);
       expect(find.byKey(const Key('reminder-recheck-button')), findsNothing);
+      expect(
+        find.byKey(const Key('reminder-recheck-blocked-snackbar')),
+        findsNothing,
+      );
     });
+
+    testWidgets(
+      'permissionDenied re-check still blocked shows a SnackBar so the user '
+      'can tell the check ran',
+      (tester) async {
+        final gateway = _FakeWebPushGateway()
+          ..permission = PushPermissionStatus.denied;
+        final controller = _controller(gateway: gateway);
+        await _pumpScreen(tester, controller);
+
+        // Permission is still denied — re-check should surface feedback
+        // rather than silently doing nothing.
+        await tester.tap(find.byKey(const Key('reminder-recheck-button')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.byKey(const Key('reminder-recheck-blocked-snackbar')),
+          findsOneWidget,
+        );
+        expect(find.text(loc.reminderStillBlocked), findsOneWidget);
+        expect(
+          find.byKey(const Key('reminder-recheck-button')),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets(
       'a generic enable failure shows an actionable error with a retry '

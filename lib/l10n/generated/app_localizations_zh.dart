@@ -955,6 +955,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reminderRecheck => '重新檢查';
+
+  @override
+  String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -1908,4 +1911,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get reminderRecheck => '重新檢查';
+
+  @override
+  String get reminderStillBlocked => '通知仍被封鎖,請到瀏覽器設定開啟後再重新檢查。';
 }

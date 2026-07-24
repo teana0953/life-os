@@ -3,12 +3,10 @@ import 'push_subscription.dart';
 /// The browser environment relevant to enabling Web Push.
 class PushEnvironment {
   final bool supported;
-  final bool standalone;
   final bool iosNeedsInstall;
 
   const PushEnvironment({
     required this.supported,
-    required this.standalone,
     required this.iosNeedsInstall,
   });
 }

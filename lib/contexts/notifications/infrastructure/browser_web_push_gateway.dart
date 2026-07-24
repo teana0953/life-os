@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -10,13 +11,12 @@ import '../domain/web_push_gateway.dart';
 
 /// The `window.pwaInstall` bridge object defined in `web/index.html`
 /// (mirrors `PwaInstallImpl`'s binding), read directly here because
-/// `iosHint`/`standalone` feed straight into [PushEnvironment].
+/// `iosHint` feeds straight into [PushEnvironment].
 @JS('pwaInstall')
 external _PwaInstallBridge? get _installBridge;
 
 extension type _PwaInstallBridge(JSObject _) implements JSObject {
   external bool get iosHint;
-  external bool get standalone;
 }
 
 /// [WebPushGateway] driven adapter: the real, on-device browser glue — SW
@@ -40,7 +40,6 @@ class BrowserWebPushGateway implements WebPushGateway {
         window.has('Notification');
     return PushEnvironment(
       supported: supported,
-      standalone: bridge?.standalone ?? false,
       iosNeedsInstall: bridge?.iosHint ?? false,
     );
   }
@@ -71,6 +70,11 @@ class BrowserWebPushGateway implements WebPushGateway {
         .register('push_sw.js'.toJS, web.RegistrationOptions(scope: '/push/'))
         .toDart;
 
+    // First-run race: register() resolves while the worker is still installing,
+    // but pushManager.subscribe needs an ACTIVE worker — otherwise the very
+    // first "enable" tap throws and only a retry (worker now active) succeeds.
+    await _whenActivated(registration);
+
     final subscription = await registration.pushManager
         .subscribe(
           web.PushSubscriptionOptionsInit(
@@ -88,6 +92,26 @@ class BrowserWebPushGateway implements WebPushGateway {
   }
 }
 
+/// Resolves once [registration] has an active service worker. On the first
+/// registration the worker is still `installing`/`waiting` when `register()`
+/// resolves; we wait for its `statechange` to `activated` before subscribing.
+Future<void> _whenActivated(web.ServiceWorkerRegistration registration) async {
+  if (registration.active != null) return;
+  final worker = registration.installing ?? registration.waiting;
+  if (worker == null) return;
+  final completer = Completer<void>();
+  late final JSFunction listener;
+  void check() {
+    if (worker.state == 'activated' && !completer.isCompleted) completer.complete();
+  }
+
+  listener = ((web.Event _) => check()).toJS;
+  worker.addEventListener('statechange', listener);
+  check();
+  await completer.future;
+  worker.removeEventListener('statechange', listener);
+}
+
 /// Decodes a base64url-encoded VAPID public key (as returned by the backend)
 /// into the raw bytes `pushManager.subscribe` expects for
 /// `applicationServerKey`.
@@ -97,8 +121,10 @@ Uint8List _base64UrlToBytes(String value) {
 }
 
 /// Encodes a subscription key (`ArrayBuffer`, from `PushSubscription.getKey`)
-/// as base64url — the form the backend stores/uses.
+/// as base64url — the form the backend stores/uses. A missing key means the
+/// subscription is malformed, so this fails visibly rather than sending an
+/// empty p256dh/auth to the backend.
 String _keyToBase64Url(JSArrayBuffer? buffer) {
-  if (buffer == null) return '';
+  if (buffer == null) throw StateError('missing push subscription key');
   return base64Url.encode(buffer.toDart.asUint8List()).replaceAll('=', '');
 }

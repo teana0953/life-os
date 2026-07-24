@@ -982,4 +982,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reminderRecheck => 'Check again';
+
+  @override
+  String get reminderStillBlocked =>
+      'Notifications are still blocked — enable them in your browser settings, then check again.';
 }

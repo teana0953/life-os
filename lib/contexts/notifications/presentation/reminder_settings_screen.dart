@@ -47,6 +47,21 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
     await widget.controller.enable(idToken);
   }
 
+  void _recheck() {
+    widget.controller.load();
+    if (!mounted) return;
+    if (widget.controller.status != ReminderSettingsStatus.permissionDenied) {
+      return;
+    }
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        key: const Key('reminder-recheck-blocked-snackbar'),
+        content: Text(loc.reminderStillBlocked),
+      ),
+    );
+  }
+
   Future<void> _sendTest() async {
     final idToken = await widget.authRepository.idToken() ?? '';
     if (!mounted) return;
@@ -181,7 +196,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
                             const SizedBox(height: 12),
                             OutlinedButton(
                               key: const Key('reminder-recheck-button'),
-                              onPressed: controller.load,
+                              onPressed: _recheck,
                               child: Text(loc.reminderRecheck),
                             ),
                           ],
