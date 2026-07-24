@@ -1891,6 +1891,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Notifications are still blocked — enable them in your browser settings, then check again.'**
   String get reminderStillBlocked;
+
+  /// Title for the medication reminders screen, and the label for its entry card in the health module's More tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Medication reminders'**
+  String get medicationRemindersTitle;
+
+  /// Heading shown in the empty-state guide when the user has no medication reminders.
+  ///
+  /// In en, this message translates to:
+  /// **'No medication reminders yet'**
+  String get medicationRemindersEmptyTitle;
+
+  /// Body text shown under the empty-state heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a reminder so you don\'t miss a dose.'**
+  String get medicationRemindersEmptyBody;
+
+  /// Label for the button in the empty state that opens the add-reminder form.
+  ///
+  /// In en, this message translates to:
+  /// **'Add reminder'**
+  String get medicationRemindersAddButton;
+
+  /// App bar title for the reminder form when adding a new reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add medication reminder'**
+  String get medicationReminderFormTitleAdd;
+
+  /// App bar title for the reminder form when editing an existing reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit medication reminder'**
+  String get medicationReminderFormTitleEdit;
+
+  /// Label for the reminder form's medication-name text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Label'**
+  String get medicationReminderLabelField;
+
+  /// Section heading for the reminder form's list of times.
+  ///
+  /// In en, this message translates to:
+  /// **'Times'**
+  String get medicationReminderTimesLabel;
+
+  /// Label for the button that opens a time picker to add another time.
+  ///
+  /// In en, this message translates to:
+  /// **'Add time'**
+  String get medicationReminderAddTimeButton;
+
+  /// Tooltip/accessible label for the control that removes a time from the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove time'**
+  String get medicationReminderRemoveTimeTooltip;
+
+  /// Section heading for the reminder form's weekday chip selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat on'**
+  String get medicationReminderWeekdaysLabel;
+
+  /// Shows the current every-N-weeks cadence, with −/+ controls beside it.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =1{Every week} other{Every {n} weeks}}'**
+  String medicationReminderWeekIntervalValue(int n);
+
+  /// Appended to a reminder list row's subtitle when weekInterval > 1, so a biweekly (or less frequent) reminder is distinguishable from a weekly one.
+  ///
+  /// In en, this message translates to:
+  /// **'· every {n} weeks'**
+  String medicationReminderCadenceSuffix(int n);
+
+  /// Label for the reminder form's anchor-date picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting'**
+  String get medicationReminderAnchorDateLabel;
+
+  /// Label for the reminder form's enabled switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get medicationReminderEnabledLabel;
+
+  /// Inline hint shown under the Save button while it's disabled, explaining what's still required.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a label, at least one time, and at least one weekday to save.'**
+  String get medicationReminderIncompleteHint;
+
+  /// Label for the reminder form's submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get medicationReminderSaveButton;
+
+  /// Label for a cancel action in the reminder form / dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get medicationReminderCancelButton;
+
+  /// Title of the confirmation dialog shown before deleting a reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this reminder?'**
+  String get medicationReminderDeleteConfirmTitle;
+
+  /// Body text of the delete-reminder confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'This reminder will stop firing.'**
+  String get medicationReminderDeleteConfirmMessage;
+
+  /// Label for the confirm button on the delete-reminder confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get medicationReminderDeleteConfirmButton;
+
+  /// Shown when loading the list, a mutation, or the form's save fails for a non-auth reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get medicationReminderErrorGeneric;
+
+  /// Label for the timezone section on the medication reminders screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Timezone'**
+  String get medicationReminderTimezoneLabel;
+
+  /// Label for the button that opens the timezone-edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get medicationReminderTimezoneEdit;
+
+  /// One-line note clarifying that reminders use the shown timezone.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders fire in this timezone.'**
+  String get medicationReminderTimezoneNote;
+
+  /// Label for the confirm button on the timezone-edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get medicationReminderTimezoneSaveButton;
+
+  /// Shown when setting the timezone is rejected by the backend (400).
+  ///
+  /// In en, this message translates to:
+  /// **'That timezone isn\'t valid. Please try again.'**
+  String get medicationReminderTimezoneError;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get weekdayShortSun;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get weekdayShortMon;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get weekdayShortTue;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get weekdayShortWed;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get weekdayShortThu;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get weekdayShortFri;
+
+  /// Short weekday label for the reminder form's weekday chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get weekdayShortSat;
 }
 
 class _AppLocalizationsDelegate

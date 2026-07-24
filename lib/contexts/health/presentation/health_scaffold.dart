@@ -66,6 +66,9 @@ class HealthScaffold extends StatefulWidget {
   /// Opens the reminder/notification settings screen, wired by the caller.
   final VoidCallback onOpenReminders;
 
+  /// Opens the medication reminders screen, wired by the caller.
+  final VoidCallback onOpenMedicationReminders;
+
   final DateTime Function() clock;
 
   const HealthScaffold({
@@ -88,6 +91,7 @@ class HealthScaffold extends StatefulWidget {
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
+    required this.onOpenMedicationReminders,
     this.clock = DateTime.now,
   });
 
@@ -219,6 +223,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             onOpenSettings: widget.onOpenSettings,
             onOpenImport: widget.onOpenImport,
             onOpenReminders: widget.onOpenReminders,
+            onOpenMedicationReminders: widget.onOpenMedicationReminders,
           ),
         ],
       ),
@@ -315,18 +320,22 @@ class _TrendBody extends StatelessWidget {
   }
 }
 
-/// 更多: app settings + chaodays import + reminders entries (theme / language
-/// / sign-out live in SettingsScreen; the chaodays import form lives in
-/// ChaodaysImportScreen; reminders live in ReminderSettingsScreen).
+/// 更多: app settings + chaodays import + reminders + medication reminders
+/// entries (theme / language / sign-out live in SettingsScreen; the chaodays
+/// import form lives in ChaodaysImportScreen; push reminders live in
+/// ReminderSettingsScreen; medication reminders live in
+/// MedicationRemindersScreen).
 class _MoreBody extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenImport;
   final VoidCallback onOpenReminders;
+  final VoidCallback onOpenMedicationReminders;
 
   const _MoreBody({
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
+    required this.onOpenMedicationReminders,
   });
 
   @override
@@ -346,6 +355,16 @@ class _MoreBody extends StatelessWidget {
                   title: Text(loc.reminderTitle),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: onOpenReminders,
+                ),
+              ),
+              const SizedBox(height: 12),
+              LedgeCard(
+                child: ListTile(
+                  key: const Key('health-more-medication-reminders'),
+                  leading: const Icon(Icons.medication_outlined),
+                  title: Text(loc.medicationRemindersTitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: onOpenMedicationReminders,
                 ),
               ),
               const SizedBox(height: 12),
