@@ -18,6 +18,8 @@ import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
 import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_items_screen.dart';
+import 'contexts/notifications/presentation/care_today_controller.dart';
+import 'contexts/notifications/presentation/care_today_screen.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -103,6 +105,7 @@ class App extends StatefulWidget {
   final ChaodaysImportController chaodaysImportController;
   final ReminderSettingsController reminderSettingsController;
   final CareItemsController careItemsController;
+  final CareTodayController careTodayController;
 
   const App({
     super.key,
@@ -130,6 +133,7 @@ class App extends StatefulWidget {
     required this.chaodaysImportController,
     required this.reminderSettingsController,
     required this.careItemsController,
+    required this.careTodayController,
   });
 
   @override
@@ -282,6 +286,14 @@ class _AppState extends State<App> {
             authRepository: widget.authRepository,
           ),
         ),
+        GoRoute(
+          path: '/care-today',
+          builder: (context, state) => CareTodayScreen(
+            controller: widget.careTodayController,
+            authRepository: widget.authRepository,
+            onOpenCareItems: () => context.push('/care-items'),
+          ),
+        ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL
         // (flat routes rebuilt only the leaf, collapsing back-navigation to the
         // grid). Screens are built from injected controllers — not carried in
@@ -308,6 +320,7 @@ class _AppState extends State<App> {
             onOpenImport: () => context.push('/import/chaodays'),
             onOpenReminders: () => context.push('/reminders'),
             onOpenCareItems: () => context.push('/care-items'),
+            onOpenCareToday: () => context.push('/care-today'),
           ),
           routes: [
             GoRoute(

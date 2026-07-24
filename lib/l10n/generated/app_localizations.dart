@@ -2197,6 +2197,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sat'**
   String get weekdayShortSat;
+
+  /// Title for the Today care checklist screen, and its entry in the health More tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Today care'**
+  String get careTodayTitle;
+
+  /// Section header for overdue slots on the Today care checklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get careTodayOverdueSection;
+
+  /// Section header for pending (not yet due or overdue) slots on the Today care checklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get careTodayLaterSection;
+
+  /// Collapsible section header for done/skipped/missed slots, with a count.
+  ///
+  /// In en, this message translates to:
+  /// **'Done ({n})'**
+  String careTodayDoneSection(int n);
+
+  /// Button label to mark a pending or overdue care slot done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get careTodayMarkDoneButton;
+
+  /// Button label to mark a pending or overdue care slot skipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get careTodaySkipButton;
+
+  /// Shown on a done slot's row with its recorded done time.
+  ///
+  /// In en, this message translates to:
+  /// **'Done at {time}'**
+  String careTodayDoneAtLabel(String time);
+
+  /// Title for the Today checklist's empty state when there are no care slots today.
+  ///
+  /// In en, this message translates to:
+  /// **'No schedules today'**
+  String get careTodayEmptyTitle;
+
+  /// Body copy for the Today checklist's empty state, guiding the user to add a reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a care reminder to see it here.'**
+  String get careTodayEmptyBody;
+
+  /// Title for the all-done celebration shown when nothing is pending or overdue.
+  ///
+  /// In en, this message translates to:
+  /// **'All done for today!'**
+  String get careTodayCelebrationTitle;
+
+  /// Body copy for the all-done celebration.
+  ///
+  /// In en, this message translates to:
+  /// **'Nice work — see you tomorrow.'**
+  String get careTodayCelebrationBody;
+
+  /// Label for the focus card when its slot is pending (not yet due), signaling it's the next thing to do.
+  ///
+  /// In en, this message translates to:
+  /// **'Up next'**
+  String get careTodayUpNext;
+
+  /// Status label on a Done-group row for a slot the user deliberately skipped, distinguishing it from a missed slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get careTodayStatusSkipped;
+
+  /// Status label on a Done-group row for a slot that passed with no record, distinguishing it from a deliberate skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get careTodayStatusMissed;
 }
 
 class _AppLocalizationsDelegate

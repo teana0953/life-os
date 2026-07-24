@@ -1129,6 +1129,52 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get weekdayShortSat => '週六';
+
+  @override
+  String get careTodayTitle => '今日照護';
+
+  @override
+  String get careTodayOverdueSection => '逾期';
+
+  @override
+  String get careTodayLaterSection => '稍後';
+
+  @override
+  String careTodayDoneSection(int n) {
+    return '已完成（$n）';
+  }
+
+  @override
+  String get careTodayMarkDoneButton => '完成';
+
+  @override
+  String get careTodaySkipButton => '略過';
+
+  @override
+  String careTodayDoneAtLabel(String time) {
+    return '$time 完成';
+  }
+
+  @override
+  String get careTodayEmptyTitle => '今天沒有排程';
+
+  @override
+  String get careTodayEmptyBody => '新增照護提醒後就會顯示在這裡。';
+
+  @override
+  String get careTodayCelebrationTitle => '今天的照護都完成了！';
+
+  @override
+  String get careTodayCelebrationBody => '做得好，明天見。';
+
+  @override
+  String get careTodayUpNext => '接下來';
+
+  @override
+  String get careTodayStatusSkipped => '略過';
+
+  @override
+  String get careTodayStatusMissed => '未完成';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2256,4 +2302,50 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get weekdayShortSat => '週六';
+
+  @override
+  String get careTodayTitle => '今日照護';
+
+  @override
+  String get careTodayOverdueSection => '逾期';
+
+  @override
+  String get careTodayLaterSection => '稍後';
+
+  @override
+  String careTodayDoneSection(int n) {
+    return '已完成（$n）';
+  }
+
+  @override
+  String get careTodayMarkDoneButton => '完成';
+
+  @override
+  String get careTodaySkipButton => '略過';
+
+  @override
+  String careTodayDoneAtLabel(String time) {
+    return '$time 完成';
+  }
+
+  @override
+  String get careTodayEmptyTitle => '今天沒有排程';
+
+  @override
+  String get careTodayEmptyBody => '新增照護提醒後就會顯示在這裡。';
+
+  @override
+  String get careTodayCelebrationTitle => '今天的照護都完成了！';
+
+  @override
+  String get careTodayCelebrationBody => '做得好，明天見。';
+
+  @override
+  String get careTodayUpNext => '接下來';
+
+  @override
+  String get careTodayStatusSkipped => '略過';
+
+  @override
+  String get careTodayStatusMissed => '未完成';
 }

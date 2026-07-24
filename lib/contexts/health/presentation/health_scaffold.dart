@@ -70,6 +70,10 @@ class HealthScaffold extends StatefulWidget {
   /// screen, wired by the caller.
   final VoidCallback onOpenCareItems;
 
+  /// Opens the Today care checklist screen, wired by the caller (distinct
+  /// from [onOpenCareItems] — today vs. manage).
+  final VoidCallback onOpenCareToday;
+
   final DateTime Function() clock;
 
   const HealthScaffold({
@@ -93,6 +97,7 @@ class HealthScaffold extends StatefulWidget {
     required this.onOpenImport,
     required this.onOpenReminders,
     required this.onOpenCareItems,
+    required this.onOpenCareToday,
     this.clock = DateTime.now,
   });
 
@@ -225,6 +230,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             onOpenImport: widget.onOpenImport,
             onOpenReminders: widget.onOpenReminders,
             onOpenCareItems: widget.onOpenCareItems,
+            onOpenCareToday: widget.onOpenCareToday,
           ),
         ],
       ),
@@ -325,18 +331,21 @@ class _TrendBody extends StatelessWidget {
 /// (theme / language / sign-out live in SettingsScreen; the chaodays import
 /// form lives in ChaodaysImportScreen; push reminders live in
 /// ReminderSettingsScreen; care reminders — medication/rehab/radiotherapy
-/// care/custom — live in CareItemsScreen).
+/// care/custom — live in CareItemsScreen; today's care checklist — distinct
+/// from the manage entry — lives in CareTodayScreen).
 class _MoreBody extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onOpenImport;
   final VoidCallback onOpenReminders;
   final VoidCallback onOpenCareItems;
+  final VoidCallback onOpenCareToday;
 
   const _MoreBody({
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
     required this.onOpenCareItems,
+    required this.onOpenCareToday,
   });
 
   @override
@@ -349,6 +358,16 @@ class _MoreBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              LedgeCard(
+                child: ListTile(
+                  key: const Key('health-more-care-today'),
+                  leading: const Icon(Icons.checklist_outlined),
+                  title: Text(loc.careTodayTitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: onOpenCareToday,
+                ),
+              ),
+              const SizedBox(height: 12),
               LedgeCard(
                 child: ListTile(
                   key: const Key('health-more-reminders'),

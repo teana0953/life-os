@@ -1538,5 +1538,71 @@
   "weekdayShortSat": "Sat",
   "@weekdayShortSat": {
     "description": "Short weekday label for the reminder form's weekday chips."
+  },
+  "careTodayTitle": "Today care",
+  "@careTodayTitle": {
+    "description": "Title for the Today care checklist screen, and its entry in the health More tab."
+  },
+  "careTodayOverdueSection": "Overdue",
+  "@careTodayOverdueSection": {
+    "description": "Section header for overdue slots on the Today care checklist."
+  },
+  "careTodayLaterSection": "Later",
+  "@careTodayLaterSection": {
+    "description": "Section header for pending (not yet due or overdue) slots on the Today care checklist."
+  },
+  "careTodayDoneSection": "Done ({n})",
+  "@careTodayDoneSection": {
+    "description": "Collapsible section header for done/skipped/missed slots, with a count.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "careTodayMarkDoneButton": "Done",
+  "@careTodayMarkDoneButton": {
+    "description": "Button label to mark a pending or overdue care slot done."
+  },
+  "careTodaySkipButton": "Skip",
+  "@careTodaySkipButton": {
+    "description": "Button label to mark a pending or overdue care slot skipped."
+  },
+  "careTodayDoneAtLabel": "Done at {time}",
+  "@careTodayDoneAtLabel": {
+    "description": "Shown on a done slot's row with its recorded done time.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "careTodayEmptyTitle": "No schedules today",
+  "@careTodayEmptyTitle": {
+    "description": "Title for the Today checklist's empty state when there are no care slots today."
+  },
+  "careTodayEmptyBody": "Add a care reminder to see it here.",
+  "@careTodayEmptyBody": {
+    "description": "Body copy for the Today checklist's empty state, guiding the user to add a reminder."
+  },
+  "careTodayCelebrationTitle": "All done for today!",
+  "@careTodayCelebrationTitle": {
+    "description": "Title for the all-done celebration shown when nothing is pending or overdue."
+  },
+  "careTodayCelebrationBody": "Nice work — see you tomorrow.",
+  "@careTodayCelebrationBody": {
+    "description": "Body copy for the all-done celebration."
+  },
+  "careTodayUpNext": "Up next",
+  "@careTodayUpNext": {
+    "description": "Label for the focus card when its slot is pending (not yet due), signaling it's the next thing to do."
+  },
+  "careTodayStatusSkipped": "Skipped",
+  "@careTodayStatusSkipped": {
+    "description": "Status label on a Done-group row for a slot the user deliberately skipped, distinguishing it from a missed slot."
+  },
+  "careTodayStatusMissed": "Missed",
+  "@careTodayStatusMissed": {
+    "description": "Status label on a Done-group row for a slot that passed with no record, distinguishing it from a deliberate skip."
   }
 }
