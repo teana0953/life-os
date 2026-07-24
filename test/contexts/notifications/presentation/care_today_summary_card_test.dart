@@ -96,11 +96,21 @@ CareTodayController _controllerFor(List<CareTodaySlot> slots, {_FakeCareTodayRep
   );
 }
 
-Future<void> _pumpCard(WidgetTester tester, CareTodayController controller) async {
+Future<void> _pumpCard(
+  WidgetTester tester,
+  CareTodayController controller, {
+  VoidCallback? onManage,
+  VoidCallback? onSetup,
+}) async {
   await tester.pumpWidget(
     l10nRouterTestApp(
       home: Scaffold(
-        body: CareTodaySummaryCard(controller: controller, idToken: 'token-123'),
+        body: CareTodaySummaryCard(
+          controller: controller,
+          idToken: 'token-123',
+          onManage: onManage ?? () {},
+          onSetup: onSetup ?? () {},
+        ),
       ),
     ),
   );
@@ -182,14 +192,31 @@ void main() {
       expect(find.textContaining(loc.careTodaySummarySeeAll), findsOneWidget);
     });
 
-    testWidgets('no schedules: renders nothing', (tester) async {
-      final controller = _controllerFor(const []);
-      await controller.load('token-123');
+    testWidgets(
+      'no schedules: shows a slim setup CTA and tapping it triggers onSetup',
+      (tester) async {
+        final controller = _controllerFor(const []);
+        await controller.load('token-123');
+        var setupTapped = false;
 
-      await _pumpCard(tester, controller);
+        await _pumpCard(
+          tester,
+          controller,
+          onSetup: () => setupTapped = true,
+        );
 
-      expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
-    });
+        expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
+        expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.textContaining(loc.careTodaySummarySetupTitle), findsOneWidget);
+        expect(find.textContaining(loc.careTodaySummarySetupCta), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('care-today-summary-setup')));
+        await tester.pumpAndSettle();
+
+        expect(setupTapped, isTrue);
+      },
+    );
 
     testWidgets('loading: renders nothing', (tester) async {
       final controller = _controllerFor([_slot(status: CareTodayStatus.overdue)]);
@@ -265,6 +292,26 @@ void main() {
 
       expect(find.text('/care-today'), findsOneWidget);
     });
+
+    testWidgets(
+      'has schedules: shows a header manage entry and tapping it triggers '
+      'onManage',
+      (tester) async {
+        final controller = _controllerFor([_slot(status: CareTodayStatus.overdue)]);
+        await controller.load('token-123');
+        var manageTapped = false;
+
+        await _pumpCard(tester, controller, onManage: () => manageTapped = true);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careTodaySummaryManage), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('care-today-summary-manage')));
+        await tester.pumpAndSettle();
+
+        expect(manageTapped, isTrue);
+      },
+    );
 
     testWidgets('a failed inline mark shows a SnackBar and keeps the summary', (
       tester,

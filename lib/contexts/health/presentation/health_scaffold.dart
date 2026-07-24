@@ -293,7 +293,12 @@ class _OverviewBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              CareTodaySummaryCard(controller: careTodayController, idToken: idToken),
+              CareTodaySummaryCard(
+                controller: careTodayController,
+                idToken: idToken,
+                onManage: () => context.push('/care-items'),
+                onSetup: () => context.push('/care-items'),
+              ),
               GoalCard(controller: weightGoalController, idToken: idToken),
               const SizedBox(height: 16),
               HealthCalendarCard(

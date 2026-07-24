@@ -22,16 +22,30 @@ IconData _categoryIcon(CareCategory category) => switch (category) {
 /// group counts are all derived state the controller already exposes.
 ///
 /// Renders nothing while the controller isn't `loaded` (loading/error/
-/// reauth) or once loaded with no schedules today, so it never disrupts the
-/// overview for someone with nothing to care about right now.
+/// reauth), so it never disrupts the overview for a state that's about to
+/// resolve. Once loaded with no schedules today, renders a slim setup-prompt
+/// card (tapping it calls [onSetup]) instead — the shortest path from the
+/// overview to setting up care reminders for a new user. Once loaded with
+/// schedules, the header carries a "manage" entry (tapping it calls
+/// [onManage]) alongside the existing tap-to-open-Today body.
 class CareTodaySummaryCard extends StatelessWidget {
   final CareTodayController controller;
   final String idToken;
+
+  /// Opens care reminders management (medication/rehab/radiotherapy care/
+  /// custom schedules), from the header entry shown once there's a real
+  /// summary to show.
+  final VoidCallback onManage;
+
+  /// Opens care reminders management from the no-schedule setup prompt.
+  final VoidCallback onSetup;
 
   const CareTodaySummaryCard({
     super.key,
     required this.controller,
     required this.idToken,
+    required this.onManage,
+    required this.onSetup,
   });
 
   Future<void> _mark(
@@ -79,7 +93,7 @@ class CareTodaySummaryCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final slots = controller.slots;
-    if (slots.isEmpty) return const SizedBox.shrink();
+    if (slots.isEmpty) return _SetupPrompt(onSetup: onSetup);
 
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -118,6 +132,11 @@ class CareTodaySummaryCard extends StatelessWidget {
                         ),
                       ),
                       _ProgressPill(loc: loc, done: done, total: total),
+                      TextButton(
+                        key: const Key('care-today-summary-manage'),
+                        onPressed: onManage,
+                        child: Text(loc.careTodaySummaryManage),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -142,6 +161,56 @@ class CareTodaySummaryCard extends StatelessWidget {
                         : '${loc.careTodaySummarySeeAll} →',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The slim no-schedule state: a one-line "set up care reminders" prompt in
+/// place of the full summary card, so a new user without any care schedules
+/// still has a one-tap path to setting one up from the overview (rather than
+/// the card rendering nothing, per the surface-care-reminders change).
+class _SetupPrompt extends StatelessWidget {
+  final VoidCallback onSetup;
+
+  const _SetupPrompt({required this.onSetup});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      key: const Key('care-today-summary-setup'),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: LedgeCard(
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            onTap: onSetup,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.add_circle_outline),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      loc.careTodaySummarySetupTitle,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  Text(
+                    '${loc.careTodaySummarySetupCta} →',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ],
