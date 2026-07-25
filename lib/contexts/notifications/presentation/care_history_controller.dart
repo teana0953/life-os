@@ -15,14 +15,16 @@ enum CareHistoryLoadStatus { loading, loaded, error, reauth }
 /// indicator instead of blanking). [edit] PUTs a slot's new outcome then
 /// quietly re-fetches the same range (design mirrors
 /// [CareTodayController]'s marking mechanism: the [editing] flag, never
-/// dropping [status] back to `loading`). An edit failure keeps the existing
-/// [days] and surfaces the typed error via [editError]; a 401 from either
-/// [load] or [edit] routes [status] to [CareHistoryLoadStatus.reauth]. A
-/// reload that follows a *successful* edit behaves the same way on failure
-/// — it must not discard the just-updated list just because the follow-up
-/// GET failed (FIX 2, mirroring `CareTodayController`); only a reauth 401 on
-/// that reload still routes to reauth. Holds typed errors, not text — the
-/// owning screen maps them to localized copy.
+/// dropping [status] back to `loading`). A PUT failure keeps the existing
+/// [days] and surfaces the typed error via [editError] — the edit did not
+/// take effect. A *successful* PUT whose follow-up GET fails surfaces that
+/// separately via [refreshError] instead (FIX 2/3): the edit itself
+/// succeeded server-side, only the refresh of the list failed, so the
+/// screen must not tell the user their edit was lost — it must not discard
+/// the just-updated list either. A 401 from [load], the edit PUT, or the
+/// post-edit refresh routes [status] to [CareHistoryLoadStatus.reauth].
+/// Holds typed errors, not text — the owning screen maps them to localized
+/// copy.
 class CareHistoryController extends ChangeNotifier {
   final GetCareHistory _getHistory;
   final EditCareSlot _editSlot;
@@ -35,6 +37,7 @@ class CareHistoryController extends ChangeNotifier {
 
   bool editing = false;
   Object? editError;
+  Object? refreshError;
 
   String _from = '';
   String _to = '';
@@ -61,6 +64,7 @@ class CareHistoryController extends ChangeNotifier {
     _to = to;
     status = CareHistoryLoadStatus.loading;
     editError = null;
+    refreshError = null;
     notifyListeners();
     await _fetch(idToken, from, to);
     notifyListeners();
@@ -70,7 +74,10 @@ class CareHistoryController extends ChangeNotifier {
   /// [localDate], [timeOfDay]) to [status], then quietly re-fetches the last
   /// loaded range (design — [CareHistoryLoadStatus] stays `loaded`
   /// throughout, never dropping to `loading`). Guarded against
-  /// re-entrancy — a second call while one is in flight is ignored.
+  /// re-entrancy — a second call while one is in flight is ignored. A PUT
+  /// failure surfaces via [editError]; a PUT success whose refresh fails
+  /// surfaces via [refreshError] instead (FIX 3) — the two must not be
+  /// conflated, since only the former means the edit itself was lost.
   Future<void> edit(
     String idToken, {
     required String careScheduleId,
@@ -81,6 +88,7 @@ class CareHistoryController extends ChangeNotifier {
     if (editing) return;
     editing = true;
     editError = null;
+    refreshError = null;
     notifyListeners();
 
     try {
@@ -111,8 +119,10 @@ class CareHistoryController extends ChangeNotifier {
         this.status = CareHistoryLoadStatus.reauth;
       } else {
         // The edit itself succeeded — keep the existing (now-stale) days
-        // rather than dropping to the full-screen error state (FIX 2).
-        editError = e;
+        // rather than dropping to the full-screen error state (FIX 2), and
+        // report the refresh failure separately from an edit failure
+        // (FIX 3) so the screen doesn't tell the user the edit was lost.
+        refreshError = e;
       }
     }
     editing = false;

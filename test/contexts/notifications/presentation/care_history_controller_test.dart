@@ -200,6 +200,7 @@ void main() {
       );
 
       expect(controller.editError, isA<CareRequestFailed>());
+      expect(controller.refreshError, isNull);
       expect(controller.days.single.slots, [_slot()]);
       expect(controller.status, CareHistoryLoadStatus.loaded);
     });
@@ -225,7 +226,8 @@ void main() {
     });
 
     test('FIX 2: a reload failure after a successful edit keeps the days '
-        'and sets editError, not status=error', () async {
+        'and sets refreshError (not editError, not status=error) — the edit '
+        'itself succeeded, only the follow-up refresh failed', () async {
       final repository = _FakeCareHistoryRepository(
         days: [
           CareHistoryDay(date: '2026-07-22', slots: [_slot()]),
@@ -247,7 +249,8 @@ void main() {
       );
 
       expect(repository.editCalls, 1);
-      expect(controller.editError, isA<CareRequestFailed>());
+      expect(controller.editError, isNull);
+      expect(controller.refreshError, isA<CareRequestFailed>());
       expect(controller.status, CareHistoryLoadStatus.loaded);
       expect(controller.days.single.slots, [_slot()]);
     });

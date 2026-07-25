@@ -1265,10 +1265,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get careHistoryAdherenceRateLabel => 'Adherence rate';
 
   @override
-  String get careHistoryDaysWithDoseLabel => 'Days with a dose';
+  String get careHistoryDaysWithDoseLabel => 'Days with care done';
 
   @override
-  String get careHistoryMissedCountLabel => 'Missed';
+  String get careHistoryMissedCountLabel => 'Missed slots';
 
   @override
   String get careHistoryLegendFull => 'Complete';
@@ -1293,4 +1293,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get careHistoryStatusOverdue => 'Overdue';
+
+  @override
+  String get careHistoryLegendUpcoming => 'Not yet due';
+
+  @override
+  String get careHistoryEditSuccessMessage => 'Saved.';
+
+  @override
+  String get careHistoryEditRefreshErrorMessage =>
+      'Saved, but couldn\'t refresh the list.';
 }

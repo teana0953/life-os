@@ -11,6 +11,7 @@ import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/date/day_format.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -301,6 +302,13 @@ void main() {
           ),
           findsOneWidget,
         );
+        expect(
+          find.descendant(
+            of: legendFinder,
+            matching: find.text(loc.careHistoryLegendUpcoming),
+          ),
+          findsOneWidget,
+        );
       },
     );
 
@@ -372,6 +380,29 @@ void main() {
         expect(find.text(loc.careHistoryEditSheetTitle), findsOneWidget);
         expect(find.byKey(const Key('care-history-edit-done')), findsOneWidget);
         expect(find.byKey(const Key('care-history-edit-skip')), findsOneWidget);
+        // The sheet header identifies which record is being edited — item
+        // name, date, time, and current status — so tapping the wrong row
+        // in a long list is noticeable.
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('care-history-edit-sheet-title')),
+              )
+              .data,
+          'Metformin',
+        );
+        final expectedDate = mediumDateLabel(
+          tester.element(find.byType(CareHistoryScreen)),
+          DateTime(2026, 7, 22),
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('care-history-edit-sheet-subtitle')),
+              )
+              .data,
+          '$expectedDate 08:00 · ${loc.careTodayStatusMissed}',
+        );
 
         await tester.tap(find.byKey(const Key('care-history-edit-done')));
         await tester.pumpAndSettle();
@@ -379,6 +410,93 @@ void main() {
         expect(repository.lastEditStatus, CareLogStatus.done);
         expect(repository.lastEditCareScheduleId, 'sch-1');
         expect(find.text('08:00 · ${loc.careHistoryStatusDone}'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an edit that saves but fails to refresh shows the refresh-error '
+      'message, not the generic (edit-failed) error',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        // The edit PUT succeeds, but the follow-up refresh GET fails.
+        repository.getError = const CareRequestFailed();
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.text(loc.careHistoryEditRefreshErrorMessage),
+          findsOneWidget,
+        );
+        expect(find.text(loc.careErrorGeneric), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'editing shows an in-flight affordance on the row (and disables it), '
+      'then a success confirmation once the edit and refresh both complete',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        final completer = Completer<void>();
+        repository.editCompleter = completer;
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        // Don't pumpAndSettle here — the in-flight progress indicator
+        // animates indefinitely, so settle would never return.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-1-2026-07-22-08:00'),
+          ),
+          findsOneWidget,
+        );
+        // The row can't be tapped again while its own edit is in flight.
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pump();
+        expect(find.byKey(const Key('care-history-edit-done')), findsNothing);
+
+        completer.complete();
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careHistoryEditSuccessMessage), findsOneWidget);
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-1-2026-07-22-08:00'),
+          ),
+          findsNothing,
+        );
       },
     );
 

@@ -2384,16 +2384,16 @@ abstract class AppLocalizations {
   /// **'Adherence rate'**
   String get careHistoryAdherenceRateLabel;
 
-  /// Headline metric label in the care history chart mode: the count of days with at least one slot marked done.
+  /// Headline metric label in the care history chart mode: the count of days with at least one slot marked done. Neutral wording — this screen aggregates every care category (medication, rehab, phototherapy maintenance, custom), not just medication doses.
   ///
   /// In en, this message translates to:
-  /// **'Days with a dose'**
+  /// **'Days with care done'**
   String get careHistoryDaysWithDoseLabel;
 
-  /// Headline metric label in the care history chart mode for the total count of slots with status missed over the selected period — distinct from careHistoryLegendMissed (a day-level state, which also covers all-skipped days) and from careTodayStatusMissed (a single slot's status word).
+  /// Headline metric label in the care history chart mode for the total count of slots with status missed over the selected period — worded as a slot count ('Missed slots') so it reads distinctly from careHistoryLegendMissed (a day-level heatmap state, worded as 'Missed') and from careTodayStatusMissed (a single slot's status word, 'Missed'); the three counts can differ.
   ///
   /// In en, this message translates to:
-  /// **'Missed'**
+  /// **'Missed slots'**
   String get careHistoryMissedCountLabel;
 
   /// Heatmap legend label for a day where every scheduled slot was marked done, in the care history chart mode.
@@ -2443,6 +2443,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Overdue'**
   String get careHistoryStatusOverdue;
+
+  /// Heatmap legend label for a day that has scheduled slots still pending/overdue and none done, skipped, or missed yet — typically today, before anything has been logged. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet due'**
+  String get careHistoryLegendUpcoming;
+
+  /// Brief SnackBar confirmation shown after a slot edit in the care history list succeeds (both the save and the follow-up list refresh).
+  ///
+  /// In en, this message translates to:
+  /// **'Saved.'**
+  String get careHistoryEditSuccessMessage;
+
+  /// SnackBar message shown when a slot edit in the care history list saves successfully but the follow-up refresh of the list fails — distinct from careErrorGeneric (which implies the edit itself failed) so the user isn't told their change was lost when it wasn't.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved, but couldn\'t refresh the list.'**
+  String get careHistoryEditRefreshErrorMessage;
 }
 
 class _AppLocalizationsDelegate

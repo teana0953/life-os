@@ -380,8 +380,8 @@
   "careHistoryEmptyTitle": "沒有照護紀錄",
   "careHistoryEmptyBody": "這段期間沒有排程。",
   "careHistoryAdherenceRateLabel": "達成率",
-  "careHistoryDaysWithDoseLabel": "有服藥天數",
-  "careHistoryMissedCountLabel": "漏服",
+  "careHistoryDaysWithDoseLabel": "有完成的天數",
+  "careHistoryMissedCountLabel": "未完成次數",
   "careHistoryLegendFull": "完成",
   "careHistoryLegendPartial": "部分",
   "careHistoryLegendMissed": "未完成",
@@ -389,5 +389,8 @@
   "careHistoryEditSheetTitle": "更新這筆紀錄",
   "careHistoryStatusDone": "已完成",
   "careHistoryStatusPending": "待完成",
-  "careHistoryStatusOverdue": "逾期"
+  "careHistoryStatusOverdue": "逾期",
+  "careHistoryLegendUpcoming": "尚未到期",
+  "careHistoryEditSuccessMessage": "已儲存。",
+  "careHistoryEditRefreshErrorMessage": "已儲存，但更新清單失敗。"
 }

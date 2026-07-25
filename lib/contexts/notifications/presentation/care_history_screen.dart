@@ -54,20 +54,36 @@ Color _dayStateColor(ColorScheme scheme, CareDayState state) => switch (state) {
   CareDayState.full => scheme.primary,
   CareDayState.partial => scheme.tertiary,
   CareDayState.missed => scheme.error,
+  CareDayState.upcoming => scheme.surfaceContainerHigh,
   CareDayState.noSchedule => scheme.surfaceContainerHighest,
 };
+
+/// The composite identity of a slot within a history range — matches the
+/// fields used to build a [_SlotTile]'s [Key] — used to tell which slot (if
+/// any) is the target of an in-flight edit.
+String _slotCompositeKey(CareTodaySlot slot) =>
+    '${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}';
 
 /// The care history screen (route `/care-history`): an AppBar-level
 /// list/chart [CareHistoryMode] toggle plus a 7/30/90-day period picker
 /// (design mirrors [TrendCard]). List mode groups the period's slots by day
 /// (newest first, skipping days with nothing scheduled — the backend's
 /// `days` array is dense, so an empty slot list per day is normal, not an
-/// absent day); tapping a slot opens a bottom sheet to set it done/skipped.
-/// Chart mode shows a headline (adherence rate / days with a dose / missed
-/// count) and a per-day heatmap. Only the very first load shows a
-/// full-page spinner; a period switch keeps the previous content visible
-/// with a thin progress indicator instead of blanking (design mirrors
-/// [TrendCard]).
+/// absent day); tapping a slot (each tile carries a trailing edit-icon
+/// affordance) opens a bottom sheet — headed with the slot's item name,
+/// date, time, and current status so the record being changed is
+/// unambiguous — to set it done/skipped. While that edit's PUT/refresh is
+/// in flight the tapped tile swaps its edit icon for a small progress
+/// indicator and can't be tapped again; once it settles a SnackBar confirms
+/// success, or — if the PUT itself failed vs. only the follow-up refresh
+/// failed — one of two distinct error messages (the edit is never reported
+/// as failed when it actually saved). Chart mode shows a headline
+/// (adherence rate / days with care done / missed slots) and a per-day
+/// heatmap (bordered cells, wrapped in a [LedgeCard] with its legend) —
+/// [CareDayState.upcoming] keeps *today's* cell from reading as missed
+/// before anything is due. Only the very first load shows a full-page
+/// spinner; a period switch keeps the previous content visible with a thin
+/// progress indicator instead of blanking (design mirrors [TrendCard]).
 class CareHistoryScreen extends StatefulWidget {
   final CareHistoryController controller;
   final AuthRepository authRepository;
@@ -91,6 +107,11 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   String _idToken = '';
   CareHistoryMode _mode = CareHistoryMode.list;
   int _spanDays = 7;
+
+  /// The composite key ([_slotCompositeKey]) of the slot currently being
+  /// edited, so its tile can show an in-flight affordance instead of the
+  /// whole screen — cleared once [CareHistoryController.edit] settles.
+  String? _editingSlotKey;
 
   @override
   void initState() {
@@ -124,31 +145,60 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   }
 
   Future<void> _openEditSheet(CareTodaySlot slot) async {
+    // Guards against opening a second sheet (and firing a second edit)
+    // while one is already in flight — the controller's own re-entrancy
+    // guard would otherwise silently no-op a second `edit()` call.
+    if (widget.controller.editing) return;
     final loc = AppLocalizations.of(context)!;
+    final dateLabel = mediumDateLabel(context, _parseDate(slot.localDate));
     final chosen = await showModalBottomSheet<CareLogStatus>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text(loc.careHistoryEditSheetTitle)),
-            ListTile(
-              key: const Key('care-history-edit-done'),
-              leading: const Icon(Icons.check_circle_outline),
-              title: Text(loc.careTodayMarkDoneButton),
-              onTap: () => Navigator.of(sheetContext).pop(CareLogStatus.done),
-            ),
-            ListTile(
-              key: const Key('care-history-edit-skip'),
-              leading: const Icon(Icons.remove_circle_outline),
-              title: Text(loc.careTodaySkipButton),
-              onTap: () => Navigator.of(sheetContext).pop(CareLogStatus.skipped),
-            ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Text(
+                  loc.careHistoryEditSheetTitle,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ListTile(
+                title: Text(
+                  slot.title,
+                  key: const Key('care-history-edit-sheet-title'),
+                ),
+                subtitle: Text(
+                  '$dateLabel ${slot.timeOfDay} · ${_statusLabel(loc, slot.status)}',
+                  key: const Key('care-history-edit-sheet-subtitle'),
+                ),
+              ),
+              ListTile(
+                key: const Key('care-history-edit-done'),
+                leading: const Icon(Icons.check_circle_outline),
+                title: Text(loc.careTodayMarkDoneButton),
+                onTap: () => Navigator.of(sheetContext).pop(CareLogStatus.done),
+              ),
+              ListTile(
+                key: const Key('care-history-edit-skip'),
+                leading: const Icon(Icons.remove_circle_outline),
+                title: Text(loc.careTodaySkipButton),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(CareLogStatus.skipped),
+              ),
+            ],
+          ),
+        );
+      },
     );
     if (chosen == null) return;
+    setState(() => _editingSlotKey = _slotCompositeKey(slot));
     await widget.controller.edit(
       _idToken,
       careScheduleId: slot.careScheduleId,
@@ -157,10 +207,18 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
       status: chosen,
     );
     if (!mounted) return;
+    setState(() => _editingSlotKey = null);
+    final loc2 = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
     if (widget.controller.editError != null) {
-      final loc2 = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc2.careErrorGeneric)),
+      messenger.showSnackBar(SnackBar(content: Text(loc2.careErrorGeneric)));
+    } else if (widget.controller.refreshError != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(loc2.careHistoryEditRefreshErrorMessage)),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(loc2.careHistoryEditSuccessMessage)),
       );
     }
   }
@@ -264,6 +322,9 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
                               days: controller.days,
                               todayDate: todayDate,
                               onTapSlot: _openEditSheet,
+                              inFlightSlotKey: controller.editing
+                                  ? _editingSlotKey
+                                  : null,
                             )
                           : _HistoryChart(
                               days: controller.days,
@@ -322,10 +383,16 @@ class _HistoryList extends StatelessWidget {
   final String todayDate;
   final ValueChanged<CareTodaySlot> onTapSlot;
 
+  /// The [_slotCompositeKey] of the slot with an edit PUT/refresh in
+  /// flight, if any — passed down so only that one tile shows the
+  /// in-flight affordance.
+  final String? inFlightSlotKey;
+
   const _HistoryList({
     required this.days,
     required this.todayDate,
     required this.onTapSlot,
+    this.inFlightSlotKey,
   });
 
   @override
@@ -343,6 +410,7 @@ class _HistoryList extends StatelessWidget {
               day: day,
               isToday: day.date == todayDate,
               onTapSlot: onTapSlot,
+              inFlightSlotKey: inFlightSlotKey,
             ),
           ),
       ],
@@ -354,11 +422,13 @@ class _DayCard extends StatelessWidget {
   final CareHistoryDay day;
   final bool isToday;
   final ValueChanged<CareTodaySlot> onTapSlot;
+  final String? inFlightSlotKey;
 
   const _DayCard({
     required this.day,
     required this.isToday,
     required this.onTapSlot,
+    this.inFlightSlotKey,
   });
 
   @override
@@ -381,7 +451,11 @@ class _DayCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           for (final slot in sortedSlots)
-            _SlotTile(slot: slot, onTap: () => onTapSlot(slot)),
+            _SlotTile(
+              slot: slot,
+              onTap: () => onTapSlot(slot),
+              isEditing: inFlightSlotKey == _slotCompositeKey(slot),
+            ),
         ],
       ),
     );
@@ -392,7 +466,16 @@ class _SlotTile extends StatelessWidget {
   final CareTodaySlot slot;
   final VoidCallback onTap;
 
-  const _SlotTile({required this.slot, required this.onTap});
+  /// Whether this slot's edit PUT/refresh is currently in flight — shows a
+  /// small progress affordance in place of the edit icon and disables the
+  /// tile so a second tap can't re-open the sheet mid-edit.
+  final bool isEditing;
+
+  const _SlotTile({
+    required this.slot,
+    required this.onTap,
+    this.isEditing = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -409,7 +492,24 @@ class _SlotTile extends StatelessWidget {
       ),
       title: Text(slot.title),
       subtitle: Text('${slot.timeOfDay} · ${_statusLabel(loc, slot.status)}'),
-      onTap: onTap,
+      trailing: isEditing
+          ? SizedBox(
+              key: Key(
+                'care-history-slot-editing-${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}',
+              ),
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Icon(
+              Icons.edit_outlined,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+      onTap: isEditing ? null : onTap,
     );
   }
 }
@@ -429,36 +529,52 @@ class _HistoryChart extends StatelessWidget {
       children: [
         _HeadlineRow(summary: summary),
         const SizedBox(height: 16),
-        GridView.builder(
-          key: const Key('care-history-heatmap'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-          ),
-          itemCount: sortedDays.length,
-          itemBuilder: (context, index) {
-            final day = sortedDays[index];
-            final state = careDayState(day);
-            return Tooltip(
-              message: mediumDateLabel(context, _parseDate(day.date)),
-              child: AspectRatio(
-                key: Key('care-history-cell-${day.date}'),
-                aspectRatio: 1,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _dayStateColor(Theme.of(context).colorScheme, state),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+        LedgeCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GridView.builder(
+                key: const Key('care-history-heatmap'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 26,
+                  mainAxisSpacing: 3,
+                  crossAxisSpacing: 3,
                 ),
+                itemCount: sortedDays.length,
+                itemBuilder: (context, index) {
+                  final day = sortedDays[index];
+                  final state = careDayState(day);
+                  final scheme = Theme.of(context).colorScheme;
+                  return Tooltip(
+                    message: mediumDateLabel(context, _parseDate(day.date)),
+                    child: AspectRatio(
+                      key: Key('care-history-cell-${day.date}'),
+                      aspectRatio: 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _dayStateColor(scheme, state),
+                          borderRadius: BorderRadius.circular(4),
+                          // A subtle border so a no-schedule/upcoming cell
+                          // (whose fill matches the scaffold background)
+                          // still reads as an empty *cell*, not a gap.
+                          border: Border.all(
+                            color: scheme.outline.withValues(alpha: 0.3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
+              const SizedBox(height: 16),
+              const _Legend(),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-        const _Legend(),
       ],
     );
   }
@@ -547,6 +663,10 @@ class _Legend extends StatelessWidget {
         _LegendDot(color: scheme.tertiary, label: loc.careHistoryLegendPartial),
         _LegendDot(color: scheme.error, label: loc.careHistoryLegendMissed),
         _LegendDot(
+          color: scheme.surfaceContainerHigh,
+          label: loc.careHistoryLegendUpcoming,
+        ),
+        _LegendDot(
           color: scheme.surfaceContainerHighest,
           label: loc.careHistoryLegendNoSchedule,
         ),
@@ -573,7 +693,12 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
+            // Same border treatment as the heatmap cells themselves, so the
+            // swatch is a faithful preview of what a cell of this state
+            // looks like.
+            border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+            ),
           ),
         ),
         const SizedBox(width: 6),

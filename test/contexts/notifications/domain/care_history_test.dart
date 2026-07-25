@@ -73,6 +73,30 @@ void main() {
           _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
         ],
       );
+      expect(careDayState(day), isNot(CareDayState.missed));
+    });
+
+    test('upcoming (not missed) when every slot is pending/overdue — '
+        'nothing has been done, but nothing has failed yet either (this is '
+        "what today's cell looks like before anything is logged)", () {
+      final day = _day(
+        slots: [
+          _slot(careScheduleId: 'a', status: CareTodayStatus.pending),
+          _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
+        ],
+      );
+      expect(careDayState(day), CareDayState.upcoming);
+    });
+
+    test('missed still applies when a missed slot is mixed with pending/'
+        'overdue slots (a genuinely failed slot outweighs the not-yet-due '
+        'ones)', () {
+      final day = _day(
+        slots: [
+          _slot(careScheduleId: 'a', status: CareTodayStatus.missed),
+          _slot(careScheduleId: 'b', status: CareTodayStatus.pending),
+        ],
+      );
       expect(careDayState(day), CareDayState.missed);
     });
   });
@@ -160,6 +184,41 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, 1.0);
+    });
+
+    test('adherenceRate excludes not-yet-due (pending/overdue) slots from '
+        "the denominator, so today's not-yet-due slots don't drag the rate "
+        'toward 0% (totalScheduled still counts them)', () {
+      final days = [
+        _day(
+          slots: [
+            _slot(careScheduleId: 'a', status: CareTodayStatus.pending),
+            _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
+          ],
+        ),
+      ];
+
+      final summary = careHistorySummary(days);
+
+      expect(summary.adherenceRate, isNull);
+      expect(summary.totalScheduled, 2);
+    });
+
+    test('a done slot alongside a not-yet-due slot rates 100%, not 50% — '
+        'the pending slot is excluded from the denominator entirely', () {
+      final days = [
+        _day(
+          slots: [
+            _slot(careScheduleId: 'a', status: CareTodayStatus.done),
+            _slot(careScheduleId: 'b', status: CareTodayStatus.pending),
+          ],
+        ),
+      ];
+
+      final summary = careHistorySummary(days);
+
+      expect(summary.adherenceRate, 1.0);
+      expect(summary.totalScheduled, 2);
     });
   });
 

@@ -1234,10 +1234,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careHistoryAdherenceRateLabel => '達成率';
 
   @override
-  String get careHistoryDaysWithDoseLabel => '有服藥天數';
+  String get careHistoryDaysWithDoseLabel => '有完成的天數';
 
   @override
-  String get careHistoryMissedCountLabel => '漏服';
+  String get careHistoryMissedCountLabel => '未完成次數';
 
   @override
   String get careHistoryLegendFull => '完成';
@@ -1262,6 +1262,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careHistoryStatusOverdue => '逾期';
+
+  @override
+  String get careHistoryLegendUpcoming => '尚未到期';
+
+  @override
+  String get careHistoryEditSuccessMessage => '已儲存。';
+
+  @override
+  String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2494,10 +2503,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get careHistoryAdherenceRateLabel => '達成率';
 
   @override
-  String get careHistoryDaysWithDoseLabel => '有服藥天數';
+  String get careHistoryDaysWithDoseLabel => '有完成的天數';
 
   @override
-  String get careHistoryMissedCountLabel => '漏服';
+  String get careHistoryMissedCountLabel => '未完成次數';
 
   @override
   String get careHistoryLegendFull => '完成';
@@ -2522,4 +2531,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careHistoryStatusOverdue => '逾期';
+
+  @override
+  String get careHistoryLegendUpcoming => '尚未到期';
+
+  @override
+  String get careHistoryEditSuccessMessage => '已儲存。';
+
+  @override
+  String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
 }
