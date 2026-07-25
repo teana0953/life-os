@@ -102,6 +102,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
 import 'package:life_os/shared/pwa/pwa_update_controller.dart';
@@ -690,6 +691,9 @@ Future<LocaleController> pumpApp(
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
   final health = testHealthControllers();
+  // One shared instance, mirroring main.dart: the import controller bumps it and
+  // the health shell listens to it, so the rig exercises the real wiring.
+  final dataRevision = DataRevision();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
       () {
@@ -700,6 +704,7 @@ Future<LocaleController> pumpApp(
           ImportWater(importRepository),
           ImportBowel(importRepository),
           ImportDietTarget(importRepository),
+          dataRevision,
         );
       }();
   final resolvedReminderSettingsController =
@@ -763,6 +768,7 @@ Future<LocaleController> pumpApp(
       reminderSettingsController: resolvedReminderSettingsController,
       careItemsController: resolvedCareItemsController,
       careTodayController: resolvedCareTodayController,
+      dataRevision: dataRevision,
     ),
   );
   return resolvedLocaleController;

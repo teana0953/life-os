@@ -88,6 +88,7 @@ import 'contexts/user/infrastructure/http_profile_repository.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'firebase_options.dart';
 import 'shared/config.dart';
+import 'shared/data_revision.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/pwa/pwa_update.dart';
 import 'shared/pwa/pwa_update_controller.dart';
@@ -208,6 +209,7 @@ Future<void> main() async {
   );
   final pwaUpdateController = PwaUpdateController(const PwaUpdateImpl())
     ..start();
+  final dataRevision = DataRevision();
   final importRepository = HttpImportRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -218,6 +220,7 @@ Future<void> main() async {
     ImportWater(importRepository),
     ImportBowel(importRepository),
     ImportDietTarget(importRepository),
+    dataRevision,
   );
   final pushRepository = HttpPushRepository(
     baseUrl: apiBaseUrl,
@@ -276,6 +279,7 @@ Future<void> main() async {
       reminderSettingsController: reminderSettingsController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,
+      dataRevision: dataRevision,
     ),
   );
 }

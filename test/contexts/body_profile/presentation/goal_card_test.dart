@@ -27,8 +27,13 @@ class _FakeRepository implements BodyProfileRepository {
   /// observe the in-flight saving state.
   Completer<void>? setGate;
 
+  /// When set, `getWeightGoal` waits on this before completing — lets a test
+  /// observe the in-flight loading state of a reload.
+  Completer<void>? getGate;
+
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
+    if (getGate != null) await getGate!.future;
     if (getError != null) throw getError!;
     return goalToReturn;
   }
@@ -200,6 +205,64 @@ void main() {
       expect(find.byKey(const Key('goal-card-error')), findsOneWidget);
       expect(find.byKey(const Key('goal-bmi')), findsNothing);
     });
+  });
+
+  group('GoalCard reload', () {
+    testWidgets('a first-ever load (no data yet) shows the loading state',
+        (tester) async {
+      final repository = _FakeRepository();
+      final controller = WeightGoalController(
+        GetWeightGoal(repository),
+        GetBodyProfile(repository),
+        SetBodyProfile(repository),
+      );
+      // Deliberately not calling load() — status stays at its initial
+      // `loading` value with no goal held yet. Uses a single `pump` (not
+      // `pumpAndSettle`, which never settles while the spinner animates).
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: GoalCard(controller: controller, idToken: 'token'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('goal-card-loading')), findsOneWidget);
+    });
+
+    testWidgets(
+      'a reload (e.g. after a chaodays import) keeps showing the current '
+      'content instead of collapsing to a spinner',
+      (tester) async {
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            currentWeightKg: 52,
+            remainingKg: 1,
+            achievementRate: 75,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+        expect(find.text('51'), findsOneWidget);
+
+        final gate = Completer<void>();
+        repository.getGate = gate;
+        unawaited(controller.load('token'));
+        await tester.pump();
+
+        // Still loading, but the previously loaded content stays put — no
+        // spinner, no blank card.
+        expect(find.byKey(const Key('goal-card-loading')), findsNothing);
+        expect(find.text('51'), findsOneWidget);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('51'), findsOneWidget);
+      },
+    );
   });
 
   group('GoalCard saving', () {

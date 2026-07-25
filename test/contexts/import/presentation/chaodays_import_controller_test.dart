@@ -8,6 +8,7 @@ import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
 import 'package:life_os/contexts/import/domain/import_exceptions.dart';
 import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
+import 'package:life_os/shared/data_revision.dart';
 
 /// A fake [ImportRepository] whose five methods can each be configured to
 /// succeed with a summary or throw a given error, and which records the call
@@ -110,14 +111,17 @@ class FakeImportRepository implements ImportRepository {
   }
 }
 
-ChaodaysImportController _controller(FakeImportRepository repository) =>
-    ChaodaysImportController(
-      ImportWeight(repository),
-      ImportDiet(repository),
-      ImportWater(repository),
-      ImportBowel(repository),
-      ImportDietTarget(repository),
-    );
+ChaodaysImportController _controller(
+  FakeImportRepository repository, {
+  DataRevision? dataRevision,
+}) => ChaodaysImportController(
+  ImportWeight(repository),
+  ImportDiet(repository),
+  ImportWater(repository),
+  ImportBowel(repository),
+  ImportDietTarget(repository),
+  dataRevision ?? DataRevision(),
+);
 
 Future<void> _import(ChaodaysImportController controller) => controller.import(
   'token',
@@ -235,5 +239,85 @@ void main() {
       await future;
       expect(controller.status, ImportStatus.done);
     });
+  });
+
+  group('ChaodaysImportController data revision bump', () {
+    test('bumps once on a fully successful run', () async {
+      final dataRevision = DataRevision();
+      final controller = _controller(
+        FakeImportRepository(),
+        dataRevision: dataRevision,
+      );
+
+      await _import(controller);
+
+      expect(controller.status, ImportStatus.done);
+      expect(dataRevision.revision, 1);
+    });
+
+    test(
+      'bumps once on a run that aborts partway after some types succeeded',
+      () async {
+        final dataRevision = DataRevision();
+        final repository = FakeImportRepository()
+          ..waterError = const ImportChaodaysUnavailable();
+        final controller = _controller(repository, dataRevision: dataRevision);
+
+        await _import(controller);
+
+        expect(controller.status, ImportStatus.unavailable);
+        expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
+        expect(dataRevision.revision, 1);
+      },
+    );
+
+    test('does not bump when the first type fails and nothing succeeds', () async {
+      final dataRevision = DataRevision();
+      final repository = FakeImportRepository()
+        ..weightError = const ImportChaodaysAuthFailed();
+      final controller = _controller(repository, dataRevision: dataRevision);
+
+      await _import(controller);
+
+      expect(controller.status, ImportStatus.authFailed);
+      expect(dataRevision.revision, 0);
+    });
+
+    test('bumps at most once per run, even across multiple runs', () async {
+      final dataRevision = DataRevision();
+      final controller = _controller(
+        FakeImportRepository(),
+        dataRevision: dataRevision,
+      );
+
+      await _import(controller);
+      expect(dataRevision.revision, 1);
+
+      await _import(controller);
+      expect(dataRevision.revision, 2);
+    });
+
+    test(
+      'a second concurrent import() swallowed by the re-entrancy guard does '
+      'not bump',
+      () async {
+        final dataRevision = DataRevision();
+        final controller = _controller(
+          FakeImportRepository(),
+          dataRevision: dataRevision,
+        );
+
+        final first = _import(controller);
+        // Fired while `first` is still in flight — the re-entrancy guard
+        // returns immediately without touching the shared revision, so this
+        // must not add a second bump once `first` finishes.
+        final second = _import(controller);
+
+        await Future.wait([first, second]);
+
+        expect(controller.status, ImportStatus.done);
+        expect(dataRevision.revision, 1);
+      },
+    );
   });
 }

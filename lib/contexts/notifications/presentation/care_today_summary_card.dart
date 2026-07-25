@@ -21,14 +21,17 @@ IconData _categoryIcon(CareCategory category) => switch (category) {
 /// business logic of its own: urgency branching, the focus slot, and the
 /// group counts are all derived state the controller already exposes.
 ///
-/// Renders nothing while the controller isn't `loaded` (loading/error/
-/// reauth), so it never disrupts the overview for a state that's about to
-/// resolve. Once loaded with no schedules today, renders a slim setup-prompt
-/// card (tapping it calls [onSetup]) instead — the shortest path from the
+/// Renders nothing until the first successful load (so it never disrupts
+/// the overview for a state that's about to resolve), and nothing on an
+/// error/reauth before that first load. A reload (e.g. after a chaodays
+/// import) keeps showing the last loaded summary instead of disappearing —
+/// mirrors the other overview cards' keep-content-while-reloading behavior.
+/// Once loaded with no schedules today, renders a slim setup-prompt card
+/// (tapping it calls [onSetup]) instead — the shortest path from the
 /// overview to setting up care reminders for a new user. Once loaded with
 /// schedules, the header carries a "manage" entry (tapping it calls
 /// [onManage]) alongside the existing tap-to-open-Today body.
-class CareTodaySummaryCard extends StatelessWidget {
+class CareTodaySummaryCard extends StatefulWidget {
   final CareTodayController controller;
   final String idToken;
 
@@ -48,6 +51,41 @@ class CareTodaySummaryCard extends StatelessWidget {
     required this.onSetup,
   });
 
+  @override
+  State<CareTodaySummaryCard> createState() => _CareTodaySummaryCardState();
+}
+
+class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
+  /// Whether the controller has completed at least one successful load —
+  /// distinguishes "reloading, but there's content to keep" from "loading
+  /// for the first time, nothing to show yet" (both look like `slots` being
+  /// whatever they currently are, so `status` alone during a reload isn't
+  /// enough: it's back to `loading` either way).
+  bool _hasLoadedOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasLoadedOnce = widget.controller.status == CareTodayLoadStatus.loaded;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  // Listens to the controller itself (rather than relying solely on an
+  // ancestor to rebuild it) so an in-flight mark's per-row spinner and the
+  // post-mark state update immediately regardless of what ancestor owns it.
+  void _onControllerChanged() {
+    if (widget.controller.status == CareTodayLoadStatus.loaded) {
+      _hasLoadedOnce = true;
+    }
+    setState(() {});
+  }
+
   Future<void> _mark(
     BuildContext context,
     CareTodaySlot slot,
@@ -60,13 +98,13 @@ class CareTodaySummaryCard extends StatelessWidget {
     action,
   ) async {
     await action(
-      idToken,
+      widget.idToken,
       careScheduleId: slot.careScheduleId,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
     );
     if (!context.mounted) return;
-    if (controller.markError != null) {
+    if (widget.controller.markError != null) {
       final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -80,20 +118,22 @@ class CareTodaySummaryCard extends StatelessWidget {
     }
   }
 
-  // Listens to [controller] itself (rather than relying solely on an
-  // ancestor to rebuild it) so an in-flight mark's per-row spinner and the
-  // post-mark state update immediately regardless of what ancestor owns it.
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(animation: controller, builder: (context, _) => _content(context));
-  }
+  Widget build(BuildContext context) => _content(context);
 
   Widget _content(BuildContext context) {
-    if (controller.status != CareTodayLoadStatus.loaded) {
+    final controller = widget.controller;
+    final onManage = widget.onManage;
+    // Once a summary has loaded, keep showing it for any later non-loaded
+    // status — a reload in flight, but also a reload that fails. Since imports
+    // now trigger reloads on their own, a failed one must not make the top card
+    // of the overview vanish and jump the layout. Only a card that has never
+    // loaded renders nothing.
+    if (controller.status != CareTodayLoadStatus.loaded && !_hasLoadedOnce) {
       return const SizedBox.shrink();
     }
     final slots = controller.slots;
-    if (slots.isEmpty) return _SetupPrompt(onSetup: onSetup);
+    if (slots.isEmpty) return _SetupPrompt(onSetup: widget.onSetup);
 
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
