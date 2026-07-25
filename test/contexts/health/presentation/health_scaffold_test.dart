@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
@@ -76,12 +78,47 @@ import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/data_revision.dart';
 
 import '../../../support/l10n_test_app.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
   Future<String?> idToken() async => 'token-123';
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+}
+
+/// An [AuthRepository] whose [idToken] throws the next time it's called once
+/// [arm]ed, then goes back to succeeding — lets a test make `_load`'s token
+/// fetch (the one call inside it that can throw) fail on a specific reload
+/// without depending on how many token fetches happen before it (e.g. if
+/// `_load` ever grows another one).
+class _ThrowingAuthRepository implements AuthRepository {
+  bool _armed = false;
+
+  /// Arms the next [idToken] call to throw.
+  void arm() => _armed = true;
+
+  @override
+  Future<String?> idToken() async {
+    if (_armed) {
+      _armed = false;
+      throw Exception('token fetch failed');
+    }
+    return 'token-123';
+  }
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -142,21 +179,31 @@ class _FakeVitalsRepository implements VitalsRepository {
       );
 }
 
+/// A fake whose [calls] count every invocation, and which optionally awaits
+/// [gate] before returning — lets a test hold a reload in flight to exercise
+/// [HealthScaffold]'s bump-coalescing.
 class _FakeHealthCalendarRepository implements HealthCalendarRepository {
+  int calls = 0;
+  Completer<void>? gate;
+
   @override
   Future<HealthCalendar> getCalendar(
     String idToken, {
     required int year,
     required int month,
     required String today,
-  }) async => HealthCalendar(
-    year: year,
-    month: month,
-    loggedDays: const {},
-    daysElapsed: 0,
-    loggingRate: null,
-    dietAdherenceRate: null,
-  );
+  }) async {
+    calls++;
+    if (gate != null) await gate!.future;
+    return HealthCalendar(
+      year: year,
+      month: month,
+      loggedDays: const {},
+      daysElapsed: 0,
+      loggingRate: null,
+      dietAdherenceRate: null,
+    );
+  }
 }
 
 class _FakeMealRepository implements MealRepository {
@@ -319,10 +366,23 @@ class _FakeMenstrualRepository implements MenstrualRepository {
 class _FakeCareTodayRepository implements CareTodayRepository {
   final CareToday today;
 
+  /// When set, `getToday` throws this instead of returning [today] — lets a
+  /// test drive [CareTodayController.status] to `error`/`reauth` via the
+  /// initial load.
+  Object? getError;
+
+  /// When set, `logSlot` (marking a dose done/skipped) throws this instead
+  /// of succeeding — lets a test drive [CareTodayController.status] to
+  /// `error`/`reauth` via the mark path instead of the initial load.
+  Object? logError;
+
   _FakeCareTodayRepository({required this.today});
 
   @override
-  Future<CareToday> getToday(String idToken) async => today;
+  Future<CareToday> getToday(String idToken) async {
+    if (getError != null) throw getError!;
+    return today;
+  }
 
   @override
   Future<void> logSlot(
@@ -331,14 +391,27 @@ class _FakeCareTodayRepository implements CareTodayRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
-  }) => throw UnimplementedError();
+  }) async {
+    if (logError != null) throw logError!;
+  }
 }
 
 /// Builds a fully-wired [HealthScaffold] with every controller backed by a
 /// minimal fake repository that succeeds without throwing — a smoke rig for
 /// asserting what the Overview tab renders first. [careTodaySlots] is the
-/// only input that varies between tests.
-Widget _buildScaffold({required List<CareTodaySlot> careTodaySlots}) {
+/// only input that varies between most tests; it's ignored when
+/// [careTodayRepository] is supplied directly. [healthCalendarRepository],
+/// [careTodayRepository], [authRepository], and [dataRevision] are
+/// overridable for the reload-on-bump/reauth/load-failure tests, which need
+/// to observe/control the respective load calls and drive the shared
+/// revision.
+Widget _buildScaffold({
+  List<CareTodaySlot> careTodaySlots = const [],
+  _FakeHealthCalendarRepository? healthCalendarRepository,
+  _FakeCareTodayRepository? careTodayRepository,
+  AuthRepository? authRepository,
+  DataRevision? dataRevision,
+}) {
   final bodyProfileRepository = _FakeBodyProfileRepository();
   final weightGoalController = WeightGoalController(
     GetWeightGoal(bodyProfileRepository),
@@ -352,7 +425,7 @@ Widget _buildScaffold({required List<CareTodaySlot> careTodaySlots}) {
     SaveVitalsDay(vitalsRepository),
   );
   final healthCalendarController = HealthCalendarController(
-    GetHealthCalendar(_FakeHealthCalendarRepository()),
+    GetHealthCalendar(healthCalendarRepository ?? _FakeHealthCalendarRepository()),
   );
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -400,19 +473,21 @@ Widget _buildScaffold({required List<CareTodaySlot> careTodaySlots}) {
     UpdatePeriod(menstrualRepository),
     DeletePeriod(menstrualRepository),
   );
-  final careTodayRepository = _FakeCareTodayRepository(
-    today: CareToday(date: '2026-07-24', slots: careTodaySlots),
-  );
+  final resolvedCareTodayRepository =
+      careTodayRepository ??
+      _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-24', slots: careTodaySlots),
+      );
   final careTodayController = CareTodayController(
-    GetCareToday(careTodayRepository),
-    MarkCareDone(careTodayRepository),
-    MarkCareSkipped(careTodayRepository),
+    GetCareToday(resolvedCareTodayRepository),
+    MarkCareDone(resolvedCareTodayRepository),
+    MarkCareSkipped(resolvedCareTodayRepository),
   );
-  final authRepository = _FakeAuthRepository();
+  final resolvedAuthRepository = authRepository ?? _FakeAuthRepository();
 
   return HealthScaffold(
-    authRepository: authRepository,
-    signOut: SignOut(authRepository),
+    authRepository: resolvedAuthRepository,
+    signOut: SignOut(resolvedAuthRepository),
     weightGoalController: weightGoalController,
     trendController: trendController,
     healthCalendarController: healthCalendarController,
@@ -432,6 +507,7 @@ Widget _buildScaffold({required List<CareTodaySlot> careTodaySlots}) {
     onOpenReminders: () {},
     onOpenCareItems: () {},
     onOpenCareToday: () {},
+    dataRevision: dataRevision ?? DataRevision(),
     clock: () => DateTime(2026, 7, 24),
   );
 }
@@ -488,5 +564,160 @@ void main() {
       final goalTop = tester.getTopLeft(find.byType(GoalCard));
       expect(setupTop.dy, lessThan(goalTop.dy));
     });
+  });
+
+  group('HealthScaffold data revision reload', () {
+    testWidgets(
+      'reloads once when the data revision bumps, but not on an unrelated '
+      'rebuild',
+      (tester) async {
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              healthCalendarRepository: calendarRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        // Switching tabs rebuilds the scaffold but must not reload.
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 2);
+      },
+    );
+
+    testWidgets(
+      'a bump arriving while a load is in flight is coalesced into exactly '
+      'one extra load afterwards (not dropped, not doubled)',
+      (tester) async {
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              healthCalendarRepository: calendarRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        // Gate the next load(s) so a reload started by a bump stays in
+        // flight while further bumps arrive.
+        final gate = Completer<void>();
+        calendarRepository.gate = gate;
+
+        dataRevision.bump();
+        await tester.pump();
+        expect(calendarRepository.calls, 2);
+
+        // Two more bumps while the reload above is still in flight must
+        // coalesce into a single extra reload, not one per bump and not
+        // none.
+        dataRevision.bump();
+        dataRevision.bump();
+        await tester.pump();
+        expect(calendarRepository.calls, 2);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 3);
+      },
+    );
+  });
+
+  group('HealthScaffold overview reauth', () {
+    testWidgets(
+      'marking a dose done that 401s surfaces the same re-authenticate exit '
+      'as the other overview controllers — the initial getToday load '
+      'succeeds (so the card renders with an actionable slot), only the '
+      'mark itself 401s, and the scaffold picks that up solely because '
+      'careTodayController is in _overviewControllers',
+      (tester) async {
+        final careTodayRepository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: [_slot()]),
+        )..logError = const CareReauthRequired();
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(careTodayRepository: careTodayRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The load succeeded: the card rendered its Done control, and the
+        // re-authenticate exit hasn't appeared yet.
+        expect(
+          find.byKey(const Key('care-today-summary-done')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('health-sign-in-again-button')),
+          findsNothing,
+        );
+
+        await tester.tap(find.byKey(const Key('care-today-summary-done')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('health-sign-in-again-button')),
+          findsOneWidget,
+        );
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      },
+    );
+  });
+
+  group('HealthScaffold load failure recovery', () {
+    testWidgets(
+      '`_loading` clears even when a load throws, so a later revision bump '
+      'still triggers a reload instead of being silently dropped forever',
+      (tester) async {
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final dataRevision = DataRevision();
+        final authRepository = _ThrowingAuthRepository();
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              healthCalendarRepository: calendarRepository,
+              dataRevision: dataRevision,
+              authRepository: authRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        // Arm the token fetch to throw on its next call, then bump: the
+        // reload's load throws while fetching the token, before any
+        // controller's `load` runs.
+        authRepository.arm();
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        // A further bump must still run a load — if `_loading` were left
+        // stuck `true` by the throw above, this would be silently dropped
+        // and `calls` would stay at 1 for the rest of the session.
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 2);
+      },
+    );
   });
 }
