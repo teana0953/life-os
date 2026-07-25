@@ -12,6 +12,7 @@ import 'package:life_os/contexts/notifications/presentation/care_history_control
 import 'package:life_os/contexts/notifications/presentation/care_history_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/theme/app_theme.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -155,12 +156,18 @@ CareHistoryController _controller({CareHistoryRepository? repository}) {
 
 Future<void> _pumpScreen(
   WidgetTester tester,
-  CareHistoryController controller,
-) async {
+  CareHistoryController controller, {
+  ThemeData? theme,
+  ThemeData? darkTheme,
+  ThemeMode? themeMode,
+}) async {
   await tester.binding.setSurfaceSize(const Size(800, 1600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nTestApp(
+      theme: theme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
       home: CareHistoryScreen(
         controller: controller,
         authRepository: _FakeAuthRepository(),
@@ -314,66 +321,102 @@ void main() {
       },
     );
 
-    testWidgets(
-      'the upcoming heatmap cell has a real, distinct fill (not the '
-      'invisible surfaceContainerHigh fallback the theme never sets), and '
-      'the legend swatch matches the cell exactly',
-      (tester) async {
-        final repository = _FakeCareHistoryRepository(
-          days: _sevenDayRange(
-            // 2026-07-22 (today): one pending slot, nothing done/skipped/
-            // missed/overdue -> upcoming. 2026-07-20 has no slots ->
-            // noSchedule.
-            onJul22: [_slot(status: CareTodayStatus.pending)],
+    /// Shared body for the "upcoming heatmap cell has a real, distinct fill"
+    /// guard, pumped under whatever theme [pumpScreen] configures. Reads the
+    /// *actually active* `ColorScheme` off the rendered tree (via
+    /// `Theme.of`), so the assertions reflect real theme colors rather than
+    /// Flutter's default Material theme (which — unlike this app's
+    /// hand-written `ColorScheme` — defines `surfaceContainerHigh` distinctly
+    /// from `surface`, and so would let the fallback-to-`surface` bug pass
+    /// unnoticed).
+    Future<void> expectDistinctUpcomingFill(
+      WidgetTester tester,
+      Future<void> Function(WidgetTester, CareHistoryController) pumpScreen,
+    ) async {
+      final repository = _FakeCareHistoryRepository(
+        days: _sevenDayRange(
+          // 2026-07-22 (today): one pending slot, nothing done/skipped/
+          // missed/overdue -> upcoming. 2026-07-20 has no slots ->
+          // noSchedule.
+          onJul22: [_slot(status: CareTodayStatus.pending)],
+        ),
+      );
+      final controller = _controller(repository: repository);
+      await pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(find.text(loc.careHistoryChartMode));
+      await tester.pumpAndSettle();
+
+      final scheme = Theme.of(
+        tester.element(find.byType(CareHistoryScreen)),
+      ).colorScheme;
+
+      Color cellColor(String key) {
+        final box = tester.widget<DecoratedBox>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(DecoratedBox),
           ),
         );
-        final controller = _controller(repository: repository);
-        await _pumpScreen(tester, controller);
+        return (box.decoration as BoxDecoration).color!;
+      }
 
-        final loc = lookupAppLocalizations(const Locale('en'));
-        await tester.tap(find.text(loc.careHistoryChartMode));
-        await tester.pumpAndSettle();
+      final upcomingColor = cellColor('care-history-cell-2026-07-22');
+      final noScheduleColor = cellColor('care-history-cell-2026-07-20');
 
-        final scheme = Theme.of(
-          tester.element(find.byType(CareHistoryScreen)),
-        ).colorScheme;
+      // Not the invisible fallback: this app's hand-written ColorScheme
+      // never sets surfaceContainerHigh, so an unset role renders as
+      // `surface` — exactly the enclosing LedgeCard's own fill.
+      expect(upcomingColor, isNot(scheme.surface));
+      // Distinct from the (unrelated) noSchedule cell.
+      expect(upcomingColor, isNot(noScheduleColor));
 
-        Color cellColor(String key) {
-          final box = tester.widget<DecoratedBox>(
+      // The legend swatch for "upcoming" renders the exact same color as
+      // the heatmap cell.
+      final legendDotContainer = tester
+          .widgetList<Container>(
             find.descendant(
-              of: find.byKey(Key(key)),
-              matching: find.byType(DecoratedBox),
-            ),
-          );
-          return (box.decoration as BoxDecoration).color!;
-        }
-
-        final upcomingColor = cellColor('care-history-cell-2026-07-22');
-        final noScheduleColor = cellColor('care-history-cell-2026-07-20');
-
-        // Not the invisible fallback: the theme never sets
-        // surfaceContainerHigh, so an unset role renders as `surface` —
-        // exactly the enclosing LedgeCard's own fill.
-        expect(upcomingColor, isNot(scheme.surface));
-        // Distinct from the (unrelated) noSchedule cell.
-        expect(upcomingColor, isNot(noScheduleColor));
-
-        // The legend swatch for "upcoming" renders the exact same color as
-        // the heatmap cell.
-        final legendDotContainer = tester
-            .widgetList<Container>(
-              find.descendant(
-                of: find.ancestor(
-                  of: find.text(loc.careHistoryLegendUpcoming),
-                  matching: find.byType(Row),
-                ),
-                matching: find.byType(Container),
+              of: find.ancestor(
+                of: find.text(loc.careHistoryLegendUpcoming),
+                matching: find.byType(Row),
               ),
-            )
-            .first;
-        expect(
-          (legendDotContainer.decoration as BoxDecoration).color,
-          upcomingColor,
+              matching: find.byType(Container),
+            ),
+          )
+          .first;
+      expect(
+        (legendDotContainer.decoration as BoxDecoration).color,
+        upcomingColor,
+      );
+    }
+
+    testWidgets(
+      'the upcoming heatmap cell has a real, distinct fill in the light '
+      'theme (not the invisible surfaceContainerHigh fallback the theme '
+      'never sets), and the legend swatch matches the cell exactly',
+      (tester) async {
+        await expectDistinctUpcomingFill(
+          tester,
+          (tester, controller) =>
+              _pumpScreen(tester, controller, theme: lightTheme),
+        );
+      },
+    );
+
+    testWidgets(
+      'the upcoming heatmap cell has a real, distinct fill in the dark '
+      'theme too, and the legend swatch matches the cell exactly',
+      (tester) async {
+        await expectDistinctUpcomingFill(
+          tester,
+          (tester, controller) => _pumpScreen(
+            tester,
+            controller,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.dark,
+          ),
         );
       },
     );

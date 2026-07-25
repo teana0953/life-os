@@ -31,11 +31,15 @@ Widget l10nTestApp({
   required Widget home,
   Locale locale = const Locale('en'),
   ThemeData? theme,
+  ThemeData? darkTheme,
+  ThemeMode? themeMode,
   LocaleController? localeController,
 }) {
   if (localeController == null) {
     return MaterialApp(
       theme: theme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: testSupportedLocales,
@@ -46,6 +50,8 @@ Widget l10nTestApp({
     animation: localeController,
     builder: (context, _) => MaterialApp(
       theme: theme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
       locale: localeController.locale ?? locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: testSupportedLocales,

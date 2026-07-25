@@ -50,13 +50,16 @@ Color _statusColor(ColorScheme scheme, CareTodayStatus status) => switch (status
   CareTodayStatus.skipped || CareTodayStatus.pending => scheme.onSurfaceVariant,
 };
 
-// A low-alpha tint of `secondary` (a role app_theme.dart always sets,
-// unlike `surfaceContainerHigh`, which it never sets — so Flutter would
-// silently fall back to `surface`, matching the enclosing LedgeCard's fill
-// and making the cell invisible). `secondary` isn't used by any other
-// day-state color here, so the tint reads as its own distinct state rather
-// than a faded version of `full`/`partial`/`missed`.
-const _upcomingAlpha = 0.35;
+// A tint of `secondary` (a role app_theme.dart always sets, unlike
+// `surfaceContainerHigh`, which it never sets — so Flutter would silently
+// fall back to `surface`, matching the enclosing LedgeCard's fill and
+// making the cell invisible). `secondary` isn't used by any other day-state
+// color here, so the tint reads as its own distinct state rather than a
+// faded version of `full`/`partial`/`missed`. 0.6 (rather than a fainter
+// tint) keeps it comfortably distinguishable from both the card surface and
+// the noSchedule cell in the light theme, where `secondary` (blush pink) is
+// itself close in luminance to the pastel surface/ground colors.
+const _upcomingAlpha = 0.6;
 
 Color _dayStateColor(ColorScheme scheme, CareDayState state) => switch (state) {
   CareDayState.full => scheme.primary,
