@@ -35,4 +35,12 @@ abstract class ImportRepository {
     required String startDate,
     required String endDate,
   });
+
+  Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  });
 }

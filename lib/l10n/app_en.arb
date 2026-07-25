@@ -1208,6 +1208,10 @@
   "@importTypeBowel": {
     "description": "Label for the bowel row in the chaodays import results."
   },
+  "importTypeDietTarget": "Diet target",
+  "@importTypeDietTarget": {
+    "description": "Label for the diet-target row in the chaodays import results."
+  },
   "importResultSummary": "Imported {imported} · Skipped {skipped}",
   "@importResultSummary": {
     "description": "Per-type chaodays import result summary (counts of imported vs. already-present records).",
@@ -1223,6 +1227,15 @@
   "importResultGlucoseSuffix": " · Glucose {count}",
   "@importResultGlucoseSuffix": {
     "description": "Appended to the diet row's result summary when glucose readings were also imported.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importResultWaterTargetSuffix": " · Water target {count}",
+  "@importResultWaterTargetSuffix": {
+    "description": "Appended to the diet-target row's result summary when a water target was also imported.",
     "placeholders": {
       "count": {
         "type": "int"

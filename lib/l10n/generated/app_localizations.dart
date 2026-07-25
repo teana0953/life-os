@@ -1778,6 +1778,12 @@ abstract class AppLocalizations {
   /// **'Bowel'**
   String get importTypeBowel;
 
+  /// Label for the diet-target row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Diet target'**
+  String get importTypeDietTarget;
+
   /// Per-type chaodays import result summary (counts of imported vs. already-present records).
   ///
   /// In en, this message translates to:
@@ -1789,6 +1795,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **' · Glucose {count}'**
   String importResultGlucoseSuffix(int count);
+
+  /// Appended to the diet-target row's result summary when a water target was also imported.
+  ///
+  /// In en, this message translates to:
+  /// **' · Water target {count}'**
+  String importResultWaterTargetSuffix(int count);
 
   /// Shown on a per-type row when that type's import failed.
   ///

@@ -46,6 +46,7 @@ import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
 import 'contexts/health/infrastructure/http_meal_repository.dart';
 import 'contexts/import/application/import_bowel.dart';
 import 'contexts/import/application/import_diet.dart';
+import 'contexts/import/application/import_diet_target.dart';
 import 'contexts/import/application/import_water.dart';
 import 'contexts/import/application/import_weight.dart';
 import 'contexts/import/infrastructure/http_import_repository.dart';
@@ -216,6 +217,7 @@ Future<void> main() async {
     ImportDiet(importRepository),
     ImportWater(importRepository),
     ImportBowel(importRepository),
+    ImportDietTarget(importRepository),
   );
   final pushRepository = HttpPushRepository(
     baseUrl: apiBaseUrl,

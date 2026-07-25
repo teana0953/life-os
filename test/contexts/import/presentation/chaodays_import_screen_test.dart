@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
+import 'package:life_os/contexts/import/application/import_diet_target.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -41,6 +42,11 @@ class _FakeImportRepository implements ImportRepository {
   ChaodaysImportSummary bowelSummary = const ChaodaysImportSummary(
     imported: 5,
     skipped: 2,
+  );
+  ChaodaysImportSummary dietTargetSummary = const ChaodaysImportSummary(
+    imported: 6,
+    skipped: 1,
+    waterTargetsImported: 7,
   );
 
   void _capture(String chaodaysUid, String chaodaysPassword, String startDate, String endDate) {
@@ -99,6 +105,18 @@ class _FakeImportRepository implements ImportRepository {
     calls.add('bowel');
     return bowelSummary;
   }
+
+  @override
+  Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async {
+    calls.add('dietTarget');
+    return dietTargetSummary;
+  }
 }
 
 /// An import repository whose `importWeight` never resolves, so a submitted
@@ -143,6 +161,15 @@ class _HangingImportRepository implements ImportRepository {
     required String startDate,
     required String endDate,
   }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
+
+  @override
+  Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -168,6 +195,7 @@ ChaodaysImportController _controller(_FakeImportRepository repository) =>
       ImportDiet(repository),
       ImportWater(repository),
       ImportBowel(repository),
+      ImportDietTarget(repository),
     );
 
 DateTime _defaultClock() => DateTime(2026, 7, 20, 9);
@@ -280,7 +308,7 @@ void main() {
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel']);
+      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
       expect(repository.capturedUid, 'user1');
       expect(repository.capturedPassword, 'pass1');
       expect(repository.capturedStart, '2026-07-05');
@@ -296,6 +324,7 @@ void main() {
         ImportDiet(repository),
         ImportWater(repository),
         ImportBowel(repository),
+        ImportDietTarget(repository),
       );
       await _pumpScreen(tester, controller: controller);
 
@@ -336,6 +365,13 @@ void main() {
       );
       expect(find.text(loc.importResultSummary(4, 0)), findsOneWidget);
       expect(find.text(loc.importResultSummary(5, 2)), findsOneWidget);
+      expect(find.text(loc.importTypeDietTarget), findsOneWidget);
+      expect(
+        find.text(
+          '${loc.importResultSummary(6, 1)}${loc.importResultWaterTargetSuffix(7)}',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('wrong chaodays credentials show the specific error message', (

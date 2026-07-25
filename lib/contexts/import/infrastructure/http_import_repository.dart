@@ -7,7 +7,8 @@ import '../domain/import_exceptions.dart';
 import '../domain/import_repository.dart';
 
 /// [ImportRepository] driven adapter backed by the
-/// `/api/import/chaodays/{weight,diet,water,bowel}` HTTP endpoints.
+/// `/api/import/chaodays/{weight,diet,water,bowel,diet-target}` HTTP
+/// endpoints.
 class HttpImportRepository implements ImportRepository {
   final String baseUrl;
   final http.Client client;
@@ -91,6 +92,13 @@ class HttpImportRepository implements ImportRepository {
         glucoseImported: json['glucoseImported'] as int,
       );
 
+  ChaodaysImportSummary _parseDietTargetCounts(Map<String, dynamic> json) =>
+      ChaodaysImportSummary(
+        imported: json['portionTargetsImported'] as int,
+        skipped: json['portionTargetsSkipped'] as int,
+        waterTargetsImported: json['waterTargetsImported'] as int,
+      );
+
   @override
   Future<ChaodaysImportSummary> importWeight(
     String idToken, {
@@ -157,5 +165,22 @@ class HttpImportRepository implements ImportRepository {
     startDate: startDate,
     endDate: endDate,
     parse: _parseCounts,
+  );
+
+  @override
+  Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) => _import(
+    idToken,
+    '/api/import/chaodays/diet-target',
+    chaodaysUid: chaodaysUid,
+    chaodaysPassword: chaodaysPassword,
+    startDate: startDate,
+    endDate: endDate,
+    parse: _parseDietTargetCounts,
   );
 }
