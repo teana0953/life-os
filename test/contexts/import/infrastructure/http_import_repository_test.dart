@@ -146,6 +146,48 @@ void main() {
       expect(summary.glucoseImported, 4);
     });
 
+    test(
+      'importDietTarget POSTs {baseUrl}/api/import/chaodays/diet-target and '
+      'parses portionTargetsImported/portionTargetsSkipped/waterTargetsImported',
+      () async {
+        Uri? capturedUri;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          return http.Response(
+            jsonEncode({
+              'portionTargetsImported': 8,
+              'portionTargetsSkipped': 2,
+              'waterTargetsImported': 9,
+              'waterTargetsSkipped': 1,
+              'from': '2026-07-01',
+              'to': '2026-07-18',
+            }),
+            200,
+          );
+        });
+        final repository = HttpImportRepository(
+          baseUrl: 'https://example.test',
+          client: client,
+        );
+
+        final summary = await repository.importDietTarget(
+          'token-123',
+          chaodaysUid: 'user1',
+          chaodaysPassword: 'pass1',
+          startDate: '2026-07-01',
+          endDate: '2026-07-18',
+        );
+
+        expect(
+          capturedUri,
+          Uri.parse('https://example.test/api/import/chaodays/diet-target'),
+        );
+        expect(summary.imported, 8);
+        expect(summary.skipped, 2);
+        expect(summary.waterTargetsImported, 9);
+      },
+    );
+
     test('throws ImportReauthenticationRequired on 401', () async {
       final client = MockClient(
         (request) async => http.Response('Unauthorized', 401),

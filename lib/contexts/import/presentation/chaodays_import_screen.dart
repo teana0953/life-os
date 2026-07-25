@@ -9,7 +9,7 @@ import 'chaodays_import_controller.dart';
 
 /// Full-screen chaodays import form: a chaodays account/password (used only
 /// for this import, never stored) and a start/end date range, then a
-/// one-tap import of all four data types with per-type progress and results.
+/// one-tap import of all five data types with per-type progress and results.
 class ChaodaysImportScreen extends StatefulWidget {
   final ChaodaysImportController controller;
   final AuthRepository authRepository;
@@ -277,6 +277,7 @@ class _TypeResultRow extends StatelessWidget {
     ImportType.diet => loc.importTypeDiet,
     ImportType.water => loc.importTypeWater,
     ImportType.bowel => loc.importTypeBowel,
+    ImportType.dietTarget => loc.importTypeDietTarget,
   };
 
   String? _resultText(AppLocalizations loc) {
@@ -284,10 +285,14 @@ class _TypeResultRow extends StatelessWidget {
       return state.status == TypeStatus.failed ? loc.importTypeFailed : null;
     }
     final summary = state.summary!;
-    final base = loc.importResultSummary(summary.imported, summary.skipped);
+    var text = loc.importResultSummary(summary.imported, summary.skipped);
     final glucose = summary.glucoseImported;
-    if (glucose == null) return base;
-    return '$base${loc.importResultGlucoseSuffix(glucose)}';
+    if (glucose != null) text += loc.importResultGlucoseSuffix(glucose);
+    final waterTarget = summary.waterTargetsImported;
+    if (waterTarget != null) {
+      text += loc.importResultWaterTargetSuffix(waterTarget);
+    }
+    return text;
   }
 
   Widget _leading(BuildContext context) {

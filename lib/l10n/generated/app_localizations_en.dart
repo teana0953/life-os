@@ -915,6 +915,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importTypeBowel => 'Bowel';
 
   @override
+  String get importTypeDietTarget => 'Diet target';
+
+  @override
   String importResultSummary(int imported, int skipped) {
     return 'Imported $imported · Skipped $skipped';
   }
@@ -922,6 +925,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String importResultGlucoseSuffix(int count) {
     return ' · Glucose $count';
+  }
+
+  @override
+  String importResultWaterTargetSuffix(int count) {
+    return ' · Water target $count';
   }
 
   @override

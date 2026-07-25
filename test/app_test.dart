@@ -35,6 +35,7 @@ import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
+import 'package:life_os/contexts/import/application/import_diet_target.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -368,6 +369,15 @@ class _FakeImportRepository implements ImportRepository {
     required String startDate,
     required String endDate,
   }) async => _summary;
+
+  @override
+  Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
 }
 
 class _FakePushRepository implements PushRepository {
@@ -689,6 +699,7 @@ Future<LocaleController> pumpApp(
           ImportDiet(importRepository),
           ImportWater(importRepository),
           ImportBowel(importRepository),
+          ImportDietTarget(importRepository),
         );
       }();
   final resolvedReminderSettingsController =

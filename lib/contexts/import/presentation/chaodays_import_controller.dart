@@ -2,14 +2,15 @@ import 'package:flutter/foundation.dart';
 
 import '../application/import_bowel.dart';
 import '../application/import_diet.dart';
+import '../application/import_diet_target.dart';
 import '../application/import_water.dart';
 import '../application/import_weight.dart';
 import '../domain/chaodays_import_summary.dart';
 import '../domain/import_exceptions.dart';
 
-/// The four chaodays data types imported by [ChaodaysImportController], in
+/// The five chaodays data types imported by [ChaodaysImportController], in
 /// the fixed order they run.
-enum ImportType { weight, diet, water, bowel }
+enum ImportType { weight, diet, water, bowel, dietTarget }
 
 enum TypeStatus { notAttempted, importing, success, failed }
 
@@ -34,9 +35,10 @@ Map<ImportType, TypeState> _freshTypeStates() => {
   for (final type in ImportType.values) type: const TypeState.notAttempted(),
 };
 
-/// Drives the chaodays import screen: runs the four data-type imports
-/// (weight, diet, water, bowel) in order against the given date range,
-/// tracking overall [status] and each type's [TypeState] in [typeStates].
+/// Drives the chaodays import screen: runs the five data-type imports
+/// (weight, diet, water, bowel, diet target) in order against the given date
+/// range, tracking overall [status] and each type's [TypeState] in
+/// [typeStates].
 ///
 /// The chaodays credentials are passed through to [import] and never held by
 /// this controller (or its use cases) beyond the call — there is no storage
@@ -46,12 +48,14 @@ class ChaodaysImportController extends ChangeNotifier {
   final ImportDiet _importDiet;
   final ImportWater _importWater;
   final ImportBowel _importBowel;
+  final ImportDietTarget _importDietTarget;
 
   ChaodaysImportController(
     this._importWeight,
     this._importDiet,
     this._importWater,
     this._importBowel,
+    this._importDietTarget,
   );
 
   ImportStatus status = ImportStatus.idle;
@@ -98,19 +102,27 @@ class ChaodaysImportController extends ChangeNotifier {
           startDate: startDate,
           endDate: endDate,
         );
+      case ImportType.dietTarget:
+        return _importDietTarget(
+          idToken,
+          chaodaysUid: chaodaysUid,
+          chaodaysPassword: chaodaysPassword,
+          startDate: startDate,
+          endDate: endDate,
+        );
     }
   }
 
-  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for all four types,
+  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for all five types,
   /// in order. Stops at the first failure:
-  /// - Wrong chaodays credentials (shared by all four types, so the rest
+  /// - Wrong chaodays credentials (shared by all five types, so the rest
   ///   would fail identically) → [ImportStatus.authFailed]; the remaining
   ///   types are left [TypeStatus.notAttempted] rather than marked failed.
   /// - A lifeos 401 → [ImportStatus.needsReauth].
   /// - chaodays unreachable, or any other failure → [ImportStatus.unavailable]
   ///   with that type marked [TypeStatus.failed].
   ///
-  /// Otherwise, once all four succeed, ends at [ImportStatus.done].
+  /// Otherwise, once all five succeed, ends at [ImportStatus.done].
   Future<void> import(
     String idToken, {
     required String chaodaysUid,

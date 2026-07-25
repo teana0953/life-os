@@ -896,6 +896,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importTypeBowel => '排便';
 
   @override
+  String get importTypeDietTarget => '飲食目標';
+
+  @override
   String importResultSummary(int imported, int skipped) {
     return '匯入 $imported・跳過 $skipped';
   }
@@ -903,6 +906,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String importResultGlucoseSuffix(int count) {
     return '・血糖 $count';
+  }
+
+  @override
+  String importResultWaterTargetSuffix(int count) {
+    return '・飲水目標 $count';
   }
 
   @override
@@ -2097,6 +2105,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get importTypeBowel => '排便';
 
   @override
+  String get importTypeDietTarget => '飲食目標';
+
+  @override
   String importResultSummary(int imported, int skipped) {
     return '匯入 $imported・跳過 $skipped';
   }
@@ -2104,6 +2115,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String importResultGlucoseSuffix(int count) {
     return '・血糖 $count';
+  }
+
+  @override
+  String importResultWaterTargetSuffix(int count) {
+    return '・飲水目標 $count';
   }
 
   @override
