@@ -130,7 +130,7 @@ Future<void> _pumpScreen(
   await tester.binding.setSurfaceSize(const Size(800, 1600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
-    l10nTestApp(
+    l10nRouterTestApp(
       home: CareTodayScreen(
         controller: controller,
         authRepository: _FakeAuthRepository(),
@@ -284,6 +284,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(opened, isTrue);
+    });
+
+    testWidgets('the AppBar history icon pushes /care-history', (
+      tester,
+    ) async {
+      final controller = _controller();
+      await _pumpScreen(tester, controller);
+
+      await tester.tap(find.byKey(const Key('care-today-history-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('/care-history'), findsOneWidget);
     });
 
     testWidgets('a load reauth failure shows the full-screen reauth exit', (

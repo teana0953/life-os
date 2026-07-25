@@ -39,7 +39,7 @@
 
 ## 5. 入口 + DI + i18n + Gate
 
-- [ ] 5.1 (green) `app.dart` 加 `/care-history` route;`care_items_screen` 與 `care_today_screen`
+- [x] 5.1 (green) `app.dart` 加 `/care-history` route;`care_items_screen` 與 `care_today_screen`
       AppBar 各加「紀錄」icon → push;`main.dart` 組 DI(repo/use case/controller)。
       **連帶**:`App` 建構子新增必填 controller 會打斷 `test/app_test.dart` 的共用 pump helper
       (每個 controller 都有預設)——補一個 optional 參數 + `_FakeCareHistoryRepository` 預設,
@@ -48,4 +48,4 @@
       達成率/有服藥天數/漏服、legend(完成/部分/未完成)、狀態字、編輯 sheet、空狀態、入口 tooltip。
       **heatmap 日狀態的 legend 用獨立新 key**(勿共用 slot 狀態的 `careTodayStatusMissed`——
       日層「未完成」含全部略過的日子,與 slot 層語意/數字不同)。
-- [ ] 5.3 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠。
+- [x] 5.3 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠。

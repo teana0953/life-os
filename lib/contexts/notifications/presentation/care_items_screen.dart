@@ -176,7 +176,17 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
-    final appBar = AppBar(title: Text(loc.careRemindersTitle));
+    final appBar = AppBar(
+      title: Text(loc.careRemindersTitle),
+      actions: [
+        IconButton(
+          key: const Key('care-items-history-button'),
+          tooltip: loc.careHistoryEntryTooltip,
+          onPressed: () => context.push('/care-history'),
+          icon: const Icon(Icons.history),
+        ),
+      ],
+    );
 
     return AsyncStateScaffold(
       isLoading: controller.status == CareItemsStatus.loading,
