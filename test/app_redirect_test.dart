@@ -117,6 +117,28 @@ void main() {
       expect(r.pendingDeepLink, isNull);
     });
 
+    test('signed in on a real route defensively clears any stray pending', () {
+      final r = resolve(loc: '/health', signedIn: true, pending: '/care-today');
+      expect(r.location, isNull);
+      expect(r.pendingDeepLink, isNull);
+    });
+
+    test('the register gate is also honored when signed out', () {
+      final r = resolve(loc: '/register', signedIn: false, pending: '/care-today');
+      expect(r.location, isNull);
+      expect(r.pendingDeepLink, '/care-today');
+    });
+
+    test('an error while a deep link is pending preserves it for after recovery', () {
+      final r = resolve(loc: '/care-today', error: true, pending: '/care-today');
+      expect(r.location, '/auth-error');
+      expect(r.pendingDeepLink, '/care-today');
+      // On recovery (resolved+signedIn) from the error screen, it replays.
+      final recovered = resolve(loc: '/auth-error', signedIn: true, pending: '/care-today');
+      expect(recovered.location, '/care-today');
+      expect(recovered.pendingDeepLink, isNull);
+    });
+
     test('a stale transient pending never causes a redirect loop', () {
       // Defensive: if somehow /splash got remembered, replay resolves to home.
       final r = resolve(loc: '/splash', signedIn: true, pending: '/splash');

@@ -145,7 +145,10 @@ AuthRedirect resolveAuthRedirect({
         : '/';
     return AuthRedirect(target, null);
   }
-  return AuthRedirect(null, pendingDeepLink);
+  // Signed in and already on a real route: bootstrap is over, so drop any
+  // remembered deep link defensively — nothing left to replay, and keeping it
+  // could hijack a later navigation back to a stale target.
+  return const AuthRedirect(null, null);
 }
 
 /// MaterialApp + auth-state routing: shows [LoginScreen] when there is no
