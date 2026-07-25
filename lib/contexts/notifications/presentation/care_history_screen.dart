@@ -50,11 +50,19 @@ Color _statusColor(ColorScheme scheme, CareTodayStatus status) => switch (status
   CareTodayStatus.skipped || CareTodayStatus.pending => scheme.onSurfaceVariant,
 };
 
+// A low-alpha tint of `secondary` (a role app_theme.dart always sets,
+// unlike `surfaceContainerHigh`, which it never sets — so Flutter would
+// silently fall back to `surface`, matching the enclosing LedgeCard's fill
+// and making the cell invisible). `secondary` isn't used by any other
+// day-state color here, so the tint reads as its own distinct state rather
+// than a faded version of `full`/`partial`/`missed`.
+const _upcomingAlpha = 0.35;
+
 Color _dayStateColor(ColorScheme scheme, CareDayState state) => switch (state) {
   CareDayState.full => scheme.primary,
   CareDayState.partial => scheme.tertiary,
   CareDayState.missed => scheme.error,
-  CareDayState.upcoming => scheme.surfaceContainerHigh,
+  CareDayState.upcoming => scheme.secondary.withValues(alpha: _upcomingAlpha),
   CareDayState.noSchedule => scheme.surfaceContainerHighest,
 };
 
@@ -145,9 +153,10 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   }
 
   Future<void> _openEditSheet(CareTodaySlot slot) async {
-    // Guards against opening a second sheet (and firing a second edit)
-    // while one is already in flight — the controller's own re-entrancy
-    // guard would otherwise silently no-op a second `edit()` call.
+    // Guards against opening a second sheet while an edit is already in
+    // flight. This alone isn't enough for a fast double-tap (see the
+    // re-check after the sheet's await below), but it still avoids
+    // needlessly opening a sheet whose choice would just be dropped.
     if (widget.controller.editing) return;
     final loc = AppLocalizations.of(context)!;
     final dateLabel = mediumDateLabel(context, _parseDate(slot.localDate));
@@ -197,7 +206,20 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
         );
       },
     );
+    // The screen (or its ancestor) can be disposed while the sheet is open
+    // — e.g. sign-out flipping the app to the login screen, or the route
+    // being popped — so `context`/`setState` below must not be touched
+    // without checking first.
+    if (!mounted) return;
     if (chosen == null) return;
+    // Re-check re-entrancy *after* the sheet's await: the check at the top
+    // of this method only guards against opening a second sheet while an
+    // edit is already in flight, but a fast double-tap can open two sheets
+    // before either one reaches that point. Re-checking here means the
+    // second sheet's choice is dropped right here (visibly consistent with
+    // the guard above) rather than silently swallowed by the controller's
+    // own re-entrancy guard after already flipping `_editingSlotKey`.
+    if (widget.controller.editing) return;
     setState(() => _editingSlotKey = _slotCompositeKey(slot));
     await widget.controller.edit(
       _idToken,
@@ -663,7 +685,7 @@ class _Legend extends StatelessWidget {
         _LegendDot(color: scheme.tertiary, label: loc.careHistoryLegendPartial),
         _LegendDot(color: scheme.error, label: loc.careHistoryLegendMissed),
         _LegendDot(
-          color: scheme.surfaceContainerHigh,
+          color: scheme.secondary.withValues(alpha: _upcomingAlpha),
           label: loc.careHistoryLegendUpcoming,
         ),
         _LegendDot(

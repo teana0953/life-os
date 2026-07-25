@@ -66,31 +66,40 @@ void main() {
       expect(careDayState(day), CareDayState.missed);
     });
 
-    test('done only counts CareTodayStatus.done, not pending/overdue', () {
+    test('done only counts CareTodayStatus.done, not pending/overdue — an '
+        'overdue slot is due (genuinely late), so a pending+overdue day '
+        'reads missed, not upcoming', () {
       final day = _day(
         slots: [
           _slot(careScheduleId: 'a', status: CareTodayStatus.pending),
           _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
         ],
       );
-      expect(careDayState(day), isNot(CareDayState.missed));
+      expect(careDayState(day), CareDayState.missed);
     });
 
-    test('upcoming (not missed) when every slot is pending/overdue — '
-        'nothing has been done, but nothing has failed yet either (this is '
-        "what today's cell looks like before anything is logged)", () {
+    test('upcoming (not missed) when every slot is pending — nothing has '
+        'been done, but nothing is due yet either (this is what today\'s '
+        'cell looks like before anything is logged)', () {
       final day = _day(
         slots: [
           _slot(careScheduleId: 'a', status: CareTodayStatus.pending),
-          _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
+          _slot(careScheduleId: 'b', status: CareTodayStatus.pending),
         ],
       );
       expect(careDayState(day), CareDayState.upcoming);
     });
 
-    test('missed still applies when a missed slot is mixed with pending/'
-        'overdue slots (a genuinely failed slot outweighs the not-yet-due '
-        'ones)', () {
+    test('an overdue-only day reads missed, not upcoming — overdue is past '
+        'due with no record, i.e. genuinely late', () {
+      final day = _day(
+        slots: [_slot(status: CareTodayStatus.overdue)],
+      );
+      expect(careDayState(day), CareDayState.missed);
+    });
+
+    test('missed still applies when a missed slot is mixed with a pending '
+        'slot (a genuinely failed slot outweighs the not-yet-due one)', () {
       final day = _day(
         slots: [
           _slot(careScheduleId: 'a', status: CareTodayStatus.missed),
@@ -98,6 +107,29 @@ void main() {
         ],
       );
       expect(careDayState(day), CareDayState.missed);
+    });
+
+    test('a day with one done slot and one still-pending slot reads full, '
+        'not partial — every *due* slot is done, so the day state agrees '
+        "with careHistorySummary's rate (100%), not a shortfall", () {
+      final day = _day(
+        slots: [
+          _slot(careScheduleId: 'a', status: CareTodayStatus.done),
+          _slot(careScheduleId: 'b', status: CareTodayStatus.pending),
+        ],
+      );
+      expect(careDayState(day), CareDayState.full);
+    });
+
+    test('a done slot alongside an overdue slot reads partial — overdue is '
+        'due, so it is a real shortfall against the rate', () {
+      final day = _day(
+        slots: [
+          _slot(careScheduleId: 'a', status: CareTodayStatus.done),
+          _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
+        ],
+      );
+      expect(careDayState(day), CareDayState.partial);
     });
   });
 
@@ -186,14 +218,14 @@ void main() {
       expect(summary.adherenceRate, 1.0);
     });
 
-    test('adherenceRate excludes not-yet-due (pending/overdue) slots from '
-        "the denominator, so today's not-yet-due slots don't drag the rate "
+    test('adherenceRate excludes not-yet-due (pending) slots from the '
+        "denominator, so today's not-yet-due slots don't drag the rate "
         'toward 0% (totalScheduled still counts them)', () {
       final days = [
         _day(
           slots: [
             _slot(careScheduleId: 'a', status: CareTodayStatus.pending),
-            _slot(careScheduleId: 'b', status: CareTodayStatus.overdue),
+            _slot(careScheduleId: 'b', status: CareTodayStatus.pending),
           ],
         ),
       ];
@@ -202,6 +234,20 @@ void main() {
 
       expect(summary.adherenceRate, isNull);
       expect(summary.totalScheduled, 2);
+    });
+
+    test('adherenceRate counts overdue slots in the denominator as a real '
+        'miss — overdue is past due with no record, not "not yet due"', () {
+      final days = [
+        _day(
+          slots: [_slot(status: CareTodayStatus.overdue)],
+        ),
+      ];
+
+      final summary = careHistorySummary(days);
+
+      expect(summary.adherenceRate, 0.0);
+      expect(summary.totalScheduled, 1);
     });
 
     test('a done slot alongside a not-yet-due slot rates 100%, not 50% — '

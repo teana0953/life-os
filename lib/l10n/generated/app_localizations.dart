@@ -2396,7 +2396,7 @@ abstract class AppLocalizations {
   /// **'Missed slots'**
   String get careHistoryMissedCountLabel;
 
-  /// Heatmap legend label for a day where every scheduled slot was marked done, in the care history chart mode.
+  /// Heatmap legend label for a day where every *due* scheduled slot was marked done, in the care history chart mode. A slot still pending (not yet due) doesn't count against this — a day with one dose taken and a later one not yet due still reads Complete, matching the adherence rate (which likewise excludes not-yet-due slots).
   ///
   /// In en, this message translates to:
   /// **'Complete'**
@@ -2444,7 +2444,7 @@ abstract class AppLocalizations {
   /// **'Overdue'**
   String get careHistoryStatusOverdue;
 
-  /// Heatmap legend label for a day that has scheduled slots still pending/overdue and none done, skipped, or missed yet — typically today, before anything has been logged. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
+  /// Heatmap legend label for a day whose every scheduled slot is still pending — typically today, before anything has been logged. An overdue slot (past due with no record — genuinely late) does NOT count as not-yet-due, so a day with even one overdue slot reads careHistoryLegendMissed instead. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
   ///
   /// In en, this message translates to:
   /// **'Not yet due'**

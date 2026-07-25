@@ -12,18 +12,20 @@ class CareHistoryDay {
 
 /// A day's adherence state, purely derived from its slots (mirrors
 /// CareFlow's `calcMedicationAdherence`): [noSchedule] when the day has no
-/// slots, [full] when every slot is done, [partial] when some (but not all)
-/// slots are done, [missed] when nothing is done and nothing is left
-/// actionable — either a slot was explicitly marked missed, or every slot is
-/// done/skipped with none still pending/overdue (this includes an
-/// all-skipped day, not only an all-missed one) — and [upcoming] when
-/// nothing is done yet but at least one slot is still pending/overdue, i.e.
-/// nothing has actually failed yet. [upcoming] is what keeps *today's* cell
-/// from reading as missed every morning before anything is due — the
-/// backend already marks past unanswered slots as `missed` by the time the
-/// day is over, so a day stuck with pending/overdue slots is (almost
-/// always) today, not a stale unanswered day. Only [CareTodayStatus.done]
-/// counts as done — skipped/missed/pending/overdue do not.
+/// slots. Among days with slots, a slot is either *due*
+/// ([CareTodayStatus.done]/`skipped`/`missed`/`overdue` — `overdue` means
+/// past due with no record, i.e. genuinely late, not "not yet due") or
+/// *not yet due* ([CareTodayStatus.pending] only). [full] is every due slot
+/// done (any remaining slots are merely pending, so nothing has actually
+/// fallen short — this keeps the day state consistent with the rate in
+/// [careHistorySummary], which excludes pending from its denominator the
+/// same way); [partial] is some but not all due slots done; [missed] is at
+/// least one due slot and none of them done (this includes an all-skipped
+/// or all-overdue day, not only an all-explicitly-missed one); [upcoming]
+/// is no due slots at all — every slot is still pending — which is what
+/// keeps *today's* cell from reading as missed every morning before
+/// anything is due. Only [CareTodayStatus.done] counts as done —
+/// skipped/missed/pending/overdue do not.
 enum CareDayState { full, partial, missed, upcoming, noSchedule }
 
 /// The day-state legend classification for [day]. A pure function of
@@ -33,26 +35,26 @@ CareDayState careDayState(CareHistoryDay day) {
   final doneCount = day.slots
       .where((s) => s.status == CareTodayStatus.done)
       .length;
-  if (doneCount == day.slots.length) return CareDayState.full;
-  if (doneCount > 0) return CareDayState.partial;
-  final hasMissedSlot = day.slots.any(
-    (s) => s.status == CareTodayStatus.missed,
-  );
-  final hasNotYetDueSlot = day.slots.any(
-    (s) =>
-        s.status == CareTodayStatus.pending ||
-        s.status == CareTodayStatus.overdue,
-  );
-  if (hasMissedSlot || !hasNotYetDueSlot) return CareDayState.missed;
-  return CareDayState.upcoming;
+  // "Due" is everything except still-pending slots — mirrors
+  // careHistorySummary's denominator so the day state and the rate always
+  // tell the same story about the same day.
+  final dueCount = day.slots
+      .where((s) => s.status != CareTodayStatus.pending)
+      .length;
+  if (dueCount == 0) return CareDayState.upcoming;
+  if (doneCount == dueCount) return CareDayState.full;
+  if (doneCount == 0) return CareDayState.missed;
+  return CareDayState.partial;
 }
 
 /// The headline summary for a history range: [adherenceRate] is the total
 /// done slots over the total *due* slots across [days] — slots still
-/// pending/overdue (not yet due) are excluded from the denominator so a
-/// morning with nothing logged yet doesn't read as a 0% rate (`null` when
-/// there are no due slots at all — done is always a subset of due slots, so
-/// this never needs clamping); [daysWithDose] counts days with at least one
+/// pending (not yet due) are excluded from the denominator so a morning
+/// with nothing logged yet doesn't read as a 0% rate, but `overdue` slots
+/// (past due with no record — genuinely late) are included and drag the
+/// rate down like any other unfulfilled slot (`null` when there are no due
+/// slots at all — done is always a subset of due slots, so this never needs
+/// clamping); [daysWithDose] counts days with at least one
 /// done slot; [missedCount] sums slots whose *status* is
 /// [CareTodayStatus.missed] (distinct from the day-state "missed" in
 /// [CareDayState], which also covers all-skipped days); [totalScheduled] is
@@ -85,11 +87,7 @@ CareHistorySummary careHistorySummary(List<CareHistoryDay> days) {
         .where((s) => s.status == CareTodayStatus.done)
         .length;
     final dueInDay = day.slots
-        .where(
-          (s) =>
-              s.status != CareTodayStatus.pending &&
-              s.status != CareTodayStatus.overdue,
-        )
+        .where((s) => s.status != CareTodayStatus.pending)
         .length;
     doneSum += doneInDay;
     dueSum += dueInDay;

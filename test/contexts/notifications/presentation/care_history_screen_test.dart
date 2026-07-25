@@ -59,6 +59,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
   final List<({String from, String to})> getRangeCalls = [];
   CareLogStatus? lastEditStatus;
   String? lastEditCareScheduleId;
+  int editCallCount = 0;
 
   _FakeCareHistoryRepository({required this.days});
 
@@ -86,6 +87,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required String timeOfDay,
     required CareLogStatus status,
   }) async {
+    editCallCount++;
     lastEditStatus = status;
     lastEditCareScheduleId = careScheduleId;
     if (editCompleter != null) await editCompleter!.future;
@@ -313,6 +315,70 @@ void main() {
     );
 
     testWidgets(
+      'the upcoming heatmap cell has a real, distinct fill (not the '
+      'invisible surfaceContainerHigh fallback the theme never sets), and '
+      'the legend swatch matches the cell exactly',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            // 2026-07-22 (today): one pending slot, nothing done/skipped/
+            // missed/overdue -> upcoming. 2026-07-20 has no slots ->
+            // noSchedule.
+            onJul22: [_slot(status: CareTodayStatus.pending)],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.careHistoryChartMode));
+        await tester.pumpAndSettle();
+
+        final scheme = Theme.of(
+          tester.element(find.byType(CareHistoryScreen)),
+        ).colorScheme;
+
+        Color cellColor(String key) {
+          final box = tester.widget<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byType(DecoratedBox),
+            ),
+          );
+          return (box.decoration as BoxDecoration).color!;
+        }
+
+        final upcomingColor = cellColor('care-history-cell-2026-07-22');
+        final noScheduleColor = cellColor('care-history-cell-2026-07-20');
+
+        // Not the invisible fallback: the theme never sets
+        // surfaceContainerHigh, so an unset role renders as `surface` —
+        // exactly the enclosing LedgeCard's own fill.
+        expect(upcomingColor, isNot(scheme.surface));
+        // Distinct from the (unrelated) noSchedule cell.
+        expect(upcomingColor, isNot(noScheduleColor));
+
+        // The legend swatch for "upcoming" renders the exact same color as
+        // the heatmap cell.
+        final legendDotContainer = tester
+            .widgetList<Container>(
+              find.descendant(
+                of: find.ancestor(
+                  of: find.text(loc.careHistoryLegendUpcoming),
+                  matching: find.byType(Row),
+                ),
+                matching: find.byType(Container),
+              ),
+            )
+            .first;
+        expect(
+          (legendDotContainer.decoration as BoxDecoration).color,
+          upcomingColor,
+        );
+      },
+    );
+
+    testWidgets(
       'switching the period reloads the corresponding range, keeping the '
       'previous content visible with a progress indicator (no blanking)',
       (tester) async {
@@ -497,6 +563,172 @@ void main() {
           ),
           findsNothing,
         );
+      },
+    );
+
+    testWidgets(
+      'does not throw when the screen is disposed while the edit sheet is '
+      'still open (e.g. sign-out swapping the app to the login screen)',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        final showScreen = ValueNotifier<bool>(true);
+        addTearDown(showScreen.dispose);
+
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: showScreen,
+              builder: (context, show, _) => show
+                  ? CareHistoryScreen(
+                      controller: controller,
+                      authRepository: _FakeAuthRepository(),
+                      clock: () => DateTime(2026, 7, 22),
+                    )
+                  : const SizedBox(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-history-edit-done')), findsOneWidget);
+
+        // Swap the screen out from under the still-open sheet — this
+        // disposes CareHistoryScreen's State while its `showModalBottomSheet`
+        // await is still pending.
+        showScreen.value = false;
+        await tester.pump();
+
+        // Resolving the sheet's await now must not throw.
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a fast double-tap that stacks edit sheets for two different slots '
+      'keeps the in-flight affordance on the slot actually being edited — '
+      "the second sheet's choice is dropped by its own re-check, not "
+      "silently swallowed mid-setState by the controller's guard "
+      '(which would otherwise leave the affordance on the wrong tile)',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(
+                careScheduleId: 'sch-1',
+                timeOfDay: '08:00',
+                status: CareTodayStatus.missed,
+              ),
+              _slot(
+                careScheduleId: 'sch-2',
+                timeOfDay: '09:00',
+                status: CareTodayStatus.missed,
+              ),
+            ],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        // Hold the (first-dispatched) edit in flight so the second sheet's
+        // choice resolves while it's still pending.
+        final completer = Completer<void>();
+        repository.editCompleter = completer;
+
+        final sch1Finder = find.byKey(
+          const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+        );
+        final sch2Finder = find.byKey(
+          const Key('care-history-slot-sch-2-2026-07-22-09:00'),
+        );
+        // Simulate a fast double-tap across two rows by invoking each
+        // tile's onTap callback back-to-back with nothing in between: both
+        // `_openEditSheet` calls run synchronously up to their first
+        // `await`, pushing two stacked modal sheet routes before either one
+        // has actually rendered (this can't be reproduced via `tester.tap`
+        // here, since by the time a second simulated tap is dispatched the
+        // first sheet's barrier already covers the tiles).
+        final onTap1 = tester.widget<ListTile>(sch1Finder).onTap!;
+        final onTap2 = tester.widget<ListTile>(sch2Finder).onTap!;
+        onTap1();
+        onTap2();
+        await tester.pumpAndSettle();
+
+        // Both stacked sheets' content stay in the widget tree (the bottom
+        // one just visually obscured), so two 'Done' tiles are found; only
+        // the top one (`.last`, painted last — sch-2's, pushed second) is
+        // actually hit-testable. Choose Done there first.
+        expect(find.byKey(const Key('care-history-edit-done')), findsNWidgets(2));
+        await tester.tap(find.byKey(const Key('care-history-edit-done')).last);
+        // Don't settle — the edit is now held in flight by the completer.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(controller.editing, isTrue);
+        expect(repository.editCallCount, 1);
+        expect(repository.lastEditCareScheduleId, 'sch-2');
+        // The in-flight affordance is on sch-2's row — the slot actually
+        // being edited.
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-2-2026-07-22-09:00'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-1-2026-07-22-08:00'),
+          ),
+          findsNothing,
+        );
+
+        // The sch-1 sheet is now revealed underneath; choose Done there
+        // too. This must be dropped — sch-2's edit is still in flight —
+        // without disturbing which row shows the in-flight affordance.
+        expect(find.byKey(const Key('care-history-edit-done')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        // Still only the one edit dispatched, still for sch-2.
+        expect(repository.editCallCount, 1);
+        expect(repository.lastEditCareScheduleId, 'sch-2');
+        // The affordance is still on sch-2's row, not sch-1's — had the
+        // sch-1 sheet's choice not been re-checked after its own await, it
+        // would have overwritten `_editingSlotKey` to sch-1 right before
+        // the controller's own guard silently no-op'd its `edit()` call,
+        // leaving the affordance stuck on the wrong (idle) row.
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-2-2026-07-22-09:00'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            const Key('care-history-slot-editing-sch-1-2026-07-22-08:00'),
+          ),
+          findsNothing,
+        );
+
+        completer.complete();
+        await tester.pumpAndSettle();
+        expect(repository.editCallCount, 1);
       },
     );
 
