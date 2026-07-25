@@ -28,12 +28,12 @@
 
 ## 4. screen
 
-- [ ] 4.1 (red) `CareHistoryScreen` widget test:清單/圖表 toggle;清單逐日分組 + slot tile
+- [x] 4.1 (red) `CareHistoryScreen` widget test:清單/圖表 toggle;清單逐日分組 + slot tile
       顯示時間(`slot.timeOfDay`)/標題/狀態、**無 slot 的日子不出現在清單**;圖表 headline +
       heatmap **格數 = span 天數(含今天)**、狀態色、legend;7/30/90 切換觸發 reload
       (**from = today-(span-1)、to = today**,經 `dayString`);點 tile → bottom sheet →
       選完成/略過觸發 edit;空(每天皆無 slot)/loading/reauth。
-- [ ] 4.2 (green) `CareHistoryScreen`(AppBar SegmentedButton 清單/圖表 + 期間 SegmentedButton;
+- [x] 4.2 (green) `CareHistoryScreen`(AppBar SegmentedButton 清單/圖表 + 期間 SegmentedButton;
       逐日卡 + tile;`GridView.builder` heatmap + legend;bottom sheet 編輯;theme/LedgeCard/pastel,
       無硬編碼顏色/字串)。
 
@@ -44,7 +44,7 @@
       **連帶**:`App` 建構子新增必填 controller 會打斷 `test/app_test.dart` 的共用 pump helper
       (每個 controller 都有預設)——補一個 optional 參數 + `_FakeCareHistoryRepository` 預設,
       維持既有測試綠。
-- [ ] 5.2 (green) i18n(en/zh-Hant/zh,各附 description)+ `flutter gen-l10n`:頁標題、清單/圖表、
+- [x] 5.2 (green) i18n(en/zh-Hant/zh,各附 description)+ `flutter gen-l10n`:頁標題、清單/圖表、
       達成率/有服藥天數/漏服、legend(完成/部分/未完成)、狀態字、編輯 sheet、空狀態、入口 tooltip。
       **heatmap 日狀態的 legend 用獨立新 key**(勿共用 slot 狀態的 `careTodayStatusMissed`——
       日層「未完成」含全部略過的日子,與 slot 層語意/數字不同)。

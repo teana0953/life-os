@@ -1211,6 +1211,57 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careRemindersPushOffAction => '開啟通知';
+
+  @override
+  String get careHistoryTitle => '照護紀錄';
+
+  @override
+  String get careHistoryEntryTooltip => '紀錄';
+
+  @override
+  String get careHistoryListMode => '清單';
+
+  @override
+  String get careHistoryChartMode => '圖表';
+
+  @override
+  String get careHistoryEmptyTitle => '沒有照護紀錄';
+
+  @override
+  String get careHistoryEmptyBody => '這段期間沒有排程。';
+
+  @override
+  String get careHistoryAdherenceRateLabel => '達成率';
+
+  @override
+  String get careHistoryDaysWithDoseLabel => '有服藥天數';
+
+  @override
+  String get careHistoryMissedCountLabel => '漏服';
+
+  @override
+  String get careHistoryLegendFull => '完成';
+
+  @override
+  String get careHistoryLegendPartial => '部分';
+
+  @override
+  String get careHistoryLegendMissed => '未完成';
+
+  @override
+  String get careHistoryLegendNoSchedule => '無排程';
+
+  @override
+  String get careHistoryEditSheetTitle => '更新這筆紀錄';
+
+  @override
+  String get careHistoryStatusDone => '已完成';
+
+  @override
+  String get careHistoryStatusPending => '待完成';
+
+  @override
+  String get careHistoryStatusOverdue => '逾期';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2420,4 +2471,55 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careRemindersPushOffAction => '開啟通知';
+
+  @override
+  String get careHistoryTitle => '照護紀錄';
+
+  @override
+  String get careHistoryEntryTooltip => '紀錄';
+
+  @override
+  String get careHistoryListMode => '清單';
+
+  @override
+  String get careHistoryChartMode => '圖表';
+
+  @override
+  String get careHistoryEmptyTitle => '沒有照護紀錄';
+
+  @override
+  String get careHistoryEmptyBody => '這段期間沒有排程。';
+
+  @override
+  String get careHistoryAdherenceRateLabel => '達成率';
+
+  @override
+  String get careHistoryDaysWithDoseLabel => '有服藥天數';
+
+  @override
+  String get careHistoryMissedCountLabel => '漏服';
+
+  @override
+  String get careHistoryLegendFull => '完成';
+
+  @override
+  String get careHistoryLegendPartial => '部分';
+
+  @override
+  String get careHistoryLegendMissed => '未完成';
+
+  @override
+  String get careHistoryLegendNoSchedule => '無排程';
+
+  @override
+  String get careHistoryEditSheetTitle => '更新這筆紀錄';
+
+  @override
+  String get careHistoryStatusDone => '已完成';
+
+  @override
+  String get careHistoryStatusPending => '待完成';
+
+  @override
+  String get careHistoryStatusOverdue => '逾期';
 }
