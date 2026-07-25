@@ -13,7 +13,11 @@ screen SHALL handle empty, loading, and re-auth states without crashing.
 
 #### Scenario: List mode groups slots by day
 - **WHEN** the screen is in list mode with loaded data
-- **THEN** each day in the period is a group listing that day's care slots with their time, title, and status
+- **THEN** each day that has care slots is a group listing that day's slots with their time, title, and status
+
+#### Scenario: List mode omits days with nothing scheduled
+- **WHEN** the period contains days with no scheduled care
+- **THEN** those days are not rendered as groups in list mode, while the chart still shows a cell for them
 
 #### Scenario: Chart mode summarizes adherence
 - **WHEN** the user switches to chart mode
@@ -23,12 +27,12 @@ screen SHALL handle empty, loading, and re-auth states without crashing.
 - **WHEN** chart mode is shown
 - **THEN** each day is a cell colored full (all slots done), partial (some done), missed (scheduled but none done), or no-schedule (nothing scheduled)
 
-#### Scenario: Switching the period reloads
+#### Scenario: Switching the period reloads without blanking
 - **WHEN** the user changes the period
-- **THEN** the screen reloads care records for the corresponding date range in the current mode
+- **THEN** the screen reloads care records for the corresponding date range (ending today, inclusive) in the current mode, keeping the current content visible with a progress indicator rather than dropping to a full-page spinner
 
 #### Scenario: Empty, loading, and auth states
-- **WHEN** the period has no care records, or data is loading, or the request needs re-auth
+- **WHEN** every day in the period has no scheduled care, or the first load is in flight, or the request needs re-auth
 - **THEN** the screen shows an empty guide, a loading state, or a re-auth exit respectively
 
 ### Requirement: Edit a past care record from the history list
@@ -49,6 +53,10 @@ full-page loading state; a failure SHALL keep the list and surface a localized e
 - **WHEN** an edit fails for a non-auth reason
 - **THEN** a localized error is surfaced and the existing list is kept
 
+#### Scenario: A reload failing after a successful edit still keeps the list
+- **WHEN** the edit itself succeeds but the follow-up refresh fails for a non-auth reason
+- **THEN** the list is kept (the edit already happened) with a localized error, rather than dropping to an error state
+
 #### Scenario: A missed record can be corrected
 - **WHEN** the user edits a slot recorded as missed
-- **THEN** it can be set to done or skipped
+- **THEN** it can be set to done or skipped (missed is derived, never chosen)
