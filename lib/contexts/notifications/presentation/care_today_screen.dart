@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -148,7 +149,17 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
-    final appBar = AppBar(title: Text(loc.careTodayTitle));
+    final appBar = AppBar(
+      title: Text(loc.careTodayTitle),
+      actions: [
+        IconButton(
+          key: const Key('care-today-history-button'),
+          tooltip: loc.careHistoryEntryTooltip,
+          onPressed: () => context.push('/care-history'),
+          icon: const Icon(Icons.history),
+        ),
+      ],
+    );
 
     return AsyncStateScaffold(
       isLoading: controller.status == CareTodayLoadStatus.loading,

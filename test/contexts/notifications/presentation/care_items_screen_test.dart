@@ -408,6 +408,18 @@ void main() {
       },
     );
 
+    testWidgets('the AppBar history icon pushes /care-history', (
+      tester,
+    ) async {
+      final controller = _controller();
+      await _pumpScreen(tester, controller);
+
+      await tester.tap(find.byKey(const Key('care-items-history-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('/care-history'), findsOneWidget);
+    });
+
     testWidgets('pushOn=true: no push-off banner is shown', (tester) async {
       final controller = _controller();
       await _pumpScreen(

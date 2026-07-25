@@ -2341,6 +2341,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Turn on notifications'**
   String get careRemindersPushOffAction;
+
+  /// AppBar title of the care history screen (route /care-history), reachable from care management and Today care.
+  ///
+  /// In en, this message translates to:
+  /// **'Care history'**
+  String get careHistoryTitle;
+
+  /// Tooltip on the AppBar icon (in care management and Today care) that opens the care history screen.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get careHistoryEntryTooltip;
+
+  /// Label of the list segment in the care history screen's list/chart mode SegmentedButton.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get careHistoryListMode;
+
+  /// Label of the chart segment in the care history screen's list/chart mode SegmentedButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart'**
+  String get careHistoryChartMode;
+
+  /// Title of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'No care records'**
+  String get careHistoryEmptyTitle;
+
+  /// Body text of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was scheduled in this period.'**
+  String get careHistoryEmptyBody;
+
+  /// Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period.
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence rate'**
+  String get careHistoryAdherenceRateLabel;
+
+  /// Headline metric label in the care history chart mode: the count of days with at least one slot marked done. Neutral wording — this screen aggregates every care category (medication, rehab, phototherapy maintenance, custom), not just medication doses.
+  ///
+  /// In en, this message translates to:
+  /// **'Days with care done'**
+  String get careHistoryDaysWithDoseLabel;
+
+  /// Headline metric label in the care history chart mode for the total count of slots with status missed over the selected period — worded as a slot count ('Missed slots') so it reads distinctly from careHistoryLegendMissed (a day-level heatmap state, worded as 'Missed') and from careTodayStatusMissed (a single slot's status word, 'Missed'); the three counts can differ.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed slots'**
+  String get careHistoryMissedCountLabel;
+
+  /// Heatmap legend label for a day where every *due* scheduled slot was marked done, in the care history chart mode. A slot still pending (not yet due) doesn't count against this — a day with one dose taken and a later one not yet due still reads Complete, matching the adherence rate (which likewise excludes not-yet-due slots).
+  ///
+  /// In en, this message translates to:
+  /// **'Complete'**
+  String get careHistoryLegendFull;
+
+  /// Heatmap legend label for a day where some but not all scheduled slots were marked done, in the care history chart mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial'**
+  String get careHistoryLegendPartial;
+
+  /// Heatmap legend label for a day that had scheduled slots but none were marked done (this includes a day where every slot was skipped), in the care history chart mode. Distinct from careTodayStatusMissed (a single slot's status word) and careHistoryMissedCountLabel (the headline's slot-level missed count) — the three counts can differ.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get careHistoryLegendMissed;
+
+  /// Heatmap legend label for a day with nothing scheduled, in the care history chart mode.
+  ///
+  /// In en, this message translates to:
+  /// **'No schedule'**
+  String get careHistoryLegendNoSchedule;
+
+  /// Title of the bottom sheet opened by tapping a slot in the care history list, offering to mark it done or skipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Update this record'**
+  String get careHistoryEditSheetTitle;
+
+  /// Status word shown on a done slot's tile in the care history list (as 'HH:mm · status').
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get careHistoryStatusDone;
+
+  /// Status word shown on a pending slot's tile in the care history list (as 'HH:mm · status') — a slot in the selected period (which can include today) not yet due.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get careHistoryStatusPending;
+
+  /// Status word shown on an overdue slot's tile in the care history list (as 'HH:mm · status') — a slot in the selected period (which can include today) past due with no record yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get careHistoryStatusOverdue;
+
+  /// Heatmap legend label for a day whose every scheduled slot is still pending — typically today, before anything has been logged. An overdue slot (past due with no record — genuinely late) does NOT count as not-yet-due, so a day with even one overdue slot reads careHistoryLegendMissed instead. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet due'**
+  String get careHistoryLegendUpcoming;
+
+  /// Brief SnackBar confirmation shown after a slot edit in the care history list succeeds (both the save and the follow-up list refresh).
+  ///
+  /// In en, this message translates to:
+  /// **'Saved.'**
+  String get careHistoryEditSuccessMessage;
+
+  /// SnackBar message shown when a slot edit in the care history list saves successfully but the follow-up refresh of the list fails — distinct from careErrorGeneric (which implies the edit itself failed) so the user isn't told their change was lost when it wasn't.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved, but couldn\'t refresh the list.'**
+  String get careHistoryEditRefreshErrorMessage;
 }
 
 class _AppLocalizationsDelegate

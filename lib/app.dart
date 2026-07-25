@@ -16,6 +16,8 @@ import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
+import 'contexts/notifications/presentation/care_history_controller.dart';
+import 'contexts/notifications/presentation/care_history_screen.dart';
 import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_items_screen.dart';
 import 'contexts/notifications/presentation/care_today_controller.dart';
@@ -181,6 +183,7 @@ class App extends StatefulWidget {
   final ReminderSettingsController reminderSettingsController;
   final CareItemsController careItemsController;
   final CareTodayController careTodayController;
+  final CareHistoryController careHistoryController;
   final DataRevision dataRevision;
 
   const App({
@@ -210,6 +213,7 @@ class App extends StatefulWidget {
     required this.reminderSettingsController,
     required this.careItemsController,
     required this.careTodayController,
+    required this.careHistoryController,
     required this.dataRevision,
   });
 
@@ -374,6 +378,13 @@ class _AppState extends State<App> {
             controller: widget.careTodayController,
             authRepository: widget.authRepository,
             onOpenCareItems: () => context.push('/care-items'),
+          ),
+        ),
+        GoRoute(
+          path: '/care-history',
+          builder: (context, state) => CareHistoryScreen(
+            controller: widget.careHistoryController,
+            authRepository: widget.authRepository,
           ),
         ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL

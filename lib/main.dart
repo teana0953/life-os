@@ -53,12 +53,16 @@ import 'contexts/import/infrastructure/http_import_repository.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/notifications/application/care_items.dart';
 import 'contexts/notifications/application/care_today.dart';
+import 'contexts/notifications/application/edit_care_slot.dart';
 import 'contexts/notifications/application/enable_reminders.dart';
+import 'contexts/notifications/application/get_care_history.dart';
 import 'contexts/notifications/application/send_test_push.dart';
 import 'contexts/notifications/infrastructure/browser_web_push_gateway.dart';
+import 'contexts/notifications/infrastructure/http_care_history_repository.dart';
 import 'contexts/notifications/infrastructure/http_care_repository.dart';
 import 'contexts/notifications/infrastructure/http_care_today_repository.dart';
 import 'contexts/notifications/infrastructure/http_push_repository.dart';
+import 'contexts/notifications/presentation/care_history_controller.dart';
 import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_today_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
@@ -251,6 +255,14 @@ Future<void> main() async {
     MarkCareDone(careTodayRepository),
     MarkCareSkipped(careTodayRepository),
   );
+  final careHistoryRepository = HttpCareHistoryRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final careHistoryController = CareHistoryController(
+    GetCareHistory(careHistoryRepository),
+    EditCareSlot(careHistoryRepository),
+  );
 
   runApp(
     App(
@@ -279,6 +291,7 @@ Future<void> main() async {
       reminderSettingsController: reminderSettingsController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,
+      careHistoryController: careHistoryController,
       dataRevision: dataRevision,
     ),
   );

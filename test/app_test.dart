@@ -43,13 +43,17 @@ import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/contexts/notifications/application/care_items.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
+import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
+import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/domain/push_repository.dart';
 import 'package:life_os/contexts/notifications/domain/push_subscription.dart';
 import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
+import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_items_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
@@ -463,6 +467,24 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   }) async {}
 }
 
+class _FakeCareHistoryRepository implements CareHistoryRepository {
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async => const [];
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -683,6 +705,7 @@ Future<LocaleController> pumpApp(
   ReminderSettingsController? reminderSettingsController,
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
+  CareHistoryController? careHistoryController,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -739,6 +762,15 @@ Future<LocaleController> pumpApp(
           MarkCareSkipped(repository),
         );
       }();
+  final resolvedCareHistoryController =
+      careHistoryController ??
+      () {
+        final repository = _FakeCareHistoryRepository();
+        return CareHistoryController(
+          GetCareHistory(repository),
+          EditCareSlot(repository),
+        );
+      }();
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
@@ -768,6 +800,7 @@ Future<LocaleController> pumpApp(
       reminderSettingsController: resolvedReminderSettingsController,
       careItemsController: resolvedCareItemsController,
       careTodayController: resolvedCareTodayController,
+      careHistoryController: resolvedCareHistoryController,
       dataRevision: dataRevision,
     ),
   );

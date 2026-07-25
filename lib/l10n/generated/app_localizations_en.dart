@@ -1242,4 +1242,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get careRemindersPushOffAction => 'Turn on notifications';
+
+  @override
+  String get careHistoryTitle => 'Care history';
+
+  @override
+  String get careHistoryEntryTooltip => 'History';
+
+  @override
+  String get careHistoryListMode => 'List';
+
+  @override
+  String get careHistoryChartMode => 'Chart';
+
+  @override
+  String get careHistoryEmptyTitle => 'No care records';
+
+  @override
+  String get careHistoryEmptyBody => 'Nothing was scheduled in this period.';
+
+  @override
+  String get careHistoryAdherenceRateLabel => 'Adherence rate';
+
+  @override
+  String get careHistoryDaysWithDoseLabel => 'Days with care done';
+
+  @override
+  String get careHistoryMissedCountLabel => 'Missed slots';
+
+  @override
+  String get careHistoryLegendFull => 'Complete';
+
+  @override
+  String get careHistoryLegendPartial => 'Partial';
+
+  @override
+  String get careHistoryLegendMissed => 'Missed';
+
+  @override
+  String get careHistoryLegendNoSchedule => 'No schedule';
+
+  @override
+  String get careHistoryEditSheetTitle => 'Update this record';
+
+  @override
+  String get careHistoryStatusDone => 'Done';
+
+  @override
+  String get careHistoryStatusPending => 'Pending';
+
+  @override
+  String get careHistoryStatusOverdue => 'Overdue';
+
+  @override
+  String get careHistoryLegendUpcoming => 'Not yet due';
+
+  @override
+  String get careHistoryEditSuccessMessage => 'Saved.';
+
+  @override
+  String get careHistoryEditRefreshErrorMessage =>
+      'Saved, but couldn\'t refresh the list.';
 }

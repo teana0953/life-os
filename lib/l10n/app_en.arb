@@ -1662,5 +1662,85 @@
   "careRemindersPushOffAction": "Turn on notifications",
   "@careRemindersPushOffAction": {
     "description": "Action button on the push-off banner in care reminders management, tapped to open the reminder/notification settings screen."
+  },
+  "careHistoryTitle": "Care history",
+  "@careHistoryTitle": {
+    "description": "AppBar title of the care history screen (route /care-history), reachable from care management and Today care."
+  },
+  "careHistoryEntryTooltip": "History",
+  "@careHistoryEntryTooltip": {
+    "description": "Tooltip on the AppBar icon (in care management and Today care) that opens the care history screen."
+  },
+  "careHistoryListMode": "List",
+  "@careHistoryListMode": {
+    "description": "Label of the list segment in the care history screen's list/chart mode SegmentedButton."
+  },
+  "careHistoryChartMode": "Chart",
+  "@careHistoryChartMode": {
+    "description": "Label of the chart segment in the care history screen's list/chart mode SegmentedButton."
+  },
+  "careHistoryEmptyTitle": "No care records",
+  "@careHistoryEmptyTitle": {
+    "description": "Title of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled."
+  },
+  "careHistoryEmptyBody": "Nothing was scheduled in this period.",
+  "@careHistoryEmptyBody": {
+    "description": "Body text of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled."
+  },
+  "careHistoryAdherenceRateLabel": "Adherence rate",
+  "@careHistoryAdherenceRateLabel": {
+    "description": "Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period."
+  },
+  "careHistoryDaysWithDoseLabel": "Days with care done",
+  "@careHistoryDaysWithDoseLabel": {
+    "description": "Headline metric label in the care history chart mode: the count of days with at least one slot marked done. Neutral wording — this screen aggregates every care category (medication, rehab, phototherapy maintenance, custom), not just medication doses."
+  },
+  "careHistoryMissedCountLabel": "Missed slots",
+  "@careHistoryMissedCountLabel": {
+    "description": "Headline metric label in the care history chart mode for the total count of slots with status missed over the selected period — worded as a slot count ('Missed slots') so it reads distinctly from careHistoryLegendMissed (a day-level heatmap state, worded as 'Missed') and from careTodayStatusMissed (a single slot's status word, 'Missed'); the three counts can differ."
+  },
+  "careHistoryLegendFull": "Complete",
+  "@careHistoryLegendFull": {
+    "description": "Heatmap legend label for a day where every *due* scheduled slot was marked done, in the care history chart mode. A slot still pending (not yet due) doesn't count against this — a day with one dose taken and a later one not yet due still reads Complete, matching the adherence rate (which likewise excludes not-yet-due slots)."
+  },
+  "careHistoryLegendPartial": "Partial",
+  "@careHistoryLegendPartial": {
+    "description": "Heatmap legend label for a day where some but not all scheduled slots were marked done, in the care history chart mode."
+  },
+  "careHistoryLegendMissed": "Missed",
+  "@careHistoryLegendMissed": {
+    "description": "Heatmap legend label for a day that had scheduled slots but none were marked done (this includes a day where every slot was skipped), in the care history chart mode. Distinct from careTodayStatusMissed (a single slot's status word) and careHistoryMissedCountLabel (the headline's slot-level missed count) — the three counts can differ."
+  },
+  "careHistoryLegendNoSchedule": "No schedule",
+  "@careHistoryLegendNoSchedule": {
+    "description": "Heatmap legend label for a day with nothing scheduled, in the care history chart mode."
+  },
+  "careHistoryEditSheetTitle": "Update this record",
+  "@careHistoryEditSheetTitle": {
+    "description": "Title of the bottom sheet opened by tapping a slot in the care history list, offering to mark it done or skipped."
+  },
+  "careHistoryStatusDone": "Done",
+  "@careHistoryStatusDone": {
+    "description": "Status word shown on a done slot's tile in the care history list (as 'HH:mm · status')."
+  },
+  "careHistoryStatusPending": "Pending",
+  "@careHistoryStatusPending": {
+    "description": "Status word shown on a pending slot's tile in the care history list (as 'HH:mm · status') — a slot in the selected period (which can include today) not yet due."
+  },
+  "careHistoryStatusOverdue": "Overdue",
+  "@careHistoryStatusOverdue": {
+    "description": "Status word shown on an overdue slot's tile in the care history list (as 'HH:mm · status') — a slot in the selected period (which can include today) past due with no record yet."
+  },
+  "careHistoryLegendUpcoming": "Not yet due",
+  "@careHistoryLegendUpcoming": {
+    "description": "Heatmap legend label for a day whose every scheduled slot is still pending — typically today, before anything has been logged. An overdue slot (past due with no record — genuinely late) does NOT count as not-yet-due, so a day with even one overdue slot reads careHistoryLegendMissed instead. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet."
+  },
+  "careHistoryEditSuccessMessage": "Saved.",
+  "@careHistoryEditSuccessMessage": {
+    "description": "Brief SnackBar confirmation shown after a slot edit in the care history list succeeds (both the save and the follow-up list refresh)."
+  },
+  "careHistoryEditRefreshErrorMessage": "Saved, but couldn't refresh the list.",
+  "@careHistoryEditRefreshErrorMessage": {
+    "description": "SnackBar message shown when a slot edit in the care history list saves successfully but the follow-up refresh of the list fails — distinct from careErrorGeneric (which implies the edit itself failed) so the user isn't told their change was lost when it wasn't."
   }
 }
