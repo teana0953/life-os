@@ -14,6 +14,7 @@ import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/data_revision.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -196,6 +197,7 @@ ChaodaysImportController _controller(_FakeImportRepository repository) =>
       ImportWater(repository),
       ImportBowel(repository),
       ImportDietTarget(repository),
+      DataRevision(),
     );
 
 DateTime _defaultClock() => DateTime(2026, 7, 20, 9);
@@ -325,6 +327,7 @@ void main() {
         ImportWater(repository),
         ImportBowel(repository),
         ImportDietTarget(repository),
+        DataRevision(),
       );
       await _pumpScreen(tester, controller: controller);
 

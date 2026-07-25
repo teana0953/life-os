@@ -47,6 +47,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/routing/auth_router_notifier.dart';
+import 'shared/data_revision.dart';
 import 'shared/pwa/pwa_install.dart';
 import 'shared/pwa/pwa_update_banner.dart';
 import 'shared/pwa/pwa_update_controller.dart';
@@ -183,6 +184,7 @@ class App extends StatefulWidget {
   final CareItemsController careItemsController;
   final CareTodayController careTodayController;
   final CareHistoryController careHistoryController;
+  final DataRevision dataRevision;
 
   const App({
     super.key,
@@ -212,6 +214,7 @@ class App extends StatefulWidget {
     required this.careItemsController,
     required this.careTodayController,
     required this.careHistoryController,
+    required this.dataRevision,
   });
 
   @override
@@ -412,6 +415,7 @@ class _AppState extends State<App> {
             onOpenReminders: () => context.push('/reminders'),
             onOpenCareItems: () => context.push('/care-items'),
             onOpenCareToday: () => context.push('/care-today'),
+            dataRevision: widget.dataRevision,
           ),
           routes: [
             GoRoute(

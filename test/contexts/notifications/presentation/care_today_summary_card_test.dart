@@ -34,10 +34,22 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   Object? logError;
   Completer<void>? logCompleter;
 
+  /// When set, `getToday` waits on this before completing — lets a test
+  /// observe the in-flight loading state of a reload.
+  Completer<void>? getGate;
+
+  /// When set, `getToday` throws this instead of returning [today] — lets a
+  /// test drive a load to `error`/`reauth`.
+  Object? getError;
+
   _FakeCareTodayRepository({required this.today});
 
   @override
-  Future<CareToday> getToday(String idToken) async => today;
+  Future<CareToday> getToday(String idToken) async {
+    if (getGate != null) await getGate!.future;
+    if (getError != null) throw getError!;
+    return today;
+  }
 
   @override
   Future<void> logSlot(
@@ -227,6 +239,107 @@ void main() {
 
       expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
     });
+
+    testWidgets(
+      'a reload (e.g. after a chaodays import) keeps showing the last '
+      'loaded summary instead of disappearing',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+
+        final gate = Completer<void>();
+        repository.getGate = gate;
+        unawaited(controller.load('token-123'));
+        await tester.pump();
+
+        // Still loading, but the previously loaded summary stays put.
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+        expect(find.text('Metformin'), findsOneWidget);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a reload that ends in error (e.g. a failed chaodays-import refresh) '
+      'still shows the last loaded summary instead of disappearing',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        await tester.pumpAndSettle();
+
+        expect(controller.status, CareTodayLoadStatus.error);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+        expect(find.text('Metformin'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a reload that ends in reauth still shows the last loaded summary '
+      'instead of disappearing',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+
+        repository.getError = const CareReauthRequired();
+        await controller.load('token-123');
+        await tester.pumpAndSettle();
+
+        expect(controller.status, CareTodayLoadStatus.reauth);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+        expect(find.text('Metformin'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a first-ever load that ends in error (never loaded before) still '
+      'renders nothing',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        )..getError = const CareRequestFailed();
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+
+        await _pumpCard(tester, controller);
+
+        expect(controller.status, CareTodayLoadStatus.error);
+        expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
+        expect(find.byKey(const Key('care-today-summary-setup')), findsNothing);
+      },
+    );
 
     testWidgets('tapping inline Done triggers markDone with idToken + slot ids', (
       tester,

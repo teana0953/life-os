@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/data_revision.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -81,6 +82,12 @@ class HealthScaffold extends StatefulWidget {
 
   final DateTime Function() clock;
 
+  /// Bumped by write flows elsewhere in the app (e.g. a chaodays import)
+  /// when lifeos data has changed; the scaffold reloads in response so the
+  /// overview doesn't need an app restart to catch up (see the
+  /// refresh-health-after-import design).
+  final DataRevision dataRevision;
+
   const HealthScaffold({
     super.key,
     required this.authRepository,
@@ -104,6 +111,7 @@ class HealthScaffold extends StatefulWidget {
     required this.onOpenReminders,
     required this.onOpenCareItems,
     required this.onOpenCareToday,
+    required this.dataRevision,
     this.clock = DateTime.now,
   });
 
@@ -115,13 +123,23 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   int _index = 0;
   String? _idToken;
 
+  // Coalescing state for reloads triggered by [DataRevision] bumps: a bump
+  // arriving while a load is already in flight must not be dropped (the
+  // in-flight load may have issued its requests before the write happened)
+  // but must also not run concurrently with it (the twelve controllers below
+  // aren't re-entrancy-safe) — so it's queued and runs exactly once more
+  // after the current load finishes.
+  bool _loading = false;
+  bool _reloadPending = false;
+
   @override
   void initState() {
     super.initState();
     for (final c in _overviewControllers) {
       c.addListener(_onChanged);
     }
-    _load();
+    widget.dataRevision.addListener(_onRevisionChanged);
+    _scheduleLoad();
   }
 
   List<Listenable> get _overviewControllers => [
@@ -136,10 +154,34 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     for (final c in _overviewControllers) {
       c.removeListener(_onChanged);
     }
+    widget.dataRevision.removeListener(_onRevisionChanged);
     super.dispose();
   }
 
   void _onChanged() => setState(() {});
+
+  void _onRevisionChanged() => _scheduleLoad();
+
+  /// Runs [_load] immediately if nothing is in flight, otherwise marks a
+  /// reload as pending so exactly one more load runs once the current one
+  /// finishes.
+  void _scheduleLoad() {
+    if (_loading) {
+      _reloadPending = true;
+      return;
+    }
+    _loading = true;
+    // Clear the flag on failure too: a load that throws (the token fetch is the
+    // one call here that can) would otherwise leave `_loading` set forever and
+    // silently drop every later refresh for the rest of the session. The
+    // controllers surface their own load errors, so nothing is swallowed here.
+    _load().then((_) {}, onError: (_) {}).whenComplete(() {
+      _loading = false;
+      final pending = _reloadPending;
+      _reloadPending = false;
+      if (pending && mounted) _scheduleLoad();
+    });
+  }
 
   Future<void> _load() async {
     final token = await widget.authRepository.idToken() ?? '';
@@ -168,7 +210,12 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.weightGoalController.status == WeightGoalStatus.needsReauth ||
       widget.trendController.status == TrendStatus.needsReauth ||
       widget.healthCalendarController.status ==
-          HealthCalendarStatus.needsReauth;
+          HealthCalendarStatus.needsReauth ||
+      // The care card keeps its content on a non-loaded status (so a reload
+      // can't blank the overview), which would otherwise make a 401 from
+      // marking a dose a silent dead end: the row stays 待辦 with no error and
+      // no way back. Surface it as the same re-authenticate exit as the others.
+      widget.careTodayController.status == CareTodayLoadStatus.reauth;
 
   Future<void> _signOutAndClose() async {
     await widget.signOut();

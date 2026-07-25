@@ -73,10 +73,11 @@ class _GoalCardState extends State<GoalCard> {
     final saving = controller.status == WeightGoalStatus.saving;
 
     // The first fetch — or a save with no already-set card to keep — gets a
-    // card-sized spinner. A save of an already-set goal keeps its card content
-    // (below) with a lightweight inline indicator instead, so the card doesn't
-    // collapse to a spinner and regrow.
-    if (controller.status == WeightGoalStatus.loading ||
+    // card-sized spinner. A reload of an already-loaded goal (e.g. after a
+    // chaodays import) or a save of an already-set goal keeps its card
+    // content (below) instead, so the card doesn't collapse to a spinner and
+    // regrow (mirrors `HealthCalendarCard`'s `loading && calendar == null`).
+    if ((controller.status == WeightGoalStatus.loading && goal == null) ||
         (saving && (goal == null || !goal.isProfileSet))) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/data_revision.dart';
 import '../application/import_bowel.dart';
 import '../application/import_diet.dart';
 import '../application/import_diet_target.dart';
@@ -49,6 +50,7 @@ class ChaodaysImportController extends ChangeNotifier {
   final ImportWater _importWater;
   final ImportBowel _importBowel;
   final ImportDietTarget _importDietTarget;
+  final DataRevision _dataRevision;
 
   ChaodaysImportController(
     this._importWeight,
@@ -56,6 +58,7 @@ class ChaodaysImportController extends ChangeNotifier {
     this._importWater,
     this._importBowel,
     this._importDietTarget,
+    this._dataRevision,
   );
 
   ImportStatus status = ImportStatus.idle;
@@ -137,42 +140,54 @@ class ChaodaysImportController extends ChangeNotifier {
     typeStates = _freshTypeStates();
     notifyListeners();
 
-    for (final type in ImportType.values) {
-      typeStates = {...typeStates, type: const TypeState.importing()};
-      notifyListeners();
+    // Bumps the shared revision exactly once per run, iff at least one type
+    // reached success — including a run that aborts partway, since lifeos
+    // data still changed. Placed after the re-entrancy guard above (not
+    // wrapping the whole method) so a swallowed concurrent call — which
+    // returns before reaching here — can't bump again off this run's
+    // successes.
+    var anySucceeded = false;
+    try {
+      for (final type in ImportType.values) {
+        typeStates = {...typeStates, type: const TypeState.importing()};
+        notifyListeners();
 
-      try {
-        final summary = await _runImport(
-          type,
-          idToken,
-          chaodaysUid: chaodaysUid,
-          chaodaysPassword: chaodaysPassword,
-          startDate: startDate,
-          endDate: endDate,
-        );
-        typeStates = {...typeStates, type: TypeState.success(summary)};
-        notifyListeners();
-      } on ImportChaodaysAuthFailed {
-        // All types share the same credentials, so a credential failure isn't
-        // this type's fault — leave it not-attempted (not red-failed) and surface
-        // one overall auth-failed message instead.
-        typeStates = {...typeStates, type: const TypeState.notAttempted()};
-        status = ImportStatus.authFailed;
-        notifyListeners();
-        return;
-      } on ImportReauthenticationRequired {
-        status = ImportStatus.needsReauth;
-        notifyListeners();
-        return;
-      } catch (_) {
-        typeStates = {...typeStates, type: const TypeState.failed()};
-        status = ImportStatus.unavailable;
-        notifyListeners();
-        return;
+        try {
+          final summary = await _runImport(
+            type,
+            idToken,
+            chaodaysUid: chaodaysUid,
+            chaodaysPassword: chaodaysPassword,
+            startDate: startDate,
+            endDate: endDate,
+          );
+          typeStates = {...typeStates, type: TypeState.success(summary)};
+          anySucceeded = true;
+          notifyListeners();
+        } on ImportChaodaysAuthFailed {
+          // All types share the same credentials, so a credential failure isn't
+          // this type's fault — leave it not-attempted (not red-failed) and surface
+          // one overall auth-failed message instead.
+          typeStates = {...typeStates, type: const TypeState.notAttempted()};
+          status = ImportStatus.authFailed;
+          notifyListeners();
+          return;
+        } on ImportReauthenticationRequired {
+          status = ImportStatus.needsReauth;
+          notifyListeners();
+          return;
+        } catch (_) {
+          typeStates = {...typeStates, type: const TypeState.failed()};
+          status = ImportStatus.unavailable;
+          notifyListeners();
+          return;
+        }
       }
-    }
 
-    status = ImportStatus.done;
-    notifyListeners();
+      status = ImportStatus.done;
+      notifyListeners();
+    } finally {
+      if (anySucceeded) _dataRevision.bump();
+    }
   }
 }
