@@ -11,11 +11,11 @@
 
 ## 2. infrastructure + application
 
-- [ ] 2.1 (red) `HttpCareHistoryRepository` 測試(mock client):GET
+- [x] 2.1 (red) `HttpCareHistoryRepository` 測試(mock client):GET
       `/api/care/range?from=&to=` URL/bearer/解析 `{from,to,days:[{date,items:[...]}]}`;
       PUT `/api/care/log` snake body(care_schedule_id/local_date/time_of_day/status);
       401→CareReauthRequired、非2xx→CareRequestFailed。
-- [ ] 2.2 (green) `HttpCareHistoryRepository`(mirror `http_care_today_repository.dart`)+
+- [x] 2.2 (green) `HttpCareHistoryRepository`(mirror `http_care_today_repository.dart`)+
       `get_care_history.dart` / `edit_care_slot.dart` 薄 use case。
 
 ## 3. controller
