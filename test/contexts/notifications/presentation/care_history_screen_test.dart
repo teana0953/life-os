@@ -528,6 +528,34 @@ void main() {
       );
     });
 
+    testWidgets(
+      'an edit PUT that requires reauth shows the reauth exit, not the '
+      'success SnackBar',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
+          ),
+        )..editError = const CareReauthRequired();
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+        expect(find.text(loc.careHistoryEditSuccessMessage), findsNothing);
+        expect(find.byType(SnackBar), findsNothing);
+      },
+    );
+
     testWidgets('shows the empty-state guide when every day has no slots', (
       tester,
     ) async {

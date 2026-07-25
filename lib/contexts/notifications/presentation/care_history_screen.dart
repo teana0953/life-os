@@ -216,7 +216,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
       messenger.showSnackBar(
         SnackBar(content: Text(loc2.careHistoryEditRefreshErrorMessage)),
       );
-    } else {
+    } else if (widget.controller.status != CareHistoryLoadStatus.reauth) {
       messenger.showSnackBar(
         SnackBar(content: Text(loc2.careHistoryEditSuccessMessage)),
       );
