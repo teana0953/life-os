@@ -77,6 +77,80 @@ Locale resolveLocale(Locale? locale, Iterable<Locale> supportedLocales) {
   return const Locale('en');
 }
 
+/// The outcome of [resolveAuthRedirect]: where (if anywhere) to redirect, plus
+/// the deep-link to keep remembering across the auth-bootstrap phase.
+class AuthRedirect {
+  /// The location to redirect to, or `null` to stay put.
+  final String? location;
+
+  /// The deep-link destination to carry forward (held by the router owner
+  /// between redirect calls); `null` once consumed or never captured.
+  final String? pendingDeepLink;
+
+  const AuthRedirect(this.location, this.pendingDeepLink);
+}
+
+const _splashLocation = '/splash';
+const _authErrorLocation = '/auth-error';
+
+bool _isTransientLocation(String loc) =>
+    loc == _splashLocation || loc == _authErrorLocation;
+bool _isAuthGateLocation(String loc) => loc == '/login' || loc == '/register';
+
+/// Pure auth-redirect decision, extracted so the cold-start deep-link flow is
+/// unit-testable without driving the browser URL.
+///
+/// The bug this fixes: on a cold start the auth state is still `loading`, so
+/// every location was redirected to `/splash`, **discarding** the originally
+/// requested route (e.g. a `/care-today` opened from a push notification);
+/// once auth resolved, `/splash` (transient) was sent to `/` — so the deep
+/// link never opened. Here the intended destination is captured into
+/// [pendingDeepLink] while loading and **replayed** once auth resolves (works
+/// whether the user was already signed in or had to sign in first), instead of
+/// always landing on `/`.
+///
+/// [loc] is the matched location (used for the gate/transient checks);
+/// [deepLink] is the full URI string to remember (preserves any query).
+AuthRedirect resolveAuthRedirect({
+  required String loc,
+  required String deepLink,
+  required bool error,
+  required bool loading,
+  required bool signedIn,
+  required String? pendingDeepLink,
+}) {
+  if (error) {
+    return AuthRedirect(
+      loc == _authErrorLocation ? null : _authErrorLocation,
+      pendingDeepLink,
+    );
+  }
+  if (loading) {
+    // Capture a real destination (not the splash/error/gate or the default
+    // home) once, so the auth bootstrap doesn't drop it.
+    final capture =
+        loc != '/' && !_isTransientLocation(loc) && !_isAuthGateLocation(loc);
+    final pending = pendingDeepLink ?? (capture ? deepLink : null);
+    return AuthRedirect(loc == _splashLocation ? null : _splashLocation, pending);
+  }
+  if (!signedIn) {
+    return AuthRedirect(_isAuthGateLocation(loc) ? null : '/login', pendingDeepLink);
+  }
+  // Signed in: if parked on a transient/auth-gate screen, replay the remembered
+  // deep link (else home), then clear it.
+  if (_isAuthGateLocation(loc) || _isTransientLocation(loc)) {
+    final target =
+        (pendingDeepLink != null && !_isTransientLocation(pendingDeepLink))
+        ? pendingDeepLink
+        : '/';
+    return AuthRedirect(target, null);
+  }
+  // Signed in and already on a real route: bootstrap is over, so drop any
+  // remembered deep link defensively — nothing left to replay, and keeping it
+  // could hijack a later navigation back to a stale target.
+  return const AuthRedirect(null, null);
+}
+
 /// MaterialApp + auth-state routing: shows [LoginScreen] when there is no
 /// authenticated user and [HomeScreen] when there is, driven by
 /// [AuthRepository.authStateChanges].
@@ -146,6 +220,10 @@ class _AppState extends State<App> {
   );
   late final GoRouter _router = _buildRouter();
 
+  /// The deep-link destination remembered across the auth-bootstrap phase (see
+  /// [resolveAuthRedirect]) so a cold-start push-notification route isn't lost.
+  String? _pendingDeepLink;
+
   @override
   void dispose() {
     _authNotifier.dispose();
@@ -211,16 +289,16 @@ class _AppState extends State<App> {
       initialLocation: '/',
       refreshListenable: _authNotifier,
       redirect: (context, state) {
-        final loc = state.matchedLocation;
-        if (_authNotifier.error) return loc == '/auth-error' ? null : '/auth-error';
-        if (_authNotifier.loading) return loc == '/splash' ? null : '/splash';
-        final atAuthGate = loc == '/login' || loc == '/register';
-        final atTransient = loc == '/splash' || loc == '/auth-error';
-        if (!_authNotifier.signedIn) {
-          return atAuthGate ? null : '/login';
-        }
-        if (atAuthGate || atTransient) return '/';
-        return null;
+        final result = resolveAuthRedirect(
+          loc: state.matchedLocation,
+          deepLink: state.uri.toString(),
+          error: _authNotifier.error,
+          loading: _authNotifier.loading,
+          signedIn: _authNotifier.signedIn,
+          pendingDeepLink: _pendingDeepLink,
+        );
+        _pendingDeepLink = result.pendingDeepLink;
+        return result.location;
       },
       routes: [
         GoRoute(
