@@ -1,11 +1,11 @@
 ## 1. domain
 
-- [ ] 1.1 (red) 單元測試:`careDayState(day)` 四態(noSchedule slots 空、full done==slots、
+- [x] 1.1 (red) 單元測試:`careDayState(day)` 四態(noSchedule slots 空、full done==slots、
       partial 0<done<slots、missed done==0 且非空;**done 只算 CareTodayStatus.done**,
       skipped/missed/pending/overdue 皆非 done);`careHistorySummary(days)`
       (adherenceRate=Σdone/Σslots、空→null、daysWithDose、missedCount、totalScheduled;
       **不做 clamp**——done⊆slots 恆 ≤1);`isEmpty` 判定 = 每天 slots 皆空(days 本身恆非空)。
-- [ ] 1.2 (green) `lib/contexts/notifications/domain/care_history.dart`:`CareHistoryDay`、
+- [x] 1.2 (green) `lib/contexts/notifications/domain/care_history.dart`:`CareHistoryDay`、
       兩個純衍生函式、`CareHistoryRepository` port(`getRange` + `editSlot`)。**重用**既有
       `CareTodaySlot`/`CareTodayStatus`/`careTodayStatusFromWire` 與 care typed errors,不重定義。
 
