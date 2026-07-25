@@ -20,11 +20,11 @@
 
 ## 3. controller
 
-- [ ] 3.1 (red) `CareHistoryController` 測試:load→loaded/error/reauth;`edit` 成功→**安靜重載**
+- [x] 3.1 (red) `CareHistoryController` 測試:load→loaded/error/reauth;`edit` 成功→**安靜重載**
       (status 全程 loaded、`editing` flag)、失敗→保留 days + `editError`、401→reauth;
       **FIX 2**:PUT 成功但後續重載失敗(非 401)→仍保留清單 + editError,不掉 error 態;
       **換期間不整頁閃白**(已有資料時 reload 保留舊內容);re-entrancy guard。
-- [ ] 3.2 (green) `CareHistoryController`(比照 `CareTodayController` 的 marking 機制)。
+- [x] 3.2 (green) `CareHistoryController`(比照 `CareTodayController` 的 marking 機制)。
 
 ## 4. screen
 
