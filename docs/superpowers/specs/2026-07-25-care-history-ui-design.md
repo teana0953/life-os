@@ -56,8 +56,9 @@
     `careDayState` 上色 + tooltip 日期)+ legend(完成/部分/未完成)。
   - 空/loading/error/reauth 狀態(沿用 `AsyncStateScaffold` 慣例)。
 - **編輯互動**:點清單 tile → **bottom sheet**(專案慣例:行動裝置對話框用 bottom sheet)提供
-  「完成 / 略過」兩個選項 → 呼叫 `edit`。**只有 `pending/overdue/done/skipped` 可編輯**;
-  `missed` 亦可改為 done/skipped(補登)。後端只收 done|skipped(missed 為系統推導)。
+  「完成 / 略過」兩個選項 → 呼叫 `edit`。**任何列出的 slot 都可設為 done 或 skipped**(含補登
+  `missed` 的那筆);`missed`/`pending`/`overdue` 是系統推導的來源狀態,**不可手動設定**
+  (後端只收 done|skipped)。
 - **入口**:照護管理(`/care-items`)AppBar 加「紀錄」icon → `/care-history`;
   今日照護 checklist(`/care-today`)AppBar 也加同一入口(兩處都是照護脈絡)。
 
@@ -71,10 +72,14 @@
 
 1. 從照護管理/今日照護可進入「照護紀錄」頁。
 2. 清單模式:逐日分組、每筆顯示時間/標題/狀態;圖表模式:headline + heatmap + legend。
-3. AppBar toggle 可切換兩模式;7/30/90 切換會 reload 對應期間。
-4. 點清單 tile → bottom sheet 選完成/略過 → 送出 PUT 並更新該筆(不整頁 loading);失敗顯示提示且保留清單。
-5. 空(期間內無排程)→ 空狀態;401 → reauth 出口;載入中 → loading。
-6. 達成率 = Σdone/Σslots(clamp≤100%);heatmap 格子狀態依 full/partial/missed/noSchedule。
+3. AppBar toggle 可切換兩模式;7/30/90 切換會 reload 對應期間(**from = today-(span-1)、
+   to = today,含今天**,用 `dayString` + UTC 算術),且**保留既有內容 + 細進度條**,不整頁閃白。
+4. 點清單 tile → bottom sheet 選完成/略過 → 送出 PUT 並更新該筆(不整頁 loading);失敗顯示提示
+   且保留清單(**含 PUT 成功但後續重載失敗的情況**)。
+5. 空(**每天 slots 皆空**——後端 days 是密集陣列,`days.isEmpty` 永不成立)→ 空狀態;
+   401 → reauth 出口;初次載入 → loading。**清單模式跳過無 slot 的日子**,heatmap 仍畫該格。
+6. 達成率 = Σdone/Σslots(**不需 clamp**:done ⊆ slots);heatmap 格子狀態依
+   full/partial/missed/noSchedule,格數 = span 天數。
 
 ## 測試策略
 
