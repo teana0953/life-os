@@ -29,10 +29,14 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 | `meal` | 已指定 | `null` |
 | 標題 | 「加入 {餐別}」 | 「食物字典」 |
 | 點食物 | 加進 tray | 加進 tray（相同） |
-| tray 為空時 | 不顯示提交區（現況行為） | 同 —— 所以純查詢時畫面自然乾淨 |
+| tray 為空時 | 提交按鈕在（disabled） | **隱藏**提交按鈕與手動輸入連結 |
 | 送出 | 直接送 | **先問加到哪一餐**，再送 |
 
-「tray 為空就不顯示提交區」是既有行為（`if (createMeal.tray.isNotEmpty)`），所以純查詢的人從頭到尾看不到任何記錄相關的 UI；一旦點了食物，tray 才出現 —— 記錄的意圖是使用者自己表達的，不是介面預設的。
+「純查詢時畫面乾淨」**不是免費得到的，要真的改**：現況只有 `_TrayPanel` 被 `if (createMeal.tray.isNotEmpty)` 包住；提交按鈕在 `bottomNavigationBar` 裡是**無條件渲染**、tray 空時只是 disabled（文案仍為「完成（0）」），「找不到？手動輸入」連結也一直在。
+
+所以 `meal == null` 且 tray 為空時，要**隱藏**提交按鈕與手動輸入連結，而不是讓它們 disabled —— disabled 的按鈕仍在說「這裡是拿來記錄的」，而這個入口的前提是使用者只想查。一旦點了食物，tray 與提交按鈕一起出現：記錄的意圖是使用者自己表達的，不是介面預設的。
+
+（既有測試沒有任何一條斷言空 tray 時提交按鈕存在，所以隱藏它不會讓既有測試退化。）
 
 不另做一個唯讀畫面：那會讓「查到了想記錄」變成死路（退出、選餐、再搜一次），而查詢與記錄本來就是連著的動作。
 
@@ -42,7 +46,9 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 
 選餐用 bottom sheet，選項是三個標準餐 + 一個「點心」。**整個 tray 加到同一餐**，不是每個食物各自選 —— 一次互動而不是 N 次，而且「查了三樣東西要記進不同餐」是罕見情境，那種情況走既有的逐餐流程更直接。
 
-**點心的名稱**要看該日已有哪些餐才能算（`nextSnackName`）。飲食頁本來就有那份資料，所以進字典時一起帶過去，不讓字典自己再載一次。
+**點心的名稱**要看該日已有哪些餐才能算（`nextSnackName`，在 `snack_naming.dart`，需要 `loc.dietSnackBaseName`）。飲食頁本來就有那份資料，所以進字典時一起帶過去，不讓字典自己再載一次。
+
+`mealNames` 是 **push 當下的快照** —— 若當日的餐點資料還沒載完就進字典，算出的點心名可能併入既有群組。這與飲食頁既有的 `_openAddSnack` 是同一個風險、同一個來源，本 change 不另外處理。
 
 ### D4 — 沿用飲食頁當下瀏覽的那一天
 
@@ -56,9 +62,9 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 
 | 檔案 | 改動 |
 | --- | --- |
-| `DietDayScreen` | AppBar 加查詢 `IconButton`；push 時帶當日 `day` 與 `mealNames` |
+| `DietDayScreen` | AppBar 加查詢 `IconButton`；push 時**比照 `_openFoodSearch` 的三步**：`createMealController.start(...)` 重置 tray、`dictionaryController.clearSearch()`、`await` push 結果為 true 時 `_reloadCurrentDay()` |
 | `lib/app.dart` | 新路由 `/health/diet/dictionary`（`extra` 缺席時比照 food-search redirect 回飲食頁） |
-| `FoodSearchScreen` | `meal` 改可選；標題依 `meal` 分岔；送出前若 `meal` 未定則開選餐 sheet |
+| `FoodSearchScreen` | `meal` 改可選；標題依 `meal` 分岔；**`meal == null` 且 tray 空時隱藏提交按鈕與手動輸入連結**（現況兩者無條件渲染）；送出前若 `meal` 未定則開選餐 sheet |
 | `CreateMealController` | 允許在未指定 meal 的情況下開始一個 session，送出前才綁定 |
 | l10n ARB ×3 | 字典標題、查詢入口的 tooltip、選餐 sheet 的標題 |
 
@@ -74,6 +80,7 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 
 **例外路徑**：
 - 直接用網址開 `/health/diet/dictionary`（沒有 `extra`）→ redirect 回飲食頁（比照現有 food-search 的處理）。
+- 上一次在某一餐的搜尋放棄了、tray 還留著 → 進字典前 `start(...)` 已經把它重置，不會一進去就看到提交區。
 - 未登入／401 → 沿用畫面既有的 reauth 呈現。
 - 送出失敗 → 沿用既有錯誤處理，tray 保留。
 

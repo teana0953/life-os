@@ -17,16 +17,19 @@
   - 選餐 sheet 被關掉（沒選）→ **什麼都沒送出，tray 還在**
   - `meal` 已指定時送出 → **不問**，直接送（既有行為）
 - [ ] `FoodSearchScreen`：`meal` 改 `String?`；標題分岔；送出前若 `meal` 為 null 則開 bottom sheet。
-- [ ] 選餐 sheet：三個標準餐 + 一個「點心」。點心名稱用 `nextSnackName(mealNames, …)` 算 —— `mealNames` 由呼叫端傳入（飲食頁已經有）。
+- [ ] **隱藏提交按鈕與手動輸入連結**（`meal == null` 且 tray 為空時）。注意現況**兩者都是無條件渲染** —— 提交按鈕在 `bottomNavigationBar`，tray 空時只是 disabled（文案「完成（0）」）；`manual-entry-link` 一直都在。**不可以只把按鈕改成 disabled 就當作做完** —— disabled 的按鈕仍在說「這裡是拿來記錄的」。既有測試沒有任何一條斷言空 tray 時提交按鈕存在，所以隱藏不會造成退化。
+- [ ] 選餐 sheet：三個標準餐 + 一個「點心」。點心名稱用 `nextSnackName(mealNames, loc.dietSnackBaseName)` 算 —— 它在 **`snack_naming.dart`**（不是 `meal_label.dart`）。`mealNames` 由呼叫端傳入（飲食頁已經有），`FoodSearchScreen` 要新增這個參數。
+- [ ] `mealNames` 是 **push 當下的快照**：若當日餐點資料還沒載完就進字典，算出的點心名可能併入既有群組。這與飲食頁既有的 `_openAddSnack` 同風險同來源，**本 change 不處理**，但實作時不要自作主張去改既有行為。
 
 ## 3. 入口與路由 (TDD)
 - [ ] Test first (red)：
   - 飲食頁 AppBar 有查詢按鈕，**帶 tooltip**
-  - 點它 push 到字典路由，`extra` 帶的是**當下瀏覽的那一天**（測試要瀏覽到非今天的日期再點，否則這條會恆真）與該日的 mealNames
+  - 點它 push 到字典路由，`extra` 帶的是**當下瀏覽的那一天**（測試要瀏覽到非今天的日期再點，否則這條會恆真）與該日的 mealNames。**注意共用 harness `test/support/l10n_test_app.dart` 的 stub router 看不到 `extra`**（它只渲染 matchedLocation），要驗 day/mealNames 得在測試裡自建一個會捕捉 `state.extra` 的 `GoRouter`
+  - 開字典前上一個 session 的 tray 已被重置（先在某一餐加東西、返回、再開字典 → 沒有提交區）
   - 路由在 `extra` 缺席時 redirect 回 `/health/diet`（比照既有 food-search）
-- [ ] `DietDayScreen`：AppBar 加 `IconButton`（純圖示 —— 那裡已有帶文字的「目標」按鈕）。
+- [ ] `DietDayScreen`：AppBar 加 `IconButton`（純圖示 —— 那裡已有帶文字的「目標」按鈕）。開啟時**比照 `_openFoodSearch` 的三步**（`diet_day_screen.dart`）：`createMealController.start(...)` 重置 tray、`dictionaryController.clearSearch()`、`await` push 結果為 `true` 時 `_reloadCurrentDay()`。**少了 `start` 的話，前一次放棄的 tray 會洩進字典 session，一進去就看到提交區** —— tasks 2 的「tray 空時隱藏」也就白做了。
 - [ ] `lib/app.dart`：新增 `/health/diet/dictionary` 路由，比照 food-search 的 `extra` 處理與 `_Redirect`。
-- [ ] **窄螢幕檢查**：AppBar 同時有「目標」（帶文字）與查詢圖示，在 360 寬下不得溢出。若溢出，優先把「目標」也收成純圖示，而不是把查詢挪走。
+- [ ] **窄螢幕**：AppBar 同時有「目標」（帶文字）與查詢圖示，在 320／360 寬下不得溢出。這個 repo 已有「Diet surfaces fit narrow」的既有需求與 overflow 測試慣例（`setSurfaceSize` + `addTearDown` 還原）—— **補一條自動化測試**，不要只靠人工看。若溢出，優先把「目標」也收成純圖示，而不是把查詢挪走。
 
 ## 4. l10n
 - [ ] 新增字串到 `app_en.arb`（含 `description`）+ `app_zh_Hant.arb` + `app_zh.arb`：字典標題、查詢入口 tooltip、選餐 sheet 標題。重新產生 `lib/l10n/generated` 並提交（CLAUDE.md i18n 規則）。
