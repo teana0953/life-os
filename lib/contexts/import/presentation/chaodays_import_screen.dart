@@ -211,21 +211,6 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                               style: TextStyle(color: theme.colorScheme.error),
                             ),
                           ],
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            key: const Key('import-submit-button'),
-                            onPressed: _canSubmit ? _submit : null,
-                            child: _isImporting
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: theme.colorScheme.onPrimary,
-                                    ),
-                                  )
-                                : Text(loc.importSubmitButton),
-                          ),
                         ],
                       ),
                     ),
@@ -233,7 +218,15 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                     LedgeCard(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: Text(
+                              loc.importTypesTitle,
+                              style: theme.textTheme.labelLarge,
+                            ),
+                          ),
                           if (widget.controller.status == ImportStatus.done)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -264,16 +257,42 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                               // the checkboxes locked for good and there would
                               // be no way to re-run a different selection here.
                               selectable: !_isImporting,
-                              onSelectedChanged: (value) => setState(() {
-                                if (value) {
-                                  _selected.add(type);
-                                } else {
-                                  _selected.remove(type);
-                                }
-                              }),
+                              onSelectedChanged: (value) {
+                                setState(() {
+                                  if (value) {
+                                    _selected.add(type);
+                                  } else {
+                                    _selected.remove(type);
+                                  }
+                                });
+                                // Only this row: its last result was about a
+                                // run this type is no longer signed up for the
+                                // same way. The other rows were not touched, so
+                                // theirs still stand.
+                                widget.controller.clearType(type);
+                              },
                             ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Last, after the selection it acts on: the controls that
+                    // decide what runs come before the control that runs it,
+                    // so "nothing selected → button disabled" is visible as
+                    // cause and effect.
+                    FilledButton(
+                      key: const Key('import-submit-button'),
+                      onPressed: _canSubmit ? _submit : null,
+                      child: _isImporting
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                          : Text(loc.importSubmitButton),
                     ),
                   ],
                 ),
@@ -288,10 +307,11 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
 
 /// One data type's row in the results card: a leading checkbox saying whether
 /// the next import will run this type, the type's label, — once known — its
-/// result or failure text, and a trailing icon reflecting its
-/// [TypeState.status]. The two slots are permanent and never swap roles, so a
-/// finished run's outcome stays on screen next to the checkbox that decides
-/// the next one.
+/// result or failure text, and a trailing slot reflecting its
+/// [TypeState.status] — an icon once there is something to report, an
+/// equally wide blank before that. The two slots are permanent and never swap
+/// roles, so a finished run's outcome stays on screen next to the checkbox
+/// that decides the next one.
 class _TypeResultRow extends StatelessWidget {
   final ImportType type;
   final TypeState state;
@@ -333,25 +353,49 @@ class _TypeResultRow extends StatelessWidget {
     return text;
   }
 
-  Widget _statusIcon(ThemeData theme) {
+  /// The trailing slot's content, decided by *this type's* status rather than
+  /// the run's: after a run the overall status is `done` while an individual
+  /// row the user has just re-selected has nothing left to report, and only
+  /// the per-type status can tell those apart.
+  Widget _statusIcon(ThemeData theme, AppLocalizations loc) {
+    final key = Key('import-type-status-${type.name}');
     return switch (state.status) {
+      // Never run, or just cleared: an empty box the width of an icon, so the
+      // first result to arrive doesn't shove the label sideways. No spoken
+      // description either — there is no status to describe.
+      TypeStatus.pristine => SizedBox(key: key, height: 24, width: 24),
+      // The rest carry a description: the row merges into one semantics node,
+      // so without it the icon's meaning never reaches a screen reader.
       TypeStatus.notAttempted => Icon(
         Icons.circle_outlined,
+        key: key,
         color: theme.colorScheme.onSurfaceVariant,
+        semanticLabel: loc.importStatusNotAttempted,
       ),
       TypeStatus.importing => SizedBox(
+        key: key,
         height: 20,
         width: 20,
+        // A progress indicator has no `semanticLabel` — it takes
+        // `semanticsLabel` instead.
         child: CircularProgressIndicator(
           strokeWidth: 2,
           color: importRunningIconColor(theme.colorScheme),
+          semanticsLabel: loc.importStatusImporting,
         ),
       ),
       TypeStatus.success => Icon(
         Icons.check_circle,
+        key: key,
         color: importSuccessIconColor(theme.colorScheme),
+        semanticLabel: loc.importStatusSuccess,
       ),
-      TypeStatus.failed => Icon(Icons.error, color: theme.colorScheme.error),
+      TypeStatus.failed => Icon(
+        Icons.error,
+        key: key,
+        color: theme.colorScheme.error,
+        semanticLabel: loc.importStatusFailed,
+      ),
     };
   }
 
@@ -396,7 +440,7 @@ class _TypeResultRow extends StatelessWidget {
                     : theme.colorScheme.onSurfaceVariant,
               ),
             ),
-      secondary: _statusIcon(theme),
+      secondary: _statusIcon(theme, loc),
     );
   }
 }

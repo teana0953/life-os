@@ -113,6 +113,47 @@ void main() {
     });
   });
 
+  // The chaodays import screen locks its checkboxes while a run is under way,
+  // and the box is then the only thing saying "this one is queued" rather than
+  // "this one was left out". M3 paints both disabled states with
+  // onSurface@38% — 1.91:1 on the cream card — so the two are pulled apart
+  // into opaque colors here.
+  group('checkboxTheme disabled state', () {
+    Color? disabledFill(ThemeData theme) => theme.checkboxTheme.fillColor
+        ?.resolve({WidgetState.disabled, WidgetState.selected});
+
+    Color? disabledOutline(ThemeData theme) =>
+        WidgetStateProperty.resolveAs<BorderSide?>(theme.checkboxTheme.side, {
+          WidgetState.disabled,
+        })?.color;
+
+    test('light theme disabled fill and outline are different colors', () {
+      expect(disabledFill(lightTheme), isNotNull);
+      expect(disabledOutline(lightTheme), isNotNull);
+      expect(disabledFill(lightTheme), isNot(disabledOutline(lightTheme)));
+    });
+
+    test('light theme disabled fill and outline each clear 3:1 on the card', () {
+      // Non-text graphics need 3:1. The filled box is 8.32:1 on surfaceLight,
+      // the hollow one's outline 5.17:1 — and 1.61:1 apart from each other,
+      // on top of the solid-vs-hollow difference.
+      expect(
+        _contrastRatio(disabledFill(lightTheme)!, surfaceLight),
+        greaterThanOrEqualTo(3.0),
+      );
+      expect(
+        _contrastRatio(disabledOutline(lightTheme)!, surfaceLight),
+        greaterThanOrEqualTo(3.0),
+      );
+    });
+
+    test('dark theme keeps the Material defaults', () {
+      // 3.06:1 there already, so it needs no help — and _buildTheme is shared,
+      // so this pins that the override forks by brightness.
+      expect(darkTheme.checkboxTheme, const CheckboxThemeData());
+    });
+  });
+
   group('DietCategoryColors', () {
     test('is registered on the light theme with the light palette', () {
       final colors = lightTheme.extension<DietCategoryColors>();

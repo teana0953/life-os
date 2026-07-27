@@ -160,11 +160,11 @@ void main() {
       );
     });
 
-    test('every type starts notAttempted before import runs', () {
+    test('every type starts pristine before import runs', () {
       final controller = _controller(FakeImportRepository());
 
       for (final type in ImportType.values) {
-        expect(controller.typeStates[type]!.status, TypeStatus.notAttempted);
+        expect(controller.typeStates[type]!.status, TypeStatus.pristine);
       }
       expect(controller.status, ImportStatus.idle);
     });
@@ -248,7 +248,7 @@ void main() {
   });
 
   group('ChaodaysImportController.import type selection', () {
-    test('runs only the selected type and leaves the rest notAttempted', () async {
+    test('runs only the selected type and leaves the rest untouched', () async {
       final repository = FakeImportRepository();
       final controller = _controller(repository);
 
@@ -257,8 +257,9 @@ void main() {
       expect(repository.calls, ['diet']);
       expect(controller.status, ImportStatus.done);
       expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.success);
+      // Never part of any run, so still exactly as they started.
       for (final type in ImportType.values.where((t) => t != ImportType.diet)) {
-        expect(controller.typeStates[type]!.status, TypeStatus.notAttempted);
+        expect(controller.typeStates[type]!.status, TypeStatus.pristine);
       }
     });
 
@@ -271,7 +272,7 @@ void main() {
 
       expect(repository.calls, ['weight', 'dietTarget']);
       expect(controller.status, ImportStatus.done);
-      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.notAttempted);
+      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.pristine);
     });
 
     test(
@@ -291,22 +292,30 @@ void main() {
       },
     );
 
-    test('a new run clears every type\'s result, including the ones it skips', () async {
-      final repository = FakeImportRepository();
-      final controller = _controller(repository);
-      await _import(controller);
-      expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
+    test(
+      'a new run resets only the types it will run, keeping the rest',
+      () async {
+        final repository = FakeImportRepository();
+        final controller = _controller(repository);
+        await _import(controller);
+        expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
 
-      await _import(controller, types: {ImportType.diet});
+        repository.waterError = const ImportChaodaysUnavailable();
+        await _import(controller, types: {ImportType.water, ImportType.bowel});
 
-      // Re-running one type wipes the other four results rather than leaving
-      // them on screen next to a run they were not part of.
-      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.success);
-      expect(
-        controller.typeStates[ImportType.weight]!.status,
-        TypeStatus.notAttempted,
-      );
-    });
+        expect(controller.typeStates[ImportType.water]!.status, TypeStatus.failed);
+        // Selected for this run but never reached: the old success is cleared
+        // to notAttempted ("queued, didn't get there"), not to pristine.
+        expect(
+          controller.typeStates[ImportType.bowel]!.status,
+          TypeStatus.notAttempted,
+        );
+        // Left out of this run entirely, so its earlier result still stands
+        // rather than being wiped by a run it was no part of.
+        expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
+        expect(controller.typeStates[ImportType.weight]!.summary!.imported, 1);
+      },
+    );
 
     test('a selection mutated after the call started does not change the run', () async {
       final repository = FakeImportRepository();
@@ -351,6 +360,40 @@ void main() {
 
       expect(controller.status, ImportStatus.unavailable);
       expect(dataRevision.revision, 0);
+    });
+  });
+
+  group('ChaodaysImportController.clearType', () {
+    test('clears that type back to pristine and leaves the others alone', () async {
+      final controller = _controller(FakeImportRepository());
+      await _import(controller);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.clearType(ImportType.diet);
+
+      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.pristine);
+      expect(controller.typeStates[ImportType.diet]!.summary, isNull);
+      for (final type in ImportType.values.where((t) => t != ImportType.diet)) {
+        expect(controller.typeStates[type]!.status, TypeStatus.success);
+      }
+      // The screen only redraws on a notification.
+      expect(notifications, 1);
+    });
+
+    test('leaves the overall status alone', () async {
+      final repository = FakeImportRepository()
+        ..weightError = const ImportChaodaysUnavailable();
+      final controller = _controller(repository);
+      await _import(controller);
+      expect(controller.status, ImportStatus.unavailable);
+
+      controller.clearType(ImportType.weight);
+
+      // The banner reports how the last run went; changing one row's selection
+      // doesn't make that untrue, and the message has to stay while the user
+      // corrects the credentials and retries.
+      expect(controller.status, ImportStatus.unavailable);
     });
   });
 

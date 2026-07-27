@@ -97,7 +97,30 @@ ThemeData get lightTheme => _buildTheme(
       ink: inkLight,
       outline: outlineLight,
       dietCategoryColors: _dietCategoryColorsLight,
+      checkboxTheme: _checkboxThemeLight,
     );
+
+/// Light-theme disabled checkbox. Material 3 paints both disabled states with
+/// `onSurface` at 38% — 1.91:1 on the cream card — leaving "checked but
+/// locked" and "left out of this run" almost indistinguishable, which the
+/// chaodays import screen relies on while a run is under way. Opaque colors
+/// instead: an ink-filled box (8.32:1 on `surfaceLight`) against a muted-ink
+/// outline (5.17:1). Both resolvers return null outside the disabled state so
+/// every other state keeps the Material defaults; the dark theme sets no
+/// override at all (3.06:1 there is already enough).
+final _checkboxThemeLight = CheckboxThemeData(
+  fillColor: WidgetStateProperty.resolveWith(
+    (states) => states.contains(WidgetState.disabled) &&
+            states.contains(WidgetState.selected)
+        ? inkLight
+        : null,
+  ),
+  side: WidgetStateBorderSide.resolveWith(
+    (states) => states.contains(WidgetState.disabled)
+        ? const BorderSide(color: mutedInkLight, width: _borderWidth)
+        : null,
+  ),
+);
 
 ThemeData get darkTheme => _buildTheme(
       colorScheme: const ColorScheme(
@@ -128,6 +151,7 @@ ThemeData _buildTheme({
   required Color ink,
   required Color outline,
   required DietCategoryColors dietCategoryColors,
+  CheckboxThemeData? checkboxTheme,
 }) {
   final textTheme = _textTheme(ink);
   return ThemeData(
@@ -137,6 +161,7 @@ ThemeData _buildTheme({
     fontFamily: _fontFamily,
     textTheme: textTheme,
     extensions: [dietCategoryColors],
+    checkboxTheme: checkboxTheme,
     cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,

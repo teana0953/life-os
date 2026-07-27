@@ -260,6 +260,11 @@ Finder _rowFor(ImportType type) => find.byKey(Key('import-type-row-${type.name}'
 Finder _checkboxFor(ImportType type) =>
     find.descendant(of: _rowFor(type), matching: find.byType(Checkbox));
 
+/// Whatever currently occupies the row's trailing status slot — an icon, a
+/// spinner, or the blank that stands in for "nothing to report".
+Finder _statusFor(ImportType type) =>
+    find.byKey(Key('import-type-status-${type.name}'));
+
 /// Unchecks every type except [keep] (nothing is kept when it is null).
 Future<void> _selectOnly(WidgetTester tester, {ImportType? keep}) async {
   for (final type in ImportType.values.where((t) => t != keep)) {
@@ -666,10 +671,48 @@ void main() {
       }
     });
 
+    testWidgets('no status is shown before the first run, and the slot keeps its width', (
+      tester,
+    ) async {
+      final repository = _FakeImportRepository();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      // Five identical empty circles report nothing and read like a stray set
+      // of radio buttons — the slot stays blank until it has something to say.
+      for (final type in ImportType.values) {
+        expect(
+          find.descendant(of: _rowFor(type), matching: find.byType(Icon)),
+          findsNothing,
+        );
+      }
+      final blankWidth = tester.getSize(_statusFor(ImportType.weight)).width;
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: _rowFor(ImportType.weight),
+          matching: find.byIcon(Icons.check_circle),
+        ),
+        findsOneWidget,
+      );
+      // The blank stands in at the icon's own width, so the labels don't jump
+      // sideways the first time a run reports back.
+      expect(tester.getSize(_statusFor(ImportType.weight)).width, blankWidth);
+    });
+
     testWidgets('the checkbox leads the row and the status icon trails it', (
       tester,
     ) async {
       await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // Once a run has reported back — before that the trailing slot is blank
+      // by design, so there is no icon to place.
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
 
       // The two slots never swap roles: the checkbox deciding the next run
       // stays on the left, the icon reporting the last one on the right.
@@ -679,12 +722,40 @@ void main() {
             .getCenter(
               find.descendant(
                 of: _rowFor(type),
-                matching: find.byIcon(Icons.circle_outlined),
+                matching: find.byIcon(Icons.check_circle),
               ),
             )
             .dx;
         expect(checkboxX, lessThan(iconX));
       }
+    });
+
+    testWidgets('the type selection sits under a heading, above the submit button', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        controller: _controller(_FakeImportRepository()),
+        theme: lightTheme,
+      );
+
+      final heading = find.text(loc.importTypesTitle);
+      expect(heading, findsOneWidget);
+      // Heading names the group, then the rows, then the action they drive —
+      // so "clear every type and the button greys out" reads as cause first,
+      // effect second.
+      expect(
+        tester.getBottomLeft(heading).dy,
+        lessThanOrEqualTo(tester.getTopLeft(_rowFor(ImportType.weight)).dy),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('import-submit-button'))).dy,
+        greaterThan(tester.getBottomLeft(_rowFor(ImportType.dietTarget)).dy),
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(heading).text.style!.fontWeight,
+        lightTheme.textTheme.labelLarge!.fontWeight,
+      );
     });
 
     testWidgets('the success icon uses the deeper light-theme icon color', (
@@ -742,6 +813,94 @@ void main() {
           findsOneWidget,
         );
       }
+    });
+
+    testWidgets('changing one type\'s selection after a run clears that row only', (
+      tester,
+    ) async {
+      final repository = _FakeImportRepository();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(loc.importResultSummary(4, 0)), findsOneWidget);
+
+      await tester.tap(_checkboxFor(ImportType.water));
+      await tester.pump();
+
+      // The user just changed what water is going to do next, so last run's
+      // water result no longer describes anything the screen is showing.
+      expect(find.text(loc.importResultSummary(4, 0)), findsNothing);
+      expect(
+        find.descendant(
+          of: _rowFor(ImportType.water),
+          matching: find.byIcon(Icons.check_circle),
+        ),
+        findsNothing,
+      );
+      // The rows the user did not touch still stand.
+      expect(find.text(loc.importResultSummary(1, 0)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _rowFor(ImportType.weight),
+          matching: find.byIcon(Icons.check_circle),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a running type and its outcome are described for a screen reader', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final repository = _HangingImportRepository();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pump();
+
+      // The row merges into a single node, so the spinner has to put its
+      // meaning into that node's label or it says nothing at all.
+      expect(
+        tester.getSemantics(_rowFor(ImportType.weight)).label,
+        contains(loc.importStatusImporting),
+      );
+
+      repository.weightCompleter.complete(
+        const ChaodaysImportSummary(imported: 0, skipped: 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_rowFor(ImportType.weight)).label,
+        contains(loc.importStatusSuccess),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('a failed type and the ones it stopped are described too', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final repository = _FakeImportRepository()
+        ..weightError = const ImportChaodaysUnavailable();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_rowFor(ImportType.weight)).label,
+        contains(loc.importStatusFailed),
+      );
+      expect(
+        tester.getSemantics(_rowFor(ImportType.bowel)).label,
+        contains(loc.importStatusNotAttempted),
+      );
+      handle.dispose();
     });
 
     testWidgets('after a fully successful run the selection can be changed and re-run', (
