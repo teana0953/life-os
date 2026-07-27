@@ -97,7 +97,33 @@ ThemeData get lightTheme => _buildTheme(
       ink: inkLight,
       outline: outlineLight,
       dietCategoryColors: _dietCategoryColorsLight,
+      checkboxTheme: _checkboxThemeLight,
     );
+
+/// Light-theme disabled checkbox. Material 3 paints both disabled states with
+/// `onSurface` at 38% — 1.91:1 on the cream card — leaving "checked but
+/// locked" and "left out of this run" almost indistinguishable, which the
+/// chaodays import screen relies on while a run is under way. Opaque colors
+/// instead: an ink-filled box (8.32:1 on `surfaceLight`) against a muted-ink
+/// outline (5.17:1). Both resolvers return null outside the disabled state so
+/// every other state keeps the Material defaults; the dark theme sets no
+/// override at all. Note the dark side is NOT verified as *distinguishable*:
+/// its two disabled states are the same colour (1.00:1 apart). The 3.06:1
+/// often quoted for it measures visibility against the card, which is a
+/// different question — see the change's design D4.
+final _checkboxThemeLight = CheckboxThemeData(
+  fillColor: WidgetStateProperty.resolveWith(
+    (states) => states.contains(WidgetState.disabled) &&
+            states.contains(WidgetState.selected)
+        ? inkLight
+        : null,
+  ),
+  side: WidgetStateBorderSide.resolveWith(
+    (states) => states.contains(WidgetState.disabled)
+        ? const BorderSide(color: mutedInkLight, width: _borderWidth)
+        : null,
+  ),
+);
 
 ThemeData get darkTheme => _buildTheme(
       colorScheme: const ColorScheme(
@@ -128,6 +154,7 @@ ThemeData _buildTheme({
   required Color ink,
   required Color outline,
   required DietCategoryColors dietCategoryColors,
+  CheckboxThemeData? checkboxTheme,
 }) {
   final textTheme = _textTheme(ink);
   return ThemeData(
@@ -137,6 +164,7 @@ ThemeData _buildTheme({
     fontFamily: _fontFamily,
     textTheme: textTheme,
     extensions: [dietCategoryColors],
+    checkboxTheme: checkboxTheme,
     cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,
@@ -214,6 +242,23 @@ TextTheme _textTheme(Color ink) {
     labelLarge: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
   );
 }
+
+/// Color for the chaodays import screen's "this type succeeded" icon. The
+/// pastel `tertiary` it would otherwise use is 1.28:1 on the light card, far
+/// under the 3:1 a non-text graphic needs, so the light theme swaps in the
+/// deeper [importSuccessIconLight] (3.45:1); the dark theme's pastel already
+/// clears it (9.64:1) and is kept.
+Color importSuccessIconColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? importSuccessIconLight
+        : scheme.tertiary;
+
+/// Same as [importSuccessIconColor] for the "this type is running" spinner:
+/// `primary` is 1.64:1 on the light card, [importRunningIconLight] is 3.63:1.
+Color importRunningIconColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? importRunningIconLight
+        : scheme.primary;
 
 /// The "toy ledge" shadow used under cards and primary buttons: a soft,
 /// downward-offset shadow rather than a symmetric `elevation` blur. Wrap a

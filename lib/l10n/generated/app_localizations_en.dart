@@ -903,6 +903,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your chaodays credentials are used only for this import and are never stored.';
 
   @override
+  String get importTypesTitle => 'What to import';
+
+  @override
   String get importTypeWeight => 'Weight & body fat';
 
   @override
@@ -934,6 +937,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importTypeFailed => 'Failed';
+
+  @override
+  String get importStatusImporting => 'Importing';
+
+  @override
+  String get importStatusSuccess => 'Imported successfully';
+
+  @override
+  String get importStatusFailed => 'Import failed';
+
+  @override
+  String get importStatusNotAttempted => 'Not attempted';
 
   @override
   String get importErrorAuthFailed =>

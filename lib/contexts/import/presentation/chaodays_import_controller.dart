@@ -13,7 +13,13 @@ import '../domain/import_exceptions.dart';
 /// the fixed order they run.
 enum ImportType { weight, diet, water, bowel, dietTarget }
 
-enum TypeStatus { notAttempted, importing, success, failed }
+/// A single type's import state.
+///
+/// [pristine] and [notAttempted] both mean "this type did not run", but they
+/// are told apart on purpose: [pristine] has nothing to report at all (never
+/// run, or just cleared), while [notAttempted] is the positive statement "a
+/// run happened and did not get to this one".
+enum TypeStatus { pristine, notAttempted, importing, success, failed }
 
 /// One data type's progress: [status] plus, once [TypeStatus.success], the
 /// resulting [summary].
@@ -23,6 +29,7 @@ class TypeState {
 
   const TypeState._(this.status, this.summary);
 
+  const TypeState.pristine() : this._(TypeStatus.pristine, null);
   const TypeState.notAttempted() : this._(TypeStatus.notAttempted, null);
   const TypeState.importing() : this._(TypeStatus.importing, null);
   const TypeState.success(ChaodaysImportSummary summary)
@@ -33,12 +40,12 @@ class TypeState {
 enum ImportStatus { idle, importing, done, authFailed, unavailable, needsReauth }
 
 Map<ImportType, TypeState> _freshTypeStates() => {
-  for (final type in ImportType.values) type: const TypeState.notAttempted(),
+  for (final type in ImportType.values) type: const TypeState.pristine(),
 };
 
-/// Drives the chaodays import screen: runs the five data-type imports
-/// (weight, diet, water, bowel, diet target) in order against the given date
-/// range, tracking overall [status] and each type's [TypeState] in
+/// Drives the chaodays import screen: runs the selected data-type imports
+/// (out of weight, diet, water, bowel, diet target) in order against the
+/// given date range, tracking overall [status] and each type's [TypeState] in
 /// [typeStates].
 ///
 /// The chaodays credentials are passed through to [import] and never held by
@@ -63,6 +70,16 @@ class ChaodaysImportController extends ChangeNotifier {
 
   ImportStatus status = ImportStatus.idle;
   Map<ImportType, TypeState> typeStates = _freshTypeStates();
+
+  /// Drops [type]'s result back to [TypeStatus.pristine] — "nothing to report"
+  /// — leaving every other type's state, and the overall [status], as they
+  /// were. Called when the user changes that type's selection: the old result
+  /// stops being about the run the user is now assembling, but the banner
+  /// still describes the run that actually happened.
+  void clearType(ImportType type) {
+    typeStates = {...typeStates, type: const TypeState.pristine()};
+    notifyListeners();
+  }
 
   Future<ChaodaysImportSummary> _runImport(
     ImportType type,
@@ -116,8 +133,13 @@ class ChaodaysImportController extends ChangeNotifier {
     }
   }
 
-  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for all five types,
-  /// in order. Stops at the first failure:
+  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for the selected
+  /// [types], in [ImportType.values] order; unselected types don't run and
+  /// keep the [TypeState] they already had. [types] is required and has no
+  /// default: a default would let a caller that forgot it silently import
+  /// everything.
+  ///
+  /// Stops at the first failure:
   /// - Wrong chaodays credentials (shared by all five types, so the rest
   ///   would fail identically) → [ImportStatus.authFailed]; the remaining
   ///   types are left [TypeStatus.notAttempted] rather than marked failed.
@@ -125,9 +147,11 @@ class ChaodaysImportController extends ChangeNotifier {
   /// - chaodays unreachable, or any other failure → [ImportStatus.unavailable]
   ///   with that type marked [TypeStatus.failed].
   ///
-  /// Otherwise, once all five succeed, ends at [ImportStatus.done].
+  /// Otherwise, once every selected type succeeds, ends at
+  /// [ImportStatus.done].
   Future<void> import(
     String idToken, {
+    required Set<ImportType> types,
     required String chaodaysUid,
     required String chaodaysPassword,
     required String startDate,
@@ -136,8 +160,19 @@ class ChaodaysImportController extends ChangeNotifier {
     // Re-entrancy guard: ignore a second call while one is already running (a
     // fast double-tap can fire before the button's importing state is reflected).
     if (status == ImportStatus.importing) return;
+    // Copied up front: the caller (the screen) hands over the very set its
+    // checkboxes mutate, and the loop below reads it lazily across awaits — so
+    // without a copy a mid-run edit would silently re-route the rest of the run.
+    final selected = types.toSet();
     status = ImportStatus.importing;
-    typeStates = _freshTypeStates();
+    // Only this run's types are reset — the ones it leaves out keep whatever
+    // they were showing, since this run says nothing about them. They go to
+    // `notAttempted` ("selected, not reached yet") rather than `pristine`,
+    // which is reserved for "nothing to report at all".
+    typeStates = {
+      ...typeStates,
+      for (final type in selected) type: const TypeState.notAttempted(),
+    };
     notifyListeners();
 
     // Bumps the shared revision exactly once per run, iff at least one type
@@ -148,7 +183,10 @@ class ChaodaysImportController extends ChangeNotifier {
     // successes.
     var anySucceeded = false;
     try {
-      for (final type in ImportType.values) {
+      // Filtered off ImportType.values rather than iterating [types], so the
+      // run order stays the fixed display order whatever order they were
+      // selected in.
+      for (final type in ImportType.values.where(selected.contains)) {
         typeStates = {...typeStates, type: const TypeState.importing()};
         notifyListeners();
 
