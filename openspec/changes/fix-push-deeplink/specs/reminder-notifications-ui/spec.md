@@ -14,10 +14,17 @@ service worker**, so the page the user was on remains in the history stack.
 - **WHEN** the app is not running and the user taps a care notification
 - **THEN** the app starts and 今日照護 is shown
 
-#### Scenario: A running app reaches 今日照護 without losing its current page
-- **WHEN** the app is running on some other screen and the user taps a care notification
+#### Scenario: A backgrounded app reaches 今日照護 without losing its current page
+- **WHEN** the app is running in the background on some other screen and the user taps a
+  care notification
 - **THEN** the app is brought to the foreground and 今日照護 is shown, with the screen the
   user was on still beneath it in the history stack
+
+#### Scenario: A foregrounded app reaches 今日照護
+- **WHEN** the app is already in the foreground showing some other screen and the user taps
+  a care notification displayed over it
+- **THEN** 今日照護 is shown, with the screen the user was on still beneath it in the history
+  stack — the app does not sit unchanged waiting for a later foreground transition
 
 #### Scenario: Signing in first still reaches the destination
 - **WHEN** the user taps a care notification while signed out, and then signs in
@@ -33,6 +40,12 @@ where they were — matching how 今日照護 behaves when opened from the overv
 - **WHEN** 今日照護 has been opened by tapping a care notification
 - **THEN** the screen shows a back affordance, and using it returns to the screen beneath —
   the home screen on a cold start, or the screen the user was on when already running
+
+#### Scenario: The transition screens are never left underneath
+- **WHEN** the destination is consumed while the app is still on a splash, auth-error, or
+  sign-in screen
+- **THEN** nothing is consumed yet and the navigation happens later, so 今日照護 is never
+  stacked on top of a transition screen
 
 ### Requirement: A stale or duplicate hand-over never hijacks navigation
 

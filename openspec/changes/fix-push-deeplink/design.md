@@ -2,12 +2,13 @@
 
 ## 問題
 
-點擊照護推播通知後，應該進到「今日照護」(`/care-today`)，實際行為分兩種：
+點擊照護推播通知後，應該進到「今日照護」(`/care-today`)，實際行為分三種：
 
 | 情境 | 現況 | 期望 |
 | --- | --- | --- |
-| PWA 已在執行（背景） | **有**進到今日照護，但沒有返回箭頭，返回鍵離開 app | 進到今日照護，且可返回原本頁面 |
 | PWA 冷啟動（task 已清） | 停在首頁 | 進到今日照護，可返回首頁 |
+| PWA 在背景 | **有**進到今日照護，但沒有返回箭頭，返回鍵離開 app | 進到今日照護，可返回原本頁面 |
+| PWA 在前景（heads-up 通知） | 有進到今日照護（同樣沒有返回箭頭） | 進到今日照護，可返回原本頁面 |
 
 ### Root cause（實機證據）
 
@@ -27,29 +28,61 @@
 
 ### D1 — 目的地改走 Cache Storage 交接，不再依賴 URL
 
-`notificationclick` 時 SW 把目標路徑寫進 Cache Storage（同源共享，SW 與頁面都能存取），app 端自己讀出來導航。URL 不再是傳遞目的地的必要管道，於是 WebAPK 丟不丟 fragment 都不影響。
+`notificationclick` 時 SW 把目標路徑寫進 Cache Storage（同源共享，SW 與頁面都能存取），app 端自己讀出來導航。URL 不再是傳遞目的地的管道，於是 WebAPK 丟不丟 fragment 都不影響。
 
 選 Cache Storage 而非 IndexedDB：讀寫各一行 (`cache.put` / `cache.match`)，不需要開 DB、升級 schema、處理 `onupgradeneeded`。存的是「一筆會被立刻消費掉的短命記錄」，不需要 IndexedDB 的查詢能力。
 
 localStorage 不可用 —— service worker 沒有它。
 
-### D2 — SW 依既有 window 分岔：focus 或 openWindow
+### D2 — 交接契約（單一事實來源）
+
+SW（JS）與 adapter（Dart）各寫一次讀寫，拼錯會**整條靜默失效**且沒有任何測試抓得到，所以契約釘在這裡，兩邊都以本節為準：
+
+| 項目 | 值 |
+| --- | --- |
+| cache name | `lifeos-deeplink` |
+| key | `'/pending'` —— **必須**以 `/` 開頭 |
+| payload | `{ "path": string, "savedAt": number }`，`savedAt` 為 epoch 毫秒 (`Date.now()`) |
+| `path` 形式 | app router 的路徑，例如 `/care-today` —— **不是** hash URL |
+
+key 以 `/` 開頭是必要條件而非風格：`cache.put` 會把相對 key 依 base 解析成絕對 URL，而 SW 的 base 是 `/push_sw.js`、頁面的 base 是 `/`，只有根相對路徑能保證兩邊解析成同一個 URL。
+
+Dart 端讀出 `savedAt` 後以 `DateTime.fromMillisecondsSinceEpoch` 轉換。**時鐘回退**（`savedAt` 落在未來）不特別處理：`now - savedAt` 為負，自然不超過 TTL，視為有效——這比丟棄安全，因為丟棄會讓一次正常的通知點擊無聲失效。
+
+Flutter 自己的 service worker 只 `caches.delete` 它自己那三個具名 cache，`index.html` 的 `pwaUpdate.apply()` 也只 unregister root registration，都不會動到 `lifeos-deeplink`。
+
+### D3 — SW 依既有 window 分岔：focus 或 openWindow
 
 ```
 notificationclick
-  → 寫 pending 到 Cache
+  → 寫 pending 到 Cache（await 完成）
   → matchAll({ type: 'window', includeUncontrolled: true })
-      有既有 window → client.focus()      （不導航，保住使用者原本的頁面堆疊）
-      沒有          → clients.openWindow() （冷啟動）
+      有既有 window → client.postMessage(信號) + client.focus()
+                       focus() reject → fallback clients.openWindow('/')
+      沒有          → clients.openWindow('/')
 ```
 
-`includeUncontrolled: true` 讓 `/push/`-scope 的 SW 也看得到 `/`-scope 的 app window（現有註解說看不到，只在沒帶這個旗標時成立）。`WindowClient.navigate()` 仍然不能用 —— 它要求 client 被此 SW 控制 —— 但 `focus()` 沒有這個限制，而導航本來就交給 app 自己做。
+`includeUncontrolled: true` 讓 `/push/`-scope 的 SW 也看得到 `/`-scope 的 app window —— 規格上這個旗標的可見範圍以 **origin** 判定、與 scope 無關（現有程式碼註解說看不到，只在沒帶這個旗標時成立，需一併更正）。`WindowClient.navigate()` 仍然不能用（它要求 client 被此 SW 控制），但 `focus()` 沒有這個限制，而導航本來就交給 app 自己做。
 
-對既有 window 只 focus 不導航是刻意的：使用者原本可能停在飲食頁，導航會洗掉那層堆疊，違反 D3 的返回語意。
+**寫入必須在 focus/open 之前 await 完成**，整條串在同一個 `event.waitUntil` promise chain 上，否則冷啟動有機會先開 window 後寫 cache。
 
-### D3 — 導航用 `push`，疊在既有堆疊之上
+**對既有 window 只 focus 不導航**是刻意的：使用者原本可能停在飲食頁，導航會洗掉那層堆疊，違反 D5 的返回語意。
 
-消費 pending 時用 `context.push(path)` 而非 `go`：
+`focus()` 會 reject（缺 user activation、client 不可 focus、Android 版本差異），此時 fallback 到 `openWindow`，否則 warm 情境會靜默失效。
+
+`matchAll` 可能回多個 window（桌機分頁 + 手機端），挑選規則：**優先 `focused === true` 的，其次第一個**。
+
+### D4 — 前景情境靠 postMessage 信號補觸發
+
+Android 的照護提醒常在使用者正在用 app 時跳 heads-up banner。此時 client 本來就 focused/visible，`focus()` 不造成 visibility 變化 → Flutter 不會派送 `resumed` → pending 寫進 Cache 卻沒人消費，畫面完全不動。**現況在這個情境是會導航的，所以少了這條就是退化。**
+
+SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 掛 `navigator.serviceWorker` 的 message 事件，收到就觸發一次 check。
+
+信號不帶目的地是關鍵：Cache 仍是唯一的事實來源，所有時效／去重／守門判斷只有 controller 那一份，不會長出第二套消費邏輯而彼此不同步。
+
+### D5 — 導航用 `push`，疊在既有堆疊之上
+
+消費 pending 時用 `push` 而非 `go`：
 
 ```
 冷啟動：        [首頁] → push → [今日照護]        返回鍵 → 首頁
@@ -58,59 +91,72 @@ notificationclick
 
 這同時修好返回箭頭，並與 app 內既有的進入方式一致（總覽卡片、更多頁都是 `context.push('/care-today')`）。
 
-### D4 — 消費時機：auth 就緒之後，以及每次回到前景
+### D6 — 消費時機：auth 就緒之後，且不落在過場畫面上
 
-兩個觸發點：
+三個生命週期觸發點：**啟動後**、**auth 狀態轉換**（涵蓋「點通知時未登入 → 登入後」）、**回到前景**（`didChangeAppLifecycleState(resumed)`，比照既有 `PwaUpdateController`），加上 D4 的 postMessage 信號。
 
-1. **啟動後**：必須等 auth 不再 `loading` 且已登入才消費。冷啟動時 auth 還在 bootstrap，router 被 `resolveAuthRedirect` 壓在 `/splash`，此時 push 會被 redirect 吃掉並改由 `pendingDeepLink` 以 `go` replay —— 那條路徑沒有返回箭頭，正是 D3 要避免的。
-2. **回到前景**：`WidgetsBindingObserver.didChangeAppLifecycleState(resumed)`，比照既有的 `PwaUpdateController`。這是「app 在背景被 focus」情境的觸發點。
+兩道守門：
 
-`resolveAuthRedirect` 與其 `pendingDeepLink` 機制**完全不動** —— 它處理的是「URL 本來就帶著 deep link 的冷啟動」（例如手動輸入網址、桌機瀏覽器分頁），仍然有效，且已有完整測試。
+1. **auth 未就緒不消費**：`loading`／`error`／未登入時直接 return，**且不 take**（留給下一個觸發點）。冷啟動時 auth 還在 bootstrap，router 被 `resolveAuthRedirect` 壓在 `/splash`，此時 push 會被 redirect 吃掉並改由 `pendingDeepLink` 以 `go` replay —— 那條路徑沒有返回箭頭。
+2. **過場位置不消費**：`currentPath` 落在 `/splash`、`/auth-error`、`/login`、`/register` 時同樣 return 且不 take。
 
-### D5 — 時效與讀後清除
+**時序**：auth listener 只負責「排程」，實際 check 用 `addPostFrameCallback` 延到下一幀。原因是 go_router 的 `refreshListenable` 是在 `_buildRouter()` 時才註冊的，晚於 `_AppState.initState` 掛的 listener，所以 auth 一 resolve 我們會**先**跑；不延一幀的話 `push` 的 base 可能還是尚未被 redirect 掉的 `/splash`，返回鍵會先閃一下 splash，測試也會 race。
+
+`resolveAuthRedirect` 與其 `pendingDeepLink` 機制**完全不動** —— 它處理的是「URL 本來就帶著 deep link 的冷啟動」（手動輸入網址），仍然有效，且已有完整測試。
+
+### D7 — 時效與讀後清除
 
 寫入時附時戳，消費時：**先清除、再判斷時效**（讀後即刪，無論採不採用），逾時者丟棄不導航。TTL 取 **5 分鐘**。
 
 防的是這個情境：SW 寫了 pending 但 app 始終沒開起來（使用者點了通知又立刻切走、或啟動失敗），殘留值會在下一次「使用者自己打開 app」時劫持導航，把人莫名其妙丟到今日照護。5 分鐘足夠涵蓋正常的「點通知 → app 起來」延遲，又短到不會跨越到下一次自主開啟。
 
-### D6 — `openWindow` 仍傳 `/#/care-today`，重複導航由 app 端去重
+### D8 — 併發防護
 
-冷啟動的 URL 保留 hash 形式，因為在**桌機瀏覽器分頁**情境下 `openWindow` 會正確帶著 fragment 開啟，是一條免費的 fallback。這會造成 Cache 與 URL 兩條路都生效、可能疊出兩層今日照護，因此消費 pending 前先檢查：**當前 location 已經是目標路徑就不 push**。
+觸發點有四個，兩次 check 併發時各自發一個非同步 Cache 讀取，可能都在對方 delete 之前讀到同一筆 pending，疊出兩層今日照護（`currentPath` 去重擋不住，因為第一次導航還沒完成）。controller 用一個 in-flight 旗標：已有未完成的 check 就直接 return。
 
-這個去重守門對所有情境都安全，不只針對這一個 case。
+### D9 — `openWindow` 一律開 `/`，不帶 hash
 
-### D7 — 平台隔離比照既有 PWA 模組
+原本打算保留 `/#/care-today` 當桌機分頁的 fallback，但那條路徑會走既有 `resolveAuthRedirect` 的 `pendingDeepLink` replay，用的是 `go` 語意 → **沒有返回箭頭**，與本 change 的驗收標準直接衝突。
 
-`lib/shared/pwa/` 既有的三件組模式：抽象介面 + `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart'`。Cache Storage 只有 web 有，非 web target（android/ios/VM 測試）用 no-op stub 保持可編譯，widget 測試注入 fake。
+改成一律開 `/`，所有平台（WebAPK、桌機分頁、Android 瀏覽器分頁）都走同一條 Cache 路徑、都用 `push`、都有返回箭頭。代價是失去「Cache 不可用時仍能靠 URL 到達」的防禦；接受，因為行為一致比多一條會產生不同結果的路徑更有價值，而 Cache 不可用時的退化（停在首頁）與今天的冷啟動現況相同。
+
+`currentPath` 去重因此從「必要」降級為「純防禦」，仍然保留。
+
+### D10 — 平台隔離比照既有 PWA 模組
+
+`lib/shared/pwa/` 既有的三件組模式：抽象介面 + `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart'`。Cache Storage 與 `navigator.serviceWorker` 只有 web 有，非 web target（android/ios/VM 測試）用 no-op stub 保持可編譯，widget 測試注入 fake。
 
 ## 元件
 
 | 檔案 | 職責 | 測試 |
 | --- | --- | --- |
-| `web/push_sw.js` | 寫 pending 到 Cache；focus 既有 window 或 openWindow | 無（瀏覽器端 glue，比照現況） |
-| `lib/shared/pwa/pending_deep_link.dart` | 抽象介面 `take()` → `PendingDeepLink?`（路徑 + 時戳），conditional export | — |
-| `..._stub.dart` / `..._web.dart` | 非 web no-op／Cache Storage 讀取＋刪除 | web impl 不測（薄 adapter，比照 `BrowserWebPushGateway`） |
-| `lib/shared/pwa/pending_deep_link_controller.dart` | 生命週期觀察 + 時效判斷 + 去重 + 觸發導航 callback | **單元測試**（注入 fake gateway + 固定 now） |
-| `lib/app.dart` | 接線：auth 就緒後 start controller，callback 打 `router.push` | widget 測試 |
+| `web/push_sw.js` | 依 D2 契約寫 pending；postMessage 信號 + focus，或 openWindow | 無（瀏覽器端 glue，比照現況） |
+| `lib/shared/pwa/pending_deep_link.dart` | 抽象介面：`take()` → `PendingDeepLink?`、`handoverSignals` stream，conditional export | — |
+| `..._stub.dart` / `..._web.dart` | 非 web no-op／Cache Storage 讀取＋刪除、serviceWorker message 轉信號 | web impl 不測（薄 adapter，比照 `BrowserWebPushGateway`） |
+| `lib/shared/pwa/pending_deep_link_controller.dart` | 守門 + 時效 + 去重 + 併發防護 + 生命週期觀察 + 觸發導航 | **單元測試**（注入 fake store + 固定 now） |
+| `lib/app.dart` | 接線：建 controller、排程 post-frame check、callback 打 `push` | widget 測試 |
 
-判斷邏輯（時效、去重、要不要導航）全部落在 controller 這個**可測的純 Dart 層**，adapter 只做 Cache 讀寫，SW 只做寫入與 focus/open 分岔 —— 沿用專案既有的「薄 adapter + 可測 controller」分工。
+判斷邏輯全部落在 controller 這個**可測的純 Dart 層**，adapter 只做 Cache 讀寫與事件轉譯，SW 只做寫入與 focus/open 分岔 —— 沿用專案既有的「薄 adapter + 可測 controller」分工。
 
 ## UI/UX 設計
 
 ### 使用者路徑
 
-**主路徑（冷啟動）**：使用者收到照護提醒 → 點通知 → PWA 啟動 → 首頁短暫出現（auth bootstrap）→ 自動疊上今日照護 → 使用者按 Done/Skip → 按返回箭頭或返回鍵回到首頁。
+**主路徑（冷啟動）**：使用者收到照護提醒 → 點通知 → PWA 啟動 → 首頁短暫出現（auth bootstrap）→ 自動疊上今日照護 → 按 Done/Skip → 按返回箭頭或返回鍵回到首頁。
 
 **主路徑（app 在背景）**：點通知 → PWA 帶到前景，停在使用者原本那一頁 → 自動疊上今日照護 → 返回鍵回到原本那一頁。
 
+**主路徑（app 在前景）**：heads-up 通知蓋在使用中的畫面上 → 點它 → 今日照護當場疊上來 → 返回鍵回到原本那一頁。
+
 **例外路徑**：
 - 未登入：點通知 → 走既有登入流程 → 登入後才消費 pending → 疊上今日照護。
-- pending 逾時（>5 分鐘）：不導航，使用者停在正常的啟動畫面（首頁），與沒點通知一樣。
+- pending 逾時（>5 分鐘）：不導航，使用者停在正常的啟動畫面，與沒點通知一樣。
 - 已經在今日照護頁：不重複疊加，畫面不變。
+- Cache 不可用：不導航，app 正常開啟。
 
 ### 介面與一致性
 
-不新增任何畫面或元件。導航後看到的就是既有的 `CareTodayScreen`，返回箭頭由 go_router 的 `push` 自動提供，與從總覽卡片、「更多」頁進入時完全一致 —— 使用者不會感覺到「從通知進來」和「自己點進來」是兩種東西。
+不新增任何畫面或元件。導航後看到的就是既有的 `CareTodayScreen`，返回箭頭由 `push` 自動提供，與從總覽卡片、「更多」頁進入時完全一致 —— 使用者不會感覺到「從通知進來」和「自己點進來」是兩種東西。
 
 ### 狀態設計
 
@@ -124,13 +170,13 @@ notificationclick
 
 ## 測試策略
 
-- **controller 單元測試**（TDD 主戰場）：時效內採用／逾時丟棄／讀後即清（即使逾時也清）／當前已在目標路徑時不導航／auth 未就緒時不消費／resumed 時重新檢查。
-- **widget 測試**：注入 fake gateway，驗證 app 啟動後會 push 到 `/care-today`，且返回堆疊有 parent（返回箭頭存在）。
-- **既有測試不得退化**：`test/app_redirect_test.dart` 全綠（D4 的前提是不動那套邏輯）。
-- **實機驗證（需使用者在 Android 上做，非自動化）**：清掉 PWA task → 送測試通知 → 點通知 → 應進到今日照護且有返回箭頭；app 在背景 → 點通知 → 應疊上今日照護且返回鍵回到原本頁面。
+- **controller 單元測試**（TDD 主戰場）：時效內採用／逾時丟棄但仍消費／auth 未就緒不 take／過場路徑不 take／已在目標路徑不導航／`null` 不炸／消費過不重複／`resumed` 觸發而其他生命週期不觸發／信號觸發／併發 check 只導航一次。
+- **widget 測試**：注入 fake store，驗證 app 啟動後 push 到 `/care-today` 且底下那層仍是首頁（`push` 而非 `go`）；逾時的 pending 讓 app 停在首頁。
+- **既有測試不得退化**：`test/app_redirect_test.dart` 全綠（D6 的前提是不動那套邏輯）。
+- **實機驗證（需使用者在 Android 上做，非自動化）**：三個情境（冷啟動／背景／前景）各驗一次「進到今日照護 + 有返回箭頭 + 返回鍵回到原處」。
 
 ## 不做（YAGNI）
 
-- 後端送 `url` 讓通知連到特定 slot —— 目前所有照護提醒都指向同一頁，等真的有多目的地再說。
+- 後端送 `url` 讓通知連到特定 slot —— 目前所有照護提醒都指向同一頁，等真的有多目的地再說（`path` 的推導保留 `data.url` 的位置，但預設值就是全部）。
 - 改成 path URL strategy（`usePathUrlStrategy` + Pages SPA fallback）—— D1 已經讓目的地不依賴 URL，這個大改動失去理由，而且如果 WebAPK 是整個 URL 換成 `start_url`，改了也沒用。
-- `postMessage` 即時通知既有 window —— `focus()` + `resumed` 生命週期已經覆蓋，多一條管道就多一種不同步。
+- 定時輪詢 Cache —— D4 的信號 + 三個生命週期觸發點已覆蓋所有已知情境，輪詢只是拿電力換一個沒被證實存在的漏網情境。
