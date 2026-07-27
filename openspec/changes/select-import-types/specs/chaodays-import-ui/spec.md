@@ -55,7 +55,13 @@ action SHALL be unavailable when no type is selected.
 
 #### Scenario: Selection cannot be changed mid-import
 - **WHEN** an import is in progress
-- **THEN** the type selection controls are disabled, like the other inputs on the screen
+- **THEN** the selection controls are not offered — each row shows its import state instead —
+  so the selection cannot change while the run it drives is under way
+
+#### Scenario: Types left out of a running import are distinguishable
+- **WHEN** an import is in progress and some types were not selected
+- **THEN** those rows are visually distinct from the selected types that have not started
+  yet, so "this one will not run" is not mistaken for "this one is still queued"
 
 #### Scenario: The selection can be changed after a run without leaving the screen
 - **WHEN** an import has finished — whether every type succeeded, or the run stopped early
