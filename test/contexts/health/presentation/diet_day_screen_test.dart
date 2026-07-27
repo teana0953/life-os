@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
@@ -26,6 +28,7 @@ import 'package:life_os/contexts/health/presentation/create_meal_controller.dart
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
+import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
@@ -47,12 +50,26 @@ class _FakeAuthRepository implements AuthRepository {
 class _FakeMealRepository implements MealRepository {
   final List<String> receivedDays = [];
 
+  /// Meal group names to report per day, so a test can set up a day that
+  /// already has meals (e.g. to check the snapshot handed to the dictionary).
+  final Map<String, List<String>> mealNamesByDay;
+
+  _FakeMealRepository({this.mealNamesByDay = const {}});
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     receivedDays.add(day);
     return DayMealsLog.fromJson({
       'day': day,
-      'meals': const <dynamic>[],
+      'meals': [
+        for (final name in mealNamesByDay[day] ?? const <String>[])
+          {
+            'id': 'meal-$name',
+            'meal': name,
+            'time': '2026-07-14T12:00:00.000Z',
+            'items': const <dynamic>[],
+          },
+      ],
       'totals': {
         'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
         'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
@@ -91,6 +108,15 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
   Future<DailyTarget> setTarget(String idToken, {required String day, required double baseStaple, required double baseMeat, required double baseFruit, required double baseVeg, double? bonusStaple, double? bonusMeat, double? bonusFruit, double? bonusVeg}) async => throw UnimplementedError();
 }
 
+FoodItem _riceItem() => FoodItem.fromJson({
+  'id': 'rice-1',
+  'owner_user_id': null,
+  'name': '飯/1碗',
+  'carb_g': 60, 'protein_g': 4, 'fat_g': 0.5, 'sugar_g': 0, 'fiber_g': 1, 'kcal': 280,
+  'staple': 4, 'meat': 0, 'fruit': 0, 'veg': 0,
+  'base_amount': null, 'measure_unit': null,
+});
+
 class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   @override
   Future<List<FoodItem>> search(String idToken, String query) async => [];
@@ -125,12 +151,15 @@ Widget _dietDay({
           GetDailyTargetWithRemaining(target),
           SetDailyTarget(target),
         ),
+        // Loaded up front, as the health shell does before the diet day is
+        // reachable — an unloaded controller would leave the pushed food
+        // search sitting on its loading state forever.
         dictionary: DictionaryController(
           SearchDictionary(dict),
           ListFavorites(dict),
           FavoriteFood(dict),
           UnfavoriteFood(dict),
-        ),
+        )..load('token'),
         createMeal: CreateMealController(CreateMeal(meals)),
         getLoggedDays: GetLoggedDays(meals),
       );
@@ -215,6 +244,142 @@ void main() {
       expect(meals.receivedDays.last, '2026-07-15');
     },
   );
+
+  group('food dictionary entry', () {
+    /// Wraps [screen] in a router that both records what it pushed in
+    /// `state.extra` and builds the real [FoodSearchScreen] from it — the
+    /// shared `l10nRouterTestApp` stub can't do either, since it only renders
+    /// `matchedLocation`.
+    Widget dietDayWithDictionaryRoute(
+      DietDayScreen screen, {
+      void Function(({String day, List<String> mealNames}) args)? onPush,
+      Locale locale = const Locale('en'),
+    }) {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => screen),
+          GoRoute(
+            path: '/health/diet/dictionary',
+            builder: (context, state) {
+              final args = state.extra as ({String day, List<String> mealNames});
+              onPush?.call(args);
+              return FoodSearchScreen(
+                meal: null,
+                mealNames: args.mealNames,
+                dictionaryController: screen.dictionaryController,
+                createMealController: screen.createMealController,
+                idToken: 'token',
+                day: args.day,
+                signOut: SignOut(_FakeAuthRepository()),
+              );
+            },
+          ),
+        ],
+      );
+      return MaterialApp.router(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: testSupportedLocales,
+        routerConfig: router,
+      );
+    }
+
+    testWidgets('the diet screen offers a dictionary action with a tooltip', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('diet-open-dictionary')), findsOneWidget);
+      expect(find.byTooltip(_en.dietOpenDictionaryTooltip), findsOneWidget);
+    });
+
+    testWidgets(
+      'opening the dictionary carries the day being viewed and its meal names',
+      (tester) async {
+        // The 14th (yesterday relative to the pinned clock) already has meals,
+        // so both halves of the snapshot are observable.
+        final meals = _FakeMealRepository(
+          mealNamesByDay: {
+            '2026-07-14': ['breakfast', 'Snack'],
+            '2026-07-15': ['dinner'],
+          },
+        );
+        ({String day, List<String> mealNames})? pushed;
+        await tester.pumpWidget(
+          dietDayWithDictionaryRoute(
+            _dietDay(meals: meals) as DietDayScreen,
+            onPush: (args) => pushed = args,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Browse OFF today first — otherwise "carries the viewed day" would
+        // hold even if the screen hard-coded today.
+        await tester.tap(find.byTooltip(_en.dietDayPrevTooltip));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('diet-open-dictionary')));
+        await tester.pumpAndSettle();
+
+        expect(pushed?.day, '2026-07-14');
+        expect(pushed?.mealNames, ['breakfast', 'Snack']);
+      },
+    );
+
+    testWidgets(
+      'a dictionary session starts clean after an abandoned per-meal search',
+      (tester) async {
+        final screen = _dietDay(meals: _FakeMealRepository()) as DietDayScreen;
+        await tester.pumpWidget(dietDayWithDictionaryRoute(screen));
+        await tester.pumpAndSettle();
+
+        // Stand in for a per-meal search that was backed out of with items
+        // still in the tray.
+        screen.createMealController.start('lunch');
+        screen.createMealController.add(_riceItem());
+
+        await tester.tap(find.byKey(const Key('diet-open-dictionary')));
+        await tester.pumpAndSettle();
+
+        expect(screen.createMealController.meal, isNull);
+        expect(screen.createMealController.tray, isEmpty);
+        // …so the dictionary opens showing no recording controls at all.
+        expect(find.byKey(const Key('food-search-tray')), findsNothing);
+        expect(find.byKey(const Key('food-search-done-button')), findsNothing);
+        expect(find.byKey(const Key('manual-entry-link')), findsNothing);
+      },
+    );
+
+    // The AppBar now carries the text-labelled target action AND the
+    // icon-only dictionary action; neither may overflow on a narrow phone.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the diet AppBar does not overflow at ${width.toInt()}dp, locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await tester.pumpWidget(
+              l10nRouterTestApp(
+                locale: locale,
+                home: _dietDay(meals: _FakeMealRepository()),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+            expect(find.byKey(const Key('diet-open-dictionary')), findsOneWidget);
+          },
+        );
+      }
+    }
+  });
 
   testWidgets('the target action navigates to the daily target route', (tester) async {
     await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())));

@@ -119,14 +119,17 @@ class DictionaryController extends ChangeNotifier {
       favorites = await _listFavorites(idToken);
       status = DictionaryStatus.loaded;
       error = null;
-    } on DietReauthenticationRequired {
-      status = DictionaryStatus.needsReauth;
-    } on DietFetchFailure {
-      status = DictionaryStatus.error;
-      error = DictionaryError.fetchFailed;
     } catch (_) {
-      status = DictionaryStatus.error;
-      error = DictionaryError.unknown;
+      // Deliberately does NOT touch [status]/[error]. Those describe whether
+      // the *list* could be loaded, and the search screen now renders the
+      // results area from them — writing a failed favorite toggle into them
+      // would replace the list the user is looking at with "couldn't load
+      // foods", which is both wrong (the foods loaded fine) and unrecoverable
+      // from the screen: clearing the search box doesn't reset the status, so
+      // the favorites still held in memory would stay hidden until the next
+      // successful search. The toggle is left silent, as it was before the
+      // results area started reading status; surfacing a failed toggle is a
+      // separate, pre-existing gap.
     }
     notifyListeners();
   }

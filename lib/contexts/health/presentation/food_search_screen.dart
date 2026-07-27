@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
+import '../domain/food_item.dart';
 import '../domain/portion_preview.dart';
 import '../domain/portions.dart';
 import 'amount_stepper.dart';
@@ -11,6 +12,7 @@ import 'create_meal_controller.dart';
 import 'dictionary_controller.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
+import 'snack_naming.dart';
 
 /// The effective quantity previewed for a dictionary tray row: the entered
 /// unit quantity, or (in measure mode) the measure-derived quantity via the
@@ -52,13 +54,21 @@ Portions _trayTotal(List<TrayEntry> tray) {
 }
 
 /// Full-screen food search + current-meal tray, pushed over the diet shell
-/// for a target [meal] (a standard meal code, an existing snack's name, or
-/// the next snack name) — replaces the old dictionary bottom sheet. Search
-/// results and favorites come from the shared [DictionaryController]; the
-/// tray and submission are owned by [CreateMealController], which the caller
-/// must have already reset via `start(meal)` before pushing this screen.
+/// either for a target [meal] (a standard meal code, an existing snack's
+/// name, or the next snack name) or — when [meal] is null — as the food
+/// dictionary, where the meal is asked for once at completion instead.
+/// Replaces the old dictionary bottom sheet. Search results and favorites
+/// come from the shared [DictionaryController]; the tray and submission are
+/// owned by [CreateMealController], which the caller must have already reset
+/// via `start(meal)` before pushing this screen.
 class FoodSearchScreen extends StatefulWidget {
-  final String meal;
+  final String? meal;
+
+  /// The viewed day's existing meal group names, used only in dictionary
+  /// mode to name the meal sheet's snack option — a snapshot taken by the
+  /// caller at push time.
+  final List<String> mealNames;
+
   final DictionaryController dictionaryController;
   final CreateMealController createMealController;
   final String idToken;
@@ -71,6 +81,7 @@ class FoodSearchScreen extends StatefulWidget {
   const FoodSearchScreen({
     super.key,
     required this.meal,
+    this.mealNames = const <String>[],
     required this.dictionaryController,
     required this.createMealController,
     required this.idToken,
@@ -99,7 +110,67 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 
   void _onChanged() => setState(() {});
 
+  /// Asks which meal the tray belongs to (dictionary mode only), returning
+  /// the chosen meal — or null if the sheet was dismissed without choosing,
+  /// in which case nothing is saved.
+  Future<String?> _askForMeal() {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    // The snack option is named from the day's existing groups, so it
+    // continues that day's series rather than colliding with it.
+    final snack = nextSnackName(widget.mealNames, loc.dietSnackBaseName);
+    return showModalBottomSheet<String>(
+      context: context,
+      // A modal sheet is capped at 9/16 of the screen, which the title plus
+      // four options can exceed on a short screen or at a large text scale —
+      // and what gets cut off is the last option, the snack. Scrolling keeps
+      // every meal reachable instead.
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Text(
+                  loc.dietChooseMealSheetTitle,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              for (final meal in standardMeals)
+                ListTile(
+                  key: Key('choose-meal-$meal'),
+                  title: Text(mealDisplayLabel(loc, meal)),
+                  onTap: () => Navigator.of(sheetContext).pop(meal),
+                ),
+              ListTile(
+                key: const Key('choose-meal-snack'),
+                title: Text(snack),
+                onTap: () => Navigator.of(sheetContext).pop(snack),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
+    // Opened as the dictionary, the meal isn't known until now — ask once,
+    // for the whole tray, and save nothing if the user doesn't choose.
+    if (widget.meal == null) {
+      final chosen = await _askForMeal();
+      // The screen (or its ancestor) can be disposed while the sheet is open
+      // — e.g. sign-out flipping the app to the login screen, or the route
+      // being popped — and a choice that comes back after that must not still
+      // be saved.
+      if (!mounted) return;
+      if (chosen == null) return;
+      widget.createMealController.bindMeal(chosen);
+    }
     final success = await widget.createMealController.submit(
       widget.idToken,
       widget.day,
@@ -117,6 +188,107 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     }
   }
 
+  /// What fills the page below the search field. It always says what it is
+  /// showing rather than going blank, because in dictionary mode the list is
+  /// the whole page: a failure (with its recovery exit), the load still in
+  /// flight, "you have no usual foods yet", "that search found nothing" — or
+  /// the results themselves. The two empty states are kept apart on purpose:
+  /// only the second one is the user's own search coming back empty, and only
+  /// it offers [offerManualEntry] as the next step.
+  Widget _resultsArea(
+    AppLocalizations loc,
+    ThemeData theme,
+    List<FoodItem> results, {
+    required bool showingFavorites,
+    required bool offerManualEntry,
+  }) {
+    final dictionary = widget.dictionaryController;
+    switch (dictionary.status) {
+      case DictionaryStatus.needsReauth:
+        return _ResultsMessage(
+          stateKey: const Key('food-search-dictionary-reauth'),
+          icon: Icons.lock_outline,
+          title: loc.pleaseSignInAgain,
+          action: OutlinedButton(
+            key: const Key('food-search-dictionary-sign-in-again-button'),
+            onPressed: widget.signOut.call,
+            child: Text(loc.signInAgain),
+          ),
+        );
+      case DictionaryStatus.error:
+        return _ResultsMessage(
+          stateKey: const Key('food-search-dictionary-error'),
+          icon: Icons.cloud_off_outlined,
+          title: loc.dietDictionaryLoadFailed,
+          titleColor: theme.colorScheme.error,
+        );
+      case DictionaryStatus.loading:
+        return const Center(
+          child: CircularProgressIndicator(
+            key: Key('food-search-dictionary-loading'),
+          ),
+        );
+      case DictionaryStatus.loaded:
+        break;
+    }
+
+    if (results.isEmpty) {
+      if (showingFavorites) {
+        return _ResultsMessage(
+          stateKey: const Key('food-search-empty-favorites'),
+          icon: Icons.favorite_border,
+          title: loc.dietDictionaryFavoritesEmptyTitle,
+          body: loc.dietDictionaryFavoritesEmptyBody,
+        );
+      }
+      return _ResultsMessage(
+        stateKey: const Key('food-search-empty-no-results'),
+        icon: Icons.search_off,
+        title: loc.dietDictionaryNoResultsTitle(dictionary.query),
+        body: loc.dietDictionaryNoResultsBody,
+        action: offerManualEntry
+            ? FilledButton(
+                key: const Key('food-search-empty-manual-entry-button'),
+                onPressed: _openManualEntry,
+                child: Text(loc.dietManualEntryLink),
+              )
+            : null,
+      );
+    }
+
+    return ListView.builder(
+      key: const Key('food-search-results'),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final item = results[index];
+        final isFavorite = dictionary.favorites.any((f) => f.id == item.id);
+        return ListTile(
+          key: Key('food-search-result-${item.id}'),
+          title: Text(item.name),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: PortionPills(
+              staple: item.staple,
+              meat: item.meat,
+              fruit: item.fruit,
+              veg: item.veg,
+            ),
+          ),
+          trailing: IconButton(
+            tooltip: isFavorite
+                ? loc.dietUnfavoriteTooltip
+                : loc.dietFavoriteTooltip,
+            icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+            onPressed: () =>
+                dictionary.toggleFavorite(item, isFavorite: isFavorite),
+          ),
+          onTap: () => widget.createMealController.add(item),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -126,10 +298,22 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 
     final showingFavorites = dictionary.query.isEmpty;
     final results = showingFavorites ? dictionary.favorites : dictionary.results;
+    final meal = widget.meal;
+    // Browsing the dictionary with nothing picked yet is a lookup, not the
+    // start of a recording, so the complete action and the manual-entry link
+    // are hidden outright rather than merely disabled — a disabled complete
+    // button would still say "this page is for recording". They reappear as
+    // soon as the user adds something, i.e. once the intent to record is the
+    // user's own. Opened for a target meal, both always show (unchanged).
+    final showRecordingControls = meal != null || createMeal.tray.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(loc.dietAddToMealButton(mealDisplayLabel(loc, widget.meal))),
+        title: Text(
+          meal == null
+              ? loc.dietDictionaryTitle
+              : loc.dietAddToMealButton(mealDisplayLabel(loc, meal)),
+        ),
       ),
       body: Column(
         children: [
@@ -141,96 +325,135 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
               onChanged: dictionary.search,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                key: const Key('manual-entry-link'),
-                onPressed: _openManualEntry,
-                child: Text(loc.dietManualEntryLink),
+          if (showRecordingControls)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: const Key('manual-entry-link'),
+                  onPressed: _openManualEntry,
+                  child: Text(loc.dietManualEntryLink),
+                ),
               ),
             ),
-          ),
           Expanded(
-            child: ListView.builder(
-              key: const Key('food-search-results'),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: results.length,
-              itemBuilder: (context, index) {
-                final item = results[index];
-                final isFavorite = dictionary.favorites.any((f) => f.id == item.id);
-                return ListTile(
-                  key: Key('food-search-result-${item.id}'),
-                  title: Text(item.name),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: PortionPills(
-                      staple: item.staple,
-                      meat: item.meat,
-                      fruit: item.fruit,
-                      veg: item.veg,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    tooltip: isFavorite
-                        ? loc.dietUnfavoriteTooltip
-                        : loc.dietFavoriteTooltip,
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                    ),
-                    onPressed: () =>
-                        dictionary.toggleFavorite(item, isFavorite: isFavorite),
-                  ),
-                  onTap: () => createMeal.add(item),
-                );
-              },
+            child: _resultsArea(
+              loc,
+              theme,
+              results,
+              showingFavorites: showingFavorites,
+              // The manual-entry way out belongs in the no-results state only
+              // when it isn't already standing above the list — otherwise the
+              // same escape hatch would appear twice.
+              offerManualEntry: !showRecordingControls,
             ),
           ),
           if (createMeal.tray.isNotEmpty)
             _TrayPanel(controller: createMeal, loc: loc, theme: theme),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (createMeal.status == CreateMealControllerStatus.needsReauth) ...[
-                Text(
-                  loc.pleaseSignInAgain,
-                  key: const Key('food-search-reauth-message'),
-                  textAlign: TextAlign.center,
+      bottomNavigationBar: showRecordingControls
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (createMeal.status ==
+                        CreateMealControllerStatus.needsReauth) ...[
+                      Text(
+                        loc.pleaseSignInAgain,
+                        key: const Key('food-search-reauth-message'),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        key: const Key('food-search-sign-in-again-button'),
+                        onPressed: widget.signOut.call,
+                        child: Text(loc.signInAgain),
+                      ),
+                      const SizedBox(height: 8),
+                    ] else if (createMeal.status ==
+                        CreateMealControllerStatus.error) ...[
+                      Text(
+                        loc.dietSaveMealFailed,
+                        key: const Key('food-search-error-message'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    FilledButton(
+                      key: const Key('food-search-done-button'),
+                      onPressed:
+                          createMeal.tray.isEmpty ||
+                              createMeal.status ==
+                                  CreateMealControllerStatus.submitting
+                          ? null
+                          : _submit,
+                      child: Text(
+                        loc.dietSearchDoneButton(createMeal.tray.length),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  key: const Key('food-search-sign-in-again-button'),
-                  onPressed: widget.signOut.call,
-                  child: Text(loc.signInAgain),
-                ),
-                const SizedBox(height: 8),
-              ] else if (createMeal.status == CreateMealControllerStatus.error) ...[
-                Text(
-                  loc.dietSaveMealFailed,
-                  key: const Key('food-search-error-message'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-                const SizedBox(height: 8),
-              ],
-              FilledButton(
-                key: const Key('food-search-done-button'),
-                onPressed:
-                    createMeal.tray.isEmpty ||
-                        createMeal.status == CreateMealControllerStatus.submitting
-                    ? null
-                    : _submit,
-                child: Text(loc.dietSearchDoneButton(createMeal.tray.length)),
               ),
-            ],
+            )
+          : null,
+    );
+  }
+}
+
+/// One of [FoodSearchScreen]'s result-area states — an icon, a title, an
+/// optional supporting line and an optional next step — filling the space the
+/// results list would occupy. Scrollable so it survives a short viewport (a
+/// focused keyboard on a small phone) rather than overflowing.
+class _ResultsMessage extends StatelessWidget {
+  final Key stateKey;
+  final IconData icon;
+  final String title;
+  final String? body;
+  final Color? titleColor;
+  final Widget? action;
+
+  const _ResultsMessage({
+    required this.stateKey,
+    required this.icon,
+    required this.title,
+    this.body,
+    this.titleColor,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+      child: Column(
+        key: stateKey,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(color: titleColor),
           ),
-        ),
+          if (body != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              body!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (action != null) ...[const SizedBox(height: 16), action!],
+        ],
       ),
     );
   }

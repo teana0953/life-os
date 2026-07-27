@@ -242,19 +242,27 @@ void main() {
       expect(repository.unfavoritedId, 'rice-1');
     });
 
-    test('sets error status on DietFetchFailure without crashing', () async {
+    // These two used to assert that a failed toggle wrote error/needsReauth
+    // into the shared status. That was harmless while nothing rendered status,
+    // but the search screen's results area now does — so a failed favorite
+    // toggle would have replaced the list the user is looking at with
+    // "couldn't load foods", and clearing the search box would not bring it
+    // back. The toggle now leaves the list-loading status alone.
+    test('a failed toggle leaves the loaded list alone', () async {
       final repository = FakeFoodDictionaryRepository()
         ..toggleErrorToThrow = const DietFetchFailure('server error');
       final controller = _controller(repository);
       await controller.load('token-123');
+      final favoritesBefore = controller.favorites;
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
 
-      expect(controller.status, DictionaryStatus.error);
-      expect(controller.error, DictionaryError.fetchFailed);
+      expect(controller.status, DictionaryStatus.loaded);
+      expect(controller.error, isNull);
+      expect(controller.favorites, favoritesBefore);
     });
 
-    test('sets needsReauth status on DietReauthenticationRequired', () async {
+    test('a toggle rejected for auth also leaves the loaded list alone', () async {
       final repository = FakeFoodDictionaryRepository()
         ..toggleErrorToThrow = const DietReauthenticationRequired();
       final controller = _controller(repository);
@@ -262,7 +270,8 @@ void main() {
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
 
-      expect(controller.status, DictionaryStatus.needsReauth);
+      expect(controller.status, DictionaryStatus.loaded);
+      expect(controller.error, isNull);
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +20,7 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
+import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -43,20 +46,50 @@ FoodItem _riceItem({double? baseAmount, String? measureUnit}) => FoodItem.fromJs
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   List<FoodItem> favorites;
 
-  FakeFoodDictionaryRepository({List<FoodItem>? favorites})
-    : favorites = favorites ?? [_riceItem()];
+  /// What [search] returns when it differs from the favorites — used to drive
+  /// "a search found nothing" independently of "there are no favorites".
+  final List<FoodItem>? searchResults;
+
+  /// Thrown by [listFavorites] instead of returning, to drive the results
+  /// area's failure states.
+  final Object? listFavoritesError;
+
+  /// Held open (never completed) to keep [listFavorites] in flight, so the
+  /// controller stays in its loading state.
+  final Completer<List<FoodItem>>? favoritesGate;
+
+  /// Thrown by [favorite]/[unfavorite] — a write failure, which must not be
+  /// mistaken for the list failing to load.
+  final Object? toggleError;
+
+  FakeFoodDictionaryRepository({
+    List<FoodItem>? favorites,
+    this.searchResults,
+    this.listFavoritesError,
+    this.favoritesGate,
+    this.toggleError,
+  }) : favorites = favorites ?? [_riceItem()];
 
   @override
-  Future<List<FoodItem>> search(String idToken, String query) async => favorites;
+  Future<List<FoodItem>> search(String idToken, String query) async =>
+      searchResults ?? favorites;
 
   @override
-  Future<List<FoodItem>> listFavorites(String idToken) async => favorites;
+  Future<List<FoodItem>> listFavorites(String idToken) async {
+    if (listFavoritesError != null) throw listFavoritesError!;
+    if (favoritesGate != null) return favoritesGate!.future;
+    return favorites;
+  }
 
   @override
-  Future<void> favorite(String idToken, String foodItemId) async {}
+  Future<void> favorite(String idToken, String foodItemId) async {
+    if (toggleError != null) throw toggleError!;
+  }
 
   @override
-  Future<void> unfavorite(String idToken, String foodItemId) async {}
+  Future<void> unfavorite(String idToken, String foodItemId) async {
+    if (toggleError != null) throw toggleError!;
+  }
 }
 
 class FakeMealRepository implements MealRepository {
@@ -152,7 +185,8 @@ Future<FakeMealRepository> _pumpScreen(
   FakeFoodDictionaryRepository? dictionaryRepository,
   FakeMealRepository? mealRepository,
   FakeAuthRepository? authRepository,
-  String meal = 'lunch',
+  String? meal = 'lunch',
+  List<String> mealNames = const <String>[],
   Locale locale = const Locale('en'),
 }) async {
   final resolvedDictionaryRepository =
@@ -168,6 +202,7 @@ Future<FakeMealRepository> _pumpScreen(
       locale: locale,
       home: FoodSearchScreen(
         meal: meal,
+        mealNames: mealNames,
         dictionaryController: dictionaryController,
         createMealController: createMealController,
         idToken: 'token-123',
@@ -529,6 +564,499 @@ void main() {
         }
       }
     }
+  });
+
+  group('FoodSearchScreen as the dictionary (no target meal)', () {
+    testWidgets('identifies itself as the dictionary, not as adding to a meal', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.dietDictionaryTitle), findsOneWidget);
+      expect(
+        find.text(loc.dietAddToMealButton(loc.dietMealLunch)),
+        findsNothing,
+      );
+      // Still a real search page: field + favorites.
+      expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+      expect(find.text('飯/1碗'), findsOneWidget);
+    });
+
+    testWidgets('with an empty tray shows no recording controls at all', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+
+      expect(find.byKey(const Key('food-search-tray')), findsNothing);
+      // Hidden, not merely disabled — a disabled complete button would still
+      // say "this page is for recording".
+      expect(find.byKey(const Key('food-search-done-button')), findsNothing);
+      expect(find.byKey(const Key('manual-entry-link')), findsNothing);
+    });
+
+    testWidgets('opened for a target meal, an empty tray still shows the complete action (unchanged)', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: 'lunch');
+
+      expect(find.byKey(const Key('food-search-done-button')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+    });
+
+    testWidgets('adding a food reveals the tray and the recording controls', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-done-button')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+    });
+
+    testWidgets('completing asks which meal, then saves the whole tray to the chosen one', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      // Nothing saved yet — the sheet is asking.
+      expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+      expect(mealRepository.receivedItems, isNull);
+
+      await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedMeal, 'dinner');
+      expect(mealRepository.receivedDay, '2026-07-18');
+      expect(mealRepository.receivedItems, hasLength(1));
+    });
+
+    testWidgets('the meal choices are the three standard meals plus the day\'s next snack', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        mealNames: const ['breakfast', 'Snack', 'Snack2'],
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('choose-meal-breakfast')), findsOneWidget);
+      expect(find.byKey(const Key('choose-meal-lunch')), findsOneWidget);
+      expect(find.byKey(const Key('choose-meal-dinner')), findsOneWidget);
+      // Snack + Snack2 already exist for the day, so the next one is Snack3.
+      expect(
+        find.text(nextSnackName(const ['breakfast', 'Snack', 'Snack2'], loc.dietSnackBaseName)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('choosing the snack option saves to the day\'s next snack name', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(
+        tester,
+        meal: null,
+        mealNames: const ['Snack'],
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('choose-meal-snack')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedMeal, '${loc.dietSnackBaseName}2');
+    });
+
+    testWidgets('dismissing the meal choice saves nothing and keeps the tray', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+
+      // Dismiss by tapping the sheet's scrim rather than picking a meal.
+      await tester.tap(find.byType(ModalBarrier).last, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.dietChooseMealSheetTitle), findsNothing);
+      expect(mealRepository.receivedItems, isNull);
+      // The tray survived, and nothing reads as an error.
+      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-error-message')), findsNothing);
+      expect(find.text('飯/1碗'), findsNWidgets(2));
+    });
+
+    testWidgets(
+      'retrying after a failed save and then dismissing the meal choice still '
+      'saves nothing',
+      (tester) async {
+        // The first round already bound a meal to the shared controller, so
+        // from here on the controller's own "no meal bound" guard no longer
+        // catches a dismissal — only the screen's does. Without it the retry
+        // would silently save to the meal chosen in the first round.
+        final mealRepository = FakeMealRepository()
+          ..errorToThrow = const DietFetchFailure('boom');
+        await _pumpScreen(tester, meal: null, mealRepository: mealRepository);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+        // The save failed: the tray is kept and 'dinner' is now bound.
+        expect(find.byKey(const Key('food-search-error-message')), findsOneWidget);
+        expect(mealRepository.receivedMeal, isNull);
+
+        // The backend recovers, the user retries — then changes their mind.
+        mealRepository.errorToThrow = null;
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+        expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+        await tester.tap(find.byType(ModalBarrier).last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.receivedMeal, isNull);
+        expect(mealRepository.receivedItems, isNull);
+        // Still on the page with the tray intact — nothing was saved or popped.
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
+        expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the screen being torn down while the meal sheet is open saves nothing',
+      (tester) async {
+        // Sign-out flips the whole app to the login screen while the sheet is
+        // still up; the choice that comes back must not still be saved.
+        final mealRepository = FakeMealRepository();
+        final dictionaryController = _dictionaryController(
+          FakeFoodDictionaryRepository(),
+        );
+        await dictionaryController.load('token-123');
+        final createMealController =
+            CreateMealController(CreateMeal(mealRepository))..start(null);
+        final showScreen = ValueNotifier(true);
+        addTearDown(showScreen.dispose);
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: showScreen,
+              builder: (context, show, _) => show
+                  ? FoodSearchScreen(
+                      meal: null,
+                      dictionaryController: dictionaryController,
+                      createMealController: createMealController,
+                      idToken: 'token-123',
+                      day: '2026-07-18',
+                      signOut: SignOut(FakeAuthRepository()),
+                    )
+                  : const Scaffold(body: Text('signed out')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        // The page goes away underneath the still-open sheet.
+        showScreen.value = false;
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.receivedMeal, isNull);
+        expect(mealRepository.receivedItems, isNull);
+      },
+    );
+
+    testWidgets(
+      'every meal option stays reachable when the sheet is taller than its cap',
+      (tester) async {
+        // A modal bottom sheet is capped at 9/16 of the screen; on a short
+        // screen (or at a large text scale) the four options do not fit, and
+        // what gets cut off is the last one — the snack.
+        await tester.binding.setSurfaceSize(const Size(360, 430));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final mealRepository = FakeMealRepository();
+        final dictionaryController = _dictionaryController(
+          FakeFoodDictionaryRepository(),
+        );
+        await dictionaryController.load('token-123');
+        final createMealController =
+            CreateMealController(CreateMeal(mealRepository))..start(null);
+        // Seeded directly so the tray stays short enough that the page itself
+        // fits this deliberately short screen — the sheet is what's on trial.
+        createMealController.addManual(
+          '自製便當',
+          const Portions(staple: 1, meat: 0, fruit: 0, veg: 0),
+        );
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: FoodSearchScreen(
+              meal: null,
+              dictionaryController: dictionaryController,
+              createMealController: createMealController,
+              idToken: 'token-123',
+              day: '2026-07-18',
+              signOut: SignOut(FakeAuthRepository()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        final snack = find.byKey(const Key('choose-meal-snack'));
+        await tester.ensureVisible(snack);
+        await tester.pumpAndSettle();
+        await tester.tap(snack);
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(mealRepository.receivedMeal, loc.dietSnackBaseName);
+      },
+    );
+
+    testWidgets('opened for a target meal, completing does not ask which meal', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: 'lunch');
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.dietChooseMealSheetTitle), findsNothing);
+      expect(mealRepository.receivedMeal, 'lunch');
+    });
+  });
+
+  group('FoodSearchScreen results area', () {
+    /// Types [query] and lets the controller's search debounce elapse, so the
+    /// results the screen renders are the ones this query produced.
+    Future<void> searchFor(WidgetTester tester, String query) async {
+      await tester.enterText(find.byKey(const Key('food-search-field')), query);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('with no favorites and nothing searched, says so instead of going blank', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(favorites: []),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryFavoritesEmptyTitle), findsOneWidget);
+      // Not the search-found-nothing state: nothing has been searched.
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsNothing);
+    });
+
+    testWidgets('a search that finds nothing names the query and offers manual entry', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryNoResultsTitle('酪梨')), findsOneWidget);
+      // Not the no-favorites state: this is the user's own search coming back
+      // empty, and the way out is offered right here.
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('food-search-empty-manual-entry-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('manual-entry-name-field')), findsOneWidget);
+    });
+
+    testWidgets('opened for a target meal, a fruitless search does not add a second manual-entry entrance', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: 'lunch',
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      // The persistent link is already there for this mode, so the empty state
+      // must not duplicate it.
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+      expect(
+        find.byKey(const Key('food-search-empty-manual-entry-button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('in the dictionary with a tray already started, a fruitless search does not duplicate the link either', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+
+      // Adding a food reveals the persistent manual-entry link…
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      expect(
+        find.byKey(const Key('food-search-empty-manual-entry-button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a failure to load is distinguishable from having no foods', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          listFavoritesError: const DietFetchFailure('boom'),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.byKey(const Key('food-search-dictionary-error')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryLoadFailed), findsOneWidget);
+      // Emphatically NOT "you have no usual foods yet".
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+    });
+
+    testWidgets('a failed favorite toggle does not wipe the list being browsed', (
+      tester,
+    ) async {
+      // The results area reads dictionary.status, and toggleFavorite used to
+      // write its failures into that same field — so one tap on a heart could
+      // replace the list with "couldn't load foods", on the per-meal path too,
+      // with no way back from the screen (clearing the search box does not
+      // reset the status). The toggle now leaves the list-loading status alone.
+      await _pumpScreen(
+        tester,
+        meal: 'lunch',
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          toggleError: const DietFetchFailure('boom'),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text('飯/1碗'), findsOneWidget);
+
+      // The seeded item is already a favorite, so this is the un-favorite path.
+      await tester.tap(find.byIcon(Icons.favorite).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('飯/1碗'), findsOneWidget);
+      expect(find.byKey(const Key('food-search-dictionary-error')), findsNothing);
+      expect(find.text(loc.dietDictionaryLoadFailed), findsNothing);
+    });
+
+    testWidgets('an auth failure loading the dictionary offers a way out, not a blank page', (
+      tester,
+    ) async {
+      final authRepository = FakeAuthRepository();
+      await _pumpScreen(
+        tester,
+        meal: null,
+        authRepository: authRepository,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          listFavoritesError: const DietReauthenticationRequired(),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      // In dictionary mode there is no bottom bar at all, so this is the only
+      // recovery exit on the page.
+      await tester.tap(
+        find.byKey(const Key('food-search-dictionary-sign-in-again-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signOutCalled, isTrue);
+    });
+
+    testWidgets('while the dictionary is still loading, shows a loading indicator rather than an empty state', (
+      tester,
+    ) async {
+      final gate = Completer<List<FoodItem>>();
+      addTearDown(() => gate.complete(const <FoodItem>[]));
+      final dictionaryController = _dictionaryController(
+        FakeFoodDictionaryRepository(favoritesGate: gate),
+      );
+      unawaited(dictionaryController.load('token-123'));
+      final createMealController =
+          CreateMealController(CreateMeal(FakeMealRepository()))..start(null);
+
+      await tester.pumpWidget(
+        l10nRouterTestApp(
+          home: FoodSearchScreen(
+            meal: null,
+            dictionaryController: dictionaryController,
+            createMealController: createMealController,
+            idToken: 'token-123',
+            day: '2026-07-18',
+            signOut: SignOut(FakeAuthRepository()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('food-search-dictionary-loading')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+    });
   });
 
   group('FoodSearchScreen add feedback', () {

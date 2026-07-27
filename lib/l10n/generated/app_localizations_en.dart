@@ -313,6 +313,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dietDictionaryTitle => 'Food dictionary';
+
+  @override
+  String get dietOpenDictionaryTooltip => 'Look up a food';
+
+  @override
+  String get dietChooseMealSheetTitle => 'Add to which meal?';
+
+  @override
   String get dietRemoveItemTooltip => 'Remove';
 
   @override
@@ -329,6 +338,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dietManualEntryLink => 'Not found? Enter manually';
+
+  @override
+  String get dietDictionaryFavoritesEmptyTitle => 'No usual foods yet';
+
+  @override
+  String get dietDictionaryFavoritesEmptyBody =>
+      'Search for a food to see what it counts as, and tap the heart to keep it here.';
+
+  @override
+  String dietDictionaryNoResultsTitle(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get dietDictionaryNoResultsBody => 'Try another name for it.';
+
+  @override
+  String get dietDictionaryLoadFailed =>
+      'Unable to load foods. Please try again.';
 
   @override
   String get dietManualEntryTitle => 'Manual entry';

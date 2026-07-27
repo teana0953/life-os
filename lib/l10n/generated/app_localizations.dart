@@ -651,6 +651,24 @@ abstract class AppLocalizations {
   /// **'Done ({count})'**
   String dietSearchDoneButton(int count);
 
+  /// Title of the full-screen food search when it is opened as the dictionary — with no target meal — instead of to add food to a specific meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Food dictionary'**
+  String get dietDictionaryTitle;
+
+  /// Tooltip/accessible label for the diet screen's icon-only action that opens the food dictionary without first choosing a meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up a food'**
+  String get dietOpenDictionaryTooltip;
+
+  /// Title of the bottom sheet that asks which meal the dictionary tray should be saved to, shown when completing a tray built in the dictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to which meal?'**
+  String get dietChooseMealSheetTitle;
+
   /// Tooltip/accessible label for a tray row's remove control on the full-screen food search.
   ///
   /// In en, this message translates to:
@@ -686,6 +704,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not found? Enter manually'**
   String get dietManualEntryLink;
+
+  /// Empty-state title shown in the food search results area when the user has no favorite foods and has not searched for anything yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No usual foods yet'**
+  String get dietDictionaryFavoritesEmptyTitle;
+
+  /// Empty-state body shown with dietDictionaryFavoritesEmptyTitle, telling the user what to do next.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a food to see what it counts as, and tap the heart to keep it here.'**
+  String get dietDictionaryFavoritesEmptyBody;
+
+  /// Empty-state title shown in the food search results area when a search found nothing, naming the query that found nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String dietDictionaryNoResultsTitle(String query);
+
+  /// Empty-state body shown with dietDictionaryNoResultsTitle, suggesting the user search differently.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another name for it.'**
+  String get dietDictionaryNoResultsBody;
+
+  /// Error message shown in the food search results area when loading favorites or running a search fails (not an auth failure).
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load foods. Please try again.'**
+  String get dietDictionaryLoadFailed;
 
   /// Title of the manual food-entry form.
   ///

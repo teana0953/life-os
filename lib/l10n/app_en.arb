@@ -399,6 +399,18 @@
       }
     }
   },
+  "dietDictionaryTitle": "Food dictionary",
+  "@dietDictionaryTitle": {
+    "description": "Title of the full-screen food search when it is opened as the dictionary — with no target meal — instead of to add food to a specific meal."
+  },
+  "dietOpenDictionaryTooltip": "Look up a food",
+  "@dietOpenDictionaryTooltip": {
+    "description": "Tooltip/accessible label for the diet screen's icon-only action that opens the food dictionary without first choosing a meal."
+  },
+  "dietChooseMealSheetTitle": "Add to which meal?",
+  "@dietChooseMealSheetTitle": {
+    "description": "Title of the bottom sheet that asks which meal the dictionary tray should be saved to, shown when completing a tray built in the dictionary."
+  },
   "dietRemoveItemTooltip": "Remove",
   "@dietRemoveItemTooltip": {
     "description": "Tooltip/accessible label for a tray row's remove control on the full-screen food search."
@@ -422,6 +434,31 @@
   "dietManualEntryLink": "Not found? Enter manually",
   "@dietManualEntryLink": {
     "description": "Link/button on the full-screen food search that opens the manual-entry form for a food not in the dictionary."
+  },
+  "dietDictionaryFavoritesEmptyTitle": "No usual foods yet",
+  "@dietDictionaryFavoritesEmptyTitle": {
+    "description": "Empty-state title shown in the food search results area when the user has no favorite foods and has not searched for anything yet."
+  },
+  "dietDictionaryFavoritesEmptyBody": "Search for a food to see what it counts as, and tap the heart to keep it here.",
+  "@dietDictionaryFavoritesEmptyBody": {
+    "description": "Empty-state body shown with dietDictionaryFavoritesEmptyTitle, telling the user what to do next."
+  },
+  "dietDictionaryNoResultsTitle": "No results for \"{query}\"",
+  "@dietDictionaryNoResultsTitle": {
+    "description": "Empty-state title shown in the food search results area when a search found nothing, naming the query that found nothing.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "dietDictionaryNoResultsBody": "Try another name for it.",
+  "@dietDictionaryNoResultsBody": {
+    "description": "Empty-state body shown with dietDictionaryNoResultsTitle, suggesting the user search differently."
+  },
+  "dietDictionaryLoadFailed": "Unable to load foods. Please try again.",
+  "@dietDictionaryLoadFailed": {
+    "description": "Error message shown in the food search results area when loading favorites or running a search fails (not an auth failure)."
   },
   "dietManualEntryTitle": "Manual entry",
   "@dietManualEntryTitle": {
