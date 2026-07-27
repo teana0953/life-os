@@ -36,8 +36,8 @@ starts the import, under a heading naming the group.
 #### Scenario: Each type's import state stays visible after the run
 - **WHEN** an import has finished — whether every type succeeded, or the run stopped early on a
   failure
-- **THEN** each type's outcome (succeeded, failed, or never attempted) stays shown on its row
-  alongside its selection control, rather than being replaced by it
+- **THEN** each type's outcome (succeeded, failed, or not attempted by that run) stays shown on
+  its row alongside its selection control, rather than being replaced by it
 
 #### Scenario: The selection can be changed after a run without leaving the screen
 - **WHEN** an import has finished — whether every type succeeded, or the run stopped early
