@@ -133,7 +133,7 @@ AuthRedirect resolveAuthRedirect({
     return AuthRedirect(loc == splashLocation ? null : splashLocation, pending);
   }
   if (!signedIn) {
-    return AuthRedirect(isAuthGateLocation(loc) ? null : '/login', pendingDeepLink);
+    return AuthRedirect(isAuthGateLocation(loc) ? null : loginLocation, pendingDeepLink);
   }
   // Signed in: if parked on a transient/auth-gate screen, replay the remembered
   // deep link (else home), then clear it.
@@ -258,6 +258,9 @@ class _AppState extends State<App> {
         // is showing was loaded when the screen opened, so a reminder tapped
         // from 今日照護 itself would otherwise change nothing on screen — and
         // across midnight would leave yesterday's list up (design.md D9).
+        // Only `/care-today` can be handed over today, so this reloads that
+        // one screen unconditionally; a second destination would need to
+        // dispatch on the pending path instead.
         refresh: () => widget.careTodayController.load(_idToken),
       );
 
@@ -373,16 +376,16 @@ class _AppState extends State<App> {
       },
       routes: [
         GoRoute(
-          path: '/splash',
+          path: splashLocation,
           builder: (context, state) =>
               const Scaffold(body: Center(child: CircularProgressIndicator())),
         ),
         GoRoute(
-          path: '/auth-error',
+          path: authErrorLocation,
           builder: (context, state) => _AuthErrorScreen(onRetry: _authNotifier.retry),
         ),
         GoRoute(
-          path: '/login',
+          path: loginLocation,
           builder: (context, state) => LoginScreen(
             controller: widget.loginController,
             localeController: widget.localeController,
@@ -390,7 +393,7 @@ class _AppState extends State<App> {
           ),
         ),
         GoRoute(
-          path: '/register',
+          path: registerLocation,
           builder: (context, state) => RegisterScreen(
             signUp: widget.signUp,
             localeController: widget.localeController,

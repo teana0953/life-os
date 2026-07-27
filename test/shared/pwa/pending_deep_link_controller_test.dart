@@ -20,8 +20,15 @@ class _FakeStore implements PendingDeepLinkStore {
   @override
   Future<PendingDeepLink?> take() async {
     takeCallCount++;
+    // Snapshot before the hold, not after. The real store reads whatever is
+    // in the Cache at the moment take() is called, so an entry written while
+    // a read is already in flight must NOT become visible to that read.
+    // Popping after the await would let the in-flight check pick up the later
+    // hand-over and navigate by itself — hiding the dropped trigger that the
+    // re-check guard exists to fix.
+    final snapshot = _queue.isEmpty ? null : _queue.removeAt(0);
     if (holdUntil != null) await holdUntil!.future;
-    return _queue.isEmpty ? null : _queue.removeAt(0);
+    return snapshot;
   }
 
   @override
