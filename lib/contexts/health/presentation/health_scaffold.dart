@@ -142,9 +142,12 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   // Coalescing state for reloads triggered by [DataRevision] bumps: a bump
   // arriving while a load is already in flight must not be dropped (the
   // in-flight load may have issued its requests before the write happened)
-  // but must also not run concurrently with it (the twelve controllers below
-  // aren't re-entrancy-safe) — so it's queued and runs exactly once more
-  // after the current load finishes.
+  // but must also not run concurrently with it (the thirteen controllers
+  // below aren't re-entrancy-safe) — so it's queued and runs exactly once
+  // more after the current load finishes. This invariant only covers loads
+  // driven from here: careAdherenceController can also be reloaded directly
+  // by the card's own period selector (setSpan), which isn't coalesced by
+  // this mechanism.
   bool _loading = false;
   bool _reloadPending = false;
 
@@ -303,6 +306,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             idToken: idToken,
             heightCm: widget.weightGoalController.goal?.heightCm,
             onOpenCareHistory: widget.onOpenCareHistory,
+            onOpenCareItems: widget.onOpenCareItems,
           ),
           _MoreBody(
             onOpenSettings: widget.onOpenSettings,
@@ -393,6 +397,7 @@ class _TrendBody extends StatelessWidget {
   final String idToken;
   final double? heightCm;
   final VoidCallback onOpenCareHistory;
+  final VoidCallback onOpenCareItems;
 
   const _TrendBody({
     required this.controller,
@@ -400,6 +405,7 @@ class _TrendBody extends StatelessWidget {
     required this.idToken,
     required this.heightCm,
     required this.onOpenCareHistory,
+    required this.onOpenCareItems,
   });
 
   @override
@@ -417,6 +423,7 @@ class _TrendBody extends StatelessWidget {
                 controller: careAdherenceController,
                 idToken: idToken,
                 onOpenHistory: onOpenCareHistory,
+                onOpenCareItems: onOpenCareItems,
               ),
             ],
           ),

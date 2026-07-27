@@ -34,6 +34,37 @@ DateTime parseDayString(String s) {
   return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
 }
 
+/// [parseDayString], but `null` for a malformed string instead of throwing
+/// (design D4) — for the backend-sourced date strings the app can't fully
+/// trust to be the dense, well-formed shape the API contract promises.
+///
+/// Shape and integer checks alone are not enough: [DateTime]'s constructor
+/// silently *rolls over* out-of-range components, so `'0000-00-00'` would
+/// become 1999-11-30 and `'2026-13-45'` 2027-02-14 — a wrong-but-plausible
+/// date the caller then treats as known and files records under, which is
+/// exactly the failure D4 exists to prevent (harder to spot than a crash).
+/// The round-trip against [dayString] rejects those, and with them anything
+/// else that isn't a real, canonically formatted calendar date (e.g.
+/// `'2026-02-31'`).
+DateTime? tryParseDayString(String s) {
+  final parts = s.split('-');
+  if (parts.length != 3) return null;
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+  final date = DateTime(year, month, day);
+  return dayString(date) == s ? date : null;
+}
+
+/// [mediumDateLabel] for a possibly-malformed `YYYY-MM-DD` string — "—" when
+/// it can't be parsed (design D4), so one malformed backend record degrades
+/// a single label instead of crashing the screen it's on.
+String mediumDateLabelOrDash(BuildContext context, String dayString) {
+  final date = tryParseDayString(dayString);
+  return date == null ? '—' : mediumDateLabel(context, date);
+}
+
 /// Parses an ISO-8601 instant string (e.g. a backend `done_time`) into a
 /// [DateTime] — `null` for an invalid or empty string. Pure parsing only —
 /// timezone conversion (`.toLocal()`) is left to the caller so tests can
@@ -62,4 +93,13 @@ String monthYearLabel(BuildContext context, DateTime month) {
 String mediumDateLabel(BuildContext context, DateTime date) {
   final languageTag = Localizations.localeOf(context).toLanguageTag();
   return DateFormat.yMMMd(languageTag).format(date);
+}
+
+/// A single narrow weekday abbreviation for [date] (e.g. "S" for Sunday in
+/// English, the CLDR narrow form for Chinese), formatted per the active
+/// locale — used by the care adherence heatmap's weekday header, where a
+/// full weekday name wouldn't fit its capped ~24dp column (design D2/D3).
+String narrowWeekdayLabel(BuildContext context, DateTime date) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat('EEEEE', languageTag).format(date);
 }

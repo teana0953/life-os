@@ -400,5 +400,13 @@
   "careAdherenceCardTitle": "照護達成",
   "careAdherenceHeatmapCellLabel": "{date} · {state}",
   "careAdherenceOpenHistory": "查看紀錄",
-  "careAdherenceLegendWithCount": "{label}（{count}）"
+  "careAdherenceLegendWithCount": "{label}（{count}）",
+  "careAdherenceHeatmapRangeCaption": "{from} – {to}",
+  "careAdherenceHeatmapSummaryLabel": "各狀態天數：{details}",
+  "careAdherenceHeatmapSummarySeparator": "、",
+  "careEditActionLabel": "編輯",
+  "careErrorForPeriod": "無法載入過去 {days} 天的資料，請再試一次。",
+  "careHistoryEditNotAppliedMessage": "未套用，沒有任何變更，請再試一次。",
+  "careHistoryNoCareItemsTitle": "還沒有任何照護項目",
+  "careHistoryNoCareItemsBody": "你還沒有設定任何照護項目，新增一個開始追蹤吧。"
 }

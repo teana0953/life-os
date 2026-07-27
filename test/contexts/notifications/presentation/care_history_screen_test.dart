@@ -17,8 +17,16 @@ import 'package:life_os/shared/date/day_format.dart';
 import '../../../support/l10n_test_app.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  /// When set, [idToken] awaits this instead of resolving immediately —
+  /// lets a test hold the token resolution in flight (task 4.7).
+  Completer<String?>? idTokenCompleter;
+
   @override
-  Future<String?> idToken() async => 'token-123';
+  Future<String?> idToken() async {
+    final completer = idTokenCompleter;
+    if (completer != null) return completer.future;
+    return 'token-123';
+  }
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -463,6 +471,59 @@ void main() {
         expect(repository.lastEditStatus, CareLogStatus.done);
         expect(repository.lastEditCareScheduleId, 'sch-1');
         expect(find.text('08:00 · ${loc.careHistoryStatusDone}'), findsOneWidget);
+      },
+    );
+
+    // The tile's edit icon otherwise reads to a screen reader as a bare,
+    // unlabelled "button" — a verb label ("Edit"), not the sheet's own
+    // noun-phrase title (careHistoryEditSheetTitle, "Update this record").
+    testWidgets(
+      "an editable slot's edit icon carries an assistive-technology label",
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [_slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed)],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final icon = tester.widget<Icon>(
+          find.descendant(
+            of: find.byKey(
+              const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+            ),
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+        );
+        expect(icon.semanticLabel, loc.careEditActionLabel);
+      },
+    );
+
+    // The default sheet bottom-sheet has only the scrim / system back
+    // gesture to dismiss it — neither is discoverable by a screen-reader or
+    // keyboard user scanning the sheet's own content.
+    testWidgets(
+      'the edit sheet exposes a reachable drag handle to dismiss it',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [_slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed)],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+          isTrue,
+        );
       },
     );
 
@@ -914,6 +975,12 @@ void main() {
       await _pumpScreen(tester, controller);
 
       expect(find.byKey(const Key('care-history-load-error')), findsOneWidget);
+      // The AppBar (title + overflow menu) stays on screen in the error
+      // state too — it isn't replaced by the error content, only the body
+      // is.
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careHistoryTitle), findsOneWidget);
+      expect(find.byKey(const Key('care-history-menu')), findsOneWidget);
 
       repository.getError = null;
       repository.days = _sevenDayRange();
@@ -922,6 +989,32 @@ void main() {
 
       expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
     });
+
+    // task 4.3/4.4: the error text names the failed period (matching
+    // CareAdherenceCard) and is styled as an error — not the plain-text
+    // careErrorGeneric this screen used before, which gave no visual
+    // signal that the retained period selector was a way *out* of a
+    // failure rather than an unrelated control.
+    testWidgets(
+      'a load failure names the period that failed and is styled as an '
+      'error, matching the care adherence card',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(days: const [])
+          ..getError = const CareRequestFailed();
+        final controller = _controller(repository: repository, spanDays: 7);
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careErrorForPeriod(7)), findsOneWidget);
+        expect(find.text(loc.careErrorGeneric), findsNothing);
+
+        final errorText = tester.widget<Text>(
+          find.byKey(const Key('care-history-load-error')),
+        );
+        final theme = Theme.of(tester.element(find.byType(CareHistoryScreen)));
+        expect(errorText.style?.color, theme.colorScheme.error);
+      },
+    );
 
     testWidgets(
       'the error state keeps the period selector, so a period that fails '
@@ -1096,10 +1189,13 @@ void main() {
           find.byKey(const Key('care-history-widen-button')),
           findsOneWidget,
         );
-        // Widening is the action while a longer period is still available.
+        // task 4.1: a shorter period's empty state now offers BOTH actions
+        // at once — widening (primary) and going to care management
+        // (secondary) — rather than making the user widen all the way to
+        // 90 days before care management becomes reachable.
         expect(
           find.byKey(const Key('care-history-empty-manage-button')),
-          findsNothing,
+          findsOneWidget,
         );
 
         await tester.tap(find.byKey(const Key('care-history-widen-button')));
@@ -1156,6 +1252,340 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('/care-items'), findsOneWidget);
+      },
+    );
+
+    // task 4.1: at the 90-day (longest) period the wording changes — the
+    // likeliest cause of an empty *longest* window is having no care items
+    // configured at all, not too narrow a date range.
+    testWidgets(
+      'the 90-day empty state uses "no care items" wording, not the '
+      '"nothing scheduled in this period" wording used at shorter periods',
+      (tester) async {
+        final controller = _controller(
+          repository: _FakeCareHistoryRepository(days: const []),
+          spanDays: 90,
+        );
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careHistoryNoCareItemsTitle), findsOneWidget);
+        expect(find.text(loc.careHistoryNoCareItemsBody), findsOneWidget);
+        expect(find.text(loc.careHistoryEmptyTitle), findsNothing);
+        expect(find.text(loc.careHistoryEmptyBody), findsNothing);
+      },
+    );
+
+    // task 4.1: the widen button must disable itself for the duration of the
+    // reload it triggered — otherwise a fast double-tap could fire two
+    // widens back to back and skip a period (7 -> 90 instead of 7 -> 30).
+    testWidgets(
+      "the widen button disables itself while its own reload is in flight, "
+      'so a fast double-tap cannot skip a period',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(days: const []);
+        final controller = _controller(repository: repository, spanDays: 7);
+        await _pumpScreen(tester, controller);
+
+        final completer = Completer<void>();
+        repository.getRangeCompleter = completer;
+
+        final widenButton = find.byKey(const Key('care-history-widen-button'));
+        await tester.tap(widenButton);
+        await tester.pump();
+
+        expect(tester.widget<FilledButton>(widenButton).onPressed, isNull);
+
+        // A second tap while the first widen is in flight fires nothing: the
+        // callback is dispatched directly (a real `tap()` can't reach a
+        // disabled button) and no further range request goes out.
+        final callsBeforeSecondTap = repository.getRangeCalls.length;
+        tester.widget<FilledButton>(widenButton).onPressed?.call();
+        await tester.pump();
+        expect(repository.getRangeCalls, hasLength(callsBeforeSecondTap));
+
+        completer.complete();
+        await tester.pumpAndSettle();
+
+        // Only the one widen went through: 7 -> 30, not 7 -> 90.
+        expect(controller.spanDays, 30);
+        expect(
+          tester.widget<FilledButton>(widenButton).onPressed,
+          isNotNull,
+        );
+      },
+    );
+
+    // task 4.1: `setSpan` writes `spanDays` *before* awaiting the reload, so
+    // reading `controller.spanDays` mid-flight would already report the new
+    // (unconfirmed) period — flipping the empty state's wording/buttons to
+    // the 90-day story before the 90-day response has actually come back.
+    // The screen must key its copy off the period the *displayed* (settled)
+    // content describes instead.
+    testWidgets(
+      "mid-reload, the empty state still reflects the settled period's "
+      'wording and buttons, not the just-selected (unconfirmed) one',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(days: const []);
+        final controller = _controller(repository: repository, spanDays: 30);
+        await _pumpScreen(tester, controller);
+
+        final completer = Completer<void>();
+        repository.getRangeCompleter = completer;
+
+        await tester.tap(find.byKey(const Key('care-history-widen-button')));
+        await tester.pump();
+
+        // The GET for 90 days is in flight; `controller.spanDays` is
+        // already 90, but the settled/displayed period is still 30.
+        expect(controller.spanDays, 90);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careHistoryEmptyTitle), findsOneWidget);
+        expect(find.text(loc.careHistoryNoCareItemsTitle), findsNothing);
+        expect(
+          find.byKey(const Key('care-history-widen-button')),
+          findsOneWidget,
+        );
+
+        completer.complete();
+        await tester.pumpAndSettle();
+
+        // Once settled, the wording catches up to the (still-empty) 90-day
+        // period.
+        expect(find.text(loc.careHistoryNoCareItemsTitle), findsOneWidget);
+        expect(
+          find.byKey(const Key('care-history-widen-button')),
+          findsNothing,
+        );
+      },
+    );
+
+    // task 4.7/4.8: `controller` is a main.dart singleton that outlives the
+    // screen — so re-entering the screen can start with
+    // `firstLoadSettled == true` from an *earlier* instance's load, which
+    // makes AsyncStateScaffold skip the full-page spinner and render the
+    // real content (period selector, widen button) on the very first frame
+    // — before *this* instance's own `_load()` has resolved `_idToken`
+    // (still `''`). Tapping either control at that point would send an
+    // unauthenticated GET and drop the user into a spurious 401 reauth exit.
+    testWidgets(
+      'the period selector and widen action stay disabled until the '
+      "sign-in token resolves, even though the controller's already-loaded "
+      'content renders immediately',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(days: const []);
+        final controller = _controller(repository: repository, spanDays: 7);
+        // Simulate an earlier screen instance already having loaded once —
+        // `firstLoadSettled` is now true on this (singleton) controller.
+        await controller.load('token-123');
+        expect(repository.getRangeCalls, hasLength(1));
+
+        final authRepository = _FakeAuthRepository();
+        final tokenCompleter = Completer<String?>();
+        authRepository.idTokenCompleter = tokenCompleter;
+
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: CareHistoryScreen(
+              controller: controller,
+              authRepository: authRepository,
+              clock: () => DateTime(2026, 7, 22),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // The stale content renders immediately (no spinner) — but the
+        // controls it would drive must not be interactive yet.
+        expect(
+          find.byKey(const Key('care-history-empty-state')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<SegmentedButton<int>>(
+                find.byKey(const Key('care-history-range-selector')),
+              )
+              .onSelectionChanged,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('care-history-widen-button')),
+              )
+              .onPressed,
+          isNull,
+        );
+        // No second (unauthenticated) request has gone out.
+        expect(repository.getRangeCalls, hasLength(1));
+
+        tokenCompleter.complete('token-123');
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<SegmentedButton<int>>(
+                find.byKey(const Key('care-history-range-selector')),
+              )
+              .onSelectionChanged,
+          isNotNull,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('care-history-widen-button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
+
+    // task 4.7, second half: `idToken()` resolving to `null` (signed out
+    // between mounting and the token round-trip) leaves `_idToken` as the
+    // empty string — indistinguishable, as far as the backend is concerned,
+    // from never having resolved. Flipping a separate "the await finished"
+    // flag would re-enable the controls and let the next tap send exactly
+    // the unauthenticated GET this gate exists to prevent, producing a
+    // spurious 401 reauth exit.
+    testWidgets(
+      'the period selector and widen action stay disabled when the sign-in '
+      'token resolves to null',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(days: const []);
+        final controller = _controller(repository: repository, spanDays: 7);
+        final authRepository = _FakeAuthRepository();
+        final tokenCompleter = Completer<String?>();
+        authRepository.idTokenCompleter = tokenCompleter;
+
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: CareHistoryScreen(
+              controller: controller,
+              authRepository: authRepository,
+              clock: () => DateTime(2026, 7, 22),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        tokenCompleter.complete(null);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('care-history-empty-state')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<SegmentedButton<int>>(
+                find.byKey(const Key('care-history-range-selector')),
+              )
+              .onSelectionChanged,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('care-history-widen-button')),
+              )
+              .onPressed,
+          isNull,
+        );
+      },
+    );
+
+    // design D4 / task 4.9: a listed slot's own `localDate` can differ from
+    // its containing day's `date` (they're independent fields fed by the
+    // same backend record) — a malformed one must not crash opening the
+    // slot's edit sheet; the sheet's date label falls back rather than
+    // throwing. (This screen never sends `doneTime` at all, so there's no
+    // submission path to guard here — only display.)
+    testWidgets(
+      "opening the edit sheet for a slot whose localDate can't be parsed "
+      "doesn't crash — the sheet's date label falls back to \"—\"",
+      (tester) async {
+        const malformedSlot = CareTodaySlot(
+          careItemId: 'care-1',
+          careScheduleId: 'sch-1',
+          category: CareCategory.medication,
+          title: 'Metformin',
+          timeOfDay: '08:00',
+          localDate: 'not-a-date',
+          status: CareTodayStatus.missed,
+          doseQuantity: 1,
+        );
+        // The day itself is today (so the slot is editable) — only the
+        // slot's own `localDate` is malformed.
+        final repository = _FakeCareHistoryRepository(
+          days: const [
+            CareHistoryDay(date: '2026-07-22', slots: [malformedSlot]),
+          ],
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-not-a-date-08:00')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('care-history-edit-sheet-subtitle')),
+              )
+              .data,
+          '— 08:00 · ${lookupAppLocalizations(const Locale('en')).careTodayStatusMissed}',
+        );
+      },
+    );
+
+    // design D4 / task 4.9: `_DayCard`'s header reads the same
+    // backend-sourced `CareHistoryDay.date` — the fifth of the six D4 call
+    // sites.
+    testWidgets(
+      "a day card whose date can't be parsed falls back to \"—\" in its "
+      "header rather than crashing",
+      (tester) async {
+        const malformedSlot = CareTodaySlot(
+          careItemId: 'care-1',
+          careScheduleId: 'sch-1',
+          category: CareCategory.medication,
+          title: 'Metformin',
+          timeOfDay: '08:00',
+          localDate: 'not-a-date',
+          status: CareTodayStatus.done,
+          doseQuantity: 1,
+        );
+        final repository = _FakeCareHistoryRepository(
+          days: const [
+            CareHistoryDay(date: 'not-a-date', slots: [malformedSlot]),
+          ],
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.byKey(const Key('care-history-day-header-not-a-date')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const Key('care-history-day-header-not-a-date')),
+              )
+              .data,
+          '—',
+        );
       },
     );
   });

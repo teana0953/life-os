@@ -1299,6 +1299,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String careAdherenceLegendWithCount(String label, int count) {
     return '$label（$count）';
   }
+
+  @override
+  String careAdherenceHeatmapRangeCaption(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careAdherenceHeatmapSummaryLabel(String details) {
+    return '各狀態天數：$details';
+  }
+
+  @override
+  String get careAdherenceHeatmapSummarySeparator => '、';
+
+  @override
+  String get careEditActionLabel => '編輯';
+
+  @override
+  String careErrorForPeriod(int days) {
+    return '無法載入過去 $days 天的資料，請再試一次。';
+  }
+
+  @override
+  String get careHistoryEditNotAppliedMessage => '未套用，沒有任何變更，請再試一次。';
+
+  @override
+  String get careHistoryNoCareItemsTitle => '還沒有任何照護項目';
+
+  @override
+  String get careHistoryNoCareItemsBody => '你還沒有設定任何照護項目，新增一個開始追蹤吧。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2596,4 +2626,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String careAdherenceLegendWithCount(String label, int count) {
     return '$label（$count）';
   }
+
+  @override
+  String careAdherenceHeatmapRangeCaption(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careAdherenceHeatmapSummaryLabel(String details) {
+    return '各狀態天數：$details';
+  }
+
+  @override
+  String get careAdherenceHeatmapSummarySeparator => '、';
+
+  @override
+  String get careEditActionLabel => '編輯';
+
+  @override
+  String careErrorForPeriod(int days) {
+    return '無法載入過去 $days 天的資料，請再試一次。';
+  }
+
+  @override
+  String get careHistoryEditNotAppliedMessage => '未套用，沒有任何變更，請再試一次。';
+
+  @override
+  String get careHistoryNoCareItemsTitle => '還沒有任何照護項目';
+
+  @override
+  String get careHistoryNoCareItemsBody => '你還沒有設定任何照護項目，新增一個開始追蹤吧。';
 }

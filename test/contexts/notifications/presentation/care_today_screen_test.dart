@@ -190,7 +190,7 @@ DateTime _testDefaultToLocal(DateTime dt) => dt.toLocal();
 Future<DateTime?> _unusedPickDoneTime(
   BuildContext context,
   CareTodaySlot slot,
-  DateTime current,
+  DateTime? current,
   DateTime Function(DateTime) toLocalTime,
 ) => throw UnimplementedError('pickDoneTime was not injected for this test');
 
@@ -206,7 +206,7 @@ Future<void> _pumpScreen(
   Future<DateTime?> Function(
     BuildContext,
     CareTodaySlot,
-    DateTime,
+    DateTime?,
     DateTime Function(DateTime),
   )?
   pickDoneTime = _unusedPickDoneTime,
@@ -703,6 +703,67 @@ void main() {
       },
     );
 
+    // The row's edit icon otherwise reads to a screen reader as a bare,
+    // unlabelled "button" — the same generic announcement as any other
+    // icon-only affordance on the row. A verb label ("Edit"), not the
+    // sheet's own noun-phrase title (careTodayEditSheetTitle, "Update this
+    // record") — the two ARB keys serve different UI spots and must not
+    // collapse into one.
+    testWidgets(
+      "the Done row's edit icon carries an assistive-technology label",
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [_slot(status: CareTodayStatus.done, timeOfDay: '08:00')],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final icon = tester.widget<Icon>(
+          find.descendant(
+            of: find.byKey(const Key('care-today-row-sch-1-2026-07-22-08:00')),
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+        );
+        expect(icon.semanticLabel, loc.careEditActionLabel);
+      },
+    );
+
+    // The default 9/16 sheet-height cap and the scrim/system-back gesture
+    // are the only dismiss routes without this — neither is discoverable by
+    // a screen-reader or keyboard user scanning the sheet's own content.
+    testWidgets(
+      'the correction sheet exposes a reachable drag handle to dismiss it',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [_slot(status: CareTodayStatus.done, timeOfDay: '08:00')],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+          isTrue,
+        );
+      },
+    );
+
     testWidgets(
       'choosing Skipped disables the completion-time row — a skip never '
       'carries a completion time',
@@ -911,11 +972,82 @@ void main() {
         final loc = lookupAppLocalizations(const Locale('en'));
         expect(find.text(loc.careErrorGeneric), findsOneWidget);
         expect(find.byType(SnackBar), findsOneWidget);
+        // task 4.5: a failed correction offers a retry, same as the inline
+        // mark path.
+        expect(find.text(loc.retry), findsOneWidget);
         // The list is kept — the row is still there.
         expect(
           find.byKey(const Key('care-today-row-sch-1-2026-07-22-08:00')),
           findsOneWidget,
         );
+      },
+    );
+
+    // task 4.5/4.6: retrying a failed correction must resend exactly what
+    // the user already picked in the (now-closed) sheet — not force them
+    // to reopen it and pick again. This is the only test that actually
+    // exercises the resend: the SnackBar test above only confirms a retry
+    // action exists.
+    testWidgets(
+      "retrying a failed correction resends the same (status, doneTime) the "
+      'user already chose, without reopening the sheet',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(status: CareTodayStatus.missed, timeOfDay: '07:00'),
+            ],
+          ),
+        );
+        final historyRepository = _FakeCareHistoryRepository()
+          ..editError = const CareRequestFailed();
+        final controller = _controller(
+          repository: repository,
+          historyRepository: historyRepository,
+        );
+        final pickedDoneTime = DateTime.utc(2026, 7, 22, 9, 15);
+        await _pumpScreen(
+          tester,
+          controller,
+          pickDoneTime: (_, __, ___, ____) async => pickedDoneTime,
+        );
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sch-1-2026-07-22-07:00')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-today-edit-status-done')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-today-edit-time')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-today-edit-submit')));
+        await tester.pumpAndSettle();
+
+        expect(historyRepository.editCalls, 1);
+        expect(historyRepository.lastDoneTime, pickedDoneTime);
+        // The sheet is gone — retry must not need it.
+        expect(find.byKey(const Key('care-today-edit-submit')), findsNothing);
+
+        // The next attempt succeeds — proves the retry actually re-ran the
+        // edit rather than just dismissing the SnackBar.
+        historyRepository.editError = null;
+        repository.today = CareToday(
+          date: '2026-07-22',
+          slots: [_slot(status: CareTodayStatus.done, timeOfDay: '07:00')],
+        );
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.retry));
+        await tester.pumpAndSettle();
+
+        expect(historyRepository.editCalls, 2);
+        expect(historyRepository.lastCareScheduleId, 'sch-1');
+        expect(historyRepository.lastStatus, CareLogStatus.done);
+        // The exact same picked time, not re-derived from the slot.
+        expect(historyRepository.lastDoneTime, pickedDoneTime);
+        expect(find.text(loc.careErrorGeneric), findsNothing);
       },
     );
 
@@ -990,13 +1122,31 @@ void main() {
         // Still only the one edit dispatched, still for sch-2.
         expect(historyRepository.editCalls, 1);
         expect(historyRepository.lastCareScheduleId, 'sch-2');
-        // The user is told the drop happened — never silent.
+        // The user is told the drop happened — never silent. task 4.5:
+        // worded as "not applied" (nothing failed, the gate just dropped
+        // it), not the generic "something went wrong" text — and still
+        // offers a retry.
         final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.text(loc.careErrorGeneric), findsOneWidget);
+        expect(find.text(loc.careHistoryEditNotAppliedMessage), findsOneWidget);
+        expect(find.text(loc.careErrorGeneric), findsNothing);
+        expect(find.text(loc.retry), findsOneWidget);
 
+        // Tapping that retry must resend the values the DROPPED sheet had
+        // (sch-1's), not reopen the sheet and make the user pick again.
+        // Asserting the button merely exists leaves that half unguarded:
+        // routing retry to `_openEditSheet` keeps this test green unless we
+        // actually press it and check what went out.
         completer.complete();
         await tester.pumpAndSettle();
         expect(historyRepository.editCalls, 1);
+
+        historyRepository.editCompleter = null;
+        await tester.tap(find.text(loc.retry));
+        await tester.pumpAndSettle();
+
+        expect(historyRepository.editCalls, 2);
+        expect(historyRepository.lastCareScheduleId, 'sch-1');
+        expect(historyRepository.lastStatus, CareLogStatus.done);
       },
     );
 
@@ -1424,6 +1574,10 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(loc.careErrorGeneric), findsNothing);
+        // And deliberately NO retry here: the PUT already succeeded, so
+        // retrying would re-send an edit that is already stored. Without
+        // this, widening `offerRetry` to every outcome stays green.
+        expect(find.text(loc.retry), findsNothing);
       },
     );
 
@@ -1636,7 +1790,7 @@ void main() {
           ),
         );
         final controller = _controller(repository: repository);
-        final seeds = <DateTime>[];
+        final seeds = <DateTime?>[];
         final picked = DateTime.utc(2026, 7, 22, 4, 30);
         await _pumpScreen(
           tester,
@@ -1797,6 +1951,185 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(otherEditIconColor(), enabledColor);
+      },
+    );
+
+    // design D4 / task 4.9: a slot whose `localDate` cannot be parsed has no
+    // reasonable date to pin a completion time to — substituting one (e.g.
+    // "today") would file the record under the wrong day, which is worse
+    // than sending nothing (the backend treats an absent `done_time` as
+    // "leave this field alone"). Covers two of the six D4 call sites:
+    // `_doneInstantOn` and `_EditSheet.build`'s date label.
+    testWidgets(
+      "a slot whose localDate can't be parsed: the correction sheet doesn't "
+      'crash, its completion-time row is disabled and shows "—", and '
+      'submitting sends no doneTime',
+      (tester) async {
+        const malformedSlot = CareTodaySlot(
+          careItemId: 'care-1',
+          careScheduleId: 'sch-1',
+          category: CareCategory.medication,
+          title: 'Metformin',
+          timeOfDay: '08:00',
+          localDate: 'not-a-date',
+          status: CareTodayStatus.missed,
+          doseQuantity: 1,
+        );
+        final repository = _FakeCareTodayRepository(
+          today: const CareToday(date: '2026-07-22', slots: [malformedSlot]),
+        );
+        final historyRepository = _FakeCareHistoryRepository();
+        final controller = _controller(
+          repository: repository,
+          historyRepository: historyRepository,
+        );
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sch-1-not-a-date-08:00')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final timeTile = tester.widget<ListTile>(
+          find.byKey(const Key('care-today-edit-time')),
+        );
+        expect(timeTile.enabled, isFalse);
+        expect((timeTile.subtitle! as Text).data, '—');
+
+        await tester.tap(find.byKey(const Key('care-today-edit-submit')));
+        await tester.pumpAndSettle();
+
+        expect(historyRepository.editCalls, 1);
+        expect(historyRepository.lastStatus, CareLogStatus.done);
+        expect(historyRepository.lastDoneTime, isNull);
+      },
+    );
+
+    // design D4, the case the fixture above misses: the same unparseable
+    // `localDate`, but on a slot that *does* carry a recorded `doneTime`.
+    // Seeding the sheet from that recorded value made `_doneTime` non-null,
+    // so the row — disabled, and therefore not correctable — still displayed
+    // a concrete time, and submitting sent it back pinned to a date the app
+    // admits it cannot determine. D4 says "shows no time" and "sends no
+    // completion time at all".
+    testWidgets(
+      "a slot whose localDate can't be parsed but has a recorded doneTime "
+      'still shows "—" and still submits no doneTime',
+      (tester) async {
+        const malformedSlot = CareTodaySlot(
+          careItemId: 'care-1',
+          careScheduleId: 'sch-1',
+          category: CareCategory.medication,
+          title: 'Metformin',
+          timeOfDay: '08:00',
+          localDate: 'not-a-date',
+          status: CareTodayStatus.done,
+          doseQuantity: 1,
+          doneTime: '2026-07-22T04:58:00.000Z',
+        );
+        final repository = _FakeCareTodayRepository(
+          today: const CareToday(date: '2026-07-22', slots: [malformedSlot]),
+        );
+        final historyRepository = _FakeCareHistoryRepository();
+        final controller = _controller(
+          repository: repository,
+          historyRepository: historyRepository,
+        );
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sch-1-not-a-date-08:00')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final timeTile = tester.widget<ListTile>(
+          find.byKey(const Key('care-today-edit-time')),
+        );
+        expect(timeTile.enabled, isFalse);
+        expect((timeTile.subtitle! as Text).data, '—');
+
+        await tester.tap(find.byKey(const Key('care-today-edit-submit')));
+        await tester.pumpAndSettle();
+
+        expect(historyRepository.editCalls, 1);
+        expect(historyRepository.lastDoneTime, isNull);
+      },
+    );
+
+    // design D4: `timeOfDay` unparseable (with no recorded `doneTime`) only
+    // ever affects the picker's *initial* value — it falls back to a fixed
+    // default rather than crashing, since `localDate` (a separate field) is
+    // still fine here and there's no reason to disable the whole row.
+    testWidgets(
+      "a slot whose timeOfDay can't be parsed and has no recorded doneTime: "
+      "the correction sheet doesn't crash and its completion-time row falls "
+      'back to a fixed default time',
+      (tester) async {
+        const malformedSlot = CareTodaySlot(
+          careItemId: 'care-1',
+          careScheduleId: 'sch-1',
+          category: CareCategory.medication,
+          title: 'Metformin',
+          timeOfDay: 'not-a-time',
+          localDate: '2026-07-22',
+          status: CareTodayStatus.missed,
+          doseQuantity: 1,
+        );
+        final repository = _FakeCareTodayRepository(
+          today: const CareToday(date: '2026-07-22', slots: [malformedSlot]),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sch-1-2026-07-22-not-a-time')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final timeTile = tester.widget<ListTile>(
+          find.byKey(const Key('care-today-edit-time')),
+        );
+        // Not disabled, and not "—" — a usable fallback, since localDate is
+        // fine.
+        expect(timeTile.enabled, isTrue);
+        expect((timeTile.subtitle! as Text).data, isNot('—'));
+      },
+    );
+  });
+
+  // design D4 / task 4.9: the checklist's own date header
+  // (`mediumDateLabel(parseDayString(controller.date))`) reads a
+  // backend-sourced string too — the third of the six D4 call sites.
+  group('CareTodayScreen malformed controller.date', () {
+    testWidgets(
+      "a malformed controller.date falls back rather than crashing the "
+      'checklist header',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: const CareToday(date: 'not-a-date', slots: []),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.widget<Text>(find.byKey(const Key('care-today-date'))).data,
+          '—',
+        );
       },
     );
   });

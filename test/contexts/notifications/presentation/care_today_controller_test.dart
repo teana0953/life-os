@@ -509,6 +509,31 @@ void main() {
       expect(controller.marking, isFalse);
     });
 
+    test('a mark dropped by the re-entrancy gate does not carry over a '
+        'stale markError from an earlier, already-settled action — the gate '
+        'used to fire before markError was cleared, so an action that was '
+        'never attempted could pop up the last failure', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      await controller.load('token-123');
+      // Simulate another mark already being in flight, with a stale error
+      // left over from an earlier, unrelated failure.
+      controller.marking = true;
+      controller.markError = const CareRequestFailed();
+
+      await controller.markDone(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+      );
+
+      expect(controller.markError, isNull);
+      expect(repository.logCalls, 0);
+    });
+
     test('markingAction identifies only the slot mid-mark, and clears once '
         'it settles (FIX 8: per-row marking feedback)', () async {
       final repository = _FakeCareTodayRepository(

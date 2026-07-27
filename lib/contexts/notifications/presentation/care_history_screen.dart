@@ -89,6 +89,22 @@ class CareHistoryScreen extends StatefulWidget {
 class _CareHistoryScreenState extends State<CareHistoryScreen> {
   String _idToken = '';
 
+  /// Whether *this* instance holds a usable `_idToken`. [widget.controller]
+  /// is a main.dart singleton that outlives the screen, so re-entering can
+  /// start with `firstLoadSettled == true` from an earlier instance — which
+  /// makes [AsyncStateScaffold] skip the full-page spinner and render the
+  /// period selector / widen button on the very first frame, before this
+  /// instance's own [_load] has resolved a real `_idToken` (still `''`).
+  /// Gates those controls so a tap in that window can't send an
+  /// unauthenticated GET and drop the user into a spurious 401 reauth exit
+  /// (task 4.7).
+  ///
+  /// Derived from `_idToken` rather than tracked as a separate "the await
+  /// finished" flag: `idToken()` resolving to `null` leaves `_idToken` empty
+  /// too, and a request carrying no bearer is exactly what this gate exists
+  /// to prevent — whether the token hasn't arrived yet or never will.
+  bool get _tokenReady => _idToken.isNotEmpty;
+
   /// The composite key ([_slotCompositeKey]) of the slot currently being
   /// edited, so its tile can show an in-flight affordance instead of the
   /// whole screen — cleared once [CareHistoryController.edit] settles.
@@ -112,6 +128,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   Future<void> _load() async {
     _idToken = await widget.authRepository.idToken() ?? '';
     if (!mounted) return;
+    setState(() {});
     await _reload();
   }
 
@@ -126,9 +143,14 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     // needlessly opening a sheet whose choice would just be dropped.
     if (widget.controller.editing) return;
     final loc = AppLocalizations.of(context)!;
-    final dateLabel = mediumDateLabel(context, parseDayString(slot.localDate));
+    final dateLabel = mediumDateLabelOrDash(context, slot.localDate);
     final chosen = await showModalBottomSheet<CareLogStatus>(
       context: context,
+      // A reachable dismiss affordance beyond the scrim/system-back gesture
+      // — neither is discoverable by a screen-reader or keyboard user
+      // scanning the sheet's own content (mirrors exercise_screen.dart /
+      // goal_card.dart / care_today_screen.dart's own correction sheet).
+      showDragHandle: true,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         return SafeArea(
@@ -274,8 +296,10 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                loc.careErrorGeneric,
+                loc.careErrorForPeriod(controller.spanDays),
                 key: const Key('care-history-load-error'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -286,9 +310,17 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
             ],
           );
         } else if (empty) {
+          // The period the *displayed* (settled) content describes, not
+          // `controller.spanDays` — `setSpan` writes that before awaiting
+          // the reload, so reading it here mid-reload would flip the
+          // wording/buttons to the just-selected, still-unconfirmed period
+          // (task 4.1). Falls back to `spanDays` only before any load has
+          // ever settled, which the empty state can't reach anyway.
+          final displaySpanDays = controller.daysSpanDays ?? controller.spanDays;
           content = _EmptyState(
-            onWiden: controller.spanDays < 90
-                ? () => _setSpan(_nextSpanDays(controller.spanDays))
+            spanDays: displaySpanDays,
+            onWiden: _tokenReady && displaySpanDays < 90 && !reloading
+                ? () => _setSpan(_nextSpanDays(displaySpanDays))
                 : null,
             onOpenCareItems: () => context.push('/care-items'),
           );
@@ -322,7 +354,9 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
                       ButtonSegment(value: 90, label: Text(loc.trendRange90)),
                     ],
                     selected: {controller.spanDays},
-                    onSelectionChanged: (selection) => _setSpan(selection.first),
+                    onSelectionChanged: _tokenReady
+                        ? (selection) => _setSpan(selection.first)
+                        : null,
                   ),
                 ),
                 Expanded(
@@ -343,23 +377,36 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
+  /// The period the displayed (settled) content actually describes — decides
+  /// both the wording (task 4.1: 90 days reads as "no care items", shorter
+  /// periods read as "nothing scheduled") and whether widening is offered at
+  /// all (only below 90).
+  final int spanDays;
+
   /// Widens the period to the next longer option (7→30→90) and reloads
-  /// (follow-up 5); `null` when the period is already 90 days, in which
-  /// case [onOpenCareItems] is offered instead.
+  /// (follow-up 5); `null` either because [spanDays] is already 90 (widening
+  /// isn't rendered at all then) or because the widen it triggered is still
+  /// reloading — so the button stays visible but disabled, and a fast
+  /// double-tap can't skip a period (task 4.1).
   final VoidCallback? onWiden;
 
-  /// Opens care management (`/care-items`) — the empty state's action once
-  /// the period is already the longest one, so it never ends without a next
-  /// step: at 90 days the likeliest reason for an empty period is having no
-  /// care items set up at all, not too narrow a window.
+  /// Opens care management (`/care-items`) — offered alongside [onWiden]
+  /// at every period length (task 4.1: a user with no care items at all
+  /// shouldn't have to widen twice to reach the only action that helps
+  /// them), and alone once the period is already the longest one.
   final VoidCallback onOpenCareItems;
 
-  const _EmptyState({this.onWiden, required this.onOpenCareItems});
+  const _EmptyState({
+    required this.spanDays,
+    this.onWiden,
+    required this.onOpenCareItems,
+  });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final atLongest = spanDays >= 90;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: LedgeCard(
@@ -374,23 +421,32 @@ class _EmptyState extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 12),
-            Text(loc.careHistoryEmptyTitle, style: theme.textTheme.titleMedium),
+            Text(
+              atLongest ? loc.careHistoryNoCareItemsTitle : loc.careHistoryEmptyTitle,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 4),
             Text(
-              loc.careHistoryEmptyBody,
+              atLongest ? loc.careHistoryNoCareItemsBody : loc.careHistoryEmptyBody,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
-            if (onWiden != null)
+            if (!atLongest) ...[
               FilledButton(
                 key: const Key('care-history-widen-button'),
                 onPressed: onWiden,
                 child: Text(loc.careHistoryWidenPeriodButton),
-              )
-            else
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                key: const Key('care-history-empty-manage-button'),
+                onPressed: onOpenCareItems,
+                child: Text(loc.careHistoryEmptyManageButton),
+              ),
+            ] else
               FilledButton(
                 key: const Key('care-history-empty-manage-button'),
                 onPressed: onOpenCareItems,
@@ -461,7 +517,7 @@ class _DayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final header = isToday ? loc.dietDayToday : mediumDateLabel(context, parseDayString(day.date));
+    final header = isToday ? loc.dietDayToday : mediumDateLabelOrDash(context, day.date);
     final sortedSlots = [...day.slots]
       ..sort((a, b) => a.timeOfDay.compareTo(b.timeOfDay));
     return LedgeCard(
@@ -562,6 +618,7 @@ class _SlotTile extends StatelessWidget {
           : Icon(
               Icons.edit_outlined,
               size: 20,
+              semanticLabel: loc.careEditActionLabel,
               color: theme.colorScheme.onSurfaceVariant,
             ),
       onTap: !editable || isEditing ? null : onTap,
