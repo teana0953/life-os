@@ -94,6 +94,7 @@ import 'firebase_options.dart';
 import 'shared/config.dart';
 import 'shared/data_revision.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pwa_update.dart';
 import 'shared/pwa/pwa_update_controller.dart';
 import 'shared/theme/theme_controller.dart';
@@ -293,6 +294,7 @@ Future<void> main() async {
       careTodayController: careTodayController,
       careHistoryController: careHistoryController,
       dataRevision: dataRevision,
+      pendingDeepLinkStore: const PendingDeepLinkStoreImpl(),
     ),
   );
 }

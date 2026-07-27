@@ -48,6 +48,8 @@ import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/routing/auth_router_notifier.dart';
 import 'shared/data_revision.dart';
+import 'shared/pwa/pending_deep_link.dart';
+import 'shared/pwa/pending_deep_link_controller.dart';
 import 'shared/pwa/pwa_install.dart';
 import 'shared/pwa/pwa_update_banner.dart';
 import 'shared/pwa/pwa_update_controller.dart';
@@ -186,6 +188,12 @@ class App extends StatefulWidget {
   final CareHistoryController careHistoryController;
   final DataRevision dataRevision;
 
+  /// The SW → app hand-over for a tapped care notification's destination
+  /// (design.md D1/D2). Optional so existing construction sites keep
+  /// working; defaults to the platform-appropriate no-op/Cache-Storage impl
+  /// via the conditional export in `pending_deep_link.dart`.
+  final PendingDeepLinkStore pendingDeepLinkStore;
+
   const App({
     super.key,
     required this.authRepository,
@@ -215,6 +223,7 @@ class App extends StatefulWidget {
     required this.careTodayController,
     required this.careHistoryController,
     required this.dataRevision,
+    this.pendingDeepLinkStore = const PendingDeepLinkStoreImpl(),
   });
 
   @override
@@ -231,8 +240,64 @@ class _AppState extends State<App> {
   /// [resolveAuthRedirect]) so a cold-start push-notification route isn't lost.
   String? _pendingDeepLink;
 
+  /// Consumes a care-notification hand-over (design.md D1) once auth is
+  /// ready and the app has settled on a real screen; see
+  /// `_scheduleDeepLinkCheck` / `_scheduleDeepLinkNavigationCheck`.
+  late final PendingDeepLinkController _pendingDeepLinkController =
+      PendingDeepLinkController(
+        widget.pendingDeepLinkStore,
+        canNavigate: () =>
+            !_authNotifier.loading &&
+            !_authNotifier.error &&
+            _authNotifier.signedIn,
+        // `currentConfiguration.uri.path` only reflects the *declarative*
+        // location and does not update for an imperative `push` (go_router
+        // 16.3.0) — after `push('/care-today')` it would still read `/`, so
+        // the dedupe gate below could never see we'd already arrived.
+        // `matches.last.matchedLocation` does track pushes.
+        currentPath: () {
+          final m = _router.routerDelegate.currentConfiguration.matches;
+          return m.isEmpty ? '' : m.last.matchedLocation;
+        },
+        navigate: (path) => _router.push(path),
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    // Registration order matters: adding our listener before `_router` is
+    // first touched (below) means ours runs first when auth resolves, ahead
+    // of go_router's own `refreshListenable` redirect — so the actual check
+    // is deferred a frame (see `_scheduleDeepLinkCheck`) to let that redirect
+    // land first (design.md D6).
+    _authNotifier.addListener(_scheduleDeepLinkCheck);
+    _router.routerDelegate.addListener(_scheduleDeepLinkNavigationCheck);
+    _pendingDeepLinkController.start();
+  }
+
+  /// Schedules a [PendingDeepLinkController.check] for the next frame so
+  /// go_router has finished its own auth redirect first (design.md D6).
+  void _scheduleDeepLinkCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pendingDeepLinkController.check();
+    });
+  }
+
+  /// Schedules a [PendingDeepLinkController.onNavigation] for the next
+  /// frame — the retry point after a gate refusal (design.md D6).
+  void _scheduleDeepLinkNavigationCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pendingDeepLinkController.onNavigation();
+    });
+  }
+
   @override
   void dispose() {
+    _authNotifier.removeListener(_scheduleDeepLinkCheck);
+    _router.routerDelegate.removeListener(_scheduleDeepLinkNavigationCheck);
+    _pendingDeepLinkController.dispose();
     _authNotifier.dispose();
     super.dispose();
   }
