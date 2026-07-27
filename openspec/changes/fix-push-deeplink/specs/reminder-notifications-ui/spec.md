@@ -42,10 +42,10 @@ where they were — matching how 今日照護 behaves when opened from the overv
   the home screen on a cold start, or the screen the user was on when already running
 
 #### Scenario: The transition screens are never left underneath
-- **WHEN** the destination is consumed while the app is still on a splash, auth-error, or
-  sign-in screen
-- **THEN** nothing is consumed yet and the navigation happens later, so 今日照護 is never
-  stacked on top of a transition screen
+- **WHEN** a destination is pending while the app is on a splash, auth-error, or sign-in
+  screen
+- **THEN** it is left unconsumed and the navigation happens once the app has settled on a
+  real screen, so 今日照護 is never stacked on top of a transition screen
 
 ### Requirement: A stale or duplicate hand-over never hijacks navigation
 

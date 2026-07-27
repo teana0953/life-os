@@ -47,8 +47,9 @@ regression against today's behaviour. The signal carries no destination, so Cach
 single source of truth and there is only ever one consumption path.
 
 `resolveAuthRedirect` and its `pendingDeepLink` replay are **not touched**: they cover the
-case where the URL *does* carry the deep link (manually typed, desktop browser tab), and are
-already covered by `test/app_redirect_test.dart`.
+case where the URL *does* carry the deep link — a hand-typed address — which no longer
+overlaps the notification path at all now that it always opens `/`. They stay covered by
+`test/app_redirect_test.dart`.
 
 Frontend only; no backend, copy, or l10n change. Gate = lint + `flutter analyze` +
 `flutter test`.
@@ -57,5 +58,6 @@ Frontend only; no backend, copy, or l10n change. Gate = lint + `flutter analyze`
 
 ### Modified Capabilities
 
-- `reminder-notifications-ui`: tapping a care notification SHALL open 今日照護 on both cold
-  start and warm resume, stacked so the user can navigate back.
+- `reminder-notifications-ui`: tapping a care notification SHALL open 今日照護 whether the app
+  was closed, backgrounded, or already in the foreground, stacked so the user can navigate
+  back.

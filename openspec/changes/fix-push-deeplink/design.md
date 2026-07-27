@@ -47,6 +47,8 @@ SW（JS）與 adapter（Dart）各寫一次讀寫，拼錯會**整條靜默失�
 
 key 以 `/` 開頭是必要條件而非風格：`cache.put` 會把相對 key 依 base 解析成絕對 URL，而 SW 的 base 是 `/push_sw.js`、頁面的 base 是 `/`，只有根相對路徑能保證兩邊解析成同一個 URL。
 
+**通知本身攜帶的 `data` 也改成 path 形式**：`push` handler 現況存的是 `{ url: data.url || '/#/care-today' }`，`notificationclick` 再讀它。D9 之後那個 hash URL 不能再流進 Cache（`push('/#/care-today')` 匹配不到任何 route），所以 `push` handler 改存 `{ path: ... }`，預設 `/care-today`，`notificationclick` 直接取用。
+
 Dart 端讀出 `savedAt` 後以 `DateTime.fromMillisecondsSinceEpoch` 轉換。**時鐘回退**（`savedAt` 落在未來）不特別處理：`now - savedAt` 為負，自然不超過 TTL，視為有效——這比丟棄安全，因為丟棄會讓一次正常的通知點擊無聲失效。
 
 Flutter 自己的 service worker 只 `caches.delete` 它自己那三個具名 cache，`index.html` 的 `pwaUpdate.apply()` 也只 unregister root registration，都不會動到 `lifeos-deeplink`。
@@ -57,10 +59,13 @@ Flutter 自己的 service worker 只 `caches.delete` 它自己那三個具名 ca
 notificationclick
   → 寫 pending 到 Cache（await 完成）
   → matchAll({ type: 'window', includeUncontrolled: true })
-      有既有 window → client.postMessage(信號) + client.focus()
-                       focus() reject → fallback clients.openWindow('/')
+      有既有 window → client.focus()
+                       成功 → client.postMessage(信號)
+                       reject → clients.openWindow('/')，且不送信號
       沒有          → clients.openWindow('/')
 ```
+
+**信號一定要在 `focus()` 成功之後才送**。反過來的話，fallback 路徑會同時做兩件打架的事：信號已經送給那個舊 window，它可能在背景就把 pending `take()` 掉並導航（使用者看不到），而隨後 `openWindow('/')` 開出來的新 window 讀到空 Cache、停在首頁 —— 使用者點了通知反而落在首頁，比不修還糟。
 
 `includeUncontrolled: true` 讓 `/push/`-scope 的 SW 也看得到 `/`-scope 的 app window —— 規格上這個旗標的可見範圍以 **origin** 判定、與 scope 無關（現有程式碼註解說看不到，只在沒帶這個旗標時成立，需一併更正）。`WindowClient.navigate()` 仍然不能用（它要求 client 被此 SW 控制），但 `focus()` 沒有這個限制，而導航本來就交給 app 自己做。
 
@@ -80,6 +85,10 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 信號不帶目的地是關鍵：Cache 仍是唯一的事實來源，所有時效／去重／守門判斷只有 controller 那一份，不會長出第二套消費邏輯而彼此不同步。
 
+**必須呼叫 `startMessages()`**：`ServiceWorkerContainer` 的 client message queue 預設是關閉的，只有設定 `onmessage` 屬性或呼叫 `startMessages()` 之後才會開始派送。單用 `addEventListener('message', ...)` 註冊（Dart 端最自然的寫法）訊息會被無聲地排隊、永遠收不到 —— 症狀與這一節要修的問題一模一樣，而 SW 與 adapter 兩層都不在自動測試覆蓋範圍內，只有實機才會發現。
+
+`Client.postMessage` 由非受控的 `/push/` scope 送到 `/`-scope 頁面在規格上成立（message queue 屬於 `ServiceWorkerContainer` 而非個別 registration），但這是本設計**唯一沒有既有程式碼佐證的假設**，所以「SW 送信號 → app 收到」列為實機驗證的第一項；若不成立，退路是 web adapter 自己掛 `document` 的 `visibilitychange` 與 `window` 的 `focus`。
+
 ### D5 — 導航用 `push`，疊在既有堆疊之上
 
 消費 pending 時用 `push` 而非 `go`：
@@ -93,14 +102,18 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 ### D6 — 消費時機：auth 就緒之後，且不落在過場畫面上
 
-三個生命週期觸發點：**啟動後**、**auth 狀態轉換**（涵蓋「點通知時未登入 → 登入後」）、**回到前景**（`didChangeAppLifecycleState(resumed)`，比照既有 `PwaUpdateController`），加上 D4 的 postMessage 信號。
+四個觸發點：**啟動後**、**auth 狀態轉換**（涵蓋「點通知時未登入 → 登入後」）、**回到前景**（`didChangeAppLifecycleState(resumed)`，比照既有 `PwaUpdateController`）、**每次導航**（訂閱 `GoRouterDelegate`，它是 `ChangeNotifier`），加上 D4 的 postMessage 信號。
 
 兩道守門：
 
 1. **auth 未就緒不消費**：`loading`／`error`／未登入時直接 return，**且不 take**（留給下一個觸發點）。冷啟動時 auth 還在 bootstrap，router 被 `resolveAuthRedirect` 壓在 `/splash`，此時 push 會被 redirect 吃掉並改由 `pendingDeepLink` 以 `go` replay —— 那條路徑沒有返回箭頭。
-2. **過場位置不消費**：`currentPath` 落在 `/splash`、`/auth-error`、`/login`、`/register` 時同樣 return 且不 take。
+2. **過場位置不消費**：`currentPath` 落在 `/splash`、`/auth-error`、`/login`、`/register` 時同樣 return 且不 take。**空字串或未匹配的 `currentPath` 視同過場位置** —— `start()` 在 `initState` 跑第一次 check 時 router 還沒完成首次 parse，`currentConfiguration` 是空的，若放行就會在無效的 base 上 push。
 
-**時序**：auth listener 只負責「排程」，實際 check 用 `addPostFrameCallback` 延到下一幀。原因是 go_router 的 `refreshListenable` 是在 `_buildRouter()` 時才註冊的，晚於 `_AppState.initState` 掛的 listener，所以 auth 一 resolve 我們會**先**跑；不延一幀的話 `push` 的 base 可能還是尚未被 redirect 掉的 `/splash`，返回鍵會先閃一下 splash，測試也會 race。
+**守門被拒後必須有人重新觸發**，這正是「每次導航」這個觸發點存在的理由：兩道守門都只 return 不 take，如果沒有後續觸發，冷啟動時一旦 post-frame 那一幀 router 還沒 redirect 完（守門 2 擋下），就沒有 auth notify、沒有 resumed、沒有信號，pending 會懸在那裡直到下一次回前景 —— 冷啟動整條失效。訂閱 delegate 讓「router 終於離開 `/splash`」這件事本身成為重試點。
+
+自我觸發不會失控：消費成功後 `take()` 已把 Cache 清空，我們自己 push 造成的 notify 只會讀到 `null`，加上 D8 的單飛旗標與「已在目標路徑不導航」守門，收斂在一次。
+
+**時序**：auth listener 只負責「排程」，實際 check 用 `addPostFrameCallback` 延到下一幀（callback 內先確認 `mounted`，否則 widget 測試 teardown 與 hot reload 會對已 dispose 的 router 呼叫 push）。原因是 go_router 的 `refreshListenable` 是在 `_buildRouter()` 時才註冊的，晚於 `_AppState.initState` 掛的 listener，所以 auth 一 resolve 我們會**先**跑；不延一幀的話 `push` 的 base 可能還是尚未被 redirect 掉的 `/splash`，返回鍵會先閃一下 splash，測試也會 race。
 
 `resolveAuthRedirect` 與其 `pendingDeepLink` 機制**完全不動** —— 它處理的是「URL 本來就帶著 deep link 的冷啟動」（手動輸入網址），仍然有效，且已有完整測試。
 
@@ -133,8 +146,8 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 | `web/push_sw.js` | 依 D2 契約寫 pending；postMessage 信號 + focus，或 openWindow | 無（瀏覽器端 glue，比照現況） |
 | `lib/shared/pwa/pending_deep_link.dart` | 抽象介面：`take()` → `PendingDeepLink?`、`handoverSignals` stream，conditional export | — |
 | `..._stub.dart` / `..._web.dart` | 非 web no-op／Cache Storage 讀取＋刪除、serviceWorker message 轉信號 | web impl 不測（薄 adapter，比照 `BrowserWebPushGateway`） |
-| `lib/shared/pwa/pending_deep_link_controller.dart` | 守門 + 時效 + 去重 + 併發防護 + 生命週期觀察 + 觸發導航 | **單元測試**（注入 fake store + 固定 now） |
-| `lib/app.dart` | 接線：建 controller、排程 post-frame check、callback 打 `push` | widget 測試 |
+| `lib/shared/pwa/pending_deep_link_controller.dart` | 守門 + 時效 + 去重 + 併發防護 + 生命週期觀察 + 信號訂閱 + 觸發導航 | **單元測試**（注入 fake store + 固定 now） |
+| `lib/app.dart` | 接線：建 controller、訂閱 auth 與 router delegate、排程 post-frame check、callback 打 `push` | widget 測試 |
 
 判斷邏輯全部落在 controller 這個**可測的純 Dart 層**，adapter 只做 Cache 讀寫與事件轉譯，SW 只做寫入與 focus/open 分岔 —— 沿用專案既有的「薄 adapter + 可測 controller」分工。
 
@@ -170,10 +183,10 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 ## 測試策略
 
-- **controller 單元測試**（TDD 主戰場）：時效內採用／逾時丟棄但仍消費／auth 未就緒不 take／過場路徑不 take／已在目標路徑不導航／`null` 不炸／消費過不重複／`resumed` 觸發而其他生命週期不觸發／信號觸發／併發 check 只導航一次。
-- **widget 測試**：注入 fake store，驗證 app 啟動後 push 到 `/care-today` 且底下那層仍是首頁（`push` 而非 `go`）；逾時的 pending 讓 app 停在首頁。
+- **controller 單元測試**（TDD 主戰場）：時效內採用／逾時丟棄但仍消費／auth 未就緒不 take／過場路徑不 take／空 `currentPath` 不 take／已在目標路徑不導航／`null` 不炸／消費過不重複／`resumed` 觸發而其他生命週期不觸發／信號觸發／併發 check 只導航一次。
+- **widget 測試**：注入 fake store，驗證 app 啟動後 push 到 `/care-today` 且底下那層仍是首頁（`push` 而非 `go`）—— 這條測試同時釘住 D6 那個「post-frame 時 router 已離開 `/splash`」的時序假設；逾時的 pending 讓 app 停在首頁；store 拋例外不影響啟動。
 - **既有測試不得退化**：`test/app_redirect_test.dart` 全綠（D6 的前提是不動那套邏輯）。
-- **實機驗證（需使用者在 Android 上做，非自動化）**：三個情境（冷啟動／背景／前景）各驗一次「進到今日照護 + 有返回箭頭 + 返回鍵回到原處」。
+- **實機驗證（需使用者在 Android 上做，非自動化）**：三個情境（冷啟動／背景／前景）各驗一次「進到今日照護 + 有返回箭頭 + 返回鍵回到原處」。**前景那一項先驗**，因為它同時驗證 D4 那個唯一沒有既有程式碼佐證的假設（跨 scope 的 `postMessage` 送得到）。
 
 ## 不做（YAGNI）
 
