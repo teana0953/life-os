@@ -33,14 +33,20 @@
 
 清除動作放在 controller（`typeStates` 是它持有的），screen 在勾選變動時呼叫。判斷邏輯留在可測的那一層。
 
-### D3 — 從未匯入時不畫狀態圖示，跑過之後才畫
+### D3 — 「沒有狀態」要成為一個**每個類型各自**的狀態，不能用全域 `ImportStatus` 判斷
 
-`notAttempted` 現在有兩種處境，資訊量差很多：
+`TypeStatus.notAttempted` 現在同時代表兩種處境，而這個 change 第一次需要區分它們：
 
-- **從未跑過**（`ImportStatus.idle`）：空心圈毫無資訊 —— 五列全是它。而且左方框、右圓框並置，圓形外框在列上的慣例是 radio，容易誤讀成「另一組單選」。
+- **從未跑過**：空心圈毫無資訊 —— 五列全是它。而且左方框、右圓框並置，圓形外框在列上的慣例是 radio，容易誤讀成「另一組單選」。
 - **跑過但沒輪到**：空心圈**正面**說出「這次沒跑到它」，有價值，而且已被測試釘住。
 
-所以依 `ImportStatus` 分：`idle` 時 trailing 留等寬空白（不是移除 —— 移除會讓標題在第一次送出時橫移），其餘狀態照舊。
+直覺的做法是用全域的 `ImportStatus.idle` 當閘門，但**那個維度是錯的**：D2 的「結束後改勾選 → 那一列回到空白」發生時，全域 status 是 `done`，而我們要表達的是「**這一列**被清掉、其他列還留著」。用全域狀態表達不出 per-type 的差異，兩個決策會互相打架。
+
+所以新增 **`TypeStatus.pristine`** —— 「從未跑過，或剛被清掉」。`_freshTypeStates()` 與 D2 的清除都寫入它；`notAttempted` 縮回單一意義：「這一輪跑了，但沒輪到它」。
+
+選 enum 值而不是「從 map 移除 entry」：後者會讓 screen 既有的 `typeStates[type]!` 直接爆，而且「不存在」與「存在但無狀態」在讀 code 時難分。新增 enum 值則會讓專案裡所有 `switch (state.status)` 立刻編譯失敗，強迫每一處明確決定 `pristine` 該顯示什麼 —— 這個 repo 踩過 exhaustive switch 的虧，這次讓它站在我們這邊。
+
+trailing 在 `pristine` 時留**等寬空白**而非移除，否則第一次送出時類型標題會橫移。
 
 ### D4 — 拉開停用勾選框的兩個狀態
 
@@ -86,12 +92,12 @@ WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這�
 
 | | leading（勾選框） | trailing（狀態圖示） |
 | --- | --- | --- |
-| 從未匯入 | 可改；預設全勾 | **空白**（等寬） |
-| 匯入中，沒被選 | 未勾、停用（對比已拉開） | 空心圈 |
+| 從未匯入（`pristine`） | 可改；預設全勾 | **空白**（等寬） |
+| 匯入中，沒被選 | 未勾、停用（對比已拉開） | 空白或上一輪的結果（這輪沒動它） |
 | 匯入中，已選但沒輪到 | 打勾、停用（對比已拉開） | 空心圈 |
 | 匯入中，正在跑 | 打勾、停用 | 轉圈（帶語音標籤） |
 | 結束，成功／失敗 | 可改 | ✓／✗（帶語音標籤） |
-| 結束後改了勾選 | 可改 | 回到空白，結果文字一併清掉 |
+| 結束後改了勾選（回到 `pristine`） | 可改 | 回到空白，結果文字一併清掉 |
 
 ### 可及性/理解性
 
@@ -99,10 +105,14 @@ WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這�
 
 ## 測試策略
 
-- **controller（單元）**：清除單一類型只影響那一型；送出只重置這輪要跑的類型、其餘保留（**這條是 D2 的回歸點**）；既有的失敗語意與 bump 規則不變。
+- **controller（單元）**：清除單一類型只影響那一型且落在 `pristine`；送出只重置這輪要跑的類型、其餘保留（**這條是 D2 的回歸點**）；`authFailed` 仍把該型退回 `notAttempted`（不是 `pristine` —— 它確實參與了那一輪）；既有的失敗語意與 bump 規則不變。
 - **screen（widget）**：送出按鈕在類型清單**之後**（比較兩者在 widget tree 的垂直位置）；卡片標題存在；改勾選後那一列的結果文字消失、其他列的留著；`idle` 時 trailing 沒有圖示但沒有橫移（標題 dx 不變）；跑過之後空心圈回來；狀態圖示的 semantics 讀得到。
 - **主題（單元）**：`CheckboxThemeData` 的 disabled 兩態顏色不同，且各自對 surface 的對比達標。
-- **既有測試不得退化**：`select-import-types` 的所有測試（含勾選框常駐、D2 回歸點、位置斷言、`enabled` 語意）必須維持通過。
+- **會被這個 change 取代的既有測試**（不是退化，是行為被刻意反轉，必須改寫而不是刪掉）：
+  - `chaodays_import_controller_test.dart` 的 *a new run clears every type's result, including the ones it skips* —— D2 正是要反轉它。
+  - `chaodays_import_screen_test.dart` 的 *the checkbox leads the row and the status icon trails it* —— 它在 **idle** 狀態靠 `Icons.circle_outlined` 取 trailing 的 dx，D3 之後那裡沒有圖示。改成跑過之後再比位置。
+  **不可以**為了讓它變綠而在 `pristine` 留一個看不見的圖示。
+- **其餘既有測試不得退化**：`select-import-types` 的勾選框常駐、「跑完後仍可改選再跑」、`enabled` 語意、圖示配色都必須維持通過。
 
 ## 不做（YAGNI）
 
