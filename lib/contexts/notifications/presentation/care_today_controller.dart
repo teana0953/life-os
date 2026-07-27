@@ -175,6 +175,13 @@ class CareTodayController extends ChangeNotifier {
       date = today.date;
       slots = today.slots;
       error = null;
+      // The screen renders from [status], so a successful reload must land on
+      // `loaded` even when the previous state was `error`/`reauth`/`loading` —
+      // otherwise the freshly fetched list stays hidden behind whatever is on
+      // screen, which is exactly the "tapping the notification does nothing"
+      // symptom this hand-over exists to remove. Quiet means never *dropping*
+      // to `loading` mid-flight, not never writing the status at all.
+      status = CareTodayLoadStatus.loaded;
     } catch (e) {
       if (e is CareReauthRequired) {
         status = CareTodayLoadStatus.reauth;

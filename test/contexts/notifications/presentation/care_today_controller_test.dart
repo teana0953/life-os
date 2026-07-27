@@ -219,6 +219,28 @@ void main() {
       expect(statuses, isNot(contains(CareTodayLoadStatus.loading)));
     });
 
+    test('a successful quiet reload recovers from an error state — the screen '
+        'renders from status, so leaving it on error hides the list it just '
+        'fetched', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      repository.getError = const CareRequestFailed();
+      await controller.load('token-123');
+      expect(controller.status, CareTodayLoadStatus.error);
+
+      repository.getError = null;
+      repository.today = CareToday(
+        date: '2026-07-23',
+        slots: [_slot(careScheduleId: 'sch-2')],
+      );
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.loaded);
+      expect(controller.slots.single.careScheduleId, 'sch-2');
+    });
+
     test('a failed quiet reload keeps the rendered list and stays loaded — a '
         'background reload must never swap a good list for the error screen', () async {
       final repository = _FakeCareTodayRepository(

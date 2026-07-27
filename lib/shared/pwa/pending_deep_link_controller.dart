@@ -111,7 +111,13 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     if (_now().difference(pending.savedAt) > _ttl) return;
     if (_disposed) return;
     if (_currentPath() == pending.path) {
-      await _refresh();
+      try {
+        await _refresh();
+      } catch (_) {
+        // Every trigger is fire-and-forget, so a throw here (fetching a fresh
+        // id token, say) would escape as an unhandled async error. A failed
+        // hand-over is silent by design — the screen keeps what it has.
+      }
       return;
     }
     _navigate(pending.path);
