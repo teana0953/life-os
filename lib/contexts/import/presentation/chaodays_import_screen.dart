@@ -8,8 +8,9 @@ import '../../auth/domain/auth_repository.dart';
 import 'chaodays_import_controller.dart';
 
 /// Full-screen chaodays import form: a chaodays account/password (used only
-/// for this import, never stored) and a start/end date range, then a
-/// one-tap import of all five data types with per-type progress and results.
+/// for this import, never stored), a start/end date range, and a checkbox per
+/// data type (all selected by default), then a one-tap import of the selected
+/// types with per-type progress and results.
 class ChaodaysImportScreen extends StatefulWidget {
   final ChaodaysImportController controller;
   final AuthRepository authRepository;
@@ -36,6 +37,10 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
   DateTime? _start;
   DateTime? _end;
 
+  /// The types the next import will run. Everything starts selected, so an
+  /// untouched form imports exactly what it did before this was selectable.
+  final Set<ImportType> _selected = {...ImportType.values};
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +66,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
 
   bool get _canSubmit =>
       !_isImporting &&
+      _selected.isNotEmpty &&
       _accountController.text.isNotEmpty &&
       _passwordController.text.isNotEmpty &&
       _start != null &&
@@ -101,6 +107,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
     if (!mounted) return;
     await widget.controller.import(
       idToken,
+      types: _selected,
       chaodaysUid: _accountController.text,
       chaodaysPassword: _passwordController.text,
       startDate: dayString(_start!),
@@ -248,6 +255,20 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                             _TypeResultRow(
                               type: type,
                               state: widget.controller.typeStates[type]!,
+                              selected: _selected.contains(type),
+                              // Whether the row offers a checkbox is decided by
+                              // the run as a whole, not by this type's status:
+                              // after a run every row sits at `success`, and the
+                              // checkboxes have to come back so the user can
+                              // re-run a different selection here.
+                              selectable: !_isImporting,
+                              onSelectedChanged: (value) => setState(() {
+                                if (value) {
+                                  _selected.add(type);
+                                } else {
+                                  _selected.remove(type);
+                                }
+                              }),
                             ),
                         ],
                       ),
@@ -263,14 +284,27 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
   }
 }
 
-/// One data type's row in the results card: an icon reflecting its
-/// [TypeState.status], the type's label, and — once known — its result or
-/// failure text.
+/// One data type's row in the results card: the type's label, — once known —
+/// its result or failure text, and a leading slot that carries the selection
+/// checkbox while [selectable], and an icon reflecting its [TypeState.status]
+/// while the import runs.
 class _TypeResultRow extends StatelessWidget {
   final ImportType type;
   final TypeState state;
+  final bool selected;
 
-  const _TypeResultRow({required this.type, required this.state});
+  /// Whether the selection can be edited at all — false only while an import
+  /// is running, so the two meanings of the leading slot never overlap.
+  final bool selectable;
+  final ValueChanged<bool> onSelectedChanged;
+
+  const _TypeResultRow({
+    required this.type,
+    required this.state,
+    required this.selected,
+    required this.selectable,
+    required this.onSelectedChanged,
+  });
 
   String _label(AppLocalizations loc) => switch (type) {
     ImportType.weight => loc.importTypeWeight,
@@ -297,6 +331,12 @@ class _TypeResultRow extends StatelessWidget {
 
   Widget _leading(BuildContext context) {
     final theme = Theme.of(context);
+    if (selectable) {
+      return Checkbox(
+        value: selected,
+        onChanged: (value) => onSelectedChanged(value ?? false),
+      );
+    }
     return switch (state.status) {
       TypeStatus.notAttempted => Icon(
         Icons.circle_outlined,
@@ -323,22 +363,30 @@ class _TypeResultRow extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final resultText = _resultText(loc);
+    // While the import runs, a left-out type and a selected one that hasn't
+    // started both show an empty circle — dimming the whole row is what tells
+    // "this won't run" apart from "this is still queued".
+    final dimmed = !selectable && !selected;
     // The result text sits in the subtitle (not the trailing slot) so it wraps
     // instead of overflowing on a narrow phone — the diet row's imported/skipped/
     // glucose line is long, especially in English.
-    return ListTile(
-      leading: _leading(context),
-      title: Text(_label(loc)),
-      subtitle: resultText == null
-          ? null
-          : Text(
-              resultText,
-              style: TextStyle(
-                color: state.status == TypeStatus.failed
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.onSurfaceVariant,
+    return Opacity(
+      key: Key('import-type-row-${type.name}'),
+      opacity: dimmed ? 0.5 : 1,
+      child: ListTile(
+        leading: _leading(context),
+        title: Text(_label(loc)),
+        subtitle: resultText == null
+            ? null
+            : Text(
+                resultText,
+                style: TextStyle(
+                  color: state.status == TypeStatus.failed
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+      ),
     );
   }
 }

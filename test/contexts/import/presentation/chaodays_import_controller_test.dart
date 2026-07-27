@@ -123,8 +123,14 @@ ChaodaysImportController _controller(
   dataRevision ?? DataRevision(),
 );
 
-Future<void> _import(ChaodaysImportController controller) => controller.import(
+/// Runs an import over [types], defaulting to every type (the behaviour the
+/// pre-selection tests below assert).
+Future<void> _import(
+  ChaodaysImportController controller, {
+  Set<ImportType>? types,
+}) => controller.import(
   'token',
+  types: types ?? ImportType.values.toSet(),
   chaodaysUid: 'user1',
   chaodaysPassword: 'pass1',
   startDate: '2026-07-01',
@@ -238,6 +244,75 @@ void main() {
 
       await future;
       expect(controller.status, ImportStatus.done);
+    });
+  });
+
+  group('ChaodaysImportController.import type selection', () {
+    test('runs only the selected type and leaves the rest notAttempted', () async {
+      final repository = FakeImportRepository();
+      final controller = _controller(repository);
+
+      await _import(controller, types: {ImportType.diet});
+
+      expect(repository.calls, ['diet']);
+      expect(controller.status, ImportStatus.done);
+      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.success);
+      for (final type in ImportType.values.where((t) => t != ImportType.diet)) {
+        expect(controller.typeStates[type]!.status, TypeStatus.notAttempted);
+      }
+    });
+
+    test('runs the selected types in ImportType.values order, not selection order', () async {
+      final repository = FakeImportRepository();
+      final controller = _controller(repository);
+
+      // Selected "diet target first", but the display/run order is fixed.
+      await _import(controller, types: {ImportType.dietTarget, ImportType.weight});
+
+      expect(repository.calls, ['weight', 'dietTarget']);
+      expect(controller.status, ImportStatus.done);
+      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.notAttempted);
+    });
+
+    test(
+      'a failing selected type still aborts the run, leaving later selected '
+      'types unrun',
+      () async {
+        final repository = FakeImportRepository()
+          ..waterError = const ImportChaodaysUnavailable();
+        final controller = _controller(repository);
+
+        await _import(controller, types: {ImportType.water, ImportType.bowel});
+
+        expect(repository.calls, ['water']);
+        expect(controller.status, ImportStatus.unavailable);
+        expect(controller.typeStates[ImportType.water]!.status, TypeStatus.failed);
+        expect(controller.typeStates[ImportType.bowel]!.status, TypeStatus.notAttempted);
+      },
+    );
+
+    test('bumps the revision when a selected type succeeds', () async {
+      final dataRevision = DataRevision();
+      final controller = _controller(
+        FakeImportRepository(),
+        dataRevision: dataRevision,
+      );
+
+      await _import(controller, types: {ImportType.bowel});
+
+      expect(dataRevision.revision, 1);
+    });
+
+    test('does not bump when the only selected type fails', () async {
+      final dataRevision = DataRevision();
+      final repository = FakeImportRepository()
+        ..bowelError = const ImportChaodaysUnavailable();
+      final controller = _controller(repository, dataRevision: dataRevision);
+
+      await _import(controller, types: {ImportType.bowel});
+
+      expect(controller.status, ImportStatus.unavailable);
+      expect(dataRevision.revision, 0);
     });
   });
 

@@ -1183,7 +1183,7 @@
   "importSubmitButton": "Start import",
   "importDoneMessage": "Import complete.",
   "@importDoneMessage": {
-    "description": "Shown after all four chaodays data types finished importing."
+    "description": "Shown after the selected chaodays data types finished importing."
   },
   "@importSubmitButton": {
     "description": "Button that starts the chaodays import."

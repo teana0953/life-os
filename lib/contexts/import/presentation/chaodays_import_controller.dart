@@ -36,9 +36,9 @@ Map<ImportType, TypeState> _freshTypeStates() => {
   for (final type in ImportType.values) type: const TypeState.notAttempted(),
 };
 
-/// Drives the chaodays import screen: runs the five data-type imports
-/// (weight, diet, water, bowel, diet target) in order against the given date
-/// range, tracking overall [status] and each type's [TypeState] in
+/// Drives the chaodays import screen: runs the selected data-type imports
+/// (out of weight, diet, water, bowel, diet target) in order against the
+/// given date range, tracking overall [status] and each type's [TypeState] in
 /// [typeStates].
 ///
 /// The chaodays credentials are passed through to [import] and never held by
@@ -116,8 +116,12 @@ class ChaodaysImportController extends ChangeNotifier {
     }
   }
 
-  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for all five types,
-  /// in order. Stops at the first failure:
+  /// Imports [startDate]..[endDate] (both `YYYY-MM-DD`) for the selected
+  /// [types], in [ImportType.values] order; unselected types don't run and
+  /// stay [TypeStatus.notAttempted]. [types] is required and has no default:
+  /// a default would let a caller that forgot it silently import everything.
+  ///
+  /// Stops at the first failure:
   /// - Wrong chaodays credentials (shared by all five types, so the rest
   ///   would fail identically) → [ImportStatus.authFailed]; the remaining
   ///   types are left [TypeStatus.notAttempted] rather than marked failed.
@@ -125,9 +129,11 @@ class ChaodaysImportController extends ChangeNotifier {
   /// - chaodays unreachable, or any other failure → [ImportStatus.unavailable]
   ///   with that type marked [TypeStatus.failed].
   ///
-  /// Otherwise, once all five succeed, ends at [ImportStatus.done].
+  /// Otherwise, once every selected type succeeds, ends at
+  /// [ImportStatus.done].
   Future<void> import(
     String idToken, {
+    required Set<ImportType> types,
     required String chaodaysUid,
     required String chaodaysPassword,
     required String startDate,
@@ -148,7 +154,10 @@ class ChaodaysImportController extends ChangeNotifier {
     // successes.
     var anySucceeded = false;
     try {
-      for (final type in ImportType.values) {
+      // Filtered off ImportType.values rather than iterating [types], so the
+      // run order stays the fixed display order whatever order they were
+      // selected in.
+      for (final type in ImportType.values.where(types.contains)) {
         typeStates = {...typeStates, type: const TypeState.importing()};
         notifyListeners();
 
