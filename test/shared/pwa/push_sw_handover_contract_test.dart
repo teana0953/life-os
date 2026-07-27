@@ -23,6 +23,12 @@ void main() {
 
     expect(js, contains("'${dartConst('_cacheName')}'"));
     expect(js, contains("'${dartConst('_cacheKey')}'"));
+    // Agreeing on the same *value* is not enough: a relative key resolves
+    // against each side's base URL (`/push/push_sw.js` in the worker, `/` in
+    // the page), so both would write and read different URLs while this test
+    // stayed green. Root-relative is a correctness condition, not a style
+    // rule (design.md D2).
+    expect(dartConst('_cacheKey'), startsWith('/'));
     // Payload field names: read as `json['path']`/`json['savedAt']` in Dart,
     // written as object keys in the worker.
     expect(dart, contains("json['path']"));

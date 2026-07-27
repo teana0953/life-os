@@ -16,12 +16,12 @@ bool _isTransitionScreen(String loc) =>
 /// Holds all the judgement for consuming a [PendingDeepLinkStore] entry:
 /// 5-minute TTL, clear-on-read, never read while auth is unresolved or the
 /// app sits on a transition screen, skip when already on the target route,
-/// single-flight guard, and re-checks on resume / navigation / worker signal
-/// (design.md D6-D8).
+/// single-flight guard, and re-checks on resume / auth transition / worker
+/// signal (design.md D6-D8).
 ///
 /// [start] wires the lifecycle observer + signal subscription and is called
-/// once from the composition root; tests instead drive [check] /
-/// [onNavigation] directly so they never need a real observer.
+/// once from the composition root; tests instead drive [check] directly so
+/// they never need a real observer.
 class PendingDeepLinkController with WidgetsBindingObserver {
   PendingDeepLinkController(
     this._store, {
@@ -30,7 +30,7 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     required bool Function() canNavigate,
     required String Function() currentPath,
     required void Function(String path) navigate,
-    required void Function() refresh,
+    required Future<void> Function() refresh,
   }) : _ttl = ttl,
        _now = now,
        _canNavigate = canNavigate,
@@ -50,8 +50,9 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   /// screen loads once on `initState`, so without this a reminder tapped from
   /// 今日照護 itself would leave the user staring at the list as it was when
   /// they last opened it — across midnight, at yesterday's date, where Done
-  /// records against the wrong day.
-  final void Function() _refresh;
+  /// records against the wrong day. Awaited, so the reload it runs stays
+  /// inside this check's in-flight window.
+  final Future<void> Function() _refresh;
 
   bool _checking = false;
 
@@ -65,12 +66,6 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   /// Set by [dispose]: nothing may navigate after the owning widget is gone,
   /// including a check that was already awaiting the store when it happened.
   bool _disposed = false;
-
-  /// Set whenever [check] returns at either gate, cleared once a check gets
-  /// past them. [onNavigation] only re-checks while this is set, so the
-  /// router-delegate subscription acts as a retry point for a gate refusal
-  /// rather than a poller on every navigation (design.md D6).
-  bool _gateRefused = false;
 
   StreamSubscription<void>? _signalSubscription;
 
@@ -97,16 +92,13 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   }
 
   Future<void> _runCheck() async {
-    if (!_canNavigate()) {
-      _gateRefused = true;
-      return;
-    }
+    // Nothing may be read after dispose, not even by a re-run queued before
+    // it happened: `take()` is read-and-delete, so a check that runs anyway
+    // would silently swallow a live hand-over.
+    if (_disposed) return;
+    if (!_canNavigate()) return;
     final path = _currentPath();
-    if (_isTransitionScreen(path)) {
-      _gateRefused = true;
-      return;
-    }
-    _gateRefused = false;
+    if (_isTransitionScreen(path)) return;
 
     final PendingDeepLink? pending;
     try {
@@ -119,17 +111,10 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     if (_now().difference(pending.savedAt) > _ttl) return;
     if (_disposed) return;
     if (_currentPath() == pending.path) {
-      _refresh();
+      await _refresh();
       return;
     }
     _navigate(pending.path);
-  }
-
-  /// Retries after a gate refusal — the reason the router-delegate
-  /// subscription exists. A no-op otherwise, so ordinary navigation doesn't
-  /// read the store on every route change.
-  void onNavigation() {
-    if (_gateRefused) check();
   }
 
   @override

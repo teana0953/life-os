@@ -54,7 +54,7 @@ void main() {
     canNavigate: () => canNavigateValue,
     currentPath: () => currentPathValue,
     navigate: (path) => navigated.add(path),
-    refresh: () => refreshes++,
+    refresh: () async => refreshes++,
   );
 
   setUp(() {
@@ -248,6 +248,30 @@ void main() {
         expect(refreshes, 0);
       },
     );
+
+    test(
+      'a re-run queued before dispose does not read the store afterwards '
+      '(take() deletes, so it would swallow a live hand-over)',
+      () async {
+        store.enqueue(null);
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+        store.holdUntil = Completer<void>();
+        final controller = buildController();
+
+        // First check reads an empty store; a trigger arrives while it is
+        // still in flight, so a re-run is queued…
+        final pending = controller.check();
+        await Future<void>.delayed(Duration.zero);
+        controller.check();
+        // …and the widget goes away before that re-run gets to happen.
+        controller.dispose();
+        store.holdUntil!.complete();
+        await pending;
+
+        expect(store.takeCallCount, 1);
+        expect(navigated, isEmpty);
+      },
+    );
   });
 
   group('triggers', () {
@@ -285,36 +309,5 @@ void main() {
       },
     );
 
-    test('onNavigation() after a gate refusal runs a check', () async {
-      canNavigateValue = false;
-      final controller = buildController();
-      await controller.check(); // gate-refused: canNavigate() false
-
-      canNavigateValue = true;
-      store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
-
-      controller.onNavigation();
-      await Future<void>.delayed(Duration.zero);
-
-      expect(navigated, ['/care-today']);
-    });
-
-    test(
-      'onNavigation() when the previous check was not gate-refused does not '
-      'touch the store',
-      () async {
-        store.enqueue(
-          PendingDeepLink(path: '/care-today', savedAt: fixedNow),
-        );
-        final controller = buildController();
-        await controller.check(); // succeeds, not gate-refused
-        final takesBefore = store.takeCallCount;
-
-        controller.onNavigation();
-        await Future<void>.delayed(Duration.zero);
-
-        expect(store.takeCallCount, takesBefore);
-      },
-    );
   });
 }

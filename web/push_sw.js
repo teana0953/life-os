@@ -64,10 +64,19 @@ self.addEventListener('notificationclick', function (event) {
       // `includeUncontrolled: true` makes this visible by *origin*, not
       // scope — a `/push/`-scoped worker CAN see `/`-scope app windows with
       // this flag set.
-      var allClients = await clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
+      // Best-effort for the same reason as the Cache write above: a rejected
+      // matchAll must not abort the handler, or the tap would neither focus
+      // nor open anything. Treating it as "no windows" falls through to
+      // openWindow, so a tap always opens the app.
+      var allClients = [];
+      try {
+        allClients = await clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+      } catch (e) {
+        // Ignored on purpose; see above.
+      }
       var target = allClients.find(function (c) { return c.focused; }) || allClients[0];
 
       // Focus only — never navigate() here. Navigating would replace the

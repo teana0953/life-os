@@ -141,11 +141,48 @@ class CareTodayController extends ChangeNotifier {
     }
   }
 
+  /// Set while [load] or [reloadQuietly] is fetching. Both entry points can
+  /// now be driven by the user in quick succession (a reload follows every
+  /// care notification tapped while 今日照護 is already open), and two
+  /// overlapping GETs would land in completion order — the older response
+  /// last, showing a staler list than the one already fetched.
+  bool _fetching = false;
+
   Future<void> load(String idToken) async {
+    if (_fetching) return;
+    _fetching = true;
     status = CareTodayLoadStatus.loading;
     markError = null;
     notifyListeners();
     await _fetch(idToken);
+    _fetching = false;
+    notifyListeners();
+  }
+
+  /// Re-fetches Today *quietly* for a hand-over that arrives while the screen
+  /// is already showing it (design D9): [status] stays `loaded` throughout, so
+  /// the list the user is looking at is never replaced by a spinner, and a
+  /// failure keeps the existing slots rather than swapping in the full-screen
+  /// error state — the same treatment the post-mark reload gets (FIX 2), for
+  /// the same reason: losing a rendered list because a background refresh
+  /// failed would be misleading. Only a 401 still routes to
+  /// [CareTodayLoadStatus.reauth]. Ignored while another fetch is in flight.
+  Future<void> reloadQuietly(String idToken) async {
+    if (_fetching) return;
+    _fetching = true;
+    try {
+      final today = await _getToday(idToken);
+      date = today.date;
+      slots = today.slots;
+      error = null;
+    } catch (e) {
+      if (e is CareReauthRequired) {
+        status = CareTodayLoadStatus.reauth;
+      }
+      // Any other failure stays silent — the user did not ask for this
+      // reload, so it must not take the list away from them.
+    }
+    _fetching = false;
     notifyListeners();
   }
 

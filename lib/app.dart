@@ -261,19 +261,30 @@ class _AppState extends State<App> {
         // Only `/care-today` can be handed over today, so this reloads that
         // one screen unconditionally; a second destination would need to
         // dispatch on the pending path instead.
-        refresh: () => widget.careTodayController.load(_idToken),
+        //
+        // A *quiet* reload: the user is looking at that list, so it must not
+        // be replaced by a spinner — nor by an error screen if the reload
+        // fails (design.md D9, same rule as the post-mark reload). The token
+        // is fetched fresh, like `CareTodayScreen._load` does, rather than
+        // reusing `_authNotifier.idToken`: that is a snapshot from the last
+        // `authStateChanges` event, which does not fire on token renewal, so
+        // the overnight tap this reload exists for is exactly when it would
+        // be expired.
+        refresh: () async {
+          final token = await widget.authRepository.idToken() ?? '';
+          await widget.careTodayController.reloadQuietly(token);
+        },
       );
 
   @override
   void initState() {
     super.initState();
-    // Registration order matters: adding our listener before `_router` is
-    // first touched (below) means ours runs first when auth resolves, ahead
+    // Registration order matters: this listener is added before `_router` is
+    // ever built (first `build`), so ours runs first when auth resolves, ahead
     // of go_router's own `refreshListenable` redirect — so the actual check
     // is deferred a frame (see `_scheduleDeepLinkCheck`) to let that redirect
     // land first (design.md D6).
     _authNotifier.addListener(_scheduleDeepLinkCheck);
-    _router.routerDelegate.addListener(_scheduleDeepLinkNavigationCheck);
     _pendingDeepLinkController.start();
   }
 
@@ -286,19 +297,9 @@ class _AppState extends State<App> {
     });
   }
 
-  /// Schedules a [PendingDeepLinkController.onNavigation] for the next
-  /// frame — the retry point after a gate refusal (design.md D6).
-  void _scheduleDeepLinkNavigationCheck() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _pendingDeepLinkController.onNavigation();
-    });
-  }
-
   @override
   void dispose() {
     _authNotifier.removeListener(_scheduleDeepLinkCheck);
-    _router.routerDelegate.removeListener(_scheduleDeepLinkNavigationCheck);
     _pendingDeepLinkController.dispose();
     _authNotifier.dispose();
     super.dispose();

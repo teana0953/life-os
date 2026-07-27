@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
+import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_screen.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -80,6 +81,30 @@ class _RepeatingFakeStore implements PendingDeepLinkStore {
   void fireHandover() => _signals.add(null);
 }
 
+/// A signed-in [AuthRepository] whose id token can be rotated mid-test. This
+/// is the real Firebase behaviour the hand-over reload has to survive:
+/// `authStateChanges` does **not** fire when the ID token is renewed, so a
+/// token captured at the last auth event is stale within the hour — exactly
+/// the "tapped the next morning" case the reload exists for.
+class _RotatingTokenAuthRepository implements AuthRepository {
+  String token = 'stale-token';
+
+  @override
+  Future<String?> idToken() async => token;
+
+  @override
+  Stream<bool> get authStateChanges => Stream<bool>.value(true);
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+}
+
 /// A care-today backend whose checklist *changes* between reads: each
 /// `getToday` returns a differently-titled slot, so a test can tell a real
 /// reload from a stale screen (the cross-day symptom: yesterday's list still
@@ -87,8 +112,21 @@ class _RepeatingFakeStore implements PendingDeepLinkStore {
 class _ChangingCareTodayRepository implements CareTodayRepository {
   int getCount = 0;
 
+  /// The id token each `getToday` was called with, in order.
+  final tokens = <String>[];
+
+  /// Thrown by (and cleared on) the next `getToday` — lets a test fail the
+  /// hand-over's reload only, after the screen has already rendered a list.
+  Object? failNext;
+
   @override
   Future<CareToday> getToday(String idToken) async {
+    tokens.add(idToken);
+    if (failNext != null) {
+      final error = failNext!;
+      failNext = null;
+      throw error;
+    }
     getCount++;
     return CareToday(
       date: '2026-07-27',
@@ -308,6 +346,91 @@ void main() {
 
         expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
         expect(find.byType(CareTodayScreen), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the reload a hand-over triggers fetches a fresh id token rather than '
+      'reusing the one captured at the last auth event (which never renews)',
+      (tester) async {
+        final authRepository = _RotatingTokenAuthRepository();
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _ChangingCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // Overnight: Firebase renews the ID token without emitting an auth
+        // state change, so anything still holding the old snapshot would send
+        // an expired token and be bounced to the re-auth screen.
+        authRepository.token = 'fresh-token';
+
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(careRepository.tokens.last, 'fresh-token');
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a hand-over whose reload fails leaves the checklist on screen — no '
+      'error screen over a list that was rendering fine',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _ChangingCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('藥 #1'), findsOneWidget);
+
+        // The network drops just as a second reminder is tapped.
+        careRepository.failNext = const CareRequestFailed();
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(1));
+        expect(find.text('藥 #1'), findsOneWidget);
+        expect(find.byKey(const Key('care-today-load-error')), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
       },
     );
   });
