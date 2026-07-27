@@ -1176,7 +1176,15 @@ void main() {
           tester,
           controller,
           pickDoneTime: null,
-          toLocalTime: (dt) => dt.add(const Duration(hours: 8)),
+          // Deliberately NOT injecting toLocalTime here. `_doneInstantOn`
+          // rebuilds the instant from the HOST's local zone, while the seed
+          // goes through `toLocalTime` — so the two only round-trip when
+          // they're the same conversion. Injecting a fake (+8h) against a
+          // host-local rebuild passes only where the offsets happen to
+          // cancel: it went green on a UTC+8 machine and red on CI's UTC
+          // runner. This test is about *which value seeds the second open*,
+          // not about the conversion, so it uses the real one and stays
+          // timezone-independent.
         );
 
         await tester.tap(find.byKey(const Key('care-today-done-toggle')));
@@ -1186,8 +1194,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // First open: seeded from the recorded 00:05Z seen through +8h =
-        // 08:05. Switch to the dialog's input mode and change it to 10:30.
+        // First open: seeded from the recorded 00:05Z. Switch to the dialog's
+        // input mode and change it to 10:30 — the exact value doesn't matter,
+        // only that it differs from what the slot would re-seed.
         await tester.tap(find.byKey(const Key('care-today-edit-time')));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(IconButton).last);
@@ -1199,7 +1208,8 @@ void main() {
 
         // Second open: must start at 10:30, the value now held by the sheet.
         // Confirming without touching anything therefore returns 10:30 — a
-        // default that re-seeded from the slot would return 08:05 instead.
+        // default that re-seeded from the slot would return the recorded
+        // 00:05Z in local time instead, whatever that is on this host.
         await tester.tap(find.byKey(const Key('care-today-edit-time')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('OK'));
