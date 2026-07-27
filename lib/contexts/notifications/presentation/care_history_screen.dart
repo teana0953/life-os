@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -8,24 +9,6 @@ import '../../auth/domain/auth_repository.dart';
 import '../domain/care_history.dart';
 import '../domain/care_today.dart';
 import 'care_history_controller.dart';
-
-/// Which content the AppBar's SegmentedButton shows below the period picker.
-enum CareHistoryMode { list, chart }
-
-/// The `from`/`to` `YYYY-MM-DD` range for [spanDays] ending [now] (inclusive
-/// of today) — mirrors [TrendController]'s span arithmetic (UTC date
-/// components so a DST boundary can't shift the span by a day), but returns
-/// strings directly since [CareHistoryController.load] takes them as such.
-({String from, String to}) careHistoryRangeFor(int spanDays, DateTime now) {
-  final todayUtc = DateTime.utc(now.year, now.month, now.day);
-  final fromUtc = todayUtc.subtract(Duration(days: spanDays - 1));
-  return (from: dayString(fromUtc), to: dayString(todayUtc));
-}
-
-DateTime _parseDate(String s) {
-  final parts = s.split('-');
-  return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-}
 
 String _statusLabel(AppLocalizations loc, CareTodayStatus status) =>
     switch (status) {
@@ -50,51 +33,40 @@ Color _statusColor(ColorScheme scheme, CareTodayStatus status) => switch (status
   CareTodayStatus.skipped || CareTodayStatus.pending => scheme.onSurfaceVariant,
 };
 
-// A tint of `secondary` (a role app_theme.dart always sets, unlike
-// `surfaceContainerHigh`, which it never sets — so Flutter would silently
-// fall back to `surface`, matching the enclosing LedgeCard's fill and
-// making the cell invisible). `secondary` isn't used by any other day-state
-// color here, so the tint reads as its own distinct state rather than a
-// faded version of `full`/`partial`/`missed`. 0.6 (rather than a fainter
-// tint) keeps it comfortably distinguishable from both the card surface and
-// the noSchedule cell in the light theme, where `secondary` (blush pink) is
-// itself close in luminance to the pastel surface/ground colors.
-const _upcomingAlpha = 0.6;
-
-Color _dayStateColor(ColorScheme scheme, CareDayState state) => switch (state) {
-  CareDayState.full => scheme.primary,
-  CareDayState.partial => scheme.tertiary,
-  CareDayState.missed => scheme.error,
-  CareDayState.upcoming => scheme.secondary.withValues(alpha: _upcomingAlpha),
-  CareDayState.noSchedule => scheme.surfaceContainerHighest,
-};
-
 /// The composite identity of a slot within a history range — matches the
 /// fields used to build a [_SlotTile]'s [Key] — used to tell which slot (if
 /// any) is the target of an in-flight edit.
 String _slotCompositeKey(CareTodaySlot slot) =>
     '${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}';
 
-/// The care history screen (route `/care-history`): an AppBar-level
-/// list/chart [CareHistoryMode] toggle plus a 7/30/90-day period picker
-/// (design mirrors [TrendCard]). List mode groups the period's slots by day
-/// (newest first, skipping days with nothing scheduled — the backend's
-/// `days` array is dense, so an empty slot list per day is normal, not an
-/// absent day); tapping a slot (each tile carries a trailing edit-icon
-/// affordance) opens a bottom sheet — headed with the slot's item name,
-/// date, time, and current status so the record being changed is
-/// unambiguous — to set it done/skipped. While that edit's PUT/refresh is
-/// in flight the tapped tile swaps its edit icon for a small progress
-/// indicator and can't be tapped again; once it settles a SnackBar confirms
-/// success, or — if the PUT itself failed vs. only the follow-up refresh
-/// failed — one of two distinct error messages (the edit is never reported
-/// as failed when it actually saved). Chart mode shows a headline
-/// (adherence rate / days with care done / missed slots) and a per-day
-/// heatmap (bordered cells, wrapped in a [LedgeCard] with its legend) —
-/// [CareDayState.upcoming] keeps *today's* cell from reading as missed
-/// before anything is due. Only the very first load shows a full-page
-/// spinner; a period switch keeps the previous content visible with a thin
-/// progress indicator instead of blanking (design mirrors [TrendCard]).
+/// The two destinations offered by the AppBar's overflow menu (follow-up 9)
+/// — this screen is otherwise a dead-end leaf, so it offers a way back into
+/// the care context.
+enum _HistoryMenuOption { todayCare, careManagement }
+
+/// The next longer period in the 7→30→90 progression used by the empty
+/// state's "see a longer period" action (follow-up 5). Only called when
+/// [spanDays] < 90.
+int _nextSpanDays(int spanDays) => spanDays < 30 ? 30 : 90;
+
+/// The care history screen (route `/care-history`): a pure record list +
+/// edit screen — a 7/30/90-day period picker (design mirrors [TrendCard])
+/// above a list of the period's slots grouped by day (newest first,
+/// skipping days with nothing scheduled — the backend's `days` array is
+/// dense, so an empty slot list per day is normal, not an absent day);
+/// tapping a slot (each tile carries a trailing edit-icon affordance) opens
+/// a bottom sheet — headed with the slot's item name, date, time, and
+/// current status so the record being changed is unambiguous — to set it
+/// done/skipped. While that edit's PUT/refresh is in flight the tapped tile
+/// swaps its edit icon for a small progress indicator and can't be tapped
+/// again; once it settles a SnackBar confirms success, or — if the PUT
+/// itself failed vs. only the follow-up refresh failed — one of two
+/// distinct error messages (the edit is never reported as failed when it
+/// actually saved). Only the very first load shows a full-page spinner; a
+/// period switch keeps the previous content visible with a thin progress
+/// indicator instead of blanking (design mirrors [TrendCard]). The heatmap/
+/// headline chart view that used to live here as a second mode has moved to
+/// the health module's trends tab (`CareAdherenceCard`).
 class CareHistoryScreen extends StatefulWidget {
   final CareHistoryController controller;
   final AuthRepository authRepository;
@@ -116,8 +88,6 @@ class CareHistoryScreen extends StatefulWidget {
 
 class _CareHistoryScreenState extends State<CareHistoryScreen> {
   String _idToken = '';
-  CareHistoryMode _mode = CareHistoryMode.list;
-  int _spanDays = 7;
 
   /// The composite key ([_slotCompositeKey]) of the slot currently being
   /// edited, so its tile can show an in-flight affordance instead of the
@@ -145,15 +115,9 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     await _reload();
   }
 
-  Future<void> _reload() {
-    final range = careHistoryRangeFor(_spanDays, widget.clock());
-    return widget.controller.load(_idToken, range.from, range.to);
-  }
+  Future<void> _reload() => widget.controller.load(_idToken);
 
-  void _setSpan(int spanDays) {
-    setState(() => _spanDays = spanDays);
-    _reload();
-  }
+  void _setSpan(int spanDays) => widget.controller.setSpan(_idToken, spanDays);
 
   Future<void> _openEditSheet(CareTodaySlot slot) async {
     // Guards against opening a second sheet while an edit is already in
@@ -162,7 +126,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     // needlessly opening a sheet whose choice would just be dropped.
     if (widget.controller.editing) return;
     final loc = AppLocalizations.of(context)!;
-    final dateLabel = mediumDateLabel(context, _parseDate(slot.localDate));
+    final dateLabel = mediumDateLabel(context, parseDayString(slot.localDate));
     final chosen = await showModalBottomSheet<CareLogStatus>(
       context: context,
       builder: (sheetContext) {
@@ -224,7 +188,12 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     // own re-entrancy guard after already flipping `_editingSlotKey`.
     if (widget.controller.editing) return;
     setState(() => _editingSlotKey = _slotCompositeKey(slot));
-    await widget.controller.edit(
+    // The outcome comes back as a return value, never from the controller's
+    // `editError`/`refreshError` fields after the await: a concurrent load
+    // (the user tapping the period selector) clears those by design, and a
+    // later edit clears them on entry — so reading them here could report a
+    // *failed* PUT as saved. The returned value is this call's own snapshot.
+    final outcome = await widget.controller.edit(
       _idToken,
       careScheduleId: slot.careScheduleId,
       localDate: slot.localDate,
@@ -235,82 +204,119 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     setState(() => _editingSlotKey = null);
     final loc2 = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
-    if (widget.controller.editError != null) {
-      messenger.showSnackBar(SnackBar(content: Text(loc2.careErrorGeneric)));
-    } else if (widget.controller.refreshError != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(loc2.careHistoryEditRefreshErrorMessage)),
-      );
-    } else if (widget.controller.status != CareHistoryLoadStatus.reauth) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(loc2.careHistoryEditSuccessMessage)),
-      );
+    final message = switch (outcome) {
+      CareEditOutcome.editFailed => loc2.careErrorGeneric,
+      CareEditOutcome.refreshFailed => loc2.careHistoryEditRefreshErrorMessage,
+      CareEditOutcome.saved => loc2.careHistoryEditSuccessMessage,
+      // The screen shows its own re-auth exit; a dropped call did nothing.
+      CareEditOutcome.reauth || CareEditOutcome.skipped => null,
+    };
+    if (message != null) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final controller = widget.controller;
     final appBar = AppBar(
       title: Text(loc.careHistoryTitle),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: SegmentedButton<CareHistoryMode>(
-            key: const Key('care-history-mode-toggle'),
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: CareHistoryMode.list,
-                label: Text(loc.careHistoryListMode),
+        PopupMenuButton<_HistoryMenuOption>(
+          key: const Key('care-history-menu'),
+          onSelected: (option) => switch (option) {
+            _HistoryMenuOption.todayCare => context.push('/care-today'),
+            _HistoryMenuOption.careManagement => context.push('/care-items'),
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              key: const Key('care-history-menu-today'),
+              value: _HistoryMenuOption.todayCare,
+              child: Text(loc.careTodayTitle),
+            ),
+            PopupMenuItem(
+              key: const Key('care-history-menu-items'),
+              value: _HistoryMenuOption.careManagement,
+              child: Text(loc.careRemindersTitle),
+            ),
+            const PopupMenuDivider(),
+            // A note, not a destination: the trends tab is a tab index
+            // inside HealthScaffold, not a route, so there is nothing to
+            // push here. It still belongs in this menu — this is where a
+            // user who remembers the screen's old chart mode looks when the
+            // heatmap is gone.
+            PopupMenuItem(
+              key: const Key('care-history-menu-trends-hint'),
+              enabled: false,
+              child: Text(
+                loc.careHistoryTrendsMovedHint,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              ButtonSegment(
-                value: CareHistoryMode.chart,
-                label: Text(loc.careHistoryChartMode),
-              ),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (selection) =>
-                setState(() => _mode = selection.first),
-          ),
+            ),
+          ],
         ),
       ],
     );
 
     return AsyncStateScaffold(
+      // Only a load that has never had content gets the full-page spinner.
+      // Not `days.isEmpty`: a failed first load leaves days empty too, so
+      // retrying (or switching period) from the error state would drop back
+      // to a spinner that has no period selector — the very control this
+      // screen keeps on screen so a failing period isn't a dead end.
       isLoading: controller.status == CareHistoryLoadStatus.loading &&
-          controller.days.isEmpty,
+          !controller.firstLoadSettled,
       isReauth: controller.status == CareHistoryLoadStatus.reauth,
       reauthMessage: loc.pleaseSignInAgain,
       appBar: appBar,
       builder: (context) {
-        if (controller.status == CareHistoryLoadStatus.error) {
-          return Scaffold(
-            appBar: appBar,
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    loc.careErrorGeneric,
-                    key: const Key('care-history-load-error'),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    key: const Key('care-history-retry-button'),
-                    onPressed: _reload,
-                    child: Text(loc.retry),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
         final reloading = controller.status == CareHistoryLoadStatus.loading;
         final empty = careHistoryIsEmpty(controller.days);
         final todayDate = dayString(widget.clock());
+
+        final Widget content;
+        if (controller.status == CareHistoryLoadStatus.error) {
+          // The error replaces the list, not the whole screen: the period
+          // selector has to stay reachable so a period that fails
+          // (typically the slowest, 90 days) isn't a dead end. Retry alone
+          // can only re-issue the same failing request, and the controller
+          // — holding spanDays — is a main.dart singleton that outlives
+          // this screen, so leaving and coming back would return to the
+          // same failing period. Mirrors CareAdherenceCard's error state.
+          content = Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                loc.careErrorGeneric,
+                key: const Key('care-history-load-error'),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('care-history-retry-button'),
+                onPressed: _reload,
+                child: Text(loc.retry),
+              ),
+            ],
+          );
+        } else if (empty) {
+          content = _EmptyState(
+            onWiden: controller.spanDays < 90
+                ? () => _setSpan(_nextSpanDays(controller.spanDays))
+                : null,
+            onOpenCareItems: () => context.push('/care-items'),
+          );
+        } else {
+          content = _HistoryList(
+            days: controller.days,
+            todayDate: todayDate,
+            onTapSlot: _openEditSheet,
+            inFlightSlotKey: controller.editing ? _editingSlotKey : null,
+          );
+        }
 
         return Scaffold(
           appBar: appBar,
@@ -332,7 +338,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
                       ButtonSegment(value: 30, label: Text(loc.trendRange30)),
                       ButtonSegment(value: 90, label: Text(loc.trendRange90)),
                     ],
-                    selected: {_spanDays},
+                    selected: {controller.spanDays},
                     onSelectionChanged: (selection) => _setSpan(selection.first),
                   ),
                 ),
@@ -340,20 +346,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 600),
-                      child: empty
-                          ? const _EmptyState()
-                          : _mode == CareHistoryMode.list
-                          ? _HistoryList(
-                              days: controller.days,
-                              todayDate: todayDate,
-                              onTapSlot: _openEditSheet,
-                              inFlightSlotKey: controller.editing
-                                  ? _editingSlotKey
-                                  : null,
-                            )
-                          : _HistoryChart(
-                              days: controller.days,
-                            ),
+                      child: content,
                     ),
                   ),
                 ),
@@ -367,7 +360,18 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  /// Widens the period to the next longer option (7→30→90) and reloads
+  /// (follow-up 5); `null` when the period is already 90 days, in which
+  /// case [onOpenCareItems] is offered instead.
+  final VoidCallback? onWiden;
+
+  /// Opens care management (`/care-items`) — the empty state's action once
+  /// the period is already the longest one, so it never ends without a next
+  /// step: at 90 days the likeliest reason for an empty period is having no
+  /// care items set up at all, not too narrow a window.
+  final VoidCallback onOpenCareItems;
+
+  const _EmptyState({this.onWiden, required this.onOpenCareItems});
 
   @override
   Widget build(BuildContext context) {
@@ -396,6 +400,19 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 16),
+            if (onWiden != null)
+              FilledButton(
+                key: const Key('care-history-widen-button'),
+                onPressed: onWiden,
+                child: Text(loc.careHistoryWidenPeriodButton),
+              )
+            else
+              FilledButton(
+                key: const Key('care-history-empty-manage-button'),
+                onPressed: onOpenCareItems,
+                child: Text(loc.careHistoryEmptyManageButton),
+              ),
           ],
         ),
       ),
@@ -424,21 +441,22 @@ class _HistoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibleDays = days.where((d) => d.slots.isNotEmpty).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-    return ListView(
+    return ListView.builder(
       key: const Key('care-history-list'),
       padding: const EdgeInsets.all(20),
-      children: [
-        for (final day in visibleDays)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _DayCard(
-              day: day,
-              isToday: day.date == todayDate,
-              onTapSlot: onTapSlot,
-              inFlightSlotKey: inFlightSlotKey,
-            ),
+      itemCount: visibleDays.length,
+      itemBuilder: (context, index) {
+        final day = visibleDays[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _DayCard(
+            day: day,
+            isToday: day.date == todayDate,
+            onTapSlot: onTapSlot,
+            inFlightSlotKey: inFlightSlotKey,
           ),
-      ],
+        );
+      },
     );
   }
 }
@@ -460,7 +478,7 @@ class _DayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final header = isToday ? loc.dietDayToday : mediumDateLabel(context, _parseDate(day.date));
+    final header = isToday ? loc.dietDayToday : mediumDateLabel(context, parseDayString(day.date));
     final sortedSlots = [...day.slots]
       ..sort((a, b) => a.timeOfDay.compareTo(b.timeOfDay));
     return LedgeCard(
@@ -535,205 +553,6 @@ class _SlotTile extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
       onTap: isEditing ? null : onTap,
-    );
-  }
-}
-
-class _HistoryChart extends StatelessWidget {
-  final List<CareHistoryDay> days;
-
-  const _HistoryChart({required this.days});
-
-  @override
-  Widget build(BuildContext context) {
-    final summary = careHistorySummary(days);
-    final sortedDays = [...days]..sort((a, b) => a.date.compareTo(b.date));
-    return ListView(
-      key: const Key('care-history-chart'),
-      padding: const EdgeInsets.all(20),
-      children: [
-        _HeadlineRow(summary: summary),
-        const SizedBox(height: 16),
-        LedgeCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GridView.builder(
-                key: const Key('care-history-heatmap'),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 26,
-                  mainAxisSpacing: 3,
-                  crossAxisSpacing: 3,
-                ),
-                itemCount: sortedDays.length,
-                itemBuilder: (context, index) {
-                  final day = sortedDays[index];
-                  final state = careDayState(day);
-                  final scheme = Theme.of(context).colorScheme;
-                  return Tooltip(
-                    message: mediumDateLabel(context, _parseDate(day.date)),
-                    child: AspectRatio(
-                      key: Key('care-history-cell-${day.date}'),
-                      aspectRatio: 1,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: _dayStateColor(scheme, state),
-                          borderRadius: BorderRadius.circular(4),
-                          // A subtle border so a no-schedule/upcoming cell
-                          // (whose fill matches the scaffold background)
-                          // still reads as an empty *cell*, not a gap.
-                          border: Border.all(
-                            color: scheme.outline.withValues(alpha: 0.3),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              const _Legend(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeadlineRow extends StatelessWidget {
-  final CareHistorySummary summary;
-
-  const _HeadlineRow({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final rateText = summary.adherenceRate == null
-        ? '—'
-        : '${(summary.adherenceRate! * 100).round()}%';
-    return LedgeCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _HeadlineMetric(
-              key: const Key('care-history-adherence-rate'),
-              label: loc.careHistoryAdherenceRateLabel,
-              value: rateText,
-            ),
-          ),
-          Expanded(
-            child: _HeadlineMetric(
-              key: const Key('care-history-days-with-dose'),
-              label: loc.careHistoryDaysWithDoseLabel,
-              value: '${summary.daysWithDose}',
-            ),
-          ),
-          Expanded(
-            child: _HeadlineMetric(
-              key: const Key('care-history-missed-count'),
-              label: loc.careHistoryMissedCountLabel,
-              value: '${summary.missedCount}',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeadlineMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _HeadlineMetric({super.key, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(value, style: theme.textTheme.titleLarge),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend();
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final scheme = Theme.of(context).colorScheme;
-    return Wrap(
-      key: const Key('care-history-legend'),
-      spacing: 16,
-      runSpacing: 4,
-      children: [
-        _LegendDot(color: scheme.primary, label: loc.careHistoryLegendFull),
-        _LegendDot(color: scheme.tertiary, label: loc.careHistoryLegendPartial),
-        _LegendDot(color: scheme.error, label: loc.careHistoryLegendMissed),
-        _LegendDot(
-          color: scheme.secondary.withValues(alpha: _upcomingAlpha),
-          label: loc.careHistoryLegendUpcoming,
-        ),
-        _LegendDot(
-          color: scheme.surfaceContainerHighest,
-          label: loc.careHistoryLegendNoSchedule,
-        ),
-      ],
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _LegendDot({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-            // Same border treatment as the heatmap cells themselves, so the
-            // swatch is a faithful preview of what a cell of this state
-            // looks like.
-            border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.3),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }

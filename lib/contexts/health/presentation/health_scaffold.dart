@@ -14,6 +14,8 @@ import '../../health_calendar/presentation/health_calendar_card.dart';
 import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../menstrual/presentation/menstrual_controller.dart';
+import '../../notifications/presentation/care_adherence_card.dart';
+import '../../notifications/presentation/care_history_controller.dart';
 import '../../notifications/presentation/care_today_controller.dart';
 import '../../notifications/presentation/care_today_summary_card.dart';
 import '../../vitals/presentation/trend_card.dart';
@@ -63,6 +65,13 @@ class HealthScaffold extends StatefulWidget {
   /// Drives the today-care summary card at the top of 總覽 (Overview).
   final CareTodayController careTodayController;
 
+  /// Drives the care adherence heatmap card on 趨勢 (Trends), below
+  /// [trendController]'s vitals chart — its own [CareHistoryController]
+  /// instance (`spanDays: 30`), separate from the one driving the
+  /// `/care-history` screen, so the two periods don't fight over shared
+  /// state (design §B).
+  final CareHistoryController careAdherenceController;
+
   /// Opens the app settings (theme / language / sign-out), wired by the caller.
   final VoidCallback onOpenSettings;
 
@@ -79,6 +88,11 @@ class HealthScaffold extends StatefulWidget {
   /// Opens the Today care checklist screen, wired by the caller (distinct
   /// from [onOpenCareItems] — today vs. manage).
   final VoidCallback onOpenCareToday;
+
+  /// Opens the care history record list (`/care-history`), wired by the
+  /// caller — reached from the trends tab's adherence card, which is where a
+  /// user sees the missed/partial days they want to go correct.
+  final VoidCallback onOpenCareHistory;
 
   final DateTime Function() clock;
 
@@ -106,11 +120,13 @@ class HealthScaffold extends StatefulWidget {
     required this.exerciseController,
     required this.menstrualController,
     required this.careTodayController,
+    required this.careAdherenceController,
     required this.onOpenSettings,
     required this.onOpenImport,
     required this.onOpenReminders,
     required this.onOpenCareItems,
     required this.onOpenCareToday,
+    required this.onOpenCareHistory,
     required this.dataRevision,
     this.clock = DateTime.now,
   });
@@ -147,6 +163,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     widget.trendController,
     widget.healthCalendarController,
     widget.careTodayController,
+    widget.careAdherenceController,
   ];
 
   @override
@@ -203,6 +220,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.exerciseController.load(token, day),
       widget.menstrualController.load(token),
       widget.careTodayController.load(token),
+      widget.careAdherenceController.load(token),
     ]);
   }
 
@@ -215,7 +233,10 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       // can't blank the overview), which would otherwise make a 401 from
       // marking a dose a silent dead end: the row stays 待辦 with no error and
       // no way back. Surface it as the same re-authenticate exit as the others.
-      widget.careTodayController.status == CareTodayLoadStatus.reauth;
+      widget.careTodayController.status == CareTodayLoadStatus.reauth ||
+      // Same reasoning for the trend tab's care adherence card — a 401 from
+      // a card-driven period switch must not be a dead end either.
+      widget.careAdherenceController.status == CareHistoryLoadStatus.reauth;
 
   Future<void> _signOutAndClose() async {
     await widget.signOut();
@@ -278,8 +299,10 @@ class _HealthScaffoldState extends State<HealthScaffold> {
           const _RecordHub(),
           _TrendBody(
             controller: widget.trendController,
+            careAdherenceController: widget.careAdherenceController,
             idToken: idToken,
             heightCm: widget.weightGoalController.goal?.heightCm,
+            onOpenCareHistory: widget.onOpenCareHistory,
           ),
           _MoreBody(
             onOpenSettings: widget.onOpenSettings,
@@ -361,16 +384,22 @@ class _OverviewBody extends StatelessWidget {
   }
 }
 
-/// 趨勢: the full trend chart.
+/// 趨勢: the vitals trend chart followed by the care adherence card (design
+/// §B — vitals are the primary axis, care is the secondary one, so the care
+/// card is ordered after the trend chart, not before it).
 class _TrendBody extends StatelessWidget {
   final TrendController controller;
+  final CareHistoryController careAdherenceController;
   final String idToken;
   final double? heightCm;
+  final VoidCallback onOpenCareHistory;
 
   const _TrendBody({
     required this.controller,
+    required this.careAdherenceController,
     required this.idToken,
     required this.heightCm,
+    required this.onOpenCareHistory,
   });
 
   @override
@@ -383,6 +412,12 @@ class _TrendBody extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TrendCard(controller: controller, idToken: idToken, heightCm: heightCm),
+              const SizedBox(height: 16),
+              CareAdherenceCard(
+                controller: careAdherenceController,
+                idToken: idToken,
+                onOpenHistory: onOpenCareHistory,
+              ),
             ],
           ),
         ),

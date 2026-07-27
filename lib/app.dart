@@ -184,6 +184,11 @@ class App extends StatefulWidget {
   final CareItemsController careItemsController;
   final CareTodayController careTodayController;
   final CareHistoryController careHistoryController;
+
+  /// Drives the trend tab's care adherence card — a separate
+  /// [CareHistoryController] instance from [careHistoryController] (design
+  /// §B), sharing the same underlying repository and [dataRevision].
+  final CareHistoryController careAdherenceController;
   final DataRevision dataRevision;
 
   const App({
@@ -214,6 +219,7 @@ class App extends StatefulWidget {
     required this.careItemsController,
     required this.careTodayController,
     required this.careHistoryController,
+    required this.careAdherenceController,
     required this.dataRevision,
   });
 
@@ -410,11 +416,13 @@ class _AppState extends State<App> {
             exerciseController: widget.exerciseController,
             menstrualController: widget.menstrualController,
             careTodayController: widget.careTodayController,
+            careAdherenceController: widget.careAdherenceController,
             onOpenSettings: () => context.push('/settings'),
             onOpenImport: () => context.push('/import/chaodays'),
             onOpenReminders: () => context.push('/reminders'),
             onOpenCareItems: () => context.push('/care-items'),
             onOpenCareToday: () => context.push('/care-today'),
+            onOpenCareHistory: () => context.push('/care-history'),
             dataRevision: widget.dataRevision,
           ),
           routes: [

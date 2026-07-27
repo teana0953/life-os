@@ -1250,16 +1250,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get careHistoryEntryTooltip => 'History';
 
   @override
-  String get careHistoryListMode => 'List';
-
-  @override
-  String get careHistoryChartMode => 'Chart';
-
-  @override
   String get careHistoryEmptyTitle => 'No care records';
 
   @override
   String get careHistoryEmptyBody => 'Nothing was scheduled in this period.';
+
+  @override
+  String get careHistoryWidenPeriodButton => 'See a longer period';
+
+  @override
+  String get careHistoryEmptyManageButton => 'Go to care management';
+
+  @override
+  String get careHistoryTrendsMovedHint =>
+      'Adherence charts are in Health → Trends';
 
   @override
   String get careHistoryAdherenceRateLabel => 'Adherence rate';
@@ -1303,4 +1307,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get careHistoryEditRefreshErrorMessage =>
       'Saved, but couldn\'t refresh the list.';
+
+  @override
+  String get careAdherenceCardTitle => 'Care adherence';
+
+  @override
+  String careAdherenceHeatmapCellLabel(String date, String state) {
+    return '$date · $state';
+  }
+
+  @override
+  String get careAdherenceOpenHistory => 'View records';
+
+  @override
+  String careAdherenceLegendWithCount(String label, int count) {
+    return '$label ($count)';
+  }
 }

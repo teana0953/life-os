@@ -259,9 +259,25 @@ Future<void> main() async {
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
+  // 30 days, matching the trend tab's adherence card below: the card links
+  // straight here, and a user arriving from a missed day it showed must not
+  // have to widen the period before that day is even in range.
   final careHistoryController = CareHistoryController(
     GetCareHistory(careHistoryRepository),
     EditCareSlot(careHistoryRepository),
+    dataRevision,
+    spanDays: 30,
+  );
+  // The trend tab's care adherence card gets its own controller instance
+  // (design §B) — sharing the same (stateless) HttpCareHistoryRepository and
+  // the same DataRevision as careHistoryController, but its own `spanDays`
+  // so the two periods don't fight over shared state (they start at the same
+  // 30 days; each moves independently from there).
+  final careAdherenceController = CareHistoryController(
+    GetCareHistory(careHistoryRepository),
+    EditCareSlot(careHistoryRepository),
+    dataRevision,
+    spanDays: 30,
   );
 
   runApp(
@@ -292,6 +308,7 @@ Future<void> main() async {
       careItemsController: careItemsController,
       careTodayController: careTodayController,
       careHistoryController: careHistoryController,
+      careAdherenceController: careAdherenceController,
       dataRevision: dataRevision,
     ),
   );

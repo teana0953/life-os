@@ -1219,16 +1219,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careHistoryEntryTooltip => '紀錄';
 
   @override
-  String get careHistoryListMode => '清單';
-
-  @override
-  String get careHistoryChartMode => '圖表';
-
-  @override
   String get careHistoryEmptyTitle => '沒有照護紀錄';
 
   @override
   String get careHistoryEmptyBody => '這段期間沒有排程。';
+
+  @override
+  String get careHistoryWidenPeriodButton => '看更長期間';
+
+  @override
+  String get careHistoryEmptyManageButton => '前往照護管理';
+
+  @override
+  String get careHistoryTrendsMovedHint => '照護達成圖表已移至「健康 → 趨勢」';
 
   @override
   String get careHistoryAdherenceRateLabel => '達成率';
@@ -1271,6 +1274,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
+
+  @override
+  String get careAdherenceCardTitle => '照護達成';
+
+  @override
+  String careAdherenceHeatmapCellLabel(String date, String state) {
+    return '$date · $state';
+  }
+
+  @override
+  String get careAdherenceOpenHistory => '查看紀錄';
+
+  @override
+  String careAdherenceLegendWithCount(String label, int count) {
+    return '$label（$count）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2488,16 +2507,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get careHistoryEntryTooltip => '紀錄';
 
   @override
-  String get careHistoryListMode => '清單';
-
-  @override
-  String get careHistoryChartMode => '圖表';
-
-  @override
   String get careHistoryEmptyTitle => '沒有照護紀錄';
 
   @override
   String get careHistoryEmptyBody => '這段期間沒有排程。';
+
+  @override
+  String get careHistoryWidenPeriodButton => '看更長期間';
+
+  @override
+  String get careHistoryEmptyManageButton => '前往照護管理';
+
+  @override
+  String get careHistoryTrendsMovedHint => '照護達成圖表已移至「健康 → 趨勢」';
 
   @override
   String get careHistoryAdherenceRateLabel => '達成率';
@@ -2540,4 +2562,20 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
+
+  @override
+  String get careAdherenceCardTitle => '照護達成';
+
+  @override
+  String careAdherenceHeatmapCellLabel(String date, String state) {
+    return '$date · $state';
+  }
+
+  @override
+  String get careAdherenceOpenHistory => '查看紀錄';
+
+  @override
+  String careAdherenceLegendWithCount(String label, int count) {
+    return '$label（$count）';
+  }
 }
