@@ -18,7 +18,7 @@
 
 不放「記錄」分頁：那六格（飲食／飲水／生理數值／運動／排便／生理期）**全是「記錄某件事」**，字典是「查」，並列會讓人以為點進去要記錄什麼。也不放總覽：總覽講的是「今天的狀態」，字典是工具，而且那頁已經很滿。
 
-AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `IconButton`**（省寬度）。窄螢幕上兩者並存需要實測，若真的擠，優先把「目標」也收成純圖示 —— 而不是把查詢挪走。
+AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `IconButton`**（省寬度）。兩者並存在 320／360 寬下是否溢出，用**自動化測試**守住（repo 已有 `setSurfaceSize` + `addTearDown` 的 overflow 測試慣例），不靠人工看。若真的擠，優先把「目標」也收成純圖示 —— 而不是把查詢挪走。
 
 ### D2 — 重用 `FoodSearchScreen`，把 `meal` 變成可選
 
@@ -64,7 +64,7 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 | --- | --- |
 | `DietDayScreen` | AppBar 加查詢 `IconButton`；push 時**比照 `_openFoodSearch` 的三步**：`createMealController.start(...)` 重置 tray、`dictionaryController.clearSearch()`、`await` push 結果為 true 時 `_reloadCurrentDay()` |
 | `lib/app.dart` | 新路由 `/health/diet/dictionary`（`extra` 缺席時比照 food-search redirect 回飲食頁） |
-| `FoodSearchScreen` | `meal` 改可選；標題依 `meal` 分岔；**`meal == null` 且 tray 空時隱藏提交按鈕與手動輸入連結**（現況兩者無條件渲染）；送出前若 `meal` 未定則開選餐 sheet |
+| `FoodSearchScreen` | `meal` 改可選、**新增 `mealNames` 參數**（算點心名用）；標題依 `meal` 分岔；**`meal == null` 且 tray 空時隱藏提交按鈕與手動輸入連結**（現況兩者無條件渲染）；送出前若 `meal` 未定則開選餐 sheet |
 | `CreateMealController` | 允許在未指定 meal 的情況下開始一個 session，送出前才綁定 |
 | l10n ARB ×3 | 字典標題、查詢入口的 tooltip、選餐 sheet 的標題 |
 
@@ -105,6 +105,8 @@ AppBar 目前已有一個帶文字的「目標」按鈕，所以查詢用**純 `
 - **入口（widget）**：飲食頁 AppBar 有查詢按鈕且帶 tooltip；點它會 push 到字典路由，並帶上**當下瀏覽的日期**（不是今天）與該日的 mealNames。
 - **controller（單元）**：未指定 meal 的 session 可以加入 tray；送出前綁定 meal 後才呼叫 `CreateMeal`；未綁定就送出不會打後端。
 - **路由**：`extra` 缺席時 redirect 回飲食頁（比照 food-search 既有測試）。
+- **session 乾淨**：在某一餐加了東西、返回、再開字典 → tray 是空的、沒有提交區（守住入口的 `start(...)`）。
+- **窄螢幕**：320／360 寬下 AppBar 不溢出。
 - **既有測試不得退化**：現有的 food-search 測試（從某一餐進入的完整流程）全部維持。
 
 ## 不做（YAGNI）

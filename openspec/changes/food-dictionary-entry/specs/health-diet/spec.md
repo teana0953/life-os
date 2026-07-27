@@ -84,6 +84,10 @@ losing the tray, and an authentication failure SHALL route to re-authentication.
 - **WHEN** the day already has a lunch meal and the user completes a search targeting lunch with one more food
 - **THEN** the food is appended to the existing lunch meal rather than creating a second lunch card
 
+#### Scenario: Auth failure routes to re-authentication
+- **WHEN** completing the tray fails with an authentication error
+- **THEN** the app routes to re-authentication and the tray's contents are not lost
+
 ## ADDED Requirements
 
 ### Requirement: The food dictionary can be reached without choosing a meal first
