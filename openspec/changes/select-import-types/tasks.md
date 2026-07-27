@@ -28,8 +28,9 @@
 - [x] l10n: **不需要新字串** —— 勾選框以既有的 `importTypeWeight` 等類型名稱為標籤。順手修正 `@importDoneMessage.description` 裡已過時的敘述（它還在講固定跑全部類型）。
 
 ## 3. Gate
-- [ ] `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠，既有 import 測試在「全選」語意下維持通過。
+- [x] `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠，既有 import 測試在「全選」語意下維持通過。
 
 ## 4. On-device verification (manual — 需使用者，部署後)
 - [ ] 只勾「飲食」跑一次匯入，確認其他四種完全沒被動到（不是顯示失敗）。
 - [ ] 跑完一輪後直接改選另一種再跑，確認勾選框還在、可以改。
+- [ ] 匯入進行中看一眼：沒選的類型與已選但還沒輪到的類型，靠停用狀態的勾選框（未勾 vs 打勾）在深色與淺色主題下是否都分得出來 —— 兩者的 trailing 同為空心圈，差異只在勾選框，而 Material 會把停用狀態渲染得偏淡。

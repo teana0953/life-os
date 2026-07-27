@@ -529,6 +529,20 @@ void main() {
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNull);
       }
+      // Only the control is locked — the row itself stays enabled so the label
+      // and its result text keep full contrast. CheckboxListTile otherwise
+      // derives `enabled` from `onChanged`, greying out exactly what the user
+      // is reading while the import runs.
+      for (final type in ImportType.values) {
+        expect(
+          tester
+              .widget<ListTile>(
+                find.descendant(of: _rowFor(type), matching: find.byType(ListTile)),
+              )
+              .enabled,
+          isTrue,
+        );
+      }
       expect(
         find.descendant(
           of: _rowFor(ImportType.weight),
