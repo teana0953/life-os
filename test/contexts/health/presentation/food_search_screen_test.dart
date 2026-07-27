@@ -58,11 +58,16 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   /// controller stays in its loading state.
   final Completer<List<FoodItem>>? favoritesGate;
 
+  /// Thrown by [favorite]/[unfavorite] — a write failure, which must not be
+  /// mistaken for the list failing to load.
+  final Object? toggleError;
+
   FakeFoodDictionaryRepository({
     List<FoodItem>? favorites,
     this.searchResults,
     this.listFavoritesError,
     this.favoritesGate,
+    this.toggleError,
   }) : favorites = favorites ?? [_riceItem()];
 
   @override
@@ -77,10 +82,14 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   }
 
   @override
-  Future<void> favorite(String idToken, String foodItemId) async {}
+  Future<void> favorite(String idToken, String foodItemId) async {
+    if (toggleError != null) throw toggleError!;
+  }
 
   @override
-  Future<void> unfavorite(String idToken, String foodItemId) async {}
+  Future<void> unfavorite(String idToken, String foodItemId) async {
+    if (toggleError != null) throw toggleError!;
+  }
 }
 
 class FakeMealRepository implements MealRepository {
@@ -965,6 +974,33 @@ void main() {
       expect(find.text(loc.dietDictionaryLoadFailed), findsOneWidget);
       // Emphatically NOT "you have no usual foods yet".
       expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+    });
+
+    testWidgets('a failed favorite toggle does not wipe the list being browsed', (
+      tester,
+    ) async {
+      // The results area reads dictionary.status, and toggleFavorite used to
+      // write its failures into that same field — so one tap on a heart could
+      // replace the list with "couldn't load foods", on the per-meal path too,
+      // with no way back from the screen (clearing the search box does not
+      // reset the status). The toggle now leaves the list-loading status alone.
+      await _pumpScreen(
+        tester,
+        meal: 'lunch',
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          toggleError: const DietFetchFailure('boom'),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text('飯/1碗'), findsOneWidget);
+
+      // The seeded item is already a favorite, so this is the un-favorite path.
+      await tester.tap(find.byIcon(Icons.favorite).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('飯/1碗'), findsOneWidget);
+      expect(find.byKey(const Key('food-search-dictionary-error')), findsNothing);
+      expect(find.text(loc.dietDictionaryLoadFailed), findsNothing);
     });
 
     testWidgets('an auth failure loading the dictionary offers a way out, not a blank page', (
