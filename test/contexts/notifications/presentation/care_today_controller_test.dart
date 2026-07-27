@@ -241,6 +241,24 @@ void main() {
       expect(controller.slots.single.careScheduleId, 'sch-2');
     });
 
+    test('a failed quiet reload that had swallowed the first load surfaces the '
+        'error instead of leaving the screen spinning forever', () async {
+      // The screen's own load() can be skipped by the shared in-flight guard
+      // when a hand-over reload starts inside its `await idToken()` window.
+      // Staying quiet then means staying on the initial `loading` — a spinner
+      // with no retry button and no way out. `error` at least offers one.
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      expect(controller.status, CareTodayLoadStatus.loading);
+      repository.getError = const CareRequestFailed();
+
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.error);
+    });
+
     test('a failed quiet reload keeps the rendered list and stays loaded — a '
         'background reload must never swap a good list for the error screen', () async {
       final repository = _FakeCareTodayRepository(

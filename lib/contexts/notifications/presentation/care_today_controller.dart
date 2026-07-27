@@ -185,6 +185,13 @@ class CareTodayController extends ChangeNotifier {
     } catch (e) {
       if (e is CareReauthRequired) {
         status = CareTodayLoadStatus.reauth;
+      } else if (status == CareTodayLoadStatus.loading) {
+        // Nothing has ever loaded, and the shared in-flight guard may have
+        // skipped the screen's own load() for this one. Staying quiet here
+        // leaves the initial spinner up forever — no content, no retry, no way
+        // out. The error state at least offers a retry button.
+        error = e;
+        status = CareTodayLoadStatus.error;
       }
       // Any other failure stays silent — the user did not ask for this
       // reload, so it must not take the list away from them.

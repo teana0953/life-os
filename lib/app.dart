@@ -236,7 +236,7 @@ class _AppState extends State<App> {
 
   /// Consumes a care-notification hand-over (design.md D1) once auth is
   /// ready and the app has settled on a real screen; see
-  /// `_scheduleDeepLinkCheck` / `_scheduleDeepLinkNavigationCheck`.
+  /// `_scheduleDeepLinkCheck`.
   late final PendingDeepLinkController _pendingDeepLinkController =
       PendingDeepLinkController(
         widget.pendingDeepLinkStore,
