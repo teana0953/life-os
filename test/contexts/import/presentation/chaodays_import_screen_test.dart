@@ -448,6 +448,24 @@ void main() {
       }
     });
 
+    testWidgets('tapping anywhere on a row toggles its selection', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // The label, not the 48px checkbox box — that is what the user aims at.
+      await tester.tap(
+        find.descendant(
+          of: _rowFor(ImportType.water),
+          matching: find.text(loc.importTypeWater),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.widget<Checkbox>(_checkboxFor(ImportType.water)).value, isFalse);
+      expect(tester.widget<Checkbox>(_checkboxFor(ImportType.diet)).value, isTrue);
+    });
+
     testWidgets('the submit button is disabled when no type is selected', (
       tester,
     ) async {

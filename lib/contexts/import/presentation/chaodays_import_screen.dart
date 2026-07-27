@@ -288,6 +288,14 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
 /// its result or failure text, and a leading slot that carries the selection
 /// checkbox while [selectable], and an icon reflecting its [TypeState.status]
 /// while the import runs.
+/// How far a left-out row is dimmed while an import runs. Split by brightness
+/// because the same alpha lands at very different contrast on the cream light
+/// ground and the dark ground — one shared value leaves the light side well
+/// under the readable threshold (see `care_adherence_card.dart` for the same
+/// split).
+const _lightDimAlpha = 0.62;
+const _darkDimAlpha = 0.55;
+
 class _TypeResultRow extends StatelessWidget {
   final ImportType type;
   final TypeState state;
@@ -329,10 +337,27 @@ class _TypeResultRow extends StatelessWidget {
     return text;
   }
 
-  Widget _leading(BuildContext context) {
+  Widget _leading(BuildContext context, AppLocalizations loc) {
     final theme = Theme.of(context);
+    // Both branches sit in a fixed-width box: a bare Checkbox is 48 wide and a
+    // bare Icon 24, so swapping them when the import starts (and again when it
+    // ends) would shift every title 24px sideways in unison.
+    return SizedBox(
+      width: 48,
+      child: Center(child: _leadingContent(context, theme, loc)),
+    );
+  }
+
+  Widget _leadingContent(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations loc,
+  ) {
     if (selectable) {
       return Checkbox(
+        // Without this the checkbox is announced with no name of its own — the
+        // type name lives in a separate node (the tile's title).
+        semanticLabel: _label(loc),
         value: selected,
         onChanged: (value) => onSelectedChanged(value ?? false),
       );
@@ -367,14 +392,23 @@ class _TypeResultRow extends StatelessWidget {
     // started both show an empty circle — dimming the whole row is what tells
     // "this won't run" apart from "this is still queued".
     final dimmed = !selectable && !selected;
+    // Dimming has to stay legible, so it is per-brightness rather than one
+    // value: the same alpha reads very differently against the cream light
+    // ground and the dark ground, and the light side is the worse of the two.
+    final dimAlpha = theme.colorScheme.brightness == Brightness.light
+        ? _lightDimAlpha
+        : _darkDimAlpha;
     // The result text sits in the subtitle (not the trailing slot) so it wraps
     // instead of overflowing on a narrow phone — the diet row's imported/skipped/
     // glucose line is long, especially in English.
     return Opacity(
       key: Key('import-type-row-${type.name}'),
-      opacity: dimmed ? 0.5 : 1,
+      opacity: dimmed ? dimAlpha : 1,
       child: ListTile(
-        leading: _leading(context),
+        // Selecting from anywhere on the row, not just the 48px box — the label
+        // is the part the user is actually aiming at.
+        onTap: selectable ? () => onSelectedChanged(!selected) : null,
+        leading: _leading(context, loc),
         title: Text(_label(loc)),
         subtitle: resultText == null
             ? null
