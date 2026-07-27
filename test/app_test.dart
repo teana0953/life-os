@@ -109,6 +109,7 @@ import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
+import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
 import 'package:life_os/shared/pwa/pwa_update_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
@@ -775,6 +776,7 @@ Future<LocaleController> pumpApp(
   /// caller-supplied controller as well, so the two stay wired to the same
   /// revision.
   DataRevision? dataRevision,
+  PendingDeepLinkStore? pendingDeepLinkStore,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -882,7 +884,11 @@ Future<LocaleController> pumpApp(
       careTodayController: resolvedCareTodayController,
       careHistoryController: resolvedCareHistoryController,
       careAdherenceController: resolvedCareAdherenceController,
+      // `resolvedDataRevision`, not the raw parameter: it is nullable now
+      // that callers can inject one to share with their own controller.
       dataRevision: resolvedDataRevision,
+      pendingDeepLinkStore:
+          pendingDeepLinkStore ?? const PendingDeepLinkStoreImpl(),
     ),
   );
   return resolvedLocaleController;

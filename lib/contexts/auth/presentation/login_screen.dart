@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/i18n/language_switcher.dart';
 import '../../../shared/i18n/locale_controller.dart';
+import '../../../shared/routing/app_locations.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../application/sign_up.dart';
@@ -182,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 key: const Key('register-link'),
                                 onPressed: isLoading
                                     ? null
-                                    : () => context.push('/register'),
+                                    : () => context.push(registerLocation),
                                 child: Text(loc.noAccountLink),
                               ),
                             ],
