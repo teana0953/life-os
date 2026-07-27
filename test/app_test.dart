@@ -108,6 +108,7 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
+import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
 import 'package:life_os/shared/pwa/pwa_update_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
@@ -706,6 +707,7 @@ Future<LocaleController> pumpApp(
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
   CareHistoryController? careHistoryController,
+  PendingDeepLinkStore? pendingDeepLinkStore,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -802,6 +804,8 @@ Future<LocaleController> pumpApp(
       careTodayController: resolvedCareTodayController,
       careHistoryController: resolvedCareHistoryController,
       dataRevision: dataRevision,
+      pendingDeepLinkStore:
+          pendingDeepLinkStore ?? const PendingDeepLinkStoreImpl(),
     ),
   );
   return resolvedLocaleController;

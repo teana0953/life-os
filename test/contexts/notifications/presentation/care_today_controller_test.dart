@@ -11,6 +11,8 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   Object? getError;
   Object? logError;
   Completer<void>? logCompleter;
+  Completer<void>? getCompleter;
+  int getCalls = 0;
   int logCalls = 0;
   CareLogStatus? lastStatus;
   String? lastCareScheduleId;
@@ -19,6 +21,8 @@ class _FakeCareTodayRepository implements CareTodayRepository {
 
   @override
   Future<CareToday> getToday(String idToken) async {
+    getCalls++;
+    if (getCompleter != null) await getCompleter!.future;
     if (getError != null) throw getError!;
     return today;
   }
@@ -188,6 +192,136 @@ void main() {
 
       expect(controller.status, CareTodayLoadStatus.error);
       expect(controller.error, isA<CareRequestFailed>());
+    });
+  });
+
+  group('CareTodayController.reloadQuietly', () {
+    test('re-fetches Today without ever dropping to the loading state — the '
+        'list the user is looking at must not be replaced by a spinner', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      await controller.load('token-123');
+
+      final statuses = <CareTodayLoadStatus>[];
+      controller.addListener(() => statuses.add(controller.status));
+      repository.today = CareToday(
+        date: '2026-07-23',
+        slots: [_slot(careScheduleId: 'sch-2')],
+      );
+
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.date, '2026-07-23');
+      expect(controller.slots.single.careScheduleId, 'sch-2');
+      expect(controller.status, CareTodayLoadStatus.loaded);
+      expect(statuses, isNot(contains(CareTodayLoadStatus.loading)));
+    });
+
+    test('a successful quiet reload recovers from an error state — the screen '
+        'renders from status, so leaving it on error hides the list it just '
+        'fetched', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      repository.getError = const CareRequestFailed();
+      await controller.load('token-123');
+      expect(controller.status, CareTodayLoadStatus.error);
+
+      repository.getError = null;
+      repository.today = CareToday(
+        date: '2026-07-23',
+        slots: [_slot(careScheduleId: 'sch-2')],
+      );
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.loaded);
+      expect(controller.slots.single.careScheduleId, 'sch-2');
+    });
+
+    test('a failed quiet reload that had swallowed the first load surfaces the '
+        'error instead of leaving the screen spinning forever', () async {
+      // The screen's own load() can be skipped by the shared in-flight guard
+      // when a hand-over reload starts inside its `await idToken()` window.
+      // Staying quiet then means staying on the initial `loading` — a spinner
+      // with no retry button and no way out. `error` at least offers one.
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      expect(controller.status, CareTodayLoadStatus.loading);
+      repository.getError = const CareRequestFailed();
+
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.error);
+    });
+
+    test('a failed quiet reload keeps the rendered list and stays loaded — a '
+        'background reload must never swap a good list for the error screen', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      await controller.load('token-123');
+      repository.getError = const CareRequestFailed();
+
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.loaded);
+      expect(controller.slots, [_slot()]);
+      expect(controller.date, '2026-07-22');
+    });
+
+    test('a CareReauthRequired during a quiet reload still routes to reauth', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      await controller.load('token-123');
+      repository.getError = const CareReauthRequired();
+
+      await controller.reloadQuietly('token-123');
+
+      expect(controller.status, CareTodayLoadStatus.reauth);
+    });
+
+    test('a second quiet reload while one is in flight is ignored (repeated '
+        'notification taps must not race two GETs)', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+      await controller.load('token-123');
+      final getsAfterLoad = repository.getCalls;
+
+      final completer = Completer<void>();
+      repository.getCompleter = completer;
+      final first = controller.reloadQuietly('token-123');
+      final second = controller.reloadQuietly('token-123');
+      completer.complete();
+      await Future.wait([first, second]);
+
+      expect(repository.getCalls, getsAfterLoad + 1);
+    });
+
+    test('a quiet reload while the initial load is still in flight is ignored', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final controller = _controller(repository: repository);
+
+      final completer = Completer<void>();
+      repository.getCompleter = completer;
+      final load = controller.load('token-123');
+      final reload = controller.reloadQuietly('token-123');
+      completer.complete();
+      await Future.wait([load, reload]);
+
+      expect(repository.getCalls, 1);
+      expect(controller.status, CareTodayLoadStatus.loaded);
     });
   });
 
