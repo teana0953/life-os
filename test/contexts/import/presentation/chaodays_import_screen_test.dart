@@ -832,10 +832,15 @@ void main() {
       // The user just changed what water is going to do next, so last run's
       // water result no longer describes anything the screen is showing.
       expect(find.text(loc.importResultSummary(4, 0)), findsNothing);
+      // Structural, not "the success icon is gone": a cleared row must show no
+      // status at all. Naming one icon lets a wrong implementation swap in a
+      // different one — driving this off the overall ImportStatus instead of
+      // the type's own leaves a circle_outlined here, and the row then reads
+      // out "Not attempted" to a screen reader.
       expect(
         find.descendant(
           of: _rowFor(ImportType.water),
-          matching: find.byIcon(Icons.check_circle),
+          matching: find.byType(Icon),
         ),
         findsNothing,
       );
