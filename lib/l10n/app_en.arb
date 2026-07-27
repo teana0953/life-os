@@ -1671,14 +1671,6 @@
   "@careHistoryEntryTooltip": {
     "description": "Tooltip on the AppBar icon (in care management and Today care) that opens the care history screen."
   },
-  "careHistoryListMode": "List",
-  "@careHistoryListMode": {
-    "description": "Label of the list segment in the care history screen's list/chart mode SegmentedButton."
-  },
-  "careHistoryChartMode": "Chart",
-  "@careHistoryChartMode": {
-    "description": "Label of the chart segment in the care history screen's list/chart mode SegmentedButton."
-  },
   "careHistoryEmptyTitle": "No care records",
   "@careHistoryEmptyTitle": {
     "description": "Title of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled."
@@ -1686,6 +1678,18 @@
   "careHistoryEmptyBody": "Nothing was scheduled in this period.",
   "@careHistoryEmptyBody": {
     "description": "Body text of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled."
+  },
+  "careHistoryWidenPeriodButton": "See a longer period",
+  "@careHistoryWidenPeriodButton": {
+    "description": "Button on the care history screen's empty-state guide, shown when the selected period is shorter than 90 days, that widens the period to the next longer option (7→30→90) and reloads."
+  },
+  "careHistoryEmptyManageButton": "Go to care management",
+  "@careHistoryEmptyManageButton": {
+    "description": "Button on the care history screen's empty-state guide, shown once the period is already the longest (90 days) so widening is no longer possible, that opens care management (/care-items) — at that point the likeliest reason the period is empty is having no care items set up yet."
+  },
+  "careHistoryTrendsMovedHint": "Adherence charts are in Health → Trends",
+  "@careHistoryTrendsMovedHint": {
+    "description": "Non-interactive note at the bottom of the care history screen's AppBar overflow menu, telling a user who remembers this screen's old chart mode where the heatmap went. Not a menu action: the trends tab isn't a route of its own (it's a tab index inside the health scaffold), so it can't be navigated to directly."
   },
   "careHistoryAdherenceRateLabel": "Adherence rate",
   "@careHistoryAdherenceRateLabel": {
@@ -1742,5 +1746,37 @@
   "careHistoryEditRefreshErrorMessage": "Saved, but couldn't refresh the list.",
   "@careHistoryEditRefreshErrorMessage": {
     "description": "SnackBar message shown when a slot edit in the care history list saves successfully but the follow-up refresh of the list fails — distinct from careErrorGeneric (which implies the edit itself failed) so the user isn't told their change was lost when it wasn't."
+  },
+  "careAdherenceCardTitle": "Care adherence",
+  "@careAdherenceCardTitle": {
+    "description": "Title of the health module's trend-tab care adherence card — a heatmap summarizing care schedule adherence over a selectable period, shown below the vitals trend chart."
+  },
+  "careAdherenceHeatmapCellLabel": "{date} · {state}",
+  "@careAdherenceHeatmapCellLabel": {
+    "description": "Combined date-and-state text for a single heatmap cell on the care adherence card, used as both its Tooltip message and its Semantics label so the cell's state is exposed as text, not color alone, to screen readers and pointer/hover users.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "careAdherenceOpenHistory": "View records",
+  "@careAdherenceOpenHistory": {
+    "description": "Action in the care adherence card's header that opens the care history screen, so a user who sees a missed/partial day on the heatmap can go correct that record in place instead of hunting for the list through the More tab."
+  },
+  "careAdherenceLegendWithCount": "{label} ({count})",
+  "@careAdherenceLegendWithCount": {
+    "description": "A care adherence card legend entry's label with its day count appended, e.g. 'Complete (12)' — so a sighted touch user can read how much of the period each day-state covers without long-pressing individual heatmap cells.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
