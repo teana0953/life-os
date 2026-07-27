@@ -23,7 +23,8 @@
   - 每一列的 semantics 是**一個** label 恰為類型名、帶 checked 狀態的節點
   - **一輪匯入結束後（全部成功、以及中途失敗兩種情況）勾選框都恢復可改，可以改選再送出** —— 這是 proposal 點名的主要情境，per-type 狀態驅動的寫法會在這裡壞掉
 - [x] `ChaodaysImportScreen`: state 持有 `Set<ImportType> _selected`（初值全部）；`_canSubmit` 加上 `_selected.isNotEmpty`；`_submit` 傳 `_selected`。
-- [x] `_TypeResultRow`: 加 `selected` / `onSelectedChanged` / `selectable`，改用 `CheckboxListTile`（`controlAffinity: leading`、狀態圖示放 `secondary`、明寫 `enabled: true`）。`onChanged` 在 **`selectable`（= 非匯入中）** 時給值、否則 null。**不要用 `TypeState.status` 決定** —— 一輪跑完後五列都是 `success`，勾選框會整組鎖死。
+- [x] `_TypeResultRow`: 加 `selected` / `onSelectedChanged` / `selectable`，改用 `CheckboxListTile`（`controlAffinity: leading`、狀態圖示放 `secondary`、`enabled` 跟著 `onChanged` 走、標題明寫 `colorScheme.onSurface`）。`onChanged` 在 **`selectable`（= 非匯入中）** 時給值、否則 null。**不要用 `TypeState.status` 決定** —— 一輪跑完後五列都是 `success`，勾選框會整組鎖死。
+- [x] 狀態圖示（成功 ✓／進行中轉圈）在淺色主題改用 `app_theme.dart` 的 `importSuccessIconColor` / `importRunningIconColor`：pastel `tertiary` / `primary` 在 cream 卡片上只有 1.28:1 / 1.64:1，而 trailing 現在是成敗的常駐載體，非文字圖形需要 3:1。深色主題維持既有 pastel。
 - [x] `ChaodaysImportController.import` 進來就 `types.toSet()` —— screen 交的是它自己的可變集合，而迴圈跨 await 惰性讀它。
 - [x] l10n: **不需要新字串** —— 勾選框以既有的 `importTypeWeight` 等類型名稱為標籤。順手修正 `@importDoneMessage.description` 裡已過時的敘述（它還在講固定跑全部類型）。
 

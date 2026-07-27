@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -343,12 +344,12 @@ class _TypeResultRow extends StatelessWidget {
         width: 20,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: theme.colorScheme.primary,
+          color: importRunningIconColor(theme.colorScheme),
         ),
       ),
       TypeStatus.success => Icon(
         Icons.check_circle,
-        color: theme.colorScheme.tertiary,
+        color: importSuccessIconColor(theme.colorScheme),
       ),
       TypeStatus.failed => Icon(Icons.error, color: theme.colorScheme.error),
     };
@@ -371,15 +372,20 @@ class _TypeResultRow extends StatelessWidget {
     return CheckboxListTile(
       key: Key('import-type-row-${type.name}'),
       controlAffinity: ListTileControlAffinity.leading,
-      // Held enabled even when the checkbox is locked: `enabled` otherwise
-      // follows `onChanged` and greys the title and result text out, and those
-      // are exactly what the user is reading while the import runs.
-      enabled: true,
       value: selected,
       onChanged: selectable
           ? (value) => onSelectedChanged(value ?? false)
           : null,
-      title: Text(_label(loc)),
+      // `enabled` follows `onChanged`, so while the import runs the tile is
+      // disabled — which is what a screen reader needs to hear. The greying
+      // that comes with it only reaches the title (it rides the tile's
+      // DefaultTextStyle), so the title spells its color out the way the
+      // subtitle below already does, and keeps full contrast while the user
+      // reads the running rows.
+      title: Text(
+        _label(loc),
+        style: TextStyle(color: theme.colorScheme.onSurface),
+      ),
       subtitle: resultText == null
           ? null
           : Text(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
@@ -15,6 +16,8 @@ import 'package:life_os/contexts/import/presentation/chaodays_import_controller.
 import 'package:life_os/contexts/import/presentation/chaodays_import_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
+import 'package:life_os/shared/theme/app_colors.dart';
+import 'package:life_os/shared/theme/app_theme.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -208,12 +211,14 @@ Future<void> _pumpScreen(
   AuthRepository? authRepository,
   DateTime Function() clock = _defaultClock,
   Locale locale = const Locale('en'),
+  ThemeData? theme,
 }) async {
   await tester.binding.setSurfaceSize(const Size(600, 1200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
+      theme: theme,
       home: ChaodaysImportScreen(
         controller: controller,
         authRepository: authRepository ?? _FakeAuthRepository(),
@@ -262,6 +267,17 @@ Future<void> _selectOnly(WidgetTester tester, {ImportType? keep}) async {
     await tester.pump();
   }
 }
+
+/// The color the row's title actually renders with: the `Text`'s own style
+/// merged onto the `DefaultTextStyle` the (possibly disabled) `ListTile` hands
+/// down — i.e. what the user sees, not what the tile would have imposed.
+Color _titleColor(WidgetTester tester, ImportType type, String label) => tester
+    .renderObject<RenderParagraph>(
+      find.descendant(of: _rowFor(type), matching: find.text(label)),
+    )
+    .text
+    .style!
+    .color!;
 
 void main() {
   final loc = lookupAppLocalizations(const Locale('en'));
@@ -511,14 +527,22 @@ void main() {
     testWidgets('the checkboxes stay put but are locked while an import is running', (
       tester,
     ) async {
+      final handle = tester.ensureSemantics();
       final repository = _HangingImportRepository();
-      await _pumpScreen(tester, controller: _controller(repository));
+      await _pumpScreen(
+        tester,
+        controller: _controller(repository),
+        theme: lightTheme,
+      );
 
       await _fillCompleteForm(tester);
       await tester.tap(_checkboxFor(ImportType.bowel));
       await tester.pump();
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pump();
+      // Past the tile's disabled-text fade, so a title left to the ListTile's
+      // DefaultTextStyle would have settled on the disabled grey by now.
+      await tester.pump(const Duration(milliseconds: 400));
 
       // The checkboxes never leave, so "left out" (unchecked) still reads apart
       // from "selected but not started yet" (checked) without any dimming.
@@ -529,32 +553,40 @@ void main() {
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNull);
       }
-      // Only the control is locked — the row itself stays enabled so the label
-      // and its result text keep full contrast. CheckboxListTile otherwise
-      // derives `enabled` from `onChanged`, greying out exactly what the user
-      // is reading while the import runs.
-      for (final type in ImportType.values) {
-        expect(
-          tester
-              .widget<ListTile>(
-                find.descendant(of: _rowFor(type), matching: find.byType(ListTile)),
-              )
-              .enabled,
-          isTrue,
-        );
-      }
+      // The lock must not cost the label its contrast: the title carries its
+      // own onSurface color, so it keeps rendering at full strength even
+      // though the tile itself is disabled (which is what the screen reader
+      // needs to hear).
       expect(
+        _titleColor(tester, ImportType.diet, loc.importTypeDiet),
+        lightTheme.colorScheme.onSurface,
+      );
+      final spinner = tester.widget<CircularProgressIndicator>(
         find.descendant(
           of: _rowFor(ImportType.weight),
           matching: find.byType(CircularProgressIndicator),
         ),
-        findsOneWidget,
+      );
+      // The pastel primary is 1.64:1 on the light card — the running row uses
+      // the deeper light-theme icon color instead.
+      expect(spinner.color, importRunningIconLight);
+      expect(spinner.color, isNot(lightTheme.colorScheme.primary));
+      // A screen reader must not be told "enabled checkbox" for a row that has
+      // no toggle action left.
+      expect(
+        tester
+            .getSemantics(_rowFor(ImportType.diet))
+            .getSemanticsData()
+            .flagsCollection
+            .isEnabled,
+        isFalse,
       );
 
       repository.weightCompleter.complete(
         const ChaodaysImportSummary(imported: 0, skipped: 0),
       );
       await tester.pumpAndSettle();
+      handle.dispose();
     });
 
     testWidgets('tapping a row while an import is running does not change the selection', (
@@ -632,6 +664,53 @@ void main() {
           findsOneWidget,
         );
       }
+    });
+
+    testWidgets('the checkbox leads the row and the status icon trails it', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // The two slots never swap roles: the checkbox deciding the next run
+      // stays on the left, the icon reporting the last one on the right.
+      for (final type in ImportType.values) {
+        final checkboxX = tester.getCenter(_checkboxFor(type)).dx;
+        final iconX = tester
+            .getCenter(
+              find.descendant(
+                of: _rowFor(type),
+                matching: find.byIcon(Icons.circle_outlined),
+              ),
+            )
+            .dx;
+        expect(checkboxX, lessThan(iconX));
+      }
+    });
+
+    testWidgets('the success icon uses the deeper light-theme icon color', (
+      tester,
+    ) async {
+      final repository = _FakeImportRepository();
+      await _pumpScreen(
+        tester,
+        controller: _controller(repository),
+        theme: lightTheme,
+      );
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      // The pastel tertiary is 1.28:1 on the light card, so the ✓ that the
+      // trailing slot now carries permanently would be invisible there.
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: _rowFor(ImportType.weight),
+          matching: find.byIcon(Icons.check_circle),
+        ),
+      );
+      expect(icon.color, importSuccessIconLight);
+      expect(icon.color, isNot(lightTheme.colorScheme.tertiary));
     });
 
     testWidgets('after a run stopped by a failure the failed row still shows its icon', (

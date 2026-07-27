@@ -215,6 +215,23 @@ TextTheme _textTheme(Color ink) {
   );
 }
 
+/// Color for the chaodays import screen's "this type succeeded" icon. The
+/// pastel `tertiary` it would otherwise use is 1.28:1 on the light card, far
+/// under the 3:1 a non-text graphic needs, so the light theme swaps in the
+/// deeper [importSuccessIconLight] (3.45:1); the dark theme's pastel already
+/// clears it (9.64:1) and is kept.
+Color importSuccessIconColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? importSuccessIconLight
+        : scheme.tertiary;
+
+/// Same as [importSuccessIconColor] for the "this type is running" spinner:
+/// `primary` is 1.64:1 on the light card, [importRunningIconLight] is 3.63:1.
+Color importRunningIconColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? importRunningIconLight
+        : scheme.primary;
+
 /// The "toy ledge" shadow used under cards and primary buttons: a soft,
 /// downward-offset shadow rather than a symmetric `elevation` blur. Wrap a
 /// `Container`/`Material` with this via `BoxDecoration.boxShadow`.

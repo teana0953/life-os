@@ -41,7 +41,9 @@ issue 的另一半（長區間被擋）**落在後端 repo**，理由是登入�
 
 匯入中仍然不能改選，但作法是**停用**而不是撤掉：`Checkbox.onChanged`（連同整列的 onTap）設為 null。判斷用的是 `_isImporting` 這個**整體**狀態，不是 per-type 的 `TypeState.status` —— 後者會壞在最重要的情境上：一輪跑完後五列都停在 `success`（controller 只在下一次 `import()` 開頭才重置 `typeStates`），勾選框會**整組鎖死**，使用者沒辦法在同一畫面改選再跑一次，而「只補匯某一種」正是這個功能存在的理由。auth 失敗時更亂：失敗那型被退回 `notAttempted`（既有行為，刻意的），其他仍是 `success`，同一張卡片會半數可改半數鎖死。
 
-實作用 `CheckboxListTile`（`controlAffinity: leading`、狀態圖示放 `secondary`）而不是自己組 `ListTile` + `Checkbox`：它把整列併成**一個** semantics 節點（一個以類型名為名的 checkbox），否則螢幕閱讀器會先讀到一個同名的 button 節點、再讀到一個同名的 checkbox 節點。唯一要明寫的是 `enabled: true` —— 否則 `enabled` 會跟著 `onChanged` 走，匯入中把標題與結果文字一起變成 disabled 灰，而那正是使用者當下在讀的東西。
+實作用 `CheckboxListTile`（`controlAffinity: leading`、狀態圖示放 `secondary`）而不是自己組 `ListTile` + `Checkbox`：它把整列併成**一個** semantics 節點（一個以類型名為名的 checkbox），否則螢幕閱讀器會先讀到一個同名的 button 節點、再讀到一個同名的 checkbox 節點。`enabled` 就讓它跟著 `onChanged` 走 —— 匯入中整列回報 disabled，這正是螢幕閱讀器該聽到的（宣告成 enabled 卻沒有任何 toggle action 才是錯的）。隨之而來的 disabled 灰只會吃到**標題**：它是唯一沒帶明寫顏色、靠 ListTile 的 `DefaultTextStyle` 上色的文字；結果文字與狀態圖示都自帶 `color:`，本來就蓋得過去。所以只要比照 subtitle，給標題明寫 `colorScheme.onSurface`，匯入中使用者正在讀的東西就維持滿版對比。
+
+狀態圖示的顏色在淺色主題另外處理：`tertiary`（成功 ✓）與 `primary`（進行中）在 cream 卡片上只有 1.28:1 / 1.64:1，而這一版把 trailing 定為成敗的常駐載體，非文字圖形至少要 3:1。整組 pastel 都達不到（sage 1.91、honey 2.08、primaryDeep 2.29），所以比照 `errorTextLight` 的先例補兩個同色相但更深的淺色主題專用 icon 色（`importSuccessIconLight` 3.45:1、`importRunningIconLight` 3.63:1），深色主題維持既有 pastel（8.8–9.6:1）。
 
 ### D3 — 全不選時停用送出，而不是按了才報錯
 
