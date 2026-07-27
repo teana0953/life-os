@@ -34,11 +34,25 @@
 ## 4. l10n
 - [x] 新增字串到 `app_en.arb`（含 `description`）+ `app_zh_Hant.arb` + `app_zh.arb`：字典標題、查詢入口 tooltip、選餐 sheet 標題。重新產生 `lib/l10n/generated` 並提交（CLAUDE.md i18n 規則）。
 
-## 5. Gate
+## 5. Review 修正（結果區空狀態 + 一併收掉的小洞）
+- [x] Test first (red)：沒有最愛 → 空狀態；搜尋 0 結果 → 帶查詢字的空狀態 + 手動輸入（點下去真的開表單）；
+      已有常駐手動輸入連結時（指定餐／字典模式 tray 非空）空狀態**不**再放第二個入口；
+      載入失敗 ≠ 沒有資料；401 有「重新登入」且真的登出；載入中是轉圈。
+- [x] `FoodSearchScreen` 結果區改成會讀 `dictionary.status`：loading／error／needsReauth／兩種空狀態／清單。
+      **原本 `build()` 完全沒讀過 `dictionary.status`**，而字典模式下 `bottomNavigationBar` 是 null，
+      所以 401 在這裡等於零復原路徑 —— reauth 必須由結果區自己呈現（design 舊敘述「沿用畫面既有的 reauth 呈現」是錯的，已改）。
+- [x] 選餐 sheet 內容包 `SingleChildScrollView`（矮螢幕／大字級下被裁掉的正好是最後一個「點心」選項）。
+- [x] `_submit` 在 `await _askForMeal()` 之後補 `if (!mounted) return;`（比照 `care_history_screen.dart`）。
+- [x] `bindMeal` 移除多餘的 `notifyListeners()`（`submit` 進去就會 notify）。
+- [x] `_openDictionary` 的 `_reloadCurrentDay()` 補上斷言（app_test 那條走真 router 的端到端測試多數一次該日的 fetch）。
+- [x] l10n ARB ×3 新增結果區文案並重新產生 `lib/l10n/generated`。
+
+## 6. Gate
 - [ ] `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠。既有的 food-search 測試（從某一餐進入的完整流程）零退化。
 
-## 6. On-device verification (manual — 需使用者，部署後)
+## 7. On-device verification (manual — 需使用者，部署後)
 - [ ] 從飲食頁點查詢圖示，確認看到最愛清單、沒有任何記錄相關 UI。
 - [ ] 查一個食物看份量，然後直接返回 —— 確認什麼都沒被記錄。
 - [ ] 查完點一個食物 → 送出 → 選餐 → 確認落在正確的餐與**正確的日期**（先把飲食頁切到昨天再測）。
 - [ ] 窄螢幕上看 AppBar 的「目標」與查詢圖示會不會擠。
+- [ ] 搜一個一定查不到的字，確認看到「找不到『X』」與那裡的手動輸入，且指定餐進入時不會出現兩個手動輸入入口。

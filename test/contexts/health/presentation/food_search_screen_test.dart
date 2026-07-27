@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -44,14 +46,35 @@ FoodItem _riceItem({double? baseAmount, String? measureUnit}) => FoodItem.fromJs
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   List<FoodItem> favorites;
 
-  FakeFoodDictionaryRepository({List<FoodItem>? favorites})
-    : favorites = favorites ?? [_riceItem()];
+  /// What [search] returns when it differs from the favorites — used to drive
+  /// "a search found nothing" independently of "there are no favorites".
+  final List<FoodItem>? searchResults;
+
+  /// Thrown by [listFavorites] instead of returning, to drive the results
+  /// area's failure states.
+  final Object? listFavoritesError;
+
+  /// Held open (never completed) to keep [listFavorites] in flight, so the
+  /// controller stays in its loading state.
+  final Completer<List<FoodItem>>? favoritesGate;
+
+  FakeFoodDictionaryRepository({
+    List<FoodItem>? favorites,
+    this.searchResults,
+    this.listFavoritesError,
+    this.favoritesGate,
+  }) : favorites = favorites ?? [_riceItem()];
 
   @override
-  Future<List<FoodItem>> search(String idToken, String query) async => favorites;
+  Future<List<FoodItem>> search(String idToken, String query) async =>
+      searchResults ?? favorites;
 
   @override
-  Future<List<FoodItem>> listFavorites(String idToken) async => favorites;
+  Future<List<FoodItem>> listFavorites(String idToken) async {
+    if (listFavoritesError != null) throw listFavoritesError!;
+    if (favoritesGate != null) return favoritesGate!.future;
+    return favorites;
+  }
 
   @override
   Future<void> favorite(String idToken, String foodItemId) async {}
@@ -716,6 +739,108 @@ void main() {
       },
     );
 
+    testWidgets(
+      'the screen being torn down while the meal sheet is open saves nothing',
+      (tester) async {
+        // Sign-out flips the whole app to the login screen while the sheet is
+        // still up; the choice that comes back must not still be saved.
+        final mealRepository = FakeMealRepository();
+        final dictionaryController = _dictionaryController(
+          FakeFoodDictionaryRepository(),
+        );
+        await dictionaryController.load('token-123');
+        final createMealController =
+            CreateMealController(CreateMeal(mealRepository))..start(null);
+        final showScreen = ValueNotifier(true);
+        addTearDown(showScreen.dispose);
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: showScreen,
+              builder: (context, show, _) => show
+                  ? FoodSearchScreen(
+                      meal: null,
+                      dictionaryController: dictionaryController,
+                      createMealController: createMealController,
+                      idToken: 'token-123',
+                      day: '2026-07-18',
+                      signOut: SignOut(FakeAuthRepository()),
+                    )
+                  : const Scaffold(body: Text('signed out')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        // The page goes away underneath the still-open sheet.
+        showScreen.value = false;
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.receivedMeal, isNull);
+        expect(mealRepository.receivedItems, isNull);
+      },
+    );
+
+    testWidgets(
+      'every meal option stays reachable when the sheet is taller than its cap',
+      (tester) async {
+        // A modal bottom sheet is capped at 9/16 of the screen; on a short
+        // screen (or at a large text scale) the four options do not fit, and
+        // what gets cut off is the last one — the snack.
+        await tester.binding.setSurfaceSize(const Size(360, 430));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final mealRepository = FakeMealRepository();
+        final dictionaryController = _dictionaryController(
+          FakeFoodDictionaryRepository(),
+        );
+        await dictionaryController.load('token-123');
+        final createMealController =
+            CreateMealController(CreateMeal(mealRepository))..start(null);
+        // Seeded directly so the tray stays short enough that the page itself
+        // fits this deliberately short screen — the sheet is what's on trial.
+        createMealController.addManual(
+          '自製便當',
+          const Portions(staple: 1, meat: 0, fruit: 0, veg: 0),
+        );
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: FoodSearchScreen(
+              meal: null,
+              dictionaryController: dictionaryController,
+              createMealController: createMealController,
+              idToken: 'token-123',
+              day: '2026-07-18',
+              signOut: SignOut(FakeAuthRepository()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        final snack = find.byKey(const Key('choose-meal-snack'));
+        await tester.ensureVisible(snack);
+        await tester.pumpAndSettle();
+        await tester.tap(snack);
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(mealRepository.receivedMeal, loc.dietSnackBaseName);
+      },
+    );
+
     testWidgets('opened for a target meal, completing does not ask which meal', (
       tester,
     ) async {
@@ -729,6 +854,172 @@ void main() {
 
       expect(find.text(loc.dietChooseMealSheetTitle), findsNothing);
       expect(mealRepository.receivedMeal, 'lunch');
+    });
+  });
+
+  group('FoodSearchScreen results area', () {
+    /// Types [query] and lets the controller's search debounce elapse, so the
+    /// results the screen renders are the ones this query produced.
+    Future<void> searchFor(WidgetTester tester, String query) async {
+      await tester.enterText(find.byKey(const Key('food-search-field')), query);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('with no favorites and nothing searched, says so instead of going blank', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(favorites: []),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryFavoritesEmptyTitle), findsOneWidget);
+      // Not the search-found-nothing state: nothing has been searched.
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsNothing);
+    });
+
+    testWidgets('a search that finds nothing names the query and offers manual entry', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryNoResultsTitle('酪梨')), findsOneWidget);
+      // Not the no-favorites state: this is the user's own search coming back
+      // empty, and the way out is offered right here.
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('food-search-empty-manual-entry-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('manual-entry-name-field')), findsOneWidget);
+    });
+
+    testWidgets('opened for a target meal, a fruitless search does not add a second manual-entry entrance', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: 'lunch',
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      // The persistent link is already there for this mode, so the empty state
+      // must not duplicate it.
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+      expect(
+        find.byKey(const Key('food-search-empty-manual-entry-button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('in the dictionary with a tray already started, a fruitless search does not duplicate the link either', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(searchResults: []),
+      );
+
+      // Adding a food reveals the persistent manual-entry link…
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+
+      await searchFor(tester, '酪梨');
+
+      expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
+      expect(
+        find.byKey(const Key('food-search-empty-manual-entry-button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a failure to load is distinguishable from having no foods', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          listFavoritesError: const DietFetchFailure('boom'),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.byKey(const Key('food-search-dictionary-error')), findsOneWidget);
+      expect(find.text(loc.dietDictionaryLoadFailed), findsOneWidget);
+      // Emphatically NOT "you have no usual foods yet".
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
+    });
+
+    testWidgets('an auth failure loading the dictionary offers a way out, not a blank page', (
+      tester,
+    ) async {
+      final authRepository = FakeAuthRepository();
+      await _pumpScreen(
+        tester,
+        meal: null,
+        authRepository: authRepository,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          listFavoritesError: const DietReauthenticationRequired(),
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      // In dictionary mode there is no bottom bar at all, so this is the only
+      // recovery exit on the page.
+      await tester.tap(
+        find.byKey(const Key('food-search-dictionary-sign-in-again-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signOutCalled, isTrue);
+    });
+
+    testWidgets('while the dictionary is still loading, shows a loading indicator rather than an empty state', (
+      tester,
+    ) async {
+      final gate = Completer<List<FoodItem>>();
+      addTearDown(() => gate.complete(const <FoodItem>[]));
+      final dictionaryController = _dictionaryController(
+        FakeFoodDictionaryRepository(favoritesGate: gate),
+      );
+      unawaited(dictionaryController.load('token-123'));
+      final createMealController =
+          CreateMealController(CreateMeal(FakeMealRepository()))..start(null);
+
+      await tester.pumpWidget(
+        l10nRouterTestApp(
+          home: FoodSearchScreen(
+            meal: null,
+            dictionaryController: dictionaryController,
+            createMealController: createMealController,
+            idToken: 'token-123',
+            day: '2026-07-18',
+            signOut: SignOut(FakeAuthRepository()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('food-search-dictionary-loading')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);
     });
   });
 

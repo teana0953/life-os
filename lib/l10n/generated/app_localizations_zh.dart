@@ -333,6 +333,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dietManualEntryLink => '找不到？手動輸入';
 
   @override
+  String get dietDictionaryFavoritesEmptyTitle => '還沒有常用食物';
+
+  @override
+  String get dietDictionaryFavoritesEmptyBody => '搜尋看看某個食物算幾份，點愛心就能留在這裡。';
+
+  @override
+  String dietDictionaryNoResultsTitle(String query) {
+    return '找不到「$query」';
+  }
+
+  @override
+  String get dietDictionaryNoResultsBody => '換個名字再找找看。';
+
+  @override
+  String get dietDictionaryLoadFailed => '無法載入食物，請再試一次。';
+
+  @override
   String get dietManualEntryTitle => '手動輸入';
 
   @override
@@ -1652,6 +1669,23 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dietManualEntryLink => '找不到？手動輸入';
+
+  @override
+  String get dietDictionaryFavoritesEmptyTitle => '還沒有常用食物';
+
+  @override
+  String get dietDictionaryFavoritesEmptyBody => '搜尋看看某個食物算幾份，點愛心就能留在這裡。';
+
+  @override
+  String dietDictionaryNoResultsTitle(String query) {
+    return '找不到「$query」';
+  }
+
+  @override
+  String get dietDictionaryNoResultsBody => '換個名字再找找看。';
+
+  @override
+  String get dietDictionaryLoadFailed => '無法載入食物，請再試一次。';
 
   @override
   String get dietManualEntryTitle => '手動輸入';

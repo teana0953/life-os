@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
+import '../domain/food_item.dart';
 import '../domain/portion_preview.dart';
 import '../domain/portions.dart';
 import 'amount_stepper.dart';
@@ -120,32 +121,38 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     final snack = nextSnackName(widget.mealNames, loc.dietSnackBaseName);
     return showModalBottomSheet<String>(
       context: context,
+      // A modal sheet is capped at 9/16 of the screen, which the title plus
+      // four options can exceed on a short screen or at a large text scale —
+      // and what gets cut off is the last option, the snack. Scrolling keeps
+      // every meal reachable instead.
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Text(
-                loc.dietChooseMealSheetTitle,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Text(
+                  loc.dietChooseMealSheetTitle,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
-            for (final meal in standardMeals)
+              for (final meal in standardMeals)
+                ListTile(
+                  key: Key('choose-meal-$meal'),
+                  title: Text(mealDisplayLabel(loc, meal)),
+                  onTap: () => Navigator.of(sheetContext).pop(meal),
+                ),
               ListTile(
-                key: Key('choose-meal-$meal'),
-                title: Text(mealDisplayLabel(loc, meal)),
-                onTap: () => Navigator.of(sheetContext).pop(meal),
+                key: const Key('choose-meal-snack'),
+                title: Text(snack),
+                onTap: () => Navigator.of(sheetContext).pop(snack),
               ),
-            ListTile(
-              key: const Key('choose-meal-snack'),
-              title: Text(snack),
-              onTap: () => Navigator.of(sheetContext).pop(snack),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -156,6 +163,11 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     // for the whole tray, and save nothing if the user doesn't choose.
     if (widget.meal == null) {
       final chosen = await _askForMeal();
+      // The screen (or its ancestor) can be disposed while the sheet is open
+      // — e.g. sign-out flipping the app to the login screen, or the route
+      // being popped — and a choice that comes back after that must not still
+      // be saved.
+      if (!mounted) return;
       if (chosen == null) return;
       widget.createMealController.bindMeal(chosen);
     }
@@ -174,6 +186,107 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     if (result != null) {
       widget.createMealController.addManual(result.$1, result.$2);
     }
+  }
+
+  /// What fills the page below the search field. It always says what it is
+  /// showing rather than going blank, because in dictionary mode the list is
+  /// the whole page: a failure (with its recovery exit), the load still in
+  /// flight, "you have no usual foods yet", "that search found nothing" — or
+  /// the results themselves. The two empty states are kept apart on purpose:
+  /// only the second one is the user's own search coming back empty, and only
+  /// it offers [offerManualEntry] as the next step.
+  Widget _resultsArea(
+    AppLocalizations loc,
+    ThemeData theme,
+    List<FoodItem> results, {
+    required bool showingFavorites,
+    required bool offerManualEntry,
+  }) {
+    final dictionary = widget.dictionaryController;
+    switch (dictionary.status) {
+      case DictionaryStatus.needsReauth:
+        return _ResultsMessage(
+          stateKey: const Key('food-search-dictionary-reauth'),
+          icon: Icons.lock_outline,
+          title: loc.pleaseSignInAgain,
+          action: OutlinedButton(
+            key: const Key('food-search-dictionary-sign-in-again-button'),
+            onPressed: widget.signOut.call,
+            child: Text(loc.signInAgain),
+          ),
+        );
+      case DictionaryStatus.error:
+        return _ResultsMessage(
+          stateKey: const Key('food-search-dictionary-error'),
+          icon: Icons.cloud_off_outlined,
+          title: loc.dietDictionaryLoadFailed,
+          titleColor: theme.colorScheme.error,
+        );
+      case DictionaryStatus.loading:
+        return const Center(
+          child: CircularProgressIndicator(
+            key: Key('food-search-dictionary-loading'),
+          ),
+        );
+      case DictionaryStatus.loaded:
+        break;
+    }
+
+    if (results.isEmpty) {
+      if (showingFavorites) {
+        return _ResultsMessage(
+          stateKey: const Key('food-search-empty-favorites'),
+          icon: Icons.favorite_border,
+          title: loc.dietDictionaryFavoritesEmptyTitle,
+          body: loc.dietDictionaryFavoritesEmptyBody,
+        );
+      }
+      return _ResultsMessage(
+        stateKey: const Key('food-search-empty-no-results'),
+        icon: Icons.search_off,
+        title: loc.dietDictionaryNoResultsTitle(dictionary.query),
+        body: loc.dietDictionaryNoResultsBody,
+        action: offerManualEntry
+            ? FilledButton(
+                key: const Key('food-search-empty-manual-entry-button'),
+                onPressed: _openManualEntry,
+                child: Text(loc.dietManualEntryLink),
+              )
+            : null,
+      );
+    }
+
+    return ListView.builder(
+      key: const Key('food-search-results'),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final item = results[index];
+        final isFavorite = dictionary.favorites.any((f) => f.id == item.id);
+        return ListTile(
+          key: Key('food-search-result-${item.id}'),
+          title: Text(item.name),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: PortionPills(
+              staple: item.staple,
+              meat: item.meat,
+              fruit: item.fruit,
+              veg: item.veg,
+            ),
+          ),
+          trailing: IconButton(
+            tooltip: isFavorite
+                ? loc.dietUnfavoriteTooltip
+                : loc.dietFavoriteTooltip,
+            icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+            onPressed: () =>
+                dictionary.toggleFavorite(item, isFavorite: isFavorite),
+          ),
+          onTap: () => widget.createMealController.add(item),
+        );
+      },
+    );
   }
 
   @override
@@ -225,38 +338,15 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
               ),
             ),
           Expanded(
-            child: ListView.builder(
-              key: const Key('food-search-results'),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: results.length,
-              itemBuilder: (context, index) {
-                final item = results[index];
-                final isFavorite = dictionary.favorites.any((f) => f.id == item.id);
-                return ListTile(
-                  key: Key('food-search-result-${item.id}'),
-                  title: Text(item.name),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: PortionPills(
-                      staple: item.staple,
-                      meat: item.meat,
-                      fruit: item.fruit,
-                      veg: item.veg,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    tooltip: isFavorite
-                        ? loc.dietUnfavoriteTooltip
-                        : loc.dietFavoriteTooltip,
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                    ),
-                    onPressed: () =>
-                        dictionary.toggleFavorite(item, isFavorite: isFavorite),
-                  ),
-                  onTap: () => createMeal.add(item),
-                );
-              },
+            child: _resultsArea(
+              loc,
+              theme,
+              results,
+              showingFavorites: showingFavorites,
+              // The manual-entry way out belongs in the no-results state only
+              // when it isn't already standing above the list — otherwise the
+              // same escape hatch would appear twice.
+              offerManualEntry: !showRecordingControls,
             ),
           ),
           if (createMeal.tray.isNotEmpty)
@@ -311,6 +401,60 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
               ),
             )
           : null,
+    );
+  }
+}
+
+/// One of [FoodSearchScreen]'s result-area states — an icon, a title, an
+/// optional supporting line and an optional next step — filling the space the
+/// results list would occupy. Scrollable so it survives a short viewport (a
+/// focused keyboard on a small phone) rather than overflowing.
+class _ResultsMessage extends StatelessWidget {
+  final Key stateKey;
+  final IconData icon;
+  final String title;
+  final String? body;
+  final Color? titleColor;
+  final Widget? action;
+
+  const _ResultsMessage({
+    required this.stateKey,
+    required this.icon,
+    required this.title,
+    this.body,
+    this.titleColor,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+      child: Column(
+        key: stateKey,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(color: titleColor),
+          ),
+          if (body != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              body!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (action != null) ...[const SizedBox(height: 16), action!],
+        ],
+      ),
     );
   }
 }

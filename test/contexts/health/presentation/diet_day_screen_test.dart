@@ -151,12 +151,15 @@ Widget _dietDay({
           GetDailyTargetWithRemaining(target),
           SetDailyTarget(target),
         ),
+        // Loaded up front, as the health shell does before the diet day is
+        // reachable — an unloaded controller would leave the pushed food
+        // search sitting on its loading state forever.
         dictionary: DictionaryController(
           SearchDictionary(dict),
           ListFavorites(dict),
           FavoriteFood(dict),
           UnfavoriteFood(dict),
-        ),
+        )..load('token'),
         createMeal: CreateMealController(CreateMeal(meals)),
         getLoggedDays: GetLoggedDays(meals),
       );

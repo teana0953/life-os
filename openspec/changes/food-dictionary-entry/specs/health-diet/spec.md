@@ -18,9 +18,21 @@ offer an in-page meal switch or snack rename; when opened for a target meal that
 fixed by the caller, and when opened as the dictionary the meal is asked for once at
 completion (see "Complete the tray to save the meal").
 
-**When opened as the dictionary with an empty tray, the page SHALL NOT present recording
-controls** — neither a complete action nor the manual-entry link — so that looking a food
-up does not read as the start of recording it.
+**While the user is still browsing the dictionary — nothing searched, nothing in the tray —
+the page SHALL NOT present recording controls**: neither a complete action nor a standing
+manual-entry link, so that looking a food up does not read as the start of recording it.
+**A search that comes back with nothing SHALL instead offer manual entry from its own empty
+state**, as the next step the user's own search asked for rather than as a control the page
+shows by default; where the standing manual-entry link is already present (any search opened
+for a target meal, or a dictionary session that already has a tray), the empty state SHALL
+NOT repeat it.
+
+The results area SHALL always say what it is showing rather than going blank — in dictionary
+mode it is the whole page, so a blank one is indistinguishable from a broken one. It SHALL
+tell apart: the dictionary still loading; loading or searching having failed (a localized
+failure message, and for an authentication failure a way to re-authenticate, since in
+dictionary mode there is no other recovery exit on the page); the user having no favorites
+yet; and a search that found nothing, naming the query that found nothing.
 
 #### Scenario: Opened for a target meal
 - **WHEN** the user taps the add control on the lunch card
@@ -31,8 +43,28 @@ up does not read as the start of recording it.
 - **THEN** the same search page opens, identified as the dictionary rather than as adding to a meal, with the same search field and results list
 
 #### Scenario: Browsing the dictionary shows no recording controls
-- **WHEN** the dictionary is open and nothing has been added to the tray
-- **THEN** neither the complete action nor the manual-entry link is shown
+- **WHEN** the dictionary is open, nothing has been searched and nothing has been added to the tray
+- **THEN** neither the complete action nor the standing manual-entry link is shown
+
+#### Scenario: An empty dictionary says so rather than showing a blank page
+- **WHEN** the user opens the dictionary and has no favorite foods yet
+- **THEN** the results area says there are none yet and invites a search, instead of an empty page
+
+#### Scenario: A search that finds nothing offers manual entry
+- **WHEN** the user searches the dictionary for a food that isn't there
+- **THEN** the results area names the query that found nothing and offers to enter that food manually
+
+#### Scenario: The no-results state does not duplicate an entrance that is already there
+- **WHEN** a search finds nothing on a page that already shows the standing manual-entry link
+- **THEN** manual entry is offered once, not twice
+
+#### Scenario: Failing to load is distinguishable from having nothing
+- **WHEN** loading the dictionary fails
+- **THEN** the results area says loading failed, which is not the same as saying the user has no foods
+
+#### Scenario: An authentication failure in the dictionary is not a dead end
+- **WHEN** loading the dictionary fails because the user needs to authenticate again
+- **THEN** the results area offers to re-authenticate, which in dictionary mode is the page's only recovery exit
 
 #### Scenario: Tapping a result adds it to the tray, not the backend
 - **WHEN** the user searches "飯", taps `飯/1碗` in the results
@@ -54,7 +86,9 @@ each dictionary tray item as either a unit quantity or a measure amount (never
 both), and each manually-entered tray item as its name and portions (no
 dictionary reference). **When the page was opened as the dictionary, with no target meal,
 completing SHALL first ask which meal the tray belongs to — the whole tray going to the one
-chosen meal — and SHALL save nothing if the user does not choose one.** On success the app
+chosen meal — and SHALL save nothing if the user does not choose one.** Every meal offered
+SHALL stay reachable whatever the screen height or text size, and if the page is gone by the
+time a choice comes back nothing SHALL be saved. On success the app
 SHALL close the page and refresh the Today view so the new meal appears. The meal's `time`
 SHALL default to now for a newly created meal; adding items to a meal slot that already
 exists SHALL append them to that meal. A failure SHALL surface a localized error without
@@ -71,6 +105,14 @@ losing the tray, and an authentication failure SHALL route to re-authentication.
 #### Scenario: Declining to choose a meal saves nothing
 - **WHEN** the user dismisses the meal choice without picking one
 - **THEN** nothing is saved and the tray is still there
+
+#### Scenario: Every meal offered can still be picked on a short screen
+- **WHEN** the meal question does not fit the space it is given
+- **THEN** the user can still reach and pick the last option rather than having it cut off
+
+#### Scenario: The page going away while the meal question is open saves nothing
+- **WHEN** the user is signed out while the meal question is still open, and a choice comes back afterwards
+- **THEN** nothing is saved
 
 #### Scenario: A measure-mode item is sent as a measure amount
 - **WHEN** the tray has a `飯/50g` item entered as 33 in measure mode and the user completes it

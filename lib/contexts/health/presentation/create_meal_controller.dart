@@ -91,10 +91,10 @@ class CreateMealController extends ChangeNotifier {
   }
 
   /// Binds the target [meal] for a session started without one (the
-  /// dictionary), just before submitting.
+  /// dictionary), just before submitting. No notification: nothing on screen
+  /// reads [meal], and the [submit] that immediately follows notifies anyway.
   void bindMeal(String meal) {
     this.meal = meal;
-    notifyListeners();
   }
 
   /// Adds [item] to the tray at a default quantity of 1 (unit mode).

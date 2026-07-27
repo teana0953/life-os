@@ -160,8 +160,13 @@ class _FakeMealRepository implements MealRepository {
   String? createdDay;
   String? createdMeal;
 
+  /// Every day fetched, in order — so a test can tell a refresh apart from
+  /// the load that first showed the day.
+  final List<String> receivedDays = [];
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    receivedDays.add(day);
     return DayMealsLog.fromJson({
       'day': day,
       'meals': [
@@ -1169,6 +1174,10 @@ void main() {
         await tester.tap(find.byKey(const Key('day-nav-previous')));
         await tester.pumpAndSettle();
 
+        final loadsBeforeRecording = mealRepository.receivedDays
+            .where((d) => d == yesterday)
+            .length;
+
         await tester.tap(find.byKey(const Key('diet-open-dictionary')));
         await tester.pumpAndSettle();
 
@@ -1198,6 +1207,12 @@ void main() {
 
         expect(mealRepository.createdMeal, 'dinner');
         expect(mealRepository.createdDay, yesterday);
+        // …and the diet day the dictionary was opened from re-fetched itself,
+        // so the meal just recorded is actually on screen.
+        expect(
+          mealRepository.receivedDays.where((d) => d == yesterday).length,
+          loadsBeforeRecording + 1,
+        );
       },
     );
 
