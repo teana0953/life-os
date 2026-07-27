@@ -15,8 +15,9 @@ starts the import, under a heading naming the group.
 
 #### Scenario: Only the selected types are imported
 - **WHEN** the user clears every type except one and submits a valid form
-- **THEN** only that type runs; the others are not attempted, and each either keeps the result
-  it already had or, if the user just changed its selection, shows no state at all
+- **THEN** only that type runs, and the types the user cleared show no state at all — clearing
+  a type is what takes it out of the run, so a type left out on screen has necessarily been
+  cleared first
 
 #### Scenario: Importing nothing is not offered
 - **WHEN** no data type is selected

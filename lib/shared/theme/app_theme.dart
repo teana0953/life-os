@@ -107,7 +107,10 @@ ThemeData get lightTheme => _buildTheme(
 /// instead: an ink-filled box (8.32:1 on `surfaceLight`) against a muted-ink
 /// outline (5.17:1). Both resolvers return null outside the disabled state so
 /// every other state keeps the Material defaults; the dark theme sets no
-/// override at all (3.06:1 there is already enough).
+/// override at all. Note the dark side is NOT verified as *distinguishable*:
+/// its two disabled states are the same colour (1.00:1 apart). The 3.06:1
+/// often quoted for it measures visibility against the card, which is a
+/// different question — see the change's design D4.
 final _checkboxThemeLight = CheckboxThemeData(
   fillColor: WidgetStateProperty.resolveWith(
     (states) => states.contains(WidgetState.disabled) &&

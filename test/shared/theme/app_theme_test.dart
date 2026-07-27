@@ -133,6 +133,25 @@ void main() {
       expect(disabledFill(lightTheme), isNot(disabledOutline(lightTheme)));
     });
 
+    test('the override touches disabled only, leaving every other state to M3', () {
+      // Both resolvers must return null when the checkbox is usable, so the
+      // M3 defaults still apply. Letting the override leak into the enabled
+      // states would repaint every usable checked checkbox in the app — ink
+      // fill plus a 2px outline instead of the primary blue — and nothing
+      // else in the suite would notice.
+      expect(
+        lightTheme.checkboxTheme.fillColor?.resolve({WidgetState.selected}),
+        isNull,
+      );
+      expect(
+        WidgetStateProperty.resolveAs<BorderSide?>(
+          lightTheme.checkboxTheme.side,
+          <WidgetState>{},
+        ),
+        isNull,
+      );
+    });
+
     test('light theme disabled fill and outline each clear 3:1 on the card', () {
       // Non-text graphics need 3:1. The filled box is 8.32:1 on surfaceLight,
       // the hollow one's outline 5.17:1 — and 1.61:1 apart from each other,
@@ -148,7 +167,7 @@ void main() {
     });
 
     test('dark theme keeps the Material defaults', () {
-      // 3.06:1 there already, so it needs no help — and _buildTheme is shared,
+      // its disabled states are visible against the card there — and _buildTheme is shared,
       // so this pins that the override forks by brightness.
       expect(darkTheme.checkboxTheme, const CheckboxThemeData());
     });
