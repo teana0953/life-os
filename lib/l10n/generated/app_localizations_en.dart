@@ -1215,6 +1215,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get careTodayStatusMissed => 'Missed';
 
   @override
+  String get careTodayEditSheetTitle => 'Update this record';
+
+  @override
+  String get careTodayEditTimeLabel => 'Completion time';
+
+  @override
+  String get careTodayEditSubmitButton => 'Save';
+
+  @override
   String careTodaySummaryProgress(int done, int total) {
     return '$done/$total done';
   }
@@ -1262,10 +1271,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get careHistoryEmptyManageButton => 'Go to care management';
 
   @override
-  String get careHistoryTrendsMovedHint =>
-      'Adherence charts are in Health → Trends';
-
-  @override
   String get careHistoryAdherenceRateLabel => 'Adherence rate';
 
   @override
@@ -1307,6 +1312,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get careHistoryEditRefreshErrorMessage =>
       'Saved, but couldn\'t refresh the list.';
+
+  @override
+  String get careHistoryPastReadOnlyHint => 'Only today can be edited here.';
 
   @override
   String get careAdherenceCardTitle => 'Care adherence';

@@ -87,6 +87,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {
     editCallCount++;
     lastEditStatus = status;
@@ -246,6 +247,88 @@ void main() {
             .getTopLeft(find.byKey(const Key('care-history-day-header-2026-07-21')))
             .dy;
         expect(todayHeaderY, lessThan(yesterdayHeaderY));
+      },
+    );
+
+    testWidgets(
+      "today's slot has an edit icon and opens the edit sheet, but a slot "
+      'from an earlier day has no edit icon and tapping it does nothing '
+      '(design §D — corrections for earlier days belong on the Today care '
+      'checklist instead)',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul21: [
+              _slot(
+                careScheduleId: 'sch-yesterday',
+                title: 'Yesterday dose',
+                status: CareTodayStatus.missed,
+                localDate: '2026-07-21',
+              ),
+            ],
+            onJul22: [
+              _slot(
+                careScheduleId: 'sch-today',
+                title: 'Today dose',
+                status: CareTodayStatus.missed,
+                localDate: '2026-07-22',
+              ),
+            ],
+          ),
+        );
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        final todayTileKey = const Key(
+          'care-history-slot-sch-today-2026-07-22-08:00',
+        );
+        final yesterdayTileKey = const Key(
+          'care-history-slot-sch-yesterday-2026-07-21-08:00',
+        );
+        expect(find.byKey(todayTileKey), findsOneWidget);
+        expect(find.byKey(yesterdayTileKey), findsOneWidget);
+
+        // Only today's tile shows the edit icon.
+        expect(
+          find.descendant(
+            of: find.byKey(todayTileKey),
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(yesterdayTileKey),
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+          findsNothing,
+        );
+
+        // The earlier day's card says *why* its rows are inert. Without it a
+        // returning user taps a past row and gets nothing at all — no icon,
+        // no sheet, no explanation — and there is no other screen left that
+        // can correct an earlier day.
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.byKey(const Key('care-history-read-only-hint-2026-07-21')),
+          findsOneWidget,
+        );
+        expect(find.text(loc.careHistoryPastReadOnlyHint), findsOneWidget);
+        // Today's card is editable, so it must not carry the note.
+        expect(
+          find.byKey(const Key('care-history-read-only-hint-2026-07-22')),
+          findsNothing,
+        );
+
+        // Tapping the earlier day's tile does not open the edit sheet.
+        await tester.tap(find.byKey(yesterdayTileKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-history-edit-done')), findsNothing);
+
+        // Today's tile still opens it.
+        await tester.tap(find.byKey(todayTileKey));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-history-edit-done')), findsOneWidget);
       },
     );
 
@@ -974,9 +1057,10 @@ void main() {
     );
 
     testWidgets(
-      "the AppBar overflow menu says where the screen's old chart mode went "
-      '(the health module\'s trends tab), so the heatmap doesn\'t just '
-      'vanish for a user who used it here',
+      "the AppBar overflow menu offers only the two navigation entries — no "
+      'non-interactive note (a disabled PopupMenuItem is announced by '
+      'screen readers as "menu item, button, disabled" and skipped by '
+      'keyboard navigation)',
       (tester) async {
         final controller = _controller();
         await _pumpScreen(tester, controller);
@@ -984,12 +1068,19 @@ void main() {
         await tester.tap(find.byKey(const Key('care-history-menu')));
         await tester.pumpAndSettle();
 
-        final loc = lookupAppLocalizations(const Locale('en'));
+        // Counted, not "the old key is gone" — asserting a key that no
+        // longer exists anywhere is vacuously true and would pass again the
+        // moment a third, disabled entry were added back under a new key.
         expect(
-          find.byKey(const Key('care-history-menu-trends-hint')),
-          findsOneWidget,
+          find.byWidgetPredicate((w) => w is PopupMenuEntry),
+          findsNWidgets(2),
         );
-        expect(find.text(loc.careHistoryTrendsMovedHint), findsOneWidget);
+        expect(
+          find.byWidgetPredicate((w) => w is PopupMenuItem && !w.enabled),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('care-history-menu-today')), findsOneWidget);
+        expect(find.byKey(const Key('care-history-menu-items')), findsOneWidget);
       },
     );
 

@@ -1185,6 +1185,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careTodayStatusMissed => '未完成';
 
   @override
+  String get careTodayEditSheetTitle => '更新這筆紀錄';
+
+  @override
+  String get careTodayEditTimeLabel => '完成時間';
+
+  @override
+  String get careTodayEditSubmitButton => '儲存';
+
+  @override
   String careTodaySummaryProgress(int done, int total) {
     return '$done/$total 完成';
   }
@@ -1231,9 +1240,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careHistoryEmptyManageButton => '前往照護管理';
 
   @override
-  String get careHistoryTrendsMovedHint => '照護達成圖表已移至「健康 → 趨勢」';
-
-  @override
   String get careHistoryAdherenceRateLabel => '達成率';
 
   @override
@@ -1274,6 +1280,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
+
+  @override
+  String get careHistoryPastReadOnlyHint => '這裡只有今天可以修改。';
 
   @override
   String get careAdherenceCardTitle => '照護達成';
@@ -2473,6 +2482,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get careTodayStatusMissed => '未完成';
 
   @override
+  String get careTodayEditSheetTitle => '更新這筆紀錄';
+
+  @override
+  String get careTodayEditTimeLabel => '完成時間';
+
+  @override
+  String get careTodayEditSubmitButton => '儲存';
+
+  @override
   String careTodaySummaryProgress(int done, int total) {
     return '$done/$total 完成';
   }
@@ -2519,9 +2537,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get careHistoryEmptyManageButton => '前往照護管理';
 
   @override
-  String get careHistoryTrendsMovedHint => '照護達成圖表已移至「健康 → 趨勢」';
-
-  @override
   String get careHistoryAdherenceRateLabel => '達成率';
 
   @override
@@ -2562,6 +2577,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careHistoryEditRefreshErrorMessage => '已儲存，但更新清單失敗。';
+
+  @override
+  String get careHistoryPastReadOnlyHint => '這裡只有今天可以修改。';
 
   @override
   String get careAdherenceCardTitle => '照護達成';

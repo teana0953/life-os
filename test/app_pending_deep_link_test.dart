@@ -11,6 +11,8 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
+import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
@@ -152,6 +154,25 @@ class _ChangingCareTodayRepository implements CareTodayRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+  }) async {}
+}
+
+class _FakeCareHistoryRepository implements CareHistoryRepository {
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async => const [];
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+    DateTime? doneTime,
   }) async {}
 }
 
@@ -318,6 +339,7 @@ void main() {
             GetCareToday(careRepository),
             MarkCareDone(careRepository),
             MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
           ),
           pendingDeepLinkStore: store,
         );
@@ -372,6 +394,7 @@ void main() {
             GetCareToday(careRepository),
             MarkCareDone(careRepository),
             MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
           ),
           pendingDeepLinkStore: store,
         );
@@ -415,6 +438,7 @@ void main() {
             GetCareToday(careRepository),
             MarkCareDone(careRepository),
             MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
           ),
           pendingDeepLinkStore: store,
         );

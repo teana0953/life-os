@@ -1,10 +1,41 @@
 import 'package:flutter/foundation.dart';
 
 import '../application/care_today.dart';
+import '../application/edit_care_slot.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
 
 enum CareTodayLoadStatus { loading, loaded, error, reauth }
+
+/// What one [CareTodayController.edit] call actually did, returned to its
+/// caller rather than left for it to infer from [CareTodayController]'s
+/// mutable fields after the `await` (mirrors [CareEditOutcome] in
+/// `care_history_controller.dart`, including its saved/refresh-failed
+/// split).
+enum CareTodayEditOutcome {
+  /// The PUT and its follow-up quiet reload both succeeded — the list on
+  /// screen now shows the correction.
+  saved,
+
+  /// The PUT itself failed — nothing was written, and
+  /// [CareTodayController.markError] holds the typed error.
+  failed,
+
+  /// The PUT succeeded but the follow-up reload failed: the correction *is*
+  /// saved, only the list on screen is stale (and still shows the old time,
+  /// which makes a "that failed" message doubly convincing). Reported apart
+  /// from [failed] so the caller never tells the user their change was lost
+  /// when it wasn't.
+  refreshFailed,
+
+  /// The request needs re-authentication; the screen shows its own exit.
+  reauth,
+
+  /// The call was dropped by the re-entrancy guard — another edit or mark
+  /// was already in flight, so nothing was attempted. Must not be treated as
+  /// silent by the caller (design §B).
+  skipped,
+}
 
 int _compareTimeOfDay(CareTodaySlot a, CareTodaySlot b) =>
     a.timeOfDay.compareTo(b.timeOfDay);
@@ -96,8 +127,14 @@ class CareTodayController extends ChangeNotifier {
   final GetCareToday _getToday;
   final MarkCareDone _markDone;
   final MarkCareSkipped _markSkipped;
+  final EditCareSlot _editSlot;
 
-  CareTodayController(this._getToday, this._markDone, this._markSkipped);
+  CareTodayController(
+    this._getToday,
+    this._markDone,
+    this._markSkipped,
+    this._editSlot,
+  );
 
   CareTodayLoadStatus status = CareTodayLoadStatus.loading;
   String date = '';
@@ -304,4 +341,83 @@ class CareTodayController extends ChangeNotifier {
       timeOfDay: timeOfDay,
     ),
   );
+
+  /// Edits the outcome (and, unless [status] is [CareLogStatus.skipped],
+  /// completion time) of ([careScheduleId], [localDate], [timeOfDay]), then
+  /// quietly re-fetches Today — same re-entrancy guard and quiet-reload
+  /// treatment as [_mark] (never dropping [status] to `loading`; a failure
+  /// from either the PUT or the follow-up reload keeps the existing [slots]
+  /// and surfaces [markError]). Unlike [_mark], the outcome is also returned
+  /// as a [CareTodayEditOutcome] snapshot: the caller opens a bottom sheet
+  /// and must know — synchronously from this call, not by re-reading
+  /// [markError] afterwards — whether the gate dropped it, since
+  /// [markError]/[marking] are shared mutable state a concurrent load or
+  /// later edit can clear out from under it (design §B).
+  Future<CareTodayEditOutcome> edit(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+    DateTime? doneTime,
+  }) async {
+    if (marking) return CareTodayEditOutcome.skipped;
+    marking = true;
+    _markingSlotId = (
+      careScheduleId: careScheduleId,
+      localDate: localDate,
+      timeOfDay: timeOfDay,
+    );
+    _markingStatus = status;
+    markError = null;
+    notifyListeners();
+
+    CareTodayEditOutcome outcome;
+    try {
+      await _editSlot(
+        idToken,
+        careScheduleId: careScheduleId,
+        localDate: localDate,
+        timeOfDay: timeOfDay,
+        status: status,
+        // A skipped record was never completed — never send a completion
+        // time for it, even if the caller passed one (design §A).
+        doneTime: status == CareLogStatus.skipped ? null : doneTime,
+      );
+      try {
+        final today = await _getToday(idToken);
+        date = today.date;
+        slots = today.slots;
+        error = null;
+        outcome = CareTodayEditOutcome.saved;
+      } catch (e) {
+        if (e is CareReauthRequired) {
+          this.status = CareTodayLoadStatus.reauth;
+          outcome = CareTodayEditOutcome.reauth;
+        } else {
+          // The edit itself succeeded — keep the existing (now-stale) slots
+          // rather than dropping to the full-screen error state, and report
+          // it as a *refresh* failure so the caller doesn't announce a save
+          // that landed as a loss.
+          markError = e;
+          outcome = CareTodayEditOutcome.refreshFailed;
+        }
+      }
+    } catch (e) {
+      if (e is CareReauthRequired) {
+        this.status = CareTodayLoadStatus.reauth;
+        outcome = CareTodayEditOutcome.reauth;
+      } else {
+        // Keep the existing slots — an edit failure doesn't lose the list.
+        markError = e;
+        outcome = CareTodayEditOutcome.failed;
+      }
+    }
+
+    marking = false;
+    _markingSlotId = null;
+    _markingStatus = null;
+    notifyListeners();
+    return outcome;
+  }
 }

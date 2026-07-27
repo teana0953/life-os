@@ -1618,6 +1618,18 @@
   "@careTodayStatusMissed": {
     "description": "Status label on a Done-group row for a slot that passed with no record, distinguishing it from a deliberate skip."
   },
+  "careTodayEditSheetTitle": "Update this record",
+  "@careTodayEditSheetTitle": {
+    "description": "Small header label at the top of the Today care Done-group correction sheet."
+  },
+  "careTodayEditTimeLabel": "Completion time",
+  "@careTodayEditTimeLabel": {
+    "description": "Label for the completion-time row in the Today care Done-group correction sheet; its subtitle shows the currently selected local time and tapping it opens the time picker (disabled when the status is set to skipped)."
+  },
+  "careTodayEditSubmitButton": "Save",
+  "@careTodayEditSubmitButton": {
+    "description": "Label for the confirm button in the Today care Done-group correction sheet that submits the chosen outcome and completion time."
+  },
   "careTodaySummaryProgress": "{done}/{total} done",
   "@careTodaySummaryProgress": {
     "description": "Progress pill on the overview care summary card's header, e.g. '2/5 done' (done vs. total slots today).",
@@ -1687,10 +1699,6 @@
   "@careHistoryEmptyManageButton": {
     "description": "Button on the care history screen's empty-state guide, shown once the period is already the longest (90 days) so widening is no longer possible, that opens care management (/care-items) — at that point the likeliest reason the period is empty is having no care items set up yet."
   },
-  "careHistoryTrendsMovedHint": "Adherence charts are in Health → Trends",
-  "@careHistoryTrendsMovedHint": {
-    "description": "Non-interactive note at the bottom of the care history screen's AppBar overflow menu, telling a user who remembers this screen's old chart mode where the heatmap went. Not a menu action: the trends tab isn't a route of its own (it's a tab index inside the health scaffold), so it can't be navigated to directly."
-  },
   "careHistoryAdherenceRateLabel": "Adherence rate",
   "@careHistoryAdherenceRateLabel": {
     "description": "Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period."
@@ -1746,6 +1754,10 @@
   "careHistoryEditRefreshErrorMessage": "Saved, but couldn't refresh the list.",
   "@careHistoryEditRefreshErrorMessage": {
     "description": "SnackBar message shown when a slot edit in the care history list saves successfully but the follow-up refresh of the list fails — distinct from careErrorGeneric (which implies the edit itself failed) so the user isn't told their change was lost when it wasn't."
+  },
+  "careHistoryPastReadOnlyHint": "Only today can be edited here.",
+  "@careHistoryPastReadOnlyHint": {
+    "description": "Low-contrast note on a past day's card in the care history list, explaining why its rows have no edit affordance and do nothing when tapped — corrections are only possible for today (on the Today care checklist)."
   },
   "careAdherenceCardTitle": "Care adherence",
   "@careAdherenceCardTitle": {

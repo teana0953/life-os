@@ -219,7 +219,6 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final controller = widget.controller;
     final appBar = AppBar(
       title: Text(loc.careHistoryTitle),
@@ -240,22 +239,6 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
               key: const Key('care-history-menu-items'),
               value: _HistoryMenuOption.careManagement,
               child: Text(loc.careRemindersTitle),
-            ),
-            const PopupMenuDivider(),
-            // A note, not a destination: the trends tab is a tab index
-            // inside HealthScaffold, not a route, so there is nothing to
-            // push here. It still belongs in this menu — this is where a
-            // user who remembers the screen's old chart mode looks when the
-            // heatmap is gone.
-            PopupMenuItem(
-              key: const Key('care-history-menu-trends-hint'),
-              enabled: false,
-              child: Text(
-                loc.careHistoryTrendsMovedHint,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
             ),
           ],
         ),
@@ -498,6 +481,25 @@ class _DayCard extends StatelessWidget {
               slot: slot,
               onTap: () => onTapSlot(slot),
               isEditing: inFlightSlotKey == _slotCompositeKey(slot),
+              // Only today's slots are editable (design §D) — corrections
+              // for earlier days belong on the Today care checklist instead.
+              editable: isToday,
+            ),
+          // Says *why* an earlier day's rows have no edit icon and do
+          // nothing when tapped. Without it the restriction is only
+          // discoverable by tapping and getting no response — and since the
+          // Today checklist only lists today, there is no other screen left
+          // that could correct an earlier day.
+          if (!isToday)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                loc.careHistoryPastReadOnlyHint,
+                key: Key('care-history-read-only-hint-${day.date}'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
         ],
       ),
@@ -514,10 +516,18 @@ class _SlotTile extends StatelessWidget {
   /// tile so a second tap can't re-open the sheet mid-edit.
   final bool isEditing;
 
+  /// Whether this slot can be corrected here (design §D — only today's
+  /// slots; earlier days are read-only, since corrections for them belong on
+  /// the Today care checklist). `false` hides the edit icon entirely and
+  /// makes the tile untappable, rather than opening a sheet that would do
+  /// nothing.
+  final bool editable;
+
   const _SlotTile({
     required this.slot,
     required this.onTap,
     this.isEditing = false,
+    required this.editable,
   });
 
   @override
@@ -535,7 +545,9 @@ class _SlotTile extends StatelessWidget {
       ),
       title: Text(slot.title),
       subtitle: Text('${slot.timeOfDay} · ${_statusLabel(loc, slot.status)}'),
-      trailing: isEditing
+      trailing: !editable
+          ? null
+          : isEditing
           ? SizedBox(
               key: Key(
                 'care-history-slot-editing-${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}',
@@ -552,7 +564,7 @@ class _SlotTile extends StatelessWidget {
               size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-      onTap: isEditing ? null : onTap,
+      onTap: !editable || isEditing ? null : onTap,
     );
   }
 }

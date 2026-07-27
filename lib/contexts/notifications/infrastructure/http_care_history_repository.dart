@@ -87,6 +87,7 @@ class HttpCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {
     final http.Response response;
     try {
@@ -98,6 +99,10 @@ class HttpCareHistoryRepository implements CareHistoryRepository {
           'local_date': localDate,
           'time_of_day': timeOfDay,
           'status': status.wireValue,
+          // A skipped record was never completed — never write a completion
+          // time for it, even if the caller passed one.
+          if (doneTime != null && status != CareLogStatus.skipped)
+            'done_time': doneTime.toUtc().toIso8601String(),
         }),
       );
     } catch (_) {

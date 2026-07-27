@@ -34,6 +34,12 @@ DateTime parseDayString(String s) {
   return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
 }
 
+/// Parses an ISO-8601 instant string (e.g. a backend `done_time`) into a
+/// [DateTime] — `null` for an invalid or empty string. Pure parsing only —
+/// timezone conversion (`.toLocal()`) is left to the caller so tests can
+/// inject a non-identity conversion instead of relying on it here.
+DateTime? parseInstant(String iso) => DateTime.tryParse(iso);
+
 /// The full, always-shown date text, formatted per the active locale:
 /// `M月d日 EEEE` for Chinese (e.g. "7月19日 星期六"), `EEE, MMM d` otherwise
 /// (e.g. "Sat, Jul 19"). Shared by the diet shell header and the water screen.

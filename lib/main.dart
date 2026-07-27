@@ -251,14 +251,15 @@ Future<void> main() async {
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
+  final careHistoryRepository = HttpCareHistoryRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
   final careTodayController = CareTodayController(
     GetCareToday(careTodayRepository),
     MarkCareDone(careTodayRepository),
     MarkCareSkipped(careTodayRepository),
-  );
-  final careHistoryRepository = HttpCareHistoryRepository(
-    baseUrl: apiBaseUrl,
-    client: httpClient,
+    EditCareSlot(careHistoryRepository),
   );
   // 30 days, matching the trend tab's adherence card below: the card links
   // straight here, and a user arriving from a missed day it showed must not
