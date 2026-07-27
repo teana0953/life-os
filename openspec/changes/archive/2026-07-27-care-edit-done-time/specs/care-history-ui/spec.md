@@ -1,8 +1,5 @@
-# care-history-ui Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-care-history-ui. Update Purpose after archive.
-## Requirements
 ### Requirement: Edit a past care record from the history list
 
 The care history screen SHALL let the user change **today's** listed slots' outcome to done or
@@ -77,4 +74,3 @@ so it is not a dead-end leaf.
 #### Scenario: The longest period's empty state offers no widening
 - **WHEN** the period is empty and already the longest available
 - **THEN** no widen action is offered
-
