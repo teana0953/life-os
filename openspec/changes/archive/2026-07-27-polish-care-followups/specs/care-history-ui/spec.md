@@ -1,47 +1,4 @@
-# care-history-ui Specification
-
-## Purpose
-TBD - created by archiving change add-care-history-ui. Update Purpose after archive.
-## Requirements
-### Requirement: Edit a past care record from the history list
-
-The care history screen SHALL let the user change **today's** listed slots' outcome to done or
-skipped; slots from earlier days SHALL be read-only, since corrections belong on the Today care
-checklist. The read-only rows SHALL say why. The change SHALL be sent to the backend and reflected
-in the list without dropping the screen to a full-page loading state; a failure SHALL keep the list
-and surface a localized error.
-
-#### Scenario: Editing today's slot updates it
-- **WHEN** the user picks a new outcome (done or skipped) for a slot dated today
-- **THEN** the record is updated and the list reflects the new status
-
-#### Scenario: Earlier days are read-only and say so
-- **WHEN** a listed slot is dated before today
-- **THEN** it offers no edit affordance, tapping it does not open the edit sheet, and its day group carries a short note that only today can be edited
-
-#### Scenario: The edit affordance is announced
-- **WHEN** an editable row is rendered
-- **THEN** its edit control carries a text label for assistive technology, rather than being an unlabelled icon
-
-#### Scenario: The edit sheet can be dismissed accessibly
-- **WHEN** the edit sheet is open
-- **THEN** it offers a reachable dismiss control, not only the scrim and the system back gesture
-
-#### Scenario: Editing does not blank the screen
-- **WHEN** an edit is in flight
-- **THEN** the list stays visible (no full-page loading state)
-
-#### Scenario: A failed edit is surfaced and keeps the list
-- **WHEN** an edit fails for a non-auth reason
-- **THEN** a localized error is surfaced and the existing list is kept
-
-#### Scenario: A reload failing after a successful edit still keeps the list
-- **WHEN** the edit itself succeeds but the follow-up refresh fails for a non-auth reason
-- **THEN** the list is kept (the edit already happened) with a localized error, rather than dropping to an error state
-
-#### Scenario: A missed record dated today can be corrected
-- **WHEN** the user edits a slot recorded as missed, dated today
-- **THEN** it can be set to done or skipped (missed is derived, never chosen)
+## MODIFIED Requirements
 
 ### Requirement: A care history screen listing past care records
 
@@ -99,3 +56,42 @@ so it is not a dead-end leaf.
 - **WHEN** the screen is shown before its sign-in token has resolved
 - **THEN** the period selector and the widen action do not issue a request, rather than sending an unauthenticated one and dropping the user into a spurious re-authenticate exit
 
+### Requirement: Edit a past care record from the history list
+
+The care history screen SHALL let the user change **today's** listed slots' outcome to done or
+skipped; slots from earlier days SHALL be read-only, since corrections belong on the Today care
+checklist. The read-only rows SHALL say why. The change SHALL be sent to the backend and reflected
+in the list without dropping the screen to a full-page loading state; a failure SHALL keep the list
+and surface a localized error.
+
+#### Scenario: Editing today's slot updates it
+- **WHEN** the user picks a new outcome (done or skipped) for a slot dated today
+- **THEN** the record is updated and the list reflects the new status
+
+#### Scenario: Earlier days are read-only and say so
+- **WHEN** a listed slot is dated before today
+- **THEN** it offers no edit affordance, tapping it does not open the edit sheet, and its day group carries a short note that only today can be edited
+
+#### Scenario: The edit affordance is announced
+- **WHEN** an editable row is rendered
+- **THEN** its edit control carries a text label for assistive technology, rather than being an unlabelled icon
+
+#### Scenario: The edit sheet can be dismissed accessibly
+- **WHEN** the edit sheet is open
+- **THEN** it offers a reachable dismiss control, not only the scrim and the system back gesture
+
+#### Scenario: Editing does not blank the screen
+- **WHEN** an edit is in flight
+- **THEN** the list stays visible (no full-page loading state)
+
+#### Scenario: A failed edit is surfaced and keeps the list
+- **WHEN** an edit fails for a non-auth reason
+- **THEN** a localized error is surfaced and the existing list is kept
+
+#### Scenario: A reload failing after a successful edit still keeps the list
+- **WHEN** the edit itself succeeds but the follow-up refresh fails for a non-auth reason
+- **THEN** the list is kept (the edit already happened) with a localized error, rather than dropping to an error state
+
+#### Scenario: A missed record dated today can be corrected
+- **WHEN** the user edits a slot recorded as missed, dated today
+- **THEN** it can be set to done or skipped (missed is derived, never chosen)
