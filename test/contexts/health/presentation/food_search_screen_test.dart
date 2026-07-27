@@ -18,6 +18,7 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
+import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -152,7 +153,8 @@ Future<FakeMealRepository> _pumpScreen(
   FakeFoodDictionaryRepository? dictionaryRepository,
   FakeMealRepository? mealRepository,
   FakeAuthRepository? authRepository,
-  String meal = 'lunch',
+  String? meal = 'lunch',
+  List<String> mealNames = const <String>[],
   Locale locale = const Locale('en'),
 }) async {
   final resolvedDictionaryRepository =
@@ -168,6 +170,7 @@ Future<FakeMealRepository> _pumpScreen(
       locale: locale,
       home: FoodSearchScreen(
         meal: meal,
+        mealNames: mealNames,
         dictionaryController: dictionaryController,
         createMealController: createMealController,
         idToken: 'token-123',
@@ -529,6 +532,165 @@ void main() {
         }
       }
     }
+  });
+
+  group('FoodSearchScreen as the dictionary (no target meal)', () {
+    testWidgets('identifies itself as the dictionary, not as adding to a meal', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.dietDictionaryTitle), findsOneWidget);
+      expect(
+        find.text(loc.dietAddToMealButton(loc.dietMealLunch)),
+        findsNothing,
+      );
+      // Still a real search page: field + favorites.
+      expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+      expect(find.text('飯/1碗'), findsOneWidget);
+    });
+
+    testWidgets('with an empty tray shows no recording controls at all', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+
+      expect(find.byKey(const Key('food-search-tray')), findsNothing);
+      // Hidden, not merely disabled — a disabled complete button would still
+      // say "this page is for recording".
+      expect(find.byKey(const Key('food-search-done-button')), findsNothing);
+      expect(find.byKey(const Key('manual-entry-link')), findsNothing);
+    });
+
+    testWidgets('opened for a target meal, an empty tray still shows the complete action (unchanged)', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: 'lunch');
+
+      expect(find.byKey(const Key('food-search-done-button')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+    });
+
+    testWidgets('adding a food reveals the tray and the recording controls', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, meal: null);
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-done-button')), findsOneWidget);
+      expect(find.byKey(const Key('manual-entry-link')), findsOneWidget);
+    });
+
+    testWidgets('completing asks which meal, then saves the whole tray to the chosen one', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      // Nothing saved yet — the sheet is asking.
+      expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+      expect(mealRepository.receivedItems, isNull);
+
+      await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedMeal, 'dinner');
+      expect(mealRepository.receivedDay, '2026-07-18');
+      expect(mealRepository.receivedItems, hasLength(1));
+    });
+
+    testWidgets('the meal choices are the three standard meals plus the day\'s next snack', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        meal: null,
+        mealNames: const ['breakfast', 'Snack', 'Snack2'],
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('choose-meal-breakfast')), findsOneWidget);
+      expect(find.byKey(const Key('choose-meal-lunch')), findsOneWidget);
+      expect(find.byKey(const Key('choose-meal-dinner')), findsOneWidget);
+      // Snack + Snack2 already exist for the day, so the next one is Snack3.
+      expect(
+        find.text(nextSnackName(const ['breakfast', 'Snack', 'Snack2'], loc.dietSnackBaseName)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('choosing the snack option saves to the day\'s next snack name', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(
+        tester,
+        meal: null,
+        mealNames: const ['Snack'],
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('choose-meal-snack')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedMeal, '${loc.dietSnackBaseName}2');
+    });
+
+    testWidgets('dismissing the meal choice saves nothing and keeps the tray', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: null);
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+
+      // Dismiss by tapping the sheet's scrim rather than picking a meal.
+      await tester.tap(find.byType(ModalBarrier).last, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.dietChooseMealSheetTitle), findsNothing);
+      expect(mealRepository.receivedItems, isNull);
+      // The tray survived, and nothing reads as an error.
+      expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      expect(find.byKey(const Key('food-search-error-message')), findsNothing);
+      expect(find.text('飯/1碗'), findsNWidgets(2));
+    });
+
+    testWidgets('opened for a target meal, completing does not ask which meal', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(tester, meal: 'lunch');
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.dietChooseMealSheetTitle), findsNothing);
+      expect(mealRepository.receivedMeal, 'lunch');
+    });
   });
 
   group('FoodSearchScreen add feedback', () {

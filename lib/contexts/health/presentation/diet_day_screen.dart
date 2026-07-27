@@ -120,12 +120,34 @@ class _DietDayScreenState extends State<DietDayScreen> {
     }
   }
 
+  /// The viewed day's existing meal group names, as currently loaded.
+  List<String> _mealNames() =>
+      widget.todayController.dayMealsLog?.meals.map((m) => m.meal).toList() ??
+      const <String>[];
+
   void _openAddSnack() {
     final loc = AppLocalizations.of(context)!;
-    final mealNames =
-        widget.todayController.dayMealsLog?.meals.map((m) => m.meal).toList() ??
-        const <String>[];
-    _openFoodSearch(_nextSnackNameForDay(loc, mealNames));
+    _openFoodSearch(_nextSnackNameForDay(loc, _mealNames()));
+  }
+
+  /// Pushes the same full-screen search as the food dictionary — with no
+  /// target meal, so it opens as a lookup and asks which meal only if the
+  /// user ends up adding something. Resets the shared
+  /// [CreateMealController] exactly like [_openFoodSearch] does, so an
+  /// abandoned per-meal tray can't leak in and make the dictionary open
+  /// showing recording controls. The viewed day and its meal names ride in
+  /// `extra` so anything recorded lands on the day being browsed (not
+  /// today), and the meal sheet's snack option continues that day's series.
+  Future<void> _openDictionary() async {
+    widget.createMealController.start(null);
+    widget.dictionaryController.clearSearch();
+    final result = await context.push<bool>(
+      '/health/diet/dictionary',
+      extra: (day: _day, mealNames: _mealNames()),
+    );
+    if (result == true) {
+      await _reloadCurrentDay();
+    }
   }
 
   Future<void> _openCalendar() async {
@@ -157,6 +179,14 @@ class _DietDayScreenState extends State<DietDayScreen> {
         // lives in the shared day header in the body below.
         title: Text(loc.healthRecordDiet),
         actions: [
+          // Icon-only (the target action beside it already carries text) so
+          // the two fit side by side on a narrow phone.
+          IconButton(
+            key: const Key('diet-open-dictionary'),
+            tooltip: loc.dietOpenDictionaryTooltip,
+            onPressed: _openDictionary,
+            icon: const Icon(Icons.search),
+          ),
           TextButton.icon(
             key: const Key('diet-open-target'),
             onPressed: () => context.push('/health/diet/target', extra: _day),

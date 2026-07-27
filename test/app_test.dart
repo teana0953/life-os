@@ -1040,6 +1040,37 @@ void main() {
     );
 
     testWidgets(
+      'a URL-driven food dictionary route with no extra redirects back to the '
+      'diet day',
+      (tester) async {
+        // The viewed day and its meal names are per-navigation args carried in
+        // `extra`; a URL-driven navigation has none, so the route must fall
+        // back to the diet day rather than build a dictionary for no day.
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+        expect(find.byKey(const Key('food-search-field')), findsNothing);
+      },
+    );
+
+    testWidgets(
       'regression: a URL-driven deep route (go) pops one level via the real '
       'router, not to the grid',
       (tester) async {

@@ -399,6 +399,18 @@
       }
     }
   },
+  "dietDictionaryTitle": "Food dictionary",
+  "@dietDictionaryTitle": {
+    "description": "Title of the full-screen food search when it is opened as the dictionary — with no target meal — instead of to add food to a specific meal."
+  },
+  "dietOpenDictionaryTooltip": "Look up a food",
+  "@dietOpenDictionaryTooltip": {
+    "description": "Tooltip/accessible label for the diet screen's icon-only action that opens the food dictionary without first choosing a meal."
+  },
+  "dietChooseMealSheetTitle": "Add to which meal?",
+  "@dietChooseMealSheetTitle": {
+    "description": "Title of the bottom sheet that asks which meal the dictionary tray should be saved to, shown when completing a tray built in the dictionary."
+  },
   "dietRemoveItemTooltip": "Remove",
   "@dietRemoveItemTooltip": {
     "description": "Tooltip/accessible label for a tray row's remove control on the full-screen food search."

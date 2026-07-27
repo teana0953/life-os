@@ -63,7 +63,7 @@ class CreateMealController extends ChangeNotifier {
 
   CreateMealController(this._createMeal);
 
-  String meal = '';
+  String? meal;
   List<TrayEntry> tray = [];
   CreateMealControllerStatus status = CreateMealControllerStatus.editing;
   CreateMealError? error;
@@ -77,14 +77,23 @@ class CreateMealController extends ChangeNotifier {
   TrayEntry? lastAdded;
 
   /// Resets the tray for a new search session targeting [meal] (a standard
-  /// meal code, an existing snack's name, or the next snack name).
-  void start(String meal) {
+  /// meal code, an existing snack's name, or the next snack name) — or `null`
+  /// for a dictionary session, where the meal isn't known yet and is bound
+  /// later via [bindMeal].
+  void start(String? meal) {
     this.meal = meal;
     tray = [];
     status = CreateMealControllerStatus.editing;
     error = null;
     addTick = 0;
     lastAdded = null;
+    notifyListeners();
+  }
+
+  /// Binds the target [meal] for a session started without one (the
+  /// dictionary), just before submitting.
+  void bindMeal(String meal) {
+    this.meal = meal;
     notifyListeners();
   }
 
@@ -137,10 +146,15 @@ class CreateMealController extends ChangeNotifier {
   /// row cleared to zero (the numeric empty-zero convention) is treated as
   /// unset and dropped rather than sent as `quantity: 0`/`measure: 0`,
   /// which the backend rejects. If the tray ends up empty, there is nothing
-  /// to save, so this returns without calling the backend. The meal's
-  /// `time` is omitted, so the backend defaults it to now for a newly
+  /// to save, so this returns without calling the backend — likewise when no
+  /// target [meal] is bound yet (a dictionary session whose meal prompt was
+  /// dismissed), which is not a failure, so the session stays editable. The
+  /// meal's `time` is omitted, so the backend defaults it to now for a newly
   /// created meal.
   Future<bool> submit(String idToken, String day) async {
+    final meal = this.meal;
+    if (meal == null) return false;
+
     final items = <CreateMealItem>[];
     for (final entry in tray) {
       switch (entry) {

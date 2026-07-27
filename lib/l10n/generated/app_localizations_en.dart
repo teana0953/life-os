@@ -313,6 +313,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dietDictionaryTitle => 'Food dictionary';
+
+  @override
+  String get dietOpenDictionaryTooltip => 'Look up a food';
+
+  @override
+  String get dietChooseMealSheetTitle => 'Add to which meal?';
+
+  @override
   String get dietRemoveItemTooltip => 'Remove';
 
   @override

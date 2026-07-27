@@ -304,6 +304,67 @@ void main() {
       });
     });
 
+    group('a session started with no meal (the dictionary)', () {
+      test('start(null) begins an editing session with an unset meal and an empty tray', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start('lunch');
+        controller.add(_riceItem());
+
+        controller.start(null);
+
+        expect(controller.meal, isNull);
+        expect(controller.tray, isEmpty);
+        expect(controller.status, CreateMealControllerStatus.editing);
+      });
+
+      test('the tray behaves the same with no meal bound', () {
+        final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+          ..start(null);
+
+        controller.add(_riceItem());
+        controller.setAmount(controller.tray.single as TrayItem, 2);
+        controller.add(_riceItem());
+        controller.remove(controller.tray.last);
+
+        expect(controller.tray, hasLength(1));
+        expect((controller.tray.single as TrayItem).amount, 2);
+      });
+
+      test('submitting without a bound meal does not call the backend', () async {
+        final repository = FakeMealRepository();
+        final controller = CreateMealController(CreateMeal(repository))
+          ..start(null);
+        controller.add(_riceItem());
+
+        final result = await controller.submit('token-123', '2026-07-18');
+
+        expect(result, isFalse);
+        expect(repository.receivedMeal, isNull);
+        expect(repository.receivedItems, isNull);
+        // Nothing went wrong — there is just no meal to save to yet — so the
+        // session stays editable rather than showing a save failure.
+        expect(controller.status, CreateMealControllerStatus.editing);
+        expect(controller.error, isNull);
+        expect(controller.tray, hasLength(1));
+      });
+
+      test('binding a meal before submit saves the tray to that meal and day', () async {
+        final repository = FakeMealRepository();
+        final controller = CreateMealController(CreateMeal(repository))
+          ..start(null);
+        controller.add(_riceItem());
+
+        controller.bindMeal('dinner');
+        final result = await controller.submit('token-123', '2026-07-18');
+
+        expect(result, isTrue);
+        expect(controller.meal, 'dinner');
+        expect(repository.receivedMeal, 'dinner');
+        expect(repository.receivedDay, '2026-07-18');
+        expect(repository.receivedItems, hasLength(1));
+      });
+    });
+
     group('manual tray items', () {
       const portions = Portions(staple: 1, meat: 1, fruit: 0, veg: 0);
 

@@ -535,6 +535,29 @@ class _AppState extends State<App> {
                     );
                   },
                 ),
+                GoRoute(
+                  path: 'dictionary',
+                  // The same full-screen search with no target meal: a lookup
+                  // that asks which meal only at completion. The viewed day and
+                  // its meal names are per-navigation args riding in `extra`,
+                  // so a URL-driven rebuild with no extra resets to the diet
+                  // day (as for food-search above).
+                  builder: (context, state) {
+                    final args = state.extra;
+                    if (args is! ({String day, List<String> mealNames})) {
+                      return const _Redirect(to: '/health/diet');
+                    }
+                    return FoodSearchScreen(
+                      meal: null,
+                      mealNames: args.mealNames,
+                      dictionaryController: widget.healthDictionaryController,
+                      createMealController: widget.healthCreateMealController,
+                      idToken: _idToken,
+                      day: args.day,
+                      signOut: widget.signOut,
+                    );
+                  },
+                ),
               ],
             ),
             GoRoute(

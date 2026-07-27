@@ -306,6 +306,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dietDictionaryTitle => '食物字典';
+
+  @override
+  String get dietOpenDictionaryTooltip => '查詢食物';
+
+  @override
+  String get dietChooseMealSheetTitle => '要加到哪一餐？';
+
+  @override
   String get dietRemoveItemTooltip => '移除';
 
   @override
@@ -1616,6 +1625,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String dietSearchDoneButton(int count) {
     return '完成（$count）';
   }
+
+  @override
+  String get dietDictionaryTitle => '食物字典';
+
+  @override
+  String get dietOpenDictionaryTooltip => '查詢食物';
+
+  @override
+  String get dietChooseMealSheetTitle => '要加到哪一餐？';
 
   @override
   String get dietRemoveItemTooltip => '移除';
