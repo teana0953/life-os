@@ -22,9 +22,9 @@ so `resolveAuthRedirect`'s deep-link recovery is healthy.
 
 - **`web/push_sw.js`**: on `notificationclick`, write the destination path into **Cache
   Storage** (same-origin, shared between the worker and the page) and await the write, then
-  `matchAll({ type: 'window', includeUncontrolled: true })` — signal and `focus()` an existing
-  app window (**without navigating it**, so the user's current page stack survives), or
-  `openWindow('/')` when there is none or `focus()` rejects. The destination no longer
+  `matchAll({ type: 'window', includeUncontrolled: true })` — `focus()` an existing app window
+  (**without navigating it**, so the user's current page stack survives) and signal it once
+  the focus succeeds, or `openWindow('/')` when there is none or `focus()` rejects. The destination no longer
   depends on the URL surviving the WebAPK launch, and no longer rides on the hash at all.
 - **New `lib/shared/pwa/pending_deep_link.dart`** (+ `_stub.dart` / `_web.dart`): an
   injectable `take()` over that Cache entry plus a `handoverSignals` stream over the worker's

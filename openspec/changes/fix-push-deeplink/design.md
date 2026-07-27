@@ -113,6 +113,8 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 自我觸發不會失控：消費成功後 `take()` 已把 Cache 清空，我們自己 push 造成的 notify 只會讀到 `null`，加上 D8 的單飛旗標與「已在目標路徑不導航」守門，收斂在一次。
 
+但「每次導航都讀一次 Cache」是不必要的 IO —— 導航是常態，被守門擋下卻是例外。controller 記住「上一次 check 是被守門擋下的」，**只有那個旗標為真時才對導航事件做出反應**，其餘導航直接忽略。這讓 delegate 訂閱精準地只扮演它存在的理由（守門拒絕後的重試點），不變成一個常駐的輪詢。
+
 **時序**：auth listener 只負責「排程」，實際 check 用 `addPostFrameCallback` 延到下一幀（callback 內先確認 `mounted`，否則 widget 測試 teardown 與 hot reload 會對已 dispose 的 router 呼叫 push）。原因是 go_router 的 `refreshListenable` 是在 `_buildRouter()` 時才註冊的，晚於 `_AppState.initState` 掛的 listener，所以 auth 一 resolve 我們會**先**跑；不延一幀的話 `push` 的 base 可能還是尚未被 redirect 掉的 `/splash`，返回鍵會先閃一下 splash，測試也會 race。
 
 `resolveAuthRedirect` 與其 `pendingDeepLink` 機制**完全不動** —— 它處理的是「URL 本來就帶著 deep link 的冷啟動」（手動輸入網址），仍然有效，且已有完整測試。
@@ -125,7 +127,7 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 ### D8 — 併發防護
 
-觸發點有四個，兩次 check 併發時各自發一個非同步 Cache 讀取，可能都在對方 delete 之前讀到同一筆 pending，疊出兩層今日照護（`currentPath` 去重擋不住，因為第一次導航還沒完成）。controller 用一個 in-flight 旗標：已有未完成的 check 就直接 return。
+觸發點有五個（啟動、auth 轉換、resumed、導航、信號），兩次 check 併發時各自發一個非同步 Cache 讀取，可能都在對方 delete 之前讀到同一筆 pending，疊出兩層今日照護（`currentPath` 去重擋不住，因為第一次導航還沒完成）。controller 用一個 in-flight 旗標：已有未完成的 check 就直接 return。
 
 ### D9 — `openWindow` 一律開 `/`，不帶 hash
 
@@ -143,7 +145,7 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 | 檔案 | 職責 | 測試 |
 | --- | --- | --- |
-| `web/push_sw.js` | 依 D2 契約寫 pending；postMessage 信號 + focus，或 openWindow | 無（瀏覽器端 glue，比照現況） |
+| `web/push_sw.js` | 依 D2 契約寫 pending；focus 既有 window 成功後送信號，否則 openWindow | 無（瀏覽器端 glue，比照現況） |
 | `lib/shared/pwa/pending_deep_link.dart` | 抽象介面：`take()` → `PendingDeepLink?`、`handoverSignals` stream，conditional export | — |
 | `..._stub.dart` / `..._web.dart` | 非 web no-op／Cache Storage 讀取＋刪除、serviceWorker message 轉信號 | web impl 不測（薄 adapter，比照 `BrowserWebPushGateway`） |
 | `lib/shared/pwa/pending_deep_link_controller.dart` | 守門 + 時效 + 去重 + 併發防護 + 生命週期觀察 + 信號訂閱 + 觸發導航 | **單元測試**（注入 fake store + 固定 now） |
@@ -190,6 +192,6 @@ SW 對既有 window `postMessage` 一個**不帶資料的信號**，web adapter 
 
 ## 不做（YAGNI）
 
-- 後端送 `url` 讓通知連到特定 slot —— 目前所有照護提醒都指向同一頁，等真的有多目的地再說（`path` 的推導保留 `data.url` 的位置，但預設值就是全部）。
+- 後端送目的地讓通知連到特定 slot —— 目前所有照護提醒都指向同一頁，等真的有多目的地再說（`push` handler 保留 `data.path` 的位置，但預設值涵蓋全部）。
 - 改成 path URL strategy（`usePathUrlStrategy` + Pages SPA fallback）—— D1 已經讓目的地不依賴 URL，這個大改動失去理由，而且如果 WebAPK 是整個 URL 換成 `start_url`，改了也沒用。
-- 定時輪詢 Cache —— D4 的信號 + 三個生命週期觸發點已覆蓋所有已知情境，輪詢只是拿電力換一個沒被證實存在的漏網情境。
+- 定時輪詢 Cache —— D4 的信號 + D6 的四個觸發點已覆蓋所有已知情境，輪詢只是拿電力換一個沒被證實存在的漏網情境。
