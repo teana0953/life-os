@@ -108,6 +108,7 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
+import 'package:life_os/shared/date/day_format.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
@@ -484,19 +485,21 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {}
 }
 
-CareTodaySlot _careSlot(CareTodayStatus status) => CareTodaySlot(
-  careItemId: 'care-1',
-  careScheduleId: 'sch-1',
-  category: CareCategory.medication,
-  title: 'Metformin',
-  timeOfDay: '08:00',
-  localDate: '2026-07-22',
-  status: status,
-  doseQuantity: 1,
-);
+CareTodaySlot _careSlot(CareTodayStatus status, {String localDate = '2026-07-22'}) =>
+    CareTodaySlot(
+      careItemId: 'care-1',
+      careScheduleId: 'sch-1',
+      category: CareCategory.medication,
+      title: 'Metformin',
+      timeOfDay: '08:00',
+      localDate: localDate,
+      status: status,
+      doseQuantity: 1,
+    );
 
 /// A [CareHistoryRepository] whose records actually change when a slot is
 /// edited — unlike [_FakeCareHistoryRepository], which always returns an
@@ -522,6 +525,7 @@ class _MutableCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {
     days = [
       for (final day in days)
@@ -536,6 +540,7 @@ class _MutableCareHistoryRepository implements CareHistoryRepository {
                   status == CareLogStatus.done
                       ? CareTodayStatus.done
                       : CareTodayStatus.skipped,
+                  localDate: localDate,
                 )
               else
                 slot,
@@ -829,6 +834,7 @@ Future<LocaleController> pumpApp(
           GetCareToday(repository),
           MarkCareDone(repository),
           MarkCareSkipped(repository),
+          EditCareSlot(_FakeCareHistoryRepository()),
         );
       }();
   final resolvedCareHistoryController =
@@ -1235,12 +1241,19 @@ void main() {
 
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
+        // The care record must be dated the real "today": CareHistoryScreen
+        // (wired in app.dart, unlike the isolated screen test) gets no
+        // injected `clock` override, so it falls back to its own default
+        // (`DateTime.now`) to decide which slots are editable (design §D) —
+        // a fixed past literal here would now correctly read as read-only.
+        final now = DateTime.now();
+        final todayString = dayString(now);
         // One shared repository and one shared DataRevision across both
         // CareHistoryController instances, mirroring main.dart.
         final careHistoryRepository = _MutableCareHistoryRepository([
           CareHistoryDay(
-            date: '2026-07-22',
-            slots: [_careSlot(CareTodayStatus.missed)],
+            date: todayString,
+            slots: [_careSlot(CareTodayStatus.missed, localDate: todayString)],
           ),
         ]);
         final dataRevision = DataRevision();
@@ -1250,7 +1263,7 @@ void main() {
               EditCareSlot(careHistoryRepository),
               dataRevision,
               spanDays: spanDays,
-              clock: () => DateTime(2026, 7, 22),
+              clock: () => now,
             );
 
         await pumpApp(
@@ -1293,7 +1306,7 @@ void main() {
         await tester.tap(find.byKey(const Key('care-items-history-button')));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+          find.byKey(Key('care-history-slot-sch-1-$todayString-08:00')),
         );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('care-history-edit-done')));

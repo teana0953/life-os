@@ -190,6 +190,74 @@ void main() {
 
       expect(capturedBody!['status'], 'skipped');
     });
+
+    test('includes done_time as a UTC ISO string when doneTime is given', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'id': 'log-1'}), 200);
+      });
+      final repository = HttpCareHistoryRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.editSlot(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+        doneTime: DateTime.utc(2026, 7, 22, 4, 58),
+      );
+
+      expect(capturedBody!['done_time'], '2026-07-22T04:58:00.000Z');
+    });
+
+    test('omits done_time entirely when not given (not a null value)', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'id': 'log-1'}), 200);
+      });
+      final repository = HttpCareHistoryRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.editSlot(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      expect(capturedBody!.containsKey('done_time'), isFalse);
+    });
+
+    test('omits done_time for a skipped status even when doneTime is given', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'id': 'log-1'}), 200);
+      });
+      final repository = HttpCareHistoryRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.editSlot(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.skipped,
+        doneTime: DateTime.utc(2026, 7, 22, 4, 58),
+      );
+
+      expect(capturedBody!.containsKey('done_time'), isFalse);
+    });
   });
 
   group('HttpCareHistoryRepository error handling', () {

@@ -51,6 +51,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {}
 }
 

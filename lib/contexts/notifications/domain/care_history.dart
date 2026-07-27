@@ -125,11 +125,16 @@ bool careHistoryIsEmpty(List<CareHistoryDay> days) =>
 abstract class CareHistoryRepository {
   Future<List<CareHistoryDay>> getRange(String idToken, String from, String to);
 
+  /// [doneTime], when given, overwrites the slot's completion instant —
+  /// omitted (not sent as `null`) when absent, per the backend's "unspecified
+  /// = don't touch this field" semantics. Never sent when [status] is
+  /// [CareLogStatus.skipped], even if the caller passes one.
   Future<void> editSlot(
     String idToken, {
     required String careScheduleId,
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   });
 }

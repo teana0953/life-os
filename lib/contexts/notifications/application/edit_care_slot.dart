@@ -14,11 +14,13 @@ class EditCareSlot {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) => _repository.editSlot(
     idToken,
     careScheduleId: careScheduleId,
     localDate: localDate,
     timeOfDay: timeOfDay,
     status: status,
+    doneTime: doneTime,
   );
 }

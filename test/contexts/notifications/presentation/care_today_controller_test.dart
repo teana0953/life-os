@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
+import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
@@ -9,6 +11,11 @@ import 'package:life_os/contexts/notifications/presentation/care_today_controlle
 class _FakeCareTodayRepository implements CareTodayRepository {
   CareToday today;
   Object? getError;
+
+  /// How many `getToday` calls succeed before [getError] starts being
+  /// thrown. `0` (the default) fails every call; `1` lets the initial load
+  /// succeed and fails the *reload* an edit/mark triggers afterwards.
+  int getErrorAfterCalls = 0;
   Object? logError;
   Completer<void>? logCompleter;
   Completer<void>? getCompleter;
@@ -23,7 +30,7 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   Future<CareToday> getToday(String idToken) async {
     getCalls++;
     if (getCompleter != null) await getCompleter!.future;
-    if (getError != null) throw getError!;
+    if (getError != null && getCalls > getErrorAfterCalls) throw getError!;
     return today;
   }
 
@@ -40,6 +47,37 @@ class _FakeCareTodayRepository implements CareTodayRepository {
     lastCareScheduleId = careScheduleId;
     if (logCompleter != null) await logCompleter!.future;
     if (logError != null) throw logError!;
+  }
+}
+
+class _FakeCareHistoryRepository implements CareHistoryRepository {
+  Object? editError;
+  Completer<void>? editCompleter;
+  int editCalls = 0;
+  CareLogStatus? lastStatus;
+  DateTime? lastDoneTime;
+
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async => const [];
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+    DateTime? doneTime,
+  }) async {
+    editCalls++;
+    lastStatus = status;
+    lastDoneTime = doneTime;
+    if (editCompleter != null) await editCompleter!.future;
+    if (editError != null) throw editError!;
   }
 }
 
@@ -60,13 +98,17 @@ CareTodaySlot _slot({
   doseQuantity: 1,
 );
 
-CareTodayController _controller({CareTodayRepository? repository}) {
+CareTodayController _controller({
+  CareTodayRepository? repository,
+  CareHistoryRepository? historyRepository,
+}) {
   final repo =
       repository ?? _FakeCareTodayRepository(today: const CareToday(date: '2026-07-22', slots: []));
   return CareTodayController(
     GetCareToday(repo),
     MarkCareDone(repo),
     MarkCareSkipped(repo),
+    EditCareSlot(historyRepository ?? _FakeCareHistoryRepository()),
   );
 }
 
@@ -500,6 +542,186 @@ void main() {
 
       expect(controller.markingAction(slot1), isNull);
       expect(controller.markingAction(slot2), isNull);
+    });
+  });
+
+  group('CareTodayController.edit', () {
+    test('a successful edit quietly reloads — status stays loaded '
+        'throughout', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot(status: CareTodayStatus.done)]),
+      );
+      final historyRepository = _FakeCareHistoryRepository();
+      final controller = _controller(repository: repository, historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      final statuses = <CareTodayLoadStatus>[];
+      controller.addListener(() => statuses.add(controller.status));
+      repository.today = CareToday(
+        date: '2026-07-22',
+        slots: [_slot(status: CareTodayStatus.done, timeOfDay: '09:00')],
+      );
+
+      final outcome = await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+        doneTime: DateTime.utc(2026, 7, 22, 1, 0),
+      );
+
+      expect(outcome, CareTodayEditOutcome.saved);
+      expect(historyRepository.editCalls, 1);
+      expect(historyRepository.lastStatus, CareLogStatus.done);
+      expect(historyRepository.lastDoneTime, DateTime.utc(2026, 7, 22, 1, 0));
+      expect(controller.slots.single.timeOfDay, '09:00');
+      expect(controller.status, CareTodayLoadStatus.loaded);
+      expect(statuses, isNot(contains(CareTodayLoadStatus.loading)));
+    });
+
+    test('a skipped status does not forward doneTime, even when given', () async {
+      final historyRepository = _FakeCareHistoryRepository();
+      final controller = _controller(historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.skipped,
+        doneTime: DateTime.utc(2026, 7, 22, 1, 0),
+      );
+
+      expect(historyRepository.lastStatus, CareLogStatus.skipped);
+      expect(historyRepository.lastDoneTime, isNull);
+    });
+
+    test('an edit failure keeps the existing slots and surfaces markError', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final historyRepository = _FakeCareHistoryRepository()
+        ..editError = const CareRequestFailed();
+      final controller = _controller(repository: repository, historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      final outcome = await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      expect(outcome, CareTodayEditOutcome.failed);
+      expect(controller.markError, isA<CareRequestFailed>());
+      expect(controller.slots, [_slot()]);
+      expect(controller.status, CareTodayLoadStatus.loaded);
+    });
+
+    test('an edit CareReauthRequired routes status to reauth', () async {
+      final historyRepository = _FakeCareHistoryRepository()
+        ..editError = const CareReauthRequired();
+      final controller = _controller(historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      final outcome = await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      expect(outcome, CareTodayEditOutcome.reauth);
+      expect(controller.status, CareTodayLoadStatus.reauth);
+    });
+
+    test('a second edit call while one is in flight is dropped and reports '
+        'skipped, not silently discarded', () async {
+      final historyRepository = _FakeCareHistoryRepository();
+      final controller = _controller(historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      final completer = Completer<void>();
+      historyRepository.editCompleter = completer;
+      final first = controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+      expect(controller.marking, isTrue);
+      final second = controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      completer.complete();
+      final results = await Future.wait([first, second]);
+
+      expect(results[1], CareTodayEditOutcome.skipped);
+      expect(historyRepository.editCalls, 1);
+    });
+
+    test('a reload failure after a successful edit keeps the list and reports '
+        'refreshFailed — the PUT already landed, so the caller must not tell '
+        'the user their correction was lost', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final historyRepository = _FakeCareHistoryRepository();
+      final controller = _controller(repository: repository, historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      repository.getError = const CareRequestFailed();
+      repository.getErrorAfterCalls = 1;
+
+      final outcome = await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      expect(historyRepository.editCalls, 1);
+      expect(outcome, CareTodayEditOutcome.refreshFailed);
+      expect(controller.markError, isA<CareRequestFailed>());
+      expect(controller.slots, [_slot()]);
+      expect(controller.status, CareTodayLoadStatus.loaded);
+    });
+
+    test('a CareReauthRequired from the reload that follows a successful edit '
+        'routes to reauth', () async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      final historyRepository = _FakeCareHistoryRepository();
+      final controller = _controller(repository: repository, historyRepository: historyRepository);
+      await controller.load('token-123');
+
+      repository.getError = const CareReauthRequired();
+      repository.getErrorAfterCalls = 1;
+
+      final outcome = await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      expect(historyRepository.editCalls, 1);
+      expect(outcome, CareTodayEditOutcome.reauth);
+      expect(controller.status, CareTodayLoadStatus.reauth);
+      expect(controller.markError, isNull);
     });
   });
 }

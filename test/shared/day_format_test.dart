@@ -54,4 +54,20 @@ void main() {
       expect(parseDayString(dayString(date)), date);
     });
   });
+
+  group('parseInstant', () {
+    test('parses a valid ISO-8601 UTC string into a DateTime', () {
+      final result = parseInstant('2026-07-27T04:58:00.000Z');
+      expect(result, DateTime.utc(2026, 7, 27, 4, 58));
+      expect(result!.isUtc, isTrue);
+    });
+
+    test('an invalid string returns null', () {
+      expect(parseInstant('not-a-date'), isNull);
+    });
+
+    test('an empty string returns null', () {
+      expect(parseInstant(''), isNull);
+    });
+  });
 }

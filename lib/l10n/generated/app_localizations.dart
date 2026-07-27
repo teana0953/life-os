@@ -2294,6 +2294,24 @@ abstract class AppLocalizations {
   /// **'Missed'**
   String get careTodayStatusMissed;
 
+  /// Small header label at the top of the Today care Done-group correction sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Update this record'**
+  String get careTodayEditSheetTitle;
+
+  /// Label for the completion-time row in the Today care Done-group correction sheet; its subtitle shows the currently selected local time and tapping it opens the time picker (disabled when the status is set to skipped).
+  ///
+  /// In en, this message translates to:
+  /// **'Completion time'**
+  String get careTodayEditTimeLabel;
+
+  /// Label for the confirm button in the Today care Done-group correction sheet that submits the chosen outcome and completion time.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get careTodayEditSubmitButton;
+
   /// Progress pill on the overview care summary card's header, e.g. '2/5 done' (done vs. total slots today).
   ///
   /// In en, this message translates to:
@@ -2378,12 +2396,6 @@ abstract class AppLocalizations {
   /// **'Go to care management'**
   String get careHistoryEmptyManageButton;
 
-  /// Non-interactive note at the bottom of the care history screen's AppBar overflow menu, telling a user who remembers this screen's old chart mode where the heatmap went. Not a menu action: the trends tab isn't a route of its own (it's a tab index inside the health scaffold), so it can't be navigated to directly.
-  ///
-  /// In en, this message translates to:
-  /// **'Adherence charts are in Health → Trends'**
-  String get careHistoryTrendsMovedHint;
-
   /// Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period.
   ///
   /// In en, this message translates to:
@@ -2467,6 +2479,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved, but couldn\'t refresh the list.'**
   String get careHistoryEditRefreshErrorMessage;
+
+  /// Low-contrast note on a past day's card in the care history list, explaining why its rows have no edit affordance and do nothing when tapped — corrections are only possible for today (on the Today care checklist).
+  ///
+  /// In en, this message translates to:
+  /// **'Only today can be edited here.'**
+  String get careHistoryPastReadOnlyHint;
 
   /// Title of the health module's trend-tab care adherence card — a heatmap summarizing care schedule adherence over a selectable period, shown below the vitals trend chart.
   ///

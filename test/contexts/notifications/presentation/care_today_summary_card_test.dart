@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
+import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
@@ -99,12 +101,32 @@ CareTodaySlot _slot({
   doseQuantity: 1,
 );
 
+class _FakeCareHistoryRepository implements CareHistoryRepository {
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async => const [];
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+    DateTime? doneTime,
+  }) async {}
+}
+
 CareTodayController _controllerFor(List<CareTodaySlot> slots, {_FakeCareTodayRepository? repository}) {
   final repo = repository ?? _FakeCareTodayRepository(today: CareToday(date: '2026-07-24', slots: slots));
   return CareTodayController(
     GetCareToday(repo),
     MarkCareDone(repo),
     MarkCareSkipped(repo),
+    EditCareSlot(_FakeCareHistoryRepository()),
   );
 }
 

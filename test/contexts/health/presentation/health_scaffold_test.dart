@@ -432,6 +432,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required String localDate,
     required String timeOfDay,
     required CareLogStatus status,
+    DateTime? doneTime,
   }) async {}
 }
 
@@ -523,6 +524,7 @@ Widget _buildScaffold({
     GetCareToday(resolvedCareTodayRepository),
     MarkCareDone(resolvedCareTodayRepository),
     MarkCareSkipped(resolvedCareTodayRepository),
+    EditCareSlot(_FakeCareHistoryRepository()),
   );
   final resolvedAuthRepository = authRepository ?? _FakeAuthRepository();
   // Resolved once so the widget's own `dataRevision` and the care adherence
