@@ -291,6 +291,44 @@ void main() {
       },
     );
 
+    test('a new run clears every type\'s result, including the ones it skips', () async {
+      final repository = FakeImportRepository();
+      final controller = _controller(repository);
+      await _import(controller);
+      expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
+
+      await _import(controller, types: {ImportType.diet});
+
+      // Re-running one type wipes the other four results rather than leaving
+      // them on screen next to a run they were not part of.
+      expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.success);
+      expect(
+        controller.typeStates[ImportType.weight]!.status,
+        TypeStatus.notAttempted,
+      );
+    });
+
+    test('a selection mutated after the call started does not change the run', () async {
+      final repository = FakeImportRepository();
+      final controller = _controller(repository);
+      final types = {ImportType.weight, ImportType.diet};
+
+      // The screen hands over its own live set, so the controller has to work
+      // off a copy: mutating the caller's set mid-run must not re-route it.
+      var mutated = false;
+      controller.addListener(() {
+        if (mutated) return;
+        mutated = true;
+        types
+          ..remove(ImportType.diet)
+          ..add(ImportType.bowel);
+      });
+
+      await _import(controller, types: types);
+
+      expect(repository.calls, ['weight', 'diet']);
+    });
+
     test('bumps the revision when a selected type succeeds', () async {
       final dataRevision = DataRevision();
       final controller = _controller(

@@ -17,12 +17,14 @@
   - 首次 build 五個類型全部勾選
   - 全部取消勾選後送出按鈕停用（帳密與日期都填妥的情況下）
   - 只勾一種時送出，controller 收到的集合就只有那一種
-  - 匯入進行中該列顯示狀態圖示、**沒有** `Checkbox`（不是 disabled 的 checkbox —— 匯入中根本不渲染它）
-  - 匯入進行中，未選的類型整列以較低不透明度呈現，與「已選但還沒輪到」區分得開
-  - **一輪匯入結束後（全部成功、以及中途失敗兩種情況）勾選框都回來，可以改選再送出** —— 這是 proposal 點名的主要情境，per-type 狀態驅動的寫法會在這裡壞掉
+  - 匯入進行中五個 `Checkbox` 都還在，但 `onChanged == null`、點整列也不會翻勾（停用，不是撤掉）
+  - 匯入進行中，未選的類型顯示未勾的勾選框、已選但還沒輪到的顯示打勾的勾選框 —— 兩者靠勾選框本身就區分得開
+  - 跑完後每列的狀態圖示（✓／✗／空心圈）與勾選框並存；跑完後選擇維持不變（不重置回全選）
+  - 每一列的 semantics 是**一個** label 恰為類型名、帶 checked 狀態的節點
+  - **一輪匯入結束後（全部成功、以及中途失敗兩種情況）勾選框都恢復可改，可以改選再送出** —— 這是 proposal 點名的主要情境，per-type 狀態驅動的寫法會在這裡壞掉
 - [x] `ChaodaysImportScreen`: state 持有 `Set<ImportType> _selected`（初值全部）；`_canSubmit` 加上 `_selected.isNotEmpty`；`_submit` 傳 `_selected`。
-- [x] `_TypeResultRow`: 加 `selected` / `onSelectedChanged` / `selectable`。leading 在 **`selectable`（= 非匯入中）** 時顯示 `Checkbox`，否則顯示既有狀態圖示。**不要用 `TypeState.status` 決定** —— 一輪跑完後五列都是 `success`，勾選框會整組消失。
-- [x] 匯入中，未選的類型與「已選但還沒輪到」的 leading 目前都是 `circle_outlined`，使用者分不出「這個不會跑」和「這個等一下會跑」。未選的整列降低不透明度來區分（純視覺，不新增狀態）。
+- [x] `_TypeResultRow`: 加 `selected` / `onSelectedChanged` / `selectable`，改用 `CheckboxListTile`（`controlAffinity: leading`、狀態圖示放 `secondary`、明寫 `enabled: true`）。`onChanged` 在 **`selectable`（= 非匯入中）** 時給值、否則 null。**不要用 `TypeState.status` 決定** —— 一輪跑完後五列都是 `success`，勾選框會整組鎖死。
+- [x] `ChaodaysImportController.import` 進來就 `types.toSet()` —— screen 交的是它自己的可變集合，而迴圈跨 await 惰性讀它。
 - [x] l10n: **不需要新字串** —— 勾選框以既有的 `importTypeWeight` 等類型名稱為標籤。順手修正 `@importDoneMessage.description` 裡已過時的敘述（它還在講固定跑全部類型）。
 
 ## 3. Gate

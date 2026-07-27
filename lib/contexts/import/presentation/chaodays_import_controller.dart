@@ -142,6 +142,10 @@ class ChaodaysImportController extends ChangeNotifier {
     // Re-entrancy guard: ignore a second call while one is already running (a
     // fast double-tap can fire before the button's importing state is reflected).
     if (status == ImportStatus.importing) return;
+    // Copied up front: the caller (the screen) hands over the very set its
+    // checkboxes mutate, and the loop below reads it lazily across awaits — so
+    // without a copy a mid-run edit would silently re-route the rest of the run.
+    final selected = types.toSet();
     status = ImportStatus.importing;
     typeStates = _freshTypeStates();
     notifyListeners();
@@ -157,7 +161,7 @@ class ChaodaysImportController extends ChangeNotifier {
       // Filtered off ImportType.values rather than iterating [types], so the
       // run order stays the fixed display order whatever order they were
       // selected in.
-      for (final type in ImportType.values.where(types.contains)) {
+      for (final type in ImportType.values.where(selected.contains)) {
         typeStates = {...typeStates, type: const TypeState.importing()};
         notifyListeners();
 

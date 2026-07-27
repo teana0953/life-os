@@ -256,11 +256,12 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                               type: type,
                               state: widget.controller.typeStates[type]!,
                               selected: _selected.contains(type),
-                              // Whether the row offers a checkbox is decided by
-                              // the run as a whole, not by this type's status:
-                              // after a run every row sits at `success`, and the
-                              // checkboxes have to come back so the user can
-                              // re-run a different selection here.
+                              // Whether the checkbox can be changed is decided
+                              // by the run as a whole, not by this type's
+                              // status: after a run every row sits at
+                              // `success`, so a per-type condition would leave
+                              // the checkboxes locked for good and there would
+                              // be no way to re-run a different selection here.
                               selectable: !_isImporting,
                               onSelectedChanged: (value) => setState(() {
                                 if (value) {
@@ -284,25 +285,19 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
   }
 }
 
-/// One data type's row in the results card: the type's label, — once known —
-/// its result or failure text, and a leading slot that carries the selection
-/// checkbox while [selectable], and an icon reflecting its [TypeState.status]
-/// while the import runs.
-/// How far a left-out row is dimmed while an import runs. Split by brightness
-/// because the same alpha lands at very different contrast on the cream light
-/// ground and the dark ground — one shared value leaves the light side well
-/// under the readable threshold (see `care_adherence_card.dart` for the same
-/// split).
-const _lightDimAlpha = 0.62;
-const _darkDimAlpha = 0.55;
-
+/// One data type's row in the results card: a leading checkbox saying whether
+/// the next import will run this type, the type's label, — once known — its
+/// result or failure text, and a trailing icon reflecting its
+/// [TypeState.status]. The two slots are permanent and never swap roles, so a
+/// finished run's outcome stays on screen next to the checkbox that decides
+/// the next one.
 class _TypeResultRow extends StatelessWidget {
   final ImportType type;
   final TypeState state;
   final bool selected;
 
-  /// Whether the selection can be edited at all — false only while an import
-  /// is running, so the two meanings of the leading slot never overlap.
+  /// Whether the selection can be edited — false only while an import is
+  /// running, which locks the checkbox rather than taking it away.
   final bool selectable;
   final ValueChanged<bool> onSelectedChanged;
 
@@ -337,31 +332,7 @@ class _TypeResultRow extends StatelessWidget {
     return text;
   }
 
-  Widget _leading(BuildContext context, AppLocalizations loc) {
-    final theme = Theme.of(context);
-    // Both branches sit in a fixed-width box: a bare Checkbox is 48 wide and a
-    // bare Icon 24, so swapping them when the import starts (and again when it
-    // ends) would shift every title 24px sideways in unison.
-    return SizedBox(
-      width: 48,
-      child: Center(child: _leadingContent(context, theme, loc)),
-    );
-  }
-
-  Widget _leadingContent(
-    BuildContext context,
-    ThemeData theme,
-    AppLocalizations loc,
-  ) {
-    if (selectable) {
-      return Checkbox(
-        // Without this the checkbox is announced with no name of its own — the
-        // type name lives in a separate node (the tile's title).
-        semanticLabel: _label(loc),
-        value: selected,
-        onChanged: (value) => onSelectedChanged(value ?? false),
-      );
-    }
+  Widget _statusIcon(ThemeData theme) {
     return switch (state.status) {
       TypeStatus.notAttempted => Icon(
         Icons.circle_outlined,
@@ -388,39 +359,38 @@ class _TypeResultRow extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final resultText = _resultText(loc);
-    // While the import runs, a left-out type and a selected one that hasn't
-    // started both show an empty circle — dimming the whole row is what tells
-    // "this won't run" apart from "this is still queued".
-    final dimmed = !selectable && !selected;
-    // Dimming has to stay legible, so it is per-brightness rather than one
-    // value: the same alpha reads very differently against the cream light
-    // ground and the dark ground, and the light side is the worse of the two.
-    final dimAlpha = theme.colorScheme.brightness == Brightness.light
-        ? _lightDimAlpha
-        : _darkDimAlpha;
+    // CheckboxListTile rather than a ListTile holding a Checkbox: it merges the
+    // row into one semantics node — a checkbox named after the type — instead
+    // of a button node and a same-named checkbox node read out back to back.
+    // It also gives the whole row as the hit area, which is what the user aims
+    // at (the label, not the box).
+    //
     // The result text sits in the subtitle (not the trailing slot) so it wraps
     // instead of overflowing on a narrow phone — the diet row's imported/skipped/
     // glucose line is long, especially in English.
-    return Opacity(
+    return CheckboxListTile(
       key: Key('import-type-row-${type.name}'),
-      opacity: dimmed ? dimAlpha : 1,
-      child: ListTile(
-        // Selecting from anywhere on the row, not just the 48px box — the label
-        // is the part the user is actually aiming at.
-        onTap: selectable ? () => onSelectedChanged(!selected) : null,
-        leading: _leading(context, loc),
-        title: Text(_label(loc)),
-        subtitle: resultText == null
-            ? null
-            : Text(
-                resultText,
-                style: TextStyle(
-                  color: state.status == TypeStatus.failed
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
+      controlAffinity: ListTileControlAffinity.leading,
+      // Held enabled even when the checkbox is locked: `enabled` otherwise
+      // follows `onChanged` and greys the title and result text out, and those
+      // are exactly what the user is reading while the import runs.
+      enabled: true,
+      value: selected,
+      onChanged: selectable
+          ? (value) => onSelectedChanged(value ?? false)
+          : null,
+      title: Text(_label(loc)),
+      subtitle: resultText == null
+          ? null
+          : Text(
+              resultText,
+              style: TextStyle(
+                color: state.status == TypeStatus.failed
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.onSurfaceVariant,
               ),
-      ),
+            ),
+      secondary: _statusIcon(theme),
     );
   }
 }

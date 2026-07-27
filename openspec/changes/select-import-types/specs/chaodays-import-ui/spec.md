@@ -1,11 +1,16 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Import all four types and show per-type results`
+- TO: `### Requirement: Import the selected types and show per-type results`
+
 ## MODIFIED Requirements
 
-### Requirement: Import all four types and show per-type results
+### Requirement: Import the selected types and show per-type results
 
 Starting an import SHALL run the data-type imports the user has **selected** (weight/body-fat,
-diet+glucose, water, bowel) and show each type's progress and result (imported and skipped
-counts). Types the user did not select SHALL NOT run and SHALL stay in their not-attempted
-state.
+diet+glucose, water, bowel, diet target) and show each type's progress and result (imported and
+skipped counts). Types the user did not select SHALL NOT run and SHALL stay in their
+not-attempted state.
 
 #### Scenario: Per-type results are shown after a successful import
 - **WHEN** the user submits a valid form and the imports succeed
@@ -39,7 +44,9 @@ and error display (auth failure / unavailable) without a new screen or dialog.
 
 The import screen SHALL let the user choose which data types to import, with every type
 selected by default so that an unchanged form behaves exactly as it does today. The import
-action SHALL be unavailable when no type is selected.
+action SHALL be unavailable when no type is selected. Each type's selection control and each
+type's import state SHALL be shown at the same time, in separate places on that type's row, so
+neither has to give way to the other.
 
 #### Scenario: All types are selected by default
 - **WHEN** the user opens the import screen
@@ -55,16 +62,32 @@ action SHALL be unavailable when no type is selected.
 
 #### Scenario: Selection cannot be changed mid-import
 - **WHEN** an import is in progress
-- **THEN** the selection controls are not offered — each row shows its import state instead —
-  so the selection cannot change while the run it drives is under way
+- **THEN** the selection controls are still shown, but disabled — neither the control nor its
+  row responds to a tap — so the selection cannot change while the run it drives is under way
 
 #### Scenario: Types left out of a running import are distinguishable
 - **WHEN** an import is in progress and some types were not selected
-- **THEN** those rows are visually distinct from the selected types that have not started
-  yet, so "this one will not run" is not mistaken for "this one is still queued"
+- **THEN** the left-out rows read as unselected while the selected types that have not started
+  yet read as selected, so "this one will not run" is not mistaken for "this one is still
+  queued"
+
+#### Scenario: Each type's import state stays visible after the run
+- **WHEN** an import has finished — whether every type succeeded, or the run stopped early on a
+  failure
+- **THEN** each type's outcome (succeeded, failed, or never attempted) stays shown on its row
+  alongside its selection control, rather than being replaced by it
 
 #### Scenario: The selection can be changed after a run without leaving the screen
 - **WHEN** an import has finished — whether every type succeeded, or the run stopped early
   on a failure — and the user wants to run a different selection
-- **THEN** the type selection controls are available again on the same screen, so the user
-  can adjust the selection and re-run without navigating away
+- **THEN** the type selection controls are editable again on the same screen, so the user can
+  adjust the selection and re-run without navigating away
+
+#### Scenario: The selection is remembered after a run
+- **WHEN** an import has finished
+- **THEN** the selection is still the one the user submitted, not reset back to every type
+
+#### Scenario: Starting a run clears every type's previous result
+- **WHEN** the user starts a new import
+- **THEN** every type's result from the previous run is cleared, including the results of types
+  this run does not include

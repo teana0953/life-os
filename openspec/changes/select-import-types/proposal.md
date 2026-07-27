@@ -11,9 +11,9 @@ issue 講的是兩件事，落在兩個 repo：
 
 - **`ChaodaysImportController.import`** 接受要跑的類型集合（`Set<ImportType>`），只跑選中的；未選的維持 `notAttempted`，不算失敗。既有的失敗語意（停在第一個失敗）、`DataRevision` 的「至少一種成功就 bump」規則都不變。
 - **`ChaodaysImportScreen`** 讓五個類型各自可勾選，**預設全選**（現有使用者的行為完全不變），全不選時送出停用 —— 「匯入零種資料」不是有意義的操作。
-- 選擇 UI 放在既有的 `_TypeResultRow` 上，不另開卡片 —— 否則畫面會出現兩份相同的類型清單。**勾選框的顯示條件是「這次匯入尚未進行中」（`_isImporting`），不是 per-type 狀態**：後者在一輪跑完後五列都停在 `success`，勾選框會整組消失，使用者沒辦法在同一畫面改選再跑一次 —— 而「只補匯某一種」正是這個功能的主要情境。
+- 選擇 UI 放在既有的 `_TypeResultRow` 上，不另開卡片 —— 否則畫面會出現兩份相同的類型清單。**勾選框常駐 leading、狀態圖示移到常駐 trailing**，兩個位置永不換角，所以跑完後結果與勾選框並存在同一列，「沒選」與「已選但還沒輪到」也靠勾選框本身就分得出來。**匯入中是把勾選框停用（`onChanged: null`），判斷用整體的 `_isImporting` 而不是 per-type 狀態**：後者在一輪跑完後五列都停在 `success`，勾選框會整組鎖死，使用者沒辦法在同一畫面改選再跑一次 —— 而「只補匯某一種」正是這個功能的主要情境。
 
-前端 only；後端與 `ImportRepository` 介面不動。新增選擇相關的 l10n 文案（ARB ×3）。Gate = lint + `flutter analyze` + `flutter test`。
+前端 only；後端與 `ImportRepository` 介面不動。**不新增 l10n 字串** —— 勾選框直接以既有的類型名稱（`importTypeWeight` 等）為標籤。Gate = lint + `flutter analyze` + `flutter test`。
 
 ## Capabilities
 

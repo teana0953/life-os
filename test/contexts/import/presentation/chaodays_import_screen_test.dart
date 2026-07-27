@@ -190,7 +190,7 @@ class _FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
-ChaodaysImportController _controller(_FakeImportRepository repository) =>
+ChaodaysImportController _controller(ImportRepository repository) =>
     ChaodaysImportController(
       ImportWeight(repository),
       ImportDiet(repository),
@@ -254,9 +254,6 @@ Finder _rowFor(ImportType type) => find.byKey(Key('import-type-row-${type.name}'
 
 Finder _checkboxFor(ImportType type) =>
     find.descendant(of: _rowFor(type), matching: find.byType(Checkbox));
-
-double _rowOpacity(WidgetTester tester, ImportType type) =>
-    tester.widget<Opacity>(_rowFor(type)).opacity;
 
 /// Unchecks every type except [keep] (nothing is kept when it is null).
 Future<void> _selectOnly(WidgetTester tester, {ImportType? keep}) async {
@@ -501,26 +498,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.calls, ['diet']);
+      // The run does not reset the selection back to everything: what the user
+      // submitted is still what the next submit would run.
+      for (final type in ImportType.values) {
+        expect(
+          tester.widget<Checkbox>(_checkboxFor(type)).value,
+          type == ImportType.diet,
+        );
+      }
     });
 
-    testWidgets('no checkbox is offered while an import is running', (tester) async {
+    testWidgets('the checkboxes stay put but are locked while an import is running', (
+      tester,
+    ) async {
       final repository = _HangingImportRepository();
-      final controller = ChaodaysImportController(
-        ImportWeight(repository),
-        ImportDiet(repository),
-        ImportWater(repository),
-        ImportBowel(repository),
-        ImportDietTarget(repository),
-        DataRevision(),
-      );
-      await _pumpScreen(tester, controller: controller);
+      await _pumpScreen(tester, controller: _controller(repository));
 
       await _fillCompleteForm(tester);
+      await tester.tap(_checkboxFor(ImportType.bowel));
+      await tester.pump();
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pump();
 
-      // Not a disabled checkbox: the leading slot shows the import state instead.
-      expect(find.byType(Checkbox), findsNothing);
+      // The checkboxes never leave, so "left out" (unchecked) still reads apart
+      // from "selected but not started yet" (checked) without any dimming.
+      expect(find.byType(Checkbox), findsNWidgets(ImportType.values.length));
+      expect(tester.widget<Checkbox>(_checkboxFor(ImportType.bowel)).value, isFalse);
+      expect(tester.widget<Checkbox>(_checkboxFor(ImportType.diet)).value, isTrue);
+      // Locked, not gone: the run they drive is already under way.
+      for (final type in ImportType.values) {
+        expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNull);
+      }
       expect(
         find.descendant(
           of: _rowFor(ImportType.weight),
@@ -535,35 +543,112 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('while importing, unselected rows are dimmed and queued ones are not', (
+    testWidgets('tapping a row while an import is running does not change the selection', (
       tester,
     ) async {
       final repository = _HangingImportRepository();
-      final controller = ChaodaysImportController(
-        ImportWeight(repository),
-        ImportDiet(repository),
-        ImportWater(repository),
-        ImportBowel(repository),
-        ImportDietTarget(repository),
-        DataRevision(),
-      );
-      await _pumpScreen(tester, controller: controller);
+      await _pumpScreen(tester, controller: _controller(repository));
 
       await _fillCompleteForm(tester);
-      await tester.tap(_checkboxFor(ImportType.bowel));
-      await tester.pump();
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pump();
 
-      // Both are not-attempted circles, so only the dimming tells "won't run"
-      // apart from "still queued".
-      expect(_rowOpacity(tester, ImportType.bowel), lessThan(1.0));
-      expect(_rowOpacity(tester, ImportType.diet), 1.0);
+      await tester.tap(
+        find.descendant(
+          of: _rowFor(ImportType.diet),
+          matching: find.text(loc.importTypeDiet),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.widget<Checkbox>(_checkboxFor(ImportType.diet)).value, isTrue);
 
       repository.weightCompleter.complete(
         const ChaodaysImportSummary(imported: 0, skipped: 0),
       );
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('a row reads as one checkbox named after its type', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // One merged node carrying both the name and the checked state — not a
+      // button node plus a same-named checkbox node read out one after another.
+      final data = tester.getSemantics(_rowFor(ImportType.water)).getSemanticsData();
+      // Exactly the type name once — a second label on the checkbox itself
+      // would merge in and have the reader say the name twice.
+      expect(data.label, loc.importTypeWater);
+      expect(data.flagsCollection.hasCheckedState, isTrue);
+      expect(data.flagsCollection.isChecked, isTrue);
+
+      await tester.tap(_checkboxFor(ImportType.water));
+      await tester.pump();
+
+      expect(
+        tester
+            .getSemantics(_rowFor(ImportType.water))
+            .getSemanticsData()
+            .flagsCollection
+            .isChecked,
+        isFalse,
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('every row keeps its success icon after a fully successful run', (
+      tester,
+    ) async {
+      final repository = _FakeImportRepository();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      // The outcome stays on the row the checkbox came back on — the user reads
+      // what ran and re-selects in the same place.
+      for (final type in ImportType.values) {
+        expect(
+          find.descendant(
+            of: _rowFor(type),
+            matching: find.byIcon(Icons.check_circle),
+          ),
+          findsOneWidget,
+        );
+      }
+    });
+
+    testWidgets('after a run stopped by a failure the failed row still shows its icon', (
+      tester,
+    ) async {
+      final repository = _FakeImportRepository()
+        ..weightError = const ImportChaodaysUnavailable();
+      await _pumpScreen(tester, controller: _controller(repository));
+
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: _rowFor(ImportType.weight),
+          matching: find.byIcon(Icons.error),
+        ),
+        findsOneWidget,
+      );
+      // The types the run never reached keep the not-attempted circle rather
+      // than a bare checked box that would read as an affirmation.
+      for (final type in ImportType.values.where((t) => t != ImportType.weight)) {
+        expect(
+          find.descendant(
+            of: _rowFor(type),
+            matching: find.byIcon(Icons.circle_outlined),
+          ),
+          findsOneWidget,
+        );
+      }
     });
 
     testWidgets('after a fully successful run the selection can be changed and re-run', (
@@ -577,9 +662,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
 
-      // Every row is `success` now — the checkboxes must still come back, or
+      // Every row is `success` now — the checkboxes must be editable again, or
       // there is no way to re-run a single type without leaving the screen.
-      expect(find.byType(Checkbox), findsNWidgets(ImportType.values.length));
+      for (final type in ImportType.values) {
+        expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNotNull);
+      }
 
       repository.calls.clear();
       await _selectOnly(tester, keep: ImportType.water);
@@ -601,9 +688,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(loc.importErrorUnavailable), findsOneWidget);
 
-      // The failed row plus the four not-attempted ones all offer a checkbox
-      // again — no half-checkbox, half-icon card.
-      expect(find.byType(Checkbox), findsNWidgets(ImportType.values.length));
+      // The failed row plus the four not-attempted ones are all editable
+      // again — the abort must not leave the card locked.
+      for (final type in ImportType.values) {
+        expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNotNull);
+      }
 
       repository.calls.clear();
       await _selectOnly(tester, keep: ImportType.bowel);
