@@ -60,16 +60,16 @@ WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這�
 
 狀態圖示目前對 AT 完全不發聲：「這一型正在跑／成功了／失敗了」對螢幕閱讀器使用者是零訊息，而 `CheckboxListTile` 把整列合併成一個節點後，那個節點只讀得出類型名與勾選狀態。
 
-給四種狀態各一個 `semanticLabel`。這需要新增 l10n 字串（ARB ×3 + 重新產生），是這個 change 唯一新增的文案。
+給有意義的狀態各一個語音描述（`pristine` 不需要 —— 它本來就沒有狀態可講）。注意 importing 用的是 `CircularProgressIndicator`，吃的是 `semanticsLabel` 而不是 `Icon.semanticLabel`。需要新增 l10n 字串（ARB ×3 + 重新產生），連同 D1 的卡片標題是這個 change 僅有的新文案。
 
 ## 元件
 
 | 檔案 | 改動 |
 | --- | --- |
-| `ChaodaysImportScreen` | 卡片順序與標題（D1）；勾選變動時通知 controller 清該列（D2）；trailing 依 `ImportStatus` 決定畫不畫（D3）；圖示帶 `semanticLabel`（D5） |
-| `ChaodaysImportController` | 清除單一類型狀態；送出時只重置這輪要跑的類型（D2） |
+| `ChaodaysImportScreen` | 卡片順序與標題（D1）；勾選變動時通知 controller 清該列（D2）；trailing 依**該型的** `TypeStatus` 決定畫不畫（D3）；狀態帶語音描述（D5） |
+| `ChaodaysImportController` | 新增 `TypeStatus.pristine`（D3）；清除單一類型狀態；送出時只重置這輪要跑的類型（D2） |
 | `app_theme.dart` | 新增 `CheckboxThemeData`，拉開 disabled 兩態（D4） |
-| l10n ARB ×3 | 卡片標題 + 四個狀態的語音標籤 |
+| l10n ARB ×3 | 卡片標題 + 各狀態的語音描述 |
 
 ## UI/UX 設計
 
@@ -106,7 +106,7 @@ WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這�
 ## 測試策略
 
 - **controller（單元）**：清除單一類型只影響那一型且落在 `pristine`；送出只重置這輪要跑的類型、其餘保留（**這條是 D2 的回歸點**）；`authFailed` 仍把該型退回 `notAttempted`（不是 `pristine` —— 它確實參與了那一輪）；既有的失敗語意與 bump 規則不變。
-- **screen（widget）**：送出按鈕在類型清單**之後**（比較兩者在 widget tree 的垂直位置）；卡片標題存在；改勾選後那一列的結果文字消失、其他列的留著；`idle` 時 trailing 沒有圖示但沒有橫移（標題 dx 不變）；跑過之後空心圈回來；狀態圖示的 semantics 讀得到。
+- **screen（widget）**：送出按鈕在類型清單**之後**（比較兩者的垂直位置）；卡片標題存在；改勾選後那一列的結果文字與圖示消失、其他列的留著；`pristine` 時沒有狀態圖示，且圖示出現時版面不橫移 —— 斷言 trailing **佔位的實際寬度**相同，不要只斷言標題 dx（在 `ListTile` 的固定 leading 版面下那條大概率恆真、等於空測試）；跑過之後沒輪到的類型空心圈回來；狀態的 semantics 讀得到。
 - **主題（單元）**：`CheckboxThemeData` 的 disabled 兩態顏色不同，且各自對 surface 的對比達標。
 - **會被這個 change 取代的既有測試**（不是退化，是行為被刻意反轉，必須改寫而不是刪掉）：
   - `chaodays_import_controller_test.dart` 的 *a new run clears every type's result, including the ones it skips* —— D2 正是要反轉它。
