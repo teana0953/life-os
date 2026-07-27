@@ -50,8 +50,10 @@ where they were — matching how 今日照護 behaves when opened from the overv
 ### Requirement: A stale or duplicate hand-over never hijacks navigation
 
 The handed-over destination SHALL be discarded rather than acted on when it is no longer
-relevant, and SHALL NOT stack duplicate screens. It SHALL be cleared when read, whether or
-not it is acted on, so it is consumed exactly once.
+relevant, and SHALL NOT stack duplicate screens. When the app is already showing the
+destination, the hand-over SHALL refresh what that screen shows instead of stacking a
+second copy. It SHALL be cleared when read, whether or not it is acted on, so it is
+consumed exactly once.
 
 #### Scenario: An expired hand-over is ignored
 - **WHEN** the app opens more than five minutes after a notification tap wrote a destination
@@ -61,7 +63,10 @@ not it is acted on, so it is consumed exactly once.
 
 #### Scenario: Already on the destination does not stack a second copy
 - **WHEN** a destination is consumed while the app is already showing 今日照護
-- **THEN** no additional 今日照護 screen is pushed
+- **THEN** no additional 今日照護 screen is pushed, and the 今日照護 already on screen
+  reloads its checklist rather than staying as it was when the screen opened — so a
+  reminder tapped from 今日照護 itself, including one tapped the next morning, shows
+  today's slots and records against today
 
 #### Scenario: A consumed hand-over does not repeat
 - **WHEN** a destination has been consumed once and the app is later brought back to the

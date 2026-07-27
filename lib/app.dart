@@ -46,6 +46,7 @@ import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/routing/app_locations.dart';
 import 'shared/routing/auth_router_notifier.dart';
 import 'shared/data_revision.dart';
 import 'shared/pwa/pending_deep_link.dart';
@@ -95,13 +96,6 @@ class AuthRedirect {
   const AuthRedirect(this.location, this.pendingDeepLink);
 }
 
-const _splashLocation = '/splash';
-const _authErrorLocation = '/auth-error';
-
-bool _isTransientLocation(String loc) =>
-    loc == _splashLocation || loc == _authErrorLocation;
-bool _isAuthGateLocation(String loc) => loc == '/login' || loc == '/register';
-
 /// Pure auth-redirect decision, extracted so the cold-start deep-link flow is
 /// unit-testable without driving the browser URL.
 ///
@@ -126,7 +120,7 @@ AuthRedirect resolveAuthRedirect({
 }) {
   if (error) {
     return AuthRedirect(
-      loc == _authErrorLocation ? null : _authErrorLocation,
+      loc == authErrorLocation ? null : authErrorLocation,
       pendingDeepLink,
     );
   }
@@ -134,18 +128,18 @@ AuthRedirect resolveAuthRedirect({
     // Capture a real destination (not the splash/error/gate or the default
     // home) once, so the auth bootstrap doesn't drop it.
     final capture =
-        loc != '/' && !_isTransientLocation(loc) && !_isAuthGateLocation(loc);
+        loc != '/' && !isTransientLocation(loc) && !isAuthGateLocation(loc);
     final pending = pendingDeepLink ?? (capture ? deepLink : null);
-    return AuthRedirect(loc == _splashLocation ? null : _splashLocation, pending);
+    return AuthRedirect(loc == splashLocation ? null : splashLocation, pending);
   }
   if (!signedIn) {
-    return AuthRedirect(_isAuthGateLocation(loc) ? null : '/login', pendingDeepLink);
+    return AuthRedirect(isAuthGateLocation(loc) ? null : '/login', pendingDeepLink);
   }
   // Signed in: if parked on a transient/auth-gate screen, replay the remembered
   // deep link (else home), then clear it.
-  if (_isAuthGateLocation(loc) || _isTransientLocation(loc)) {
+  if (isAuthGateLocation(loc) || isTransientLocation(loc)) {
     final target =
-        (pendingDeepLink != null && !_isTransientLocation(pendingDeepLink))
+        (pendingDeepLink != null && !isTransientLocation(pendingDeepLink))
         ? pendingDeepLink
         : '/';
     return AuthRedirect(target, null);
@@ -260,6 +254,11 @@ class _AppState extends State<App> {
           return m.isEmpty ? '' : m.last.matchedLocation;
         },
         navigate: (path) => _router.push(path),
+        // Already on the destination: nothing to push, but the checklist it
+        // is showing was loaded when the screen opened, so a reminder tapped
+        // from 今日照護 itself would otherwise change nothing on screen — and
+        // across midnight would leave yesterday's list up (design.md D9).
+        refresh: () => widget.careTodayController.load(_idToken),
       );
 
   @override

@@ -39,6 +39,7 @@ void main() {
   late bool canNavigateValue;
   late String currentPathValue;
   late List<String> navigated;
+  late int refreshes;
 
   PendingDeepLinkController buildController() => PendingDeepLinkController(
     store,
@@ -46,6 +47,7 @@ void main() {
     canNavigate: () => canNavigateValue,
     currentPath: () => currentPathValue,
     navigate: (path) => navigated.add(path),
+    refresh: () => refreshes++,
   );
 
   setUp(() {
@@ -53,6 +55,7 @@ void main() {
     canNavigateValue = true;
     currentPathValue = '/';
     navigated = [];
+    refreshes = 0;
   });
 
   group('check', () {
@@ -67,6 +70,7 @@ void main() {
       await buildController().check();
 
       expect(navigated, ['/care-today']);
+      expect(refreshes, 0);
     });
 
     test(
@@ -128,7 +132,8 @@ void main() {
     );
 
     test(
-      'currentPath() already equal to the pending path does not navigate',
+      'currentPath() already equal to the pending path refreshes instead of '
+      'navigating (the shown screen must not be left stale)',
       () async {
         currentPathValue = '/care-today';
         store.enqueue(
@@ -138,8 +143,24 @@ void main() {
         await buildController().check();
 
         expect(navigated, isEmpty);
+        expect(refreshes, 1);
       },
     );
+
+    test('an expired pending path does not refresh either', () async {
+      currentPathValue = '/care-today';
+      store.enqueue(
+        PendingDeepLink(
+          path: '/care-today',
+          savedAt: fixedNow.subtract(const Duration(minutes: 6)),
+        ),
+      );
+
+      await buildController().check();
+
+      expect(navigated, isEmpty);
+      expect(refreshes, 0);
+    });
 
     test('a null result from the store does not navigate or throw', () async {
       store.enqueue(null);
@@ -176,8 +197,50 @@ void main() {
       await second;
 
       expect(navigated, ['/care-today']);
-      expect(store.takeCallCount, 1);
+      // The overlapping trigger is re-run once the first check finishes (it
+      // may have been the one that had something to hand over), so the store
+      // is read a second time — and finds nothing left to act on.
+      expect(store.takeCallCount, 2);
     });
+
+    test(
+      'a trigger that arrives while a check is in flight is re-run, not '
+      'dropped (the worker may have written the entry after the first read)',
+      () async {
+        store.holdUntil = Completer<void>();
+        final controller = buildController();
+
+        // First check reads an empty store (the worker has not written yet).
+        final first = controller.check();
+        await Future<void>.delayed(Duration.zero);
+        // The worker writes and signals while that read is still in flight.
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+        controller.check();
+        store.holdUntil!.complete();
+        await first;
+
+        expect(navigated, ['/care-today']);
+        expect(store.takeCallCount, 2);
+      },
+    );
+
+    test(
+      'a controller disposed while the store read is in flight does not '
+      'navigate',
+      () async {
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+        store.holdUntil = Completer<void>();
+        final controller = buildController();
+
+        final pending = controller.check();
+        controller.dispose();
+        store.holdUntil!.complete();
+        await pending;
+
+        expect(navigated, isEmpty);
+        expect(refreshes, 0);
+      },
+    );
   });
 
   group('triggers', () {

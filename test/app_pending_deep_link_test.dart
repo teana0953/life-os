@@ -9,6 +9,10 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
+import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/domain/care_item.dart';
+import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/shared/pwa/pending_deep_link.dart';
 
 import 'app_test.dart';
@@ -74,6 +78,43 @@ class _RepeatingFakeStore implements PendingDeepLinkStore {
   Stream<void> get handoverSignals => _signals.stream;
 
   void fireHandover() => _signals.add(null);
+}
+
+/// A care-today backend whose checklist *changes* between reads: each
+/// `getToday` returns a differently-titled slot, so a test can tell a real
+/// reload from a stale screen (the cross-day symptom: yesterday's list still
+/// showing after a new reminder is tapped).
+class _ChangingCareTodayRepository implements CareTodayRepository {
+  int getCount = 0;
+
+  @override
+  Future<CareToday> getToday(String idToken) async {
+    getCount++;
+    return CareToday(
+      date: '2026-07-27',
+      slots: [
+        CareTodaySlot(
+          careItemId: 'item-1',
+          careScheduleId: 'sched-1',
+          category: CareCategory.medication,
+          title: '藥 #$getCount',
+          timeOfDay: '08:00',
+          localDate: '2026-07-27',
+          status: CareTodayStatus.pending,
+          doseQuantity: 1,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> logSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
 }
 
 final _testProfile = UserProfile(
@@ -218,10 +259,11 @@ void main() {
 
     testWidgets(
       'a second hand-over while already on 今日照護 does not stack a second '
-      'copy (one pageBack returns home, not two)',
+      'copy (one pageBack returns home, not two) but does reload the list',
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _ChangingCareTodayRepository();
         final store = _RepeatingFakeStore([
           PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
           PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
@@ -234,11 +276,17 @@ void main() {
             GetProfile(profileRepository),
             SignOut(authRepository),
           ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+          ),
           pendingDeepLinkStore: store,
         );
         await tester.pumpAndSettle();
 
         expect(find.byType(CareTodayScreen), findsOneWidget);
+        expect(find.text('藥 #1'), findsOneWidget);
 
         // A second hand-over arrives (e.g. a second care reminder tapped)
         // while 今日照護 is already open; it targets the same route.
@@ -250,6 +298,10 @@ void main() {
         // the failure mode it exists to catch.
         expect(store.takes, greaterThan(1));
         expect(find.byType(CareTodayScreen), findsOneWidget);
+        // …and the screen the user is looking at was re-fetched, rather than
+        // left showing what it loaded when it first opened.
+        expect(find.text('藥 #2'), findsOneWidget);
+        expect(find.text('藥 #1'), findsNothing);
 
         await tester.pageBack();
         await tester.pumpAndSettle();
