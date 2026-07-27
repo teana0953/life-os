@@ -9,6 +9,9 @@
 >   trails it* —— 它在 idle 狀態靠 `Icons.circle_outlined` 取 trailing 的 dx，D3 之後那裡
 >   沒有圖示；改成跑過之後再比位置。**不可以**為了讓它變綠而在 `pristine` 留一個看不見的圖示。
 >
+> 另外有三條 controller 斷言的期望值會從 `notAttempted` 翻成 `pristine`（尚未開跑時的初始狀態），
+> 那是 `pristine` 的定義變更、不是行為退化，照改即可。
+>
 > 其餘既有測試（勾選框常駐、跑完後仍可改選再跑、`enabled` 語意、圖示配色）**必須維持通過**。
 
 ## 1. 新增 `TypeStatus.pristine` (TDD)
@@ -20,7 +23,7 @@
   - 清除單一類型只影響那一型且落在 `pristine`，其餘 `typeStates` 不動
   - `import()` 只重置**這輪要跑的**類型；未選類型上一輪的 `TypeState` 原封不動（**D2 的回歸點**：目前是無條件 `_freshTypeStates()`）
   - 既有語意不變：停在第一個失敗、`authFailed` 把該型退回 **`notAttempted`**（不是 `pristine` —— 它確實參與了那一輪）、401 → `needsReauth`、`DataRevision` 每輪最多 bump 一次且至少一種成功才 bump
-- [ ] `ChaodaysImportController`: 加清除單一類型狀態的方法；`import()` 的重置改成只作用於 `types`。
+- [ ] `ChaodaysImportController`: 加清除單一類型狀態的方法（寫入 `pristine`）；`import()` 的重置改成只作用於 `types`，**且重置成 `notAttempted` 而不是 `pristine`** —— 這一輪要跑的類型「已選但還沒輪到」正是 `notAttempted` 的意思（design 狀態表、既有 controller 斷言、以及 §5 要保護的那條 circle_outlined 都釘住它）。`pristine` 只有兩個寫入點：初始化與 D2 的清除。
 
 ## 3. Screen: 版面順序與標題 (TDD)
 - [ ] Test first (red)：送出按鈕在類型清單**之後**（比較兩者的垂直位置，不是只看存在）；卡片標題存在且用 `labelLarge`。
@@ -33,7 +36,7 @@
 
 ## 5. Screen: `pristine` 不畫狀態圖示 (TDD)
 - [ ] Test first (red)：`pristine` 時沒有狀態圖示；跑過之後沒輪到的類型（`notAttempted`）**仍然**顯示空心圈（這條保護既有行為，別誤刪）；圖示出現時類型標題的水平位置不變 —— 斷言 trailing 佔位的**實際寬度**相同，不要只斷言標題 dx（那條在 `ListTile` 的固定 leading 版面下大概率恆真、等於空測試）。
-- [ ] `_TypeResultRow`: 依**該型的** `TypeStatus` 決定 trailing 畫圖示或等寬空白（**不是**全域 `ImportStatus` —— 見 design D3）。
+- [ ] `_TypeResultRow`: 依**該型的** `TypeStatus` 決定 trailing 畫圖示或等寬空白（**不是**全域 `ImportStatus` —— 見 design D3）。空白寬度對齊 `Icon` 的 24，不是 importing spinner 的 20。
 
 ## 6. 主題: 拉開停用勾選框的兩態 (TDD)
 - [ ] Test first (red)：`lightTheme.checkboxTheme` 的 disabled 填色與外框色不同，且各自對 `surfaceLight` 的對比達標（實際算出比例寫進註解）。

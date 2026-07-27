@@ -33,6 +33,10 @@
 
 清除動作放在 controller（`typeStates` 是它持有的），screen 在勾選變動時呼叫。判斷邏輯留在可測的那一層。
 
+**重置寫入的值**：`import()` 對這一輪要跑的類型重置成 `notAttempted`（「已選但還沒輪到」），**不是** `pristine`。`pristine` 只有兩個寫入點 —— 初始化，與 D2 的清除。
+
+**與 done／error banner 脫鉤是刻意的**：banner 吃的是全域 `controller.status`，講的是「上一輪整體怎麼了」，那件事不會因為使用者改了某一列的勾選而變假。若讓 toggle 連 status 一起清，會破壞既有「錯誤訊息留著、讓使用者改帳密重試」的行為與測試。
+
 ### D3 — 「沒有狀態」要成為一個**每個類型各自**的狀態，不能用全域 `ImportStatus` 判斷
 
 `TypeStatus.notAttempted` 現在同時代表兩種處境，而這個 change 第一次需要區分它們：
@@ -54,7 +58,9 @@ M3 的 disabled checkbox 兩態同用 `onSurface@38%`，在 cream 卡片上只�
 
 用 `CheckboxThemeData` 把 disabled 的填色與外框分開指定，拉開兩態對比。深色主題（3.06:1）維持現況即可。
 
-WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這個畫面把它當成唯一語意載體**才需要處理。
+（原本的理由是「兩者 trailing 同為空心圈，區分完全落在勾選框上」，但 D3 之後那句不再成立 —— 未選的類型在匯入中 trailing 是空白或上一輪的結果，本來就與空心圈不同。決策仍然要做：勾選框是**選擇**這件事的唯一載體，停用時兩態必須分得出來，否則使用者看不出「我剛才到底勾了沒」。）
+
+WCAG 對 inactive component 有豁免，所以這不是合規問題，是**這個畫面把它當成語意載體**才需要處理。
 
 ### D5 — 狀態圖示補上語音標籤
 

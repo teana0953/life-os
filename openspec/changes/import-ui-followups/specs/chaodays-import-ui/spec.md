@@ -9,6 +9,36 @@ type's import state SHALL be shown at the same time, in separate places on that 
 neither has to give way to the other. The selection SHALL be presented before the control that
 starts the import, under a heading naming the group.
 
+#### Scenario: All types are selected by default
+- **WHEN** the user opens the import screen
+- **THEN** every data type is selected
+
+#### Scenario: Only the selected types are imported
+- **WHEN** the user clears every type except one and submits a valid form
+- **THEN** only that type runs; the others are not attempted, and each either keeps the result
+  it already had or, if the user just changed its selection, shows no state at all
+
+#### Scenario: Importing nothing is not offered
+- **WHEN** no data type is selected
+- **THEN** the import action is disabled
+
+#### Scenario: Selection cannot be changed mid-import
+- **WHEN** an import is in progress
+- **THEN** the selection controls are still shown, but disabled — neither the control nor its
+  row responds to a tap — so the selection cannot change while the run it drives is under way
+
+#### Scenario: Types left out of a running import are distinguishable
+- **WHEN** an import is in progress and some types were not selected
+- **THEN** the left-out rows read as unselected while the selected types that have not started
+  yet read as selected, so "this one will not run" is not mistaken for "this one is still
+  queued"
+
+#### Scenario: Each type's import state stays visible after the run
+- **WHEN** an import has finished — whether every type succeeded, or the run stopped early on a
+  failure
+- **THEN** each type's outcome (succeeded, failed, or never attempted) stays shown on its row
+  alongside its selection control, rather than being replaced by it
+
 #### Scenario: The selection can be changed after a run without leaving the screen
 - **WHEN** an import has finished — whether every type succeeded, or the run stopped early
   on a failure — and the user wants to run a different selection
