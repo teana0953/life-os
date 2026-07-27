@@ -106,6 +106,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
 import 'package:life_os/shared/pwa/pending_deep_link.dart';
@@ -486,6 +487,64 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
   }) async {}
 }
 
+CareTodaySlot _careSlot(CareTodayStatus status) => CareTodaySlot(
+  careItemId: 'care-1',
+  careScheduleId: 'sch-1',
+  category: CareCategory.medication,
+  title: 'Metformin',
+  timeOfDay: '08:00',
+  localDate: '2026-07-22',
+  status: status,
+  doseQuantity: 1,
+);
+
+/// A [CareHistoryRepository] whose records actually change when a slot is
+/// edited — unlike [_FakeCareHistoryRepository], which always returns an
+/// empty range — so an end-to-end test can assert that a correction made on
+/// `/care-history` shows up on the trend tab's card after the shared
+/// [DataRevision] bump reloads the health module (design §D).
+class _MutableCareHistoryRepository implements CareHistoryRepository {
+  List<CareHistoryDay> days;
+
+  _MutableCareHistoryRepository(this.days);
+
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async => days;
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {
+    days = [
+      for (final day in days)
+        CareHistoryDay(
+          date: day.date,
+          slots: [
+            for (final slot in day.slots)
+              if (slot.careScheduleId == careScheduleId &&
+                  slot.localDate == localDate &&
+                  slot.timeOfDay == timeOfDay)
+                _careSlot(
+                  status == CareLogStatus.done
+                      ? CareTodayStatus.done
+                      : CareTodayStatus.skipped,
+                )
+              else
+                slot,
+          ],
+        ),
+    ];
+  }
+}
+
 class _FakeBodyProfileRepository implements BodyProfileRepository {
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async =>
@@ -707,6 +766,16 @@ Future<LocaleController> pumpApp(
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
   CareHistoryController? careHistoryController,
+  CareHistoryController? careAdherenceController,
+
+  /// Shared, mirroring main.dart, between the import controller (which
+  /// bumps it), the health shell (which listens to it), and both
+  /// [CareHistoryController] instances (which are injected with it, so an
+  /// edit on `/care-history` bumps the trend tab's card too — design §D).
+  /// Defaults to a fresh instance; pass one explicitly to inject it into a
+  /// caller-supplied controller as well, so the two stay wired to the same
+  /// revision.
+  DataRevision? dataRevision,
   PendingDeepLinkStore? pendingDeepLinkStore,
 }) async {
   final resolvedLocaleController =
@@ -716,9 +785,7 @@ Future<LocaleController> pumpApp(
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
   final health = testHealthControllers();
-  // One shared instance, mirroring main.dart: the import controller bumps it and
-  // the health shell listens to it, so the rig exercises the real wiring.
-  final dataRevision = DataRevision();
+  final resolvedDataRevision = dataRevision ?? DataRevision();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
       () {
@@ -729,7 +796,7 @@ Future<LocaleController> pumpApp(
           ImportWater(importRepository),
           ImportBowel(importRepository),
           ImportDietTarget(importRepository),
-          dataRevision,
+          resolvedDataRevision,
         );
       }();
   final resolvedReminderSettingsController =
@@ -771,6 +838,19 @@ Future<LocaleController> pumpApp(
         return CareHistoryController(
           GetCareHistory(repository),
           EditCareSlot(repository),
+          resolvedDataRevision,
+          spanDays: 7,
+        );
+      }();
+  final resolvedCareAdherenceController =
+      careAdherenceController ??
+      () {
+        final repository = _FakeCareHistoryRepository();
+        return CareHistoryController(
+          GetCareHistory(repository),
+          EditCareSlot(repository),
+          resolvedDataRevision,
+          spanDays: 30,
         );
       }();
   await tester.pumpWidget(
@@ -803,7 +883,10 @@ Future<LocaleController> pumpApp(
       careItemsController: resolvedCareItemsController,
       careTodayController: resolvedCareTodayController,
       careHistoryController: resolvedCareHistoryController,
-      dataRevision: dataRevision,
+      careAdherenceController: resolvedCareAdherenceController,
+      // `resolvedDataRevision`, not the raw parameter: it is nullable now
+      // that callers can inject one to share with their own controller.
+      dataRevision: resolvedDataRevision,
       pendingDeepLinkStore:
           pendingDeepLinkStore ?? const PendingDeepLinkStoreImpl(),
     ),
@@ -1102,6 +1185,139 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('care-items-add-fab')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the trend tab\'s care adherence card links straight to /care-history '
+      '— the heatmap is where a user sees the day they want to correct, and '
+      'the record list is otherwise only reachable through the More tab',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('care-adherence-open-history')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('care-history-range-selector')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'correcting a record on /care-history refreshes the trend tab\'s care '
+      'adherence card: the edit bumps the shared DataRevision, the health '
+      'module reloads, and the card shows the corrected day at its own '
+      'period',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        // One shared repository and one shared DataRevision across both
+        // CareHistoryController instances, mirroring main.dart.
+        final careHistoryRepository = _MutableCareHistoryRepository([
+          CareHistoryDay(
+            date: '2026-07-22',
+            slots: [_careSlot(CareTodayStatus.missed)],
+          ),
+        ]);
+        final dataRevision = DataRevision();
+        CareHistoryController careController(int spanDays) =>
+            CareHistoryController(
+              GetCareHistory(careHistoryRepository),
+              EditCareSlot(careHistoryRepository),
+              dataRevision,
+              spanDays: spanDays,
+              clock: () => DateTime(2026, 7, 22),
+            );
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careHistoryController: careController(7),
+          careAdherenceController: careController(30),
+          dataRevision: dataRevision,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final missedLegend = loc.careAdherenceLegendWithCount(
+          loc.careHistoryLegendMissed,
+          1,
+        );
+        final fullLegend = loc.careAdherenceLegendWithCount(
+          loc.careHistoryLegendFull,
+          1,
+        );
+
+        // Trends tab: the day currently counts as missed.
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+        expect(find.text(missedLegend), findsOneWidget);
+
+        // More tab → care management → history, and correct the record.
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('health-more-care-items')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-items-history-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-history-edit-done')));
+        await tester.pumpAndSettle();
+
+        expect(dataRevision.revision, 1);
+
+        // Back to the health module (still mounted below /care-items and
+        // /care-history) and its trends tab.
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        expect(find.text(fullLegend), findsOneWidget);
+        expect(find.text(missedLegend), findsNothing);
+        // The card kept its own 30-day period — the refresh is about
+        // staleness, not about adopting the history screen's period.
+        final selector = tester.widget<SegmentedButton<int>>(
+          find.byKey(const Key('care-adherence-range-selector')),
+        );
+        expect(selector.selected, {30});
       },
     );
   });

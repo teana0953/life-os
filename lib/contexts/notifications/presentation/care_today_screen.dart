@@ -51,11 +51,6 @@ String _doneRowSubtitle(AppLocalizations loc, CareTodaySlot slot) =>
       _ => slot.timeOfDay,
     };
 
-DateTime _parseDate(String s) {
-  final parts = s.split('-');
-  return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-}
-
 /// The Today care checklist: a focus card for the most-urgent slot (earliest
 /// overdue, else earliest pending), then Overdue / Later / collapsible Done
 /// groups, or an all-done celebration when nothing is pending/overdue, or an
@@ -203,7 +198,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
                   padding: const EdgeInsets.all(20),
                   children: [
                     Text(
-                      mediumDateLabel(context, _parseDate(controller.date)),
+                      mediumDateLabel(context, parseDayString(controller.date)),
                       key: const Key('care-today-date'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),

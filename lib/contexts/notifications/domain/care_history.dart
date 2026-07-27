@@ -57,20 +57,16 @@ CareDayState careDayState(CareHistoryDay day) {
 /// clamping); [daysWithDose] counts days with at least one
 /// done slot; [missedCount] sums slots whose *status* is
 /// [CareTodayStatus.missed] (distinct from the day-state "missed" in
-/// [CareDayState], which also covers all-skipped days); [totalScheduled] is
-/// the total slot count, including not-yet-due ones (a different metric
-/// from the rate's denominator).
+/// [CareDayState], which also covers all-skipped days).
 class CareHistorySummary {
   final double? adherenceRate;
   final int daysWithDose;
   final int missedCount;
-  final int totalScheduled;
 
   const CareHistorySummary({
     required this.adherenceRate,
     required this.daysWithDose,
     required this.missedCount,
-    required this.totalScheduled,
   });
 }
 
@@ -79,7 +75,6 @@ class CareHistorySummary {
 CareHistorySummary careHistorySummary(List<CareHistoryDay> days) {
   var doneSum = 0;
   var dueSum = 0;
-  var slotsSum = 0;
   var daysWithDose = 0;
   var missedCount = 0;
   for (final day in days) {
@@ -91,7 +86,6 @@ CareHistorySummary careHistorySummary(List<CareHistoryDay> days) {
         .length;
     doneSum += doneInDay;
     dueSum += dueInDay;
-    slotsSum += day.slots.length;
     if (doneInDay > 0) daysWithDose++;
     missedCount += day.slots
         .where((s) => s.status == CareTodayStatus.missed)
@@ -101,8 +95,20 @@ CareHistorySummary careHistorySummary(List<CareHistoryDay> days) {
     adherenceRate: dueSum == 0 ? null : doneSum / dueSum,
     daysWithDose: daysWithDose,
     missedCount: missedCount,
-    totalScheduled: slotsSum,
   );
+}
+
+/// The count of days in [days] falling into each [CareDayState] — every
+/// state is present in the result, defaulting to 0 (never a sparse map), so
+/// a legend can read each state's count directly. A pure function of
+/// [careDayState] applied per day.
+Map<CareDayState, int> careDayStateCounts(List<CareHistoryDay> days) {
+  final counts = {for (final state in CareDayState.values) state: 0};
+  for (final day in days) {
+    final state = careDayState(day);
+    counts[state] = counts[state]! + 1;
+  }
+  return counts;
 }
 
 /// Whether every day in [days] has no scheduled slots — the backend's

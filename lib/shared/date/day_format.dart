@@ -18,6 +18,22 @@ String dayString(DateTime date) =>
     '${date.month.toString().padLeft(2, '0')}-'
     '${date.day.toString().padLeft(2, '0')}';
 
+/// The `from`/`to` `YYYY-MM-DD` range for [spanDays] ending [now] (inclusive
+/// of today) — anchored in UTC like [daysBetween] so a DST boundary can't
+/// shift the span by a day.
+({String from, String to}) dayRangeEndingOn(int spanDays, DateTime now) {
+  final todayUtc = DateTime.utc(now.year, now.month, now.day);
+  final fromUtc = todayUtc.subtract(Duration(days: spanDays - 1));
+  return (from: dayString(fromUtc), to: dayString(todayUtc));
+}
+
+/// Parses a `YYYY-MM-DD` calendar-date string into a local, date-only
+/// [DateTime] — the inverse of [dayString].
+DateTime parseDayString(String s) {
+  final parts = s.split('-');
+  return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+}
+
 /// The full, always-shown date text, formatted per the active locale:
 /// `M月d日 EEEE` for Chinese (e.g. "7月19日 星期六"), `EEE, MMM d` otherwise
 /// (e.g. "Sat, Jul 19"). Shared by the diet shell header and the water screen.

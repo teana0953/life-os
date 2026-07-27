@@ -2354,18 +2354,6 @@ abstract class AppLocalizations {
   /// **'History'**
   String get careHistoryEntryTooltip;
 
-  /// Label of the list segment in the care history screen's list/chart mode SegmentedButton.
-  ///
-  /// In en, this message translates to:
-  /// **'List'**
-  String get careHistoryListMode;
-
-  /// Label of the chart segment in the care history screen's list/chart mode SegmentedButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Chart'**
-  String get careHistoryChartMode;
-
   /// Title of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled.
   ///
   /// In en, this message translates to:
@@ -2377,6 +2365,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing was scheduled in this period.'**
   String get careHistoryEmptyBody;
+
+  /// Button on the care history screen's empty-state guide, shown when the selected period is shorter than 90 days, that widens the period to the next longer option (7→30→90) and reloads.
+  ///
+  /// In en, this message translates to:
+  /// **'See a longer period'**
+  String get careHistoryWidenPeriodButton;
+
+  /// Button on the care history screen's empty-state guide, shown once the period is already the longest (90 days) so widening is no longer possible, that opens care management (/care-items) — at that point the likeliest reason the period is empty is having no care items set up yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to care management'**
+  String get careHistoryEmptyManageButton;
+
+  /// Non-interactive note at the bottom of the care history screen's AppBar overflow menu, telling a user who remembers this screen's old chart mode where the heatmap went. Not a menu action: the trends tab isn't a route of its own (it's a tab index inside the health scaffold), so it can't be navigated to directly.
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence charts are in Health → Trends'**
+  String get careHistoryTrendsMovedHint;
 
   /// Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period.
   ///
@@ -2461,6 +2467,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved, but couldn\'t refresh the list.'**
   String get careHistoryEditRefreshErrorMessage;
+
+  /// Title of the health module's trend-tab care adherence card — a heatmap summarizing care schedule adherence over a selectable period, shown below the vitals trend chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Care adherence'**
+  String get careAdherenceCardTitle;
+
+  /// Combined date-and-state text for a single heatmap cell on the care adherence card, used as both its Tooltip message and its Semantics label so the cell's state is exposed as text, not color alone, to screen readers and pointer/hover users.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} · {state}'**
+  String careAdherenceHeatmapCellLabel(String date, String state);
+
+  /// Action in the care adherence card's header that opens the care history screen, so a user who sees a missed/partial day on the heatmap can go correct that record in place instead of hunting for the list through the More tab.
+  ///
+  /// In en, this message translates to:
+  /// **'View records'**
+  String get careAdherenceOpenHistory;
+
+  /// A care adherence card legend entry's label with its day count appended, e.g. 'Complete (12)' — so a sighted touch user can read how much of the period each day-state covers without long-pressing individual heatmap cells.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} ({count})'**
+  String careAdherenceLegendWithCount(String label, int count);
 }
 
 class _AppLocalizationsDelegate

@@ -149,7 +149,6 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, closeTo(2 / 3, 1e-9));
-      expect(summary.totalScheduled, 3);
     });
 
     test('adherenceRate is null when there is nothing scheduled', () {
@@ -158,7 +157,6 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, isNull);
-      expect(summary.totalScheduled, 0);
     });
 
     test('daysWithDose counts days with at least one done slot', () {
@@ -220,7 +218,7 @@ void main() {
 
     test('adherenceRate excludes not-yet-due (pending) slots from the '
         "denominator, so today's not-yet-due slots don't drag the rate "
-        'toward 0% (totalScheduled still counts them)', () {
+        'toward 0%', () {
       final days = [
         _day(
           slots: [
@@ -233,7 +231,6 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, isNull);
-      expect(summary.totalScheduled, 2);
     });
 
     test('adherenceRate counts overdue slots in the denominator as a real '
@@ -247,7 +244,6 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, 0.0);
-      expect(summary.totalScheduled, 1);
     });
 
     test('a done slot alongside a not-yet-due slot rates 100%, not 50% — '
@@ -264,7 +260,65 @@ void main() {
       final summary = careHistorySummary(days);
 
       expect(summary.adherenceRate, 1.0);
-      expect(summary.totalScheduled, 2);
+    });
+  });
+
+  group('careDayStateCounts', () {
+    test('counts each day into its CareDayState bucket, all five states '
+        'present', () {
+      final days = [
+        _day(
+          date: '2026-07-18',
+          slots: [_slot(status: CareTodayStatus.done)],
+        ),
+        _day(
+          date: '2026-07-19',
+          slots: [
+            _slot(careScheduleId: 'a', status: CareTodayStatus.done),
+            _slot(careScheduleId: 'b', status: CareTodayStatus.skipped),
+          ],
+        ),
+        _day(
+          date: '2026-07-20',
+          slots: [_slot(status: CareTodayStatus.missed)],
+        ),
+        _day(
+          date: '2026-07-21',
+          slots: [_slot(status: CareTodayStatus.pending)],
+        ),
+        _day(date: '2026-07-22', slots: const []),
+      ];
+
+      final counts = careDayStateCounts(days);
+
+      expect(counts[CareDayState.full], 1);
+      expect(counts[CareDayState.partial], 1);
+      expect(counts[CareDayState.missed], 1);
+      expect(counts[CareDayState.upcoming], 1);
+      expect(counts[CareDayState.noSchedule], 1);
+    });
+
+    test('empty days list — every state counts 0', () {
+      final counts = careDayStateCounts(const []);
+
+      for (final state in CareDayState.values) {
+        expect(counts[state], 0);
+      }
+    });
+
+    test('all noSchedule days — only that bucket is non-zero', () {
+      final days = [
+        _day(date: '2026-07-20', slots: const []),
+        _day(date: '2026-07-21', slots: const []),
+      ];
+
+      final counts = careDayStateCounts(days);
+
+      expect(counts[CareDayState.noSchedule], 2);
+      expect(counts[CareDayState.full], 0);
+      expect(counts[CareDayState.partial], 0);
+      expect(counts[CareDayState.missed], 0);
+      expect(counts[CareDayState.upcoming], 0);
     });
   });
 

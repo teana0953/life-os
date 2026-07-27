@@ -67,8 +67,13 @@ import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
 import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
+import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
+import 'package:life_os/contexts/notifications/application/get_care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/presentation/care_adherence_card.dart';
+import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
@@ -76,6 +81,7 @@ import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
+import 'package:life_os/contexts/vitals/presentation/trend_card.dart';
 import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -396,21 +402,56 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   }
 }
 
+/// Backs the trend tab's [CareAdherenceCard] controller. [days] is returned
+/// on every `getRange` while [errorAfterFirstLoad] is unset; once set, every
+/// call *after* the first (the scaffold's own initial load) throws it
+/// instead — lets a test make a card-driven reload (a period switch) 401
+/// without the initial `HealthScaffold._load()` itself failing.
+class _FakeCareHistoryRepository implements CareHistoryRepository {
+  final List<CareHistoryDay> days;
+  Object? errorAfterFirstLoad;
+  int calls = 0;
+
+  _FakeCareHistoryRepository({this.days = const []});
+
+  @override
+  Future<List<CareHistoryDay>> getRange(
+    String idToken,
+    String from,
+    String to,
+  ) async {
+    calls++;
+    if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    return days;
+  }
+
+  @override
+  Future<void> editSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
+}
+
 /// Builds a fully-wired [HealthScaffold] with every controller backed by a
 /// minimal fake repository that succeeds without throwing — a smoke rig for
 /// asserting what the Overview tab renders first. [careTodaySlots] is the
 /// only input that varies between most tests; it's ignored when
 /// [careTodayRepository] is supplied directly. [healthCalendarRepository],
-/// [careTodayRepository], [authRepository], and [dataRevision] are
-/// overridable for the reload-on-bump/reauth/load-failure tests, which need
-/// to observe/control the respective load calls and drive the shared
-/// revision.
+/// [careTodayRepository], [careHistoryRepository], [authRepository], and
+/// [dataRevision] are overridable for the reload-on-bump/reauth/load-failure
+/// tests, which need to observe/control the respective load calls and drive
+/// the shared revision.
 Widget _buildScaffold({
   List<CareTodaySlot> careTodaySlots = const [],
   _FakeHealthCalendarRepository? healthCalendarRepository,
   _FakeCareTodayRepository? careTodayRepository,
+  _FakeCareHistoryRepository? careHistoryRepository,
   AuthRepository? authRepository,
   DataRevision? dataRevision,
+  VoidCallback? onOpenCareHistory,
 }) {
   final bodyProfileRepository = _FakeBodyProfileRepository();
   final weightGoalController = WeightGoalController(
@@ -484,6 +525,19 @@ Widget _buildScaffold({
     MarkCareSkipped(resolvedCareTodayRepository),
   );
   final resolvedAuthRepository = authRepository ?? _FakeAuthRepository();
+  // Resolved once so the widget's own `dataRevision` and the care adherence
+  // controller's injected one are the same instance (mirrors main.dart's
+  // wiring — design §D) — otherwise a caller-supplied [dataRevision] would
+  // only reach the scaffold, never the card's controller.
+  final resolvedDataRevision = dataRevision ?? DataRevision();
+  final resolvedCareHistoryRepository =
+      careHistoryRepository ?? _FakeCareHistoryRepository();
+  final careAdherenceController = CareHistoryController(
+    GetCareHistory(resolvedCareHistoryRepository),
+    EditCareSlot(resolvedCareHistoryRepository),
+    resolvedDataRevision,
+    spanDays: 30,
+  );
 
   return HealthScaffold(
     authRepository: resolvedAuthRepository,
@@ -502,12 +556,14 @@ Widget _buildScaffold({
     exerciseController: exerciseController,
     menstrualController: menstrualController,
     careTodayController: careTodayController,
+    careAdherenceController: careAdherenceController,
     onOpenSettings: () {},
     onOpenImport: () {},
     onOpenReminders: () {},
     onOpenCareItems: () {},
     onOpenCareToday: () {},
-    dataRevision: dataRevision ?? DataRevision(),
+    onOpenCareHistory: onOpenCareHistory ?? () {},
+    dataRevision: resolvedDataRevision,
     clock: () => DateTime(2026, 7, 24),
   );
 }
@@ -564,6 +620,60 @@ void main() {
       final goalTop = tester.getTopLeft(find.byType(GoalCard));
       expect(setupTop.dy, lessThan(goalTop.dy));
     });
+  });
+
+  group('HealthScaffold trend tab cards', () {
+    testWidgets(
+      'the trends tab shows the vitals trend card and the care adherence '
+      'card, with the care card after the vitals card',
+      (tester) async {
+        // A taller surface than the default test viewport: the vitals trend
+        // card alone is tall enough to push the care adherence card below
+        // the default viewport, which would make it "offstage" per the
+        // ListView's sliver viewport and so invisible to the default
+        // (skipOffstage: true) finders below.
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(l10nRouterTestApp(home: _buildScaffold()));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TrendCard), findsOneWidget);
+        expect(find.byType(CareAdherenceCard), findsOneWidget);
+        final trendTop = tester.getTopLeft(find.byType(TrendCard)).dy;
+        final careTop = tester.getTopLeft(find.byType(CareAdherenceCard)).dy;
+        expect(trendTop, lessThan(careTop));
+      },
+    );
+
+    testWidgets(
+      'the care adherence card\'s "view records" entry is wired to the '
+      'scaffold\'s care-history callback — the card is where a user sees '
+      'the missed days they want to go correct',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        var opened = 0;
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(onOpenCareHistory: () => opened++),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('care-adherence-open-history')));
+        await tester.pumpAndSettle();
+
+        expect(opened, 1);
+      },
+    );
   });
 
   group('HealthScaffold data revision reload', () {
@@ -676,6 +786,65 @@ void main() {
           findsOneWidget,
         );
         final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'switching the care adherence card\'s period that 401s surfaces the '
+      'same re-authenticate exit as the other overview controllers — the '
+      'initial load succeeds (so the card renders its heatmap), only the '
+      'period switch itself 401s, and the scaffold picks that up solely '
+      'because careAdherenceController is in _overviewControllers',
+      (tester) async {
+        // See the ordering test above: the vitals trend card pushes the
+        // care adherence card's range selector below the default test
+        // viewport, which would make it offstage (and so untappable via the
+        // default finders) without a taller surface.
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final careHistoryRepository = _FakeCareHistoryRepository(
+          days: const [CareHistoryDay(date: '2026-07-24', slots: [])],
+        )..errorAfterFirstLoad = const CareReauthRequired();
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(careHistoryRepository: careHistoryRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        // The initial load succeeded: the card rendered its range selector,
+        // and the re-authenticate exit hasn't appeared yet.
+        expect(
+          find.byKey(const Key('care-adherence-range-selector')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('health-sign-in-again-button')),
+          findsNothing,
+        );
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        // Scoped to the card: the vitals trend card has its own "7 days"
+        // segment too (a separate SegmentedButton), so an unscoped text
+        // finder would match both.
+        await tester.tap(
+          find.descendant(
+            of: find.byType(CareAdherenceCard),
+            matching: find.text(loc.trendRange7),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('health-sign-in-again-button')),
+          findsOneWidget,
+        );
         expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
       },
     );
