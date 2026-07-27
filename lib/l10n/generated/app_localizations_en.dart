@@ -1346,4 +1346,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String careAdherenceLegendWithCount(String label, int count) {
     return '$label ($count)';
   }
+
+  @override
+  String careAdherenceHeatmapRangeCaption(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careAdherenceHeatmapSummaryLabel(String details) {
+    return 'Adherence by day: $details';
+  }
+
+  @override
+  String get careAdherenceHeatmapSummarySeparator => ', ';
+
+  @override
+  String get careEditActionLabel => 'Edit';
+
+  @override
+  String careErrorForPeriod(int days) {
+    return 'Couldn\'t load the last $days days. Please try again.';
+  }
+
+  @override
+  String get careHistoryEditNotAppliedMessage =>
+      'Not applied — nothing was changed. Please try again.';
+
+  @override
+  String get careHistoryNoCareItemsTitle => 'No care items yet';
+
+  @override
+  String get careHistoryNoCareItemsBody =>
+      'You haven\'t set up any care items yet. Add one to start tracking.';
 }

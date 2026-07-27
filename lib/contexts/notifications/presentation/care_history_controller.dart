@@ -95,6 +95,14 @@ class CareHistoryController extends ChangeNotifier {
   /// [spanDays] (see [edit]).
   int? _daysSpanDays;
 
+  /// Public read of [_daysSpanDays] — the period [days] actually describes,
+  /// as opposed to [spanDays] (design §C): [setSpan] writes [spanDays]
+  /// *before* awaiting the reload, so a caller keying its copy off
+  /// [spanDays] mid-reload would describe the just-selected, still
+  /// unconfirmed period rather than what's actually on screen. `null` only
+  /// before any load has ever settled.
+  int? get daysSpanDays => _daysSpanDays;
+
   /// Whether a load has ever settled — succeeded *or* failed. The screen's
   /// full-page spinner (which has no period selector) is for the very first
   /// attempt only; every later load keeps the screen shell and shows a thin
@@ -163,8 +171,8 @@ class CareHistoryController extends ChangeNotifier {
   }
 
   /// Switches the period (7/30/90) and reloads.
-  Future<void> setSpan(String idToken, int days) async {
-    spanDays = days;
+  Future<void> setSpan(String idToken, int newSpanDays) async {
+    spanDays = newSpanDays;
     await load(idToken);
   }
 

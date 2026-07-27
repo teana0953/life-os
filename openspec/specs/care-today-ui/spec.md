@@ -125,12 +125,17 @@ on it), not the app root.
 The Today care checklist SHALL let the user correct an already-answered slot from its done
 section: changing the outcome (done or skipped) and, for a completed slot, **the time it was
 actually completed**. The correction SHALL be sent to the backend and reflected in the list
-without dropping the screen to a full-page loading state; a failure SHALL keep the list and
-surface a localized error.
+without dropping the screen to a full-page loading state. A failure SHALL keep the checklist and
+surface a localized error. A correction that does not go through SHALL say so, SHALL NOT discard
+what the user already picked, and SHALL offer a way to try again.
 
 #### Scenario: A done row offers a correction entry
 - **WHEN** the done section is shown
-- **THEN** each of its rows offers a way to correct that record
+- **THEN** each of its rows offers a way to correct that record, carrying a text label for assistive technology rather than an unlabelled icon
+
+#### Scenario: The correction sheet can be dismissed accessibly
+- **WHEN** the correction sheet is open
+- **THEN** it offers a reachable dismiss control, not only the scrim and the system back gesture
 
 #### Scenario: Correcting the outcome
 - **WHEN** the user picks a different outcome (done or skipped) for a completed slot
@@ -156,13 +161,13 @@ surface a localized error.
 - **WHEN** a correction is in flight
 - **THEN** the checklist stays visible, with only the affected row showing progress
 
-#### Scenario: A failed correction is surfaced and keeps the list
+#### Scenario: A failed correction keeps the list, keeps what the user picked, and offers a retry
 - **WHEN** a correction fails for a non-auth reason
-- **THEN** a localized error is surfaced and the existing checklist is kept
+- **THEN** the existing checklist is kept, a localized error is surfaced with a way to try again, and the outcome and time the user had already chosen are not discarded
 
-#### Scenario: A correction dropped by the in-flight guard is not silent
+#### Scenario: A correction dropped by the in-flight guard is not silent and not reported as broken
 - **WHEN** a correction is submitted while another one is already in flight, so it is dropped
-- **THEN** the user is told it was not applied, rather than the submission appearing to do nothing
+- **THEN** the user is told it was not applied and offered a retry — worded as "not applied", not as something having gone wrong, since nothing failed
 
 ### Requirement: Show completion times in the viewer's local time
 
@@ -176,4 +181,12 @@ timestamp the backend serializes.
 #### Scenario: A missing or unreadable completion time falls back
 - **WHEN** a done row has no recorded completion time, or one that cannot be read
 - **THEN** the row falls back to the slot's scheduled time rather than showing nothing or an error
+
+#### Scenario: Malformed stored values never crash the correction sheet
+- **WHEN** a slot carries a scheduled time or date the app cannot parse
+- **THEN** opening its correction sheet still works, falling back rather than throwing
+
+#### Scenario: A slot whose date cannot be read submits no completion time
+- **WHEN** a slot's calendar date cannot be parsed
+- **THEN** the completion-time row is disabled and shows no time, and submitting sends no completion time at all — rather than pinning it to a substituted date, which would file the record under the wrong day
 

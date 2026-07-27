@@ -257,7 +257,14 @@ class CareTodayController extends ChangeNotifier {
     required CareLogStatus status,
     required Future<void> Function() action,
   }) async {
-    if (marking) return;
+    if (marking) {
+      // Dropped by the re-entrancy guard — nothing was attempted for this
+      // call, so it must not leave a stale markError (from an earlier,
+      // already-settled action) looking like it belongs to this one.
+      markError = null;
+      notifyListeners();
+      return;
+    }
     marking = true;
     _markingSlotId = (
       careScheduleId: careScheduleId,

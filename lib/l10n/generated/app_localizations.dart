@@ -2402,13 +2402,13 @@ abstract class AppLocalizations {
   /// **'History'**
   String get careHistoryEntryTooltip;
 
-  /// Title of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled.
+  /// Title of the empty-state guide shown when every day in the selected period has nothing scheduled — shared by the care history screen and the trend tab's care adherence card.
   ///
   /// In en, this message translates to:
   /// **'No care records'**
   String get careHistoryEmptyTitle;
 
-  /// Body text of the empty-state guide on the care history screen, shown when every day in the selected period has nothing scheduled.
+  /// Body text of the empty-state guide shown when every day in the selected period has nothing scheduled — shared by the care history screen and the trend tab's care adherence card.
   ///
   /// In en, this message translates to:
   /// **'Nothing was scheduled in this period.'**
@@ -2426,43 +2426,43 @@ abstract class AppLocalizations {
   /// **'Go to care management'**
   String get careHistoryEmptyManageButton;
 
-  /// Headline metric label in the care history chart mode: the share of scheduled slots marked done over the selected period.
+  /// Headline metric label on the trend tab's care adherence card: the share of scheduled slots marked done over the selected period.
   ///
   /// In en, this message translates to:
   /// **'Adherence rate'**
   String get careHistoryAdherenceRateLabel;
 
-  /// Headline metric label in the care history chart mode: the count of days with at least one slot marked done. Neutral wording — this screen aggregates every care category (medication, rehab, phototherapy maintenance, custom), not just medication doses.
+  /// Headline metric label on the trend tab's care adherence card: the count of days with at least one slot marked done. Neutral wording — this card aggregates every care category (medication, rehab, phototherapy maintenance, custom), not just medication doses.
   ///
   /// In en, this message translates to:
   /// **'Days with care done'**
   String get careHistoryDaysWithDoseLabel;
 
-  /// Headline metric label in the care history chart mode for the total count of slots with status missed over the selected period — worded as a slot count ('Missed slots') so it reads distinctly from careHistoryLegendMissed (a day-level heatmap state, worded as 'Missed') and from careTodayStatusMissed (a single slot's status word, 'Missed'); the three counts can differ.
+  /// Headline metric label on the trend tab's care adherence card for the total count of slots with status missed over the selected period — worded as a slot count ('Missed slots') so it reads distinctly from careHistoryLegendMissed (a day-level heatmap state, worded as 'Missed') and from careTodayStatusMissed (a single slot's status word, 'Missed'); the three counts can differ.
   ///
   /// In en, this message translates to:
   /// **'Missed slots'**
   String get careHistoryMissedCountLabel;
 
-  /// Heatmap legend label for a day where every *due* scheduled slot was marked done, in the care history chart mode. A slot still pending (not yet due) doesn't count against this — a day with one dose taken and a later one not yet due still reads Complete, matching the adherence rate (which likewise excludes not-yet-due slots).
+  /// Heatmap legend label on the trend tab's care adherence card for a day where every *due* scheduled slot was marked done. A slot still pending (not yet due) doesn't count against this — a day with one dose taken and a later one not yet due still reads Complete, matching the adherence rate (which likewise excludes not-yet-due slots).
   ///
   /// In en, this message translates to:
   /// **'Complete'**
   String get careHistoryLegendFull;
 
-  /// Heatmap legend label for a day where some but not all scheduled slots were marked done, in the care history chart mode.
+  /// Heatmap legend label on the trend tab's care adherence card for a day where some but not all scheduled slots were marked done.
   ///
   /// In en, this message translates to:
   /// **'Partial'**
   String get careHistoryLegendPartial;
 
-  /// Heatmap legend label for a day that had scheduled slots but none were marked done (this includes a day where every slot was skipped), in the care history chart mode. Distinct from careTodayStatusMissed (a single slot's status word) and careHistoryMissedCountLabel (the headline's slot-level missed count) — the three counts can differ.
+  /// Heatmap legend label on the trend tab's care adherence card for a day that had scheduled slots but none were marked done (this includes a day where every slot was skipped). Distinct from careTodayStatusMissed (a single slot's status word) and careHistoryMissedCountLabel (the headline's slot-level missed count) — the three counts can differ.
   ///
   /// In en, this message translates to:
   /// **'Missed'**
   String get careHistoryLegendMissed;
 
-  /// Heatmap legend label for a day with nothing scheduled, in the care history chart mode.
+  /// Heatmap legend label on the trend tab's care adherence card for a day with nothing scheduled.
   ///
   /// In en, this message translates to:
   /// **'No schedule'**
@@ -2492,7 +2492,7 @@ abstract class AppLocalizations {
   /// **'Overdue'**
   String get careHistoryStatusOverdue;
 
-  /// Heatmap legend label for a day whose every scheduled slot is still pending — typically today, before anything has been logged. An overdue slot (past due with no record — genuinely late) does NOT count as not-yet-due, so a day with even one overdue slot reads careHistoryLegendMissed instead. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
+  /// Heatmap legend label on the trend tab's care adherence card for a day whose every scheduled slot is still pending — typically today, before anything has been logged. An overdue slot (past due with no record — genuinely late) does NOT count as not-yet-due, so a day with even one overdue slot reads careHistoryLegendMissed instead. Distinct from careHistoryLegendMissed: nothing has failed here, it just hasn't happened yet.
   ///
   /// In en, this message translates to:
   /// **'Not yet due'**
@@ -2539,6 +2539,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{label} ({count})'**
   String careAdherenceLegendWithCount(String label, int count);
+
+  /// Caption below the care adherence card's heatmap showing the loaded period's start and end date (both already medium-date-formatted per locale), so the calendar dates a row of unlabeled squares covers are readable without long-pressing every cell. Sourced from the loaded days' first/last entries — the card has no clock of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} – {to}'**
+  String careAdherenceHeatmapRangeCaption(String from, String to);
+
+  /// Screen-reader-only summary announced immediately before the care adherence card's heatmap grid (design D1) — a one-line per-state day count, built from the same label+count text as the legend, so a screen reader user hears the whole picture before deciding whether to traverse the individual day cells (each of which keeps its own label).
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence by day: {details}'**
+  String careAdherenceHeatmapSummaryLabel(String details);
+
+  /// Separator joining the per-state entries inside careAdherenceHeatmapSummaryLabel's {details}. Localized rather than hard-coded ASCII: Chinese uses the ideographic comma (、) and its counts are already wrapped in full-width parentheses, so an ASCII ', ' reads as a stray half-width mark mid-sentence.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get careAdherenceHeatmapSummarySeparator;
+
+  /// Accessibility label for the edit-record icon shown on a Done-group row (Today care checklist) or a slot tile (care history list) — a short action verb, distinct from careTodayEditSheetTitle/careHistoryEditSheetTitle (the sheet's own noun-phrase heading).
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get careEditActionLabel;
+
+  /// Error message shown by the care adherence card and the care history screen when a period load fails, naming the period (in days) that failed so the retained period selector reads as a way out rather than an unrelated control.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the last {days} days. Please try again.'**
+  String careErrorForPeriod(int days);
+
+  /// SnackBar message on the Today care checklist when a correction is dropped by the in-flight re-entrancy guard (another mark/edit was already running) — worded as 'not applied' rather than an error, since nothing actually failed; offered alongside a retry action.
+  ///
+  /// In en, this message translates to:
+  /// **'Not applied — nothing was changed. Please try again.'**
+  String get careHistoryEditNotAppliedMessage;
+
+  /// Title shown in the care history screen's empty state once the period is already the longest (90 days) and widening is no longer offered — distinct from careHistoryEmptyTitle ('No care records'), since at this point the likelier cause is having no care items configured at all, not merely an empty date range.
+  ///
+  /// In en, this message translates to:
+  /// **'No care items yet'**
+  String get careHistoryNoCareItemsTitle;
+
+  /// Body copy paired with careHistoryNoCareItemsTitle, prompting the user toward care management rather than describing an empty date range (distinct from careHistoryEmptyBody, 'Nothing was scheduled in this period.').
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t set up any care items yet. Add one to start tracking.'**
+  String get careHistoryNoCareItemsBody;
 }
 
 class _AppLocalizationsDelegate

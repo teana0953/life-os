@@ -501,6 +501,24 @@ CareTodaySlot _careSlot(CareTodayStatus status, {String localDate = '2026-07-22'
       doseQuantity: 1,
     );
 
+/// [slot] with only its [status] changed — every other field (identity
+/// included) carried over unchanged. Mirrors
+/// `care_history_screen_test.dart`'s `_withStatus`.
+CareTodaySlot _withStatus(CareTodaySlot slot, CareTodayStatus status) =>
+    CareTodaySlot(
+      careItemId: slot.careItemId,
+      careScheduleId: slot.careScheduleId,
+      category: slot.category,
+      title: slot.title,
+      note: slot.note,
+      dose: slot.dose,
+      timeOfDay: slot.timeOfDay,
+      localDate: slot.localDate,
+      status: status,
+      doneTime: slot.doneTime,
+      doseQuantity: slot.doseQuantity,
+    );
+
 /// A [CareHistoryRepository] whose records actually change when a slot is
 /// edited — unlike [_FakeCareHistoryRepository], which always returns an
 /// empty range — so an end-to-end test can assert that a correction made on
@@ -536,11 +554,11 @@ class _MutableCareHistoryRepository implements CareHistoryRepository {
               if (slot.careScheduleId == careScheduleId &&
                   slot.localDate == localDate &&
                   slot.timeOfDay == timeOfDay)
-                _careSlot(
+                _withStatus(
+                  slot,
                   status == CareLogStatus.done
                       ? CareTodayStatus.done
                       : CareTodayStatus.skipped,
-                  localDate: localDate,
                 )
               else
                 slot,

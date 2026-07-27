@@ -1,8 +1,5 @@
-# care-adherence-trend Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change move-care-chart-to-trends. Update Purpose after archive.
-## Requirements
 ### Requirement: A care adherence card on the health trends tab
 
 The health module's trends tab SHALL show a care adherence card alongside the vitals trend chart.
@@ -78,4 +75,3 @@ reads — no separate aggregate endpoint.
 #### Scenario: The card's period is independent of the history screen's
 - **WHEN** the user picks a period on the card and a different period on the care history screen
 - **THEN** each keeps its own period and records; changing one does not overwrite the other
-

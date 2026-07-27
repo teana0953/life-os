@@ -20,19 +20,35 @@ DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
 /// Parses a slot's `timeOfDay` ("HH:mm") into a [TimeOfDay] — used to seed
 /// the completion-time picker when a slot has no recorded `doneTime` yet.
+/// `null` for a malformed string (design D4) rather than throwing — the
+/// caller falls back to [_fallbackTimeOfDay], since this only ever affects a
+/// picker's *initial* value, never what gets submitted.
 /// A private copy, matching the same parsing already duplicated privately in
 /// `care_item_form.dart`/`vitals_screen.dart`/`trend_card.dart` (design §C —
 /// not worth a cross-file refactor for a single new use site).
-TimeOfDay _parseTimeOfDayString(String hhmm) {
+TimeOfDay? _tryParseTimeOfDayString(String hhmm) {
   final parts = hhmm.split(':');
-  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return TimeOfDay(hour: hour, minute: minute);
 }
+
+/// Used only when [_tryParseTimeOfDayString] fails (design D4) — a fixed
+/// picker seed, since there is no recorded time to fall back to either.
+const _fallbackTimeOfDay = TimeOfDay(hour: 9, minute: 0);
 
 /// Combines the *slot's own* local date (design §C — never "today", so a
 /// correction made either side of midnight lands on the right day) with
-/// [time], as the UTC instant to send as `done_time`.
-DateTime _doneInstantOn(String localDate, TimeOfDay time) {
-  final date = parseDayString(localDate);
+/// [time], as the UTC instant to send as `done_time` — `null` when
+/// [localDate] can't be parsed (design D4): there is no reasonable date to
+/// pin the instant to, and substituting one (e.g. "today") would file the
+/// record under the wrong day, which is worse than sending nothing at all
+/// (the backend treats an absent `done_time` as "leave this field alone").
+DateTime? _doneInstantOn(String localDate, TimeOfDay time) {
+  final date = tryParseDayString(localDate);
+  if (date == null) return null;
   return DateTime(
     date.year,
     date.month,
@@ -49,30 +65,43 @@ DateTime _doneInstantOn(String localDate, TimeOfDay time) {
 /// the main back-fill entry point (design §D). Leaving it unset while the row
 /// still displayed `slot.timeOfDay` meant submitting `done_time: null`, which
 /// the backend reads as "leave this field alone": the time the user was shown
-/// was never written. What is displayed is now what is sent.
-DateTime _initialDoneTime(CareTodaySlot slot) {
+/// was never written. What is displayed is now what is sent. `null` when the
+/// slot's `localDate` can't be parsed (design D4) — the sheet then disables
+/// its completion-time row rather than guessing a date.
+///
+/// The `localDate` check comes *first*, before the recorded `doneTime`: a
+/// disabled row seeded with a recorded value would still display a concrete
+/// time and still submit it, pinned to a date this function has just
+/// admitted it cannot determine. D4 is explicit — show no time, send none.
+DateTime? _initialDoneTime(CareTodaySlot slot) {
+  if (tryParseDayString(slot.localDate) == null) return null;
   final recorded = slot.doneTime == null ? null : parseInstant(slot.doneTime!);
-  return recorded ??
-      _doneInstantOn(slot.localDate, _parseTimeOfDayString(slot.timeOfDay));
+  if (recorded != null) return recorded;
+  final time = _tryParseTimeOfDayString(slot.timeOfDay) ?? _fallbackTimeOfDay;
+  return _doneInstantOn(slot.localDate, time);
 }
 
 /// Picks a new completion time for [slot], returning the UTC [DateTime] to
-/// send (or `null` if the user cancels) — the default
-/// [CareTodayScreen.pickDoneTime]. The picker is seeded from [current] (the
-/// instant the sheet currently holds, converted via [toLocalTime]) rather
-/// than from the slot, so re-opening it after a pick starts from what the
-/// user just chose instead of snapping back to the stored value; the picked
-/// time is combined with the slot's own local date via [_doneInstantOn].
-/// Overridden in tests to bypass the real time picker entirely.
+/// send (or `null` if the user cancels, or if [slot]'s `localDate` can't be
+/// parsed — design D4) — the default [CareTodayScreen.pickDoneTime]. The
+/// picker is seeded from [current] (the instant the sheet currently holds,
+/// converted via [toLocalTime]) rather than from the slot, so re-opening it
+/// after a pick starts from what the user just chose instead of snapping
+/// back to the stored value; `null` (no recorded/derivable time yet) falls
+/// back to [_fallbackTimeOfDay]. The picked time is combined with the slot's
+/// own local date via [_doneInstantOn]. Overridden in tests to bypass the
+/// real time picker entirely.
 Future<DateTime?> _defaultPickDoneTime(
   BuildContext context,
   CareTodaySlot slot,
-  DateTime current,
+  DateTime? current,
   DateTime Function(DateTime) toLocalTime,
 ) async {
   final picked = await showTimePicker(
     context: context,
-    initialTime: TimeOfDay.fromDateTime(toLocalTime(current)),
+    initialTime: current == null
+        ? _fallbackTimeOfDay
+        : TimeOfDay.fromDateTime(toLocalTime(current)),
     // Always 24h, regardless of locale — mirrors `care_item_form.dart`, and
     // required here because both the row and the sheet render the time with
     // `DateFormat('HH:mm')`: a 12-hour picker would have an English-locale
@@ -164,14 +193,15 @@ class CareTodayScreen extends StatefulWidget {
   final DateTime Function(DateTime) toLocalTime;
 
   /// Picks a new completion time for a Done-group slot, seeded from the
-  /// instant the sheet currently holds, and returning the UTC [DateTime] to
-  /// send (or `null` if the user cancels). Defaults to a real
+  /// instant the sheet currently holds (`null` when it couldn't derive one —
+  /// design D4, e.g. a malformed `localDate`), and returning the UTC
+  /// [DateTime] to send (or `null` if the user cancels). Defaults to a real
   /// [showTimePicker] combined with [toLocalTime]; tests inject a fake that
   /// returns a fixed time directly, bypassing the real picker UI.
   final Future<DateTime?> Function(
     BuildContext context,
     CareTodaySlot slot,
-    DateTime current,
+    DateTime? current,
     DateTime Function(DateTime) toLocalTime,
   )
   pickDoneTime;
@@ -267,6 +297,11 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
       // natural height, which clipped the submit button clean off the bottom.
       isScrollControlled: true,
       useSafeArea: true,
+      // A reachable dismiss affordance beyond the scrim/system-back gesture
+      // — neither is discoverable by a screen-reader or keyboard user
+      // scanning the sheet's own content (mirrors exercise_screen.dart /
+      // goal_card.dart).
+      showDragHandle: true,
       builder: (sheetContext) => _EditSheet(
         slot: slot,
         toLocalTime: widget.toLocalTime,
@@ -275,11 +310,32 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
     );
     if (!mounted) return;
     if (result == null) return;
+    await _submitEdit(slot, result.status, result.doneTime);
+  }
+
+  /// Submits ([status], [doneTime]) for [slot] — factored out of
+  /// [_openEditSheet] so a failed or gate-dropped attempt's retry action can
+  /// resend the *exact* choice the user already made (design §B / task 4.5)
+  /// without reopening the sheet and making them pick again.
+  Future<void> _submitEdit(
+    CareTodaySlot slot,
+    CareLogStatus status,
+    DateTime? doneTime,
+  ) async {
     if (widget.controller.marking) {
-      // Dropped right here, consistent with the guard above, rather than
-      // silently swallowed by the controller's own re-entrancy guard — but
-      // still not silent to the user (design §B point 3).
-      _showEditOutcomeMessage(CareTodayEditOutcome.skipped);
+      // Dropped right here, consistent with the guard in [_openEditSheet],
+      // rather than silently swallowed by the controller's own re-entrancy
+      // guard — but still not silent to the user (design §B point 3).
+      //
+      // The `mounted` check matters on the retry path specifically: this
+      // SnackBar resolves its messenger from the root, so it outlives the
+      // pushed route. A retry tapped after the user has navigated away would
+      // otherwise do an inherited lookup on a deactivated element.
+      if (!mounted) return;
+      _showEditOutcomeMessage(
+        CareTodayEditOutcome.skipped,
+        retry: () => _submitEdit(slot, status, doneTime),
+      );
       return;
     }
     final outcome = await widget.controller.edit(
@@ -287,20 +343,28 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
       careScheduleId: slot.careScheduleId,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
-      status: result.status,
-      doneTime: result.doneTime,
+      status: status,
+      doneTime: doneTime,
     );
     if (!mounted) return;
-    _showEditOutcomeMessage(outcome);
+    _showEditOutcomeMessage(
+      outcome,
+      retry: () => _submitEdit(slot, status, doneTime),
+    );
   }
 
-  void _showEditOutcomeMessage(CareTodayEditOutcome outcome) {
+  void _showEditOutcomeMessage(
+    CareTodayEditOutcome outcome, {
+    required VoidCallback retry,
+  }) {
     final loc = AppLocalizations.of(context)!;
     final message = switch (outcome) {
-      // The PUT never landed, or was dropped before it was attempted —
-      // either way nothing was written, so "try again" is the truth.
-      CareTodayEditOutcome.failed ||
-      CareTodayEditOutcome.skipped => loc.careErrorGeneric,
+      // The PUT itself failed — nothing was written.
+      CareTodayEditOutcome.failed => loc.careErrorGeneric,
+      // Dropped by the re-entrancy guard before anything was attempted —
+      // distinct wording from a real failure, since nothing actually went
+      // wrong (task 4.5/4.6).
+      CareTodayEditOutcome.skipped => loc.careHistoryEditNotAppliedMessage,
       // Saved; only the list is stale. Reusing `/care-history`'s existing
       // copy rather than adding a duplicate string.
       CareTodayEditOutcome.refreshFailed =>
@@ -310,7 +374,21 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
       CareTodayEditOutcome.reauth || CareTodayEditOutcome.saved => null,
     };
     if (message == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    // Only the two outcomes where nothing was actually written are worth
+    // retrying with the same (status, doneTime) — a `refreshFailed` edit
+    // already succeeded server-side, so "retry" there would mean something
+    // different (re-fetching), not resubmitting.
+    final offerRetry =
+        outcome == CareTodayEditOutcome.failed ||
+        outcome == CareTodayEditOutcome.skipped;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: offerRetry
+            ? SnackBarAction(label: loc.retry, onPressed: retry)
+            : null,
+      ),
+    );
   }
 
   @override
@@ -371,7 +449,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
                   padding: const EdgeInsets.all(20),
                   children: [
                     Text(
-                      mediumDateLabel(context, parseDayString(controller.date)),
+                      mediumDateLabelOrDash(context, controller.date),
                       key: const Key('care-today-date'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
@@ -867,6 +945,7 @@ class _DoneGroupState extends State<_DoneGroup> {
                         : Icon(
                             Icons.edit_outlined,
                             size: 20,
+                            semanticLabel: loc.careEditActionLabel,
                             // An explicit colour overrides the disabled
                             // IconTheme `enabled: false` installs, so the
                             // affordance has to be greyed here too —
@@ -953,7 +1032,7 @@ class _EditSheet extends StatefulWidget {
   final Future<DateTime?> Function(
     BuildContext context,
     CareTodaySlot slot,
-    DateTime current,
+    DateTime? current,
     DateTime Function(DateTime) toLocalTime,
   )
   pickDoneTime;
@@ -972,9 +1051,18 @@ class _EditSheetState extends State<_EditSheet> {
   late CareLogStatus _status = widget.slot.status == CareTodayStatus.skipped
       ? CareLogStatus.skipped
       : CareLogStatus.done;
-  late DateTime _doneTime = _initialDoneTime(widget.slot);
+
+  /// `null` only when [widget.slot]'s `localDate` can't be parsed (design
+  /// D4) — there is no reasonable date to pin a completion time to. The
+  /// completion-time row disables itself and shows "—" in that case, and
+  /// submitting sends no `doneTime` at all rather than guessing one.
+  late DateTime? _doneTime = _initialDoneTime(widget.slot);
+
+  /// Whether [widget.slot]'s own `localDate` parses — see [_doneTime].
+  bool get _dateKnown => tryParseDayString(widget.slot.localDate) != null;
 
   Future<void> _pickTime() async {
+    if (!_dateKnown) return;
     final picked = await widget.pickDoneTime(
       context,
       widget.slot,
@@ -1003,8 +1091,11 @@ class _EditSheetState extends State<_EditSheet> {
     final theme = Theme.of(context);
     final slot = widget.slot;
     final skipped = _status == CareLogStatus.skipped;
-    final dateLabel = mediumDateLabel(context, parseDayString(slot.localDate));
-    final timeLabel = DateFormat('HH:mm').format(widget.toLocalTime(_doneTime));
+    final dateLabel = mediumDateLabelOrDash(context, slot.localDate);
+    final doneTime = _doneTime;
+    final timeLabel = doneTime == null
+        ? '—'
+        : DateFormat('HH:mm').format(widget.toLocalTime(doneTime));
 
     return Padding(
       // Lift the sheet above the on-screen keyboard — the project's
@@ -1066,11 +1157,11 @@ class _EditSheetState extends State<_EditSheet> {
           ),
           ListTile(
             key: const Key('care-today-edit-time'),
-            enabled: !skipped,
+            enabled: !skipped && _dateKnown,
             leading: const Icon(Icons.schedule),
             title: Text(loc.careTodayEditTimeLabel),
             subtitle: Text(timeLabel),
-            onTap: skipped ? null : _pickTime,
+            onTap: skipped || !_dateKnown ? null : _pickTime,
           ),
           Padding(
             padding: const EdgeInsets.all(16),

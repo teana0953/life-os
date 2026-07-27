@@ -453,6 +453,7 @@ Widget _buildScaffold({
   AuthRepository? authRepository,
   DataRevision? dataRevision,
   VoidCallback? onOpenCareHistory,
+  VoidCallback? onOpenCareItems,
 }) {
   final bodyProfileRepository = _FakeBodyProfileRepository();
   final weightGoalController = WeightGoalController(
@@ -562,7 +563,7 @@ Widget _buildScaffold({
     onOpenSettings: () {},
     onOpenImport: () {},
     onOpenReminders: () {},
-    onOpenCareItems: () {},
+    onOpenCareItems: onOpenCareItems ?? () {},
     onOpenCareToday: () {},
     onOpenCareHistory: onOpenCareHistory ?? () {},
     dataRevision: resolvedDataRevision,
@@ -674,6 +675,43 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(opened, 1);
+      },
+    );
+
+    // The card-level test proves the empty state uses a callback distinct
+    // from onOpenHistory; only this one proves the scaffold feeds it the
+    // RIGHT one. Wiring it to onOpenCareHistory would send a user with no
+    // care items to an empty record list — the dead end the scenario exists
+    // to prevent — and every card-level test would still pass.
+    testWidgets(
+      "the empty card's manage entry goes to care management, not to the "
+      'record list',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        var manage = 0;
+        var history = 0;
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              onOpenCareItems: () => manage++,
+              onOpenCareHistory: () => history++,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('care-adherence-empty-manage-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(manage, 1);
+        expect(history, 0);
       },
     );
   });
@@ -807,7 +845,12 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
         final careHistoryRepository = _FakeCareHistoryRepository(
-          days: const [CareHistoryDay(date: '2026-07-24', slots: [])],
+          days: [
+            CareHistoryDay(
+              date: '2026-07-24',
+              slots: [_slot(status: CareTodayStatus.done)],
+            ),
+          ],
         )..errorAfterFirstLoad = const CareReauthRequired();
 
         await tester.pumpWidget(
@@ -820,12 +863,13 @@ void main() {
         await tester.tap(find.byIcon(Icons.show_chart));
         await tester.pumpAndSettle();
 
-        // The initial load succeeded: the card rendered its range selector,
-        // and the re-authenticate exit hasn't appeared yet.
+        // The initial load succeeded: the card rendered its heatmap (not
+        // just the header), and the re-authenticate exit hasn't appeared yet.
         expect(
           find.byKey(const Key('care-adherence-range-selector')),
           findsOneWidget,
         );
+        expect(find.byKey(const Key('care-adherence-heatmap')), findsOneWidget);
         expect(
           find.byKey(const Key('health-sign-in-again-button')),
           findsNothing,

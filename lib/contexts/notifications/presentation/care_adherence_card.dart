@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -67,6 +69,26 @@ Color _dayStateColor(ColorScheme scheme, CareDayState state) {
   };
 }
 
+/// The screen-reader summary sentence announced immediately before the
+/// heatmap grid (design D1): every state that actually occurs in the loaded
+/// period, with its day count, joined by the locale's own list separator.
+///
+/// States with a count of zero are dropped — "Partial (0), Missed (0)" is
+/// pure noise in a linear announcement, and the sighted legend still shows
+/// them. The separator comes from the ARB rather than a hard-coded `', '`
+/// because `careAdherenceLegendWithCount` already wraps Chinese counts in
+/// full-width parentheses, which an ASCII comma clashes with.
+String _heatmapSummaryDetails(
+  AppLocalizations loc,
+  Map<CareDayState, int> counts,
+) => CareDayState.values
+    .where((state) => counts[state]! > 0)
+    .map(
+      (state) =>
+          loc.careAdherenceLegendWithCount(_dayStateLabel(loc, state), counts[state]!),
+    )
+    .join(loc.careAdherenceHeatmapSummarySeparator);
+
 /// The legend/tooltip/Semantics word for [state] — shared between the
 /// heatmap cells (date + state text) and the legend (label + count).
 String _dayStateLabel(AppLocalizations loc, CareDayState state) => switch (state) {
@@ -102,11 +124,18 @@ class CareAdherenceCard extends StatefulWidget {
   /// runs through the More tab and care management.
   final VoidCallback onOpenHistory;
 
+  /// Opens care management (`/care-items`), wired by the caller — offered
+  /// from the empty state (task 4.3) for a user with no care items at all,
+  /// distinct from [onOpenHistory] (which opens the record list, the wrong
+  /// destination when there is nothing to correct in the first place).
+  final VoidCallback onOpenCareItems;
+
   const CareAdherenceCard({
     super.key,
     required this.controller,
     required this.idToken,
     required this.onOpenHistory,
+    required this.onOpenCareItems,
   });
 
   @override
@@ -204,7 +233,7 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                loc.careErrorGeneric,
+                loc.careErrorForPeriod(controller.spanDays),
                 key: const Key('care-adherence-card-error'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: theme.colorScheme.error),
@@ -245,52 +274,11 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
           ],
           const SizedBox(height: 16),
           if (empty)
-            const _EmptyState()
+            _EmptyState(onOpenCareItems: widget.onOpenCareItems)
           else ...[
             _HeadlineRow(summary: summary),
             const SizedBox(height: 16),
-            GridView.builder(
-              key: const Key('care-adherence-heatmap'),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 26,
-                mainAxisSpacing: 3,
-                crossAxisSpacing: 3,
-              ),
-              itemCount: sortedDays.length,
-              itemBuilder: (context, index) {
-                final day = sortedDays[index];
-                final state = careDayState(day);
-                final scheme = Theme.of(context).colorScheme;
-                final cellLabel = loc.careAdherenceHeatmapCellLabel(
-                  mediumDateLabel(context, parseDayString(day.date)),
-                  _dayStateLabel(loc, state),
-                );
-                return Tooltip(
-                  message: cellLabel,
-                  child: Semantics(
-                    label: cellLabel,
-                    child: AspectRatio(
-                      key: Key('care-adherence-cell-${day.date}'),
-                      aspectRatio: 1,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: _dayStateColor(scheme, state),
-                          borderRadius: BorderRadius.circular(4),
-                          // A subtle border so a no-schedule/upcoming cell
-                          // (whose fill matches the scaffold background)
-                          // still reads as an empty *cell*, not a gap.
-                          border: Border.all(
-                            color: scheme.outline.withValues(alpha: 0.3),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
+            _Heatmap(sortedDays: sortedDays, counts: counts),
             const SizedBox(height: 16),
             _Legend(counts: counts),
           ],
@@ -300,8 +288,202 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
   }
 }
 
+/// The heatmap grid itself: 7 fixed columns (design D3 — so a given column
+/// is always the same weekday), each cell capped at 24dp with the grid
+/// left-aligned rather than stretched once the available width exceeds that
+/// (design D2 — a `GridView`'s cross axis otherwise always spans the full
+/// incoming width regardless of `shrinkWrap`). A weekday header sits above
+/// the grid and a start–end date caption below it; both are derived from
+/// [sortedDays.first]/[sortedDays.last] since this card has no clock of its
+/// own (design D3 — relies on the backend's `days` array being dense).
+///
+/// The weekday header row doubles as the carrier for the screen-reader
+/// summary (design D1). It is *not* a standalone `Semantics` wrapping a
+/// `SizedBox.shrink()`: a node whose rect is empty is invisible
+/// (`SemanticsNode.isInvisible`) and gets dropped from its parent's children
+/// before the tree is sent to the platform, so such a summary would never be
+/// announced at all — while `tester.getSemantics`/`find.bySemanticsLabel`,
+/// which read the render object's *cached* `debugSemantics`, would keep
+/// passing. Hanging it on the header row gives it real geometry, and
+/// excluding the header's own seven one-letter abbreviations from semantics
+/// removes context-free noise (each cell's label already carries its full
+/// date) in the same stroke.
+class _Heatmap extends StatelessWidget {
+  final List<CareHistoryDay> sortedDays;
+
+  /// Day counts per state, for the screen-reader summary above the grid.
+  final Map<CareDayState, int> counts;
+
+  const _Heatmap({required this.sortedDays, required this.counts});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    // `null` for a malformed date (design D4) — the weekday header/caption
+    // fall back to "—" for that day rather than crashing the entire grid;
+    // unlike the other five D4 call sites, this one sits inside a
+    // `GridView.builder` loop, so an uncaught parse failure here would take
+    // down the whole heatmap, not just one cell.
+    final firstDate = tryParseDayString(sortedDays.first.date);
+    // The period always ends today (design D3), so the last day in the
+    // dense, date-sorted array is today.
+    final todayDate = sortedDays.last.date;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 3.0;
+        final cellSize = math.min(24.0, (constraints.maxWidth - spacing * 6) / 7);
+        final rowWidth = cellSize * 7 + spacing * 6;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: rowWidth,
+                child: Semantics(
+                  key: const Key('care-adherence-heatmap-summary'),
+                  container: true,
+                  label: loc.careAdherenceHeatmapSummaryLabel(
+                    _heatmapSummaryDetails(loc, counts),
+                  ),
+                  child: ExcludeSemantics(
+                    child: Row(
+                      key: const Key('care-adherence-heatmap-weekday-header'),
+                      children: [
+                        for (var i = 0; i < 7; i++) ...[
+                          if (i > 0) const SizedBox(width: spacing),
+                          SizedBox(
+                            width: cellSize,
+                            child: Text(
+                              firstDate == null
+                                  ? '—'
+                                  : narrowWeekdayLabel(
+                                      context,
+                                      // Calendar-day arithmetic, not
+                                      // `add(Duration(days: i))`: `firstDate`
+                                      // is a *local* midnight, and adding 24h
+                                      // across a DST fall-back lands on the
+                                      // same calendar day — repeating one
+                                      // weekday and shifting every column
+                                      // after it by a day.
+                                      DateTime(
+                                        firstDate.year,
+                                        firstDate.month,
+                                        firstDate.day + i,
+                                      ),
+                                    ),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: rowWidth,
+                child: GridView.builder(
+                  key: const Key('care-adherence-heatmap'),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: spacing,
+                    crossAxisSpacing: spacing,
+                  ),
+                  itemCount: sortedDays.length,
+                  itemBuilder: (context, index) {
+                    final day = sortedDays[index];
+                    final state = careDayState(day);
+                    final isToday = day.date == todayDate;
+                    final cellLabel = loc.careAdherenceHeatmapCellLabel(
+                      mediumDateLabelOrDash(context, day.date),
+                      _dayStateLabel(loc, state),
+                    );
+                    return Tooltip(
+                      message: cellLabel,
+                      // Without this, Tooltip's own semantics annotation
+                      // merges its `message` into this cell's Semantics node
+                      // as `SemanticsProperties.tooltip` — the same node
+                      // already carrying `label` below — so a screen reader
+                      // announces the cell twice (design D1). The Tooltip
+                      // itself (hover/long-press) still works; only its
+                      // semantics contribution is dropped.
+                      excludeFromSemantics: true,
+                      child: Semantics(
+                        label: cellLabel,
+                        child: AspectRatio(
+                          key: Key('care-adherence-cell-${day.date}'),
+                          aspectRatio: 1,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: _dayStateColor(scheme, state),
+                              borderRadius: BorderRadius.circular(4),
+                              // A subtle border so a no-schedule/upcoming
+                              // cell (whose fill matches the scaffold
+                              // background) still reads as an empty *cell*,
+                              // not a gap. Today's cell gets a thicker
+                              // border instead — distinct from every other
+                              // cell's, not just by color.
+                              //
+                              // `onSurface`, not `primary`: the dark theme's
+                              // `full` fill *is* `scheme.primary`, so a
+                              // primary outline around a completed today
+                              // (the commonest evening state) sat at 1.000
+                              // contrast against its own fill — invisible.
+                              // `onSurface` is not the source of any of the
+                              // five state fills in either theme.
+                              border: isToday
+                                  ? Border.all(color: scheme.onSurface, width: 2)
+                                  : Border.all(
+                                      color: scheme.outline.withValues(alpha: 0.3),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.careAdherenceHeatmapRangeCaption(
+                firstDate == null ? '—' : mediumDateLabel(context, firstDate),
+                mediumDateLabelOrDash(context, todayDate),
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  /// Opens care management (`/care-items`) — task 4.3: the card has no
+  /// other callback pointed at it (only [CareAdherenceCard.onOpenHistory],
+  /// which opens the record list — the wrong destination when there is
+  /// nothing to correct in the first place).
+  final VoidCallback onOpenCareItems;
+
+  const _EmptyState({required this.onOpenCareItems});
 
   @override
   Widget build(BuildContext context) {
@@ -317,14 +499,26 @@ class _EmptyState extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
         const SizedBox(height: 12),
-        Text(loc.careHistoryEmptyTitle, style: theme.textTheme.titleMedium),
+        // The "no care items yet" wording, not "nothing was scheduled in
+        // this period": the only action offered here is "go to care
+        // management", and a period-scoped complaint followed by a
+        // configure-your-items button is the very mismatch the care history
+        // screen's own empty state already fixed. This card has its own
+        // period picker, so widening isn't the story here either.
+        Text(loc.careHistoryNoCareItemsTitle, style: theme.textTheme.titleMedium),
         const SizedBox(height: 4),
         Text(
-          loc.careHistoryEmptyBody,
+          loc.careHistoryNoCareItemsBody,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          key: const Key('care-adherence-empty-manage-button'),
+          onPressed: onOpenCareItems,
+          child: Text(loc.careHistoryEmptyManageButton),
         ),
       ],
     );
@@ -399,6 +593,12 @@ class _HeadlineMetric extends StatelessWidget {
 /// state name *and* its day count within the currently loaded period (e.g.
 /// "Complete (12)") — so a sighted touch user can read each state's size
 /// without long-pressing individual heatmap cells (design §B accessibility).
+///
+/// Excluded from semantics: it is a *visual* key (a color swatch mapped to a
+/// word), and its text is word-for-word the same label+count set the heatmap
+/// summary above the grid already announces — leaving both in made a screen
+/// reader read every state twice. The summary is kept because it is the one
+/// that comes first and carries the states that actually occurred.
 class _Legend extends StatelessWidget {
   final Map<CareDayState, int> counts;
 
@@ -407,20 +607,22 @@ class _Legend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    return Wrap(
-      key: const Key('care-adherence-legend'),
-      spacing: 16,
-      runSpacing: 4,
-      children: [
-        for (final state in CareDayState.values)
-          _LegendDot(
-            state: state,
-            label: loc.careAdherenceLegendWithCount(
-              _dayStateLabel(loc, state),
-              counts[state]!,
+    return ExcludeSemantics(
+      child: Wrap(
+        key: const Key('care-adherence-legend'),
+        spacing: 16,
+        runSpacing: 4,
+        children: [
+          for (final state in CareDayState.values)
+            _LegendDot(
+              state: state,
+              label: loc.careAdherenceLegendWithCount(
+                _dayStateLabel(loc, state),
+                counts[state]!,
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
