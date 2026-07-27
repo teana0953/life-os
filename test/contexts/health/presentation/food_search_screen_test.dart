@@ -677,6 +677,45 @@ void main() {
       expect(find.text('飯/1碗'), findsNWidgets(2));
     });
 
+    testWidgets(
+      'retrying after a failed save and then dismissing the meal choice still '
+      'saves nothing',
+      (tester) async {
+        // The first round already bound a meal to the shared controller, so
+        // from here on the controller's own "no meal bound" guard no longer
+        // catches a dismissal — only the screen's does. Without it the retry
+        // would silently save to the meal chosen in the first round.
+        final mealRepository = FakeMealRepository()
+          ..errorToThrow = const DietFetchFailure('boom');
+        await _pumpScreen(tester, meal: null, mealRepository: mealRepository);
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.text('飯/1碗'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+        // The save failed: the tray is kept and 'dinner' is now bound.
+        expect(find.byKey(const Key('food-search-error-message')), findsOneWidget);
+        expect(mealRepository.receivedMeal, isNull);
+
+        // The backend recovers, the user retries — then changes their mind.
+        mealRepository.errorToThrow = null;
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+        expect(find.text(loc.dietChooseMealSheetTitle), findsOneWidget);
+        await tester.tap(find.byType(ModalBarrier).last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.receivedMeal, isNull);
+        expect(mealRepository.receivedItems, isNull);
+        // Still on the page with the tray intact — nothing was saved or popped.
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
+        expect(find.byKey(const Key('food-search-tray')), findsOneWidget);
+      },
+    );
+
     testWidgets('opened for a target meal, completing does not ask which meal', (
       tester,
     ) async {

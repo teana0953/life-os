@@ -68,6 +68,7 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
+import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/hydration/application/add_water.dart';
 import 'package:life_os/contexts/hydration/application/get_water_day.dart';
@@ -119,12 +120,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/l10n_test_app.dart';
 
+FoodItem _riceItem() => FoodItem.fromJson({
+  'id': 'rice-1',
+  'owner_user_id': null,
+  'name': '飯/1碗',
+  'carb_g': 60, 'protein_g': 4, 'fat_g': 0.5, 'sugar_g': 0, 'fiber_g': 1, 'kcal': 280,
+  'staple': 4, 'meat': 0, 'fruit': 0, 'veg': 0,
+  'base_amount': null, 'measure_unit': null,
+});
+
 class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
-  @override
-  Future<List<FoodItem>> search(String idToken, String query) async => [];
+  /// Foods reported as favorites (so they show as the food search's default,
+  /// no-query results) and as any search's hits. Empty unless a test needs a
+  /// food to pick.
+  final List<FoodItem> foods;
+
+  _FakeFoodDictionaryRepository({this.foods = const []});
 
   @override
-  Future<List<FoodItem>> listFavorites(String idToken) async => [];
+  Future<List<FoodItem>> search(String idToken, String query) async => foods;
+
+  @override
+  Future<List<FoodItem>> listFavorites(String idToken) async => foods;
 
   @override
   Future<void> favorite(String idToken, String foodItemId) async {}
@@ -134,11 +151,28 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 }
 
 class _FakeMealRepository implements MealRepository {
+  /// Meal group names to report per day, so a test can set up a day that
+  /// already has meals.
+  final Map<String, List<String>> mealNamesByDay;
+
+  _FakeMealRepository({this.mealNamesByDay = const {}});
+
+  String? createdDay;
+  String? createdMeal;
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     return DayMealsLog.fromJson({
       'day': day,
-      'meals': <dynamic>[],
+      'meals': [
+        for (final name in mealNamesByDay[day] ?? const <String>[])
+          {
+            'id': 'meal-$name',
+            'meal': name,
+            'time': '2026-07-14T12:00:00.000Z',
+            'items': const <dynamic>[],
+          },
+      ],
       'totals': {
         'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
         'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
@@ -154,7 +188,14 @@ class _FakeMealRepository implements MealRepository {
     DateTime? time,
     required List<CreateMealItem> items,
   }) async {
-    throw UnimplementedError();
+    createdDay = day;
+    createdMeal = meal;
+    return MealEntry.fromJson({
+      'id': 'meal-1',
+      'meal': meal,
+      'time': '2026-07-14T12:00:00.000Z',
+      'items': <dynamic>[],
+    });
   }
 
   @override
@@ -583,10 +624,13 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   WeightGoalController weightGoal,
   TrendController trend,
   HealthCalendarController healthCalendar,
-}) testHealthControllers() {
-  final mealRepository = _FakeMealRepository();
+}) testHealthControllers({
+  MealRepository? mealRepository,
+  FoodDictionaryRepository? foodDictionaryRepository,
+}) {
+  mealRepository ??= _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
-  final foodDictionaryRepository = _FakeFoodDictionaryRepository();
+  foodDictionaryRepository ??= _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
   final vitalsRepository = _FakeVitalsRepository();
@@ -782,6 +826,12 @@ Future<LocaleController> pumpApp(
   /// revision.
   DataRevision? dataRevision,
   PendingDeepLinkStore? pendingDeepLinkStore,
+
+  /// Back the health controllers with these fakes instead of the inert
+  /// defaults — for tests that need the diet module to actually have a food
+  /// to pick, or to observe what a meal save sent.
+  MealRepository? mealRepository,
+  FoodDictionaryRepository? foodDictionaryRepository,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -789,7 +839,10 @@ Future<LocaleController> pumpApp(
       themeController ?? await testThemeController();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
-  final health = testHealthControllers();
+  final health = testHealthControllers(
+    mealRepository: mealRepository,
+    foodDictionaryRepository: foodDictionaryRepository,
+  );
   final resolvedDataRevision = dataRevision ?? DataRevision();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
@@ -1067,6 +1120,84 @@ void main() {
 
         expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
         expect(find.byKey(const Key('food-search-field')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the diet day\'s dictionary entry opens the real dictionary route as a '
+      'lookup for the day being browsed',
+      (tester) async {
+        // Drives the REAL router from lib/app.dart end to end, so a builder
+        // that ignored `extra` — a target meal instead of none, today instead
+        // of the browsed day, or no meal names — is caught here. A test-local
+        // router only proves what the push carried, not what the route did
+        // with it.
+        final yesterday = dayString(
+          DateUtils.addDaysToDate(DateTime.now(), -1),
+        );
+        final mealRepository = _FakeMealRepository(
+          mealNamesByDay: {
+            yesterday: const ['breakfast', 'Snack'],
+          },
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.edit_note));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('hub-tile-diet')));
+        await tester.pumpAndSettle();
+
+        // Browse yesterday BEFORE opening the dictionary — recording against
+        // today would pass even for a route that hard-codes the current day.
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('diet-open-dictionary')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        // Opened as the dictionary (no target meal): its own title, and with
+        // an empty tray no recording controls at all.
+        expect(find.text(loc.dietDictionaryTitle), findsOneWidget);
+        expect(find.byKey(const Key('food-search-done-button')), findsNothing);
+        expect(find.byKey(const Key('manual-entry-link')), findsNothing);
+
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        // The snack option continues the browsed day's own series (it already
+        // has "Snack"), so the day's meal names came across too.
+        expect(
+          find.text(
+            nextSnackName(const ['breakfast', 'Snack'], loc.dietSnackBaseName),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.createdMeal, 'dinner');
+        expect(mealRepository.createdDay, yesterday);
       },
     );
 
