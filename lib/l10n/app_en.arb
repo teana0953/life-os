@@ -1183,7 +1183,7 @@
   "importSubmitButton": "Start import",
   "importDoneMessage": "Import complete.",
   "@importDoneMessage": {
-    "description": "Shown after all four chaodays data types finished importing."
+    "description": "Shown after the selected chaodays data types finished importing."
   },
   "@importSubmitButton": {
     "description": "Button that starts the chaodays import."
@@ -1191,6 +1191,10 @@
   "importCredentialsNote": "Your chaodays credentials are used only for this import and are never stored.",
   "@importCredentialsNote": {
     "description": "Reassurance note shown on the import screen explaining the credentials aren't stored."
+  },
+  "importTypesTitle": "What to import",
+  "@importTypesTitle": {
+    "description": "Heading above the list of chaodays data types the user can select for import."
   },
   "importTypeWeight": "Weight & body fat",
   "@importTypeWeight": {
@@ -1245,6 +1249,22 @@
   "importTypeFailed": "Failed",
   "@importTypeFailed": {
     "description": "Shown on a per-type row when that type's import failed."
+  },
+  "importStatusImporting": "Importing",
+  "@importStatusImporting": {
+    "description": "Screen-reader description of the status indicator on an import row that is currently running."
+  },
+  "importStatusSuccess": "Imported successfully",
+  "@importStatusSuccess": {
+    "description": "Screen-reader description of the status indicator on an import row that succeeded."
+  },
+  "importStatusFailed": "Import failed",
+  "@importStatusFailed": {
+    "description": "Screen-reader description of the status indicator on an import row that failed."
+  },
+  "importStatusNotAttempted": "Not attempted",
+  "@importStatusNotAttempted": {
+    "description": "Screen-reader description of the status indicator on an import row the last run did not reach."
   },
   "importErrorAuthFailed": "Wrong chaodays account or password. Please correct and try again.",
   "@importErrorAuthFailed": {

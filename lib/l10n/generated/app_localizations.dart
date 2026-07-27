@@ -1742,7 +1742,7 @@ abstract class AppLocalizations {
   /// **'Start import'**
   String get importSubmitButton;
 
-  /// Shown after all four chaodays data types finished importing.
+  /// Shown after the selected chaodays data types finished importing.
   ///
   /// In en, this message translates to:
   /// **'Import complete.'**
@@ -1753,6 +1753,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your chaodays credentials are used only for this import and are never stored.'**
   String get importCredentialsNote;
+
+  /// Heading above the list of chaodays data types the user can select for import.
+  ///
+  /// In en, this message translates to:
+  /// **'What to import'**
+  String get importTypesTitle;
 
   /// Label for the weight/body-fat row in the chaodays import results.
   ///
@@ -1807,6 +1813,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed'**
   String get importTypeFailed;
+
+  /// Screen-reader description of the status indicator on an import row that is currently running.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing'**
+  String get importStatusImporting;
+
+  /// Screen-reader description of the status indicator on an import row that succeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported successfully'**
+  String get importStatusSuccess;
+
+  /// Screen-reader description of the status indicator on an import row that failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed'**
+  String get importStatusFailed;
+
+  /// Screen-reader description of the status indicator on an import row the last run did not reach.
+  ///
+  /// In en, this message translates to:
+  /// **'Not attempted'**
+  String get importStatusNotAttempted;
 
   /// Error banner shown when chaodays rejects the provided credentials.
   ///

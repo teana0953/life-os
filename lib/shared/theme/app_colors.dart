@@ -43,6 +43,15 @@ const softError = Color(0xFFE98A94);
 // pastel meant for borders/fills, not foreground text (~2.2-2.4:1 there).
 const errorTextLight = Color(0xFFB4453D);
 
+// Same idea as `errorTextLight`, for the chaodays import screen's per-type
+// status icons: on the light card (`surfaceLight` #FFFDF8) the pastels they
+// would otherwise use are far under the 3:1 that non-text graphics need
+// (tertiary 1.28:1, primary 1.64:1 — and no pastel in this palette clears it:
+// sage 1.91, honey 2.08, primaryDeep 2.29). These keep each icon's hue and
+// drop lightness until it does. Dark theme keeps the pastels (8.8-9.6:1).
+const importSuccessIconLight = Color(0xFFA88428); // 3.45:1 on #FFFDF8
+const importRunningIconLight = Color(0xFF3F8FA6); // 3.63:1 on #FFFDF8
+
 // Diet category colors (staple/meat/fruit/veg) — exposed via the
 // `DietCategoryColors` ThemeExtension in `app_theme.dart`, never referenced
 // directly from screens.

@@ -884,6 +884,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importCredentialsNote => '帳密僅用於這次匯入,不會儲存。';
 
   @override
+  String get importTypesTitle => '匯入項目';
+
+  @override
   String get importTypeWeight => '體重體脂';
 
   @override
@@ -915,6 +918,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get importTypeFailed => '失敗';
+
+  @override
+  String get importStatusImporting => '正在匯入';
+
+  @override
+  String get importStatusSuccess => '匯入成功';
+
+  @override
+  String get importStatusFailed => '匯入失敗';
+
+  @override
+  String get importStatusNotAttempted => '未匯入';
 
   @override
   String get importErrorAuthFailed => 'chaodays 帳號或密碼錯誤,請確認後再試一次。';
@@ -2211,6 +2226,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get importCredentialsNote => '帳密僅用於這次匯入,不會儲存。';
 
   @override
+  String get importTypesTitle => '匯入項目';
+
+  @override
   String get importTypeWeight => '體重體脂';
 
   @override
@@ -2242,6 +2260,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get importTypeFailed => '失敗';
+
+  @override
+  String get importStatusImporting => '正在匯入';
+
+  @override
+  String get importStatusSuccess => '匯入成功';
+
+  @override
+  String get importStatusFailed => '匯入失敗';
+
+  @override
+  String get importStatusNotAttempted => '未匯入';
 
   @override
   String get importErrorAuthFailed => 'chaodays 帳號或密碼錯誤,請確認後再試一次。';
