@@ -9,7 +9,7 @@
 ## 2. Application use case
 
 - [ ] `lib/contexts/import/application/import_menstrual.dart`，比照 `import_water.dart`。**controller 注入的是 use case 不是 port** —— 少了這層，實作會想把 repository 直接塞進 controller，違反依賴規則。
-- [ ] `lib/main.dart` 的 `ChaodaysImportController(...)` 加第六個位置參數
+- [ ] `lib/main.dart:222` 的 `ChaodaysImportController(...)` 加第六個位置參數。**第二個組裝點在 `test/app_test.dart:874`**（同形的六參數組裝）
 
 ## 3. Controller (TDD)
 
@@ -23,13 +23,16 @@
 
 - [ ] `_TypeResultRow._label` 加 case
 - [ ] `lib/l10n/app_zh.arb` + `app_en.arb` + **`app_zh_Hant.arb`** 加 `importTypeMenstrual`（zh：生理期 / en：Menstrual periods）。en 檔要有 `@importTypeMenstrual` 描述。zh_Hant 行為上會繼承 zh，但三檔同步是既有慣例
+- [ ] **重產 `lib/l10n/generated/` 並 commit**（是 tracked 檔）
 - [ ] Widget 測試：畫面上看得到那一列、勾選可切換。**假 summary 的數字要避開既有測試用過的值** —— `screen_test` 用 `findsOneWidget` 找 `importResultSummary(...)`，撞號會讓既有測試無辜變紅
 
 ## 5. 必然要跟著改的既有測試（不是退化）
 
 - [ ] `controller_test:148`、`screen_test:347`、`screen_test:920` 三處寫死 `['weight','diet','water','bowel','dietTarget']` 的 runtime 斷言 → 加 menstrual
-- [ ] 三個 fake `ImportRepository` / controller helper 補新方法與參數（編譯期會擋，不會漏）
-- [ ] 這些是「多一種型別的必然結果」，不是退化。**真正的退化訊號是：有測試變紅而它跟型別數量無關。**
+- [ ] **五個** fake `ImportRepository`（`app_test:388`、`import_diet_target_test:6`、`controller_test:16`、`screen_test:24` 與 `:129`）與**五個** controller 建構點（`main.dart:222`、`app_test:874`、`controller_test:117`、`screen_test:197` 與 `:358`）補新方法與參數（編譯期會擋，不會漏）
+- [ ] **版面**：型別列在 `ListView` 裡、`_pumpScreen` 釘 600x1200，多一列可能把 `import-submit-button` 推出 viewport → 既有 tap 找不到 widget。這種紅**跟型別數量有關**，別被下一行的判準誤放行；正解是在測試裡捲動，不是弱化斷言
+- [ ] 這些是「多一種型別的必然結果」，不是退化。**真正的退化訊號是：有測試變紅而它跟型別數量無關。**（唯一例外是上面那條版面問題 —— 它跟數量有關但仍要修對。）
+- [ ] 順手改掉會過期的字面：`controller_test:142` 測試名 `runs all five types`、`chaodays_import_controller.dart:141` doc 的「all five types」、`screen_test:947` 註解。`screen_test:753` 拿 `dietTarget` 當「最後一列」做位置斷言 —— 仍會過但語意失守，改成 menstrual
 
 ## 6. Gate
 
