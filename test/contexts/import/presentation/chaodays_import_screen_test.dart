@@ -1030,6 +1030,35 @@ void main() {
     });
   });
 
+  group('ChaodaysImportScreen open-period hint', () {
+    testWidgets('the open-period hint is shown before any import runs', (
+      tester,
+    ) async {
+      final loc = await AppLocalizations.delegate.load(const Locale('en'));
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // Stated up front, not as an after-the-fact reading of "skipped": the
+      // user decides whether to re-import later while still on this screen.
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+      expect(find.text(loc.importMenstrualOpenPeriodHint), findsOneWidget);
+    });
+
+    testWidgets('the open-period hint is still there after a run finishes', (
+      tester,
+    ) async {
+      // The moment the sentence is actually needed: the user is looking at
+      // "Imported 12 · Skipped 1" and deciding whether that means done. A hint
+      // that only shows before the run would be gone exactly then.
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('import-done-message')), findsOneWidget);
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+    });
+  });
+
   group('ChaodaysImportScreen narrow layout', () {
     for (final width in const [320.0, 360.0]) {
       for (final locale in testSupportedLocales) {
@@ -1061,31 +1090,5 @@ void main() {
       }
     }
 
-    testWidgets('the open-period hint is shown before any import runs', (
-      tester,
-    ) async {
-      final loc = await AppLocalizations.delegate.load(const Locale('en'));
-      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
-
-      // Stated up front, not as an after-the-fact reading of "skipped": the
-      // user decides whether to re-import later while still on this screen.
-      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
-      expect(find.text(loc.importMenstrualOpenPeriodHint), findsOneWidget);
-    });
-
-    testWidgets('the open-period hint is still there after a run finishes', (
-      tester,
-    ) async {
-      // The moment the sentence is actually needed: the user is looking at
-      // "Imported 12 · Skipped 1" and deciding whether that means done. A hint
-      // that only shows before the run would be gone exactly then.
-      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
-      await _fillCompleteForm(tester);
-      await tester.tap(find.byKey(const Key('import-submit-button')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('import-done-message')), findsOneWidget);
-      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
-    });
   });
 }

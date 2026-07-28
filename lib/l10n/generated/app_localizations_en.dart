@@ -953,7 +953,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importMenstrualOpenPeriodHint =>
-      'A period that hasn\'t ended yet is imported after it ends.';
+      'An ongoing period is skipped — import again after it ends.';
 
   @override
   String importResultSummary(int imported, int skipped) {
