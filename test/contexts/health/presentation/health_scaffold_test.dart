@@ -1063,60 +1063,88 @@ void main() {
       'retrying one card reloads only that card — each card has its own '
       'source, so one failing says nothing about the others',
       (tester) async {
-        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        await tester.binding.setSurfaceSize(const Size(800, 2400));
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
-        final bodyProfileRepository = _FakeBodyProfileRepository()
-          ..errorAfterFirstLoad = const BodyProfileFetchFailure();
-        final calendarRepository = _FakeHealthCalendarRepository();
-        final menstrualRepository = _FakeMenstrualRepository();
-        final careTodayRepository = _FakeCareTodayRepository(
-          today: CareToday(date: '2026-07-24', slots: [_slot()]),
-        );
-        final dataRevision = DataRevision();
-        await tester.pumpWidget(
-          l10nRouterTestApp(
-            home: _buildScaffold(
-              bodyProfileRepository: bodyProfileRepository,
-              healthCalendarRepository: calendarRepository,
-              menstrualRepository: menstrualRepository,
-              careTodayRepository: careTodayRepository,
-              dataRevision: dataRevision,
+        // Every card in turn, not just the goal card: "only mine reloaded" is
+        // a claim about the other three, and a single-card widget test cannot
+        // make it (it holds one controller, so its own call count is trivially
+        // 1). Only this rig has all four wired to separate counting fakes.
+        for (final target in cardFinders().keys) {
+          final bodyProfileRepository = _FakeBodyProfileRepository();
+          final calendarRepository = _FakeHealthCalendarRepository();
+          final menstrualRepository = _FakeMenstrualRepository();
+          final careTodayRepository = _FakeCareTodayRepository(
+            today: CareToday(date: '2026-07-24', slots: [_slot()]),
+          );
+          switch (target) {
+            case 'care':
+              careTodayRepository.errorAfterFirstLoad = const CareRequestFailed();
+            case 'goal':
+              bodyProfileRepository.errorAfterFirstLoad =
+                  const BodyProfileFetchFailure();
+            case 'nextPeriod':
+              menstrualRepository.errorAfterFirstLoad =
+                  const MenstrualFetchFailure();
+            case 'calendar':
+              calendarRepository.errorAfterFirstLoad =
+                  const HealthCalendarFetchFailure();
+          }
+          final dataRevision = DataRevision();
+          await tester.pumpWidget(
+            l10nRouterTestApp(
+              home: _buildScaffold(
+                bodyProfileRepository: bodyProfileRepository,
+                healthCalendarRepository: calendarRepository,
+                menstrualRepository: menstrualRepository,
+                careTodayRepository: careTodayRepository,
+                dataRevision: dataRevision,
+              ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-        // One automatic reload of the whole overview: only the goal card's
-        // source fails.
-        dataRevision.bump();
-        await tester.pumpAndSettle();
-        expect(
-          find.descendant(
-            of: find.byType(GoalCard),
-            matching: find.byType(StaleNotice),
-          ),
-          findsOneWidget,
-        );
-        final goalCalls = bodyProfileRepository.calls;
-        final calendarCalls = calendarRepository.calls;
-        final menstrualCalls = menstrualRepository.calls;
-        final careCalls = careTodayRepository.calls;
+          // One automatic reload of the whole overview: only this card's
+          // source fails.
+          dataRevision.bump();
+          await tester.pumpAndSettle();
+          final card = cardFinders()[target]!;
+          expect(
+            find.descendant(of: card, matching: find.byType(StaleNotice)),
+            findsOneWidget,
+            reason: '$target was not marked as unrefreshed',
+          );
 
-        await tester.tap(
-          find.descendant(
-            of: find.byType(GoalCard),
-            matching: find.byKey(const Key('stale-notice-retry')),
-          ),
-        );
-        await tester.pumpAndSettle();
+          Map<String, int> callCounts() => {
+            'care': careTodayRepository.calls,
+            'goal': bodyProfileRepository.calls,
+            'nextPeriod': menstrualRepository.calls,
+            'calendar': calendarRepository.calls,
+          };
+          final before = callCounts();
 
-        expect(bodyProfileRepository.calls, goalCalls + 1);
-        // Re-running the whole batch here would fire three requests nobody
-        // asked for — a single card-level retry is the point of the marking.
-        expect(calendarRepository.calls, calendarCalls);
-        expect(menstrualRepository.calls, menstrualCalls);
-        expect(careTodayRepository.calls, careCalls);
+          await tester.tap(
+            find.descendant(
+              of: card,
+              matching: find.byKey(const Key('stale-notice-retry')),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final after = callCounts();
+          for (final name in before.keys) {
+            // Re-running the whole batch here would fire three requests nobody
+            // asked for — a single card-level retry is the point of the
+            // marking.
+            expect(
+              after[name],
+              name == target ? before[name]! + 1 : before[name],
+              reason: name == target
+                  ? 'retrying $target did not reload $target'
+                  : 'retrying $target also reloaded $name',
+            );
+          }
+        }
       },
     );
 
@@ -1198,6 +1226,32 @@ void main() {
         // And the marking is indented identically on all four — the calendar
         // card's own padding used to live on its LedgeCard, which would have
         // indented its marking twice.
+        //
+        // Both edges, separately: the retry button is the last thing in the
+        // marking's row, so where it starts moves with the *right* inset and
+        // stays put when only the left one changes. The leading icon is the
+        // other end of the same row.
+        final leftInsets = <String, double>{
+          for (final entry in cardFinders().entries)
+            entry.key:
+                tester
+                    .getTopLeft(
+                      find.descendant(
+                        of: entry.value,
+                        matching: find.byIcon(Icons.cloud_off_outlined),
+                      ),
+                    )
+                    .dx -
+                tester.getTopLeft(entry.value).dx,
+        };
+        for (final entry in leftInsets.entries) {
+          expect(
+            entry.value,
+            leftInsets['goal'],
+            reason: '${entry.key} starts its marking at a different inset',
+          );
+        }
+
         final insets = <String, double>{
           for (final entry in cardFinders().entries)
             entry.key:

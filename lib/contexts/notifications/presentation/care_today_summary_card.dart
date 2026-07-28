@@ -321,7 +321,10 @@ class _SetupPrompt extends StatelessWidget {
 /// The first-ever-load failure: the card has nothing to keep, so it says so
 /// and offers a retry. Mirrors the other overview cards' error card — before
 /// this, the card rendered nothing at all, which on the top of the overview
-/// reads as "you have no care today".
+/// reads as "you have no care today". Its copy names today's care rather than
+/// reusing `careErrorGeneric`: that string is written for the full care
+/// screens, where the app bar already says what the user was looking at, and
+/// the three cards below this one each name their own subject.
 class _ErrorCard extends StatelessWidget {
   final VoidCallback onRetry;
 
@@ -339,7 +342,7 @@ class _ErrorCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              loc.careErrorGeneric,
+              loc.errorCareTodayLoadFailed,
               key: const Key('care-today-summary-error'),
               textAlign: TextAlign.center,
               style: TextStyle(color: theme.colorScheme.error),

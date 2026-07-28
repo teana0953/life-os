@@ -98,7 +98,15 @@ class _GoalCardState extends State<GoalCard> {
     // worry that a kept card would go silently stale is answered by the
     // marking, and taking the content away would collapse the overview around
     // a refresh the user never asked for.
-    if (controller.status == WeightGoalStatus.error && goal == null) {
+    //
+    // A failed *save* stays on this branch even with a goal in hand, and the
+    // card leans on [WeightGoalController.lastFailureWasSave] to know that:
+    // the figures it would otherwise keep are the ones the user just tried to
+    // replace, so "couldn't refresh" would report a rejected write as a stale
+    // read. Note this branch's retry only reloads — a save that failed is not
+    // re-attempted, which is the behaviour that was already here.
+    if (controller.status == WeightGoalStatus.error &&
+        (goal == null || controller.lastFailureWasSave)) {
       final theme = Theme.of(context);
       return LedgeCard(
         padding: const EdgeInsets.all(20),

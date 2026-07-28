@@ -376,6 +376,10 @@ void main() {
         expect(controller.status, CareTodayLoadStatus.reauth);
         expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
         expect(find.text('Metformin'), findsOneWidget);
+        // And it is not the card's failure to report: "couldn't refresh,
+        // retry" would send the user round a loop that cannot succeed until
+        // they sign in again. The overview's re-authenticate exit takes over.
+        expect(find.byType(StaleNotice), findsNothing);
       },
     );
 
@@ -402,6 +406,12 @@ void main() {
         // card must never imply by accident.
         expect(find.byKey(const Key('care-today-summary-error')), findsOneWidget);
         expect(find.byKey(const Key('care-today-summary-retry')), findsOneWidget);
+        // And it names what failed. `careErrorGeneric` was written for the
+        // full care screens, whose app bar supplies the subject; on a card
+        // sitting between three others that each name theirs, a bare
+        // "something went wrong" says nothing about which one.
+        expect(find.text(_en.errorCareTodayLoadFailed), findsOneWidget);
+        expect(find.text(_en.careErrorGeneric), findsNothing);
         // Nothing has loaded, so there is nothing to mark as unrefreshed.
         expect(find.byType(StaleNotice), findsNothing);
 

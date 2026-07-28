@@ -407,6 +407,30 @@ void main() {
       },
     );
 
+    testWidgets(
+      'a reload that 401s is not the card\'s to report — no marking, no error '
+      'copy, the overview\'s re-authenticate exit takes over',
+      (tester) async {
+        await _pumpCard(
+          tester,
+          status: MenstrualStatus.needsReauth,
+          overview: _overview(
+            periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+            predictedNextStart: DateTime(2026, 8, 2),
+          ),
+        );
+
+        expect(
+          find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+          findsOneWidget,
+        );
+        // "Couldn't refresh, retry" would send the user round a loop that
+        // cannot succeed until they sign in again.
+        expect(find.byType(StaleNotice), findsNothing);
+        expect(find.text(_loc.errorMenstrualLoadFailed), findsNothing);
+      },
+    );
+
     testWidgets('the marking\'s retry reloads this card, and a successful one '
         'clears the marking', (tester) async {
       final overview = _overview(

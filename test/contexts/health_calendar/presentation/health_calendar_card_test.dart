@@ -213,6 +213,26 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a reload that 401s is not the card\'s to report — no marking, no error '
+    'card, the overview\'s re-authenticate exit takes over',
+    (tester) async {
+      final repo = _FakeRepository();
+      final controller = await _pump(tester, repo);
+
+      repo.error = const HealthCalendarReauthenticationRequired();
+      await controller.load('token');
+      await tester.pumpAndSettle();
+
+      expect(controller.status, HealthCalendarStatus.needsReauth);
+      expect(find.byKey(const Key('health-calendar-dot-3')), findsOneWidget);
+      // "Couldn't refresh, retry" would send the user round a loop that
+      // cannot succeed until they sign in again.
+      expect(find.byType(StaleNotice), findsNothing);
+      expect(find.text(_en.healthCalendarLoadFailed), findsNothing);
+    },
+  );
+
   testWidgets('the marking\'s retry reloads the calendar and clears it on '
       'success', (tester) async {
     final repo = _FakeRepository();

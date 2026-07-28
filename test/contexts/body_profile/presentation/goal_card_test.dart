@@ -32,6 +32,10 @@ class _FakeRepository implements BodyProfileRepository {
   /// observe the in-flight loading state of a reload.
   Completer<void>? getGate;
 
+  /// When set, `setBodyProfile` throws this — lets a test drive a *save* to a
+  /// failure, which is not the same thing as a failed refresh.
+  Object? setError;
+
   /// Counts every goal fetch — proves the card's own retry reloads it.
   int getCalls = 0;
 
@@ -57,6 +61,7 @@ class _FakeRepository implements BodyProfileRepository {
   }) async {
     setCalled = true;
     if (setGate != null) await setGate!.future;
+    if (setError != null) throw setError!;
     lastSetHeightCm = heightCm;
     lastSetTargetWeightKg = targetWeightKg;
     return BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
@@ -238,6 +243,87 @@ void main() {
 
       expect(repository.getCalls, callsBefore + 1);
     });
+
+    testWidgets(
+      'a save that fails shows the error state, not a refresh marking — the '
+      'numbers still on screen are the ones that were NOT saved',
+      (tester) async {
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+
+        repository.setError = const BodyProfileFetchFailure();
+        await controller.saveProfile('token', targetWeightKg: 50);
+        await tester.pump();
+
+        // "Couldn't refresh" would be a lie here: nothing was refreshed, a
+        // write was rejected. Keeping the old figures next to that marking
+        // reads as "your goal is 51, just not freshly fetched" when the truth
+        // is "your 50 never landed".
+        expect(find.byKey(const Key('goal-card-error')), findsOneWidget);
+        expect(find.byKey(const Key('goal-card-retry')), findsOneWidget);
+        expect(find.byType(StaleNotice), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a reload that fails after a failed save is back to keeping the goal '
+      'marked — the save failure must not stick to later loads',
+      (tester) async {
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+
+        repository.setError = const BodyProfileFetchFailure();
+        await controller.saveProfile('token', targetWeightKg: 50);
+        await tester.pump();
+        expect(find.byKey(const Key('goal-card-error')), findsOneWidget);
+
+        repository.setError = null;
+        repository.getError = const BodyProfileFetchFailure();
+        await controller.load('token');
+        await tester.pump();
+
+        expect(find.byKey(const Key('goal-card-error')), findsNothing);
+        expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
+        expect(find.byType(StaleNotice), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a reload that 401s is not the card\'s to report — no marking, no '
+      'error card, the overview\'s re-authenticate exit takes over',
+      (tester) async {
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+
+        repository.getError = const BodyProfileReauthenticationRequired();
+        await controller.load('token');
+        await tester.pump();
+
+        expect(controller.status, WeightGoalStatus.needsReauth);
+        // "Couldn't refresh, retry" would send the user round a loop that
+        // cannot succeed until they sign in again.
+        expect(find.byType(StaleNotice), findsNothing);
+        expect(find.byKey(const Key('goal-card-error')), findsNothing);
+      },
+    );
 
     testWidgets('a successful retry clears the marking', (tester) async {
       final repository = _FakeRepository()

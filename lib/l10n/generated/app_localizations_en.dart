@@ -754,6 +754,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load your period data. Please try again.';
 
   @override
+  String get errorCareTodayLoadFailed =>
+      'Unable to load today\'s care. Please try again.';
+
+  @override
   String get updateAvailableTitle => 'A new version is available';
 
   @override

@@ -1443,6 +1443,12 @@ abstract class AppLocalizations {
   /// **'Unable to load your period data. Please try again.'**
   String get errorMenstrualLoadFailed;
 
+  /// Shown on the overview's care-today summary card when its first-ever load fails (not an auth failure). Names its subject, like the other overview cards' error copy — unlike careErrorGeneric, which is written for full screens whose app bar already says what failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load today\'s care. Please try again.'**
+  String get errorCareTodayLoadFailed;
+
   /// Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload.
   ///
   /// In en, this message translates to:

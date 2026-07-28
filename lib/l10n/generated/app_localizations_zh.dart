@@ -726,6 +726,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
 
   @override
+  String get errorCareTodayLoadFailed => '無法載入今日照護,請再試一次。';
+
+  @override
   String get updateAvailableTitle => '有新版本可用';
 
   @override
@@ -2133,6 +2136,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
+
+  @override
+  String get errorCareTodayLoadFailed => '無法載入今日照護,請再試一次。';
 
   @override
   String get updateAvailableTitle => '有新版本可用';

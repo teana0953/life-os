@@ -32,10 +32,19 @@ class WeightGoalController extends ChangeNotifier {
   WeightGoal? goal;
   BodyProfile? profile;
 
+  /// Whether the failure that put [status] in `error` came from [saveProfile]
+  /// rather than [load]. Both end up in the same `error`/[error] pair, but the
+  /// goal card has to tell them apart: a failed *refresh* leaves correct (if
+  /// stale) figures on screen, while a failed *save* leaves figures the user
+  /// just tried to replace — marking those "couldn't refresh" would report a
+  /// rejected write as a stale read.
+  bool lastFailureWasSave = false;
+
   /// Loads the weight-goal overview and the editable body profile.
   Future<void> load(String idToken) async {
     status = WeightGoalStatus.loading;
     error = null;
+    lastFailureWasSave = false;
     notifyListeners();
 
     try {
@@ -76,9 +85,11 @@ class WeightGoalController extends ChangeNotifier {
     } on BodyProfileFetchFailure {
       status = WeightGoalStatus.error;
       error = WeightGoalError.fetchFailed;
+      lastFailureWasSave = true;
     } catch (_) {
       status = WeightGoalStatus.error;
       error = WeightGoalError.unknown;
+      lastFailureWasSave = true;
     }
     notifyListeners();
   }

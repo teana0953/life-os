@@ -224,6 +224,7 @@
   "nextPeriodNoRecords": "還沒有生理期紀錄",
   "nextPeriodNeedsOneMore": "再記錄一次就能預測下次",
   "errorMenstrualLoadFailed": "無法載入生理期資料,請再試一次。",
+  "errorCareTodayLoadFailed": "無法載入今日照護,請再試一次。",
   "updateAvailableTitle": "有新版本可用",
   "updateButton": "更新",
   "updateDismiss": "關閉",

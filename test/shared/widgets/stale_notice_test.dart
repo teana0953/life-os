@@ -53,10 +53,20 @@ void main() {
 
     // The notice is inset from the surface it is dropped into without the
     // caller passing any layout parameter — the four overview cards would
-    // otherwise each indent it differently.
-    final noticeLeft = tester.getTopLeft(find.byType(StaleNotice)).dx;
-    final textLeft = tester.getTopLeft(find.text(_loc.cardRefreshFailed)).dx;
-    expect(textLeft - noticeLeft, greaterThanOrEqualTo(20));
+    // otherwise each indent it differently. Measured against the notice's own
+    // row rather than against the copy: the copy already sits behind an icon
+    // and a gap, so an assertion on where the *text* starts passes even with
+    // no padding at all.
+    final notice = tester.getRect(find.byType(StaleNotice));
+    final row = tester.getRect(
+      find
+          .descendant(of: find.byType(StaleNotice), matching: find.byType(Row))
+          .first,
+    );
+    expect(row.left - notice.left, 20);
+    expect(notice.right - row.right, 20);
+    expect(row.top - notice.top, 12);
+    expect(notice.bottom - row.bottom, 12);
   });
 
   testWidgets('does not overflow on narrow screens at large text sizes', (
