@@ -1909,6 +1909,30 @@ void main() {
         final urls = shortcuts.map((s) => s['url'] as String).toList();
         expect(urls.toSet(), hasLength(urls.length));
 
+        // Every shortcut needs its OWN icon file, and the file has to exist.
+        // Launchers do not fall back to the app icon when `icons` is missing —
+        // they render a blank placeholder, which is what shipped first time and
+        // only showed up on a real device.
+        final iconPaths = <String>[];
+        for (final shortcut in shortcuts) {
+          final icons = (shortcut['icons'] as List?)
+              ?.cast<Map<String, dynamic>>();
+          expect(
+            icons,
+            isNotNull,
+            reason: 'shortcut ${shortcut['url']} declares no icon',
+          );
+          expect(icons, isNotEmpty);
+          final src = icons!.first['src'] as String;
+          expect(
+            File('web/$src').existsSync(),
+            isTrue,
+            reason: 'web/$src is declared but missing',
+          );
+          iconPaths.add(src);
+        }
+        expect(iconPaths.toSet(), hasLength(iconPaths.length));
+
         final expectations = <String, void Function()>{
           '/health/diet/dictionary': () {
             expect(find.byKey(const Key('food-search-field')), findsOneWidget);
