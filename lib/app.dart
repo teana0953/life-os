@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
@@ -193,6 +194,10 @@ class App extends StatefulWidget {
   /// via the conditional export in `pending_deep_link.dart`.
   final PendingDeepLinkStore pendingDeepLinkStore;
 
+  /// Resolves "today" for the day-keyed routes. Defaults to [DateTime.now];
+  /// a test pins it — and can advance it — to reach the midnight rollover.
+  final DateTime Function() clock;
+
   const App({
     super.key,
     required this.authRepository,
@@ -224,6 +229,7 @@ class App extends StatefulWidget {
     required this.careAdherenceController,
     required this.dataRevision,
     this.pendingDeepLinkStore = const PendingDeepLinkStoreImpl(),
+    this.clock = DateTime.now,
   });
 
   @override
@@ -312,42 +318,52 @@ class _AppState extends State<App> {
   }
 
   String get _idToken => _authNotifier.idToken ?? '';
-  String get _today => dayString(DateTime.now());
+  String get _today => dayString(widget.clock());
 
   /// Builds a day-keyed tracker screen for the `/health/<name>` route. Nested
   /// under `/health` so the URL hierarchy — which is what a web browser back /
   /// refresh reconstructs the page stack from — implies [HealthScaffold] below
   /// it. An unknown name resets to the record hub.
-  Widget _trackerFor(String? name) {
+  ///
+  /// [query] is the URL's query parameters — a modifier on the same screen
+  /// rather than a route of its own, which is how the vitals launcher
+  /// shortcuts say which reading to start (`/health/vitals?add=glucose`).
+  Widget _trackerFor(String? name, Map<String, String> query) {
     switch (name) {
       case 'water':
         return WaterScreen(
           controller: widget.waterController,
           idToken: _idToken,
           day: _today,
+          clock: widget.clock,
         );
       case 'vitals':
         return VitalsScreen(
           controller: widget.vitalsController,
           idToken: _idToken,
           day: _today,
+          clock: widget.clock,
+          autoAddSection: query['add'],
         );
       case 'bowel':
         return BowelScreen(
           controller: widget.bowelController,
           idToken: _idToken,
           day: _today,
+          clock: widget.clock,
         );
       case 'exercise':
         return ExerciseScreen(
           controller: widget.exerciseController,
           idToken: _idToken,
           day: _today,
+          clock: widget.clock,
         );
       case 'menstrual':
         return MenstrualScreen(
           controller: widget.menstrualController,
           idToken: _idToken,
+          clock: widget.clock,
         );
       default:
         return const _Redirect(to: '/health');
@@ -363,6 +379,7 @@ class _AppState extends State<App> {
     createMealController: widget.healthCreateMealController,
     getLoggedDays: widget.healthGetLoggedDays,
     signOut: widget.signOut,
+    clock: widget.clock,
   );
 
   GoRouter _buildRouter() {
@@ -492,6 +509,7 @@ class _AppState extends State<App> {
             onOpenCareToday: () => context.push('/care-today'),
             onOpenCareHistory: () => context.push('/care-history'),
             dataRevision: widget.dataRevision,
+            clock: widget.clock,
           ),
           routes: [
             GoRoute(
@@ -538,22 +556,29 @@ class _AppState extends State<App> {
                 GoRoute(
                   path: 'dictionary',
                   // The same full-screen search with no target meal: a lookup
-                  // that asks which meal only at completion. The viewed day and
-                  // its meal names are per-navigation args riding in `extra`,
-                  // so a URL-driven rebuild with no extra resets to the diet
-                  // day (as for food-search above).
+                  // that asks which meal only at completion. In-app, the viewed
+                  // day and its meal names ride in `extra`; a launcher shortcut
+                  // is pure URL and carries none, so that case builds
+                  // [_UrlDictionaryScreen], which supplies both itself.
                   builder: (context, state) {
                     final args = state.extra;
-                    if (args is! ({String day, List<String> mealNames})) {
-                      return const _Redirect(to: '/health/diet');
+                    if (args is ({String day, List<String> mealNames})) {
+                      return FoodSearchScreen(
+                        meal: null,
+                        mealNames: args.mealNames,
+                        dictionaryController: widget.healthDictionaryController,
+                        createMealController: widget.healthCreateMealController,
+                        idToken: _idToken,
+                        day: args.day,
+                        signOut: widget.signOut,
+                      );
                     }
-                    return FoodSearchScreen(
-                      meal: null,
-                      mealNames: args.mealNames,
+                    return _UrlDictionaryScreen(
+                      todayController: widget.healthTodayController,
                       dictionaryController: widget.healthDictionaryController,
                       createMealController: widget.healthCreateMealController,
                       idToken: _idToken,
-                      day: args.day,
+                      day: _today,
                       signOut: widget.signOut,
                     );
                   },
@@ -562,8 +587,10 @@ class _AppState extends State<App> {
             ),
             GoRoute(
               path: ':name',
-              builder: (context, state) =>
-                  _trackerFor(state.pathParameters['name']),
+              builder: (context, state) => _trackerFor(
+                state.pathParameters['name'],
+                state.uri.queryParameters,
+              ),
             ),
           ],
         ),
@@ -661,6 +688,257 @@ class _RedirectState extends State<_Redirect> {
   @override
   Widget build(BuildContext context) =>
       const Scaffold(body: Center(child: CircularProgressIndicator()));
+}
+
+/// The food dictionary reached by URL alone — a launcher shortcut, or a web
+/// refresh — with none of the `extra` an in-app navigation carries.
+///
+/// It cannot just build [FoodSearchScreen] straight away: `mealNames` is a
+/// CONSTRUCTION-TIME snapshot and the route builder is not re-run when the
+/// shared [TodayController] later notifies, so a cold start would freeze in the
+/// empty list that is in place while the health shell's load is still in
+/// flight — and every snack recorded from here would then be named the base
+/// name and collide with the day's existing one.
+class _UrlDictionaryScreen extends StatefulWidget {
+  final TodayController todayController;
+  final DictionaryController dictionaryController;
+  final CreateMealController createMealController;
+  final String idToken;
+  final String day;
+  final SignOut signOut;
+
+  const _UrlDictionaryScreen({
+    required this.todayController,
+    required this.dictionaryController,
+    required this.createMealController,
+    required this.idToken,
+    required this.day,
+    required this.signOut,
+  });
+
+  @override
+  State<_UrlDictionaryScreen> createState() => _UrlDictionaryScreenState();
+}
+
+class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
+  /// One-shot WITHIN a given [day]: this screen has already asked for its own
+  /// load, so a failing one can't turn into a loop. Reset only when [day]
+  /// itself changes (the midnight rollover in [didUpdateWidget]) or when the
+  /// user explicitly retries.
+  bool _requestedLoad = false;
+
+  /// The day the shared [TodayController] was holding when this screen took it
+  /// over. The diet day underneath keeps its own `_viewedDate`/`_day` and only
+  /// reloads on its own day-switch, so restoring today unconditionally would
+  /// leave it showing TODAY's meals under a PAST day's header — and, worse,
+  /// filing food added from there under the past day it still points at.
+  String? _returnDay;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.todayController.addListener(_onChanged);
+    // All three calls below notify SYNCHRONOUSLY, and this screen is mounted in
+    // the middle of a router stack rebuild — a notify there marks other
+    // listeners (the diet day's TodayScreen below, an outgoing FoodSearchScreen)
+    // dirty mid-build and throws. Hence post-frame, and hence not in the route
+    // builder either.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // What `DietDayScreen._openDictionary` does before pushing — without it
+      // an abandoned per-meal tray (and its target meal) leaks in and the
+      // dictionary opens showing recording controls.
+      widget.createMealController.start(null);
+      widget.dictionaryController.clearSearch();
+      _ensureDayLoaded();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _UrlDictionaryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // `day` comes from `_today`, recomputed on every App rebuild — so sitting
+    // here across midnight changes it. `_requestedLoad` is one-shot and never
+    // resets, so without this the build below would keep seeing
+    // `log.day != widget.day` with nobody left to fix it: the permanent spinner
+    // D7 exists to prevent.
+    if (oldWidget.day != widget.day) {
+      _requestedLoad = false;
+      // Post-frame for the same reason `initState` is: `load` notifies
+      // SYNCHRONOUSLY and the TodayScreen below has a bare `setState` listener,
+      // so calling it from here throws "setState() called during build".
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureDayLoaded();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.todayController.removeListener(_onChanged);
+    // Arriving by URL means `go`, so the `true` this screen pops has nobody to
+    // catch it (in-app it is an `await push<bool>`) and the diet day underneath
+    // would still show the record it held before the food was added. `dispose`
+    // rather than `PopScope` because it also covers being replaced by another
+    // `go`; the worst case is one harmless extra reload. Post-frame again: the
+    // tree is locked while this screen is being unmounted.
+    final controller = widget.todayController;
+    final idToken = widget.idToken;
+    // The borrowed day if this screen took the controller over, today
+    // otherwise. `_ensureDayLoaded` captures `_returnDay` before it can fail,
+    // so a takeover whose load then failed still hands the day back.
+    final day = _returnDay ?? widget.day;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => controller.load(idToken, day),
+    );
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (!mounted) return;
+    // The diet day sitting below this screen in the stack reloads the SAME
+    // controller from its own `initState`, and the URL-driven stack builds it
+    // after this screen — so the notification can land mid-build, where
+    // `setState` throws. Re-run on the next frame instead.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onChanged());
+      return;
+    }
+    setState(() {});
+    _ensureDayLoaded();
+  }
+
+  /// Loads [widget.day] itself when the shared controller is holding another
+  /// day — the diet day's day-nav browses the past, and the shortcut always
+  /// records against today. Nothing else would trigger that reload
+  /// ([TodayController.load]'s only callers are the health shell's mount and
+  /// the diet day's own day switch), so waiting for one would spin forever.
+  void _ensureDayLoaded() {
+    if (_requestedLoad) return;
+    final controller = widget.todayController;
+    final held = controller.dayMealsLog?.day;
+    // Someone else's load is already in flight (the health shell pre-loads on
+    // mount); this listener runs again when it lands. Return BEFORE capturing:
+    // `dayMealsLog` is still the day being replaced, and recording it would
+    // hand back a day the user has already navigated away from.
+    if (controller.status == TodayStatus.loading) return;
+    // Captured before the error guard, though: the diet day can reach
+    // `error`/`needsReauth` with `dayMealsLog` INTACT (a failed mutation goes
+    // through `TodayController._mutate`, which sets the status and leaves the
+    // record alone). Bailing out first would lose the day this screen has to
+    // hand back, and `dispose` would restore today over a diet day still
+    // pointing at the past one.
+    // `??=`: only the FIRST pass borrowed a day from the user — the midnight
+    // rollover would otherwise overwrite it with yesterday's "today".
+    if (held != null && held != widget.day) _returnDay ??= held;
+    if (controller.status == TodayStatus.error ||
+        controller.status == TodayStatus.needsReauth) {
+      return;
+    }
+    if (held == widget.day) return;
+    _requestedLoad = true;
+    controller.load(widget.idToken, widget.day);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final controller = widget.todayController;
+
+    // Every pre-dictionary state carries the SAME AppBar the dictionary itself
+    // has, so the back arrow is there whatever happens — matching what
+    // VitalsScreen and DietDayScreen already do. Without it a cold start whose
+    // meals request fails strands the user on a screen whose only action is
+    // signing out.
+    Widget shell(Widget body) => Scaffold(
+      appBar: AppBar(title: Text(loc.dietDictionaryTitle)),
+      body: body,
+    );
+
+    switch (controller.status) {
+      // Both exits mirror TodayScreen's: without them a failed load would
+      // leave this screen spinning forever.
+      case TodayStatus.needsReauth:
+        return shell(
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.pleaseSignInAgain, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('dictionary-sign-in-again-button'),
+                    onPressed: widget.signOut.call,
+                    child: Text(loc.signInAgain),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      case TodayStatus.error:
+        return shell(
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    loc.errorDietLoadFailed,
+                    key: const Key('dictionary-error-message'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('dictionary-retry-button'),
+                    onPressed: () {
+                      // Loads directly rather than via `_ensureDayLoaded`,
+                      // which refuses while the status is `error` — the very
+                      // state this button exists to leave. Capture the day to
+                      // hand back first (`??=`: an earlier takeover wins).
+                      if (controller.dayMealsLog?.day != widget.day) {
+                        _returnDay ??= controller.dayMealsLog?.day;
+                      }
+                      _requestedLoad = true;
+                      controller.load(widget.idToken, widget.day);
+                    },
+                    child: Text(loc.retry),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('dictionary-sign-out-button'),
+                    onPressed: widget.signOut.call,
+                    child: Text(loc.signOut),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      case TodayStatus.loading:
+      case TodayStatus.loaded:
+        final log = controller.dayMealsLog;
+        if (log == null || log.day != widget.day) {
+          return shell(const Center(child: CircularProgressIndicator()));
+        }
+        return FoodSearchScreen(
+          meal: null,
+          mealNames: log.meals.map((m) => m.meal).toList(),
+          dictionaryController: widget.dictionaryController,
+          createMealController: widget.createMealController,
+          idToken: widget.idToken,
+          day: widget.day,
+          signOut: widget.signOut,
+        );
+    }
+  }
 }
 
 class _AuthenticatedHome extends StatefulWidget {

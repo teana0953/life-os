@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +62,7 @@ import 'package:life_os/contexts/notifications/presentation/reminder_settings_co
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
+import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
@@ -150,12 +153,63 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> unfavorite(String idToken, String foodItemId) async {}
 }
 
+/// A meal repository that can hold ONE named day's fetch in flight — for
+/// observing what the dictionary does while somebody else's load has not landed
+/// yet (`dayMealsLog` still holding the day being replaced).
+class _GateOneDayMealRepository extends _FakeMealRepository {
+  String? gatedDay;
+  final _release = Completer<void>();
+
+  void release() {
+    gatedDay = null;
+    if (!_release.isCompleted) _release.complete();
+  }
+
+  @override
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    // Waits, then delegates — the parent does the single `receivedDays` entry,
+    // so the list keeps meaning "one entry per fetch, in completion order".
+    if (day == gatedDay) await _release.future;
+    return super.getDayMeals(idToken, day);
+  }
+}
+
+/// A meal repository whose fetches start failing on demand — for reaching the
+/// "the dictionary never managed to take the controller over" path.
+class _FailAfterFirstDaysMealRepository extends _FakeMealRepository {
+  bool failFromNowOn = false;
+
+  @override
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    // `async`, matching the parent — a synchronous throw would land the
+    // loading→error notifies in one synchronous block, a timing a real HTTP
+    // failure never produces.
+    if (failFromNowOn) {
+      receivedDays.add(day);
+      throw const DietFetchFailure('boom');
+    }
+    return super.getDayMeals(idToken, day);
+  }
+}
+
 class _FakeMealRepository implements MealRepository {
   /// Meal group names to report per day, so a test can set up a day that
   /// already has meals.
   final Map<String, List<String>> mealNamesByDay;
 
-  _FakeMealRepository({this.mealNamesByDay = const {}});
+  /// When set, every fetch waits on this before answering — lets a test hold
+  /// the day's record in flight and observe what the UI does meanwhile.
+  final Future<void>? gate;
+
+  /// When set, every fetch throws it — lets a test drive the controller into
+  /// its error / needsReauth states.
+  final Object? fetchError;
+
+  _FakeMealRepository({
+    this.mealNamesByDay = const {},
+    this.gate,
+    this.fetchError,
+  });
 
   String? createdDay;
   String? createdMeal;
@@ -167,6 +221,8 @@ class _FakeMealRepository implements MealRepository {
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     receivedDays.add(day);
+    if (gate != null) await gate;
+    if (fetchError != null) throw fetchError!;
     return DayMealsLog.fromJson({
       'day': day,
       'meals': [
@@ -855,6 +911,9 @@ Future<LocaleController> pumpApp(
   /// to pick, or to observe what a meal save sent.
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
+
+  /// Pins (and lets a test advance) the "today" the day-keyed routes resolve.
+  DateTime Function()? clock,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -971,6 +1030,7 @@ Future<LocaleController> pumpApp(
       dataRevision: resolvedDataRevision,
       pendingDeepLinkStore:
           pendingDeepLinkStore ?? const PendingDeepLinkStoreImpl(),
+      clock: clock ?? DateTime.now,
     ),
   );
   return resolvedLocaleController;
@@ -1116,12 +1176,11 @@ void main() {
     );
 
     testWidgets(
-      'a URL-driven food dictionary route with no extra redirects back to the '
-      'diet day',
+      'a URL-driven food dictionary route with no extra opens the dictionary',
       (tester) async {
-        // The viewed day and its meal names are per-navigation args carried in
-        // `extra`; a URL-driven navigation has none, so the route must fall
-        // back to the diet day rather than build a dictionary for no day.
+        // The launcher shortcut is pure URL — none of the `extra` an in-app
+        // navigation carries — so the route must supply the day and its meal
+        // names itself rather than fall back to the diet day.
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
         await pumpApp(
@@ -1141,8 +1200,559 @@ void main() {
         router.go('/health/diet/dictionary');
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the URL-driven dictionary waits for the day\'s record before taking its '
+      'meal-name snapshot',
+      (tester) async {
+        // `FoodSearchScreen.mealNames` is a construction-time snapshot and the
+        // route builder is not rebuilt when the controller later notifies — so
+        // building it while the day is still in flight would freeze an empty
+        // list in, and every snack would then be named the base name and
+        // collide with the day's existing one.
+        final today = dayString(DateTime.now());
+        final gate = Completer<void>();
+        final mealRepository = _FakeMealRepository(
+          mealNamesByDay: {
+            today: const ['breakfast', 'Snack'],
+          },
+          gate: gate.future,
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        // Explicit pumps, not `pumpAndSettle`: the waiting state is a spinner,
+        // which never settles.
+        await tester.pump();
+        await tester.pump();
+
         expect(find.byKey(const Key('food-search-field')), findsNothing);
+
+        gate.complete();
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(
+          find.text(
+            nextSnackName(const ['breakfast', 'Snack'], loc.dietSnackBaseName),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'a failed load leaves the URL-driven dictionary recoverable, not spinning',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final mealRepository = _FakeMealRepository(
+          fetchError: const DietFetchFailure('boom'),
+        );
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('dictionary-error-message')), findsOneWidget);
+        expect(find.byKey(const Key('dictionary-sign-out-button')), findsOneWidget);
+        // A failed cold start must not be a dead end. The AppBar (hence the
+        // back arrow, since this route builds a stack) is present in every
+        // pre-dictionary state, and the failure is retryable — signing out is
+        // not a reasonable only-option for a transient network error.
+        expect(find.byType(AppBar), findsOneWidget);
+        final before = mealRepository.receivedDays.length;
+        await tester.tap(find.byKey(const Key('dictionary-retry-button')));
+        await tester.pumpAndSettle();
+        expect(mealRepository.receivedDays.length, greaterThan(before));
+      },
+    );
+
+    testWidgets(
+      'a 401 while opening the URL-driven dictionary offers a sign-in-again exit',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: _FakeMealRepository(
+            fetchError: const DietReauthenticationRequired(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('dictionary-sign-in-again-button')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'the URL-driven dictionary uses TODAY\'s meal names even when the app was '
+      'browsing an earlier day',
+      (tester) async {
+        // The shortcut records against today, but `todayController` is shared
+        // with the diet day's day-nav and may be holding an earlier day. Nobody
+        // else would trigger that reload, so the wrapper must trigger it itself
+        // rather than wait (which would spin forever).
+        final today = dayString(DateTime.now());
+        final yesterday = dayString(
+          DateUtils.addDaysToDate(DateTime.now(), -1),
+        );
+        final mealRepository = _FakeMealRepository(
+          mealNamesByDay: {
+            today: const ['breakfast', 'Snack'],
+            yesterday: const [],
+          },
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        // Park the shared controller on yesterday first. `/health/diet` stays
+        // in the stack, so the diet day's own State (and its mount-time reload)
+        // is NOT re-run by the dictionary navigation below.
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        // Today already has a "Snack", so the option continues TODAY's series.
+        // Yesterday's (empty) names would have produced the base name instead.
+        expect(
+          find.text(
+            nextSnackName(const ['breakfast', 'Snack'], loc.dietSnackBaseName),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('choose-meal-snack')));
+        await tester.pumpAndSettle();
+        expect(mealRepository.createdDay, today);
+      },
+    );
+
+    testWidgets(
+      'a dictionary arriving mid-load does not hand back the day being replaced',
+      (tester) async {
+        // `dayMealsLog` still holds the OUTGOING day while someone else's load
+        // is in flight. Recording it as the day to hand back would restore a
+        // day the user has already navigated away from — the diet day would
+        // then show a past day's records under today's header, and file food
+        // added from there under today. Hence: return on `loading` BEFORE
+        // capturing.
+        final today = dayString(DateTime.now());
+        final mealRepository = _GateOneDayMealRepository();
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        // Head back to today, but hold that fetch in flight.
+        mealRepository.gatedDay = today;
+        await tester.tap(find.byKey(const Key('day-nav-next')));
+        await tester.pump();
+
+        // The shortcut arrives mid-load.
+        router.go('/health/diet/dictionary');
+        await tester.pump();
+        mealRepository.release();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        // Today — the day the user actually navigated to — not yesterday.
+        expect(mealRepository.receivedDays.last, today);
+      },
+    );
+
+    testWidgets(
+      'a dictionary arriving while the diet day is already in error still hands '
+      'the browsed day back',
+      (tester) async {
+        // `_returnDay` is captured BEFORE the error guard, because the diet day
+        // can sit in `error` with `dayMealsLog` intact — the status changes,
+        // the record does not. Reached here through a FAILED DAY SWITCH (a
+        // failed mutation lands in the same state via `_mutate`). Note the
+        // day asserted below is what `dayMealsLog` holds, which a failed switch
+        // leaves one day behind `DietDayScreen._day` — that gap is the
+        // "DietDayScreen self-sync" follow-up in design.md, not this test's
+        // subject. What this test pins is that capturing at the takeover
+        // instead would never run at all, leaving `dispose` to restore today.
+        final yesterday = dayString(
+          DateUtils.addDaysToDate(DateTime.now(), -1),
+        );
+        final mealRepository = _FailAfterFirstDaysMealRepository();
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        // Drive the controller into `error` BEFORE the dictionary mounts, with
+        // `dayMealsLog` left holding yesterday — the state a failed mutation
+        // leaves behind. The dictionary's own load then never even starts.
+        mealRepository.failFromNowOn = true;
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('dictionary-error-message')), findsOneWidget);
+
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        expect(mealRepository.receivedDays.last, yesterday);
+      },
+    );
+
+    testWidgets(
+      'the URL-driven dictionary survives midnight instead of spinning forever',
+      (tester) async {
+        // `day` comes from `_today`, a live value. `_requestedLoad` is one-shot,
+        // so without the rollover handling the build would keep seeing
+        // `log.day != widget.day` with nobody left to fix it. And the reload it
+        // triggers must be post-frame: `load` notifies synchronously and the
+        // TodayScreen below has a bare `setState` listener.
+        var now = DateTime(2026, 7, 28, 23, 59);
+        final today = dayString(now);
+        final tomorrow = dayString(DateUtils.addDaysToDate(now, 1));
+        final mealRepository = _FakeMealRepository();
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+          clock: () => now,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        // Borrow a PAST day first, so the rollover has something it could
+        // wrongly overwrite `_returnDay` with.
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+        final borrowedDay = dayString(DateUtils.addDaysToDate(now, -1));
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+        expect(mealRepository.receivedDays.last, today);
+
+        // Cross midnight, then make go_router re-run the route builder — the
+        // only thing that actually hands the screen a new `day`.
+        now = DateTime(2026, 7, 29, 0, 1);
+        router.push('/health/vitals');
+        await tester.pumpAndSettle();
+        router.pop();
+        await tester.pumpAndSettle();
+
+        // Still the dictionary, now on the new day — not a permanent spinner —
+        // and the rollover reload did not throw during build.
+        expect(tester.takeException(), isNull);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+        expect(mealRepository.receivedDays.last, tomorrow);
+
+        // And the day to hand back is still the one BORROWED FROM THE USER —
+        // the rollover must not overwrite it with the pre-midnight "today"
+        // (that is what `_returnDay ??=` is for).
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        expect(mealRepository.receivedDays.last, borrowedDay);
+      },
+    );
+
+    testWidgets(
+      'leaving the URL-driven dictionary hands the browsed day back, so the '
+      'diet day underneath is not left showing today under a past-day header',
+      (tester) async {
+        // The wrapper borrows the SHARED `todayController` to read today's meal
+        // names. The diet day below keeps its own `_viewedDate`/`_day` and only
+        // reloads on its own day-switch, so restoring today unconditionally
+        // would leave it showing today's meals under yesterday's header — and
+        // file food added from there under yesterday.
+        final today = dayString(DateTime.now());
+        final yesterday = dayString(
+          DateUtils.addDaysToDate(DateTime.now(), -1),
+        );
+        final mealRepository = _FakeMealRepository(
+          mealNamesByDay: {
+            today: const ['ZZTodayOnlyMeal'],
+            yesterday: const [],
+          },
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+
+        // Back on yesterday, in both directions: the last fetch asked for
+        // yesterday, and today's meal is not on screen under yesterday's
+        // header. Asserting only the header would pass while the list showed
+        // today's records.
+        expect(mealRepository.receivedDays.last, yesterday);
+        expect(find.text('ZZTodayOnlyMeal'), findsNothing);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.dietHistoryTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'leaving the URL-driven dictionary reloads the diet day, so what was just '
+      'added is on screen',
+      (tester) async {
+        // The shortcut arrives via `go`, so the `true` the dictionary pops has
+        // nobody to catch it (in-app it is an `await push<bool>`) — the wrapper
+        // reloads on dispose instead.
+        final today = dayString(DateTime.now());
+        final mealRepository = _FakeMealRepository();
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pumpAndSettle();
+
+        final loadsBeforeRecording = mealRepository.receivedDays
+            .where((d) => d == today)
+            .length;
+
+        await tester.tap(find.byKey(const Key('choose-meal-dinner')));
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.createdMeal, 'dinner');
+        expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+        expect(
+          mealRepository.receivedDays.where((d) => d == today).length,
+          greaterThan(loadsBeforeRecording),
+        );
+      },
+    );
+
+    testWidgets(
+      'the URL-driven dictionary does not inherit an abandoned per-meal tray',
+      (tester) async {
+        // In-app, `_openDictionary` resets the shared CreateMealController
+        // first; a URL arrival must do the same or the dictionary opens with
+        // the abandoned tray's recording controls and its target meal.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+
+        // Start a per-meal entry and leave it unfinished.
+        await tester.tap(find.byKey(const Key('add-snack')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-result-rice-1')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('food-search-done-button')), findsOneWidget);
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+        // An empty tray has no recording controls at all.
+        expect(find.byKey(const Key('food-search-done-button')), findsNothing);
       },
     );
 
@@ -1231,6 +1841,131 @@ void main() {
           mealRepository.receivedDays.where((d) => d == yesterday).length,
           loadsBeforeRecording + 1,
         );
+      },
+    );
+
+    testWidgets(
+      'a vitals URL carrying ?add=glucose starts a glucose reading',
+      (tester) async {
+        // A behavior test, NOT a proof of the hash URL strategy: a widget test
+        // has no web URL strategy at all. That half rests on Flutter's
+        // `HashUrlStrategy.getPath()` returning everything after `#` (query
+        // included), which go_router parses into `state.uri`.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        ).go('/health/vitals?add=glucose');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('vitals-glucose-value-0')), findsOneWidget);
+        expect(find.byKey(const Key('vitals-glucose-value-1')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'every manifest shortcut URL actually lands on its destination',
+      (tester) async {
+        // Guards the manifest against the failure mode section 2 fixed: a
+        // route that exists but bounces because it is missing its `extra`. So
+        // this navigates for real rather than comparing strings. The two
+        // vitals shortcuts land on the SAME screen, so each also asserts its
+        // own reading count — otherwise nothing would tell them apart.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final manifest =
+            jsonDecode(File('web/manifest.json').readAsStringSync())
+                as Map<String, dynamic>;
+        final shortcuts = (manifest['shortcuts'] as List).cast<Map<String, dynamic>>();
+        expect(shortcuts, hasLength(4));
+        // Each shortcut must be a DISTINCT destination. Without this, pointing
+        // two of them at the same url still passes the per-url loop below —
+        // and "two shortcuts open the same screen" is exactly what D2b fixed.
+        final urls = shortcuts.map((s) => s['url'] as String).toList();
+        expect(urls.toSet(), hasLength(urls.length));
+
+        final expectations = <String, void Function()>{
+          '/health/diet/dictionary': () {
+            expect(find.byKey(const Key('food-search-field')), findsOneWidget);
+          },
+          '/health/diet': () {
+            expect(find.byKey(const Key('diet-open-target')), findsOneWidget);
+          },
+          '/health/vitals?add=glucose': () {
+            expect(
+              find.byKey(const Key('vitals-glucose-value-0')),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const Key('vitals-glucose-value-1')),
+              findsNothing,
+            );
+          },
+          '/health/vitals?add=bp': () {
+            expect(
+              find.byKey(const Key('vitals-bp-systolic-0')),
+              findsOneWidget,
+            );
+            expect(find.byKey(const Key('vitals-bp-systolic-1')), findsNothing);
+            // …and the glucose reading the previous shortcut started is not
+            // added a second time (the two share one screen State).
+            expect(
+              find.byKey(const Key('vitals-glucose-value-1')),
+              findsNothing,
+            );
+          },
+        };
+
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Resolved ONCE: after the first navigation the health tile is gone
+        // from the tree, so re-reading the router from it would fail.
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+
+        for (final shortcut in shortcuts) {
+          final url = shortcut['url'] as String;
+          expect(url, startsWith('/#'), reason: 'the app uses hash URLs');
+          final location = url.substring(2);
+          expect(
+            expectations.containsKey(location),
+            isTrue,
+            reason: 'no expectation declared for shortcut $url',
+          );
+
+          router.go(location);
+          await tester.pumpAndSettle();
+          expectations[location]!();
+        }
       },
     );
 
