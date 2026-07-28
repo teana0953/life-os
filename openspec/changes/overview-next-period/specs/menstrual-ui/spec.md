@@ -44,8 +44,8 @@ and is not clamped to the future, so it falls into the past whenever recording h
 
 The overview SHALL report an ongoing period ahead of the next prediction when today falls
 inside any recorded period — including one with no recorded end — and SHALL say which day
-of it today is, while still showing the predicted next start. The day count SHALL NOT be
-capped: a period left open long ago showing a large day count is the signal that it was
+of it today is, while still showing the predicted next start when that prediction is
+still ahead. The day count SHALL NOT be capped: a period left open long ago showing a large day count is the signal that it was
 never closed.
 
 #### Scenario: Today inside a period reports the day of it
