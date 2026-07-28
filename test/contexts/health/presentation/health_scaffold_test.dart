@@ -52,6 +52,7 @@ import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/presentation/health_calendar_card.dart';
 import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/hydration/application/add_water.dart';
 import 'package:life_os/contexts/hydration/application/get_water_day.dart';
@@ -63,9 +64,11 @@ import 'package:life_os/contexts/menstrual/application/add_period.dart';
 import 'package:life_os/contexts/menstrual/application/delete_period.dart';
 import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
 import 'package:life_os/contexts/menstrual/application/update_period.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_exceptions.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
 import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
+import 'package:life_os/contexts/menstrual/presentation/next_period_card.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
@@ -345,9 +348,16 @@ class _FakeExerciseRepository implements ExerciseRepository {
 }
 
 class _FakeMenstrualRepository implements MenstrualRepository {
+  /// Thrown instead of returning an overview, for the 401 test.
+  final Object? getOverviewError;
+
+  _FakeMenstrualRepository({this.getOverviewError});
+
   @override
-  Future<MenstrualOverview> getOverview(String idToken) async =>
-      const MenstrualOverview(periods: [], stats: MenstrualStats());
+  Future<MenstrualOverview> getOverview(String idToken) async {
+    if (getOverviewError != null) throw getOverviewError!;
+    return const MenstrualOverview(periods: [], stats: MenstrualStats());
+  }
 
   @override
   Future<MenstrualPeriod> addPeriod(
@@ -441,7 +451,8 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
 /// asserting what the Overview tab renders first. [careTodaySlots] is the
 /// only input that varies between most tests; it's ignored when
 /// [careTodayRepository] is supplied directly. [healthCalendarRepository],
-/// [careTodayRepository], [careHistoryRepository], [authRepository], and
+/// [careTodayRepository], [careHistoryRepository], [menstrualRepository],
+/// [authRepository], and
 /// [dataRevision] are overridable for the reload-on-bump/reauth/load-failure
 /// tests, which need to observe/control the respective load calls and drive
 /// the shared revision.
@@ -450,6 +461,7 @@ Widget _buildScaffold({
   _FakeHealthCalendarRepository? healthCalendarRepository,
   _FakeCareTodayRepository? careTodayRepository,
   _FakeCareHistoryRepository? careHistoryRepository,
+  _FakeMenstrualRepository? menstrualRepository,
   AuthRepository? authRepository,
   DataRevision? dataRevision,
   VoidCallback? onOpenCareHistory,
@@ -509,12 +521,13 @@ Widget _buildScaffold({
     AddExerciseEntry(exerciseRepository),
     DeleteExerciseEntry(exerciseRepository),
   );
-  final menstrualRepository = _FakeMenstrualRepository();
+  final resolvedMenstrualRepository =
+      menstrualRepository ?? _FakeMenstrualRepository();
   final menstrualController = MenstrualController(
-    GetMenstrualOverview(menstrualRepository),
-    AddPeriod(menstrualRepository),
-    UpdatePeriod(menstrualRepository),
-    DeletePeriod(menstrualRepository),
+    GetMenstrualOverview(resolvedMenstrualRepository),
+    AddPeriod(resolvedMenstrualRepository),
+    UpdatePeriod(resolvedMenstrualRepository),
+    DeletePeriod(resolvedMenstrualRepository),
   );
   final resolvedCareTodayRepository =
       careTodayRepository ??
@@ -622,6 +635,46 @@ void main() {
       );
       final goalTop = tester.getTopLeft(find.byType(GoalCard));
       expect(setupTop.dy, lessThan(goalTop.dy));
+    });
+
+    testWidgets('the next-period card sits between the goal card and the '
+        'record calendar — the whole point of it is being visible without '
+        'scrolling past a full month grid', (tester) async {
+      // A taller surface than the default test viewport: the care and goal
+      // cards alone push the calendar card (and now the next-period card)
+      // out of the default 800x600 viewport, where the ListView's sliver
+      // viewport makes them offstage and so invisible to the finders below.
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(l10nRouterTestApp(home: _buildScaffold()));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NextPeriodCard), findsOneWidget);
+      final goalTop = tester.getTopLeft(find.byType(GoalCard)).dy;
+      final nextPeriodTop = tester.getTopLeft(find.byType(NextPeriodCard)).dy;
+      final calendarTop = tester.getTopLeft(find.byType(HealthCalendarCard)).dy;
+      expect(goalTop, lessThan(nextPeriodTop));
+      expect(nextPeriodTop, lessThan(calendarTop));
+    });
+
+    testWidgets('tapping the next-period card opens the menstrual tracker', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(l10nRouterTestApp(home: _buildScaffold()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('next-period-card')));
+      await tester.pumpAndSettle();
+
+      // `l10nRouterTestApp` renders the matched location for a pushed route
+      // it has no widget for, so this asserts the *path* — `/menstrual`
+      // would be a not-found screen in the real router (app_test covers the
+      // real route end to end).
+      expect(find.text('/health/menstrual'), findsOneWidget);
     });
   });
 
@@ -892,6 +945,29 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a 401 from the menstrual load alone surfaces the re-authenticate exit '
+      '— the next-period card has nothing to act on, so without menstrual in '
+      '_overviewNeedsReauth its 401 would be a dead end',
+      (tester) async {
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              menstrualRepository: _FakeMenstrualRepository(
+                getOverviewError: const MenstrualReauthenticationRequired(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('health-sign-in-again-button')),
+          findsOneWidget,
+        );
       },
     );
   });

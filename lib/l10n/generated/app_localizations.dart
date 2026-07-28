@@ -1383,6 +1383,54 @@ abstract class AppLocalizations {
   /// **'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.'**
   String get menstrualEmptyHint;
 
+  /// Title of the health overview's next-period card, which opens the menstrual tracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Next period'**
+  String get nextPeriodTitle;
+
+  /// The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} · in {days} days'**
+  String nextPeriodUpcoming(String date, int days);
+
+  /// The overview's next-period card when the predicted next start is today — said outright rather than as a zero-day countdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected today'**
+  String get nextPeriodToday;
+
+  /// The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how many days late it is.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected {date} · {days} days late'**
+  String nextPeriodOverdue(String date, int days);
+
+  /// The overview's next-period card when today falls inside a recorded period: which day of it today is (the start day is day 1, and the count is uncapped so a period left open reads as such).
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing · day {day}'**
+  String nextPeriodOngoing(int day);
+
+  /// Secondary line on the overview's next-period card while a period is ongoing, showing the predicted next start. Omitted entirely when there is no prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Next expected {date}'**
+  String nextPeriodOngoingNext(String date);
+
+  /// The overview's next-period card when nothing has been recorded at all — deliberately not promising that one more recording enables a prediction, which it would not.
+  ///
+  /// In en, this message translates to:
+  /// **'No periods recorded yet'**
+  String get nextPeriodNoRecords;
+
+  /// The overview's next-period card when exactly one period has been recorded, so a cycle length cannot be derived yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record one more to predict the next'**
+  String get nextPeriodNeedsOneMore;
+
   /// Shown on the menstrual screen when loading the overview fails (not an auth failure).
   ///
   /// In en, this message translates to:

@@ -688,6 +688,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
 
   @override
+  String get nextPeriodTitle => '下次生理期';
+
+  @override
+  String nextPeriodUpcoming(String date, int days) {
+    return '$date・還有 $days 天';
+  }
+
+  @override
+  String get nextPeriodToday => '預計今天';
+
+  @override
+  String nextPeriodOverdue(String date, int days) {
+    return '預計 $date・已晚 $days 天';
+  }
+
+  @override
+  String nextPeriodOngoing(int day) {
+    return '進行中・第 $day 天';
+  }
+
+  @override
+  String nextPeriodOngoingNext(String date) {
+    return '下次預計 $date';
+  }
+
+  @override
+  String get nextPeriodNoRecords => '還沒有生理期紀錄';
+
+  @override
+  String get nextPeriodNeedsOneMore => '再記錄一次就能預測下次';
+
+  @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
 
   @override
@@ -2060,6 +2092,38 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
+
+  @override
+  String get nextPeriodTitle => '下次生理期';
+
+  @override
+  String nextPeriodUpcoming(String date, int days) {
+    return '$date・還有 $days 天';
+  }
+
+  @override
+  String get nextPeriodToday => '預計今天';
+
+  @override
+  String nextPeriodOverdue(String date, int days) {
+    return '預計 $date・已晚 $days 天';
+  }
+
+  @override
+  String nextPeriodOngoing(int day) {
+    return '進行中・第 $day 天';
+  }
+
+  @override
+  String nextPeriodOngoingNext(String date) {
+    return '下次預計 $date';
+  }
+
+  @override
+  String get nextPeriodNoRecords => '還沒有生理期紀錄';
+
+  @override
+  String get nextPeriodNeedsOneMore => '再記錄一次就能預測下次';
 
   @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';

@@ -14,6 +14,7 @@ import '../../health_calendar/presentation/health_calendar_card.dart';
 import '../../health_calendar/presentation/health_calendar_controller.dart';
 import '../../hydration/presentation/water_controller.dart';
 import '../../menstrual/presentation/menstrual_controller.dart';
+import '../../menstrual/presentation/next_period_card.dart';
 import '../../notifications/presentation/care_adherence_card.dart';
 import '../../notifications/presentation/care_history_controller.dart';
 import '../../notifications/presentation/care_today_controller.dart';
@@ -165,6 +166,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     widget.weightGoalController,
     widget.trendController,
     widget.healthCalendarController,
+    widget.menstrualController,
     widget.careTodayController,
     widget.careAdherenceController,
   ];
@@ -232,6 +234,10 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.trendController.status == TrendStatus.needsReauth ||
       widget.healthCalendarController.status ==
           HealthCalendarStatus.needsReauth ||
+      // The next-period card has nothing to act on, so a 401 on the menstrual
+      // load has no other way out: without it here, that 401 would wait for
+      // some other controller to move before an exit appeared.
+      widget.menstrualController.status == MenstrualStatus.needsReauth ||
       // The care card keeps its content on a non-loaded status (so a reload
       // can't blank the overview), which would otherwise make a 401 from
       // marking a dose a silent dead end: the row stays 待辦 with no error and
@@ -297,6 +303,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             weightGoalController: widget.weightGoalController,
             healthCalendarController: widget.healthCalendarController,
             careTodayController: widget.careTodayController,
+            menstrualController: widget.menstrualController,
             idToken: idToken,
           ),
           const _RecordHub(),
@@ -344,17 +351,20 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   }
 }
 
-/// 總覽: the at-a-glance cards (today's care + goal + this-month record calendar).
+/// 總覽: the at-a-glance cards (today's care + goal + next period + this-month
+/// record calendar).
 class _OverviewBody extends StatelessWidget {
   final WeightGoalController weightGoalController;
   final HealthCalendarController healthCalendarController;
   final CareTodayController careTodayController;
+  final MenstrualController menstrualController;
   final String idToken;
 
   const _OverviewBody({
     required this.weightGoalController,
     required this.healthCalendarController,
     required this.careTodayController,
+    required this.menstrualController,
     required this.idToken,
   });
 
@@ -374,6 +384,15 @@ class _OverviewBody extends StatelessWidget {
                 onSetup: () => context.push('/care-items'),
               ),
               GoalCard(controller: weightGoalController, idToken: idToken),
+              const SizedBox(height: 16),
+              // Above the calendar card, not after it: the calendar is a whole
+              // month grid plus three rings, so anything below it is off the
+              // first screen on a phone — and being seen without opening the
+              // tracker is this card's entire purpose.
+              NextPeriodCard(
+                controller: menstrualController,
+                onOpen: () => context.push('/health/menstrual'),
+              ),
               const SizedBox(height: 16),
               HealthCalendarCard(
                 controller: healthCalendarController,
