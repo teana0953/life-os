@@ -233,4 +233,23 @@ void main() {
       expect(status.days, 5);
     });
   });
+
+  test('when two recorded periods both cover today, the later start wins', () {
+    // Overlapping records are possible (a back-filled range plus a live one).
+    // The day count has to come from one of them, and the later start is the
+    // one the user is actually in — counting from the earlier would report a
+    // day number they never experienced.
+    final status = computeNextPeriodStatus(
+      _overview(
+        periods: [
+          _period(DateTime(2026, 7, 20), DateTime(2026, 7, 30)),
+          _period(DateTime(2026, 7, 26), DateTime(2026, 7, 30)),
+        ],
+      ),
+      DateTime(2026, 7, 28),
+    );
+
+    expect(status.state, NextPeriodState.ongoing);
+    expect(status.days, 3);
+  });
 }

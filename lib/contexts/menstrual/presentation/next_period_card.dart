@@ -35,6 +35,11 @@ class NextPeriodCard extends StatefulWidget {
   State<NextPeriodCard> createState() => _NextPeriodCardState();
 }
 
+/// The date part of [value], so a prediction is compared against today's
+/// calendar day rather than the current instant.
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
 class _NextPeriodCardState extends State<NextPeriodCard> {
   @override
   void initState() {
@@ -120,10 +125,18 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
     };
 
     // The prediction rides along as a second line only while a period is
-    // ongoing — and only when there is one. Someone recording for the first
-    // time has an ongoing period and no prediction at all, so this line has to
-    // disappear rather than stand in a placeholder.
-    final secondary = status.state == NextPeriodState.ongoing && predicted != null
+    // ongoing, and only when there is one to show. Two ways there isn't:
+    // someone recording for the first time has an ongoing period and no
+    // prediction at all; and a period left open past a whole average cycle has
+    // a prediction that has already gone by — calling a past date "next
+    // expected" is the thing the overdue copy exists to avoid. Either way the
+    // line disappears rather than standing in a placeholder; the day count
+    // above it already says what is going on.
+    final showsPrediction =
+        status.state == NextPeriodState.ongoing &&
+        predicted != null &&
+        !predicted.isBefore(_dateOnly(widget.clock()));
+    final secondary = showsPrediction
         ? loc.nextPeriodOngoingNext(mediumDateLabel(context, predicted))
         : null;
 

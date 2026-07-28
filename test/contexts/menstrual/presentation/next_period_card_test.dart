@@ -55,10 +55,12 @@ class _FakeMenstrualController extends MenstrualController {
       );
 
   int loadCount = 0;
+  String? lastLoadToken;
 
   @override
   Future<void> load(String idToken) async {
     loadCount++;
+    lastLoadToken = idToken;
   }
 }
 
@@ -303,6 +305,31 @@ void main() {
       await tester.pump();
 
       expect(controller.loadCount, 1);
+      // The token the card was given, not a stale or empty one.
+      expect(controller.lastLoadToken, 'token-1');
+    });
+
+    testWidgets('an ongoing period whose prediction has gone by drops the '
+        'secondary line too', (tester) async {
+      // A period left open past a whole average cycle has a prediction that is
+      // already in the past. Showing it as "next expected" would put a past
+      // date under an upcoming label — the exact thing the overdue copy exists
+      // to avoid, arriving through the ongoing state instead.
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(
+          periods: [_period(DateTime(2026, 6, 14))],
+          predictedNextStart: DateTime(2026, 7, 12),
+        ),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
+      expect(
+        find.text(_loc.nextPeriodOngoingNext(_dateLabel(DateTime(2026, 7, 12)))),
+        findsNothing,
+      );
     });
 
     testWidgets('an ongoing period left open long ago is not capped', (
