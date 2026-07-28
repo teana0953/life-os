@@ -1,52 +1,53 @@
 # Tasks
 
-## 1. 純函式：五種狀態 (TDD)
+## 1. 純函式：狀態判斷 (TDD)
 
 - [ ] Test first：`test/contexts/menstrual/domain/next_period_status_test.dart`
-  - 沒有任何紀錄 → `notEnoughData`
-  - 有紀錄但 `predictedNextStart == null`（少於兩次）→ `notEnoughData`
-  - 預測在未來 → `upcoming` + 正確天數；**跨月**（7/28 → 8/2 = 5 天）
+  - **0 筆紀錄 → `noRecords`**；**1 筆（`predictedNextStart == null`）→ `needsOneMore`**。兩者是不同文案：0 筆的人再記一次仍然沒有預測（後端要 ≥2 筆），對他說「再記錄一次就能預測」是做不到的承諾
+  - 預測在未來 → `upcoming` + 天數；**跨月**（7/28 → 8/2 = 5 天）
   - 預測是今天 → `today`（**不是** `upcoming` 且天數 0）
-  - 預測在過去 → `overdue` + 正確天數
-  - 今天在最近一次週期內（已結束的）→ `ongoing` + 第 N 天；**起始日當天 = 第 1 天**（不是第 0 天）
-  - 最近一次沒有結束日且起始日在今天之前 → `ongoing`
-  - **`ongoing` 優先於 `overdue`**：既有一段涵蓋今天、預測日又在過去 → `ongoing`
-  - 最近一次週期的**結束日就是今天** → 仍是 `ongoing`（閉區間）
-  - 最近一次週期**昨天結束** → 不是 `ongoing`
-  - **UTC 正規化**：`TZ=UTC` 與 `TZ=Asia/Taipei` 兩種環境下天數相同（design D2）。這個 repo 兩種相反的時區失敗都踩過
-- [ ] `lib/contexts/menstrual/domain/next_period_status.dart`：`NextPeriodStatus`（kind + 可選 date + 可選 days）與 `computeNextPeriodStatus(overview, today)`。**純函式，不碰 DateTime.now()**
+  - 預測在過去 → `overdue` + 天數
+  - 今天在某段週期內（已結束的）→ `ongoing` + 第 N 天；**起始日當天 = 第 1 天**
+  - 某段沒有結束日、起始日 ≤ 今天 → `ongoing`
+  - **`ongoing` 仍帶著預測日**（design D1）—— 斷言 status 同時有 ongoing 的天數與預測日期
+  - **`ongoing` 優先於 `overdue`**
+  - 週期的**結束日就是今天** → 仍 `ongoing`（閉區間）；**昨天結束** → 不是
+  - **涵蓋今天的那段 vs 起始日更大但不涵蓋今天的那段 → 取涵蓋今天的**（`lastPeriod` 是起始日最大的那次，補記較早開始／較晚結束的週期時它不是涵蓋今天的那段；月曆用全部 periods 判斷，不一致的話兩個畫面會對同一天講相反的話）
+  - **起始日在未來的紀錄不算 ongoing**（手滑記成未來日期）
+  - **`clock` 帶時分秒**：`2026-07-28 15:30` + 預測日 `2026-07-29` → **`upcoming` 1 天，不是 `today`**。紀錄日期是本地午夜、`clock()` 帶當下時間，沒有兩邊都剝成 UTC 午夜就會被那幾個小時吃掉一天 —— **這是每天下午都會發生的**。**不要**寫切 `TZ` 環境變數的測試：Dart 的本地時區在 process 啟動就定了，單一測試裡切不掉，而 UTC 與 Asia/Taipei 都沒有 DST，那種測試恆綠
+- [ ] `lib/contexts/menstrual/domain/next_period_status.dart`：`computeNextPeriodStatus(overview, today)` 純函式，**掃 `overview.periods` 找涵蓋今天的那段**，不碰 `DateTime.now()`
 
 ## 2. 卡片 (TDD)
 
 - [ ] Test first：`test/contexts/menstrual/presentation/next_period_card_test.dart`
-  - 五種狀態各渲染出對應文案（用 `loc.xxx` 比對，不寫死字串）
-  - **點擊卡片會呼叫 `onOpen`**，且**沒有預測時也會**（D6）
+  - 每種狀態渲染對應文案（用 `loc.xxx` 比對，不寫死字串）
+  - **點擊卡片會呼叫 `onOpen`**，**沒有預測時也會**（D6）
   - 首次載入（`loading` 且 `overview == null`）→ 轉圈
-  - **重新載入（`loading` 但已有 overview）→ 保留內容，不退回轉圈**（#82 的教訓；這條要能紅）
+  - **重新載入（`loading` 但已有 overview）→ 保留內容**（#82 的教訓；`MenstrualController.load` 設 loading 但不清 overview，所以假 controller 擺得出這個狀態，這條真的能紅）
   - `error` → 卡內錯誤訊息
-  - 卡片**不呼叫** `load`（D4）—— 用假 controller 斷言 load 次數為 0
+  - 卡片**不呼叫** `load` —— 假 controller 斷言 load 次數為 0
 - [ ] `lib/contexts/menstrual/presentation/next_period_card.dart`：`LedgeCard` + `InkWell`，比照 `GoalCard`。`clock` 注入（D3）
 
 ## 3. l10n
 
-- [ ] 三個 ARB 加：`nextPeriodTitle`、`nextPeriodUpcoming`(date, days)、`nextPeriodToday`、`nextPeriodOverdue`(date, days)、`nextPeriodOngoing`(day)、`nextPeriodNoPrediction`。en 要有 `@` 描述
-- [ ] 日期格式用既有的 `mediumDateLabel`（生理期頁統計卡就是用它）
+- [ ] 三個 ARB 加：`nextPeriodTitle`、`nextPeriodUpcoming`(date, days)、`nextPeriodToday`、`nextPeriodOverdue`(date, days)、`nextPeriodOngoing`(day)、`nextPeriodOngoingNext`(date)、`nextPeriodNoRecords`、`nextPeriodNeedsOneMore`。en 要有 `@` 描述
+- [ ] 日期用既有的 `mediumDateLabel`（生理期頁統計卡就是用它）
 - [ ] 重產 `lib/l10n/generated/` 並 commit（tracked）
 
 ## 4. 接進總覽
 
-- [ ] `_OverviewBody` 加 `NextPeriodCard`，**放最後**（月曆之後），`onOpen: () => context.push('/menstrual')`
-- [ ] `_OverviewBody` 收 `MenstrualController` 參數；`HealthScaffold` 傳下去
-- [ ] **`_overviewControllers` 加 `menstrualController`** —— 否則卡片不會跟著重建
-- [ ] **`_overviewNeedsReauth` 加 menstrual 的 `needsReauth`** —— 否則生理期 401 被吞掉（照護卡踩過同款：#82 的 blocking）
-- [ ] 測試：總覽上看得到這張卡、點了會導到生理期頁（**用 production 的 router，不要自建**——這是 #88 那輪抓到的坑）
+- [ ] `_OverviewBody` 加 `NextPeriodCard`，**放在 `GoalCard` 之後、`HealthCalendarCard` 之前**（D7：月曆是一整格月曆＋三個環，放它後面等於手機上必在第一屏外，而這張卡的全部價值就是不用點進去就看得到）
+- [ ] `onOpen: () => context.push('/health/menstrual')` —— **不是 `/menstrual`**。生理期頁是 `/health` 的巢狀子路由（`app.dart` 的 `path: ':name'`），記錄分頁自己就是 `/health/$name`；router 沒有 `errorBuilder`，導錯會掉進 go_router 內建的 not-found 畫面
+- [ ] `_OverviewBody` 收 `MenstrualController`；`HealthScaffold` 傳下去
+- [ ] `_overviewControllers` 與 `_overviewNeedsReauth` 加 menstrual。**理由是 401**：`_overviewNeedsReauth` 只在 scaffold 自己重建時重算，不加的話 menstrual 專屬的 401 要等別的 controller 動一下才會浮出重新登入的出口。（不是「卡片不會重建」—— 卡片自己 `addListener`，跟 `GoalCard` 一樣。）
+- [ ] 測試：總覽上看得到卡片、點了會**真的到生理期頁**。**用 production 的 router，不要自建**（#88 那輪抓到的坑：自建 router 讓「真實 route 收到後怎麼用」零覆蓋）
 
 ## 5. Gate
 
-- [ ] `flutter analyze` 零 issue、`flutter test` 全綠、**`TZ=UTC flutter test` 也全綠**。基準 **1177 passed / 1 skipped**
+- [ ] `flutter analyze` 零 issue、`flutter test` 全綠。基準 **1177 passed / 1 skipped**
 
 ## 6. On-device verification (manual — 需使用者)
 
-- [ ] 總覽最下面看得到卡片，點了會到生理期頁、返回鍵回得來
+- [ ] 總覽上看得到卡片（在體重目標與月曆之間），點了會到生理期頁、返回回得來
 - [ ] 目前狀態顯示正確（進行中／還有幾天／已晚幾天）
 - [ ] 窄螢幕上讀得順

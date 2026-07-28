@@ -32,23 +32,32 @@ period: { name:"生理期小月曆", period:"生理期", average_circle:"平均�
 
 | 條件 | 顯示 |
 | --- | --- |
-| 今天 ∈ 最近一次週期 `[start, end ?? +∞]` | 進行中・第 N 天 |
-| `predicted == null` | 還沒辦法預測，再記錄一次就可以 |
+| 今天 ∈ **任何一段**已記錄的週期 `[start, end ?? +∞]` | 進行中・第 N 天（＋下次預測當次要文字） |
+| 一筆紀錄都沒有 | 還沒有生理期紀錄 |
+| 只有一筆（後端要兩筆才算得出週期） | 再記錄一次就能預測下次 |
 | `predicted > today` | {日期}・還有 N 天 |
 | `predicted == today` | 預計今天 |
 | `predicted < today` | 預計 {日期}・已晚 N 天 |
 
 **順序就是優先序**：進行中先於一切；沒有預測時不編一個出來。
 
+**「資料不足」要分成兩句**：後端是 `periods.length < 2` 才回 null，所以 0 筆的人「再記錄一次」仍然不會有預測 —— 而 0 筆正是每個新使用者的起始狀態，對他講一句做不到的承諾是最糟的第一印象。0 筆說「還沒有生理期紀錄」，1 筆才說「再記錄一次就能預測下次」。
+
+**「進行中」仍然要把預測講出來**（次要文字，例如「下次預計 8月20日」）。很多人只記開始不記結束 —— 那筆一直開著的話，這張卡就永遠不顯示 issue #84 要的那個日期，等於功能對那群人不存在。
+
 「已晚 N 天」把一個讀起來像壞掉的日期變成訊號 —— 可能真的晚了，也可能只是忘了記，兩種都值得使用者看一眼。**不要把預測夾到未來**（例如一直加週期直到超過今天）：那會把「你已經 26 天沒記錄了」偽裝成一個乾淨的未來日期，是最糟的一種安靜。
 
-**「進行中」的 N 天用最近一次的起始日算，不設上限**。忘了關的舊紀錄會顯示「進行中・第 45 天」，那是對的 —— 它在說「你忘了關」。設上限或改回顯示預測，等於幫使用者把自己的錯誤藏起來。
+**「進行中」的 N 天用那一段的起始日算，不設上限**。忘了關的舊紀錄會顯示「進行中・第 45 天」，那是對的 —— 它在說「你忘了關」。設上限或改回顯示預測，等於幫使用者把自己的錯誤藏起來。
 
-### D2 — 日期算術用 UTC 正規化
+**判斷要掃過 `overview.periods`，不能只看 `lastPeriod`**。`lastPeriod` 是**起始日最大**的那一次（後端 `periods[periods.length - 1]`，升冪）。使用者補記一段「開始得更早、結束得更晚」的週期時，`lastPeriod` 不是涵蓋今天的那一段 —— 生理期頁的月曆用**全部** periods 判斷，會把今天標成經期日，總覽卡卻會說「還有 12 天」。兩個畫面對同一天講相反的話。取「涵蓋今天且起始日最大的那一段」，程式碼一樣短。
 
-兩邊都是 date-only，但 `DateTime` 是本地時區的。跨 DST 邊界時 `difference(...).inDays` 會少一天。**兩個日期都先轉成 `DateTime.utc(y, m, d)` 再相減**。
+### D2 — 天數用「兩邊都剝成 UTC 午夜」再相減
 
-本機是 UTC+8、CI 是 UTC，兩種相反的失敗模式這個 repo 都踩過 —— 碰日期的測試要 `TZ=UTC` 複驗。
+紀錄裡的日期是 `_parseDate` 出來的**本地午夜**，但 `clock()` 回的是**帶時分秒**的當下。直接 `difference(...).inDays` 會被那幾個小時吃掉一天：下午三點打開 app、預測日是明天，`inDays` 會算成 0，卡片就說「預計今天」。**這是每天下午都會發生的**，不是邊界情況。
+
+所以：`today` 先剝成 `DateTime.utc(t.year, t.month, t.day)`，紀錄日期也剝成 `DateTime.utc(...)`，再相減。跨 DST 的一小時偏移順帶也一起解決了。
+
+**不要寫「切換 TZ 環境變數」的測試**：Dart 的本地時區在 process 啟動就定了，單一測試裡切不掉；而且 UTC 與 Asia/Taipei 都沒有 DST，`TZ=UTC flutter test` 對這條完全無效。真正能紅的是**傳一個帶時分秒的 `clock`**（例如 `2026-07-28 15:30`）而預測日是 `2026-07-29`，斷言「還有 1 天」而不是「預計今天」—— 這條在任何時區都會紅。
 
 ### D3 — 今天從注入的 clock 來
 
@@ -65,11 +74,23 @@ period: { name:"生理期小月曆", period:"生理期", average_circle:"平均�
 - 首次載入（還沒有資料）→ 卡內轉圈
 - 重新載入（已經有資料）→ **保留現有內容**，不要退回轉圈（#82 的教訓：自動刷新會把畫面打空）
 - 錯誤 → 卡內錯誤訊息
-- 401 → 不自己處理，交給 `HealthScaffold` 的 `_overviewNeedsReauth`（**要把 menstrual 加進那個判斷**，否則生理期 401 會被吞掉）
+- 401 → 不自己處理，交給 `HealthScaffold` 的 `_overviewNeedsReauth`（**要把 menstrual 加進那個判斷**，否則生理期的 401 不會有重新登入的出口）
 
-### D6 — 整張卡可點
+`_overviewControllers` 也要加 menstrual，但**理由不是「否則卡片不會重建」**（卡片自己 `addListener`，跟 `GoalCard`／`CareTodaySummaryCard` 一樣）—— 而是 `_overviewNeedsReauth` 只在 scaffold 自己重建時重算，不加的話 menstrual 專屬的 401 要等別的 controller 動一下才會浮出來。
+
+### D6 — 整張卡可點，路由是 `/health/menstrual`
+
+生理期頁是 `/health` 的**巢狀子路由**（`lib/app.dart` 的 `path: ':name'`），記錄分頁自己就是 `context.push('/health/$name')`。`/menstrual` 不存在，而 router 沒有 `errorBuilder` —— 導錯會掉進 go_router 內建的 not-found 畫面。捷徑是這個 issue 一半的需求，測試要用 **production 的 router**，不要自建一個。
+
+
 
 `LedgeCard` + `InkWell`，與 `GoalCard`／`CareTodaySummaryCard` 相同。**五種狀態都可點**，包含「資料不足」—— 那張卡同時是捷徑，而沒資料的人正是最需要捷徑的。
+
+### D7 — 放在月曆之前，不是最後
+
+原本想放最後（最不動既有順序）。但月曆卡是一整格月曆＋三個達成率環，把新卡推到它後面等於手機上必定在第一屏外 —— 而這張卡的全部價值就是「不用點進去就看得到」。
+
+改成 照護 → 目標 → **下次生理期** → 月曆。照護仍在最上面：那是唯一有時效、漏了補不回來的資訊。
 
 ## 元件
 
@@ -77,7 +98,7 @@ period: { name:"生理期小月曆", period:"生理期", average_circle:"平均�
 | --- | --- |
 | `contexts/menstrual/domain/next_period_status.dart`（新） | 純函式：`(overview, today) → NextPeriodStatus`（五選一 + 天數）。這是唯一有邏輯的部分，可單獨測 |
 | `contexts/menstrual/presentation/next_period_card.dart`（新） | 卡片；監聽 `MenstrualController`，`onOpen` 回呼 |
-| `contexts/health/presentation/health_scaffold.dart` | `_OverviewBody` 加卡片（最後）、`_overviewControllers` 與 `_overviewNeedsReauth` 加 menstrual |
+| `contexts/health/presentation/health_scaffold.dart` | `_OverviewBody` 加卡片（**月曆之前**）、`_overviewControllers` 與 `_overviewNeedsReauth` 加 menstrual |
 | `l10n/app_{en,zh,zh_Hant}.arb` | 五種狀態的文案 |
 
 ## 不做（YAGNI）

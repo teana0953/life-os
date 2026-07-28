@@ -14,10 +14,15 @@ or not a prediction exists, because it is also the way into the tracker.
 - **WHEN** the predicted next start is today
 - **THEN** the overview says it is expected today rather than showing a zero-day countdown
 
-#### Scenario: Too little data to predict is stated, not hidden
-- **WHEN** there is no prediction yet (fewer than two recorded periods)
-- **THEN** the overview says a prediction is not possible yet and what would make it
-  possible, rather than showing a placeholder or omitting the card
+#### Scenario: Having recorded nothing is stated plainly
+- **WHEN** no period has been recorded at all
+- **THEN** the overview says so, rather than showing a placeholder or omitting the card
+
+#### Scenario: One recorded period says what would make a prediction possible
+- **WHEN** exactly one period has been recorded, so a cycle length cannot be derived
+- **THEN** the overview says recording one more would make a prediction possible — a
+  promise it SHALL NOT make to someone who has recorded nothing, for whom one more
+  recording still yields no prediction
 
 ### Requirement: A prediction that has passed is reported as overdue
 
@@ -37,18 +42,30 @@ and is not clamped to the future, so it falls into the past whenever recording h
 
 ### Requirement: An ongoing period takes precedence over the prediction
 
-The overview SHALL report an ongoing period instead of the next prediction when today falls
-inside the most recent recorded one — including a period with no recorded end — and SHALL
-say which day of it today is. The day count SHALL NOT be capped: a period left open long
-ago showing a large day count is the signal that it was never closed.
+The overview SHALL report an ongoing period ahead of the next prediction when today falls
+inside any recorded period — including one with no recorded end — and SHALL say which day
+of it today is, while still showing the predicted next start. The day count SHALL NOT be
+capped: a period left open long ago showing a large day count is the signal that it was
+never closed.
 
 #### Scenario: Today inside a period reports the day of it
-- **WHEN** today falls within the most recent recorded period
-- **THEN** the overview says a period is ongoing and which day of it today is, instead of
-  the next prediction
+- **WHEN** today falls within a recorded period
+- **THEN** the overview says a period is ongoing and which day of it today is, ahead of the
+  next prediction
+
+#### Scenario: An ongoing period does not hide the prediction
+- **WHEN** a period is ongoing and a next start is predicted
+- **THEN** the predicted date is still shown, so someone who records starts but not ends
+  is not left without the thing this card exists to show
+
+#### Scenario: A period that covers today wins over a later-starting one
+- **WHEN** a period covering today was recorded alongside a later-starting one that does
+  not cover today
+- **THEN** today is reported as ongoing, so the overview and the tracker's calendar do not
+  disagree about the same day
 
 #### Scenario: A period with no end date counts as ongoing
-- **WHEN** the most recent recorded period has no end date and started before today
+- **WHEN** a recorded period has no end date and started on or before today
 - **THEN** it is treated as ongoing
 
 ### Requirement: The overview card opens the menstrual tracker
@@ -59,7 +76,8 @@ something.
 
 #### Scenario: Tapping the card opens the tracker
 - **WHEN** the user taps the card
-- **THEN** the menstrual tracker opens
+- **THEN** the menstrual tracker opens, reached through the application's own routing so a
+  back control returns to the overview
 
 #### Scenario: The shortcut works with no data
 - **WHEN** no period has been recorded yet
