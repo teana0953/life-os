@@ -1909,6 +1909,17 @@ void main() {
         final urls = shortcuts.map((s) => s['url'] as String).toList();
         expect(urls.toSet(), hasLength(urls.length));
 
+        // ORDER IS LOAD-BEARING. Chrome adds its own "site settings" row to the
+        // long-press menu, so only the FIRST THREE shortcuts actually show on
+        // the device — verified on a real install, where the fourth was simply
+        // absent. Blood pressure is the one that loses, because it shares the
+        // vitals screen with glucose and is one scroll away once you are there.
+        expect(urls.take(3), [
+          '/#/health/vitals?add=glucose',
+          '/#/health/diet',
+          '/#/health/diet/dictionary',
+        ]);
+
         // Every shortcut needs its OWN icon file, and the file has to exist.
         // Launchers do not fall back to the app icon when `icons` is missing —
         // they render a blank placeholder, which is what shipped first time and

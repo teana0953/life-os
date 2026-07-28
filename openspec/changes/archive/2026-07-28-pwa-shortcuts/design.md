@@ -126,6 +126,17 @@ go_router 16.3.0 直接把它當 `Uri` 解析成 `state.uri`,所以
 manifest 的 `shortcuts[].icons` 是可選的;沒給就用 app icon。四個捷徑各畫一張 96×96
 圖示是設計工作,不是這個 issue 要的東西(YAGNI)。
 
+**❌ 這條被實機推翻(交付後,#105 修)**:`icons` 確實是可選的,但**沒給的話 Android
+launcher 顯示的是空白灰方塊,不會 fallback 到 app icon**。四個捷徑並排三個空方塊,
+只有文字可讀。已補四張 192×192(app 自己的 token 畫的不透明圓片 —— 選單是深色的,
+透明字符會消失;整張內縮 12%,因為 launcher 可能裁成圓形)。
+
+**❌ 另一個被實機推翻的假設**:原本寫「Android 最多顯示 4 個捷徑,再加也看不到」。
+實際上 **Chrome 會自己插一列「網站設定」**,所以 WebAPK 的長按選單**只顯示前 3 個**。
+第四個(記血壓)完全不出現。已把 manifest 順序改成
+**記血糖 → 記飲食 → 查食物 → 記血壓**(使用者選的),血壓退到看不見的第四位 ——
+它與血糖共用 vitals 畫面,進去往下捲就有。**順序因此是有意義的**,guard 測試已釘住前三個。
+
 ## WebAPK 會不會丟掉 shortcut 的 URL —— **使用者已驗證可行**
 
 原本這是本 change 最大的未知(#89 證明 SW `openWindow` 給的 fragment 在 WebAPK 冷啟動
