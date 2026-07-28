@@ -482,9 +482,342 @@ void main() {
             await tester.pumpAndSettle();
 
             expect(tester.takeException(), isNull);
+            // The scroll body is a Column, whose cross-axis default is CENTRE —
+            // the full-width sizing children used to get from the sliver comes
+            // from an explicit `stretch`. Drop it and this button silently
+            // shrinks to its content, with no overflow to give it away.
+            expect(
+              tester.getSize(find.byKey(const Key('vitals-save-button'))).width,
+              width - 40, // the scroll body's 20dp padding on each side
+            );
           },
         );
       }
     }
+  });
+
+  group('VitalsScreen autoAddSection (PWA shortcut)', () {
+    /// Pumps the screen with an [autoAddSection], returning the controller.
+    /// The surface is tall so the mid-list glucose section is actually built.
+    Future<VitalsController> pumpAuto(
+      WidgetTester tester, {
+      required String? autoAddSection,
+      bool load = true,
+      VitalsController? controller,
+      FakeVitalsRepository? repository,
+      // Tall by default so every section is on screen; a phone-sized override
+      // is what exposes a lazily-built scroll body.
+      Size surfaceSize = const Size(800, 1600),
+    }) async {
+      await tester.binding.setSurfaceSize(surfaceSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final c = controller ?? _controller(repository ?? FakeVitalsRepository());
+      if (load) await c.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: VitalsScreen(
+            controller: c,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+            autoAddSection: autoAddSection,
+          ),
+        ),
+      );
+      if (load) {
+        await tester.pumpAndSettle();
+      } else {
+        await tester.pump();
+      }
+      return c;
+    }
+
+    testWidgets('arriving already loaded still adds the glucose reading', (
+      tester,
+    ) async {
+      // The common case for an already-running PWA: the day loaded long ago,
+      // so a listener-only implementation would never fire.
+      final controller = await pumpAuto(tester, autoAddSection: 'glucose');
+
+      expect(controller.glucoseReadings, hasLength(1));
+      expect(find.byKey(const Key('vitals-glucose-value-0')), findsOneWidget);
+    });
+
+    testWidgets(
+      'a reading added while still loading survives the arriving record',
+      (tester) async {
+        // Adding into a screen that is about to be overwritten by
+        // `_applyRecord` would silently lose the row.
+        final repository = FakeVitalsRepository();
+        final controller = await pumpAuto(
+          tester,
+          autoAddSection: 'glucose',
+          load: false,
+          repository: repository,
+        );
+        expect(controller.glucoseReadings, isEmpty);
+
+        await controller.load('token', '2026-07-18');
+        await tester.pumpAndSettle();
+
+        expect(controller.glucoseReadings, hasLength(1));
+      },
+    );
+
+    testWidgets('adds exactly one reading — the flag is set before the add', (
+      tester,
+    ) async {
+      // `addGlucoseReading` notifies synchronously and so re-enters the
+      // controller listener; a flag set after the add recurses forever.
+      final controller = await pumpAuto(tester, autoAddSection: 'glucose');
+
+      expect(controller.glucoseReadings, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('rebuilding the screen does not add more readings', (
+      tester,
+    ) async {
+      final controller = await pumpAuto(tester, autoAddSection: 'glucose');
+      expect(controller.glucoseReadings, hasLength(1));
+
+      // Any other state change: a keystroke in an unrelated field.
+      await tester.enterText(
+        find.byKey(const Key('vitals-weight-field')),
+        '61',
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.glucoseReadings, hasLength(1));
+    });
+
+    testWidgets('the blood-pressure shortcut adds a blood-pressure reading', (
+      tester,
+    ) async {
+      final controller = await pumpAuto(tester, autoAddSection: 'bp');
+
+      expect(controller.bpReadings, hasLength(1));
+      expect(controller.glucoseReadings, isEmpty);
+    });
+
+    testWidgets('arriving with no shortcut adds nothing', (tester) async {
+      final controller = await pumpAuto(tester, autoAddSection: null);
+
+      expect(controller.bpReadings, isEmpty);
+      expect(controller.glucoseReadings, isEmpty);
+      expect(controller.spo2Readings, isEmpty);
+    });
+
+    testWidgets('an unrecognised kind adds nothing and does not fail', (
+      tester,
+    ) async {
+      final controller = await pumpAuto(tester, autoAddSection: 'weight');
+
+      expect(controller.bpReadings, isEmpty);
+      expect(controller.glucoseReadings, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'switching from the glucose shortcut to the bp one adds the bp reading '
+      'without re-adding the glucose one',
+      (tester) async {
+        // go_router's pageKey is the route TEMPLATE (`/health/:name`) — no
+        // query, no name — so the two shortcuts land on the SAME State and
+        // only `didUpdateWidget` runs. The controller is loaded by then and
+        // will never notify again, so merely resetting the flag would do
+        // nothing at all.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final controller = _controller(FakeVitalsRepository());
+        await controller.load('token', '2026-07-18');
+
+        Widget app(String? section) => l10nTestApp(
+          home: VitalsScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+            autoAddSection: section,
+          ),
+        );
+
+        await tester.pumpWidget(app('glucose'));
+        await tester.pumpAndSettle();
+        expect(controller.glucoseReadings, hasLength(1));
+
+        await tester.pumpWidget(app('bp'));
+        await tester.pumpAndSettle();
+
+        expect(controller.bpReadings, hasLength(1));
+        expect(controller.glucoseReadings, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'a shortcut arriving while the day-nav is on a past day records TODAY, '
+      'not the browsed day',
+      (tester) async {
+        // This State survives the navigation (the pageKey is the route
+        // template), so `viewedDay` can still be on a browsed past day — and
+        // `_save` writes `viewedDay`. Without the switch-back, the user taps
+        // "record glucose", types a number, saves, and it lands on yesterday.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = FakeVitalsRepository();
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
+
+        Widget app(String? section) => l10nTestApp(
+          home: VitalsScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+            autoAddSection: section,
+          ),
+        );
+
+        await tester.pumpWidget(app(null));
+        await tester.pumpAndSettle();
+        // Browse to the 17th. An ordinary visit must be free to do this.
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.vitalsHistoryTitle), findsOneWidget);
+
+        await tester.pumpWidget(app('glucose'));
+        await tester.pumpAndSettle();
+
+        expect(controller.glucoseReadings, hasLength(1));
+        // The day the write actually goes to — not merely what the header says.
+        await tester.tap(find.byKey(const Key('vitals-save-button')));
+        await tester.pumpAndSettle();
+        expect(repository.savedDay!.day, '2026-07-18');
+      },
+    );
+
+    testWidgets('activating the same shortcut again adds nothing', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = _controller(FakeVitalsRepository());
+      await controller.load('token', '2026-07-18');
+
+      Widget app() => l10nTestApp(
+        home: VitalsScreen(
+          controller: controller,
+          idToken: 'token',
+          day: '2026-07-18',
+          clock: _defaultClock,
+          autoAddSection: 'glucose',
+        ),
+      );
+
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      expect(controller.glucoseReadings, hasLength(1));
+    });
+
+    testWidgets(
+      'the glucose shortcut focuses the VALUE field, not the free-text label',
+      (tester) async {
+        await pumpAuto(tester, autoAddSection: 'glucose');
+
+        final value = tester.widget<TextField>(
+          find.byKey(const Key('vitals-glucose-value-0')),
+        );
+        expect(value.focusNode?.hasFocus, isTrue);
+        // Asserting the label field's own `focusNode.hasFocus` proves nothing:
+        // `_RowTextField` takes no focusNode, so its TextField.focusNode is
+        // always null and `?? false` would pass even if focus HAD gone there.
+        // Compare against the one focus the framework actually holds.
+        expect(
+          FocusManager.instance.primaryFocus,
+          same(value.focusNode),
+        );
+      },
+    );
+
+    testWidgets(
+      'the shortcut still focuses when earlier readings push the section past '
+      'the fold on a phone-sized screen',
+      (tester) async {
+        // The scroll body must not be lazily built: with a few readings already
+        // logged, a `ListView`'s delegate never builds the glucose section, so
+        // `_autoAddRowKey.currentContext` is null and BOTH the focus and the
+        // scroll-into-view silently do nothing — the user taps "record
+        // glucose" and nothing appears to happen. The other shortcut tests all
+        // use 800x1600, which hides this entirely.
+        final repository = FakeVitalsRepository(
+          stored: const VitalsDay(
+            day: '2026-07-18',
+            weightKg: 72.5,
+            bodyFatPct: 22.0,
+            bpReadings: [
+              BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+              BpReading(systolic: 118, diastolic: 78, pulse: 68, time: '12:30'),
+              BpReading(systolic: 122, diastolic: 82, pulse: 72, time: '18:30'),
+            ],
+            glucoseReadings: [],
+            spo2Readings: [],
+          ),
+        );
+        final controller = await pumpAuto(
+          tester,
+          autoAddSection: 'glucose',
+          repository: repository,
+          surfaceSize: const Size(360, 640),
+        );
+
+        expect(controller.glucoseReadings, hasLength(1));
+        final value = tester.widget<TextField>(
+          find.byKey(const Key('vitals-glucose-value-0')),
+        );
+        expect(FocusManager.instance.primaryFocus, same(value.focusNode));
+      },
+    );
+
+    testWidgets('the bp shortcut focuses the systolic field', (tester) async {
+      await pumpAuto(tester, autoAddSection: 'bp');
+
+      final systolic = tester.widget<TextField>(
+        find.byKey(const Key('vitals-bp-systolic-0')),
+      );
+      expect(systolic.focusNode?.hasFocus, isTrue);
+    });
+
+    testWidgets('neither error nor needsReauth adds a reading', (tester) async {
+      final repository = FakeVitalsRepository()
+        ..getError = const VitalsFetchFailure('boom');
+      final controller = await pumpAuto(
+        tester,
+        autoAddSection: 'glucose',
+        repository: repository,
+      );
+
+      expect(controller.status, VitalsStatus.error);
+      expect(controller.glucoseReadings, isEmpty);
+    });
+
+    testWidgets('needsReauth adds no reading either', (tester) async {
+      // The case above only ever drove `error`; a 401 is the other terminal
+      // state `_maybeAutoAdd` has to refuse, and it takes a different branch
+      // in the controller.
+      final repository = FakeVitalsRepository()
+        ..getError = const VitalsReauthenticationRequired();
+      final controller = await pumpAuto(
+        tester,
+        autoAddSection: 'glucose',
+        repository: repository,
+      );
+
+      expect(controller.status, VitalsStatus.needsReauth);
+      expect(controller.glucoseReadings, isEmpty);
+    });
   });
 }
