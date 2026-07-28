@@ -36,6 +36,7 @@ import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
+import 'package:life_os/contexts/import/application/import_menstrual.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -426,6 +427,15 @@ class _FakeImportRepository implements ImportRepository {
 
   @override
   Future<ChaodaysImportSummary> importDietTarget(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => _summary;
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
     String idToken, {
     required String chaodaysUid,
     required String chaodaysPassword,
@@ -877,6 +887,7 @@ Future<LocaleController> pumpApp(
           ImportWater(importRepository),
           ImportBowel(importRepository),
           ImportDietTarget(importRepository),
+          ImportMenstrual(importRepository),
           resolvedDataRevision,
         );
       }();

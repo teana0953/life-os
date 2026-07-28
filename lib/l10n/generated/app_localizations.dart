@@ -1838,6 +1838,18 @@ abstract class AppLocalizations {
   /// **'Diet target'**
   String get importTypeDietTarget;
 
+  /// Label for the menstrual-period row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Periods'**
+  String get importTypeMenstrual;
+
+  /// Caption under the import type list: chaodays periods that have not ended yet are skipped and come in on a later import
+  ///
+  /// In en, this message translates to:
+  /// **'An ongoing period is skipped — import again after it ends.'**
+  String get importMenstrualOpenPeriodHint;
+
   /// Per-type chaodays import result summary (counts of imported vs. already-present records).
   ///
   /// In en, this message translates to:

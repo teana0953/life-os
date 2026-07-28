@@ -289,6 +289,8 @@
   "importTypeWater": "飲水",
   "importTypeBowel": "排便",
   "importTypeDietTarget": "飲食目標",
+  "importTypeMenstrual": "生理期",
+  "importMenstrualOpenPeriodHint": "進行中的週期會跳過，等它結束後再匯入一次",
   "importResultSummary": "匯入 {imported}・跳過 {skipped}",
   "importResultGlucoseSuffix": "・血糖 {count}",
   "importResultWaterTargetSuffix": "・飲水目標 {count}",

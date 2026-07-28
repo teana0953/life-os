@@ -7,7 +7,7 @@ import '../domain/import_exceptions.dart';
 import '../domain/import_repository.dart';
 
 /// [ImportRepository] driven adapter backed by the
-/// `/api/import/chaodays/{weight,diet,water,bowel,diet-target}` HTTP
+/// `/api/import/chaodays/{weight,diet,water,bowel,diet-target,menstrual}` HTTP
 /// endpoints.
 class HttpImportRepository implements ImportRepository {
   final String baseUrl;
@@ -182,5 +182,22 @@ class HttpImportRepository implements ImportRepository {
     startDate: startDate,
     endDate: endDate,
     parse: _parseDietTargetCounts,
+  );
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) => _import(
+    idToken,
+    '/api/import/chaodays/menstrual',
+    chaodaysUid: chaodaysUid,
+    chaodaysPassword: chaodaysPassword,
+    startDate: startDate,
+    endDate: endDate,
+    parse: _parseCounts,
   );
 }

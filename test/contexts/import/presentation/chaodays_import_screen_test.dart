@@ -7,6 +7,7 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
+import 'package:life_os/contexts/import/application/import_menstrual.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -51,6 +52,10 @@ class _FakeImportRepository implements ImportRepository {
     imported: 6,
     skipped: 1,
     waterTargetsImported: 7,
+  );
+  ChaodaysImportSummary menstrualSummary = const ChaodaysImportSummary(
+    imported: 9,
+    skipped: 3,
   );
 
   void _capture(String chaodaysUid, String chaodaysPassword, String startDate, String endDate) {
@@ -121,6 +126,18 @@ class _FakeImportRepository implements ImportRepository {
     calls.add('dietTarget');
     return dietTargetSummary;
   }
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async {
+    calls.add('menstrual');
+    return menstrualSummary;
+  }
 }
 
 /// An import repository whose `importWeight` never resolves, so a submitted
@@ -174,6 +191,15 @@ class _HangingImportRepository implements ImportRepository {
     required String startDate,
     required String endDate,
   }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -200,6 +226,7 @@ ChaodaysImportController _controller(ImportRepository repository) =>
       ImportWater(repository),
       ImportBowel(repository),
       ImportDietTarget(repository),
+      ImportMenstrual(repository),
       DataRevision(),
     );
 
@@ -212,8 +239,9 @@ Future<void> _pumpScreen(
   DateTime Function() clock = _defaultClock,
   Locale locale = const Locale('en'),
   ThemeData? theme,
+  Size size = const Size(600, 1200),
 }) async {
-  await tester.binding.setSurfaceSize(const Size(600, 1200));
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nTestApp(
@@ -344,7 +372,14 @@ void main() {
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
+      expect(repository.calls, [
+        'weight',
+        'diet',
+        'water',
+        'bowel',
+        'dietTarget',
+        'menstrual',
+      ]);
       expect(repository.capturedUid, 'user1');
       expect(repository.capturedPassword, 'pass1');
       expect(repository.capturedStart, '2026-07-05');
@@ -361,6 +396,7 @@ void main() {
         ImportWater(repository),
         ImportBowel(repository),
         ImportDietTarget(repository),
+        ImportMenstrual(repository),
         DataRevision(),
       );
       await _pumpScreen(tester, controller: controller);
@@ -409,6 +445,8 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text(loc.importTypeMenstrual), findsOneWidget);
+      expect(find.text(loc.importResultSummary(9, 3)), findsOneWidget);
     });
 
     testWidgets('wrong chaodays credentials show the specific error message', (
@@ -464,6 +502,31 @@ void main() {
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).value, isTrue);
       }
+    });
+
+    testWidgets('the menstrual row is on screen and can be toggled', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      expect(find.text(loc.importTypeMenstrual), findsOneWidget);
+      expect(
+        tester.widget<Checkbox>(_checkboxFor(ImportType.menstrual)).value,
+        isTrue,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: _rowFor(ImportType.menstrual),
+          matching: find.text(loc.importTypeMenstrual),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<Checkbox>(_checkboxFor(ImportType.menstrual)).value,
+        isFalse,
+      );
     });
 
     testWidgets('tapping anywhere on a row toggles its selection', (
@@ -677,7 +740,7 @@ void main() {
       final repository = _FakeImportRepository();
       await _pumpScreen(tester, controller: _controller(repository));
 
-      // Five identical empty circles report nothing and read like a stray set
+      // Six identical empty circles report nothing and read like a stray set
       // of radio buttons — the slot stays blank until it has something to say.
       for (final type in ImportType.values) {
         expect(
@@ -750,7 +813,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('import-submit-button'))).dy,
-        greaterThan(tester.getBottomLeft(_rowFor(ImportType.dietTarget)).dy),
+        greaterThan(tester.getBottomLeft(_rowFor(ImportType.menstrual)).dy),
       );
       expect(
         tester.renderObject<RenderParagraph>(heading).text.style!.fontWeight,
@@ -917,7 +980,14 @@ void main() {
       await _fillCompleteForm(tester);
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pumpAndSettle();
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
+      expect(repository.calls, [
+        'weight',
+        'diet',
+        'water',
+        'bowel',
+        'dietTarget',
+        'menstrual',
+      ]);
 
       // Every row is `success` now — the checkboxes must be editable again, or
       // there is no way to re-run a single type without leaving the screen.
@@ -945,7 +1015,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(loc.importErrorUnavailable), findsOneWidget);
 
-      // The failed row plus the four not-attempted ones are all editable
+      // The failed row plus the five not-attempted ones are all editable
       // again — the abort must not leave the card locked.
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNotNull);
@@ -958,5 +1028,66 @@ void main() {
 
       expect(repository.calls, ['bowel']);
     });
+  });
+
+  group('ChaodaysImportScreen open-period hint', () {
+    testWidgets('the open-period hint is shown before any import runs', (
+      tester,
+    ) async {
+      final loc = await AppLocalizations.delegate.load(const Locale('en'));
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // Stated up front, not as an after-the-fact reading of "skipped": the
+      // user decides whether to re-import later while still on this screen.
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+      expect(find.text(loc.importMenstrualOpenPeriodHint), findsOneWidget);
+    });
+
+    testWidgets('the open-period hint is still there after a run finishes', (
+      tester,
+    ) async {
+      // The moment the sentence is actually needed: the user is looking at
+      // "Imported 12 · Skipped 1" and deciding whether that means done. A hint
+      // that only shows before the run would be gone exactly then.
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('import-done-message')), findsOneWidget);
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+    });
+  });
+
+  group('ChaodaysImportScreen narrow layout', () {
+    for (final width in const [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the submit button is reachable and nothing overflows at '
+          '${width.toInt()}dp (${locale.toLanguageTag()})',
+          (tester) async {
+            await _pumpScreen(
+              tester,
+              controller: _controller(_FakeImportRepository()),
+              locale: locale,
+              size: Size(width, 780),
+            );
+
+            // Six type rows plus the hint no longer fit above the fold, so the
+            // button has to be scrolled to — which is fine, but it has to be
+            // REACHABLE. A row added without checking this is how a submit
+            // button quietly ends up below a viewport nobody scrolls.
+            await tester.scrollUntilVisible(
+              find.byKey(const Key('import-submit-button')),
+              200,
+              scrollable: find.byType(Scrollable).first,
+            );
+
+            expect(find.byKey(const Key('import-submit-button')), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

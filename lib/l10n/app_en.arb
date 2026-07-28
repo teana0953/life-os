@@ -1253,6 +1253,14 @@
   "@importTypeDietTarget": {
     "description": "Label for the diet-target row in the chaodays import results."
   },
+  "importTypeMenstrual": "Periods",
+  "@importTypeMenstrual": {
+    "description": "Label for the menstrual-period row in the chaodays import results."
+  },
+  "importMenstrualOpenPeriodHint": "An ongoing period is skipped — import again after it ends.",
+  "@importMenstrualOpenPeriodHint": {
+    "description": "Caption under the import type list: chaodays periods that have not ended yet are skipped and come in on a later import"
+  },
   "importResultSummary": "Imported {imported} · Skipped {skipped}",
   "@importResultSummary": {
     "description": "Per-type chaodays import result summary (counts of imported vs. already-present records).",

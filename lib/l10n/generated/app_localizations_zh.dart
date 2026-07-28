@@ -928,6 +928,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importTypeDietTarget => '飲食目標';
 
   @override
+  String get importTypeMenstrual => '生理期';
+
+  @override
+  String get importMenstrualOpenPeriodHint => '進行中的週期會跳過，等它結束後再匯入一次';
+
+  @override
   String importResultSummary(int imported, int skipped) {
     return '匯入 $imported・跳過 $skipped';
   }
@@ -2294,6 +2300,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get importTypeDietTarget => '飲食目標';
+
+  @override
+  String get importTypeMenstrual => '生理期';
+
+  @override
+  String get importMenstrualOpenPeriodHint => '進行中的週期會跳過，等它結束後再匯入一次';
 
   @override
   String importResultSummary(int imported, int skipped) {

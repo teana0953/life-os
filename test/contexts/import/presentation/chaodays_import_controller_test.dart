@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
+import 'package:life_os/contexts/import/application/import_menstrual.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -10,9 +11,9 @@ import 'package:life_os/contexts/import/domain/import_repository.dart';
 import 'package:life_os/contexts/import/presentation/chaodays_import_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
 
-/// A fake [ImportRepository] whose five methods can each be configured to
+/// A fake [ImportRepository] whose six methods can each be configured to
 /// succeed with a summary or throw a given error, and which records the call
-/// order across all five types.
+/// order across all six types.
 class FakeImportRepository implements ImportRepository {
   final List<String> calls = [];
 
@@ -21,6 +22,7 @@ class FakeImportRepository implements ImportRepository {
   Object? waterError;
   Object? bowelError;
   Object? dietTargetError;
+  Object? menstrualError;
 
   ChaodaysImportSummary weightSummary = const ChaodaysImportSummary(
     imported: 1,
@@ -43,6 +45,10 @@ class FakeImportRepository implements ImportRepository {
     imported: 6,
     skipped: 1,
     waterTargetsImported: 7,
+  );
+  ChaodaysImportSummary menstrualSummary = const ChaodaysImportSummary(
+    imported: 9,
+    skipped: 3,
   );
 
   @override
@@ -109,6 +115,19 @@ class FakeImportRepository implements ImportRepository {
     if (dietTargetError != null) throw dietTargetError!;
     return dietTargetSummary;
   }
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async {
+    calls.add('menstrual');
+    if (menstrualError != null) throw menstrualError!;
+    return menstrualSummary;
+  }
 }
 
 ChaodaysImportController _controller(
@@ -120,6 +139,7 @@ ChaodaysImportController _controller(
   ImportWater(repository),
   ImportBowel(repository),
   ImportDietTarget(repository),
+  ImportMenstrual(repository),
   dataRevision ?? DataRevision(),
 );
 
@@ -139,13 +159,20 @@ Future<void> _import(
 
 void main() {
   group('ChaodaysImportController.import', () {
-    test('runs all five types in order and ends done with each summary', () async {
+    test('runs all six types in order and ends done with each summary', () async {
       final repository = FakeImportRepository();
       final controller = _controller(repository);
 
       await _import(controller);
 
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
+      expect(repository.calls, [
+        'weight',
+        'diet',
+        'water',
+        'bowel',
+        'dietTarget',
+        'menstrual',
+      ]);
       expect(controller.status, ImportStatus.done);
       expect(controller.typeStates[ImportType.weight]!.status, TypeStatus.success);
       expect(controller.typeStates[ImportType.weight]!.summary!.imported, 1);
@@ -158,6 +185,8 @@ void main() {
         controller.typeStates[ImportType.dietTarget]!.summary!.waterTargetsImported,
         7,
       );
+      expect(controller.typeStates[ImportType.menstrual]!.summary!.imported, 9);
+      expect(controller.typeStates[ImportType.menstrual]!.summary!.skipped, 3);
     });
 
     test('every type starts pristine before import runs', () {
@@ -220,6 +249,18 @@ void main() {
       },
     );
 
+    test('a failing menstrual import marks that type failed', () async {
+      final repository = FakeImportRepository()
+        ..menstrualError = const ImportChaodaysUnavailable();
+      final controller = _controller(repository);
+
+      await _import(controller);
+
+      expect(controller.status, ImportStatus.unavailable);
+      expect(controller.typeStates[ImportType.menstrual]!.status, TypeStatus.failed);
+      expect(controller.typeStates[ImportType.dietTarget]!.status, TypeStatus.success);
+    });
+
     test('a fresh import call resets prior per-type state', () async {
       final repository = FakeImportRepository()
         ..weightError = const ImportChaodaysAuthFailed();
@@ -273,6 +314,20 @@ void main() {
       expect(repository.calls, ['weight', 'dietTarget']);
       expect(controller.status, ImportStatus.done);
       expect(controller.typeStates[ImportType.diet]!.status, TypeStatus.pristine);
+    });
+
+    test('runs menstrual, and only menstrual, when it is the only one selected', () async {
+      final repository = FakeImportRepository();
+      final controller = _controller(repository);
+
+      await _import(controller, types: {ImportType.menstrual});
+
+      expect(repository.calls, ['menstrual']);
+      expect(controller.status, ImportStatus.done);
+      expect(controller.typeStates[ImportType.menstrual]!.summary!.imported, 9);
+      for (final type in ImportType.values.where((t) => t != ImportType.menstrual)) {
+        expect(controller.typeStates[type]!.status, TypeStatus.pristine);
+      }
     });
 
     test(

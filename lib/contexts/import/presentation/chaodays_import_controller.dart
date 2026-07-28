@@ -4,14 +4,15 @@ import '../../../shared/data_revision.dart';
 import '../application/import_bowel.dart';
 import '../application/import_diet.dart';
 import '../application/import_diet_target.dart';
+import '../application/import_menstrual.dart';
 import '../application/import_water.dart';
 import '../application/import_weight.dart';
 import '../domain/chaodays_import_summary.dart';
 import '../domain/import_exceptions.dart';
 
-/// The five chaodays data types imported by [ChaodaysImportController], in
+/// The six chaodays data types imported by [ChaodaysImportController], in
 /// the fixed order they run.
-enum ImportType { weight, diet, water, bowel, dietTarget }
+enum ImportType { weight, diet, water, bowel, dietTarget, menstrual }
 
 /// A single type's import state.
 ///
@@ -44,9 +45,9 @@ Map<ImportType, TypeState> _freshTypeStates() => {
 };
 
 /// Drives the chaodays import screen: runs the selected data-type imports
-/// (out of weight, diet, water, bowel, diet target) in order against the
-/// given date range, tracking overall [status] and each type's [TypeState] in
-/// [typeStates].
+/// (out of weight, diet, water, bowel, diet target, menstrual) in order
+/// against the given date range, tracking overall [status] and each type's
+/// [TypeState] in [typeStates].
 ///
 /// The chaodays credentials are passed through to [import] and never held by
 /// this controller (or its use cases) beyond the call — there is no storage
@@ -57,6 +58,7 @@ class ChaodaysImportController extends ChangeNotifier {
   final ImportWater _importWater;
   final ImportBowel _importBowel;
   final ImportDietTarget _importDietTarget;
+  final ImportMenstrual _importMenstrual;
   final DataRevision _dataRevision;
 
   ChaodaysImportController(
@@ -65,6 +67,7 @@ class ChaodaysImportController extends ChangeNotifier {
     this._importWater,
     this._importBowel,
     this._importDietTarget,
+    this._importMenstrual,
     this._dataRevision,
   );
 
@@ -130,6 +133,14 @@ class ChaodaysImportController extends ChangeNotifier {
           startDate: startDate,
           endDate: endDate,
         );
+      case ImportType.menstrual:
+        return _importMenstrual(
+          idToken,
+          chaodaysUid: chaodaysUid,
+          chaodaysPassword: chaodaysPassword,
+          startDate: startDate,
+          endDate: endDate,
+        );
     }
   }
 
@@ -140,7 +151,7 @@ class ChaodaysImportController extends ChangeNotifier {
   /// everything.
   ///
   /// Stops at the first failure:
-  /// - Wrong chaodays credentials (shared by all five types, so the rest
+  /// - Wrong chaodays credentials (shared by all six types, so the rest
   ///   would fail identically) → [ImportStatus.authFailed]; the remaining
   ///   types are left [TypeStatus.notAttempted] rather than marked failed.
   /// - A lifeos 401 → [ImportStatus.needsReauth].
