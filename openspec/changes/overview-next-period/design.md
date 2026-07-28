@@ -103,7 +103,7 @@ period: { name:"生理期小月曆", period:"生理期", average_circle:"平均�
 | `contexts/menstrual/domain/next_period_status.dart`（新） | 純函式：`(overview, today) → NextPeriodStatus`（六選一 + 天數 + 可選預測日）。這是唯一有邏輯的部分，可單獨測 |
 | `contexts/menstrual/presentation/next_period_card.dart`（新） | 卡片；監聽 `MenstrualController`，`onOpen` 回呼 |
 | `contexts/health/presentation/health_scaffold.dart` | `_OverviewBody` 加卡片（**月曆之前**）、`_overviewControllers` 與 `_overviewNeedsReauth` 加 menstrual |
-| `l10n/app_{en,zh,zh_Hant}.arb` | 五種狀態的文案 |
+| `l10n/app_{en,zh,zh_Hant}.arb` | 六種狀態的文案 |
 
 ## 不做（YAGNI）
 

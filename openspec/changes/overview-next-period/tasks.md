@@ -22,6 +22,7 @@
 
 - [ ] Test first：`test/contexts/menstrual/presentation/next_period_card_test.dart`
   - 每種狀態渲染對應文案（用 `loc.xxx` 比對，不寫死字串）
+  - **`ongoing` 且無預測 → 次要那行整個不出現**（`findsNothing`）。上一輪要防的 `!` crash **最可能發生在這一層** —— 純函式只回 `DateTime?`，真正要格式化它的是卡片，所以純函式測試會綠、卡片照樣可以在新使用者第一次記錄當天炸掉
   - **點擊卡片會呼叫 `onOpen`**，**沒有預測時也會**（D6）
   - 首次載入（`loading` 且 `overview == null`）→ 轉圈
   - **重新載入（`loading` 但已有 overview）→ 保留內容**（#82 的教訓；`MenstrualController.load` 設 loading 但不清 overview，所以假 controller 擺得出這個狀態，這條真的能紅）
