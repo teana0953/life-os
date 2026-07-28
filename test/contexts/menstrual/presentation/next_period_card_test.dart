@@ -200,6 +200,67 @@ void main() {
       expect(find.byKey(const Key('next-period-secondary')), findsNothing);
     });
 
+    testWidgets('an ongoing period whose prediction has gone by drops the '
+        'secondary line too', (tester) async {
+      // A period left open past a whole average cycle has a prediction that is
+      // already in the past. Showing it as "next expected" would put a past
+      // date under an upcoming label — the exact thing the overdue copy exists
+      // to avoid, arriving through the ongoing state instead.
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(
+          periods: [_period(DateTime(2026, 6, 14))],
+          predictedNextStart: DateTime(2026, 7, 12),
+        ),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
+      expect(
+        find.text(_loc.nextPeriodOngoingNext(_dateLabel(DateTime(2026, 7, 12)))),
+        findsNothing,
+      );
+    });
+
+    testWidgets('an ongoing period left open long ago is not capped', (
+      tester,
+    ) async {
+      // The uncapped count IS the signal that the period was never closed.
+      // Capping it would quietly turn a data-entry mistake into a plausible
+      // number.
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(periods: [_period(DateTime(2026, 6, 14))]),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
+    });
+
+    testWidgets('an ongoing period whose prediction is today also drops the '
+        'secondary line', (tester) async {
+      // A period open for exactly one average cycle predicts today. "Next
+      // expected 28 Jul" shown on the 28th contradicts itself, so the line
+      // goes at the boundary, not one day past it.
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(
+          periods: [_period(DateTime(2026, 6, 30))],
+          predictedNextStart: DateTime(2026, 7, 28),
+        ),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOngoing(29)), findsOneWidget);
+      expect(
+        find.text(_loc.nextPeriodOngoingNext(_dateLabel(DateTime(2026, 7, 28)))),
+        findsNothing,
+      );
+    });
+
     testWidgets('no records at all says so', (tester) async {
       await _pumpCard(
         tester,
@@ -309,44 +370,6 @@ void main() {
       expect(controller.lastLoadToken, 'token-1');
     });
 
-    testWidgets('an ongoing period whose prediction has gone by drops the '
-        'secondary line too', (tester) async {
-      // A period left open past a whole average cycle has a prediction that is
-      // already in the past. Showing it as "next expected" would put a past
-      // date under an upcoming label — the exact thing the overdue copy exists
-      // to avoid, arriving through the ongoing state instead.
-      await _pumpCard(
-        tester,
-        status: MenstrualStatus.loaded,
-        overview: _overview(
-          periods: [_period(DateTime(2026, 6, 14))],
-          predictedNextStart: DateTime(2026, 7, 12),
-        ),
-        clock: DateTime(2026, 7, 28),
-      );
-
-      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
-      expect(
-        find.text(_loc.nextPeriodOngoingNext(_dateLabel(DateTime(2026, 7, 12)))),
-        findsNothing,
-      );
-    });
-
-    testWidgets('an ongoing period left open long ago is not capped', (
-      tester,
-    ) async {
-      // The uncapped count IS the signal that the period was never closed.
-      // Capping it would quietly turn a data-entry mistake into a plausible
-      // number.
-      await _pumpCard(
-        tester,
-        status: MenstrualStatus.loaded,
-        overview: _overview(periods: [_period(DateTime(2026, 6, 14))]),
-        clock: DateTime(2026, 7, 28),
-      );
-
-      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
-    });
   });
 
   testWidgets('no state but "nothing recorded" ever renders the '

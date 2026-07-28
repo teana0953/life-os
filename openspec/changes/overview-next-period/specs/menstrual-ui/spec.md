@@ -53,10 +53,16 @@ never closed.
 - **THEN** the overview says a period is ongoing and which day of it today is, ahead of the
   next prediction
 
-#### Scenario: An ongoing period does not hide the prediction
-- **WHEN** a period is ongoing and a next start is predicted
+#### Scenario: An ongoing period does not hide a prediction still ahead
+- **WHEN** a period is ongoing and the predicted next start is still in the future
 - **THEN** the predicted date is still shown, so someone who records starts but not ends
   is not left without the thing this card exists to show
+
+#### Scenario: An ongoing period drops a prediction that has arrived or passed
+- **WHEN** a period has been left open until its predicted next start is today or earlier
+- **THEN** no predicted date is shown — labelling today's date "next expected", or a past
+  one, is the same contradiction the overdue wording exists to avoid, arriving through the
+  ongoing state instead. This is the resolution where the two requirements meet.
 
 #### Scenario: An ongoing period with nothing to predict from still reads correctly
 - **WHEN** the only recorded period is the ongoing one, so no next start can be predicted
