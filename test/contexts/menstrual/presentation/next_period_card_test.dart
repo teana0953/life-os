@@ -10,6 +10,7 @@ import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
 import 'package:life_os/contexts/menstrual/presentation/menstrual_controller.dart';
 import 'package:life_os/contexts/menstrual/presentation/next_period_card.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -57,10 +58,19 @@ class _FakeMenstrualController extends MenstrualController {
   int loadCount = 0;
   String? lastLoadToken;
 
+  /// When set, a [load] poses a successful reload (status back to `loaded`
+  /// with this overview) — lets a test check that a retry clears the marking.
+  MenstrualOverview? loadSucceedsWith;
+
   @override
   Future<void> load(String idToken) async {
     loadCount++;
     lastLoadToken = idToken;
+    if (loadSucceedsWith != null) {
+      status = MenstrualStatus.loaded;
+      overview = loadSucceedsWith;
+      notifyListeners();
+    }
   }
 }
 
@@ -346,13 +356,17 @@ void main() {
         find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
         findsOneWidget,
       );
+      // A refresh in flight is not a failure, so nothing is marked.
+      expect(find.byType(StaleNotice), findsNothing);
     });
 
-    testWidgets('a load failure shows the shared menstrual error copy inside '
-        'the card', (tester) async {
+    testWidgets('a load failure with nothing loaded before shows the shared '
+        'menstrual error copy inside the card', (tester) async {
       await _pumpCard(tester, status: MenstrualStatus.error);
 
       expect(find.text(_loc.errorMenstrualLoadFailed), findsOneWidget);
+      // Nothing has loaded, so there is nothing to mark as unrefreshed.
+      expect(find.byType(StaleNotice), findsNothing);
     });
 
     testWidgets('the failure offers a retry that actually retries', (
@@ -370,6 +384,50 @@ void main() {
       expect(controller.lastLoadToken, 'token-1');
     });
 
+    testWidgets(
+      'a failed reload after content keeps the content and marks it as not '
+      'refreshed',
+      (tester) async {
+        await _pumpCard(
+          tester,
+          status: MenstrualStatus.error,
+          overview: _overview(
+            periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+            predictedNextStart: DateTime(2026, 8, 2),
+          ),
+        );
+
+        expect(find.text(_loc.errorMenstrualLoadFailed), findsNothing);
+        expect(
+          find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+          findsOneWidget,
+        );
+        expect(find.byType(StaleNotice), findsOneWidget);
+        expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets('the marking\'s retry reloads this card, and a successful one '
+        'clears the marking', (tester) async {
+      final overview = _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 8, 2),
+      );
+      final controller = await _pumpCard(
+        tester,
+        status: MenstrualStatus.error,
+        overview: overview,
+      );
+      controller.loadSucceedsWith = overview;
+
+      await tester.tap(find.byKey(const Key('stale-notice-retry')));
+      await tester.pumpAndSettle();
+
+      expect(controller.loadCount, 1);
+      expect(controller.lastLoadToken, 'token-1');
+      expect(find.byType(StaleNotice), findsNothing);
+      expect(find.byKey(const Key('next-period-card')), findsOneWidget);
+    });
   });
 
   testWidgets('no state but "nothing recorded" ever renders the '

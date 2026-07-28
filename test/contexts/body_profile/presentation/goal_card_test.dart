@@ -11,6 +11,7 @@ import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -31,8 +32,12 @@ class _FakeRepository implements BodyProfileRepository {
   /// observe the in-flight loading state of a reload.
   Completer<void>? getGate;
 
+  /// Counts every goal fetch — proves the card's own retry reloads it.
+  int getCalls = 0;
+
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
+    getCalls++;
     if (getGate != null) await getGate!.future;
     if (getError != null) throw getError!;
     return goalToReturn;
@@ -175,35 +180,81 @@ void main() {
   });
 
   group('GoalCard error', () {
-    testWidgets('a load failure shows an error state', (tester) async {
+    testWidgets('a load failure with nothing loaded before shows an error '
+        'state, not a refresh marking', (tester) async {
       final repository = _FakeRepository()
         ..getError = const BodyProfileFetchFailure();
       final controller = await _loadedController(repository);
       await _pumpCard(tester, controller);
 
       expect(find.byKey(const Key('goal-card-error')), findsOneWidget);
+      expect(find.byKey(const Key('goal-card-retry')), findsOneWidget);
+      // Nothing has ever loaded, so there is nothing to mark as unrefreshed —
+      // the error takes the place of content.
+      expect(find.byType(StaleNotice), findsNothing);
     });
 
-    testWidgets('a reload failure after a successful load surfaces the error',
-        (tester) async {
+    testWidgets(
+      'a reload failure after a successful load keeps the goal on screen and '
+      'marks it as not refreshed',
+      (tester) async {
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+        // The loaded card is shown.
+        expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
+
+        // A subsequent reload fails. Taking the card away would collapse the
+        // overview around an automatic refresh the user never asked for; the
+        // marking is what keeps the kept content honest.
+        repository.getError = const BodyProfileFetchFailure();
+        await controller.load('token');
+        await tester.pump();
+
+        expect(find.byKey(const Key('goal-card-error')), findsNothing);
+        expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
+        expect(find.byType(StaleNotice), findsOneWidget);
+        expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets('the marking\'s retry reloads the goal card', (tester) async {
       final repository = _FakeRepository()
-        ..goalToReturn = const WeightGoal(
-          heightCm: 165,
-          targetWeightKg: 51,
-          bmi: 19.1,
-        );
+        ..goalToReturn = const WeightGoal(heightCm: 165, targetWeightKg: 51);
       final controller = await _loadedController(repository);
       await _pumpCard(tester, controller);
-      // The loaded card is shown.
-      expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
-
-      // A subsequent reload fails — the stale card must give way to the error.
       repository.getError = const BodyProfileFetchFailure();
       await controller.load('token');
       await tester.pump();
+      final callsBefore = repository.getCalls;
 
-      expect(find.byKey(const Key('goal-card-error')), findsOneWidget);
-      expect(find.byKey(const Key('goal-bmi')), findsNothing);
+      await tester.tap(find.byKey(const Key('stale-notice-retry')));
+      await tester.pumpAndSettle();
+
+      expect(repository.getCalls, callsBefore + 1);
+    });
+
+    testWidgets('a successful retry clears the marking', (tester) async {
+      final repository = _FakeRepository()
+        ..goalToReturn = const WeightGoal(heightCm: 165, targetWeightKg: 51);
+      final controller = await _loadedController(repository);
+      await _pumpCard(tester, controller);
+      repository.getError = const BodyProfileFetchFailure();
+      await controller.load('token');
+      await tester.pump();
+      expect(find.byType(StaleNotice), findsOneWidget);
+
+      repository.getError = null;
+      await tester.tap(find.byKey(const Key('stale-notice-retry')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StaleNotice), findsNothing);
+      expect(find.byKey(const Key('goal-card')), findsOneWidget);
     });
   });
 
@@ -254,9 +305,11 @@ void main() {
         await tester.pump();
 
         // Still loading, but the previously loaded content stays put — no
-        // spinner, no blank card.
+        // spinner, no blank card. A refresh in flight is not a failure, so
+        // nothing is marked either.
         expect(find.byKey(const Key('goal-card-loading')), findsNothing);
         expect(find.text('51'), findsOneWidget);
+        expect(find.byType(StaleNotice), findsNothing);
 
         gate.complete();
         await tester.pumpAndSettle();

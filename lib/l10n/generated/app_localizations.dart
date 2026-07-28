@@ -321,6 +321,12 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// Slim marker appended inside an overview card that still shows content but whose latest reload failed. Says the content was not updated rather than that it is old — a reload can fail halfway and leave part of the card fresh. Sits next to a retry that reloads only that card.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh'**
+  String get cardRefreshFailed;
+
   /// Tooltip/accessible label for the language switcher control.
   ///
   /// In en, this message translates to:

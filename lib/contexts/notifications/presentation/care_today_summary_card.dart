@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
 import 'care_today_controller.dart';
@@ -21,11 +22,14 @@ IconData _categoryIcon(CareCategory category) => switch (category) {
 /// business logic of its own: urgency branching, the focus slot, and the
 /// group counts are all derived state the controller already exposes.
 ///
-/// Renders nothing until the first successful load (so it never disrupts
-/// the overview for a state that's about to resolve), and nothing on an
-/// error/reauth before that first load. A reload (e.g. after a chaodays
-/// import) keeps showing the last loaded summary instead of disappearing —
-/// mirrors the other overview cards' keep-content-while-reloading behavior.
+/// Renders nothing while a first load is still in flight (so it never
+/// disrupts the overview for a state that's about to resolve), and nothing on
+/// a reauth before that first load — the [HealthScaffold] owns re-auth. A
+/// first load that *fails* shows an error with a retry instead: this is the
+/// top card of the overview, and rendering nothing there reads as "you have
+/// no care today". A reload (e.g. after a chaodays import) keeps showing the
+/// last loaded summary instead of disappearing, adding a [StaleNotice] when
+/// that reload failed — mirrors the other overview cards.
 /// Once loaded with no schedules today, renders a slim setup-prompt card
 /// (tapping it calls [onSetup]) instead — the shortest path from the
 /// overview to setting up care reminders for a new user. Once loaded with
@@ -124,16 +128,37 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
   Widget _content(BuildContext context) {
     final controller = widget.controller;
     final onManage = widget.onManage;
+    // Whether a summary has ever loaded. `_hasLoadedOnce` alone isn't enough:
+    // it only seeds from `status == loaded`, and the controller is an
+    // app-level singleton, so re-entering the health module can build a fresh
+    // card over a controller stuck in `error` that still holds today's slots.
+    // `CareTodayController.date` is only ever written on a successful fetch
+    // and never cleared, so it is the one signal that survives a remount.
+    // Not `slots.isNotEmpty`: a day with nothing scheduled loads *successfully*
+    // with no slots, and that is the existing setup-prompt branch, not an
+    // absence of content.
+    final hasLoaded = controller.date.isNotEmpty || _hasLoadedOnce;
     // Once a summary has loaded, keep showing it for any later non-loaded
     // status — a reload in flight, but also a reload that fails. Since imports
     // now trigger reloads on their own, a failed one must not make the top card
-    // of the overview vanish and jump the layout. Only a card that has never
-    // loaded renders nothing.
-    if (controller.status != CareTodayLoadStatus.loaded && !_hasLoadedOnce) {
+    // of the overview vanish and jump the layout.
+    if (controller.status != CareTodayLoadStatus.loaded && !hasLoaded) {
+      // Nothing has loaded, so there is nothing to keep. A first load still in
+      // flight is about to resolve and renders nothing; one that *failed* has
+      // to say so, because a missing top card reads as "you have no care
+      // today" — no message, no retry, no way to tell.
+      if (controller.status == CareTodayLoadStatus.error) {
+        return _ErrorCard(onRetry: () => controller.load(widget.idToken));
+      }
       return const SizedBox.shrink();
     }
+    final staleRetry = controller.status == CareTodayLoadStatus.error
+        ? () => controller.load(widget.idToken)
+        : null;
     final slots = controller.slots;
-    if (slots.isEmpty) return _SetupPrompt(onSetup: widget.onSetup);
+    if (slots.isEmpty) {
+      return _SetupPrompt(onSetup: widget.onSetup, onRetry: staleRetry);
+    }
 
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -151,65 +176,75 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
         padding: EdgeInsets.zero,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            onTap: () => context.push('/care-today'),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: () => context.push('/care-today'),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.checklist_outlined,
-                        color: isOverdue ? theme.colorScheme.error : null,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.checklist_outlined,
+                            color: isOverdue ? theme.colorScheme.error : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              loc.careTodayTitle,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ),
+                          _ProgressPill(loc: loc, done: done, total: total),
+                          IconButton(
+                            key: const Key('care-today-summary-manage'),
+                            onPressed: onManage,
+                            tooltip: loc.careTodaySummaryManage,
+                            icon: Icon(
+                              Icons.settings_outlined,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          loc.careTodayTitle,
-                          style: theme.textTheme.titleMedium,
+                      const SizedBox(height: 12),
+                      if (focus == null)
+                        _CelebrationRow(loc: loc, theme: theme)
+                      else
+                        _FocusRow(
+                          focus: focus,
+                          isOverdue: isOverdue,
+                          markingAction: controller.markingAction(focus),
+                          onDone: () =>
+                              _mark(context, focus, controller.markDone),
+                          onSkip: isOverdue
+                              ? () =>
+                                    _mark(context, focus, controller.markSkipped)
+                              : null,
                         ),
-                      ),
-                      _ProgressPill(loc: loc, done: done, total: total),
-                      IconButton(
-                        key: const Key('care-today-summary-manage'),
-                        onPressed: onManage,
-                        tooltip: loc.careTodaySummaryManage,
-                        icon: Icon(
-                          Icons.settings_outlined,
+                      const SizedBox(height: 8),
+                      Text(
+                        key: const Key('care-today-summary-open'),
+                        moreCount > 0
+                            ? '${loc.careTodaySummaryMoreCount(moreCount)} · '
+                                  '${loc.careTodaySummarySeeAll} →'
+                            : '${loc.careTodaySummarySeeAll} →',
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  if (focus == null)
-                    _CelebrationRow(loc: loc, theme: theme)
-                  else
-                    _FocusRow(
-                      focus: focus,
-                      isOverdue: isOverdue,
-                      markingAction: controller.markingAction(focus),
-                      onDone: () => _mark(context, focus, controller.markDone),
-                      onSkip: isOverdue
-                          ? () => _mark(context, focus, controller.markSkipped)
-                          : null,
-                    ),
-                  const SizedBox(height: 8),
-                  Text(
-                    key: const Key('care-today-summary-open'),
-                    moreCount > 0
-                        ? '${loc.careTodaySummaryMoreCount(moreCount)} · '
-                              '${loc.careTodaySummarySeeAll} →'
-                        : '${loc.careTodaySummarySeeAll} →',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              // Outside the [InkWell]: inside it, tapping retry would open the
+              // Today checklist instead.
+              if (staleRetry != null) StaleNotice(onRetry: staleRetry),
+            ],
           ),
         ),
       ),
@@ -221,10 +256,14 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
 /// place of the full summary card, so a new user without any care schedules
 /// still has a one-tap path to setting one up from the overview (rather than
 /// the card rendering nothing, per the surface-care-reminders change).
+/// [onRetry] non-null appends the "couldn't refresh" marking below it — a day
+/// with nothing scheduled is loaded content, so a failed refresh marks it
+/// rather than replacing it.
 class _SetupPrompt extends StatelessWidget {
   final VoidCallback onSetup;
+  final VoidCallback? onRetry;
 
-  const _SetupPrompt({required this.onSetup});
+  const _SetupPrompt({required this.onSetup, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -237,33 +276,81 @@ class _SetupPrompt extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            onTap: onSetup,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.add_circle_outline,
-                    color: theme.colorScheme.primary,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: onSetup,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      loc.careTodaySummarySetupTitle,
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.add_circle_outline,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          loc.careTodaySummarySetupTitle,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      Text(
+                        '${loc.careTodaySummarySetupCta} →',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '${loc.careTodaySummarySetupCta} →',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              if (onRetry != null) StaleNotice(onRetry: onRetry!),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The first-ever-load failure: the card has nothing to keep, so it says so
+/// and offers a retry. Mirrors the other overview cards' error card — before
+/// this, the card rendered nothing at all, which on the top of the overview
+/// reads as "you have no care today".
+class _ErrorCard extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _ErrorCard({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: LedgeCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              loc.careErrorGeneric,
+              key: const Key('care-today-summary-error'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              key: const Key('care-today-summary-retry'),
+              onPressed: onRetry,
+              child: Text(loc.retry),
+            ),
+          ],
         ),
       ),
     );

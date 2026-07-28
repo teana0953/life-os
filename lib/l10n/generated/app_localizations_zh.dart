@@ -120,6 +120,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重試';
 
   @override
+  String get cardRefreshFailed => '沒有更新到';
+
+  @override
   String get switchLanguage => '切換語言';
 
   @override
@@ -1524,6 +1527,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get retry => '重試';
+
+  @override
+  String get cardRefreshFailed => '沒有更新到';
 
   @override
   String get switchLanguage => '切換語言';

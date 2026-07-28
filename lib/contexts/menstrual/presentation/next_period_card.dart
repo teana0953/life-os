@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/next_period_status.dart';
 import 'menstrual_controller.dart';
 
@@ -56,9 +57,12 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
 
-    // A load/reload failure → an error message inside the card, whether or not
-    // there is already an overview to fall back on (mirrors `GoalCard`).
-    if (controller.status == MenstrualStatus.error) {
+    // A failure with no overview to fall back on → an error message in place
+    // of the content the card doesn't have. A failure *after* an overview has
+    // been shown keeps it and appends a [StaleNotice] instead (below) —
+    // mirrors `GoalCard`.
+    if (controller.status == MenstrualStatus.error &&
+        controller.overview == null) {
       // With a retry, like every other overview card: telling someone to try
       // again while giving them nothing to try again with is a dead end.
       return LedgeCard(
@@ -139,49 +143,61 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
         ? loc.nextPeriodOngoingNext(mediumDateLabel(context, predicted))
         : null;
 
+    // The marking goes inside the card but outside the [InkWell] — inside it,
+    // tapping retry would open the tracker instead.
     return LedgeCard(
-      child: InkWell(
-        key: const Key('next-period-card'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: widget.onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(loc.nextPeriodTitle, style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 8),
-                    Text(
-                      primary,
-                      key: const Key('next-period-primary'),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    if (secondary != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        secondary,
-                        key: const Key('next-period-secondary'),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: const Key('next-period-card'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: widget.onOpen,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.nextPeriodTitle,
+                          style: theme.textTheme.titleLarge,
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                        const SizedBox(height: 8),
+                        Text(
+                          primary,
+                          key: const Key('next-period-primary'),
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        if (secondary != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            secondary,
+                            key: const Key('next-period-secondary'),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // A hint that tapping the card opens the tracker.
+                  Icon(
+                    Icons.chevron_right,
+                    key: const Key('next-period-open-icon'),
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
               ),
-              // A hint that tapping the card opens the tracker.
-              Icon(
-                Icons.chevron_right,
-                key: const Key('next-period-open-icon'),
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+            ),
           ),
-        ),
+          if (controller.status == MenstrualStatus.error)
+            StaleNotice(onRetry: () => controller.load(widget.idToken)),
+        ],
       ),
     );
   }

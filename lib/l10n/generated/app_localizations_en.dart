@@ -124,6 +124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get cardRefreshFailed => 'Couldn\'t refresh';
+
+  @override
   String get switchLanguage => 'Switch language';
 
   @override

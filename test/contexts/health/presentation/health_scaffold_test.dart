@@ -8,6 +8,7 @@ import 'package:life_os/contexts/body_profile/application/get_body_profile.dart'
 import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
 import 'package:life_os/contexts/body_profile/application/set_body_profile.dart';
 import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
+import 'package:life_os/contexts/body_profile/domain/body_profile_exceptions.dart';
 import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
@@ -52,6 +53,7 @@ import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar_repository.dart';
+import 'package:life_os/contexts/health_calendar/domain/health_calendar_exceptions.dart';
 import 'package:life_os/contexts/health_calendar/presentation/health_calendar_card.dart';
 import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/hydration/application/add_water.dart';
@@ -89,6 +91,7 @@ import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
+import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -142,9 +145,20 @@ class _ThrowingAuthRepository implements AuthRepository {
   Future<void> signOut() async {}
 }
 
+/// [calls] counts every goal fetch; once [errorAfterFirstLoad] is set, every
+/// call *after* the first throws it — lets a test drive the goal card's own
+/// reload to a failure without failing the scaffold's initial load.
 class _FakeBodyProfileRepository implements BodyProfileRepository {
+  int calls = 0;
+  Object? errorAfterFirstLoad;
+  WeightGoal goal = const WeightGoal();
+
   @override
-  Future<WeightGoal> getWeightGoal(String idToken) async => const WeightGoal();
+  Future<WeightGoal> getWeightGoal(String idToken) async {
+    calls++;
+    if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    return goal;
+  }
 
   @override
   Future<BodyProfile> getBodyProfile(String idToken) async => const BodyProfile();
@@ -195,6 +209,10 @@ class _FakeHealthCalendarRepository implements HealthCalendarRepository {
   int calls = 0;
   Completer<void>? gate;
 
+  /// Once set, every call *after* the first throws it — lets a test drive the
+  /// calendar card's reload to a failure without failing the initial load.
+  Object? errorAfterFirstLoad;
+
   @override
   Future<HealthCalendar> getCalendar(
     String idToken, {
@@ -203,6 +221,7 @@ class _FakeHealthCalendarRepository implements HealthCalendarRepository {
     required String today,
   }) async {
     calls++;
+    if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
     if (gate != null) await gate!.future;
     return HealthCalendar(
       year: year,
@@ -351,11 +370,19 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   /// Thrown instead of returning an overview, for the 401 test.
   final Object? getOverviewError;
 
+  int calls = 0;
+
+  /// Once set, every call *after* the first throws it — lets a test drive the
+  /// next-period card's reload to a failure without failing the initial load.
+  Object? errorAfterFirstLoad;
+
   _FakeMenstrualRepository({this.getOverviewError});
 
   @override
   Future<MenstrualOverview> getOverview(String idToken) async {
+    calls++;
     if (getOverviewError != null) throw getOverviewError!;
+    if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
     return const MenstrualOverview(periods: [], stats: MenstrualStats());
   }
 
@@ -392,11 +419,19 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   /// `error`/`reauth` via the mark path instead of the initial load.
   Object? logError;
 
+  int calls = 0;
+
+  /// Once set, every call *after* the first throws it — lets a test drive the
+  /// care card's reload to a failure without failing the initial load.
+  Object? errorAfterFirstLoad;
+
   _FakeCareTodayRepository({required this.today});
 
   @override
   Future<CareToday> getToday(String idToken) async {
+    calls++;
     if (getError != null) throw getError!;
+    if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
     return today;
   }
 
@@ -452,7 +487,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
 /// only input that varies between most tests; it's ignored when
 /// [careTodayRepository] is supplied directly. [healthCalendarRepository],
 /// [careTodayRepository], [careHistoryRepository], [menstrualRepository],
-/// [authRepository], and
+/// [bodyProfileRepository], [authRepository], and
 /// [dataRevision] are overridable for the reload-on-bump/reauth/load-failure
 /// tests, which need to observe/control the respective load calls and drive
 /// the shared revision.
@@ -462,16 +497,18 @@ Widget _buildScaffold({
   _FakeCareTodayRepository? careTodayRepository,
   _FakeCareHistoryRepository? careHistoryRepository,
   _FakeMenstrualRepository? menstrualRepository,
+  _FakeBodyProfileRepository? bodyProfileRepository,
   AuthRepository? authRepository,
   DataRevision? dataRevision,
   VoidCallback? onOpenCareHistory,
   VoidCallback? onOpenCareItems,
 }) {
-  final bodyProfileRepository = _FakeBodyProfileRepository();
+  final resolvedBodyProfileRepository =
+      bodyProfileRepository ?? _FakeBodyProfileRepository();
   final weightGoalController = WeightGoalController(
-    GetWeightGoal(bodyProfileRepository),
-    GetBodyProfile(bodyProfileRepository),
-    SetBodyProfile(bodyProfileRepository),
+    GetWeightGoal(resolvedBodyProfileRepository),
+    GetBodyProfile(resolvedBodyProfileRepository),
+    SetBodyProfile(resolvedBodyProfileRepository),
   );
   final vitalsRepository = _FakeVitalsRepository();
   final trendController = TrendController(GetVitalsTrends(vitalsRepository));
@@ -1008,6 +1045,179 @@ void main() {
         dataRevision.bump();
         await tester.pumpAndSettle();
         expect(calendarRepository.calls, 2);
+      },
+    );
+  });
+
+  group('HealthScaffold overview refresh failures', () {
+    /// The four overview cards, each identified by the finder that resolves to
+    /// the whole card (so a height/inset measurement covers all of it).
+    Map<String, Finder> cardFinders() => {
+      'care': find.byKey(const Key('care-today-summary-card')),
+      'goal': find.byType(GoalCard),
+      'nextPeriod': find.byType(NextPeriodCard),
+      'calendar': find.byType(HealthCalendarCard),
+    };
+
+    testWidgets(
+      'retrying one card reloads only that card — each card has its own '
+      'source, so one failing says nothing about the others',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final bodyProfileRepository = _FakeBodyProfileRepository()
+          ..errorAfterFirstLoad = const BodyProfileFetchFailure();
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final menstrualRepository = _FakeMenstrualRepository();
+        final careTodayRepository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: [_slot()]),
+        );
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              bodyProfileRepository: bodyProfileRepository,
+              healthCalendarRepository: calendarRepository,
+              menstrualRepository: menstrualRepository,
+              careTodayRepository: careTodayRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // One automatic reload of the whole overview: only the goal card's
+        // source fails.
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(GoalCard),
+            matching: find.byType(StaleNotice),
+          ),
+          findsOneWidget,
+        );
+        final goalCalls = bodyProfileRepository.calls;
+        final calendarCalls = calendarRepository.calls;
+        final menstrualCalls = menstrualRepository.calls;
+        final careCalls = careTodayRepository.calls;
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(GoalCard),
+            matching: find.byKey(const Key('stale-notice-retry')),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(bodyProfileRepository.calls, goalCalls + 1);
+        // Re-running the whole batch here would fire three requests nobody
+        // asked for — a single card-level retry is the point of the marking.
+        expect(calendarRepository.calls, calendarCalls);
+        expect(menstrualRepository.calls, menstrualCalls);
+        expect(careTodayRepository.calls, careCalls);
+      },
+    );
+
+    testWidgets(
+      'the marking costs every card the same single extra row — the overview '
+      'does not collapse, and the four cards do not each grow differently',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final bodyProfileRepository = _FakeBodyProfileRepository()
+          ..goal = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            currentWeightKg: 52,
+            remainingKg: 1,
+            achievementRate: 75,
+            bmi: 19.1,
+          );
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final menstrualRepository = _FakeMenstrualRepository();
+        final careTodayRepository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: [_slot()]),
+        );
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              bodyProfileRepository: bodyProfileRepository,
+              healthCalendarRepository: calendarRepository,
+              menstrualRepository: menstrualRepository,
+              careTodayRepository: careTodayRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final before = {
+          for (final entry in cardFinders().entries)
+            entry.key: tester.getSize(entry.value).height,
+        };
+
+        // Every card's next reload fails at once (the airplane-mode case).
+        bodyProfileRepository.errorAfterFirstLoad =
+            const BodyProfileFetchFailure();
+        calendarRepository.errorAfterFirstLoad =
+            const HealthCalendarFetchFailure();
+        menstrualRepository.errorAfterFirstLoad = const MenstrualFetchFailure();
+        careTodayRepository.errorAfterFirstLoad = const CareRequestFailed();
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(StaleNotice), findsNWidgets(4));
+        final deltas = <String, double>{
+          for (final entry in cardFinders().entries)
+            entry.key: tester.getSize(entry.value).height - before[entry.key]!,
+        };
+        // Every card grew (nothing was replaced by a shorter error card) and
+        // grew by exactly the same one row.
+        for (final entry in deltas.entries) {
+          expect(
+            entry.value,
+            greaterThan(0),
+            reason: '${entry.key} did not keep its content',
+          );
+          // One row, not a second card's worth of chrome.
+          expect(
+            entry.value,
+            lessThan(80),
+            reason: '${entry.key} grew by more than a single row',
+          );
+          expect(
+            entry.value,
+            deltas['goal'],
+            reason: '${entry.key} grew by a different amount than the goal card',
+          );
+        }
+
+        // And the marking is indented identically on all four — the calendar
+        // card's own padding used to live on its LedgeCard, which would have
+        // indented its marking twice.
+        final insets = <String, double>{
+          for (final entry in cardFinders().entries)
+            entry.key:
+                tester
+                    .getTopLeft(
+                      find.descendant(
+                        of: entry.value,
+                        matching: find.byKey(const Key('stale-notice-retry')),
+                      ),
+                    )
+                    .dx -
+                tester.getTopLeft(entry.value).dx,
+        };
+        for (final entry in insets.entries) {
+          expect(
+            entry.value,
+            insets['goal'],
+            reason: '${entry.key} indents its marking differently',
+          );
+        }
       },
     );
   });

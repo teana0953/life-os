@@ -2,20 +2,20 @@
 
 ## 1. 共用標記元件 (TDD)
 
-- [ ] Test first：`test/shared/widgets/stale_notice_test.dart` —— 渲染文案、點重試會呼叫回呼
-- [ ] `lib/shared/widgets/stale_notice.dart`：一條窄橫列（文案 + 重試），四張卡共用。**放在卡片內容之下**（四張卡版型差異極大 —— 128px 兩行到 438px 整月月曆 —— 尾端是唯一不用動既有版型就能插入的位置）
-- [ ] **`HealthCalendarCard` 的 `LedgeCard` 已經是 `padding: EdgeInsets.all(20)`**，其餘三張是 zero／null（內距在 `InkWell` 裡）。直接插會讓月曆卡拿到 40 水平內距 —— 正是這條要避免的「各自長得不一樣」，而 §4 只量高度與 overflow，測不到。**把月曆卡的 padding 從 `LedgeCard` 移進它自己的內容**，四張卡就一致了
-- [ ] **插的位置：`InkWell` 之外、`LedgeCard` 之內。** `GoalCard`／`NextPeriodCard`／`CareTodaySummaryCard` 三張的內容都包在整卡 `InkWell` 裡（分別開編輯表／開生理期頁／push `/care-today`），插在裡面點標記會被帶走。插在外面則沒有內距（care 的 `LedgeCard` 是 `padding: EdgeInsets.zero`），所以 `StaleNotice` 自己帶 `EdgeInsets.symmetric(horizontal: 20, vertical: 12)`，四張卡不傳版型參數 —— 否則會各自長得不一樣
-- [ ] l10n 三個 ARB 加 `cardRefreshFailed`（zh：沒有更新到 / en：Couldn't refresh）。en 要有 `@` 描述。**重試沿用既有的 `retry`**，不要開新 key
+- [x] Test first：`test/shared/widgets/stale_notice_test.dart` —— 渲染文案、點重試會呼叫回呼
+- [x] `lib/shared/widgets/stale_notice.dart`：一條窄橫列（文案 + 重試），四張卡共用。**放在卡片內容之下**（四張卡版型差異極大 —— 128px 兩行到 438px 整月月曆 —— 尾端是唯一不用動既有版型就能插入的位置）
+- [x] **`HealthCalendarCard` 的 `LedgeCard` 已經是 `padding: EdgeInsets.all(20)`**，其餘三張是 zero／null（內距在 `InkWell` 裡）。直接插會讓月曆卡拿到 40 水平內距 —— 正是這條要避免的「各自長得不一樣」，而 §4 只量高度與 overflow，測不到。**把月曆卡的 padding 從 `LedgeCard` 移進它自己的內容**，四張卡就一致了
+- [x] **插的位置：`InkWell` 之外、`LedgeCard` 之內。** `GoalCard`／`NextPeriodCard`／`CareTodaySummaryCard` 三張的內容都包在整卡 `InkWell` 裡（分別開編輯表／開生理期頁／push `/care-today`），插在裡面點標記會被帶走。插在外面則沒有內距（care 的 `LedgeCard` 是 `padding: EdgeInsets.zero`），所以 `StaleNotice` 自己帶 `EdgeInsets.symmetric(horizontal: 20, vertical: 12)`，四張卡不傳版型參數 —— 否則會各自長得不一樣
+- [x] l10n 三個 ARB 加 `cardRefreshFailed`（zh：沒有更新到 / en：Couldn't refresh）。en 要有 `@` 描述。**重試沿用既有的 `retry`**，不要開新 key
 
 ## 2. 四張卡改判斷 (TDD)
 
 每張卡的規則都一樣：**有內容就保留內容 + 標記；沒內容才顯示錯誤卡**。
 
-- [ ] `GoalCard`：error 分支加 `goal == null` 條件；有 goal 時走正常渲染 + `StaleNotice`。**既有測試 `a reload failure after a successful load surfaces the error`（`goal_card_test.dart:187`）斷言的正是被取代的行為 —— 要改寫成新行為，不是刪掉**。L96 那段註解也要改：顧慮沒有被推翻，是被標記補上
-- [ ] `HealthCalendarCard`：同上。**這張卡完全沒有 reload 失敗的測試**（全檔只有 3 條），要新增
-- [ ] `NextPeriodCard`：同上。既有錯誤測試沒有預先塞資料，所以「已有資料再失敗」零覆蓋，要新增
-- [ ] `CareTodaySummaryCard`：兩件事
+- [x] `GoalCard`：error 分支加 `goal == null` 條件；有 goal 時走正常渲染 + `StaleNotice`。**既有測試 `a reload failure after a successful load surfaces the error`（`goal_card_test.dart:187`）斷言的正是被取代的行為 —— 要改寫成新行為，不是刪掉**。L96 那段註解也要改：顧慮沒有被推翻，是被標記補上
+- [x] `HealthCalendarCard`：同上。**這張卡完全沒有 reload 失敗的測試**（全檔只有 3 條），要新增
+- [x] `NextPeriodCard`：同上。既有錯誤測試沒有預先塞資料，所以「已有資料再失敗」零覆蓋，要新增
+- [x] `CareTodaySummaryCard`：兩件事
   - 已有 summary + 失敗 → 保留 + 標記（目前完全靜默）
   - **從未載入 + 失敗 → 顯示錯誤卡 + 重試**（目前 `SizedBox.shrink()`，整張消失、無訊息、無重試 —— 它是總覽最上面那張，使用者只會看到「今日照護不見了」）。既有測試 `a first-ever load that ends in error (never loaded before) still renders nothing`（`care_today_summary_card_test.dart:345`）把現行行為釘死了，要改寫
   - **仍然要保留**：從未載入 + 載入**中** → `SizedBox.shrink()`（這條沒變）
@@ -28,26 +28,26 @@
 
 每張卡都要有這四條（目前只有 `GoalCard` 與 `CareTodaySummaryCard` 部分有）：
 
-- [ ] 首次載入中（無資料）→ 各自的 loading 呈現
-- [ ] 首次載入失敗（無資料）→ 錯誤 + 重試，**沒有** `StaleNotice`
-- [ ] 已有資料 + 重新載入中 → 保留內容，**沒有** `StaleNotice`（載入中不是失敗）
-- [ ] 已有資料 + 重新載入失敗 → 保留內容 + `StaleNotice` + 重試會呼叫**自己那個** controller 的 `load`
+- [x] 首次載入中（無資料）→ 各自的 loading 呈現
+- [x] 首次載入失敗（無資料）→ 錯誤 + 重試，**沒有** `StaleNotice`
+- [x] 已有資料 + 重新載入中 → 保留內容，**沒有** `StaleNotice`（載入中不是失敗）
+- [x] 已有資料 + 重新載入失敗 → 保留內容 + `StaleNotice` + 重試會呼叫**自己那個** controller 的 `load`
 
 **「只重載自己」不能在單卡測試裡驗** —— 單卡 widget test 只有那一個 fake controller，斷言 `loadCount == 1` 恆真、看不到另外三個有沒有被動到。要一條 `health_scaffold_test.dart` 的測試：四張卡都有資料、其中一個進 error，點那張卡的重試，斷言**另外三個的 fake repository 呼叫次數沒有增加**。注意那個檔的 `_buildScaffold` 用的是**真 controller + fake repository**（`calls++` / `errorAfterFirstLoad` 那套），不是 fake controller；`_FakeBodyProfileRepository` 目前還不是可覆寫的參數，要先補。另外全檔只有 `_FakeHealthCalendarRepository` 與 `_FakeCareHistoryRepository` 有 `calls` 計數器，`_FakeCareTodayRepository`／`_FakeMenstrualRepository`／`_FakeBodyProfileRepository` 三個都要補
-- [ ] **重試成功後標記消失**（狀態回 loaded）
-- [ ] **care 卡專屬**：載入成功但 `slots` 為空（今天沒排程）→ reload 失敗 → **仍然顯示 `_SetupPrompt` + 標記**，不是錯誤卡。上面四條矩陣抓不到這個（它們都塞非空資料）
-- [ ] **care 卡專屬**：controller 停在 error 但手上有 slots、卡片重新掛載（模擬重進 health module）→ 顯示內容 + 標記，不是錯誤卡
-- [ ] **care 卡專屬**：載入成功但 slots 為空 + reload **中** → 仍顯示 `_SetupPrompt`，無標記
-- [ ] **care 卡專屬**：載入成功但 slots 為空 + reload 失敗 + **卡片重新掛載** → 仍顯示 `_SetupPrompt` + 標記。**這一格是 `controller.date` 而不是 `_hasLoadedOnce`／`slots` 的唯一證明** —— 用另外兩個判斷都會落到錯誤卡
+- [x] **重試成功後標記消失**（狀態回 loaded）
+- [x] **care 卡專屬**：載入成功但 `slots` 為空（今天沒排程）→ reload 失敗 → **仍然顯示 `_SetupPrompt` + 標記**，不是錯誤卡。上面四條矩陣抓不到這個（它們都塞非空資料）
+- [x] **care 卡專屬**：controller 停在 error 但手上有 slots、卡片重新掛載（模擬重進 health module）→ 顯示內容 + 標記，不是錯誤卡
+- [x] **care 卡專屬**：載入成功但 slots 為空 + reload **中** → 仍顯示 `_SetupPrompt`，無標記
+- [x] **care 卡專屬**：載入成功但 slots 為空 + reload 失敗 + **卡片重新掛載** → 仍顯示 `_SetupPrompt` + 標記。**這一格是 `controller.date` 而不是 `_hasLoadedOnce`／`slots` 的唯一證明** —— 用另外兩個判斷都會落到錯誤卡
 
 ## 4. 版面
 
-- [ ] 加了標記之後，錯誤狀態不再讓總覽塌陷。實測四張卡「正常 vs 有標記」的高度差，確認只多一列
-- [ ] 窄螢幕（320/360）× textScale 1.0/1.5/2.0 不 overflow
+- [x] 加了標記之後，錯誤狀態不再讓總覽塌陷。實測四張卡「正常 vs 有標記」的高度差，確認只多一列
+- [x] 窄螢幕（320/360）× textScale 1.0/1.5/2.0 不 overflow
 
 ## 5. Gate
 
-- [ ] `flutter analyze` 零 issue、`flutter test` 全綠。基準 **1215 passed / 1 skipped**
+- [x] `flutter analyze` 零 issue、`flutter test` 全綠。基準 **1215 passed / 1 skipped**
 
 ## 6. On-device verification (manual — 需使用者)
 

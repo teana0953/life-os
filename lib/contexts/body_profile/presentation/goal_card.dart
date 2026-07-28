@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/weight_goal.dart';
 import 'weight_goal_controller.dart';
 
@@ -91,10 +92,13 @@ class _GoalCardState extends State<GoalCard> {
       );
     }
 
-    // A load/reload failure → an error message inside the card. This must not
-    // hinge on `goal == null`: a reload that fails after a successful first
-    // load would otherwise silently keep showing the stale card.
-    if (controller.status == WeightGoalStatus.error) {
+    // A failure with nothing loaded yet → an error message inside the card,
+    // in place of the content it doesn't have. A failure *after* a successful
+    // load keeps the card and appends a [StaleNotice] instead (below): the
+    // worry that a kept card would go silently stale is answered by the
+    // marking, and taking the content away would collapse the overview around
+    // a refresh the user never asked for.
+    if (controller.status == WeightGoalStatus.error && goal == null) {
       final theme = Theme.of(context);
       return LedgeCard(
         padding: const EdgeInsets.all(20),
@@ -118,10 +122,18 @@ class _GoalCardState extends State<GoalCard> {
       );
     }
 
+    final onRetry = controller.status == WeightGoalStatus.error
+        ? () => controller.load(widget.idToken)
+        : null;
     if (goal == null || !goal.isProfileSet) {
-      return _UnsetGoalCard(onSetGoal: _openEditSheet);
+      return _UnsetGoalCard(onSetGoal: _openEditSheet, onRetry: onRetry);
     }
-    return _SetGoalCard(goal: goal, onEdit: _openEditSheet, saving: saving);
+    return _SetGoalCard(
+      goal: goal,
+      onEdit: _openEditSheet,
+      saving: saving,
+      onRetry: onRetry,
+    );
   }
 }
 
@@ -129,15 +141,19 @@ class _GoalCardState extends State<GoalCard> {
 /// current / remaining weight figures, and BMI. Tapping anywhere opens the edit
 /// sheet. While [saving] a partial update, the card keeps its content and shows
 /// a thin inline progress bar at the top rather than collapsing to a spinner.
+/// [onRetry] non-null appends the "couldn't refresh" marking below the body —
+/// outside the [InkWell], or tapping it would open the edit sheet instead.
 class _SetGoalCard extends StatelessWidget {
   final WeightGoal goal;
   final VoidCallback onEdit;
   final bool saving;
+  final VoidCallback? onRetry;
 
   const _SetGoalCard({
     required this.goal,
     required this.onEdit,
     this.saving = false,
+    this.onRetry,
   });
 
   @override
@@ -145,113 +161,119 @@ class _SetGoalCard extends StatelessWidget {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     return LedgeCard(
-      child: InkWell(
-        key: const Key('goal-card'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onEdit,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (saving)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: LinearProgressIndicator(
-                    key: Key('goal-card-saving'),
-                    minHeight: 2,
-                  ),
-                ),
-              Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: const Key('goal-card'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: onEdit,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Text(
-                      loc.goalCardTitle,
-                      style: theme.textTheme.titleLarge,
+                  if (saving)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: LinearProgressIndicator(
+                        key: Key('goal-card-saving'),
+                        minHeight: 2,
+                      ),
                     ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          loc.goalCardTitle,
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ),
+                      // A hint that tapping the card opens the edit sheet.
+                      Icon(
+                        Icons.edit,
+                        key: const Key('goal-card-edit-icon'),
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
                   ),
-                  // A hint that tapping the card opens the edit sheet.
-                  Icon(
-                    Icons.edit,
-                    key: const Key('goal-card-edit-icon'),
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _AchievementRing(
+                        rate: goal.achievementRate,
+                        label: loc.goalAchievementLabel,
+                        noDataLabel: loc.goalNoData,
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _GoalStat(
+                              label: loc.goalHeightShortLabel,
+                              value: _fmt(goal.heightCm),
+                              unit: loc.goalCmUnit,
+                            ),
+                            const SizedBox(height: 6),
+                            _GoalStat(
+                              label: loc.goalTargetLabel,
+                              value: _fmt(goal.targetWeightKg),
+                              unit: loc.goalKgUnit,
+                            ),
+                            const SizedBox(height: 6),
+                            _GoalStat(
+                              label: loc.goalCurrentLabel,
+                              value: _fmt(goal.currentWeightKg),
+                              unit: loc.goalKgUnit,
+                            ),
+                            const SizedBox(height: 6),
+                            _GoalStat(
+                              label: loc.goalRemainingLabel,
+                              value: _fmt(goal.remainingKg),
+                              unit: loc.goalKgUnit,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (goal.achievementRate == null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      loc.goalAchievementHint,
+                      key: const Key('goal-achievement-hint'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        '${loc.goalBmiLabel}  ',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        _fmt(goal.bmi) ?? loc.goalPlaceholder,
+                        key: const Key('goal-bmi'),
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _AchievementRing(
-                    rate: goal.achievementRate,
-                    label: loc.goalAchievementLabel,
-                    noDataLabel: loc.goalNoData,
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _GoalStat(
-                          label: loc.goalHeightShortLabel,
-                          value: _fmt(goal.heightCm),
-                          unit: loc.goalCmUnit,
-                        ),
-                        const SizedBox(height: 6),
-                        _GoalStat(
-                          label: loc.goalTargetLabel,
-                          value: _fmt(goal.targetWeightKg),
-                          unit: loc.goalKgUnit,
-                        ),
-                        const SizedBox(height: 6),
-                        _GoalStat(
-                          label: loc.goalCurrentLabel,
-                          value: _fmt(goal.currentWeightKg),
-                          unit: loc.goalKgUnit,
-                        ),
-                        const SizedBox(height: 6),
-                        _GoalStat(
-                          label: loc.goalRemainingLabel,
-                          value: _fmt(goal.remainingKg),
-                          unit: loc.goalKgUnit,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (goal.achievementRate == null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  loc.goalAchievementHint,
-                  key: const Key('goal-achievement-hint'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text(
-                    '${loc.goalBmiLabel}  ',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    _fmt(goal.bmi) ?? loc.goalPlaceholder,
-                    key: const Key('goal-bmi'),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+          if (onRetry != null) StaleNotice(onRetry: onRetry!),
+        ],
       ),
     );
   }
@@ -361,36 +383,48 @@ class _AchievementRing extends StatelessWidget {
 
 /// The goal card when neither height nor target weight has been set: a prompt
 /// and a button that opens the edit sheet (rather than a wall of "—").
+/// [onRetry] non-null appends the "couldn't refresh" marking below it. The
+/// card's own padding sits on its content, not on the [LedgeCard], so the
+/// marking (which brings its own) isn't indented twice.
 class _UnsetGoalCard extends StatelessWidget {
   final VoidCallback onSetGoal;
+  final VoidCallback? onRetry;
 
-  const _UnsetGoalCard({required this.onSetGoal});
+  const _UnsetGoalCard({required this.onSetGoal, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     return LedgeCard(
-      padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(loc.goalCardTitle, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 12),
-          Text(
-            loc.goalUnsetPrompt,
-            key: const Key('goal-unset-prompt'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(loc.goalCardTitle, style: theme.textTheme.titleLarge),
+                const SizedBox(height: 12),
+                Text(
+                  loc.goalUnsetPrompt,
+                  key: const Key('goal-unset-prompt'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('goal-set-button'),
+                  onPressed: onSetGoal,
+                  child: Text(loc.goalSetButton),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          FilledButton(
-            key: const Key('goal-set-button'),
-            onPressed: onSetGoal,
-            child: Text(loc.goalSetButton),
-          ),
+          if (onRetry != null) StaleNotice(onRetry: onRetry!),
         ],
       ),
     );
