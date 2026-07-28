@@ -7,9 +7,8 @@ top of its content that reflects today's care urgency and lets the user act with
 overview. When there are care schedules it SHALL also offer a way to reach care-reminder
 management; when there are NO care schedules today it SHALL show a slim setup prompt that opens
 care-reminder management (rather than showing nothing), so a user with no reminders can still
-reach setup from the overview. It SHALL show nothing while it has never loaded — including a
-first load that fails, which SHALL instead say so and offer a retry once there is a card to
-put that in. Once a summary has loaded it SHALL keep showing it through a later reload,
+reach setup from the overview. It SHALL show nothing while it has never loaded and its first load
+is still in flight; a first load that fails SHALL instead say so and offer a retry. Once a summary has loaded it SHALL keep showing it through a later reload,
 whether that reload is in flight or has failed, so an automatic refresh never empties the
 top of the overview.
 

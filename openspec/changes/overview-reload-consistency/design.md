@@ -75,7 +75,7 @@
 
 **`CareTodaySummaryCard._hasLoadedOnce` 只從 `status == loaded` 播種**（`initState` 讀一次、之後每次 loaded 設 true）。重進 health module 時 controller 是 app 級 singleton、可能停在 error 但手上還有 slots —— 新的卡會用「從未載入」的分支蓋掉那些內容。
 
-**修法是 `_hasLoadedOnce || slots.isNotEmpty`，不是拿 `slots.isNotEmpty` 取代它。** 取代會踩另一個洞：「今天沒有排程」的使用者載入成功、slots 本來就是空的，那時 `slots.isEmpty` 為真 → reload 中變空白、reload 失敗被錯誤卡蓋掉 —— 而 `slots.isEmpty` 那條分支正是既有的 `_SetupPrompt`（「No schedules shows a setup prompt, not nothing」）。等於重現 #82 修掉的「自動刷新打空總覽」。
+**修法是 `controller.date.isNotEmpty || _hasLoadedOnce`。** `CareTodayController.date` 只在成功 fetch 時寫入、從不清空，是唯一跨掛載存活的「載入成功過」訊號。**不要拿 `slots.isNotEmpty` 取代 `_hasLoadedOnce`。** 取代會踩另一個洞：「今天沒有排程」的使用者載入成功、slots 本來就是空的，那時 `slots.isEmpty` 為真 → reload 中變空白、reload 失敗被錯誤卡蓋掉 —— 而 `slots.isEmpty` 那條分支正是既有的 `_SetupPrompt`（「No schedules shows a setup prompt, not nothing」）。等於重現 #82 修掉的「自動刷新打空總覽」。
 
 **§3 的測試矩陣抓不到這個** —— 那幾條「已有資料」一定塞非空 slots。要另外一條：載入成功但 slots 為空、然後 reload 失敗 → 仍然顯示 setup prompt + 標記。
 
