@@ -8,7 +8,8 @@ content. Having already loaded, it SHALL keep the content it has, say that it co
 refreshed, and offer a retry for itself — because the reload is automatic (an import, a return
 to the overview), so taking away what the user was reading is a bigger harm than the content
 being a few minutes stale. Silence is not an option either: content that failed to refresh
-SHALL NOT look identical to content that just refreshed.
+SHALL NOT look identical to content that just refreshed — including while the user's own retry
+is running, which has not refreshed anything yet.
 
 #### Scenario: A failed refresh keeps the content and marks it
 - **WHEN** a card that is already showing content fails to reload
@@ -28,9 +29,26 @@ SHALL NOT look identical to content that just refreshed.
 - **WHEN** a card that is already showing content is reloading
 - **THEN** it keeps showing that content with no failure marking
 
+#### Scenario: A retry in flight keeps the marking
+- **WHEN** the user presses a card's retry and that reload is still running
+- **THEN** the marking stays on screen with its retry disabled and visibly running — a marking
+  that disappears on the press reports "refreshed" about a request that has not landed and may
+  yet fail, which is the same silence this requirement exists to remove
+
 #### Scenario: A successful retry clears the marking
 - **WHEN** a retry succeeds
 - **THEN** the card shows the fresh content with no failure marking
+
+#### Scenario: The whole marking is the retry
+- **WHEN** the user taps the marking anywhere — its icon, its copy, or its button
+- **THEN** that card reloads; the marking is one target, not a small button beside a row of dead
+  space where the user aims first
+
+#### Scenario: The marking is reachable and legible
+- **WHEN** a screen-reader user reaches a card's marking, or any user reads its retry
+- **THEN** the marking is one control that names the card it belongs to — four cards failing at
+  once give four distinguishable retries, not four identical ones — and its retry text meets the
+  WCAG AA 4.5:1 contrast floor against the card behind it
 
 #### Scenario: A 401 is not handled by the card
 - **WHEN** a card's load fails with an authentication failure

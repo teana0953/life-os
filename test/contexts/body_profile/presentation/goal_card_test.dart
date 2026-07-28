@@ -325,6 +325,32 @@ void main() {
       },
     );
 
+    testWidgets(
+      'the marking names this card — four overview cards failing at once must '
+      'not offer a screen reader four identical "Retry" buttons',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final repository = _FakeRepository()
+          ..goalToReturn = const WeightGoal(
+            heightCm: 165,
+            targetWeightKg: 51,
+            bmi: 19.1,
+          );
+        final controller = await _loadedController(repository);
+        await _pumpCard(tester, controller);
+        repository.getError = const BodyProfileFetchFailure();
+        await controller.load('token');
+        await tester.pump();
+
+        expect(
+          tester.getSemantics(find.byType(StaleNotice)).getSemanticsData().label,
+          startsWith(_loc.goalCardTitle),
+        );
+
+        handle.dispose();
+      },
+    );
+
     testWidgets('a successful retry clears the marking', (tester) async {
       final repository = _FakeRepository()
         ..goalToReturn = const WeightGoal(heightCm: 165, targetWeightKg: 51);
@@ -395,7 +421,10 @@ void main() {
         // nothing is marked either.
         expect(find.byKey(const Key('goal-card-loading')), findsNothing);
         expect(find.text('51'), findsOneWidget);
-        expect(find.byType(StaleNotice), findsNothing);
+        // The marking's row, not [StaleNotice] itself: the card keeps the
+        // widget mounted through a reload so it can remember a retry the user
+        // pressed, and it renders nothing until it has something to say.
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
 
         gate.complete();
         await tester.pumpAndSettle();

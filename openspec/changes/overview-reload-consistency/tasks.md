@@ -49,6 +49,15 @@
 
 - [x] `flutter analyze` 零 issue、`flutter test` 全綠。基準 **1215 passed / 1 skipped**
 
+## 5b. UI/UX review 補強
+
+- [x] 按下重試之後**那一列不消失**：按鈕 disabled + spinner，成功才整列消失、失敗回到可按。in-flight 狀態收在 `StaleNotice` 自己（四張卡各傳 `failed` / `loading` 兩個布林），不是四份 `_retryInFlight`
+- [x] 卡片在 `failed || loading` 期間都保持 `StaleNotice` **掛載**——不然按下去的那一刻 widget 被卸載，記著的「我按過重試」也跟著沒了
+- [x] 整列可點（`InkWell` 包住整列，仍在卡片 `InkWell` 之外）；點 icon、點文字都會重試
+- [x] 標記是**單一語意節點**且帶主詞（各卡既有的標題 l10n key），四張卡同時 stale 時四個 label 互不相同
+- [x] 重試文字對比：實測舊值 **1.64:1**（`colorScheme.primary` 的粉藍在奶油卡上），改用 `colorScheme.onSurface` → 亮 8.32:1 / 暗 12.25:1
+- [ ] **另開 issue（不在這輪）**：網路回來後沒有全域刷新入口——總覽是 `IndexedStack`、沒有 `RefreshIndicator`，只能逐張點重試或重開 app
+
 ## 6. On-device verification (manual — 需使用者)
 
 - [ ] 開飛航模式進總覽 → 四張卡都該顯示「沒有更新到」而不是空白或紅卡（若已有快取資料）

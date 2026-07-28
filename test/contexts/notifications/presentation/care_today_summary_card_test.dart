@@ -289,7 +289,10 @@ void main() {
         // refresh in flight is not a failure, so nothing is marked.
         expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
         expect(find.text('Metformin'), findsOneWidget);
-        expect(find.byType(StaleNotice), findsNothing);
+        // The marking's row, not [StaleNotice] itself: the card keeps the
+        // widget mounted through a reload so it can remember a retry the user
+        // pressed, and it renders nothing until it has something to say.
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
 
         gate.complete();
         await tester.pumpAndSettle();
@@ -500,7 +503,7 @@ void main() {
         await tester.pump();
 
         expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
-        expect(find.byType(StaleNotice), findsNothing);
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
 
         gate.complete();
         await tester.pumpAndSettle();
@@ -560,6 +563,30 @@ void main() {
         expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
         expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
         expect(find.byType(StaleNotice), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the setup prompt\'s marking names it — the prompt is its own card, and '
+      'a bare "Retry" beside three others says nothing about which failed',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: const []),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        await tester.pump();
+
+        expect(
+          tester.getSemantics(find.byType(StaleNotice)).getSemanticsData().label,
+          startsWith(_en.careTodaySummarySetupTitle),
+        );
+
+        handle.dispose();
       },
     );
 

@@ -356,8 +356,11 @@ void main() {
         find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
         findsOneWidget,
       );
-      // A refresh in flight is not a failure, so nothing is marked.
-      expect(find.byType(StaleNotice), findsNothing);
+      // A refresh in flight is not a failure, so nothing is marked. Asserted
+      // on the marking's row, not on [StaleNotice] itself: the card keeps the
+      // widget mounted through a reload so it can remember a retry the user
+      // pressed, and it renders nothing until it has something to say.
+      expect(find.byKey(const Key('stale-notice-row')), findsNothing);
     });
 
     testWidgets('a load failure with nothing loaded before shows the shared '

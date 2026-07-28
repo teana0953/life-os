@@ -152,12 +152,17 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
       }
       return const SizedBox.shrink();
     }
-    final staleRetry = controller.status == CareTodayLoadStatus.error
-        ? () => controller.load(widget.idToken)
-        : null;
+    final failed = controller.status == CareTodayLoadStatus.error;
+    final reloading = controller.status == CareTodayLoadStatus.loading;
+    void staleRetry() => controller.load(widget.idToken);
     final slots = controller.slots;
     if (slots.isEmpty) {
-      return _SetupPrompt(onSetup: widget.onSetup, onRetry: staleRetry);
+      return _SetupPrompt(
+        onSetup: widget.onSetup,
+        failed: failed,
+        reloading: reloading,
+        onRetry: staleRetry,
+      );
     }
 
     final loc = AppLocalizations.of(context)!;
@@ -242,8 +247,17 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
                 ),
               ),
               // Outside the [InkWell]: inside it, tapping retry would open the
-              // Today checklist instead.
-              if (staleRetry != null) StaleNotice(onRetry: staleRetry),
+              // Today checklist instead. Kept mounted through a reload as well
+              // as a failure: the marking remembers whether the reload in
+              // flight is the one it started, and unmounting it mid-retry
+              // would throw that away.
+              if (failed || reloading)
+                StaleNotice(
+                  failed: failed,
+                  loading: reloading,
+                  subject: loc.careTodayTitle,
+                  onRetry: staleRetry,
+                ),
             ],
           ),
         ),
@@ -256,14 +270,22 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
 /// place of the full summary card, so a new user without any care schedules
 /// still has a one-tap path to setting one up from the overview (rather than
 /// the card rendering nothing, per the surface-care-reminders change).
-/// [onRetry] non-null appends the "couldn't refresh" marking below it — a day
-/// with nothing scheduled is loaded content, so a failed refresh marks it
-/// rather than replacing it.
+/// [failed] appends the "couldn't refresh" marking below it — a day with
+/// nothing scheduled is loaded content, so a failed refresh marks it rather
+/// than replacing it. [reloading] rides along so the marking can keep itself
+/// on screen while the retry it started runs.
 class _SetupPrompt extends StatelessWidget {
   final VoidCallback onSetup;
-  final VoidCallback? onRetry;
+  final bool failed;
+  final bool reloading;
+  final VoidCallback onRetry;
 
-  const _SetupPrompt({required this.onSetup, this.onRetry});
+  const _SetupPrompt({
+    required this.onSetup,
+    required this.failed,
+    required this.reloading,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +331,13 @@ class _SetupPrompt extends StatelessWidget {
                   ),
                 ),
               ),
-              if (onRetry != null) StaleNotice(onRetry: onRetry!),
+              if (failed || reloading)
+                StaleNotice(
+                  failed: failed,
+                  loading: reloading,
+                  subject: loc.careTodaySummarySetupTitle,
+                  onRetry: onRetry,
+                ),
             ],
           ),
         ),

@@ -130,16 +130,23 @@ class _GoalCardState extends State<GoalCard> {
       );
     }
 
-    final onRetry = controller.status == WeightGoalStatus.error
-        ? () => controller.load(widget.idToken)
-        : null;
+    final failed = controller.status == WeightGoalStatus.error;
+    final reloading = controller.status == WeightGoalStatus.loading;
+    void onRetry() => controller.load(widget.idToken);
     if (goal == null || !goal.isProfileSet) {
-      return _UnsetGoalCard(onSetGoal: _openEditSheet, onRetry: onRetry);
+      return _UnsetGoalCard(
+        onSetGoal: _openEditSheet,
+        failed: failed,
+        reloading: reloading,
+        onRetry: onRetry,
+      );
     }
     return _SetGoalCard(
       goal: goal,
       onEdit: _openEditSheet,
       saving: saving,
+      failed: failed,
+      reloading: reloading,
       onRetry: onRetry,
     );
   }
@@ -149,19 +156,25 @@ class _GoalCardState extends State<GoalCard> {
 /// current / remaining weight figures, and BMI. Tapping anywhere opens the edit
 /// sheet. While [saving] a partial update, the card keeps its content and shows
 /// a thin inline progress bar at the top rather than collapsing to a spinner.
-/// [onRetry] non-null appends the "couldn't refresh" marking below the body —
-/// outside the [InkWell], or tapping it would open the edit sheet instead.
+/// [failed] appends the "couldn't refresh" marking below the body — outside
+/// the [InkWell], or tapping it would open the edit sheet instead. [reloading]
+/// rides along so the marking can keep itself on screen while the retry it
+/// started runs.
 class _SetGoalCard extends StatelessWidget {
   final WeightGoal goal;
   final VoidCallback onEdit;
   final bool saving;
-  final VoidCallback? onRetry;
+  final bool failed;
+  final bool reloading;
+  final VoidCallback onRetry;
 
   const _SetGoalCard({
     required this.goal,
     required this.onEdit,
+    required this.failed,
+    required this.reloading,
+    required this.onRetry,
     this.saving = false,
-    this.onRetry,
   });
 
   @override
@@ -280,7 +293,16 @@ class _SetGoalCard extends StatelessWidget {
               ),
             ),
           ),
-          if (onRetry != null) StaleNotice(onRetry: onRetry!),
+          // Kept mounted through a reload as well as a failure: the marking
+          // remembers whether the reload in flight is the one it started, and
+          // unmounting it mid-retry would throw that away.
+          if (failed || reloading)
+            StaleNotice(
+              failed: failed,
+              loading: reloading,
+              subject: loc.goalCardTitle,
+              onRetry: onRetry,
+            ),
         ],
       ),
     );
@@ -391,14 +413,21 @@ class _AchievementRing extends StatelessWidget {
 
 /// The goal card when neither height nor target weight has been set: a prompt
 /// and a button that opens the edit sheet (rather than a wall of "—").
-/// [onRetry] non-null appends the "couldn't refresh" marking below it. The
-/// card's own padding sits on its content, not on the [LedgeCard], so the
-/// marking (which brings its own) isn't indented twice.
+/// [failed] appends the "couldn't refresh" marking below it. The card's own
+/// padding sits on its content, not on the [LedgeCard], so the marking (which
+/// brings its own) isn't indented twice.
 class _UnsetGoalCard extends StatelessWidget {
   final VoidCallback onSetGoal;
-  final VoidCallback? onRetry;
+  final bool failed;
+  final bool reloading;
+  final VoidCallback onRetry;
 
-  const _UnsetGoalCard({required this.onSetGoal, this.onRetry});
+  const _UnsetGoalCard({
+    required this.onSetGoal,
+    required this.failed,
+    required this.reloading,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -432,7 +461,16 @@ class _UnsetGoalCard extends StatelessWidget {
               ],
             ),
           ),
-          if (onRetry != null) StaleNotice(onRetry: onRetry!),
+          // Kept mounted through a reload as well as a failure: the marking
+          // remembers whether the reload in flight is the one it started, and
+          // unmounting it mid-retry would throw that away.
+          if (failed || reloading)
+            StaleNotice(
+              failed: failed,
+              loading: reloading,
+              subject: loc.goalCardTitle,
+              onRetry: onRetry,
+            ),
         ],
       ),
     );

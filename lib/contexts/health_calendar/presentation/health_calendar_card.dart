@@ -99,6 +99,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
     final calendar = controller.calendar!;
     final month = DateTime(calendar.year, calendar.month);
     final stale = controller.status == HealthCalendarStatus.error;
+    final reloading = controller.status == HealthCalendarStatus.loading;
 
     // The card's padding sits on its content rather than on the [LedgeCard],
     // so the [StaleNotice] below — which brings its own, matching the other
@@ -178,7 +179,16 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
               ],
             ),
           ),
-          if (stale) StaleNotice(onRetry: () => controller.load(widget.idToken)),
+          // Kept mounted through a reload as well as a failure: the marking
+          // remembers whether the reload in flight is the one it started, and
+          // unmounting it mid-retry would throw that away.
+          if (stale || reloading)
+            StaleNotice(
+              failed: stale,
+              loading: reloading,
+              subject: loc.healthCalendarTitle,
+              onRetry: () => controller.load(widget.idToken),
+            ),
         ],
       ),
     );

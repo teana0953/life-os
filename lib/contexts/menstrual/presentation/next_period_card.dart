@@ -195,8 +195,17 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
               ),
             ),
           ),
-          if (controller.status == MenstrualStatus.error)
-            StaleNotice(onRetry: () => controller.load(widget.idToken)),
+          // Kept mounted through a reload as well as a failure: the marking
+          // remembers whether the reload in flight is the one it started, and
+          // unmounting it mid-retry would throw that away.
+          if (controller.status == MenstrualStatus.error ||
+              controller.status == MenstrualStatus.loading)
+            StaleNotice(
+              failed: controller.status == MenstrualStatus.error,
+              loading: controller.status == MenstrualStatus.loading,
+              subject: loc.nextPeriodTitle,
+              onRetry: () => controller.load(widget.idToken),
+            ),
         ],
       ),
     );

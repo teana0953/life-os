@@ -153,10 +153,15 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   Object? errorAfterFirstLoad;
   WeightGoal goal = const WeightGoal();
 
+  /// When set, the call waits on this before completing — lets a test hold a
+  /// retry in flight and look at the card while it runs.
+  Completer<void>? gate;
+
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
     calls++;
     if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    if (gate != null) await gate!.future;
     return goal;
   }
 
@@ -376,6 +381,10 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   /// next-period card's reload to a failure without failing the initial load.
   Object? errorAfterFirstLoad;
 
+  /// When set, the call waits on this before completing — lets a test hold a
+  /// retry in flight and look at the card while it runs.
+  Completer<void>? gate;
+
   _FakeMenstrualRepository({this.getOverviewError});
 
   @override
@@ -383,6 +392,7 @@ class _FakeMenstrualRepository implements MenstrualRepository {
     calls++;
     if (getOverviewError != null) throw getOverviewError!;
     if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    if (gate != null) await gate!.future;
     return const MenstrualOverview(periods: [], stats: MenstrualStats());
   }
 
@@ -425,6 +435,10 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   /// care card's reload to a failure without failing the initial load.
   Object? errorAfterFirstLoad;
 
+  /// When set, the call waits on this before completing — lets a test hold a
+  /// retry in flight and look at the card while it runs.
+  Completer<void>? gate;
+
   _FakeCareTodayRepository({required this.today});
 
   @override
@@ -432,6 +446,7 @@ class _FakeCareTodayRepository implements CareTodayRepository {
     calls++;
     if (getError != null) throw getError!;
     if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    if (gate != null) await gate!.future;
     return today;
   }
 
@@ -1272,6 +1287,183 @@ void main() {
             reason: '${entry.key} indents its marking differently',
           );
         }
+      },
+    );
+
+    testWidgets(
+      'the retry a user pressed keeps that card marked while it runs — a '
+      'marking that disappears on the tap says "refreshed" about a request '
+      'still in the air',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        // Every card in turn: each one wires the marking up to its own
+        // controller's status, so "the row survives its own retry" has to be
+        // proven four times, not once.
+        for (final target in cardFinders().keys) {
+          final bodyProfileRepository = _FakeBodyProfileRepository();
+          final calendarRepository = _FakeHealthCalendarRepository();
+          final menstrualRepository = _FakeMenstrualRepository();
+          final careTodayRepository = _FakeCareTodayRepository(
+            today: CareToday(date: '2026-07-24', slots: [_slot()]),
+          );
+          switch (target) {
+            case 'care':
+              careTodayRepository.errorAfterFirstLoad = const CareRequestFailed();
+            case 'goal':
+              bodyProfileRepository.errorAfterFirstLoad =
+                  const BodyProfileFetchFailure();
+            case 'nextPeriod':
+              menstrualRepository.errorAfterFirstLoad =
+                  const MenstrualFetchFailure();
+            case 'calendar':
+              calendarRepository.errorAfterFirstLoad =
+                  const HealthCalendarFetchFailure();
+          }
+          final dataRevision = DataRevision();
+          await tester.pumpWidget(
+            l10nRouterTestApp(
+              home: _buildScaffold(
+                bodyProfileRepository: bodyProfileRepository,
+                healthCalendarRepository: calendarRepository,
+                menstrualRepository: menstrualRepository,
+                careTodayRepository: careTodayRepository,
+                dataRevision: dataRevision,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          dataRevision.bump();
+          await tester.pumpAndSettle();
+          final card = cardFinders()[target]!;
+
+          // Arm a retry that succeeds but hangs, so the test can look at the
+          // card during the round trip rather than after it.
+          final gate = Completer<void>();
+          switch (target) {
+            case 'care':
+              careTodayRepository
+                ..errorAfterFirstLoad = null
+                ..gate = gate;
+            case 'goal':
+              bodyProfileRepository
+                ..errorAfterFirstLoad = null
+                ..gate = gate;
+            case 'nextPeriod':
+              menstrualRepository
+                ..errorAfterFirstLoad = null
+                ..gate = gate;
+            case 'calendar':
+              calendarRepository
+                ..errorAfterFirstLoad = null
+                ..gate = gate;
+          }
+          await tester.tap(
+            find.descendant(
+              of: card,
+              matching: find.byKey(const Key('stale-notice-retry')),
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            find.descendant(of: card, matching: find.text(loc.cardRefreshFailed)),
+            findsOneWidget,
+            reason: '$target dropped its marking the moment retry was pressed',
+          );
+          expect(
+            tester
+                .widget<TextButton>(
+                  find.descendant(
+                    of: card,
+                    matching: find.byKey(const Key('stale-notice-retry')),
+                  ),
+                )
+                .onPressed,
+            isNull,
+            reason: '$target left its retry pressable while it was running',
+          );
+
+          gate.complete();
+          await tester.pumpAndSettle();
+          // And the reload landing clears it, so the spinner is not a state
+          // the card can get stuck in.
+          expect(
+            find.descendant(of: card, matching: find.text(loc.cardRefreshFailed)),
+            findsNothing,
+            reason: '$target kept its marking after a successful retry',
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'each marking names the card it belongs to — four at once must not read '
+      'to a screen reader as four identical "Retry" buttons',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final handle = tester.ensureSemantics();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        final bodyProfileRepository = _FakeBodyProfileRepository();
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final menstrualRepository = _FakeMenstrualRepository();
+        final careTodayRepository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: [_slot()]),
+        );
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              bodyProfileRepository: bodyProfileRepository,
+              healthCalendarRepository: calendarRepository,
+              menstrualRepository: menstrualRepository,
+              careTodayRepository: careTodayRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        bodyProfileRepository.errorAfterFirstLoad =
+            const BodyProfileFetchFailure();
+        calendarRepository.errorAfterFirstLoad =
+            const HealthCalendarFetchFailure();
+        menstrualRepository.errorAfterFirstLoad = const MenstrualFetchFailure();
+        careTodayRepository.errorAfterFirstLoad = const CareRequestFailed();
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+
+        final labels = <String, String>{
+          for (final entry in cardFinders().entries)
+            entry.key: tester
+                .getSemantics(
+                  find.descendant(
+                    of: entry.value,
+                    matching: find.byType(StaleNotice),
+                  ),
+                )
+                .getSemanticsData()
+                .label,
+        };
+
+        // Exact, not `startsWith`: a marking merged into its card's own node
+        // would carry a label that begins with the card title too (the title
+        // is the first thing in every card), and pass a looser assertion while
+        // being unreachable in the middle of a paragraph of card content.
+        String marking(String title) =>
+            '$title: ${loc.cardRefreshFailed}. ${loc.retry}';
+        expect(labels['care'], marking(loc.careTodayTitle));
+        expect(labels['goal'], marking(loc.goalCardTitle));
+        expect(labels['nextPeriod'], marking(loc.nextPeriodTitle));
+        expect(labels['calendar'], marking(loc.healthCalendarTitle));
+        // Four cards, four distinguishable markings.
+        expect(labels.values.toSet(), hasLength(4));
+
+        handle.dispose();
       },
     );
   });

@@ -186,7 +186,10 @@ void main() {
 
       expect(find.byKey(const Key('health-calendar-loading')), findsNothing);
       expect(find.byKey(const Key('health-calendar-dot-3')), findsOneWidget);
-      expect(find.byType(StaleNotice), findsNothing);
+      // The marking's row, not [StaleNotice] itself: the card keeps the widget
+      // mounted through a reload so it can remember a retry the user pressed,
+      // and it renders nothing until it has something to say.
+      expect(find.byKey(const Key('stale-notice-row')), findsNothing);
       gate.complete();
       await tester.pumpAndSettle();
     },
