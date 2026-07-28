@@ -1,6 +1,6 @@
 ## Why
 
-[issue #84](https://github.com/loftapartment/life-os/issues/84)：「[overview] 增加顯示下一次生理期時間」，並且要有捷徑去生理期頁面。
+[issue #84](https://github.com/teana0953/life-os/issues/84)：「[overview] 增加顯示下一次生理期時間」，並且要有捷徑去生理期頁面。
 
 `predictedNextStart` 後端早就算好了（最後一次起始日 + 最近 6 次的平均週期），但**只出現在生理期頁的統計卡裡** —— 要看下一次是什麼時候，得先想到去 記錄 → 生理期。而這正是那種「偶爾想起來才會查、但查的時候通常有點急」的資訊。
 
