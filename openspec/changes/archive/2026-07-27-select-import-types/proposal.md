@@ -1,6 +1,6 @@
 ## Why
 
-[issue #86](https://github.com/loftapartment/life-os/issues/86)：「可以選擇要匯入哪些資料 —— 匯入太長的時間區間，會被對方的 server 擋住」。
+[issue #86](https://github.com/teana0953/life-os/issues/86)：「可以選擇要匯入哪些資料 —— 匯入太長的時間區間，會被對方的 server 擋住」。
 
 issue 講的是兩件事，落在兩個 repo：
 
