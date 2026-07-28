@@ -188,6 +188,49 @@ void main() {
       },
     );
 
+    test('importMenstrual POSTs {baseUrl}/api/import/chaodays/menstrual', () async {
+      Uri? capturedUri;
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'imported': 9,
+            'skipped': 3,
+            'from': '2026-07-01',
+            'to': '2026-07-18',
+          }),
+          200,
+        );
+      });
+      final repository = HttpImportRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final summary = await repository.importMenstrual(
+        'token-123',
+        chaodaysUid: 'user1',
+        chaodaysPassword: 'pass1',
+        startDate: '2026-07-01',
+        endDate: '2026-07-18',
+      );
+
+      expect(
+        capturedUri,
+        Uri.parse('https://example.test/api/import/chaodays/menstrual'),
+      );
+      expect(capturedBody, {
+        'chaodays_uid': 'user1',
+        'chaodays_password': 'pass1',
+        'start_date': '2026-07-01',
+        'end_date': '2026-07-18',
+      });
+      expect(summary.imported, 9);
+      expect(summary.skipped, 3);
+    });
+
     test('throws ImportReauthenticationRequired on 401', () async {
       final client = MockClient(
         (request) async => http.Response('Unauthorized', 401),
