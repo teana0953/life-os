@@ -4,6 +4,7 @@
 
 - [ ] Test first：`test/shared/widgets/stale_notice_test.dart` —— 渲染文案、點重試會呼叫回呼
 - [ ] `lib/shared/widgets/stale_notice.dart`：一條窄橫列（文案 + 重試），四張卡共用。**放在卡片內容之下**（四張卡版型差異極大 —— 128px 兩行到 438px 整月月曆 —— 尾端是唯一不用動既有版型就能插入的位置）
+- [ ] **插的位置：`InkWell` 之外、`LedgeCard` 之內。** `GoalCard`／`NextPeriodCard`／`CareTodaySummaryCard` 三張的內容都包在整卡 `InkWell` 裡（分別開編輯表／開生理期頁／push `/care-today`），插在裡面點標記會被帶走。插在外面則沒有內距（care 的 `LedgeCard` 是 `padding: EdgeInsets.zero`），所以 `StaleNotice` 自己帶 `EdgeInsets.symmetric(horizontal: 20, vertical: 12)`，四張卡不傳版型參數 —— 否則會各自長得不一樣
 - [ ] l10n 三個 ARB 加 `cardRefreshFailed`（zh：沒有更新到 / en：Couldn't refresh）。en 要有 `@` 描述。**重試沿用既有的 `retry`**，不要開新 key
 
 ## 2. 四張卡改判斷 (TDD)
@@ -17,6 +18,8 @@
   - 已有 summary + 失敗 → 保留 + 標記（目前完全靜默）
   - **從未載入 + 失敗 → 顯示錯誤卡 + 重試**（目前 `SizedBox.shrink()`，整張消失、無訊息、無重試 —— 它是總覽最上面那張，使用者只會看到「今日照護不見了」）。既有測試 `a first-ever load that ends in error (never loaded before) still renders nothing`（`care_today_summary_card_test.dart:345`）把現行行為釘死了，要改寫
   - **仍然要保留**：從未載入 + 載入**中** → `SizedBox.shrink()`（這條沒變）
+  - **「有沒有內容」的判斷是 `_hasLoadedOnce || slots.isNotEmpty`**，不是拿 `slots.isNotEmpty` 取代 `_hasLoadedOnce`（design D5a）。`_hasLoadedOnce` 只從 `status == loaded` 播種，controller 是 app 級 singleton，重進 health module 時可能停在 error 但手上還有 slots；但**「今天沒有排程」的使用者 slots 本來就是空的**，用 `slots.isEmpty` 取代會把既有的 `_SetupPrompt` 分支打掉 —— 那正是「No schedules shows a setup prompt, not nothing」那條既有 scenario
+  - **標記文案講「沒有更新到」而不是「這是舊資料」**：`WeightGoalController.load` 先寫 `goal` 再寫 `profile`，body-profile 那半失敗時 `goal` 已經是新鮮資料卻標成 error。「沒有更新到」對「更新了一半」仍然成立，「這是舊資料」不成立
 
 ## 3. 每張卡的測試矩陣
 
@@ -27,8 +30,10 @@
 - [ ] 已有資料 + 重新載入中 → 保留內容，**沒有** `StaleNotice`（載入中不是失敗）
 - [ ] 已有資料 + 重新載入失敗 → 保留內容 + `StaleNotice` + 重試會呼叫**自己那個** controller 的 `load`
 
-**「只重載自己」不能在單卡測試裡驗** —— 單卡 widget test 只有那一個 fake controller，斷言 `loadCount == 1` 恆真、看不到另外三個有沒有被動到。要一條 `health_scaffold_test.dart` 的測試：四個 fake controller 都塞資料、其中一個進 error，點那張卡的重試，斷言**另外三個的 loadCount 沒有增加**
+**「只重載自己」不能在單卡測試裡驗** —— 單卡 widget test 只有那一個 fake controller，斷言 `loadCount == 1` 恆真、看不到另外三個有沒有被動到。要一條 `health_scaffold_test.dart` 的測試：四張卡都有資料、其中一個進 error，點那張卡的重試，斷言**另外三個的 fake repository 呼叫次數沒有增加**。注意那個檔的 `_buildScaffold` 用的是**真 controller + fake repository**（`calls++` / `errorAfterFirstLoad` 那套），不是 fake controller；`_FakeBodyProfileRepository` 目前還不是可覆寫的參數，要先補
 - [ ] **重試成功後標記消失**（狀態回 loaded）
+- [ ] **care 卡專屬**：載入成功但 `slots` 為空（今天沒排程）→ reload 失敗 → **仍然顯示 `_SetupPrompt` + 標記**，不是錯誤卡。上面四條矩陣抓不到這個（它們都塞非空資料）
+- [ ] **care 卡專屬**：controller 停在 error 但手上有 slots、卡片重新掛載（模擬重進 health module）→ 顯示內容 + 標記，不是錯誤卡
 
 ## 4. 版面
 

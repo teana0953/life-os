@@ -73,7 +73,11 @@
 
 **`WeightGoalController.load` 先寫 `goal` 再寫 `profile`。** body-profile 那半失敗時，`goal` 已經被換成**新鮮**資料、狀態卻是 error —— 卡片會顯示新資料 + 「沒有更新到」。標記在那個情況下是錯的（東西其實更新了一半）。這是既有行為，本 change 不修，但**標記的措辭要禁得起它**：講「沒有更新到」而不是「這是舊資料」，前者對「更新了一半」仍然成立。
 
-**`CareTodaySummaryCard._hasLoadedOnce` 只從 `status == loaded` 播種**（`initState` 讀一次、之後每次 loaded 設 true）。重進 health module 時 controller 是 app 級 singleton、可能停在 error 但手上還有 slots —— 新的卡會用「從未載入」的分支蓋掉那些內容。**判斷要改成看資料在不在（`slots.isNotEmpty`），不是看 `_hasLoadedOnce`**，否則這個 change 會製造一個新的「內容被錯誤卡蓋掉」。
+**`CareTodaySummaryCard._hasLoadedOnce` 只從 `status == loaded` 播種**（`initState` 讀一次、之後每次 loaded 設 true）。重進 health module 時 controller 是 app 級 singleton、可能停在 error 但手上還有 slots —— 新的卡會用「從未載入」的分支蓋掉那些內容。
+
+**修法是 `_hasLoadedOnce || slots.isNotEmpty`，不是拿 `slots.isNotEmpty` 取代它。** 取代會踩另一個洞：「今天沒有排程」的使用者載入成功、slots 本來就是空的，那時 `slots.isEmpty` 為真 → reload 中變空白、reload 失敗被錯誤卡蓋掉 —— 而 `slots.isEmpty` 那條分支正是既有的 `_SetupPrompt`（「No schedules shows a setup prompt, not nothing」）。等於重現 #82 修掉的「自動刷新打空總覽」。
+
+**§3 的測試矩陣抓不到這個** —— 那幾條「已有資料」一定塞非空 slots。要另外一條：載入成功但 slots 為空、然後 reload 失敗 → 仍然顯示 setup prompt + 標記。
 
 ### D6 — 401 不動
 

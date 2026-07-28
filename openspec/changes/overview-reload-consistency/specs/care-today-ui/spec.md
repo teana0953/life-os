@@ -37,6 +37,16 @@ top of the overview.
 - **WHEN** today's care is loading and has never loaded before
 - **THEN** no care card or setup prompt is shown on the overview and the rest of the overview is unaffected
 
+#### Scenario: A failed refresh keeps the summary and marks it
+- **WHEN** today's care has loaded and a later reload fails
+- **THEN** the summary stays on screen, reported as not refreshed, with a retry — the top card
+  of the overview does not become silently stale, which is what it did before
+
+#### Scenario: A day with no schedules keeps its setup prompt through a failed refresh
+- **WHEN** today has no care schedules, that loaded successfully, and a later reload fails
+- **THEN** the setup prompt stays on screen, reported as not refreshed — having nothing
+  scheduled is loaded content, not the absence of content
+
 #### Scenario: A first load that fails says so instead of vanishing
 - **WHEN** today's care has never loaded and its first load fails
 - **THEN** the overview shows that it could not be loaded, with a retry — rather than the top
