@@ -1257,7 +1257,7 @@
   "@importTypeMenstrual": {
     "description": "Label for the menstrual-period row in the chaodays import results."
   },
-  "importMenstrualOpenPeriodHint": "An ongoing period is skipped \u2014 import again after it ends.",
+  "importMenstrualOpenPeriodHint": "An ongoing period is skipped — import again after it ends.",
   "@importMenstrualOpenPeriodHint": {
     "description": "Caption under the import type list: chaodays periods that have not ended yet are skipped and come in on a later import"
   },
