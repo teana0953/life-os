@@ -58,6 +58,11 @@ never closed.
 - **THEN** the predicted date is still shown, so someone who records starts but not ends
   is not left without the thing this card exists to show
 
+#### Scenario: An ongoing period with nothing to predict from still reads correctly
+- **WHEN** the only recorded period is the ongoing one, so no next start can be predicted
+- **THEN** the card reports the ongoing period alone, with no predicted date and no
+  placeholder standing in for one — the state of someone recording for the first time
+
 #### Scenario: A period that covers today wins over a later-starting one
 - **WHEN** a period covering today was recorded alongside a later-starting one that does
   not cover today
