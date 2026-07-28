@@ -703,6 +703,50 @@ class AppLocalizationsEn extends AppLocalizations {
       'No periods recorded yet. Tap a day on the calendar or \'Log period\' to start tracking.';
 
   @override
+  String get nextPeriodTitle => 'Next period';
+
+  @override
+  String nextPeriodUpcoming(String date, int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$date · in $_temp0';
+  }
+
+  @override
+  String get nextPeriodToday => 'Expected today';
+
+  @override
+  String nextPeriodOverdue(String date, int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Expected $date · $_temp0 ago, nothing logged';
+  }
+
+  @override
+  String nextPeriodOngoing(int day) {
+    return 'Ongoing · day $day';
+  }
+
+  @override
+  String nextPeriodOngoingNext(String date) {
+    return 'Next expected $date';
+  }
+
+  @override
+  String get nextPeriodNoRecords => 'No periods recorded yet';
+
+  @override
+  String get nextPeriodNeedsOneMore => 'Record one more to predict the next';
+
+  @override
   String get errorMenstrualLoadFailed =>
       'Unable to load your period data. Please try again.';
 

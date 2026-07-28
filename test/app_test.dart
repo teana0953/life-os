@@ -1282,6 +1282,48 @@ void main() {
     );
 
     testWidgets(
+      "the overview's next-period card opens the menstrual tracker through "
+      'the real router, and back returns to the overview',
+      (tester) async {
+        // Driven through the app's own router: the tracker is a nested child
+        // of /health, so the shortcut has to push '/health/menstrual' —
+        // '/menstrual' matches nothing, and the router has no errorBuilder,
+        // so it would land on go_router's built-in not-found page.
+        //
+        // A taller surface than the default viewport: the care and goal cards
+        // above it would otherwise leave the card offstage and untappable.
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('next-period-card')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('menstrual-add-button')), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        // Back lands on the health module's overview, not the grid.
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.byKey(const Key('next-period-card')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'auth stream error shows a recoverable error screen instead of an '
       'infinite spinner',
       (tester) async {
