@@ -20,12 +20,19 @@ class VitalsScreen extends StatefulWidget {
   /// Defaults to [DateTime.now]; tests inject a fixed clock. Mirrors bowel.
   final DateTime Function() clock;
 
+  /// The reading list a launcher shortcut asked to start — `'glucose'` or
+  /// `'bp'` (from `/health/vitals?add=…`). When set, one empty reading of that
+  /// kind is added and focused, exactly once per arrival. Anything else
+  /// (including `null`) leaves the screen behaving as an ordinary visit.
+  final String? autoAddSection;
+
   const VitalsScreen({
     super.key,
     required this.controller,
     required this.idToken,
     required this.day,
     this.clock = DateTime.now,
+    this.autoAddSection,
   });
 
   @override
@@ -40,19 +47,130 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   @override
   void reloadDay(String day) => widget.controller.load(widget.idToken, day);
 
+  /// Whether [widget.autoAddSection] has already been consumed. Lives on the
+  /// State (not the widget): `build` runs on every keystroke/rotation, and
+  /// without this the user would collect a pile of blank rows.
+  bool _autoAddConsumed = false;
+
+  /// Which list the auto-added row is in and at what index, so the row can
+  /// carry [_autoAddRowKey] and hand [_autoAddFocusNode] to its field.
+  String? _autoAddKind;
+  int? _autoAddIndex;
+
+  /// Re-created per auto-add so the key never has to migrate between the
+  /// glucose and bp subtrees when a second shortcut arrives.
+  GlobalKey _autoAddRowKey = GlobalKey();
+  final FocusNode _autoAddFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
+    // Evaluated BEFORE the listener is registered, so the synchronous
+    // `notifyListeners()` inside `addXxxReading` can't call `setState` during
+    // this initState. The row still lands in the very first build.
+    _maybeAutoAdd();
     widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant VitalsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // go_router's pageKey is the route TEMPLATE (`/health/:name`) — it carries
+    // neither the query nor the concrete name — so `?add=glucose` →
+    // `?add=bp` UPDATES this Route instead of rebuilding it: same State, no
+    // second `initState`. And the controller is loaded by now, so it will
+    // never notify again either — resetting the flag alone would therefore do
+    // nothing at all. Re-evaluate immediately.
+    if (oldWidget.autoAddSection != widget.autoAddSection) {
+      _autoAddConsumed = false;
+      _maybeAutoAdd();
+    }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    _autoAddFocusNode.dispose();
     super.dispose();
   }
 
-  void _onControllerChanged() => setState(() {});
+  void _onControllerChanged() {
+    setState(() {});
+    // The mount-time path covers "already loaded"; this covers "was still
+    // loading on arrival" — adding before the record lands would have the row
+    // wiped by `VitalsController._applyRecord`.
+    _maybeAutoAdd();
+  }
+
+  /// Starts the reading a launcher shortcut named, once the day's record has
+  /// actually arrived. `error`/`needsReauth` add nothing.
+  void _maybeAutoAdd() {
+    if (_autoAddConsumed) return;
+    final section = widget.autoAddSection;
+    if (section != 'glucose' && section != 'bp') return;
+    // Only past this point is this a shortcut arrival — an ordinary visit must
+    // keep whatever day the user browsed to.
+    //
+    // A shortcut always records TODAY, but this State SURVIVES the navigation
+    // (the pageKey is the route template), so the day-nav may have left
+    // `viewedDay` on a past day — and `_save` writes `viewedDay`. Adding here
+    // would file the reading under the browsed day, silently. Switch back
+    // first; the reload notifies and brings us here again, in agreement.
+    // (On the initState path `_viewedDate` initialises lazily from
+    // `widget.day`, so this is never the branch taken there — `setDay`'s
+    // `setState` would be illegal that early.)
+    if (viewedDay != widget.day) {
+      setDay(DateTime.parse(widget.day));
+      return;
+    }
+    final controller = widget.controller;
+    if (controller.status != VitalsStatus.loaded || controller.day == null) {
+      return;
+    }
+
+    // Set BEFORE the add: `addGlucoseReading`/`addBpReading` notify
+    // SYNCHRONOUSLY and so re-enter `_onControllerChanged` — a flag set
+    // afterwards recurses until the stack blows.
+    _autoAddConsumed = true;
+    _autoAddKind = section;
+    _autoAddRowKey = GlobalKey();
+    if (section == 'glucose') {
+      _autoAddIndex = controller.glucoseReadings.length;
+      controller.addGlucoseReading();
+    } else {
+      _autoAddIndex = controller.bpReadings.length;
+      controller.addBpReading();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The row is only built on the frame AFTER a notify that landed mid-build,
+      // so this frame's context can be missing — `ensureVisible` would throw.
+      if (!mounted || _autoAddRowKey.currentContext == null) return;
+      _autoAddFocusNode.requestFocus();
+      // Not the default alignment of 0: flush to the top edge scrolls the
+      // section heading off, leaving the user focused on a bare number field
+      // with nothing saying which reading it is.
+      Scrollable.ensureVisible(
+        _autoAddRowKey.currentContext!,
+        alignment: 0.3,
+      );
+    });
+  }
+
+  /// The [GlobalKey] wrapper for the auto-added row of [kind] at [index] —
+  /// applied around what `_glucoseRow`/`_bpRow` already return, so neither
+  /// `_ReadingListSection` nor its `rowBuilder` signature has to change.
+  Widget _autoAddWrap(String kind, int index, Widget row) =>
+      (_autoAddKind == kind && _autoAddIndex == index)
+      ? KeyedSubtree(key: _autoAddRowKey, child: row)
+      : row;
+
+  /// The focus node for the auto-added row's primary field — the glucose
+  /// VALUE (not its free-text label) and bp's systolic.
+  FocusNode? _autoAddFocusFor(String kind, int index) =>
+      (_autoAddKind == kind && _autoAddIndex == index)
+      ? _autoAddFocusNode
+      : null;
 
   /// Awaits [save] then, if the controller ended in an error state, surfaces a
   /// transient save-failed snackbar over the still-rendered form. `needsReauth`
@@ -176,94 +294,105 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                       : null,
                 ),
                 Expanded(
-                  child: ListView(
+                  // Deliberately NOT a ListView: its lazy delegate only builds
+                  // what is near the viewport, so with a few readings already
+                  // logged the glucose/bp section a shortcut targets is never
+                  // built — `_autoAddRowKey.currentContext` is null and both
+                  // the focus and the scroll-into-view silently do nothing.
+                  // The content here is a fixed handful of cards, so building
+                  // it all costs nothing. `stretch` restores the full-width
+                  // cross-axis sizing children got from the sliver.
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
-                    children: [
-                      dayNavHeader(
-                        todayTitle: loc.vitalsTitle,
-                        historyTitle: loc.vitalsHistoryTitle,
-                      ),
-                      const SizedBox(height: 16),
-                      LedgeCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _NullableNumberField(
-                              fieldKey: const Key('vitals-weight-field'),
-                              label: loc.vitalsWeightLabel,
-                              value: controller.weightKg,
-                              enabled: !busy,
-                              onChanged: controller.setWeight,
-                            ),
-                            const SizedBox(height: 16),
-                            _NullableNumberField(
-                              fieldKey: const Key('vitals-bodyfat-field'),
-                              label: loc.vitalsBodyFatLabel,
-                              value: controller.bodyFatPct,
-                              enabled: !busy,
-                              onChanged: controller.setBodyFat,
-                            ),
-                          ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        dayNavHeader(
+                          todayTitle: loc.vitalsTitle,
+                          historyTitle: loc.vitalsHistoryTitle,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      _ReadingListSection(
-                        sectionId: 'bp',
-                        title: loc.vitalsBloodPressureSection,
-                        count: controller.bpReadings.length,
-                        enabled: !busy,
-                        onAdd: controller.addBpReading,
-                        onRemove: controller.removeBpReading,
-                        rowBuilder: (index) =>
-                            _bpRow(context, controller, index, busy),
-                      ),
-                      const SizedBox(height: 16),
-                      _ReadingListSection(
-                        sectionId: 'glucose',
-                        title: loc.vitalsGlucoseSection,
-                        count: controller.glucoseReadings.length,
-                        enabled: !busy,
-                        onAdd: controller.addGlucoseReading,
-                        onRemove: controller.removeGlucoseReading,
-                        rowBuilder: (index) =>
-                            _glucoseRow(context, controller, index, busy),
-                      ),
-                      const SizedBox(height: 16),
-                      _ReadingListSection(
-                        sectionId: 'spo2',
-                        title: loc.vitalsSpo2Section,
-                        count: controller.spo2Readings.length,
-                        enabled: !busy,
-                        onAdd: controller.addSpo2Reading,
-                        onRemove: controller.removeSpo2Reading,
-                        rowBuilder: (index) =>
-                            _spo2Row(context, controller, index, busy),
-                      ),
-                      const SizedBox(height: 20),
-                      if (controller.hasUnsavedChanges)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            loc.vitalsUnsavedChanges,
-                            key: const Key('vitals-unsaved-indicator'),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
+                        const SizedBox(height: 16),
+                        LedgeCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _NullableNumberField(
+                                fieldKey: const Key('vitals-weight-field'),
+                                label: loc.vitalsWeightLabel,
+                                value: controller.weightKg,
+                                enabled: !busy,
+                                onChanged: controller.setWeight,
+                              ),
+                              const SizedBox(height: 16),
+                              _NullableNumberField(
+                                fieldKey: const Key('vitals-bodyfat-field'),
+                                label: loc.vitalsBodyFatLabel,
+                                value: controller.bodyFatPct,
+                                enabled: !busy,
+                                onChanged: controller.setBodyFat,
+                              ),
+                            ],
                           ),
                         ),
-                      FilledButton(
-                        key: const Key('vitals-save-button'),
-                        onPressed: (busy || !controller.hasUnsavedChanges)
-                            ? null
-                            : _save,
-                        child: Text(loc.vitalsSaveButton),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        _ReadingListSection(
+                          sectionId: 'bp',
+                          title: loc.vitalsBloodPressureSection,
+                          count: controller.bpReadings.length,
+                          enabled: !busy,
+                          onAdd: controller.addBpReading,
+                          onRemove: controller.removeBpReading,
+                          rowBuilder: (index) =>
+                              _bpRow(context, controller, index, busy),
+                        ),
+                        const SizedBox(height: 16),
+                        _ReadingListSection(
+                          sectionId: 'glucose',
+                          title: loc.vitalsGlucoseSection,
+                          count: controller.glucoseReadings.length,
+                          enabled: !busy,
+                          onAdd: controller.addGlucoseReading,
+                          onRemove: controller.removeGlucoseReading,
+                          rowBuilder: (index) =>
+                              _glucoseRow(context, controller, index, busy),
+                        ),
+                        const SizedBox(height: 16),
+                        _ReadingListSection(
+                          sectionId: 'spo2',
+                          title: loc.vitalsSpo2Section,
+                          count: controller.spo2Readings.length,
+                          enabled: !busy,
+                          onAdd: controller.addSpo2Reading,
+                          onRemove: controller.removeSpo2Reading,
+                          rowBuilder: (index) =>
+                              _spo2Row(context, controller, index, busy),
+                        ),
+                        const SizedBox(height: 20),
+                        if (controller.hasUnsavedChanges)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              loc.vitalsUnsavedChanges,
+                              key: const Key('vitals-unsaved-indicator'),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        FilledButton(
+                          key: const Key('vitals-save-button'),
+                          onPressed: (busy || !controller.hasUnsavedChanges)
+                              ? null
+                              : _save,
+                          child: Text(loc.vitalsSaveButton),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -287,74 +416,81 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
     // phone row. mmHg lives in the section title; pulse carries a `bpm` suffix.
     // The time control rides the pulse line's trailing space so it never
     // squeezes the widest (first) field line.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _RowNumberField(
-                fieldKey: Key('vitals-bp-systolic-$index'),
-                label: loc.vitalsSystolicLabel,
-                text: reading.systolic == 0 ? '' : '${reading.systolic}',
-                enabled: !busy,
-                onChanged: (v) => controller.updateBpReading(
-                  index,
-                  reading.copyWith(systolic: int.tryParse(v) ?? 0),
+    return _autoAddWrap(
+      'bp',
+      index,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _RowNumberField(
+                  fieldKey: Key('vitals-bp-systolic-$index'),
+                  focusNode: _autoAddFocusFor('bp', index),
+                  label: loc.vitalsSystolicLabel,
+                  text: reading.systolic == 0 ? '' : '${reading.systolic}',
+                  enabled: !busy,
+                  onChanged: (v) => controller.updateBpReading(
+                    index,
+                    reading.copyWith(systolic: int.tryParse(v) ?? 0),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _RowNumberField(
-                fieldKey: Key('vitals-bp-diastolic-$index'),
-                label: loc.vitalsDiastolicLabel,
-                text: reading.diastolic == 0 ? '' : '${reading.diastolic}',
-                enabled: !busy,
-                onChanged: (v) => controller.updateBpReading(
-                  index,
-                  reading.copyWith(diastolic: int.tryParse(v) ?? 0),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RowNumberField(
+                  fieldKey: Key('vitals-bp-diastolic-$index'),
+                  label: loc.vitalsDiastolicLabel,
+                  text: reading.diastolic == 0 ? '' : '${reading.diastolic}',
+                  enabled: !busy,
+                  onChanged: (v) => controller.updateBpReading(
+                    index,
+                    reading.copyWith(diastolic: int.tryParse(v) ?? 0),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _RowNumberField(
-                fieldKey: Key('vitals-bp-pulse-$index'),
-                label: loc.vitalsPulseLabel,
-                text: reading.pulse == null ? '' : '${reading.pulse}',
-                enabled: !busy,
-                suffixText: loc.vitalsPulseUnit,
-                onChanged: (v) => controller.updateBpReading(
-                  index,
-                  reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _RowNumberField(
+                  fieldKey: Key('vitals-bp-pulse-$index'),
+                  label: loc.vitalsPulseLabel,
+                  text: reading.pulse == null ? '' : '${reading.pulse}',
+                  enabled: !busy,
+                  suffixText: loc.vitalsPulseUnit,
+                  onChanged: (v) => controller.updateBpReading(
+                    index,
+                    reading.copyWith(pulse: v.isEmpty ? null : int.tryParse(v)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _timeChip(
-              sectionId: 'bp',
-              index: index,
-              time: reading.time,
-              busy: busy,
-              onEdit: _editBpTime,
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 8),
+              _timeChip(
+                sectionId: 'bp',
+                index: index,
+                time: reading.time,
+                busy: busy,
+                onEdit: _editBpTime,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  String _glucoseContextLabel(AppLocalizations loc, GlucoseMealContext context) =>
-      switch (context) {
-        GlucoseMealContext.fasting => loc.glucoseContextFasting,
-        GlucoseMealContext.preMeal => loc.glucoseContextPreMeal,
-        GlucoseMealContext.postMeal => loc.glucoseContextPostMeal,
-      };
+  String _glucoseContextLabel(
+    AppLocalizations loc,
+    GlucoseMealContext context,
+  ) => switch (context) {
+    GlucoseMealContext.fasting => loc.glucoseContextFasting,
+    GlucoseMealContext.preMeal => loc.glucoseContextPreMeal,
+    GlucoseMealContext.postMeal => loc.glucoseContextPostMeal,
+  };
 
   Widget _glucoseRow(
     BuildContext context,
@@ -364,70 +500,75 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   ) {
     final loc = AppLocalizations.of(context)!;
     final reading = controller.glucoseReadings[index];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _RowTextField(
-                fieldKey: Key('vitals-glucose-label-$index'),
-                label: loc.vitalsGlucoseLabelField,
-                text: reading.label,
-                enabled: !busy,
-                onChanged: (v) => controller.updateGlucoseReading(
-                  index,
-                  reading.copyWith(label: v),
+    return _autoAddWrap(
+      'glucose',
+      index,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _RowTextField(
+                  fieldKey: Key('vitals-glucose-label-$index'),
+                  label: loc.vitalsGlucoseLabelField,
+                  text: reading.label,
+                  enabled: !busy,
+                  onChanged: (v) => controller.updateGlucoseReading(
+                    index,
+                    reading.copyWith(label: v),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _RowNumberField(
-                fieldKey: Key('vitals-glucose-value-$index'),
-                label: loc.vitalsGlucoseValueLabel,
-                text: reading.value == 0 ? '' : '${reading.value}',
-                enabled: !busy,
-                onChanged: (v) => controller.updateGlucoseReading(
-                  index,
-                  reading.copyWith(value: num.tryParse(v) ?? 0),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RowNumberField(
+                  fieldKey: Key('vitals-glucose-value-$index'),
+                  focusNode: _autoAddFocusFor('glucose', index),
+                  label: loc.vitalsGlucoseValueLabel,
+                  text: reading.value == 0 ? '' : '${reading.value}',
+                  enabled: !busy,
+                  onChanged: (v) => controller.updateGlucoseReading(
+                    index,
+                    reading.copyWith(value: num.tryParse(v) ?? 0),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            // Structured meal-context picker: tapping the selected chip clears it.
-            for (final context in GlucoseMealContext.values)
-              ChoiceChip(
-                key: Key('vitals-glucose-context-${context.name}-$index'),
-                label: Text(_glucoseContextLabel(loc, context)),
-                selected: reading.mealContext == context,
-                onSelected: busy
-                    ? null
-                    : (selected) => controller.updateGlucoseReading(
-                        index,
-                        reading.copyWith(
-                          mealContext: selected ? context : null,
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              // Structured meal-context picker: tapping the selected chip clears it.
+              for (final context in GlucoseMealContext.values)
+                ChoiceChip(
+                  key: Key('vitals-glucose-context-${context.name}-$index'),
+                  label: Text(_glucoseContextLabel(loc, context)),
+                  selected: reading.mealContext == context,
+                  onSelected: busy
+                      ? null
+                      : (selected) => controller.updateGlucoseReading(
+                          index,
+                          reading.copyWith(
+                            mealContext: selected ? context : null,
+                          ),
                         ),
-                      ),
+                ),
+              // Rides the picker line; the surrounding `Wrap` lets it drop to
+              // its own line rather than overflow on a narrow phone.
+              _timeChip(
+                sectionId: 'glucose',
+                index: index,
+                time: reading.time,
+                busy: busy,
+                onEdit: _editGlucoseTime,
               ),
-            // Rides the picker line; the surrounding `Wrap` lets it drop to
-            // its own line rather than overflow on a narrow phone.
-            _timeChip(
-              sectionId: 'glucose',
-              index: index,
-              time: reading.time,
-              busy: busy,
-              onEdit: _editGlucoseTime,
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -638,6 +779,11 @@ class _RowNumberField extends StatefulWidget {
   /// unit doesn't fit the floating label without crowding a narrow row.
   final String? suffixText;
 
+  /// Supplied only for the row a launcher shortcut just added, so the screen
+  /// can put the cursor straight into it; `null` everywhere else (the field
+  /// then owns its focus internally, as before).
+  final FocusNode? focusNode;
+
   const _RowNumberField({
     required this.fieldKey,
     required this.label,
@@ -645,6 +791,7 @@ class _RowNumberField extends StatefulWidget {
     required this.enabled,
     required this.onChanged,
     this.suffixText,
+    this.focusNode,
   });
 
   @override
@@ -675,6 +822,7 @@ class _RowNumberFieldState extends State<_RowNumberField> {
     return TextField(
       key: widget.fieldKey,
       controller: _controller,
+      focusNode: widget.focusNode,
       enabled: widget.enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
@@ -779,11 +927,7 @@ class _TimeChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.schedule,
-                  size: 16,
-                  color: scheme.onSurfaceVariant,
-                ),
+                Icon(Icons.schedule, size: 16, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(
                   time.isEmpty ? '--:--' : time,
@@ -805,8 +949,7 @@ class _TimeChip extends StatelessWidget {
 /// empty (or blank) is `null`, otherwise `num.tryParse`. Two strings that parse
 /// equal (e.g. the raw "72." and the parsed echo "72.0") are treated as the
 /// same value, so a keystroke's own rebuild never re-seeds the field.
-num? _parseNum(String text) =>
-    text.trim().isEmpty ? null : num.tryParse(text);
+num? _parseNum(String text) => text.trim().isEmpty ? null : num.tryParse(text);
 
 /// Parses a stored "HH:mm" to a [TimeOfDay], GUARDING against an empty or
 /// malformed value (a pre-time reading has `time == ''`) — falls back to the

@@ -1,6 +1,6 @@
 ## Why
 
-[issue #88](https://github.com/loftapartment/life-os/issues/88)：「[食物字典] 多一個容易查詢的入口」。
+[issue #88](https://github.com/teana0953/life-os/issues/88)：「[食物字典] 多一個容易查詢的入口」。
 
 食物字典目前**只存在於「加入某一餐」的流程裡**：`FoodSearchScreen` 需要 `meal` + `day` 才能建構，點任何一列就是加進 tray，底部還有提交按鈕。想查「這東西算幾份」得走 健康 → 飲食 → 選一餐 → 加食物 → 搜尋，看完還得小心退出以免誤加。
 

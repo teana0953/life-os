@@ -1,6 +1,6 @@
 ## Why
 
-後端已支援生理期匯入（[life-os-backend PR #55](https://github.com/loftapartment/life-os-backend/pull/55)，issue #85），端點 `POST /api/import/chaodays/menstrual` 已上線，但匯入畫面上還沒有這一列 —— 使用者看不到入口。這個 change 補上前端的最後一段。
+後端已支援生理期匯入（[life-os-backend PR #55](https://github.com/teana0953/life-os-backend/pull/55)，issue #85），端點 `POST /api/import/chaodays/menstrual` 已上線，但匯入畫面上還沒有這一列 —— 使用者看不到入口。這個 change 補上前端的最後一段。
 
 ## What Changes
 

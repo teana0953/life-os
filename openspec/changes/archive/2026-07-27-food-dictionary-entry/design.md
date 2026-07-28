@@ -2,7 +2,7 @@
 
 ## 問題
 
-[issue #88](https://github.com/loftapartment/life-os/issues/88)：「[食物字典] 多一個容易查詢的入口」。
+[issue #88](https://github.com/teana0953/life-os/issues/88)：「[食物字典] 多一個容易查詢的入口」。
 
 食物字典目前**只存在於「加入某一餐」的流程裡**。`FoodSearchScreen` 需要 `meal` + `day` 才能建構，路由 `/health/diet/food-search` 靠 `extra` 帶進來；點任何一列就是加進 tray，底部還有提交按鈕。
 

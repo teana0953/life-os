@@ -21,6 +21,12 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The suite runs in well under a minute. A cap matters because the failure
+    # mode we actually hit — a synchronous notify re-entering its own listener —
+    # HANGS rather than fails: it never yields, so `flutter test`'s own
+    # (timer-based) per-test timeout never fires. Without this, such a
+    # regression burns the GitHub default of 360 minutes before going red.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

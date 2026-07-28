@@ -9,6 +9,28 @@
     "orientation": "portrait-primary",
     "lang": "en",
     "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "食物字典",
+            "short_name": "查食物",
+            "url": "/#/health/diet/dictionary"
+        },
+        {
+            "name": "記錄飲食",
+            "short_name": "記飲食",
+            "url": "/#/health/diet"
+        },
+        {
+            "name": "記錄血糖",
+            "short_name": "記血糖",
+            "url": "/#/health/vitals?add=glucose"
+        },
+        {
+            "name": "記錄血壓",
+            "short_name": "記血壓",
+            "url": "/#/health/vitals?add=bp"
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png?v=2",
