@@ -239,8 +239,9 @@ Future<void> _pumpScreen(
   DateTime Function() clock = _defaultClock,
   Locale locale = const Locale('en'),
   ThemeData? theme,
+  Size size = const Size(600, 1200),
 }) async {
-  await tester.binding.setSurfaceSize(const Size(600, 1200));
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nTestApp(
@@ -1026,6 +1027,50 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.calls, ['bowel']);
+    });
+  });
+
+  group('ChaodaysImportScreen narrow layout', () {
+    for (final width in const [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the submit button is reachable and nothing overflows at '
+          '${width.toInt()}dp (${locale.toLanguageTag()})',
+          (tester) async {
+            await _pumpScreen(
+              tester,
+              controller: _controller(_FakeImportRepository()),
+              locale: locale,
+              size: Size(width, 780),
+            );
+
+            // Six type rows plus the hint no longer fit above the fold, so the
+            // button has to be scrolled to — which is fine, but it has to be
+            // REACHABLE. A row added without checking this is how a submit
+            // button quietly ends up below a viewport nobody scrolls.
+            await tester.scrollUntilVisible(
+              find.byKey(const Key('import-submit-button')),
+              200,
+              scrollable: find.byType(Scrollable).first,
+            );
+
+            expect(find.byKey(const Key('import-submit-button')), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+
+    testWidgets('the open-period hint is shown before any import runs', (
+      tester,
+    ) async {
+      final loc = await AppLocalizations.delegate.load(const Locale('en'));
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      // Stated up front, not as an after-the-fact reading of "skipped": the
+      // user decides whether to re-import later while still on this screen.
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+      expect(find.text(loc.importMenstrualOpenPeriodHint), findsOneWidget);
     });
   });
 }

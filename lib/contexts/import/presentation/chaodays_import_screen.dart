@@ -272,6 +272,25 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                                 widget.controller.clearType(type);
                               },
                             ),
+                          // Stated as a rule, before the run, rather than as an
+                          // explanation of a number afterwards: the summary's
+                          // "skipped" count cannot say WHY a period was left
+                          // out, and the one case that matters — the cycle the
+                          // user is in right now — reads exactly like the
+                          // harmless one ("lifeos already has it"). Someone
+                          // backfilling mid-period would otherwise call it done
+                          // and never re-run, losing their most recent cycle,
+                          // which is the one the stats and prediction need most.
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                            child: Text(
+                              loc.importMenstrualOpenPeriodHint,
+                              key: const Key('import-menstrual-hint'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
