@@ -1072,5 +1072,20 @@ void main() {
       expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
       expect(find.text(loc.importMenstrualOpenPeriodHint), findsOneWidget);
     });
+
+    testWidgets('the open-period hint is still there after a run finishes', (
+      tester,
+    ) async {
+      // The moment the sentence is actually needed: the user is looking at
+      // "Imported 12 · Skipped 1" and deciding whether that means done. A hint
+      // that only shows before the run would be gone exactly then.
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+      await _fillCompleteForm(tester);
+      await tester.tap(find.byKey(const Key('import-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('import-done-message')), findsOneWidget);
+      expect(find.byKey(const Key('import-menstrual-hint')), findsOneWidget);
+    });
   });
 }
