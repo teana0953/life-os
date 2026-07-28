@@ -68,8 +68,10 @@ top of its content that reflects today's care urgency and lets the user act with
 overview. When there are care schedules it SHALL also offer a way to reach care-reminder
 management; when there are NO care schedules today it SHALL show a slim setup prompt that opens
 care-reminder management (rather than showing nothing), so a user with no reminders can still
-reach setup from the overview. It SHALL still show nothing while loading or on an error/reauth
-state (so it never blocks the rest of the overview).
+reach setup from the overview. It SHALL show nothing while it has never loaded and its first load
+is still in flight; a first load that fails SHALL instead say so and offer a retry. Once a summary has loaded it SHALL keep showing it through a later reload,
+whether that reload is in flight or has failed, so an automatic refresh never empties the
+top of the overview.
 
 #### Scenario: Overdue care shows an urgent summary
 - **WHEN** today has an overdue care slot
@@ -91,9 +93,24 @@ state (so it never blocks the rest of the overview).
 - **WHEN** today has no care schedules and today's care has loaded
 - **THEN** the overview shows a slim setup prompt that opens care-reminder management, instead of hiding the card entirely
 
-#### Scenario: Loading or error still shows nothing
-- **WHEN** today's care is still loading, or is in an error/reauth state
+#### Scenario: A first load still in flight shows nothing
+- **WHEN** today's care is loading and has never loaded before
 - **THEN** no care card or setup prompt is shown on the overview and the rest of the overview is unaffected
+
+#### Scenario: A failed refresh keeps the summary and marks it
+- **WHEN** today's care has loaded and a later reload fails
+- **THEN** the summary stays on screen, reported as not refreshed, with a retry — the top card
+  of the overview does not become silently stale, which is what it did before
+
+#### Scenario: A day with no schedules keeps its setup prompt through a failed refresh
+- **WHEN** today has no care schedules, that loaded successfully, and a later reload fails
+- **THEN** the setup prompt stays on screen, reported as not refreshed — having nothing
+  scheduled is loaded content, not the absence of content
+
+#### Scenario: A first load that fails says so instead of vanishing
+- **WHEN** today's care has never loaded and its first load fails
+- **THEN** the overview shows that it could not be loaded, with a retry — rather than the top
+  card of the overview simply not being there, which reads as "you have no care today"
 
 #### Scenario: Marking done from the overview does not disrupt the page
 - **WHEN** the user taps done on the overview care summary

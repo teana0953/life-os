@@ -321,6 +321,12 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// Slim marker appended inside an overview card that still shows content but whose latest reload failed. Says the content was not updated rather than that it is old — a reload can fail halfway and leave part of the card fresh. Sits next to a retry that reloads only that card.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh'**
+  String get cardRefreshFailed;
+
   /// Tooltip/accessible label for the language switcher control.
   ///
   /// In en, this message translates to:
@@ -1436,6 +1442,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load your period data. Please try again.'**
   String get errorMenstrualLoadFailed;
+
+  /// Shown on the overview's care-today summary card when its first-ever load fails (not an auth failure). Names its subject, like the other overview cards' error copy — unlike careErrorGeneric, which is written for full screens whose app bar already says what failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load today\'s care. Please try again.'**
+  String get errorCareTodayLoadFailed;
 
   /// Title of the app-wide top banner shown when a newer version of the PWA has been downloaded in the background and is ready to load on reload.
   ///

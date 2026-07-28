@@ -10,8 +10,11 @@ import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_summary_card.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
+
+AppLocalizations get _en => lookupAppLocalizations(const Locale('en'));
 
 CareTodaySlot _withStatus(
   CareTodaySlot slot,
@@ -282,9 +285,14 @@ void main() {
         unawaited(controller.load('token-123'));
         await tester.pump();
 
-        // Still loading, but the previously loaded summary stays put.
+        // Still loading, but the previously loaded summary stays put — and a
+        // refresh in flight is not a failure, so nothing is marked.
         expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
         expect(find.text('Metformin'), findsOneWidget);
+        // The marking's row, not [StaleNotice] itself: the card keeps the
+        // widget mounted through a reload so it can remember a retry the user
+        // pressed, and it renders nothing until it has something to say.
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
 
         gate.complete();
         await tester.pumpAndSettle();
@@ -314,6 +322,41 @@ void main() {
         expect(controller.status, CareTodayLoadStatus.error);
         expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
         expect(find.text('Metformin'), findsOneWidget);
+        // Keeping it silently is what left the top card of the overview
+        // quietly stale; the marking is what makes keeping it honest.
+        expect(find.byType(StaleNotice), findsOneWidget);
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the marking\'s retry reloads today\'s care, and a successful one '
+      'clears the marking',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        await tester.pumpAndSettle();
+        expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
+
+        repository.getError = null;
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pumpAndSettle();
+
+        expect(controller.status, CareTodayLoadStatus.loaded);
+        expect(find.byType(StaleNotice), findsNothing);
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
       },
     );
 
@@ -339,12 +382,17 @@ void main() {
         expect(controller.status, CareTodayLoadStatus.reauth);
         expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
         expect(find.text('Metformin'), findsOneWidget);
+        // And it is not the card's failure to report: "couldn't refresh,
+        // retry" would send the user round a loop that cannot succeed until
+        // they sign in again. The overview's re-authenticate exit takes over.
+        expect(find.byType(StaleNotice), findsNothing);
       },
     );
 
     testWidgets(
-      'a first-ever load that ends in error (never loaded before) still '
-      'renders nothing',
+      'a first-ever load that ends in error (never loaded before) says so '
+      'with a retry, instead of the top card of the overview just not '
+      'being there',
       (tester) async {
         final repository = _FakeCareTodayRepository(
           today: CareToday(
@@ -360,6 +408,197 @@ void main() {
         expect(controller.status, CareTodayLoadStatus.error);
         expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
         expect(find.byKey(const Key('care-today-summary-setup')), findsNothing);
+        // Vanishing reads as "you have no care today" — the one thing the
+        // card must never imply by accident.
+        expect(find.byKey(const Key('care-today-summary-error')), findsOneWidget);
+        expect(find.byKey(const Key('care-today-summary-retry')), findsOneWidget);
+        // And it names what failed. `careErrorGeneric` was written for the
+        // full care screens, whose app bar supplies the subject; on a card
+        // sitting between three others that each name theirs, a bare
+        // "something went wrong" says nothing about which one.
+        expect(find.text(_en.errorCareTodayLoadFailed), findsOneWidget);
+        expect(find.text(_en.careErrorGeneric), findsNothing);
+        // Nothing has loaded, so there is nothing to mark as unrefreshed.
+        expect(find.byType(StaleNotice), findsNothing);
+
+        repository.getError = null;
+        await tester.tap(find.byKey(const Key('care-today-summary-retry')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a first-ever load still in flight keeps rendering nothing — it is '
+      'about to resolve',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final gate = Completer<void>();
+        repository.getGate = gate;
+        final controller = _controllerFor(const [], repository: repository);
+        unawaited(controller.load('token-123'));
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: Scaffold(
+              body: CareTodaySummaryCard(
+                controller: controller,
+                idToken: 'token-123',
+                onManage: () {},
+                onSetup: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('care-today-summary-card')), findsNothing);
+        expect(find.byKey(const Key('care-today-summary-setup')), findsNothing);
+        expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'a day with no schedules keeps its setup prompt through a failed '
+      'refresh, marked — having nothing scheduled is loaded content',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: const []),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
+
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
+        expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
+        expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a day with no schedules keeps its setup prompt through a refresh in '
+      'flight, unmarked',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: const []),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+
+        final gate = Completer<void>();
+        repository.getGate = gate;
+        unawaited(controller.load('token-123'));
+        await tester.pump();
+
+        expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'a controller left in error with slots in hand shows them, marked, on '
+      'a fresh mount — re-entering the health module must not look like a '
+      'first-ever failure',
+      (tester) async {
+        // The controller is an app-level singleton, so the card can be built
+        // fresh over one that is already stuck in `error`. `_hasLoadedOnce`
+        // seeds from `status == loaded` and so is false here; only
+        // `controller.date` survives the remount.
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-24',
+            slots: [_slot(status: CareTodayStatus.overdue)],
+          ),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        expect(controller.status, CareTodayLoadStatus.error);
+
+        await _pumpCard(tester, controller);
+
+        expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
+        expect(find.text('Metformin'), findsOneWidget);
+        expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
+        expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a no-schedule day left in error keeps its setup prompt on a fresh '
+      'mount too — this is the case only `controller.date` gets right',
+      (tester) async {
+        // Neither `_hasLoadedOnce` (false across the remount) nor
+        // `slots.isNotEmpty` (a day with nothing scheduled has none) can tell
+        // this apart from a first-ever failure; both would replace the setup
+        // prompt with an error card.
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: const []),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        expect(controller.status, CareTodayLoadStatus.error);
+        expect(controller.slots, isEmpty);
+
+        await _pumpCard(tester, controller);
+
+        expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
+        expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
+        expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the setup prompt\'s marking names it — the prompt is its own card, and '
+      'a bare "Retry" beside three others says nothing about which failed',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: const []),
+        );
+        final controller = _controllerFor(const [], repository: repository);
+        await controller.load('token-123');
+        await _pumpCard(tester, controller);
+        repository.getError = const CareRequestFailed();
+        await controller.load('token-123');
+        await tester.pump();
+
+        expect(
+          tester.getSemantics(find.byType(StaleNotice)).getSemanticsData().label,
+          startsWith(_en.careTodaySummarySetupTitle),
+        );
+
+        handle.dispose();
       },
     );
 
