@@ -23,3 +23,21 @@ or dialog.
 #### Scenario: An unselected menstrual row does not run
 - **WHEN** the user clears the menstrual checkbox and imports
 - **THEN** no menstrual request is made and the row keeps whatever it was already showing
+
+## MODIFIED Requirements
+
+### Requirement: Import the selected types and show per-type results
+
+Starting an import SHALL run the data-type imports the user has **selected** (weight/body-fat,
+diet+glucose, water, bowel, diet target, menstrual periods) and show each type's progress and
+result (imported and skipped counts). Types the user did not select SHALL NOT run; a type that
+was not selected SHALL either keep the result it already had or, if the user just changed its
+selection, show no state at all — it SHALL NOT be reported as attempted or failed.
+
+#### Scenario: Per-type results are shown after a successful import
+- **WHEN** the user submits a valid form and the imports succeed
+- **THEN** each selected type shows its imported/skipped result
+
+#### Scenario: Import shows progress while running
+- **WHEN** an import is in progress
+- **THEN** the import control shows a loading state and is not re-triggerable
