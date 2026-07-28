@@ -336,6 +336,7 @@ class _TypeResultRow extends StatelessWidget {
     ImportType.water => loc.importTypeWater,
     ImportType.bowel => loc.importTypeBowel,
     ImportType.dietTarget => loc.importTypeDietTarget,
+    ImportType.menstrual => loc.importTypeMenstrual,
   };
 
   String? _resultText(AppLocalizations loc) {

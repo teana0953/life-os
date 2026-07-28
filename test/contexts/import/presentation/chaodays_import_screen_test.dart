@@ -7,6 +7,7 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
+import 'package:life_os/contexts/import/application/import_menstrual.dart';
 import 'package:life_os/contexts/import/application/import_water.dart';
 import 'package:life_os/contexts/import/application/import_weight.dart';
 import 'package:life_os/contexts/import/domain/chaodays_import_summary.dart';
@@ -51,6 +52,10 @@ class _FakeImportRepository implements ImportRepository {
     imported: 6,
     skipped: 1,
     waterTargetsImported: 7,
+  );
+  ChaodaysImportSummary menstrualSummary = const ChaodaysImportSummary(
+    imported: 9,
+    skipped: 3,
   );
 
   void _capture(String chaodaysUid, String chaodaysPassword, String startDate, String endDate) {
@@ -121,6 +126,18 @@ class _FakeImportRepository implements ImportRepository {
     calls.add('dietTarget');
     return dietTargetSummary;
   }
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async {
+    calls.add('menstrual');
+    return menstrualSummary;
+  }
 }
 
 /// An import repository whose `importWeight` never resolves, so a submitted
@@ -174,6 +191,15 @@ class _HangingImportRepository implements ImportRepository {
     required String startDate,
     required String endDate,
   }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
+
+  @override
+  Future<ChaodaysImportSummary> importMenstrual(
+    String idToken, {
+    required String chaodaysUid,
+    required String chaodaysPassword,
+    required String startDate,
+    required String endDate,
+  }) async => const ChaodaysImportSummary(imported: 0, skipped: 0);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -200,6 +226,7 @@ ChaodaysImportController _controller(ImportRepository repository) =>
       ImportWater(repository),
       ImportBowel(repository),
       ImportDietTarget(repository),
+      ImportMenstrual(repository),
       DataRevision(),
     );
 
@@ -344,7 +371,14 @@ void main() {
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
+      expect(repository.calls, [
+        'weight',
+        'diet',
+        'water',
+        'bowel',
+        'dietTarget',
+        'menstrual',
+      ]);
       expect(repository.capturedUid, 'user1');
       expect(repository.capturedPassword, 'pass1');
       expect(repository.capturedStart, '2026-07-05');
@@ -361,6 +395,7 @@ void main() {
         ImportWater(repository),
         ImportBowel(repository),
         ImportDietTarget(repository),
+        ImportMenstrual(repository),
         DataRevision(),
       );
       await _pumpScreen(tester, controller: controller);
@@ -409,6 +444,8 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text(loc.importTypeMenstrual), findsOneWidget);
+      expect(find.text(loc.importResultSummary(9, 3)), findsOneWidget);
     });
 
     testWidgets('wrong chaodays credentials show the specific error message', (
@@ -464,6 +501,31 @@ void main() {
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).value, isTrue);
       }
+    });
+
+    testWidgets('the menstrual row is on screen and can be toggled', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, controller: _controller(_FakeImportRepository()));
+
+      expect(find.text(loc.importTypeMenstrual), findsOneWidget);
+      expect(
+        tester.widget<Checkbox>(_checkboxFor(ImportType.menstrual)).value,
+        isTrue,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: _rowFor(ImportType.menstrual),
+          matching: find.text(loc.importTypeMenstrual),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<Checkbox>(_checkboxFor(ImportType.menstrual)).value,
+        isFalse,
+      );
     });
 
     testWidgets('tapping anywhere on a row toggles its selection', (
@@ -677,7 +739,7 @@ void main() {
       final repository = _FakeImportRepository();
       await _pumpScreen(tester, controller: _controller(repository));
 
-      // Five identical empty circles report nothing and read like a stray set
+      // Six identical empty circles report nothing and read like a stray set
       // of radio buttons — the slot stays blank until it has something to say.
       for (final type in ImportType.values) {
         expect(
@@ -750,7 +812,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('import-submit-button'))).dy,
-        greaterThan(tester.getBottomLeft(_rowFor(ImportType.dietTarget)).dy),
+        greaterThan(tester.getBottomLeft(_rowFor(ImportType.menstrual)).dy),
       );
       expect(
         tester.renderObject<RenderParagraph>(heading).text.style!.fontWeight,
@@ -917,7 +979,14 @@ void main() {
       await _fillCompleteForm(tester);
       await tester.tap(find.byKey(const Key('import-submit-button')));
       await tester.pumpAndSettle();
-      expect(repository.calls, ['weight', 'diet', 'water', 'bowel', 'dietTarget']);
+      expect(repository.calls, [
+        'weight',
+        'diet',
+        'water',
+        'bowel',
+        'dietTarget',
+        'menstrual',
+      ]);
 
       // Every row is `success` now — the checkboxes must be editable again, or
       // there is no way to re-run a single type without leaving the screen.
@@ -945,7 +1014,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(loc.importErrorUnavailable), findsOneWidget);
 
-      // The failed row plus the four not-attempted ones are all editable
+      // The failed row plus the five not-attempted ones are all editable
       // again — the abort must not leave the card locked.
       for (final type in ImportType.values) {
         expect(tester.widget<Checkbox>(_checkboxFor(type)).onChanged, isNotNull);

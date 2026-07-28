@@ -1838,6 +1838,12 @@ abstract class AppLocalizations {
   /// **'Diet target'**
   String get importTypeDietTarget;
 
+  /// Label for the menstrual-period row in the chaodays import results.
+  ///
+  /// In en, this message translates to:
+  /// **'Menstrual periods'**
+  String get importTypeMenstrual;
+
   /// Per-type chaodays import result summary (counts of imported vs. already-present records).
   ///
   /// In en, this message translates to:

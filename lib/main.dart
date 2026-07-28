@@ -47,6 +47,7 @@ import 'contexts/health/infrastructure/http_meal_repository.dart';
 import 'contexts/import/application/import_bowel.dart';
 import 'contexts/import/application/import_diet.dart';
 import 'contexts/import/application/import_diet_target.dart';
+import 'contexts/import/application/import_menstrual.dart';
 import 'contexts/import/application/import_water.dart';
 import 'contexts/import/application/import_weight.dart';
 import 'contexts/import/infrastructure/http_import_repository.dart';
@@ -225,6 +226,7 @@ Future<void> main() async {
     ImportWater(importRepository),
     ImportBowel(importRepository),
     ImportDietTarget(importRepository),
+    ImportMenstrual(importRepository),
     dataRevision,
   );
   final pushRepository = HttpPushRepository(

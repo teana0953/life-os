@@ -949,6 +949,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importTypeDietTarget => 'Diet target';
 
   @override
+  String get importTypeMenstrual => 'Menstrual periods';
+
+  @override
   String importResultSummary(int imported, int skipped) {
     return 'Imported $imported · Skipped $skipped';
   }

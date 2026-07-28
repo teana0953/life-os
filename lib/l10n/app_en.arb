@@ -1253,6 +1253,10 @@
   "@importTypeDietTarget": {
     "description": "Label for the diet-target row in the chaodays import results."
   },
+  "importTypeMenstrual": "Menstrual periods",
+  "@importTypeMenstrual": {
+    "description": "Label for the menstrual-period row in the chaodays import results."
+  },
   "importResultSummary": "Imported {imported} · Skipped {skipped}",
   "@importResultSummary": {
     "description": "Per-type chaodays import result summary (counts of imported vs. already-present records).",
