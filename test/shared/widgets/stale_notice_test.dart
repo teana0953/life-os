@@ -304,6 +304,38 @@ void main() {
     }
   });
 
+  testWidgets('a retry that starts nothing does not colour the next reload', (
+    tester,
+  ) async {
+    // `CareTodayController.load` opens with `if (_fetching) return`, so a
+    // retry pressed while a quiet reload is already in flight sets the press
+    // but starts nothing — `loading` never goes true. Forgetting the press
+    // has to be level-triggered (`!loading`), not edge-triggered: an edge that
+    // never fires would leave the press to dress the NEXT background reload as
+    // the user's, spinner and all.
+    final state = await _pump(tester, onRetry: (s) {});
+
+    await tester.tap(find.byKey(const Key('stale-notice-row')));
+    await tester.pump();
+
+    // The press started nothing, so the row is unchanged and still pressable.
+    expect(_spinner(), findsNothing);
+    expect(_retryButton(tester).onPressed, isNotNull);
+
+    // The quiet reload that was already running lands. It never touched
+    // `loading`, so the card rebuilds with `loading` still false — the level
+    // check forgets the press here. An edge check would not, having never seen
+    // `loading` go true.
+    state.value = (failed: false, loading: false);
+    await tester.pump();
+
+    // A later background reload — one nobody asked for — must not wear the
+    // press as a spinner.
+    state.value = (failed: false, loading: true);
+    await tester.pump();
+    expect(_spinner(), findsNothing);
+  });
+
   testWidgets('carries its own padding so every card indents it the same', (
     tester,
   ) async {

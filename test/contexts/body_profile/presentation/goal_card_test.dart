@@ -224,6 +224,9 @@ void main() {
         expect(find.byKey(const Key('goal-card-error')), findsNothing);
         expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
         expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
       },
     );
@@ -297,6 +300,9 @@ void main() {
         expect(find.byKey(const Key('goal-card-error')), findsNothing);
         expect(find.byKey(const Key('goal-bmi')), findsOneWidget);
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
       },
     );
 
@@ -360,6 +366,9 @@ void main() {
       await controller.load('token');
       await tester.pump();
       expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
 
       repository.getError = null;
       await tester.tap(find.byKey(const Key('stale-notice-retry')));

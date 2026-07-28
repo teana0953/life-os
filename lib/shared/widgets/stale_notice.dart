@@ -62,13 +62,17 @@ class _StaleNoticeState extends State<StaleNotice> {
   @override
   void didUpdateWidget(covariant StaleNotice oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Level-triggered on purpose (`!loading`, not "was loading and now isn't").
     // Nothing is loading, so whatever this row asked for has landed — either
     // way. Forget the press, so a failure that follows gets a pressable row
     // again rather than a stuck spinner, and a later background reload isn't
-    // mistaken for one the user started. Safe against clearing the press too
-    // early: the card rebuilds this widget only when its controller says
-    // something, and every one of them reports itself busy before the tap
-    // handler returns.
+    // mistaken for one the user started.
+    //
+    // The edge-triggered version would leak: `CareTodayController.load` starts
+    // with `if (_fetching) return`, so pressing retry while a quiet reload is
+    // already in flight sets the press but starts nothing — loading never goes
+    // true, so an edge would never fire and the press would survive to colour
+    // the NEXT background reload as the user's.
     if (!widget.loading) _retried = false;
   }
 

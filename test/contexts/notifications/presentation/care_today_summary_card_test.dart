@@ -346,6 +346,9 @@ void main() {
         await controller.load('token-123');
         await tester.pumpAndSettle();
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
 
         repository.getError = null;
         await tester.tap(find.byKey(const Key('stale-notice-retry')));
@@ -483,6 +486,9 @@ void main() {
         expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
         expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
       },
     );
 
@@ -537,6 +543,9 @@ void main() {
         expect(find.text('Metformin'), findsOneWidget);
         expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
       },
     );
 
@@ -563,6 +572,9 @@ void main() {
         expect(find.byKey(const Key('care-today-summary-setup')), findsOneWidget);
         expect(find.byKey(const Key('care-today-summary-error')), findsNothing);
         expect(find.byType(StaleNotice), findsOneWidget);
+        // byType only proves it is mounted — it mounts while reloading too, and
+        // renders nothing then. The copy is what says the user can see it.
+        expect(find.text(_en.cardRefreshFailed), findsOneWidget);
       },
     );
 
