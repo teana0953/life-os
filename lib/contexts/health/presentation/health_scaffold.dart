@@ -391,6 +391,7 @@ class _OverviewBody extends StatelessWidget {
               // tracker is this card's entire purpose.
               NextPeriodCard(
                 controller: menstrualController,
+                idToken: idToken,
                 onOpen: () => context.push('/health/menstrual'),
               ),
               const SizedBox(height: 16),

@@ -700,7 +700,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String nextPeriodOverdue(String date, int days) {
-    return '預計 $date・已晚 $days 天';
+    return '預計 $date・已過 $days 天還沒有紀錄';
   }
 
   @override
@@ -2106,7 +2106,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String nextPeriodOverdue(String date, int days) {
-    return '預計 $date・已晚 $days 天';
+    return '預計 $date・已過 $days 天還沒有紀錄';
   }
 
   @override

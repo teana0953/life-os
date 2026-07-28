@@ -9,20 +9,24 @@ import 'menstrual_controller.dart';
 /// The overview's next-period card: driven by [MenstrualController], it says
 /// where today sits relative to the next predicted period (or reports the
 /// ongoing one), and opens the menstrual tracker via [onOpen] when tapped —
-/// in every state, including when there is nothing recorded yet.
+/// in every state it has data for, including when there is nothing recorded
+/// yet. While loading or after a failure the card shows that instead, and the
+/// failure carries its own retry (as the other overview cards do).
 ///
-/// It only listens: the loading is the [HealthScaffold]'s job (design D4), so
-/// it never calls `load` itself. Loading and error render inside the card;
+/// It never loads on its own: the first load is the [HealthScaffold]'s job
+/// (design D4). Retry is the one exception — that one is the user asking.
 /// `needsReauth` is left to the scaffold. [clock] is injectable so the day
 /// counts can be pinned in tests.
 class NextPeriodCard extends StatefulWidget {
   final MenstrualController controller;
+  final String idToken;
   final VoidCallback onOpen;
   final DateTime Function() clock;
 
   const NextPeriodCard({
     super.key,
     required this.controller,
+    required this.idToken,
     required this.onOpen,
     this.clock = DateTime.now,
   });
@@ -55,13 +59,26 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
     // A load/reload failure → an error message inside the card, whether or not
     // there is already an overview to fall back on (mirrors `GoalCard`).
     if (controller.status == MenstrualStatus.error) {
+      // With a retry, like every other overview card: telling someone to try
+      // again while giving them nothing to try again with is a dead end.
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Text(
-          loc.errorMenstrualLoadFailed,
-          key: const Key('next-period-error'),
-          textAlign: TextAlign.center,
-          style: TextStyle(color: theme.colorScheme.error),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              loc.errorMenstrualLoadFailed,
+              key: const Key('next-period-error'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              key: const Key('next-period-retry'),
+              onPressed: () => controller.load(widget.idToken),
+              child: Text(loc.retry),
+            ),
+          ],
         ),
       );
     }

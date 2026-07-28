@@ -95,6 +95,7 @@ Future<_FakeMenstrualController> _pumpCard(
       home: Scaffold(
         body: NextPeriodCard(
           controller: controller,
+          idToken: 'token-1',
           onOpen: onOpen ?? () {},
           clock: () => clock ?? DateTime(2026, 7, 28),
         ),
@@ -290,6 +291,77 @@ void main() {
 
       expect(find.text(_loc.errorMenstrualLoadFailed), findsOneWidget);
     });
+
+    testWidgets('the failure offers a retry that actually retries', (
+      tester,
+    ) async {
+      // Every other overview card puts a retry here. Saying "please try again"
+      // while offering nothing to try again with is a dead end.
+      final controller = await _pumpCard(tester, status: MenstrualStatus.error);
+
+      await tester.tap(find.byKey(const Key('next-period-retry')));
+      await tester.pump();
+
+      expect(controller.loadCount, 1);
+    });
+
+    testWidgets('an ongoing period left open long ago is not capped', (
+      tester,
+    ) async {
+      // The uncapped count IS the signal that the period was never closed.
+      // Capping it would quietly turn a data-entry mistake into a plausible
+      // number.
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(periods: [_period(DateTime(2026, 6, 14))]),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOngoing(45)), findsOneWidget);
+    });
+  });
+
+  testWidgets('no state but "nothing recorded" ever renders the '
+      '"nothing recorded" copy', (tester) async {
+    // The copy switch ends in a catch-all that falls back to this string, so a
+    // state arriving without the data its copy needs would silently tell
+    // someone with years of history that they have recorded nothing — the most
+    // misleading sentence available. Unreachable today; this is what says so,
+    // and says it by name when it stops being true.
+    final cases = <String, MenstrualOverview>{
+      'upcoming': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 8, 2),
+      ),
+      'today': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 7, 28),
+      ),
+      'overdue': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 7, 20),
+      ),
+      'ongoing': _overview(periods: [_period(DateTime(2026, 7, 26))]),
+      'needsOneMore': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+      ),
+    };
+
+    for (final entry in cases.entries) {
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: entry.value,
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(
+        find.text(_loc.nextPeriodNoRecords),
+        findsNothing,
+        reason: '${entry.key} rendered the "nothing recorded" copy',
+      );
+    }
   });
 
   testWidgets('the card never loads by itself — the scaffold owns that', (

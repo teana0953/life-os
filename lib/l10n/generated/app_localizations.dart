@@ -1389,10 +1389,10 @@ abstract class AppLocalizations {
   /// **'Next period'**
   String get nextPeriodTitle;
 
-  /// The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is.
+  /// The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is. Pluralized — being one day away happens every cycle.
   ///
   /// In en, this message translates to:
-  /// **'{date} · in {days} days'**
+  /// **'{date} · in {days, plural, =1{1 day} other{{days} days}}'**
   String nextPeriodUpcoming(String date, int days);
 
   /// The overview's next-period card when the predicted next start is today — said outright rather than as a zero-day countdown.
@@ -1401,10 +1401,10 @@ abstract class AppLocalizations {
   /// **'Expected today'**
   String get nextPeriodToday;
 
-  /// The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how many days late it is.
+  /// The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how long ago it was. Worded as a gap in the record, not as a late period — the app cannot tell those apart, and a lapse in logging is the commoner cause. Pluralized.
   ///
   /// In en, this message translates to:
-  /// **'Expected {date} · {days} days late'**
+  /// **'Expected {date} · {days, plural, =1{1 day} other{{days} days}} ago, nothing logged'**
   String nextPeriodOverdue(String date, int days);
 
   /// The overview's next-period card when today falls inside a recorded period: which day of it today is (the start day is day 1, and the count is uncapped so a period left open reads as such).

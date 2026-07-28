@@ -926,9 +926,9 @@
   "@nextPeriodTitle": {
     "description": "Title of the health overview's next-period card, which opens the menstrual tracker."
   },
-  "nextPeriodUpcoming": "{date} · in {days} days",
+  "nextPeriodUpcoming": "{date} · in {days, plural, =1{1 day} other{{days} days}}",
   "@nextPeriodUpcoming": {
-    "description": "The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is.",
+    "description": "The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is. Pluralized — being one day away happens every cycle.",
     "placeholders": {
       "date": {"type": "String"},
       "days": {"type": "int"}
@@ -938,9 +938,9 @@
   "@nextPeriodToday": {
     "description": "The overview's next-period card when the predicted next start is today — said outright rather than as a zero-day countdown."
   },
-  "nextPeriodOverdue": "Expected {date} · {days} days late",
+  "nextPeriodOverdue": "Expected {date} · {days, plural, =1{1 day} other{{days} days}} ago, nothing logged",
   "@nextPeriodOverdue": {
-    "description": "The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how many days late it is.",
+    "description": "The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how long ago it was. Worded as a gap in the record, not as a late period — the app cannot tell those apart, and a lapse in logging is the commoner cause. Pluralized.",
     "placeholders": {
       "date": {"type": "String"},
       "days": {"type": "int"}

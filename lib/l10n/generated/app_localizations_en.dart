@@ -707,7 +707,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String nextPeriodUpcoming(String date, int days) {
-    return '$date · in $days days';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$date · in $_temp0';
   }
 
   @override
@@ -715,7 +721,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String nextPeriodOverdue(String date, int days) {
-    return 'Expected $date · $days days late';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Expected $date · $_temp0 ago, nothing logged';
   }
 
   @override

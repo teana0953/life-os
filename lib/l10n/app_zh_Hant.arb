@@ -217,7 +217,7 @@
   "nextPeriodTitle": "下次生理期",
   "nextPeriodUpcoming": "{date}・還有 {days} 天",
   "nextPeriodToday": "預計今天",
-  "nextPeriodOverdue": "預計 {date}・已晚 {days} 天",
+  "nextPeriodOverdue": "預計 {date}・已過 {days} 天還沒有紀錄",
   "nextPeriodOngoing": "進行中・第 {day} 天",
   "nextPeriodOngoingNext": "下次預計 {date}",
   "nextPeriodNoRecords": "還沒有生理期紀錄",
