@@ -2,7 +2,7 @@
 
 ### Requirement: An overview card that cannot refresh keeps its content and says so
 
-Every card on the health overview SHALL distinguish two failures that are not the same thing.
+Every card on the health module's 總覽 (Overview) tab SHALL distinguish two failures that are not the same thing.
 Having never loaded, it has nothing to show and SHALL show the failure and a retry in place of
 content. Having already loaded, it SHALL keep the content it has, say that it could not be
 refreshed, and offer a retry for itself — because the reload is automatic (an import, a return
@@ -36,3 +36,17 @@ SHALL NOT look identical to content that just refreshed.
 - **WHEN** a card's load fails with an authentication failure
 - **THEN** the card does not present its own error; the overview's re-authentication exit takes
   over, as it already does
+
+## MODIFIED Requirements
+
+### Requirement: Goal API errors are surfaced without crashing
+
+The dashboard SHALL surface a load or save failure of the weight goal as an error state rather than crashing, and an authentication failure (401) SHALL surface a re-authentication exit consistent with the other screens. A load failure that leaves nothing to show SHALL take the place of the card's content; one that follows a successful load SHALL leave that content in place and be reported alongside it.
+
+#### Scenario: A load failure shows an error state
+- **WHEN** loading the weight goal fails and nothing has loaded before
+- **THEN** the goal card / dashboard shows an error state rather than crashing
+
+#### Scenario: A failed reload leaves the goal on screen
+- **WHEN** loading the weight goal fails after it has already been shown
+- **THEN** the goal stays on screen, reported as not refreshed, rather than being replaced by an error

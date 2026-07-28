@@ -25,7 +25,9 @@
 - [ ] 首次載入中（無資料）→ 各自的 loading 呈現
 - [ ] 首次載入失敗（無資料）→ 錯誤 + 重試，**沒有** `StaleNotice`
 - [ ] 已有資料 + 重新載入中 → 保留內容，**沒有** `StaleNotice`（載入中不是失敗）
-- [ ] 已有資料 + 重新載入失敗 → 保留內容 + `StaleNotice` + 重試只重載自己那個 controller（假 controller 斷言 load 次數與參數）
+- [ ] 已有資料 + 重新載入失敗 → 保留內容 + `StaleNotice` + 重試會呼叫**自己那個** controller 的 `load`
+
+**「只重載自己」不能在單卡測試裡驗** —— 單卡 widget test 只有那一個 fake controller，斷言 `loadCount == 1` 恆真、看不到另外三個有沒有被動到。要一條 `health_scaffold_test.dart` 的測試：四個 fake controller 都塞資料、其中一個進 error，點那張卡的重試，斷言**另外三個的 loadCount 沒有增加**
 - [ ] **重試成功後標記消失**（狀態回 loaded）
 
 ## 4. 版面

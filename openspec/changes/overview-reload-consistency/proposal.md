@@ -46,4 +46,5 @@ care 卡「失敗也靜默」是實作把條件寫成 `status != loaded && !_has
 
 - **趨勢分頁的兩張卡**（`TrendCard`、`CareAdherenceCard`）有同樣的問題，但 issue #100 的範圍是總覽四張。另開。
 - **常駐的手動 refresh 按鈕** —— 使用者確認只在失敗時出現。app 本來就會自動載入（首次進入 + 匯入完成的 `DataRevision`），常駐按鈕沒有要解的問題。
+- **`dashboard-trend-card/spec.md:8` 的「the dashboard's second card, below the goal card」是過時文字**（那兩張卡早就搬到趨勢分頁了），與新需求的「總覽 tab 的卡」讀起來會打架。既有問題，不在這輪修。
 - 401 的處理不動 —— 已經由 `HealthScaffold._overviewNeedsReauth` 整頁接管。

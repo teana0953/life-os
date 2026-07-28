@@ -13,5 +13,10 @@ The dashboard SHALL show a health-calendar card for the current month: a calenda
 - **THEN** that ring shows an empty ring and no percentage
 
 #### Scenario: A load failure offers a retry
-- **WHEN** loading the month summary fails (not a 401)
+- **WHEN** loading the month summary fails (not a 401) and no month has loaded yet
 - **THEN** the card shows an error message and a retry control that reloads it
+
+#### Scenario: A failed refresh keeps the month it already drew
+- **WHEN** loading fails (not a 401) after a month has already been drawn
+- **THEN** the calendar and its rings stay on screen, reported as not refreshed, with a retry —
+  a failed automatic refresh does not remove the largest card on the overview

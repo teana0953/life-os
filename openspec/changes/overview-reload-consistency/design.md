@@ -67,7 +67,13 @@
 
 ### D5 — 標記不重用既有的 `error*LoadFailed` 文案
 
-既有那 10 個 key 是「Unable to load X. Please try again.」句型 —— 那是「載不到」，而這裡是「載得到舊的、只是沒更新到」。語意不同，而且那個句型太長，塞不進一列。新增一個共用的 `cardRefreshFailed`（zh：沒有更新到 / en：Couldn't refresh），重試沿用既有的 `retry`。
+既有那 11 個 key（8 個 `error*LoadFailed` + `healthCalendarLoadFailed` + `trendLoadFailed` + `dietDictionaryLoadFailed`）是「Unable to load X. Please try again.」句型 —— 那是「載不到」，而這裡是「載得到舊的、只是沒更新到」。語意不同，而且那個句型太長，塞不進一列。新增一個共用的 `cardRefreshFailed`（zh：沒有更新到 / en：Couldn't refresh），重試沿用既有的 `retry`。
+
+### D5a — 兩個實作上的坑
+
+**`WeightGoalController.load` 先寫 `goal` 再寫 `profile`。** body-profile 那半失敗時，`goal` 已經被換成**新鮮**資料、狀態卻是 error —— 卡片會顯示新資料 + 「沒有更新到」。標記在那個情況下是錯的（東西其實更新了一半）。這是既有行為，本 change 不修，但**標記的措辭要禁得起它**：講「沒有更新到」而不是「這是舊資料」，前者對「更新了一半」仍然成立。
+
+**`CareTodaySummaryCard._hasLoadedOnce` 只從 `status == loaded` 播種**（`initState` 讀一次、之後每次 loaded 設 true）。重進 health module 時 controller 是 app 級 singleton、可能停在 error 但手上還有 slots —— 新的卡會用「從未載入」的分支蓋掉那些內容。**判斷要改成看資料在不在（`slots.isNotEmpty`），不是看 `_hasLoadedOnce`**，否則這個 change 會製造一個新的「內容被錯誤卡蓋掉」。
 
 ### D6 — 401 不動
 
