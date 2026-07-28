@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
 
 /// The dashboard's C3 card: the current month's record calendar (a dot on every
@@ -66,7 +67,13 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
       );
     }
 
-    if (controller.status == HealthCalendarStatus.error) {
+    // A failure with no month drawn yet → an error in place of the content
+    // the card doesn't have. A failure *after* a month has been drawn keeps
+    // the calendar and appends a [StaleNotice] instead (below): this is the
+    // tallest card on the overview, and a failed automatic refresh removing
+    // it collapses the page around the user.
+    if (controller.status == HealthCalendarStatus.error &&
+        controller.calendar == null) {
       return LedgeCard(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -91,75 +98,97 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
 
     final calendar = controller.calendar!;
     final month = DateTime(calendar.year, calendar.month);
+    final stale = controller.status == HealthCalendarStatus.error;
+    final reloading = controller.status == HealthCalendarStatus.loading;
 
+    // The card's padding sits on its content rather than on the [LedgeCard],
+    // so the [StaleNotice] below — which brings its own, matching the other
+    // three overview cards — isn't indented twice.
     return LedgeCard(
-      padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(loc.healthCalendarTitle, style: theme.textTheme.titleLarge),
-              ),
-              Text(
-                monthYearLabel(context, month),
-                key: const Key('health-calendar-month'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(loc.healthCalendarTitle, style: theme.textTheme.titleLarge),
+                    ),
+                    Text(
+                      monthYearLabel(context, month),
+                      key: const Key('health-calendar-month'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _PercentRing(
-                ringKey: const Key('health-calendar-ring-logging'),
-                rate: calendar.loggingRate,
-                label: loc.healthCalendarLoggingRate,
-                noDataLabel: loc.healthCalendarNoData,
-              ),
-              _PercentRing(
-                ringKey: const Key('health-calendar-ring-diet'),
-                rate: calendar.dietAdherenceRate,
-                label: loc.healthCalendarDietRate,
-                noDataLabel: loc.healthCalendarNoData,
-              ),
-              _PercentRing(
-                ringKey: const Key('health-calendar-ring-weight'),
-                rate: widget.weightAchievementRate,
-                label: loc.healthCalendarWeightRate,
-                noDataLabel: loc.healthCalendarNoData,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _MonthDots(month: month, loggedDays: calendar.loggedDays),
-          const SizedBox(height: 8),
-          Row(
-            key: const Key('health-calendar-legend'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _PercentRing(
+                      ringKey: const Key('health-calendar-ring-logging'),
+                      rate: calendar.loggingRate,
+                      label: loc.healthCalendarLoggingRate,
+                      noDataLabel: loc.healthCalendarNoData,
+                    ),
+                    _PercentRing(
+                      ringKey: const Key('health-calendar-ring-diet'),
+                      rate: calendar.dietAdherenceRate,
+                      label: loc.healthCalendarDietRate,
+                      noDataLabel: loc.healthCalendarNoData,
+                    ),
+                    _PercentRing(
+                      ringKey: const Key('health-calendar-ring-weight'),
+                      rate: widget.weightAchievementRate,
+                      label: loc.healthCalendarWeightRate,
+                      noDataLabel: loc.healthCalendarNoData,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                loc.healthCalendarLoggedLegend,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(height: 16),
+                _MonthDots(month: month, loggedDays: calendar.loggedDays),
+                const SizedBox(height: 8),
+                Row(
+                  key: const Key('health-calendar-legend'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      loc.healthCalendarLoggedLegend,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          // Kept mounted through a reload as well as a failure: the marking
+          // remembers whether the reload in flight is the one it started, and
+          // unmounting it mid-retry would throw that away.
+          if (stale || reloading)
+            StaleNotice(
+              failed: stale,
+              loading: reloading,
+              subject: loc.healthCalendarTitle,
+              onRetry: () => controller.load(widget.idToken),
+            ),
         ],
       ),
     );

@@ -120,6 +120,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重試';
 
   @override
+  String get cardRefreshFailed => '沒有更新到';
+
+  @override
   String get switchLanguage => '切換語言';
 
   @override
@@ -721,6 +724,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
+
+  @override
+  String get errorCareTodayLoadFailed => '無法載入今日照護,請再試一次。';
 
   @override
   String get updateAvailableTitle => '有新版本可用';
@@ -1526,6 +1532,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get retry => '重試';
 
   @override
+  String get cardRefreshFailed => '沒有更新到';
+
+  @override
   String get switchLanguage => '切換語言';
 
   @override
@@ -2127,6 +2136,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get errorMenstrualLoadFailed => '無法載入生理期資料,請再試一次。';
+
+  @override
+  String get errorCareTodayLoadFailed => '無法載入今日照護,請再試一次。';
 
   @override
   String get updateAvailableTitle => '有新版本可用';

@@ -124,6 +124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get cardRefreshFailed => 'Couldn\'t refresh';
+
+  @override
   String get switchLanguage => 'Switch language';
 
   @override
@@ -749,6 +752,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorMenstrualLoadFailed =>
       'Unable to load your period data. Please try again.';
+
+  @override
+  String get errorCareTodayLoadFailed =>
+      'Unable to load today\'s care. Please try again.';
 
   @override
   String get updateAvailableTitle => 'A new version is available';
