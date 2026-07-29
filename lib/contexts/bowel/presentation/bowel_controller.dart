@@ -20,10 +20,24 @@ class BowelController extends ChangeNotifier {
   final GetBowelDay _getDay;
   final SaveBowelDay _saveDay;
 
-  BowelController(this._getDay, this._saveDay);
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load.
+  /// Defaults to [DateTime.now]; tests pin it so the stamp is deterministic
+  /// (mirrors the home greeting / reminders-throttle clocks).
+  final DateTime Function() _clock;
+
+  BowelController(
+    this._getDay,
+    this._saveDay, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   BowelStatus status = BowelStatus.loading;
   BowelError? error;
+
+  /// When the day was last loaded successfully, or `null` before the first
+  /// success — updated only on a successful [load], left unchanged on failure
+  /// so it always reflects the data currently shown.
+  DateTime? lastLoadedAt;
 
   /// The last successfully loaded/saved record, or `null` before the first
   /// successful load — the screen's "have data yet" signal (mirrors water).
@@ -49,6 +63,7 @@ class BowelController extends ChangeNotifier {
     try {
       _applyRecord(await _getDay(idToken, day));
       status = BowelStatus.loaded;
+      lastLoadedAt = _clock();
     } on BowelReauthenticationRequired {
       status = BowelStatus.needsReauth;
     } on BowelFetchFailure {

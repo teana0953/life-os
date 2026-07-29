@@ -2713,6 +2713,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You haven\'t set up any care items yet. Add one to start tracking.'**
   String get careHistoryNoCareItemsBody;
+
+  /// A small line at the top of a data-bearing health screen (overview, trends, and the day-keyed trackers) showing the clock time its data was last successfully loaded, so the user can tell how old the shown content is. {time} is a localized clock time following the system 12/24-hour setting (e.g. '9:41 AM' or '21:41'), not a machine timestamp.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {time}'**
+  String lastUpdatedAt(String time);
+
+  /// Title of the confirmation dialog shown when the user pulls to refresh the vitals screen while it holds unsaved edits — reloading would overwrite the draft, so it confirms first.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard unsaved changes?'**
+  String get refreshDiscardTitle;
+
+  /// Body of the confirmation dialog shown when pulling to refresh the vitals screen with unsaved edits, explaining that a refresh replaces the draft with freshly loaded data.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing will discard your unsaved changes.'**
+  String get refreshDiscardMessage;
+
+  /// Confirm button on the refresh-with-unsaved-changes dialog — proceeds with the reload and drops the unsaved draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discard;
+
+  /// Generic cancel button — dismisses the refresh-with-unsaved-changes dialog without reloading, keeping the draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
 }
 
 class _AppLocalizationsDelegate

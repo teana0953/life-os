@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/amount_entry_dialog.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'water_controller.dart';
@@ -39,7 +40,8 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) =>
+      widget.controller.load(widget.idToken, day);
 
   @override
   void initState() {
@@ -165,13 +167,18 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                       : null,
                 ),
                 Expanded(
-                  child: ListView(
+                  child: refreshable(
+                    child: ListView(
+                    // Always scrollable so a short day still accepts the
+                    // overscroll pull that triggers a refresh.
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     children: [
                       dayNavHeader(
                         todayTitle: loc.waterTitle,
                         historyTitle: loc.waterHistoryTitle,
                       ),
+                      LastLoadedLabel(lastLoadedAt: controller.lastLoadedAt),
                       const SizedBox(height: 16),
                       _WaterSectionCard(
                         child: Column(
@@ -271,6 +278,7 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                         ),
                       ),
                     ],
+                    ),
                   ),
                 ),
               ],

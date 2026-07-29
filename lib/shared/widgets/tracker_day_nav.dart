@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../date/day_format.dart';
 import 'tracker_day_nav_header.dart';
 
@@ -17,8 +18,10 @@ mixin TrackerDayScreen<T extends StatefulWidget> on State<T> {
   DateTime Function() get clock;
 
   /// Reloads the tracker's controller for [day] (usually
-  /// `controller.load(idToken, day)`).
-  void reloadDay(String day);
+  /// `controller.load(idToken, day)`). Returns a [Future] that completes when
+  /// the reload finishes, so pull-to-refresh can await it and settle its
+  /// spinner only then.
+  Future<void> reloadDay(String day);
 
   late DateTime _viewedDate = DateTime.parse(initialDay);
 
@@ -49,6 +52,63 @@ mixin TrackerDayScreen<T extends StatefulWidget> on State<T> {
     );
     if (picked != null) {
       setDay(DateTime(picked.year, picked.month, picked.day));
+    }
+  }
+
+  /// Wraps [child] (the screen's scrollable) in a pull-to-refresh. The default
+  /// [onRefresh] reloads the viewed day; the spinner settles when that reload
+  /// finishes. Vitals overrides [onRefresh] to confirm before discarding an
+  /// unsaved draft — the three other trackers have no draft-overwrite hazard,
+  /// so this shared default keeps them uncluttered.
+  ///
+  /// The wrapped scrollable must use [AlwaysScrollableScrollPhysics] so a day
+  /// with little content still accepts the overscroll pull.
+  Widget refreshable({
+    required Widget child,
+    Future<void> Function()? onRefresh,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () => reloadDay(viewedDay),
+      child: child,
+    );
+  }
+
+  /// A pull-to-refresh handler for trackers whose reload OVERWRITES an editable
+  /// draft (vitals, bowel) — a plain reload would silently eat unsaved edits.
+  /// Pass this as [refreshable]'s `onRefresh`, wiring [hasUnsavedChanges] to the
+  /// controller's flag. With no unsaved edits it reloads immediately, exactly
+  /// like the shared default; with edits it confirms first and reloads only if
+  /// the user accepts (cancelling keeps the draft and reloads nothing). Trackers
+  /// with no draft-overwrite hazard (water, exercise) must NOT use this — they
+  /// keep the plain default so they stay uncluttered.
+  Future<void> refreshWithUnsavedGuard({
+    required bool hasUnsavedChanges,
+  }) async {
+    if (!hasUnsavedChanges) {
+      return reloadDay(viewedDay);
+    }
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.refreshDiscardTitle),
+        content: Text(loc.refreshDiscardMessage),
+        actions: [
+          // Discarding loses data, so the safe "cancel" is the emphasized
+          // default; the destructive "discard" is the de-emphasized action.
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(loc.discard),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(loc.cancel),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await reloadDay(viewedDay);
     }
   }
 

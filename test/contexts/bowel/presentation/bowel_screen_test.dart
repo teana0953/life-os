@@ -9,6 +9,7 @@ import 'package:life_os/contexts/bowel/domain/bowel_repository.dart';
 import 'package:life_os/contexts/bowel/presentation/bowel_controller.dart';
 import 'package:life_os/contexts/bowel/presentation/bowel_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -22,6 +23,8 @@ class FakeBowelRepository implements BowelRepository {
   int? savedCount;
   bool? savedIsNormal;
   String? savedNote;
+  int getDayCallCount = 0;
+  String? lastGetDay;
 
   FakeBowelRepository({BowelDay? stored})
     : stored =
@@ -35,6 +38,8 @@ class FakeBowelRepository implements BowelRepository {
 
   @override
   Future<BowelDay> getDay(String idToken, String day) async {
+    getDayCallCount++;
+    lastGetDay = day;
     if (getError != null) throw getError!;
     return stored;
   }
@@ -255,6 +260,145 @@ void main() {
       await _pumpScreen(tester, repository: FakeBowelRepository());
 
       expect(find.text(loc.bowelNormalityLabel), findsOneWidget);
+    });
+
+    testWidgets('the list is always scrollable so a short day still pulls', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, repository: FakeBowelRepository());
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      final list = tester.widget<ListView>(
+        find.descendant(
+          of: find.byType(RefreshIndicator),
+          matching: find.byType(ListView),
+        ),
+      );
+      expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+    });
+
+    testWidgets('pulling to refresh reloads the viewed day', (tester) async {
+      final repository = FakeBowelRepository();
+      await _pumpScreen(tester, repository: repository, day: '2026-07-18');
+      final before = repository.getDayCallCount;
+
+      await tester.fling(
+        find.byType(RefreshIndicator),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.getDayCallCount, before + 1);
+      expect(repository.lastGetDay, '2026-07-18');
+    });
+
+    testWidgets('with no unsaved edits, pulling reloads without a prompt', (
+      tester,
+    ) async {
+      final repository = FakeBowelRepository();
+      await _pumpScreen(tester, repository: repository);
+      final before = repository.getDayCallCount;
+
+      await tester.fling(
+        find.byType(RefreshIndicator),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.refreshDiscardTitle), findsNothing);
+      expect(repository.getDayCallCount, before + 1);
+    });
+
+    testWidgets(
+      'with unsaved edits, pulling asks first and cancelling keeps the draft '
+      '(no reload)',
+      (tester) async {
+        final repository = FakeBowelRepository();
+        final controller = await _pumpScreen(tester, repository: repository);
+
+        controller.setCount(2);
+        await tester.pump();
+        expect(controller.hasUnsavedChanges, isTrue);
+        final before = repository.getDayCallCount;
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        // Not pumpAndSettle: the RefreshIndicator spinner animates until its
+        // onRefresh future resolves, which is gated on this dialog — so settle
+        // would time out. Pump enough frames to surface the dialog instead.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        // The confirm dialog is up; cancelling keeps the draft and reloads
+        // nothing.
+        expect(find.text(loc.refreshDiscardTitle), findsOneWidget);
+        await tester.tap(find.text(loc.cancel));
+        await tester.pumpAndSettle();
+
+        expect(controller.count, 2);
+        expect(controller.hasUnsavedChanges, isTrue);
+        expect(repository.getDayCallCount, before);
+      },
+    );
+
+    testWidgets(
+      'with unsaved edits, confirming the discard reloads and drops the draft',
+      (tester) async {
+        final repository = FakeBowelRepository();
+        final controller = await _pumpScreen(tester, repository: repository);
+
+        controller.setCount(2);
+        await tester.pump();
+        final before = repository.getDayCallCount;
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        // See the cancel test: the spinner won't settle while the dialog is
+        // open, so pump frames rather than settle.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        await tester.tap(find.text(loc.discard));
+        await tester.pumpAndSettle();
+
+        expect(repository.getDayCallCount, before + 1);
+        // The reload reset the draft to the stored (empty) record.
+        expect(controller.count, 0);
+        expect(controller.hasUnsavedChanges, isFalse);
+      },
+    );
+
+    testWidgets('shows the controller\'s last-loaded time', (tester) async {
+      final controller = BowelController(
+        GetBowelDay(FakeBowelRepository()),
+        SaveBowelDay(FakeBowelRepository()),
+        clock: () => DateTime(2026, 7, 18, 9, 41),
+      );
+      await controller.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: BowelScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = tester.widget<LastLoadedLabel>(
+        find.byType(LastLoadedLabel),
+      );
+      expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
     });
 
     testWidgets(

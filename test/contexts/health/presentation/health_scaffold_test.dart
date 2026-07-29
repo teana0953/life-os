@@ -86,6 +86,7 @@ import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_day.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_exceptions.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/trend_card.dart';
@@ -93,6 +94,7 @@ import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -180,6 +182,13 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
 }
 
 class _FakeVitalsRepository implements VitalsRepository {
+  int rangeCalls = 0;
+
+  /// Once set, every `getRange` call *after* the first (the scaffold's initial
+  /// load) throws it — lets a test drive the trend controller (an overview/
+  /// trend controller) to error on a reload without failing the initial load.
+  Object? errorAfterFirstLoad;
+
   @override
   Future<VitalsDay> getDay(String idToken, String day) async => VitalsDay(
     day: day,
@@ -194,20 +203,23 @@ class _FakeVitalsRepository implements VitalsRepository {
   Future<VitalsDay> save(String idToken, VitalsDay day) async => day;
 
   @override
-  Future<VitalsRange> getRange(String idToken, DateTime from, DateTime to) async =>
-      VitalsRange(
-        from: from,
-        to: to,
-        series: const VitalsSeries(
-          weight: [],
-          bodyFat: [],
-          systolic: [],
-          diastolic: [],
-          pulse: [],
-          glucose: [],
-          spo2: [],
-        ),
-      );
+  Future<VitalsRange> getRange(String idToken, DateTime from, DateTime to) async {
+    rangeCalls++;
+    if (rangeCalls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
+    return VitalsRange(
+      from: from,
+      to: to,
+      series: const VitalsSeries(
+        weight: [],
+        bodyFat: [],
+        systolic: [],
+        diastolic: [],
+        pulse: [],
+        glucose: [],
+        spo2: [],
+      ),
+    );
+  }
 }
 
 /// A fake whose [calls] count every invocation, and which optionally awaits
@@ -516,11 +528,13 @@ Widget _buildScaffold({
   _FakeCareHistoryRepository? careHistoryRepository,
   _FakeMenstrualRepository? menstrualRepository,
   _FakeBodyProfileRepository? bodyProfileRepository,
+  _FakeVitalsRepository? vitalsRepository,
   AuthRepository? authRepository,
   DataRevision? dataRevision,
   VoidCallback? onOpenCareHistory,
   VoidCallback? onOpenCareItems,
   PushHealthController? pushHealthController,
+  DateTime Function()? clock,
 }) {
   final resolvedBodyProfileRepository =
       bodyProfileRepository ?? _FakeBodyProfileRepository();
@@ -529,11 +543,13 @@ Widget _buildScaffold({
     GetBodyProfile(resolvedBodyProfileRepository),
     SetBodyProfile(resolvedBodyProfileRepository),
   );
-  final vitalsRepository = _FakeVitalsRepository();
-  final trendController = TrendController(GetVitalsTrends(vitalsRepository));
+  final resolvedVitalsRepository = vitalsRepository ?? _FakeVitalsRepository();
+  final trendController = TrendController(
+    GetVitalsTrends(resolvedVitalsRepository),
+  );
   final vitalsController = VitalsController(
-    GetVitalsDay(vitalsRepository),
-    SaveVitalsDay(vitalsRepository),
+    GetVitalsDay(resolvedVitalsRepository),
+    SaveVitalsDay(resolvedVitalsRepository),
   );
   final healthCalendarController = HealthCalendarController(
     GetHealthCalendar(healthCalendarRepository ?? _FakeHealthCalendarRepository()),
@@ -638,7 +654,7 @@ Widget _buildScaffold({
     onOpenCareToday: () {},
     onOpenCareHistory: onOpenCareHistory ?? () {},
     dataRevision: resolvedDataRevision,
-    clock: () => DateTime(2026, 7, 24),
+    clock: clock ?? () => DateTime(2026, 7, 24),
   );
 }
 
@@ -1470,6 +1486,265 @@ void main() {
         expect(labels.values.toSet(), hasLength(4));
 
         handle.dispose();
+      },
+    );
+  });
+
+  group('HealthScaffold pull-to-refresh', () {
+    /// The overview tab's RefreshIndicator (index 0 is shown first).
+    RefreshIndicator overviewIndicator(WidgetTester tester) =>
+        tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
+
+    testWidgets(
+      'the overview and trends tabs each wrap their list in a RefreshIndicator '
+      'whose scrollable always accepts an overscroll pull (short content still '
+      'refreshes)',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(l10nRouterTestApp(home: _buildScaffold()));
+        await tester.pumpAndSettle();
+
+        // Overview.
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+        var list = tester.widget<ListView>(
+          find.descendant(
+            of: find.byType(RefreshIndicator),
+            matching: find.byType(ListView),
+          ),
+        );
+        expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+
+        // Trends.
+        await tester.tap(find.byIcon(Icons.show_chart));
+        await tester.pumpAndSettle();
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+        list = tester.widget<ListView>(
+          find.descendant(
+            of: find.byType(RefreshIndicator),
+            matching: find.byType(ListView),
+          ),
+        );
+        expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+      },
+    );
+
+    testWidgets(
+      'pulling to refresh reloads the overview and the gesture future settles '
+      'only when that reload finishes',
+      (tester) async {
+        final calendarRepository = _FakeHealthCalendarRepository();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              healthCalendarRepository: calendarRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        // Hold the reload open, then invoke the indicator's callback directly
+        // (the Future it returns is exactly what the gesture awaits).
+        final gate = Completer<void>();
+        calendarRepository.gate = gate;
+        var settled = false;
+        unawaited(overviewIndicator(tester).onRefresh().then((_) => settled = true));
+        await tester.pump();
+
+        expect(calendarRepository.calls, 2);
+        expect(settled, isFalse, reason: 'the gesture settled before the reload finished');
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(settled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a refresh arriving while a load is in flight does not run a second '
+      'concurrent load; both waiters settle once the coalesced reload lands',
+      (tester) async {
+        final calendarRepository = _FakeHealthCalendarRepository();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              healthCalendarRepository: calendarRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(calendarRepository.calls, 1);
+
+        final gate = Completer<void>();
+        calendarRepository.gate = gate;
+
+        // First pull starts a reload (call 2) and is held on the gate.
+        var firstSettled = false;
+        var secondSettled = false;
+        unawaited(
+          overviewIndicator(tester).onRefresh().then((_) => firstSettled = true),
+        );
+        await tester.pump();
+        expect(calendarRepository.calls, 2);
+
+        // A second pull mid-flight must not start a concurrent load — it rides
+        // the same in-flight completer and coalesces into one extra round.
+        unawaited(
+          overviewIndicator(tester).onRefresh().then((_) => secondSettled = true),
+        );
+        await tester.pump();
+        expect(calendarRepository.calls, 2);
+        expect(firstSettled, isFalse);
+        expect(secondSettled, isFalse);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        // Exactly one coalesced extra round ran after the first, and both
+        // waiters resolved (a per-round completer would leave the gesture
+        // future hanging or complete it twice).
+        expect(calendarRepository.calls, 3);
+        expect(firstSettled, isTrue);
+        expect(secondSettled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a token fetch that throws during a pull still settles the gesture '
+      '(the spinner never hangs forever)',
+      (tester) async {
+        final authRepository = _ThrowingAuthRepository();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              authRepository: authRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        authRepository.arm();
+        var settled = false;
+        unawaited(overviewIndicator(tester).onRefresh().then((_) => settled = true));
+        await tester.pumpAndSettle();
+
+        expect(settled, isTrue);
+      },
+    );
+  });
+
+  group('HealthScaffold overview last-loaded time', () {
+    testWidgets('shows the last-loaded time after the initial load', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nRouterTestApp(
+          home: _buildScaffold(clock: () => DateTime(2026, 7, 24, 9, 0)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = tester.widget<LastLoadedLabel>(
+        find.byType(LastLoadedLabel),
+      );
+      expect(label.lastLoadedAt, DateTime(2026, 7, 24, 9, 0));
+    });
+
+    testWidgets(
+      'a reload where at least one overview card loads advances the time',
+      (tester) async {
+        var now = DateTime(2026, 7, 24, 9, 0);
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(clock: () => now, dataRevision: dataRevision),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel)).lastLoadedAt,
+          DateTime(2026, 7, 24, 9, 0),
+        );
+
+        now = DateTime(2026, 7, 24, 10, 30);
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel)).lastLoadedAt,
+          DateTime(2026, 7, 24, 10, 30),
+        );
+      },
+    );
+
+    testWidgets(
+      'the CRITICAL case: token fetch succeeds but every overview card fails '
+      '(airplane mode) — the time is left unchanged, never claiming a just-now '
+      'load that produced no fresh data',
+      (tester) async {
+        var now = DateTime(2026, 7, 24, 9, 0);
+        final bodyProfileRepository = _FakeBodyProfileRepository();
+        final calendarRepository = _FakeHealthCalendarRepository();
+        final menstrualRepository = _FakeMenstrualRepository();
+        final careTodayRepository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-24', slots: [_slot()]),
+        );
+        final careHistoryRepository = _FakeCareHistoryRepository(
+          days: [
+            CareHistoryDay(
+              date: '2026-07-24',
+              slots: [_slot(status: CareTodayStatus.done)],
+            ),
+          ],
+        );
+        final vitalsRepository = _FakeVitalsRepository();
+        final dataRevision = DataRevision();
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              clock: () => now,
+              bodyProfileRepository: bodyProfileRepository,
+              healthCalendarRepository: calendarRepository,
+              menstrualRepository: menstrualRepository,
+              careTodayRepository: careTodayRepository,
+              careHistoryRepository: careHistoryRepository,
+              vitalsRepository: vitalsRepository,
+              dataRevision: dataRevision,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel)).lastLoadedAt,
+          DateTime(2026, 7, 24, 9, 0),
+        );
+
+        // Every overview/trend source fails on the next reload — a fetch
+        // failure (not a 401), so the controllers land in `error`, `Future.wait`
+        // still resolves, and the overview stays rendered (with #103 markings).
+        bodyProfileRepository.errorAfterFirstLoad = const BodyProfileFetchFailure();
+        calendarRepository.errorAfterFirstLoad = const HealthCalendarFetchFailure();
+        menstrualRepository.errorAfterFirstLoad = const MenstrualFetchFailure();
+        careTodayRepository.errorAfterFirstLoad = const CareRequestFailed();
+        careHistoryRepository.errorAfterFirstLoad = const CareRequestFailed();
+        vitalsRepository.errorAfterFirstLoad = const VitalsFetchFailure('boom');
+
+        now = DateTime(2026, 7, 24, 10, 30);
+        dataRevision.bump();
+        await tester.pumpAndSettle();
+
+        // The time did NOT jump to 10:30 — it must reflect the last load that
+        // actually produced data. Asserting only "success updates" would pass
+        // this bug too (Future.wait resolves regardless), which is why this
+        // case is the linchpin.
+        expect(
+          tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel)).lastLoadedAt,
+          DateTime(2026, 7, 24, 9, 0),
+        );
       },
     );
   });

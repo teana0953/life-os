@@ -1417,6 +1417,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get careHistoryNoCareItemsBody => '你還沒有設定任何照護項目，新增一個開始追蹤吧。';
+
+  @override
+  String lastUpdatedAt(String time) {
+    return '上次更新 $time';
+  }
+
+  @override
+  String get refreshDiscardTitle => '要捨棄未儲存的變更嗎？';
+
+  @override
+  String get refreshDiscardMessage => '重新整理會捨棄你尚未儲存的變更。';
+
+  @override
+  String get discard => '捨棄';
+
+  @override
+  String get cancel => '取消';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2832,4 +2849,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careHistoryNoCareItemsBody => '你還沒有設定任何照護項目，新增一個開始追蹤吧。';
+
+  @override
+  String lastUpdatedAt(String time) {
+    return '上次更新 $time';
+  }
+
+  @override
+  String get refreshDiscardTitle => '要捨棄未儲存的變更嗎？';
+
+  @override
+  String get refreshDiscardMessage => '重新整理會捨棄你尚未儲存的變更。';
+
+  @override
+  String get discard => '捨棄';
+
+  @override
+  String get cancel => '取消';
 }

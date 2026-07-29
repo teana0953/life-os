@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/vitals_day.dart';
@@ -45,7 +46,8 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) =>
+      widget.controller.load(widget.idToken, day);
 
   /// Whether [widget.autoAddSection] has already been consumed. Lives on the
   /// State (not the widget): `build` runs on every keystroke/rotation, and
@@ -294,15 +296,24 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                       : null,
                 ),
                 Expanded(
-                  // Deliberately NOT a ListView: its lazy delegate only builds
-                  // what is near the viewport, so with a few readings already
-                  // logged the glucose/bp section a shortcut targets is never
-                  // built — `_autoAddRowKey.currentContext` is null and both
-                  // the focus and the scroll-into-view silently do nothing.
-                  // The content here is a fixed handful of cards, so building
-                  // it all costs nothing. `stretch` restores the full-width
-                  // cross-axis sizing children got from the sliver.
-                  child: SingleChildScrollView(
+                  child: refreshable(
+                    // Vitals confirms before discarding an unsaved draft (a
+                    // reload overwrites it), unlike the other trackers.
+                    onRefresh: () => refreshWithUnsavedGuard(
+                      hasUnsavedChanges: controller.hasUnsavedChanges,
+                    ),
+                    // Deliberately NOT a ListView: its lazy delegate only builds
+                    // what is near the viewport, so with a few readings already
+                    // logged the glucose/bp section a shortcut targets is never
+                    // built — `_autoAddRowKey.currentContext` is null and both
+                    // the focus and the scroll-into-view silently do nothing.
+                    // The content here is a fixed handful of cards, so building
+                    // it all costs nothing. `stretch` restores the full-width
+                    // cross-axis sizing children got from the sliver.
+                    child: SingleChildScrollView(
+                    // Always scrollable so a day with no readings still accepts
+                    // the overscroll pull that triggers a refresh.
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -310,6 +321,9 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                         dayNavHeader(
                           todayTitle: loc.vitalsTitle,
                           historyTitle: loc.vitalsHistoryTitle,
+                        ),
+                        LastLoadedLabel(
+                          lastLoadedAt: controller.lastLoadedAt,
                         ),
                         const SizedBox(height: 16),
                         LedgeCard(
@@ -392,6 +406,7 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                           child: Text(loc.vitalsSaveButton),
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),

@@ -161,6 +161,56 @@ void main() {
     expect(controller.status, ExerciseStatus.error);
     expect(controller.error, ExerciseError.fetchFailed);
   });
+
+  group('ExerciseController.lastLoadedAt', () {
+    final at = DateTime(2026, 7, 18, 9, 41);
+
+    ExerciseController controllerWithClock(FakeExerciseRepository repo) =>
+        ExerciseController(
+          ListExerciseActivities(repo),
+          GetExerciseDay(repo),
+          AddExerciseEntry(repo),
+          DeleteExerciseEntry(repo),
+          clock: () => at,
+        );
+
+    test('is null before the first successful load', () {
+      final controller = controllerWithClock(FakeExerciseRepository());
+      expect(controller.lastLoadedAt, isNull);
+    });
+
+    test('is set to the clock value on a successful load', () async {
+      final controller = controllerWithClock(FakeExerciseRepository());
+
+      await controller.load('tok', day);
+
+      expect(controller.lastLoadedAt, at);
+    });
+
+    test('is left unchanged when a load fails (needsReauth)', () async {
+      final repo = FakeExerciseRepository();
+      final controller = controllerWithClock(repo);
+      await controller.load('tok', day);
+      final firstLoad = controller.lastLoadedAt;
+
+      repo.failGetDay = const ExerciseReauthenticationRequired();
+      await controller.load('tok', day);
+
+      expect(controller.status, ExerciseStatus.needsReauth);
+      expect(controller.lastLoadedAt, firstLoad);
+    });
+
+    test('stays null after a failed load with no prior success', () async {
+      final repo = FakeExerciseRepository()
+        ..failGetDay = const ExerciseFetchFailure();
+      final controller = controllerWithClock(repo);
+
+      await controller.load('tok', day);
+
+      expect(controller.status, ExerciseStatus.error);
+      expect(controller.lastLoadedAt, isNull);
+    });
+  });
 }
 
 ExerciseController _controller(FakeExerciseRepository repo) => ExerciseController(

@@ -434,5 +434,10 @@
   "careErrorForPeriod": "無法載入過去 {days} 天的資料，請再試一次。",
   "careHistoryEditNotAppliedMessage": "未套用，沒有任何變更，請再試一次。",
   "careHistoryNoCareItemsTitle": "還沒有任何照護項目",
-  "careHistoryNoCareItemsBody": "你還沒有設定任何照護項目，新增一個開始追蹤吧。"
+  "careHistoryNoCareItemsBody": "你還沒有設定任何照護項目，新增一個開始追蹤吧。",
+  "lastUpdatedAt": "上次更新 {time}",
+  "refreshDiscardTitle": "要捨棄未儲存的變更嗎？",
+  "refreshDiscardMessage": "重新整理會捨棄你尚未儲存的變更。",
+  "discard": "捨棄",
+  "cancel": "取消"
 }

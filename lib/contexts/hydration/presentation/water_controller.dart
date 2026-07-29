@@ -21,11 +21,26 @@ class WaterController extends ChangeNotifier {
   final AddWater _addWater;
   final SetWaterTarget _setTarget;
 
-  WaterController(this._getDay, this._addWater, this._setTarget);
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load.
+  /// Defaults to [DateTime.now]; tests pin it so the stamp is deterministic
+  /// (mirrors the home greeting / reminders-throttle clocks).
+  final DateTime Function() _clock;
+
+  WaterController(
+    this._getDay,
+    this._addWater,
+    this._setTarget, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   WaterStatus status = WaterStatus.loading;
   WaterDay? day;
   WaterError? error;
+
+  /// When the day was last loaded successfully, or `null` before the first
+  /// success — updated only on a successful [load], left unchanged on failure
+  /// so it always reflects the data currently shown.
+  DateTime? lastLoadedAt;
 
   Future<void> load(String idToken, String day) async {
     status = WaterStatus.loading;
@@ -35,6 +50,7 @@ class WaterController extends ChangeNotifier {
     try {
       this.day = await _getDay(idToken, day);
       status = WaterStatus.loaded;
+      lastLoadedAt = _clock();
     } on WaterReauthenticationRequired {
       status = WaterStatus.needsReauth;
     } on WaterFetchFailure {

@@ -183,4 +183,53 @@ void main() {
       expect(controller.status, WaterStatus.needsReauth);
     });
   });
+
+  group('WaterController.lastLoadedAt', () {
+    final at = DateTime(2026, 7, 18, 9, 41);
+
+    WaterController controllerWithClock(FakeWaterRepository repository) =>
+        WaterController(
+          GetWaterDay(repository),
+          AddWater(repository),
+          SetWaterTarget(repository),
+          clock: () => at,
+        );
+
+    test('is null before the first successful load', () {
+      final controller = controllerWithClock(FakeWaterRepository());
+      expect(controller.lastLoadedAt, isNull);
+    });
+
+    test('is set to the clock value on a successful load', () async {
+      final controller = controllerWithClock(FakeWaterRepository());
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.lastLoadedAt, at);
+    });
+
+    test('is left unchanged when a load fails (needsReauth)', () async {
+      final repository = FakeWaterRepository();
+      final controller = controllerWithClock(repository);
+      await controller.load('token', '2026-07-18');
+      final firstLoad = controller.lastLoadedAt;
+
+      repository.getError = const WaterReauthenticationRequired();
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, WaterStatus.needsReauth);
+      expect(controller.lastLoadedAt, firstLoad);
+    });
+
+    test('stays null after a failed load with no prior success', () async {
+      final repository = FakeWaterRepository()
+        ..getError = const WaterFetchFailure('boom');
+      final controller = controllerWithClock(repository);
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, WaterStatus.error);
+      expect(controller.lastLoadedAt, isNull);
+    });
+  });
 }
