@@ -80,6 +80,8 @@ import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_adherence_card.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
+import 'package:life_os/contexts/notifications/presentation/care_today_summary_card.dart';
+import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
@@ -94,6 +96,7 @@ import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -517,6 +520,7 @@ Widget _buildScaffold({
   DataRevision? dataRevision,
   VoidCallback? onOpenCareHistory,
   VoidCallback? onOpenCareItems,
+  PushHealthController? pushHealthController,
 }) {
   final resolvedBodyProfileRepository =
       bodyProfileRepository ?? _FakeBodyProfileRepository();
@@ -608,6 +612,8 @@ Widget _buildScaffold({
   );
 
   return HealthScaffold(
+    pushHealthController:
+        pushHealthController ?? testPushHealthController(PushHealth.ok),
     authRepository: resolvedAuthRepository,
     signOut: SignOut(resolvedAuthRepository),
     weightGoalController: weightGoalController,
@@ -1464,6 +1470,122 @@ void main() {
         expect(labels.values.toSet(), hasLength(4));
 
         handle.dispose();
+      },
+    );
+  });
+
+  group('HealthScaffold overview push-off banner', () {
+    testWidgets(
+      'permissionPrompt with care slots today: the banner sits above the '
+      'today-care summary card and its action pushes /reminders',
+      (tester) async {
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              pushHealthController: testPushHealthController(
+                PushHealth.permissionPrompt,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.byKey(const Key('push-off-banner'))).dy,
+          lessThan(tester.getTopLeft(find.byType(CareTodaySummaryCard)).dy),
+        );
+
+        await tester.tap(find.byKey(const Key('push-off-action')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('/reminders'), findsOneWidget);
+      },
+    );
+
+    testWidgets('permissionDenied with care slots today shows the banner', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nRouterTestApp(
+          home: _buildScaffold(
+            careTodaySlots: [_slot()],
+            pushHealthController: testPushHealthController(
+              PushHealth.permissionDenied,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
+    });
+
+    for (final health in [
+      PushHealth.ok,
+      PushHealth.unknown,
+      PushHealth.unsupported,
+      PushHealth.syncFailed,
+    ]) {
+      testWidgets('${health.name} with care slots today shows no banner', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              pushHealthController: testPushHealthController(health),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+      });
+    }
+
+    testWidgets(
+      'no care slots today: no banner, even though the summary card still '
+      'renders its setup prompt',
+      (tester) async {
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              pushHealthController: testPushHealthController(
+                PushHealth.permissionDenied,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CareTodaySummaryCard), findsOneWidget);
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a push-health change while the overview is open shows the banner '
+      'without reopening it',
+      (tester) async {
+        final pushHealth = testPushHealthController(PushHealth.ok);
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              careTodaySlots: [_slot()],
+              pushHealthController: pushHealth,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+
+        pushHealth.health = PushHealth.permissionDenied;
+        pushHealth.notifyListeners();
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
       },
     );
   });

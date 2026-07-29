@@ -59,6 +59,7 @@ import 'package:life_os/contexts/notifications/domain/web_push_gateway.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_items_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
+import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
@@ -123,6 +124,7 @@ import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/l10n_test_app.dart';
+import 'support/push_health.dart';
 
 FoodItem _riceItem() => FoodItem.fromJson({
   'id': 'rice-1',
@@ -901,6 +903,7 @@ Future<LocaleController> pumpApp(
   SignUp? signUp,
   ChaodaysImportController? chaodaysImportController,
   ReminderSettingsController? reminderSettingsController,
+  PushHealthController? pushHealthController,
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
   CareHistoryController? careHistoryController,
@@ -1032,6 +1035,8 @@ Future<LocaleController> pumpApp(
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
       chaodaysImportController: resolvedChaodaysImportController,
       reminderSettingsController: resolvedReminderSettingsController,
+      pushHealthController:
+          pushHealthController ?? testPushHealthController(PushHealth.ok),
       careItemsController: resolvedCareItemsController,
       careTodayController: resolvedCareTodayController,
       careHistoryController: resolvedCareHistoryController,

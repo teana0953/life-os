@@ -1788,11 +1788,19 @@
   },
   "careRemindersPushOffBanner": "Notifications aren't on — reminders won't be delivered",
   "@careRemindersPushOffBanner": {
-    "description": "Banner shown at the top of the care reminders management list when push notifications aren't enabled, warning the user their reminders won't actually arrive."
+    "description": "Banner shown on the health overview, Today care, and care reminders management when notification permission has never been requested, warning the user their reminders won't actually arrive."
   },
   "careRemindersPushOffAction": "Turn on notifications",
   "@careRemindersPushOffAction": {
-    "description": "Action button on the push-off banner in care reminders management, tapped to open the reminder/notification settings screen."
+    "description": "Action button on the never-requested push banner, tapped to open the reminder/notification settings screen."
+  },
+  "careRemindersPushDeniedBanner": "Notifications are turned off — reminders won't appear",
+  "@careRemindersPushDeniedBanner": {
+    "description": "Banner shown on the health overview, Today care, and care reminders management when notification permission was turned off by the user or the system — distinct from the never-requested wording, which would be false here."
+  },
+  "careRemindersPushDeniedAction": "Go turn them on",
+  "@careRemindersPushDeniedAction": {
+    "description": "Action button on the turned-off push banner, tapped to open the reminder/notification settings screen."
   },
   "careHistoryTitle": "Care history",
   "@careHistoryTitle": {

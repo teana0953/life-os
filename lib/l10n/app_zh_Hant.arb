@@ -401,6 +401,8 @@
   "careTodaySummarySetupCta": "設定",
   "careRemindersPushOffBanner": "通知未開啟，提醒不會送達",
   "careRemindersPushOffAction": "開啟通知",
+  "careRemindersPushDeniedBanner": "手機通知被關掉了，提醒不會跳出來",
+  "careRemindersPushDeniedAction": "去開啟",
   "careHistoryTitle": "照護紀錄",
   "careHistoryEntryTooltip": "紀錄",
   "careHistoryEmptyTitle": "沒有照護紀錄",

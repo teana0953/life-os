@@ -2498,17 +2498,29 @@ abstract class AppLocalizations {
   /// **'Set up'**
   String get careTodaySummarySetupCta;
 
-  /// Banner shown at the top of the care reminders management list when push notifications aren't enabled, warning the user their reminders won't actually arrive.
+  /// Banner shown on the health overview, Today care, and care reminders management when notification permission has never been requested, warning the user their reminders won't actually arrive.
   ///
   /// In en, this message translates to:
   /// **'Notifications aren\'t on — reminders won\'t be delivered'**
   String get careRemindersPushOffBanner;
 
-  /// Action button on the push-off banner in care reminders management, tapped to open the reminder/notification settings screen.
+  /// Action button on the never-requested push banner, tapped to open the reminder/notification settings screen.
   ///
   /// In en, this message translates to:
   /// **'Turn on notifications'**
   String get careRemindersPushOffAction;
+
+  /// Banner shown on the health overview, Today care, and care reminders management when notification permission was turned off by the user or the system — distinct from the never-requested wording, which would be false here.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are turned off — reminders won\'t appear'**
+  String get careRemindersPushDeniedBanner;
+
+  /// Action button on the turned-off push banner, tapped to open the reminder/notification settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Go turn them on'**
+  String get careRemindersPushDeniedAction;
 
   /// AppBar title of the care history screen (route /care-history), reachable from care management and Today care.
   ///

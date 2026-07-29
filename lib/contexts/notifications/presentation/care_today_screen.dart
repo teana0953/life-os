@@ -11,6 +11,8 @@ import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
 import 'care_today_controller.dart';
+import 'push_health_controller.dart';
+import 'push_off_banner.dart';
 
 /// Converts a slot's (UTC) `doneTime` to local before formatting as `HH:mm`
 /// — the default [CareTodayScreen.toLocalTime]. Overridden in tests so the
@@ -206,11 +208,17 @@ class CareTodayScreen extends StatefulWidget {
   )
   pickDoneTime;
 
+  /// Read-only: drives the push-off banner at the top of the list. Only
+  /// consulted when there are care slots today — a user with nothing
+  /// scheduled has no reminder to miss.
+  final PushHealthController pushHealthController;
+
   const CareTodayScreen({
     super.key,
     required this.controller,
     required this.authRepository,
     required this.onOpenCareItems,
+    required this.pushHealthController,
     this.toLocalTime = _defaultToLocal,
     this.pickDoneTime = _defaultPickDoneTime,
   });
@@ -226,12 +234,14 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
+    widget.pushHealthController.addListener(_onChanged);
     _load();
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
+    widget.pushHealthController.removeListener(_onChanged);
     super.dispose();
   }
 
@@ -448,6 +458,14 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
+                    // Only with slots today: the loading/error branches above
+                    // are their own Scaffolds and deliberately carry no
+                    // banner, and an empty list means there is no reminder to
+                    // miss in the first place.
+                    if (controller.slots.isNotEmpty)
+                      PushOffBanner(
+                        health: widget.pushHealthController.health,
+                      ),
                     Text(
                       mediumDateLabelOrDash(context, controller.date),
                       key: const Key('care-today-date'),

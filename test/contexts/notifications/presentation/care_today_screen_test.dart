@@ -10,10 +10,12 @@ import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_screen.dart';
+import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/date/day_format.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -211,6 +213,7 @@ Future<void> _pumpScreen(
   )?
   pickDoneTime = _unusedPickDoneTime,
   Size surfaceSize = const Size(800, 1600),
+  PushHealthController? pushHealthController,
 }) async {
   // The focus card + Overdue/Later/Done sections can exceed the default
   // 800x600 test surface — a taller surface keeps every section built (a
@@ -224,12 +227,16 @@ Future<void> _pumpScreen(
               controller: controller,
               authRepository: _FakeAuthRepository(),
               onOpenCareItems: onOpenCareItems ?? () {},
+              pushHealthController:
+                  pushHealthController ?? testPushHealthController(PushHealth.ok),
               toLocalTime: toLocalTime,
             )
           : CareTodayScreen(
               controller: controller,
               authRepository: _FakeAuthRepository(),
               onOpenCareItems: onOpenCareItems ?? () {},
+              pushHealthController:
+                  pushHealthController ?? testPushHealthController(PushHealth.ok),
               toLocalTime: toLocalTime,
               pickDoneTime: pickDoneTime,
             ),
@@ -622,6 +629,7 @@ void main() {
               controller: controller,
               authRepository: _FakeAuthRepository(),
               onOpenCareItems: () {},
+              pushHealthController: testPushHealthController(PushHealth.ok),
             ),
           ),
         );
@@ -2130,6 +2138,122 @@ void main() {
           tester.widget<Text>(find.byKey(const Key('care-today-date'))).data,
           '—',
         );
+      },
+    );
+  });
+
+  group('CareTodayScreen push-off banner', () {
+    testWidgets(
+      'permissionPrompt with slots today: the banner is the first item and '
+      'its action pushes /reminders',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          pushHealthController: testPushHealthController(
+            PushHealth.permissionPrompt,
+          ),
+        );
+
+        expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
+        // First item: above the date header the list otherwise starts with.
+        expect(
+          tester
+              .getTopLeft(find.byKey(const Key('push-off-banner')))
+              .dy,
+          lessThan(
+            tester.getTopLeft(find.byKey(const Key('care-today-date'))).dy,
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('push-off-action')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('/reminders'), findsOneWidget);
+      },
+    );
+
+    testWidgets('permissionDenied with slots today shows the banner', (
+      tester,
+    ) async {
+      final repository = _FakeCareTodayRepository(
+        today: CareToday(date: '2026-07-22', slots: [_slot()]),
+      );
+      await _pumpScreen(
+        tester,
+        _controller(repository: repository),
+        pushHealthController: testPushHealthController(
+          PushHealth.permissionDenied,
+        ),
+      );
+
+      expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
+    });
+
+    for (final health in [
+      PushHealth.ok,
+      PushHealth.unknown,
+      PushHealth.unsupported,
+      PushHealth.syncFailed,
+    ]) {
+      testWidgets('${health.name} with slots today shows no banner', (
+        tester,
+      ) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          pushHealthController: testPushHealthController(health),
+        );
+
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+      });
+    }
+
+    testWidgets(
+      'no care slots today: no banner — there is no reminder to miss',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: const CareToday(date: '2026-07-22', slots: []),
+        );
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          pushHealthController: testPushHealthController(
+            PushHealth.permissionDenied,
+          ),
+        );
+
+        expect(find.byKey(const Key('care-today-empty-state')), findsOneWidget);
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a push-health change while the screen is open shows the banner '
+      'without reopening it',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        final pushHealth = testPushHealthController(PushHealth.ok);
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          pushHealthController: pushHealth,
+        );
+        expect(find.byKey(const Key('push-off-banner')), findsNothing);
+
+        pushHealth.health = PushHealth.permissionDenied;
+        pushHealth.notifyListeners();
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
       },
     );
   });
