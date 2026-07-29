@@ -444,6 +444,39 @@ void main() {
     );
 
     test(
+      'a load() landing mid-enable does not eat the enable trigger',
+      () async {
+        final h = _harness();
+        h.gateway.permission = PushPermissionStatus.prompt;
+        await h.controller.check();
+        expect(h.controller.health, PushHealth.permissionPrompt);
+
+        // The user taps Enable; the browser permission prompt is still up.
+        h.settings.status = ReminderSettingsStatus.enabling;
+        h.settings.notifyListeners();
+        // Reopening the settings screen calls `load()`, which is a no-op only
+        // once the status is already `enabled` — mid-enable it overwrites
+        // `enabling` with `idle` and notifies, spending the "left `enabling`"
+        // edge while the permission is still `prompt`.
+        h.settings.status = ReminderSettingsStatus.idle;
+        h.settings.notifyListeners();
+        await pumpEventQueue();
+        expect(h.controller.health, PushHealth.permissionPrompt);
+        expect(h.enableReminders.calls, 0);
+
+        // The still-in-flight `enable()` then succeeds: idle → `enabled`,
+        // never passing back through `enabling`.
+        h.gateway.permission = PushPermissionStatus.granted;
+        h.settings.status = ReminderSettingsStatus.enabled;
+        h.settings.notifyListeners();
+        await pumpEventQueue();
+
+        expect(h.enableReminders.calls, 1);
+        expect(h.controller.health, PushHealth.ok);
+      },
+    );
+
+    test(
       'an already-enabled settings screen notifying again does not check',
       () async {
         final h = _harness();

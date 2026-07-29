@@ -46,8 +46,8 @@ enum PushHealth {
 /// Checked on three triggers, all three needed: the sign-in becoming
 /// established (a check at app start would find no user, since restoring a
 /// persisted sign-in is asynchronous, and would never run again), the app
-/// returning to the foreground, and the reminder settings screen settling out
-/// of `enabling` (the banner → settings → enable → back journey never leaves
+/// returning to the foreground, and the reminder settings screen finishing an
+/// enable attempt (the banner → settings → enable → back journey never leaves
 /// the SPA, so it produces no `resumed`).
 class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
   final WebPushGateway _gateway;
@@ -86,8 +86,11 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
         // backend upserts a subscription by endpoint, so the next account to
         // sign in on this browser must re-register rather than inherit the
         // previous one's success. [health] is deliberately left alone so
-        // signing out doesn't flash a warning.
+        // signing out doesn't flash a warning. A forced check queued just
+        // before the sign-out is dropped with it — it was about the account
+        // that just left.
         _lastSyncAt = null;
+        _pendingForcedCheck = false;
       }
     });
     WidgetsBinding.instance.addObserver(this);
@@ -112,15 +115,18 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _checking = true;
+    var pending = false;
     try {
       await _resolve(force);
     } finally {
       _checking = false;
-    }
-    if (_pendingForcedCheck) {
+      // Consumed on every exit path, including one that throws past here
+      // (`describeEnvironment` is outside `_resolve`'s catch): a flag left set
+      // would make some unrelated later check run twice.
+      pending = _pendingForcedCheck;
       _pendingForcedCheck = false;
-      await check(force: true);
     }
+    if (pending) await check(force: true);
   }
 
   Future<void> _resolve(bool force) async {
@@ -172,19 +178,35 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Edge-triggered on *leaving* `enabling`, whatever the outcome: the user
-  /// denying the browser prompt is as much a health change as granting it, and
-  /// leaving it unchecked would keep showing "notifications aren't on yet" for
-  /// a permission that is now genuinely denied. Still an edge and not a level:
-  /// level triggering would re-sync on every unrelated notification from that
-  /// screen — `sendTest` alone notifies twice per call while already enabled,
-  /// each of which would bypass the suppression window.
+  /// Edge-triggered on *two* edges, and both are needed:
+  ///
+  /// - *leaving* `enabling`, whatever the outcome — the user denying the
+  ///   browser prompt is as much a health change as granting it, and leaving
+  ///   it unchecked would keep showing "notifications aren't on yet" for a
+  ///   permission that is now genuinely denied;
+  /// - *entering* `enabled` — because [ReminderSettingsController.load] runs on
+  ///   every open of the settings screen and is a no-op only once the status is
+  ///   already `enabled`. With an enable in flight it overwrites `enabling`
+  ///   with `idle` and notifies, spending the "left `enabling`" edge at a
+  ///   moment when permission may still be `prompt`; the real success would
+  ///   then arrive as idle → `enabled` and fire nothing.
+  ///
+  /// Still edges and not levels: level triggering would re-sync on every
+  /// unrelated notification from that screen — `sendTest` alone notifies twice
+  /// per call while already enabled, each of which would bypass the suppression
+  /// window. Neither edge can be crossed by `sendTest`, which never enters or
+  /// leaves `enabling` and never arrives at `enabled` from another status.
   void _onSettingsChanged() {
     final previous = _lastSettingsStatus;
     final current = _reminderSettingsController.status;
     _lastSettingsStatus = current;
-    if (previous == ReminderSettingsStatus.enabling &&
-        current != ReminderSettingsStatus.enabling) {
+    final leftEnabling =
+        previous == ReminderSettingsStatus.enabling &&
+        current != ReminderSettingsStatus.enabling;
+    final becameEnabled =
+        current == ReminderSettingsStatus.enabled &&
+        previous != ReminderSettingsStatus.enabled;
+    if (leftEnabling || becameEnabled) {
       check(force: true);
     }
   }

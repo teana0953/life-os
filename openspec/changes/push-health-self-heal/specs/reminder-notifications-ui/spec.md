@@ -4,10 +4,12 @@
 
 The app SHALL re-register its Web Push subscription with the backend when the user's sign-in is
 established, when the app returns to the foreground, and at the moment the reminder settings
-screen transitions into reporting a successful enable — whenever the browser notification
-permission is already granted. The enable trigger SHALL fire on that transition only, not
-whenever the settings screen reports it is already enabled, so unrelated activity on that screen
-(such as sending a test push) does not cause repeated, suppression-bypassing syncs. This SHALL reuse the existing enable flow (fetch the VAPID key, subscribe, save the
+screen finishes an enable attempt — whatever its outcome, because being denied changes push
+health as much as being granted does — whenever the browser notification permission is already
+granted. The enable trigger SHALL be edge-triggered: it fires when the reported state changes,
+and SHALL NOT fire when the settings screen merely re-reports the state it is already in, so
+unrelated activity on that screen (such as sending a test push) does not cause repeated,
+suppression-bypassing syncs. This SHALL reuse the existing enable flow (fetch the VAPID key, subscribe, save the
 subscription), which is idempotent: an already-subscribed browser returns its existing
 subscription and the backend upserts by endpoint. The app SHALL NOT prompt the user, show a
 progress indicator, or otherwise surface a successful sync — a drifted subscription is the
@@ -85,7 +87,8 @@ Only one sync SHALL be in flight at a time.
 ### Requirement: Surface undeliverable push where the user actually looks
 
 When reminders cannot be delivered, the app SHALL present a warning on the health overview
-(above the today-care summary), at the top of the 今日照護 list, and on the care-reminder
+(above the today-care summary), on 今日照護 above the care-slot list and below the date header,
+and on the care-reminder
 management screen — the screens a reminder user actually visits — rather than only on
 care-reminder management. All three SHALL use the same component and the same push-health
 state, so the warning reads identically wherever it appears.
@@ -133,7 +136,7 @@ something is wrong.
 
 #### Scenario: Permission off warns on 今日照護
 - **WHEN** the 今日照護 screen has loaded care slots for today and notification permission is not granted
-- **THEN** the same warning appears at the top of the list, with the same action
+- **THEN** the same warning appears above the care-slot list and below the date header, with the same action
 
 #### Scenario: A user with no care slots today is not warned
 - **WHEN** the health overview or 今日照護 is shown, notification permission is not granted, and the user has no care slots today

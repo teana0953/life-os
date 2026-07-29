@@ -113,23 +113,34 @@ enum PushHealth {
 2. **回前景** —— `didChangeAppLifecycleState(AppLifecycleState.resumed)`，
    寫法照 `pwa_update_controller.dart:42`。PWA 常連開好幾天不關，
    「App 開著的時候權限被關掉」不是邊角情況。
-3. **提醒設定頁按完 Enable** —— `PushHealthController` 監聽 `ReminderSettingsController`，
-   在 `status` **離開 `enabling`** 的那一刻 `check(force: true)`，**不論結果**。
-   不是只在「轉入 `enabled`」時觸發：使用者按了 Enable 之後拒絕系統權限，
-   `status` 會落在 `permissionDenied`，健康度同樣變了；不重新檢查的話 banner 會停在
-   `permissionPrompt` 的「通知還沒開啟」，而那句對一個真的被封鎖的權限是謊話，
-   按下去還會到一個已經沒有 Enable 可按的頁面。
+3. **提醒設定頁的啟用嘗試結束** —— `PushHealthController` 監聽 `ReminderSettingsController`，
+   在**兩個**邊緣上 `check(force: true)`：`status` **離開 `enabling`**（不論結果），
+   **或**轉入 `enabled`（前一個狀態不是 `enabled`）。
+
+   **兩個都要，不是二選一：**
+
+   - 只看「轉入 `enabled`」不夠：使用者按了 Enable 之後拒絕系統權限，
+     `status` 會落在 `permissionDenied`，健康度同樣變了；不重新檢查的話 banner 會停在
+     `permissionPrompt` 的「通知還沒開啟」，而那句對一個真的被封鎖的權限是謊話，
+     按下去還會到一個已經沒有 Enable 可按的頁面。
+   - 只看「離開 `enabling`」也不夠：`load()`（`reminder_settings_controller.dart:54`）
+     **只有在 `status` 已經是 `enabled` 時才 no-op**，設定頁每次開啟都會呼叫它。
+     啟用還在飛的時候重開一次設定頁，`load()` 會把 `enabling` 覆寫成 `idle` 並 notify，
+     那一下就把「離開 `enabling`」這個邊緣用掉了（而且是在權限可能還是 `prompt` 的時候）；
+     真正的成功接著以 idle → `enabled` 抵達，什麼都不會發生，
+     banner 要等到下一次 `resumed` 才會消失。
 
    **第 3 條是必要的，不是保險。** banner →「去開啟」→ `/reminders` → 按 Enable → 回總覽，
    全程在同一個 SPA 頁面內，**不會產生 `resumed`**。沒有這條，最常見的修復動線做完之後
    banner 會賴著不走 —— 使用者會以為沒修好。依賴方向是 health 監聽 settings，
    不是反過來（`ReminderSettingsController` 不該知道有誰在看它）。
 
-   **必須是邊緣觸發**（記住上一次的 `status`，只在轉換時動作），不能寫成
+   **兩條都必須是邊緣觸發**（記住上一次的 `status`，只在轉換時動作），不能寫成
    `if (settings.status == enabled) check(force: true)`。`sendTest`
    （`reminder_settings_controller.dart:102`）在 `status` 已經是 `enabled` 時
    每次呼叫都會 `notifyListeners` 兩次 —— level-triggered 會變成兩次
-   **繞過節流**的完整 subscribe + POST。
+   **繞過節流**的完整 subscribe + POST。加上第二個邊緣不會破壞這條：
+   `sendTest` 既不進出 `enabling`，也不會讓 `status` 從別的狀態變成 `enabled`。
 
    邊緣觸發之後仍然會在啟用成功的當下多跑一次 subscribe + POST，
    跟設定頁剛做完的事重複。冪等所以無害，刻意接受：換來的是 banner 一定會消失。
@@ -140,8 +151,12 @@ enum PushHealth {
 
 | 狀態 | 訊息 | 動作 |
 |---|---|---|
-| `permissionPrompt` | 通知未開啟，提醒不會送達 | 開啟通知 → `context.push('/reminders')` |
-| `permissionDenied` | 手機通知被關掉了，提醒不會跳出來 | 去開啟 → `context.push('/reminders')` |
+| `permissionPrompt` | 通知還沒開啟，提醒不會送達 | 開啟通知 → `context.push('/reminders')` |
+| `permissionDenied` | 通知已被封鎖，提醒不會送達 | 開啟通知 → `context.push('/reminders')` |
+
+兩種狀態的**訊息不同、動作標籤相同**：兩者都是去同一個 `/reminders` 頁，
+給兩個不同的標籤只會讓人以為會到不同地方。狀態的差異由訊息承擔，
+兩句刻意寫成同一個句型（只有前半段不同），掃一眼就分得出來。
 
 `ok` / `unknown` / `unsupported` / **`syncFailed`** 一律不顯示。
 
@@ -163,18 +178,22 @@ enum PushHealth {
 #### 文案與 ARB
 
 `permissionPrompt` **沿用既有的 `careRemindersPushOffBanner` / `careRemindersPushOffAction`**
-（`app_en.arb:1789/1793`、`app_zh.arb:402/403`、`app_zh_Hant.arb` 對應處）——
-那兩個 key 的現值就是「通知未開啟，提醒不會送達」/「開啟通知」，
-語意上正好是 `prompt` 而不是 `denied`。
+（`app_en.arb:1789/1793`、`app_zh.arb`、`app_zh_Hant.arb:402/403`）——
+那兩個 key 語意上正好是 `prompt` 而不是 `denied`。訊息的中文微調成
+「通知**還沒**開啟，提醒不會送達」，跟 `denied` 那句對齊成同一個句型。
 
-`permissionDenied` **新增兩個 key**（訊息 + 動作），這是本 change 唯一新增的文案。
+`permissionDenied` **只新增一個 key**（`careRemindersPushDeniedBanner`，訊息），
+這是本 change 唯一新增的文案；**動作標籤兩態共用** `careRemindersPushOffAction`，
+理由見上表下方。
 
 **三個 ARB 檔都要改** —— `app_zh.arb` 在這個 repo 不是空殼，是全量同步的。
 
 ### 3. 掛載三處與「有排程才顯示」的前提
 
 - `health_scaffold.dart:380` 總覽的 `CareTodaySummaryCard` 上方 —— **有排程才顯示**
-- `care_today_screen.dart:450` ListView 首項 —— **有排程才顯示**
+- `care_today_screen.dart:450` ListView 內、**日期表頭之下**、第一格排程之上
+  —— **有排程才顯示**。不放 ListView 首項：日期表頭在最上面是全 App 一致的版型，
+  banner 插到它上面會把「今天是哪天」擠掉
 - `care_items_screen.dart:252` 改用共用元件 —— **不設前提，永遠依狀態顯示**
 
 前提條件：`careTodayController.slots.isNotEmpty`。
@@ -192,8 +211,9 @@ enum PushHealth {
 當天沒有任何提醒要送，也就沒有東西會漏；他週一還是會看到。
 
 **今日照護的 loading / error 分支不顯示 banner**，這是刻意的：那兩個分支是各自 return 的
-獨立 `Scaffold`（`care_today_screen.dart:425` 附近），banner 掛在 ListView 首項。
-在「連今天有什麼都還沒讀到」的畫面上疊一條推播警告，會讓使用者分不清是哪件事壞了。
+獨立 `Scaffold`（`care_today_screen.dart:425` 附近），banner 掛在載入完成那條路徑的
+ListView 裡。在「連今天有什麼都還沒讀到」的畫面上疊一條推播警告，
+會讓使用者分不清是哪件事壞了。
 
 空清單（`_EmptyState`）雖然在同一個 ListView 內，但**也不會顯示** —— 空清單就代表
 `slots` 是空的，被上面的前提擋掉了。這與「今天沒排程就不警告」一致，不是遺漏。
@@ -255,8 +275,13 @@ go_router 的 builder（`/care-items` 在 `app.dart:460`、`/care-today` 在 `ap
 ### 介面與一致性
 
 沿用 `care_items_screen.dart:252` 既有 banner 的視覺語彙：`LedgeCard` 包
-`Icons.notifications_off_outlined`（`colorScheme.error` 色）+ 文字 + 尾端 `TextButton`。
+`Icons.notifications_off_outlined`（`colorScheme.error` 色）+ 文字 + `TextButton`。
 抽成共用元件後三處長相一致，使用者在哪一頁看到都是同一個東西。
+
+版型是 `MaterialBanner` 那種**兩列**：上列 icon + 訊息，下列動作靠右。
+不是既有 banner 的單列（icon + 文字 + 尾端按鈕）—— 動作鍵寬度固定，
+在 320px 的手機上會把訊息壓成一行一兩個字，中英文都會 overflow。
+兩列多佔一點高度，換來最窄的支援寬度上不會爆版。
 
 不使用 SnackBar 或 Dialog：這是持續狀態不是一次性事件，被滑掉或按掉之後
 問題還在，使用者卻再也看不到。
@@ -277,7 +302,7 @@ go_router 的 builder（`/care-items` 在 `app.dart:460`、`/care-today` 在 `ap
 ### 可及性/理解性
 
 - 訊息講**後果**不講機制：「提醒不會跳出來」而不是「push subscription 失效」。
-- **會顯示的每種狀態都附可執行的下一步**（開啟通知／去開啟），不留死路。
+- **會顯示的每種狀態都附可執行的下一步**（同一個「開啟通知」動作），不留死路。
   反過來說，沒有可執行下一步的狀態（`syncFailed`）就不顯示。
 - banner 是一般 widget 樹節點，螢幕閱讀器可讀；icon 有語意色，
   但**訊息本身不靠顏色傳達** —— 拿掉顏色後文字仍然說得完整。
@@ -305,6 +330,8 @@ fake `AuthRepository` / fake `ReminderSettingsController`：
   從 `enabling` 變 `permissionDenied` → 一樣 `check`，狀態轉成 `permissionDenied`
 - **邊緣觸發**：`status` 已經是 `enabled` 時再 `notifyListeners`，
   `EnableReminders` 的呼叫次數**不變**（這條專門釘 `sendTest` 的重複通知）
+- **兩個邊緣都在**：`enabling` → `idle`（模擬 `load()` 插進來）→ `enabled`，
+  最後那一步仍然要 `check(force: true)`（這條專門釘「只留一個邊緣」的回歸）
 
 三個畫面各一組 widget 測試：banner 在 `permissionPrompt` / `permissionDenied` 出現、
 在 `ok` / `unknown` / `unsupported` / **`syncFailed`** 不出現、點擊導向 `/reminders`；

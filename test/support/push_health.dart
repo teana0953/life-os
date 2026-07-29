@@ -1,3 +1,4 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/notifications/application/enable_reminders.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
@@ -57,13 +58,18 @@ class _InertPushRepository implements PushRepository {
 /// under test simply reads [PushHealthController.health] and rebuilds when the
 /// test flips it and calls `notifyListeners`. Its own behavior is covered by
 /// `push_health_controller_test.dart`.
+///
+/// Disposed on tear-down: the controller registers itself as a
+/// `WidgetsBindingObserver` in its constructor, so without this every widget
+/// test that builds one would leave another observer on the binding for the
+/// rest of the file.
 PushHealthController testPushHealthController([
   PushHealth health = PushHealth.unknown,
 ]) {
   final gateway = _InertWebPushGateway();
   final repository = _InertPushRepository();
   final enableReminders = EnableReminders(repository, gateway);
-  return PushHealthController(
+  final controller = PushHealthController(
     gateway: gateway,
     enableReminders: enableReminders,
     authRepository: _InertAuthRepository(),
@@ -73,4 +79,6 @@ PushHealthController testPushHealthController([
       SendTestPush(repository),
     ),
   )..health = health;
+  addTearDown(controller.dispose);
+  return controller;
 }
