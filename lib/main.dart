@@ -252,7 +252,6 @@ Future<void> main() async {
     authRepository: authRepository,
     reminderSettingsController: reminderSettingsController,
   );
-  WidgetsBinding.instance.addObserver(pushHealthController);
   final careItemRepository = HttpCareRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,

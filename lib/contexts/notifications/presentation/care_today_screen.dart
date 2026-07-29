@@ -458,20 +458,21 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // Only with slots today: the loading/error branches above
-                    // are their own Scaffolds and deliberately carry no
-                    // banner, and an empty list means there is no reminder to
-                    // miss in the first place.
-                    if (controller.slots.isNotEmpty)
-                      PushOffBanner(
-                        health: widget.pushHealthController.health,
-                      ),
                     Text(
                       mediumDateLabelOrDash(context, controller.date),
                       key: const Key('care-today-date'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
+                    // Below the date header, per the app-wide "header first"
+                    // layout. Only with slots today: the loading/error
+                    // branches above are their own Scaffolds and deliberately
+                    // carry no banner, and an empty list means there is no
+                    // reminder to miss in the first place.
+                    if (controller.slots.isNotEmpty)
+                      PushOffBanner(
+                        health: widget.pushHealthController.health,
+                      ),
                     if (controller.slots.isEmpty)
                       _EmptyState(onAdd: widget.onOpenCareItems)
                     else ...[

@@ -24,14 +24,11 @@ class PushOffBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final String message;
-    final String action;
     switch (health) {
       case PushHealth.permissionPrompt:
         message = loc.careRemindersPushOffBanner;
-        action = loc.careRemindersPushOffAction;
       case PushHealth.permissionDenied:
         message = loc.careRemindersPushDeniedBanner;
-        action = loc.careRemindersPushDeniedAction;
       case PushHealth.unknown:
       case PushHealth.ok:
       case PushHealth.syncFailed:
@@ -41,23 +38,43 @@ class PushOffBanner extends StatelessWidget {
 
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: LedgeCard(
-        key: const Key('push-off-banner'),
-        child: Row(
-          children: [
-            Icon(
-              Icons.notifications_off_outlined,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-            TextButton(
-              key: const Key('push-off-action'),
-              onPressed: () => context.push('/reminders'),
-              child: Text(action),
-            ),
-          ],
+      padding: const EdgeInsets.only(bottom: 16),
+      // The banner is inserted into an already-open screen once push health
+      // resolves asynchronously, so a screen reader would otherwise never
+      // announce it.
+      child: Semantics(
+        container: true,
+        liveRegion: true,
+        child: LedgeCard(
+          key: const Key('push-off-banner'),
+          padding: const EdgeInsets.all(16),
+          // Message above, action below (the MaterialBanner arrangement):
+          // side by side, the fixed-width action leaves the message barely a
+          // column of characters on a 320px phone and overflows the row.
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(message)),
+                ],
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  key: const Key('push-off-action'),
+                  onPressed: () => context.push('/reminders'),
+                  child: Text(loc.careRemindersPushOffAction),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -2144,8 +2144,8 @@ void main() {
 
   group('CareTodayScreen push-off banner', () {
     testWidgets(
-      'permissionPrompt with slots today: the banner is the first item and '
-      'its action pushes /reminders',
+      'permissionPrompt with slots today: the banner sits under the date '
+      'header and its action pushes /reminders',
       (tester) async {
         final repository = _FakeCareTodayRepository(
           today: CareToday(date: '2026-07-22', slots: [_slot()]),
@@ -2159,12 +2159,11 @@ void main() {
         );
 
         expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
-        // First item: above the date header the list otherwise starts with.
+        // Header first: the user learns which day they are looking at before
+        // the warning, matching every other screen's date header.
         expect(
-          tester
-              .getTopLeft(find.byKey(const Key('push-off-banner')))
-              .dy,
-          lessThan(
+          tester.getTopLeft(find.byKey(const Key('push-off-banner'))).dy,
+          greaterThan(
             tester.getTopLeft(find.byKey(const Key('care-today-date'))).dy,
           ),
         );

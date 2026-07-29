@@ -1348,17 +1348,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get careRemindersPushOffBanner =>
-      'Notifications aren\'t on — reminders won\'t be delivered';
+      'Notifications aren\'t turned on yet — reminders won\'t be delivered';
 
   @override
   String get careRemindersPushOffAction => 'Turn on notifications';
 
   @override
   String get careRemindersPushDeniedBanner =>
-      'Notifications are turned off — reminders won\'t appear';
-
-  @override
-  String get careRemindersPushDeniedAction => 'Go turn them on';
+      'Notifications are blocked — reminders won\'t be delivered';
 
   @override
   String get careHistoryTitle => 'Care history';

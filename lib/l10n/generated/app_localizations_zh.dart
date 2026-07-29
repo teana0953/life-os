@@ -1301,16 +1301,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careTodaySummarySetupCta => '設定';
 
   @override
-  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+  String get careRemindersPushOffBanner => '通知還沒開啟，提醒不會送達';
 
   @override
   String get careRemindersPushOffAction => '開啟通知';
 
   @override
-  String get careRemindersPushDeniedBanner => '手機通知被關掉了，提醒不會跳出來';
-
-  @override
-  String get careRemindersPushDeniedAction => '去開啟';
+  String get careRemindersPushDeniedBanner => '通知已被封鎖，提醒不會送達';
 
   @override
   String get careHistoryTitle => '照護紀錄';
@@ -2719,16 +2716,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get careTodaySummarySetupCta => '設定';
 
   @override
-  String get careRemindersPushOffBanner => '通知未開啟，提醒不會送達';
+  String get careRemindersPushOffBanner => '通知還沒開啟，提醒不會送達';
 
   @override
   String get careRemindersPushOffAction => '開啟通知';
 
   @override
-  String get careRemindersPushDeniedBanner => '手機通知被關掉了，提醒不會跳出來';
-
-  @override
-  String get careRemindersPushDeniedAction => '去開啟';
+  String get careRemindersPushDeniedBanner => '通知已被封鎖，提醒不會送達';
 
   @override
   String get careHistoryTitle => '照護紀錄';

@@ -2498,29 +2498,23 @@ abstract class AppLocalizations {
   /// **'Set up'**
   String get careTodaySummarySetupCta;
 
-  /// Banner shown on the health overview, Today care, and care reminders management when notification permission has never been requested, warning the user their reminders won't actually arrive.
+  /// Banner shown on the health overview, Today care, and care reminders management when notification permission has never been requested, warning the user their reminders won't actually arrive. Deliberately parallel to careRemindersPushDeniedBanner: same consequence clause, only the state differs, so the two states read as distinct at a glance.
   ///
   /// In en, this message translates to:
-  /// **'Notifications aren\'t on — reminders won\'t be delivered'**
+  /// **'Notifications aren\'t turned on yet — reminders won\'t be delivered'**
   String get careRemindersPushOffBanner;
 
-  /// Action button on the never-requested push banner, tapped to open the reminder/notification settings screen.
+  /// Action button on the push-off banner in both its never-requested and its blocked state, tapped to open the reminder/notification settings screen. One label for both, because it goes to the same place.
   ///
   /// In en, this message translates to:
   /// **'Turn on notifications'**
   String get careRemindersPushOffAction;
 
-  /// Banner shown on the health overview, Today care, and care reminders management when notification permission was turned off by the user or the system — distinct from the never-requested wording, which would be false here.
+  /// Banner shown on the health overview, Today care, and care reminders management when notification permission was blocked by the user or the system — distinct from the never-requested wording, which would be false here. 'Blocked' matches the wording on the reminder settings screen the banner links to. Avoids naming a device, since this is a web app that also runs on desktop.
   ///
   /// In en, this message translates to:
-  /// **'Notifications are turned off — reminders won\'t appear'**
+  /// **'Notifications are blocked — reminders won\'t be delivered'**
   String get careRemindersPushDeniedBanner;
-
-  /// Action button on the turned-off push banner, tapped to open the reminder/notification settings screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Go turn them on'**
-  String get careRemindersPushDeniedAction;
 
   /// AppBar title of the care history screen (route /care-history), reachable from care management and Today care.
   ///

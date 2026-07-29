@@ -61,6 +61,9 @@ enum PushHealth {
    `iosNeedsInstall` 要在 `supported` 之前判，同 `enable_reminders.dart:22`
    （iOS Safari 未安裝時 `PushManager` 是隱藏的，`supported` 會是 false 但那不是「不支援」）。
 2. `await authRepository.idToken()` 為 null → **直接返回，狀態不動**（登出中，不是失效）。
+   第 2 步起整段包在 try/catch 裡：`getIdToken()` 在「token 過期 + 離線」時會丟
+   （`network-request-failed`），而三個觸發點都是不 await 呼叫 `check()`，
+   例外逃出去就變成 unhandled async error、狀態停在舊值。丟例外一律落到 `syncFailed`。
 3. `permissionStatus()`：`denied` → `permissionDenied`；`prompt` → `permissionPrompt`。
    兩者都**不發任何網路請求** —— 權限沒給時 subscribe 必定失敗。
 4. granted → 節流檢查（見下）→ `await EnableReminders(idToken)`。
@@ -94,6 +97,12 @@ enum PushHealth {
 **只存在記憶體** —— 冷啟本來就會做一次，持久化沒有價值。
 
 重入保護：一次只跑一個 `check`，比照 `reminder_settings_controller.dart:79` 的 `enabling` 守衛。
+但 `force: true` 的請求**只延後、不丟掉**（記一個 pending 旗標，這輪結束後再跑一次）：
+第 3 條觸發是唯一能清掉 banner 的路徑，被在途中的 `resumed` check 吃掉就修不好了。
+
+登出（`authStateChanges` 收到 `false`）時把節流時間點清成 null。節流窗屬於掙到它的那個帳號：
+後端以 endpoint upsert 訂閱，同一台瀏覽器換帳號登入必須重新註冊，不能繼承前一個帳號的成功。
+狀態本身不動，維持「登出不閃 banner」。
 
 #### 觸發時機（三條，缺一不可）
 
@@ -104,8 +113,12 @@ enum PushHealth {
 2. **回前景** —— `didChangeAppLifecycleState(AppLifecycleState.resumed)`，
    寫法照 `pwa_update_controller.dart:42`。PWA 常連開好幾天不關，
    「App 開著的時候權限被關掉」不是邊角情況。
-3. **提醒設定頁啟用成功** —— `PushHealthController` 監聽 `ReminderSettingsController`，
-   在 `status` **從非 `enabled` 變成 `enabled`** 的那一刻 `check(force: true)`。
+3. **提醒設定頁按完 Enable** —— `PushHealthController` 監聽 `ReminderSettingsController`，
+   在 `status` **離開 `enabling`** 的那一刻 `check(force: true)`，**不論結果**。
+   不是只在「轉入 `enabled`」時觸發：使用者按了 Enable 之後拒絕系統權限，
+   `status` 會落在 `permissionDenied`，健康度同樣變了；不重新檢查的話 banner 會停在
+   `permissionPrompt` 的「通知還沒開啟」，而那句對一個真的被封鎖的權限是謊話，
+   按下去還會到一個已經沒有 Enable 可按的頁面。
 
    **第 3 條是必要的，不是保險。** banner →「去開啟」→ `/reminders` → 按 Enable → 回總覽，
    全程在同一個 SPA 頁面內，**不會產生 `resumed`**。沒有這條，最常見的修復動線做完之後
@@ -283,9 +296,13 @@ fake `AuthRepository` / fake `ReminderSettingsController`：
 - granted + `EnableReminders` 回非 `enabled` outcome → `syncFailed`
 - 節流：`ok` 後 1 小時內再 `check()` 不呼叫 `EnableReminders` 且狀態仍是 `ok`；
   `force: true` 會呼叫；**上次是 `syncFailed` 時不套用節流**
-- 重入：`check()` 執行中再呼叫一次，`EnableReminders` 只被呼叫一次
+- 節流：登出（`authStateChanges` 發 `false`）後換帳號登入，節流窗內仍會呼叫 `EnableReminders`
+- `idToken()` 丟例外 → `syncFailed`，且不 await 呼叫 `check()` 也不會冒出 unhandled error
+- 重入：`check()` 執行中再呼叫一次，`EnableReminders` 只被呼叫一次；
+  但執行中來一個 `check(force: true)`，這輪結束後會補跑（共兩次）
 - 觸發：`authStateChanges` 發 `true` → `check`；`resumed` → `check`；
-  `ReminderSettingsController.status` 從非 `enabled` 變 `enabled` → `check(force: true)`
+  `ReminderSettingsController.status` 從 `enabling` 變 `enabled` → `check(force: true)`；
+  從 `enabling` 變 `permissionDenied` → 一樣 `check`，狀態轉成 `permissionDenied`
 - **邊緣觸發**：`status` 已經是 `enabled` 時再 `notifyListeners`，
   `EnableReminders` 的呼叫次數**不變**（這條專門釘 `sendTest` 的重複通知）
 

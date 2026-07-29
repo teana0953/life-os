@@ -46,8 +46,8 @@ enum PushHealth {
 /// Checked on three triggers, all three needed: the sign-in becoming
 /// established (a check at app start would find no user, since restoring a
 /// persisted sign-in is asynchronous, and would never run again), the app
-/// returning to the foreground, and the reminder settings screen transitioning
-/// into `enabled` (the banner → settings → enable → back journey never leaves
+/// returning to the foreground, and the reminder settings screen settling out
+/// of `enabling` (the banner → settings → enable → back journey never leaves
 /// the SPA, so it produces no `resumed`).
 class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
   final WebPushGateway _gateway;
@@ -61,6 +61,7 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
   ReminderSettingsStatus _lastSettingsStatus;
   DateTime? _lastSyncAt;
   bool _checking = false;
+  bool _pendingForcedCheck = false;
 
   PushHealthController({
     required WebPushGateway gateway,
@@ -78,8 +79,18 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
        _lastSettingsStatus = reminderSettingsController.status {
     _reminderSettingsController.addListener(_onSettingsChanged);
     _authSubscription = _authRepository.authStateChanges.listen((signedIn) {
-      if (signedIn) check();
+      if (signedIn) {
+        check();
+      } else {
+        // The suppression window belongs to the account that earned it: the
+        // backend upserts a subscription by endpoint, so the next account to
+        // sign in on this browser must re-register rather than inherit the
+        // previous one's success. [health] is deliberately left alone so
+        // signing out doesn't flash a warning.
+        _lastSyncAt = null;
+      }
     });
+    WidgetsBinding.instance.addObserver(this);
   }
 
   PushHealth health = PushHealth.unknown;
@@ -92,16 +103,39 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
   /// Resolves [health], re-registering the push subscription when permission
   /// allows it. [force] skips the post-success suppression window.
   Future<void> check({bool force = false}) async {
-    // Re-entrancy guard: ignore a second call while one is already running.
-    if (_checking) return;
+    // Re-entrancy guard: a plain second call is dropped, but a forced one is
+    // only deferred. The settings-screen trigger is the one path that clears
+    // the banner without leaving the SPA, so it must not be swallowed by a
+    // `resumed` check that happens to be in flight.
+    if (_checking) {
+      if (force) _pendingForcedCheck = true;
+      return;
+    }
     _checking = true;
     try {
-      final env = _gateway.describeEnvironment();
-      if (env.iosNeedsInstall || !env.supported) {
-        _set(PushHealth.unsupported);
-        return;
-      }
+      await _resolve(force);
+    } finally {
+      _checking = false;
+    }
+    if (_pendingForcedCheck) {
+      _pendingForcedCheck = false;
+      await check(force: true);
+    }
+  }
 
+  Future<void> _resolve(bool force) async {
+    final env = _gateway.describeEnvironment();
+    if (env.iosNeedsInstall || !env.supported) {
+      _set(PushHealth.unsupported);
+      return;
+    }
+
+    // Everything from the token read on is guarded: `getIdToken()` itself
+    // throws when the cached token has expired and the device is offline —
+    // the very situation this controller exists for — and all three triggers
+    // call [check] without awaiting, so an escaping error would become an
+    // unhandled async error and leave [health] stale.
+    try {
       // Signed out: not a failure. Leaving [health] alone keeps a banner from
       // flashing on the way out.
       final idToken = await _authRepository.idToken();
@@ -126,32 +160,31 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
         if (_clock().difference(_lastSyncAt!) < _suppressWindow) return;
       }
 
-      try {
-        final outcome = await _enableReminders(idToken);
-        if (outcome == EnableRemindersOutcome.enabled) {
-          _lastSyncAt = _clock();
-          _set(PushHealth.ok);
-        } else {
-          _set(PushHealth.syncFailed);
-        }
-      } catch (_) {
+      final outcome = await _enableReminders(idToken);
+      if (outcome == EnableRemindersOutcome.enabled) {
+        _lastSyncAt = _clock();
+        _set(PushHealth.ok);
+      } else {
         _set(PushHealth.syncFailed);
       }
-    } finally {
-      _checking = false;
+    } catch (_) {
+      _set(PushHealth.syncFailed);
     }
   }
 
-  /// Edge-triggered: only the transition *into* `enabled` re-checks. Level
-  /// triggering would re-sync on every unrelated notification from that
+  /// Edge-triggered on *leaving* `enabling`, whatever the outcome: the user
+  /// denying the browser prompt is as much a health change as granting it, and
+  /// leaving it unchecked would keep showing "notifications aren't on yet" for
+  /// a permission that is now genuinely denied. Still an edge and not a level:
+  /// level triggering would re-sync on every unrelated notification from that
   /// screen — `sendTest` alone notifies twice per call while already enabled,
   /// each of which would bypass the suppression window.
   void _onSettingsChanged() {
     final previous = _lastSettingsStatus;
     final current = _reminderSettingsController.status;
     _lastSettingsStatus = current;
-    if (current == ReminderSettingsStatus.enabled &&
-        previous != ReminderSettingsStatus.enabled) {
+    if (previous == ReminderSettingsStatus.enabling &&
+        current != ReminderSettingsStatus.enabling) {
       check(force: true);
     }
   }
@@ -164,6 +197,7 @@ class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription.cancel();
     _reminderSettingsController.removeListener(_onSettingsChanged);
     super.dispose();

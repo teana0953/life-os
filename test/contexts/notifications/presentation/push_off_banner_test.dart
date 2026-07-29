@@ -8,9 +8,14 @@ import '../../../support/l10n_test_app.dart';
 
 final _en = lookupAppLocalizations(const Locale('en'));
 
-Future<void> _pumpBanner(WidgetTester tester, PushHealth health) async {
+Future<void> _pumpBanner(
+  WidgetTester tester,
+  PushHealth health, {
+  Locale locale = const Locale('en'),
+}) async {
   await tester.pumpWidget(
     l10nRouterTestApp(
+      locale: locale,
       home: Scaffold(body: PushOffBanner(health: health)),
     ),
   );
@@ -44,8 +49,9 @@ void main() {
 
         expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
         expect(find.text(_en.careRemindersPushDeniedBanner), findsOneWidget);
-        expect(find.text(_en.careRemindersPushDeniedAction), findsOneWidget);
-        // The two states must not share copy: "turned off" would be a lie for
+        // Same action label as the prompt state — it goes to the same place.
+        expect(find.text(_en.careRemindersPushOffAction), findsOneWidget);
+        // The two states must not share copy: "blocked" would be a lie for
         // a permission that was never requested.
         expect(
           _en.careRemindersPushDeniedBanner,
@@ -91,5 +97,45 @@ void main() {
         expect(find.byType(TextButton), findsNothing);
       },
     );
+
+    testWidgets('the message is announced to screen readers when it appears', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await _pumpBanner(tester, PushHealth.permissionPrompt);
+
+      expect(
+        tester
+            .getSemantics(find.byKey(const Key('push-off-banner')))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+
+      handle.dispose();
+    });
+
+    for (final width in const [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'lays out without overflow at ${width.toInt()}px in '
+          '${locale.toLanguageTag()}',
+          (tester) async {
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            await tester.binding.setSurfaceSize(Size(width, 800));
+
+            await _pumpBanner(
+              tester,
+              PushHealth.permissionDenied,
+              locale: locale,
+            );
+
+            expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

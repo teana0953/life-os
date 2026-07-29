@@ -13,10 +13,14 @@ import 'package:life_os/contexts/notifications/presentation/reminder_settings_co
 
 class _FakeAuthRepository implements AuthRepository {
   String? token = 'token-123';
+  Object? tokenError;
   final StreamController<bool> authState = StreamController<bool>.broadcast();
 
   @override
-  Future<String?> idToken() async => token;
+  Future<String?> idToken() async {
+    if (tokenError != null) throw tokenError!;
+    return token;
+  }
 
   @override
   Stream<bool> get authStateChanges => authState.stream;
@@ -121,6 +125,21 @@ _Harness _harness() {
   return harness;
 }
 
+/// Replays what `ReminderSettingsController.enable` broadcasts: idle →
+/// `enabling` → [outcome], each with its own notification. Going through
+/// `enabling` matters — that transition out of it is what the health
+/// controller keys on.
+Future<void> _enableOnSettings(
+  _Harness harness,
+  ReminderSettingsStatus outcome,
+) async {
+  harness.settings.status = ReminderSettingsStatus.enabling;
+  harness.settings.notifyListeners();
+  harness.settings.status = outcome;
+  harness.settings.notifyListeners();
+  await pumpEventQueue();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -167,6 +186,23 @@ void main() {
 
         expect(h.controller.health, PushHealth.ok);
         expect(h.enableReminders.calls, 1);
+      },
+    );
+
+    test(
+      'a throwing idToken resolves to syncFailed instead of escaping — '
+      'an expired token on an offline device throws',
+      () async {
+        final h = _harness();
+        h.auth.tokenError = Exception('network-request-failed');
+
+        // Unawaited, exactly as all three triggers call it: an escaping error
+        // would surface as an unhandled async error and fail the test.
+        h.controller.check();
+        await pumpEventQueue();
+
+        expect(h.controller.health, PushHealth.syncFailed);
+        expect(h.enableReminders.calls, 0);
       },
     );
   });
@@ -284,6 +320,27 @@ void main() {
 
       expect(h.enableReminders.calls, 2);
     });
+
+    test(
+      'signing out clears the suppression, so the next account signing in on '
+      'this browser re-registers its own subscription',
+      () async {
+        final h = _harness();
+        await h.controller.check();
+        expect(h.controller.health, PushHealth.ok);
+
+        h.auth.authState.add(false);
+        await pumpEventQueue();
+        // Signing out must still not flash a warning.
+        expect(h.controller.health, PushHealth.ok);
+
+        h.now = h.now.add(const Duration(minutes: 10));
+        h.auth.authState.add(true);
+        await pumpEventQueue();
+
+        expect(h.enableReminders.calls, 2);
+      },
+    );
   });
 
   group('PushHealthController re-entrancy', () {
@@ -301,6 +358,26 @@ void main() {
       expect(h.enableReminders.calls, 1);
       expect(h.controller.health, PushHealth.ok);
     });
+
+    test(
+      'a forced check arriving mid-flight is deferred, not dropped — it is '
+      'the only trigger that clears the banner without leaving the SPA',
+      () async {
+        final h = _harness();
+        final gate = Completer<void>();
+        h.enableReminders.gate = gate;
+
+        final first = h.controller.check();
+        await pumpEventQueue();
+        final second = h.controller.check(force: true);
+        gate.complete();
+        await Future.wait([first, second]);
+        await pumpEventQueue();
+
+        expect(h.enableReminders.calls, 2);
+        expect(h.controller.health, PushHealth.ok);
+      },
+    );
   });
 
   group('PushHealthController triggers', () {
@@ -336,18 +413,33 @@ void main() {
     });
 
     test(
-      'the reminder settings screen turning enabled checks, bypassing '
+      'the reminder settings screen finishing an enable checks, bypassing '
       'suppression',
       () async {
         final h = _harness();
         await h.controller.check();
         expect(h.enableReminders.calls, 1);
 
-        h.settings.status = ReminderSettingsStatus.enabled;
-        h.settings.notifyListeners();
-        await pumpEventQueue();
+        await _enableOnSettings(h, ReminderSettingsStatus.enabled);
 
         expect(h.enableReminders.calls, 2);
+      },
+    );
+
+    test(
+      'denying the permission prompt on the settings screen re-checks, so the '
+      'banner stops claiming notifications were never asked for',
+      () async {
+        final h = _harness();
+        h.gateway.permission = PushPermissionStatus.prompt;
+        await h.controller.check();
+        expect(h.controller.health, PushHealth.permissionPrompt);
+
+        // The user tapped Enable and then denied the browser prompt.
+        h.gateway.permission = PushPermissionStatus.denied;
+        await _enableOnSettings(h, ReminderSettingsStatus.permissionDenied);
+
+        expect(h.controller.health, PushHealth.permissionDenied);
       },
     );
 
@@ -355,9 +447,7 @@ void main() {
       'an already-enabled settings screen notifying again does not check',
       () async {
         final h = _harness();
-        h.settings.status = ReminderSettingsStatus.enabled;
-        h.settings.notifyListeners();
-        await pumpEventQueue();
+        await _enableOnSettings(h, ReminderSettingsStatus.enabled);
         expect(h.enableReminders.calls, 1);
 
         // What `sendTest` does twice per call while already enabled.
