@@ -19,6 +19,8 @@ import '../../notifications/presentation/care_adherence_card.dart';
 import '../../notifications/presentation/care_history_controller.dart';
 import '../../notifications/presentation/care_today_controller.dart';
 import '../../notifications/presentation/care_today_summary_card.dart';
+import '../../notifications/presentation/push_health_controller.dart';
+import '../../notifications/presentation/push_off_banner.dart';
 import '../../vitals/presentation/trend_card.dart';
 import '../../vitals/presentation/trend_controller.dart';
 import '../../vitals/presentation/vitals_controller.dart';
@@ -103,8 +105,13 @@ class HealthScaffold extends StatefulWidget {
   /// refresh-health-after-import design).
   final DataRevision dataRevision;
 
+  /// Read-only: drives the overview's push-off banner (and is one of the
+  /// [_overviewControllers], so a health change rebuilds the overview).
+  final PushHealthController pushHealthController;
+
   const HealthScaffold({
     super.key,
+    required this.pushHealthController,
     required this.authRepository,
     required this.signOut,
     required this.weightGoalController,
@@ -169,6 +176,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     widget.menstrualController,
     widget.careTodayController,
     widget.careAdherenceController,
+    widget.pushHealthController,
   ];
 
   @override
@@ -300,6 +308,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
         index: _index,
         children: [
           _OverviewBody(
+            pushHealthController: widget.pushHealthController,
             weightGoalController: widget.weightGoalController,
             healthCalendarController: widget.healthCalendarController,
             careTodayController: widget.careTodayController,
@@ -354,6 +363,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
 /// 總覽: the at-a-glance cards (today's care + goal + next period + this-month
 /// record calendar).
 class _OverviewBody extends StatelessWidget {
+  final PushHealthController pushHealthController;
   final WeightGoalController weightGoalController;
   final HealthCalendarController healthCalendarController;
   final CareTodayController careTodayController;
@@ -361,6 +371,7 @@ class _OverviewBody extends StatelessWidget {
   final String idToken;
 
   const _OverviewBody({
+    required this.pushHealthController,
     required this.weightGoalController,
     required this.healthCalendarController,
     required this.careTodayController,
@@ -377,6 +388,12 @@ class _OverviewBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              // Only with slots today: the summary card renders for
+              // zero-schedule users too (its setup prompt), and warning
+              // someone with no reminders that notifications are off is pure
+              // noise to them.
+              if (careTodayController.slots.isNotEmpty)
+                PushOffBanner(health: pushHealthController.health),
               CareTodaySummaryCard(
                 controller: careTodayController,
                 idToken: idToken,

@@ -23,6 +23,7 @@ import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_items_screen.dart';
 import 'contexts/notifications/presentation/care_today_controller.dart';
 import 'contexts/notifications/presentation/care_today_screen.dart';
+import 'contexts/notifications/presentation/push_health_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -178,6 +179,10 @@ class App extends StatefulWidget {
   final PwaUpdateController pwaUpdateController;
   final ChaodaysImportController chaodaysImportController;
   final ReminderSettingsController reminderSettingsController;
+
+  /// Drives the shared push-off banner on the health overview, 今日照護, and
+  /// care reminders management (all three subscribe to it).
+  final PushHealthController pushHealthController;
   final CareItemsController careItemsController;
   final CareTodayController careTodayController;
   final CareHistoryController careHistoryController;
@@ -223,6 +228,7 @@ class App extends StatefulWidget {
     required this.pwaUpdateController,
     required this.chaodaysImportController,
     required this.reminderSettingsController,
+    required this.pushHealthController,
     required this.careItemsController,
     required this.careTodayController,
     required this.careHistoryController,
@@ -460,7 +466,7 @@ class _AppState extends State<App> {
           builder: (context, state) => CareItemsScreen(
             controller: widget.careItemsController,
             authRepository: widget.authRepository,
-            reminderSettingsController: widget.reminderSettingsController,
+            pushHealthController: widget.pushHealthController,
           ),
         ),
         GoRoute(
@@ -469,6 +475,7 @@ class _AppState extends State<App> {
             controller: widget.careTodayController,
             authRepository: widget.authRepository,
             onOpenCareItems: () => context.push('/care-items'),
+            pushHealthController: widget.pushHealthController,
           ),
         ),
         GoRoute(
@@ -485,6 +492,7 @@ class _AppState extends State<App> {
         GoRoute(
           path: '/health',
           builder: (context, state) => HealthScaffold(
+            pushHealthController: widget.pushHealthController,
             authRepository: widget.authRepository,
             signOut: widget.signOut,
             weightGoalController: widget.weightGoalController,

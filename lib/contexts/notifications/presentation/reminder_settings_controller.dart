@@ -42,14 +42,6 @@ class ReminderSettingsController extends ChangeNotifier {
   ReminderSettingsStatus status = ReminderSettingsStatus.idle;
   Object? error;
 
-  /// Whether push is actually on: `status == enabled` alone understates it —
-  /// [load] resolves back to `idle` for an already-subscribed prior session
-  /// (see class doc), so this also treats a granted browser permission as
-  /// "on". Read-only; does not affect [enable]/[sendTest].
-  bool get pushOn =>
-      status == ReminderSettingsStatus.enabled ||
-      _gateway.permissionStatus() == PushPermissionStatus.granted;
-
   bool testInFlight = false;
   TestPushResult? testResult;
   Object? testError;

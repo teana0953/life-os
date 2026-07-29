@@ -209,38 +209,6 @@ void main() {
     );
   });
 
-  group('ReminderSettingsController.pushOn', () {
-    test('is true when status is enabled', () {
-      final controller = _controller()..status = ReminderSettingsStatus.enabled;
-
-      expect(controller.pushOn, isTrue);
-    });
-
-    test(
-      'is true when permission is granted even if status is not enabled',
-      () {
-        final gateway = _FakeWebPushGateway()
-          ..permission = PushPermissionStatus.granted;
-        final controller = _controller(gateway: gateway)
-          ..status = ReminderSettingsStatus.idle;
-
-        expect(controller.pushOn, isTrue);
-      },
-    );
-
-    test(
-      'is false when status is idle and permission is not granted',
-      () {
-        final gateway = _FakeWebPushGateway()
-          ..permission = PushPermissionStatus.prompt;
-        final controller = _controller(gateway: gateway)
-          ..status = ReminderSettingsStatus.idle;
-
-        expect(controller.pushOn, isFalse);
-      },
-    );
-  });
-
   group('ReminderSettingsController.sendTest', () {
     test(
       'surfaces the sent/failed result and does not change status',

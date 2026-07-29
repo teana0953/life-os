@@ -1,0 +1,227 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
+
+import '../../auth/domain/auth_repository.dart';
+import '../application/enable_reminders.dart';
+import '../domain/web_push_gateway.dart';
+import 'reminder_settings_controller.dart';
+
+/// Whether push notifications can actually reach this device.
+enum PushHealth {
+  /// Not checked yet — show nothing rather than guess.
+  unknown,
+
+  /// The subscription is registered and permission is granted.
+  ok,
+
+  /// Permission has never been requested (browser `default`).
+  permissionPrompt,
+
+  /// Permission was turned off by the user or the system.
+  permissionDenied,
+
+  /// Permission is granted but re-registering the subscription failed. Not
+  /// surfaced to the user (the backend subscription is still live and push
+  /// still arrives); retried silently on the next check.
+  syncFailed,
+
+  /// This environment cannot do Web Push at all.
+  unsupported,
+}
+
+/// Detects when push can't be delivered and silently repairs what it can.
+///
+/// The dividing line: a drifted *subscription* is the program's problem and is
+/// fixed by re-running [EnableReminders] (idempotent — an already-subscribed
+/// browser returns its existing subscription and the backend upserts by
+/// endpoint), while an OS-level *permission* being off is the only thing the
+/// user has to act on, and the only thing that raises a banner.
+///
+/// [check] resolves in four steps and the order is the design: the environment
+/// first (`iosNeedsInstall` before `supported`, as in `EnableReminders` — iOS
+/// Safari hides `PushManager` until the app is installed), then the signed-in
+/// state, then the permission, and only then the sync.
+///
+/// Checked on three triggers, all three needed: the sign-in becoming
+/// established (a check at app start would find no user, since restoring a
+/// persisted sign-in is asynchronous, and would never run again), the app
+/// returning to the foreground, and the reminder settings screen finishing an
+/// enable attempt (the banner → settings → enable → back journey never leaves
+/// the SPA, so it produces no `resumed`).
+class PushHealthController extends ChangeNotifier with WidgetsBindingObserver {
+  final WebPushGateway _gateway;
+  final EnableReminders _enableReminders;
+  final AuthRepository _authRepository;
+  final ReminderSettingsController _reminderSettingsController;
+  final DateTime Function() _clock;
+  final Duration _suppressWindow;
+
+  late StreamSubscription<bool> _authSubscription;
+  ReminderSettingsStatus _lastSettingsStatus;
+  DateTime? _lastSyncAt;
+  bool _checking = false;
+  bool _pendingForcedCheck = false;
+
+  PushHealthController({
+    required WebPushGateway gateway,
+    required EnableReminders enableReminders,
+    required AuthRepository authRepository,
+    required ReminderSettingsController reminderSettingsController,
+    DateTime Function() clock = DateTime.now,
+    Duration suppressWindow = const Duration(hours: 1),
+  }) : _gateway = gateway,
+       _enableReminders = enableReminders,
+       _authRepository = authRepository,
+       _reminderSettingsController = reminderSettingsController,
+       _clock = clock,
+       _suppressWindow = suppressWindow,
+       _lastSettingsStatus = reminderSettingsController.status {
+    _reminderSettingsController.addListener(_onSettingsChanged);
+    _authSubscription = _authRepository.authStateChanges.listen((signedIn) {
+      if (signedIn) {
+        check();
+      } else {
+        // The suppression window belongs to the account that earned it: the
+        // backend upserts a subscription by endpoint, so the next account to
+        // sign in on this browser must re-register rather than inherit the
+        // previous one's success. [health] is deliberately left alone so
+        // signing out doesn't flash a warning. A forced check queued just
+        // before the sign-out is dropped with it — it was about the account
+        // that just left.
+        _lastSyncAt = null;
+        _pendingForcedCheck = false;
+      }
+    });
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  PushHealth health = PushHealth.unknown;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) check();
+  }
+
+  /// Resolves [health], re-registering the push subscription when permission
+  /// allows it. [force] skips the post-success suppression window.
+  Future<void> check({bool force = false}) async {
+    // Re-entrancy guard: a plain second call is dropped, but a forced one is
+    // only deferred. The settings-screen trigger is the one path that clears
+    // the banner without leaving the SPA, so it must not be swallowed by a
+    // `resumed` check that happens to be in flight.
+    if (_checking) {
+      if (force) _pendingForcedCheck = true;
+      return;
+    }
+    _checking = true;
+    var pending = false;
+    try {
+      await _resolve(force);
+    } finally {
+      _checking = false;
+      // Consumed on every exit path, including one that throws past here
+      // (`describeEnvironment` is outside `_resolve`'s catch): a flag left set
+      // would make some unrelated later check run twice.
+      pending = _pendingForcedCheck;
+      _pendingForcedCheck = false;
+    }
+    if (pending) await check(force: true);
+  }
+
+  Future<void> _resolve(bool force) async {
+    final env = _gateway.describeEnvironment();
+    if (env.iosNeedsInstall || !env.supported) {
+      _set(PushHealth.unsupported);
+      return;
+    }
+
+    // Everything from the token read on is guarded: `getIdToken()` itself
+    // throws when the cached token has expired and the device is offline —
+    // the very situation this controller exists for — and all three triggers
+    // call [check] without awaiting, so an escaping error would become an
+    // unhandled async error and leave [health] stale.
+    try {
+      // Signed out: not a failure. Leaving [health] alone keeps a banner from
+      // flashing on the way out.
+      final idToken = await _authRepository.idToken();
+      if (idToken == null) return;
+
+      switch (_gateway.permissionStatus()) {
+        case PushPermissionStatus.denied:
+          _set(PushHealth.permissionDenied);
+          return;
+        case PushPermissionStatus.prompt:
+          _set(PushHealth.permissionPrompt);
+          return;
+        case PushPermissionStatus.granted:
+          break;
+      }
+
+      // Suppression applies only after a success: the moment permission comes
+      // back is exactly when re-subscribing matters most (the browser
+      // invalidates the old subscription when permission is revoked), so a
+      // failed or permission-blocked state always re-attempts.
+      if (!force && health == PushHealth.ok && _lastSyncAt != null) {
+        if (_clock().difference(_lastSyncAt!) < _suppressWindow) return;
+      }
+
+      final outcome = await _enableReminders(idToken);
+      if (outcome == EnableRemindersOutcome.enabled) {
+        _lastSyncAt = _clock();
+        _set(PushHealth.ok);
+      } else {
+        _set(PushHealth.syncFailed);
+      }
+    } catch (_) {
+      _set(PushHealth.syncFailed);
+    }
+  }
+
+  /// Edge-triggered on *two* edges, and both are needed:
+  ///
+  /// - *leaving* `enabling`, whatever the outcome — the user denying the
+  ///   browser prompt is as much a health change as granting it, and leaving
+  ///   it unchecked would keep showing "notifications aren't on yet" for a
+  ///   permission that is now genuinely denied;
+  /// - *entering* `enabled` — because [ReminderSettingsController.load] runs on
+  ///   every open of the settings screen and is a no-op only once the status is
+  ///   already `enabled`. With an enable in flight it overwrites `enabling`
+  ///   with `idle` and notifies, spending the "left `enabling`" edge at a
+  ///   moment when permission may still be `prompt`; the real success would
+  ///   then arrive as idle → `enabled` and fire nothing.
+  ///
+  /// Still edges and not levels: level triggering would re-sync on every
+  /// unrelated notification from that screen — `sendTest` alone notifies twice
+  /// per call while already enabled, each of which would bypass the suppression
+  /// window. Neither edge can be crossed by `sendTest`, which never enters or
+  /// leaves `enabling` and never arrives at `enabled` from another status.
+  void _onSettingsChanged() {
+    final previous = _lastSettingsStatus;
+    final current = _reminderSettingsController.status;
+    _lastSettingsStatus = current;
+    final leftEnabling =
+        previous == ReminderSettingsStatus.enabling &&
+        current != ReminderSettingsStatus.enabling;
+    final becameEnabled =
+        current == ReminderSettingsStatus.enabled &&
+        previous != ReminderSettingsStatus.enabled;
+    if (leftEnabling || becameEnabled) {
+      check(force: true);
+    }
+  }
+
+  void _set(PushHealth next) {
+    if (health == next) return;
+    health = next;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSubscription.cancel();
+    _reminderSettingsController.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+}

@@ -66,6 +66,7 @@ import 'contexts/notifications/infrastructure/http_push_repository.dart';
 import 'contexts/notifications/presentation/care_history_controller.dart';
 import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_today_controller.dart';
+import 'contexts/notifications/presentation/push_health_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -234,10 +235,22 @@ Future<void> main() async {
     client: httpClient,
   );
   const webPushGateway = BrowserWebPushGateway();
+  // One instance, shared with the push-health controller below: both re-run
+  // the same idempotent grant → subscribe → save flow.
+  final enableReminders = EnableReminders(pushRepository, webPushGateway);
   final reminderSettingsController = ReminderSettingsController(
     webPushGateway,
-    EnableReminders(pushRepository, webPushGateway),
+    enableReminders,
     SendTestPush(pushRepository),
+  );
+  // Never `check()`ed here: it subscribes to `authStateChanges` itself, and a
+  // check at start would find no user (restoring a persisted sign-in on web is
+  // asynchronous) and never run again.
+  final pushHealthController = PushHealthController(
+    gateway: webPushGateway,
+    enableReminders: enableReminders,
+    authRepository: authRepository,
+    reminderSettingsController: reminderSettingsController,
   );
   final careItemRepository = HttpCareRepository(
     baseUrl: apiBaseUrl,
@@ -309,6 +322,7 @@ Future<void> main() async {
       pwaUpdateController: pwaUpdateController,
       chaodaysImportController: chaodaysImportController,
       reminderSettingsController: reminderSettingsController,
+      pushHealthController: pushHealthController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,
       careHistoryController: careHistoryController,
