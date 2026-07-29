@@ -415,4 +415,52 @@ void main() {
       expect(controller.hasUnsavedChanges, isFalse);
     });
   });
+
+  group('VitalsController.lastLoadedAt', () {
+    final at = DateTime(2026, 7, 18, 9, 41);
+
+    VitalsController controllerWithClock(FakeVitalsRepository repository) =>
+        VitalsController(
+          GetVitalsDay(repository),
+          SaveVitalsDay(repository),
+          loadClock: () => at,
+        );
+
+    test('is null before the first successful load', () {
+      final controller = controllerWithClock(FakeVitalsRepository());
+      expect(controller.lastLoadedAt, isNull);
+    });
+
+    test('is set to the clock value on a successful load', () async {
+      final controller = controllerWithClock(FakeVitalsRepository());
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.lastLoadedAt, at);
+    });
+
+    test('is left unchanged when a load fails (needsReauth)', () async {
+      final repository = FakeVitalsRepository();
+      final controller = controllerWithClock(repository);
+      await controller.load('token', '2026-07-18');
+      final firstLoad = controller.lastLoadedAt;
+
+      repository.getError = const VitalsReauthenticationRequired();
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, VitalsStatus.needsReauth);
+      expect(controller.lastLoadedAt, firstLoad);
+    });
+
+    test('stays null after a failed load with no prior success', () async {
+      final repository = FakeVitalsRepository()
+        ..getError = const VitalsFetchFailure('boom');
+      final controller = controllerWithClock(repository);
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, VitalsStatus.error);
+      expect(controller.lastLoadedAt, isNull);
+    });
+  });
 }

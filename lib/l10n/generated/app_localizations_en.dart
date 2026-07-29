@@ -1468,4 +1468,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get careHistoryNoCareItemsBody =>
       'You haven\'t set up any care items yet. Add one to start tracking.';
+
+  @override
+  String lastUpdatedAt(String time) {
+    return 'Updated $time';
+  }
+
+  @override
+  String get refreshDiscardTitle => 'Discard unsaved changes?';
+
+  @override
+  String get refreshDiscardMessage =>
+      'Refreshing will discard your unsaved changes.';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get cancel => 'Cancel';
 }

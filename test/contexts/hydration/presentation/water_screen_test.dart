@@ -12,6 +12,7 @@ import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/hydration/presentation/water_controller.dart';
 import 'package:life_os/contexts/hydration/presentation/water_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -23,10 +24,17 @@ class FakeWaterRepository implements WaterRepository {
   int target;
   Object? getError;
 
+  /// The day passed to the most recent [getDay] — lets a refresh test assert
+  /// the reload targeted the viewed day.
+  String? lastGetDay;
+  int getDayCallCount = 0;
+
   FakeWaterRepository({this.total = 0, this.target = 2000});
 
   @override
   Future<WaterDay> getDay(String idToken, String day) async {
+    getDayCallCount++;
+    lastGetDay = day;
     if (getError != null) throw getError!;
     return WaterDay(
       day: day,
@@ -379,6 +387,66 @@ void main() {
 
       expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the list is always scrollable so a short day still pulls', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        repository: FakeWaterRepository(total: 500, target: 2000),
+      );
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      final list = tester.widget<ListView>(
+        find.descendant(
+          of: find.byType(RefreshIndicator),
+          matching: find.byType(ListView),
+        ),
+      );
+      expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+    });
+
+    testWidgets('pulling to refresh reloads the viewed day', (tester) async {
+      final repository = FakeWaterRepository(total: 500, target: 2000);
+      await _pumpScreen(tester, repository: repository, day: '2026-07-18');
+      final before = repository.getDayCallCount;
+
+      await tester.fling(
+        find.byType(RefreshIndicator),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.getDayCallCount, before + 1);
+      expect(repository.lastGetDay, '2026-07-18');
+    });
+
+    testWidgets('shows the controller\'s last-loaded time', (tester) async {
+      final controller = WaterController(
+        GetWaterDay(FakeWaterRepository(total: 500, target: 2000)),
+        AddWater(FakeWaterRepository()),
+        SetWaterTarget(FakeWaterRepository()),
+        clock: () => DateTime(2026, 7, 18, 9, 41),
+      );
+      await controller.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: WaterScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = tester.widget<LastLoadedLabel>(
+        find.byType(LastLoadedLabel),
+      );
+      expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
     });
   });
 }

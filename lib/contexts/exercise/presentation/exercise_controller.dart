@@ -23,17 +23,28 @@ class ExerciseController extends ChangeNotifier {
   final AddExerciseEntry _addEntry;
   final DeleteExerciseEntry _deleteEntry;
 
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load.
+  /// Defaults to [DateTime.now]; tests pin it so the stamp is deterministic
+  /// (mirrors the home greeting / reminders-throttle clocks).
+  final DateTime Function() _clock;
+
   ExerciseController(
     this._listActivities,
     this._getDay,
     this._addEntry,
-    this._deleteEntry,
-  );
+    this._deleteEntry, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   ExerciseStatus status = ExerciseStatus.loading;
   ExerciseError? error;
   ExerciseDay? day;
   List<ExerciseActivity> activities = [];
+
+  /// When the day was last loaded successfully, or `null` before the first
+  /// success — updated only on a successful [load], left unchanged on failure
+  /// so it always reflects the data currently shown.
+  DateTime? lastLoadedAt;
 
   /// Loads the day's entries and, if not already cached, the static activity
   /// library. The library is static, so it is fetched only once per controller.
@@ -48,6 +59,7 @@ class ExerciseController extends ChangeNotifier {
       }
       this.day = await _getDay(idToken, day);
       status = ExerciseStatus.loaded;
+      lastLoadedAt = _clock();
     } on ExerciseReauthenticationRequired {
       status = ExerciseStatus.needsReauth;
     } on ExerciseFetchFailure {

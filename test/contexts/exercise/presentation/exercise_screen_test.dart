@@ -10,6 +10,7 @@ import 'package:life_os/contexts/exercise/domain/exercise_repository.dart';
 import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart';
 import 'package:life_os/contexts/exercise/presentation/exercise_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -18,6 +19,8 @@ class FakeExerciseRepository implements ExerciseRepository {
   final Map<String, List<ExerciseEntry>> _byDay = {};
   int _nextId = 1;
   Object? failGetDay;
+  int getDayCallCount = 0;
+  String? lastGetDay;
 
   @override
   Future<List<ExerciseActivity>> listActivities(String idToken) async => const [
@@ -37,6 +40,8 @@ class FakeExerciseRepository implements ExerciseRepository {
 
   @override
   Future<ExerciseDay> getDay(String idToken, String day) async {
+    getDayCallCount++;
+    lastGetDay = day;
     if (failGetDay != null) throw failGetDay!;
     final entries = _byDay[day] ?? const [];
     return ExerciseDay(
@@ -335,4 +340,68 @@ void main() {
       expect(field.keyboardType.decimal, isFalse);
     },
   );
+
+  testWidgets('the list is always scrollable so a short day still pulls', (
+    tester,
+  ) async {
+    await _pumpScreen(tester, repository: FakeExerciseRepository());
+
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+    final list = tester.widget<ListView>(
+      find.descendant(
+        of: find.byType(RefreshIndicator),
+        matching: find.byType(ListView),
+      ),
+    );
+    expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+  });
+
+  testWidgets('pulling to refresh reloads the viewed day', (tester) async {
+    final repository = FakeExerciseRepository();
+    await _pumpScreen(tester, repository: repository, day: '2026-07-18');
+    final before = repository.getDayCallCount;
+
+    // Drag down far enough to clear the RefreshIndicator's arm threshold on
+    // the tall (1600px) test surface, pumping the intermediate frames the
+    // indicator needs to fire its onRefresh.
+    await tester.fling(
+      find.byType(RefreshIndicator),
+      const Offset(0, 600),
+      2000,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(repository.getDayCallCount, before + 1);
+    expect(repository.lastGetDay, '2026-07-18');
+  });
+
+  testWidgets('shows the controller\'s last-loaded time', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repo = FakeExerciseRepository();
+    final controller = ExerciseController(
+      ListExerciseActivities(repo),
+      GetExerciseDay(repo),
+      AddExerciseEntry(repo),
+      DeleteExerciseEntry(repo),
+      clock: () => DateTime(2026, 7, 18, 9, 41),
+    );
+    await controller.load('token', '2026-07-18');
+    await tester.pumpWidget(
+      l10nTestApp(
+        home: ExerciseScreen(
+          controller: controller,
+          idToken: 'token',
+          day: '2026-07-18',
+          clock: _clock,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final label = tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel));
+    expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
+  });
 }

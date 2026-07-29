@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/vitals_day.dart';
@@ -45,7 +46,43 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) =>
+      widget.controller.load(widget.idToken, day);
+
+  /// Pull-to-refresh for vitals: unlike the other trackers, a reload here
+  /// overwrites the editable draft (via `VitalsController._applyRecord`), so it
+  /// would silently eat unsaved edits. When there are unsaved changes, confirm
+  /// first — reload only if the user accepts; cancelling keeps the draft and
+  /// reloads nothing. With no unsaved edits it behaves like the shared default.
+  /// This gate lives here, not in the shared mixin — only vitals has the
+  /// draft-overwrite hazard.
+  Future<void> _refreshWithUnsavedGuard() async {
+    if (!widget.controller.hasUnsavedChanges) {
+      return reloadDay(viewedDay);
+    }
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.refreshDiscardTitle),
+        content: Text(loc.refreshDiscardMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(loc.cancel),
+          ),
+          FilledButton(
+            key: const Key('vitals-refresh-discard-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(loc.discard),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await reloadDay(viewedDay);
+    }
+  }
 
   /// Whether [widget.autoAddSection] has already been consumed. Lives on the
   /// State (not the widget): `build` runs on every keystroke/rotation, and
@@ -294,15 +331,22 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                       : null,
                 ),
                 Expanded(
-                  // Deliberately NOT a ListView: its lazy delegate only builds
-                  // what is near the viewport, so with a few readings already
-                  // logged the glucose/bp section a shortcut targets is never
-                  // built — `_autoAddRowKey.currentContext` is null and both
-                  // the focus and the scroll-into-view silently do nothing.
-                  // The content here is a fixed handful of cards, so building
-                  // it all costs nothing. `stretch` restores the full-width
-                  // cross-axis sizing children got from the sliver.
-                  child: SingleChildScrollView(
+                  child: refreshable(
+                    // Vitals confirms before discarding an unsaved draft (a
+                    // reload overwrites it), unlike the other trackers.
+                    onRefresh: _refreshWithUnsavedGuard,
+                    // Deliberately NOT a ListView: its lazy delegate only builds
+                    // what is near the viewport, so with a few readings already
+                    // logged the glucose/bp section a shortcut targets is never
+                    // built — `_autoAddRowKey.currentContext` is null and both
+                    // the focus and the scroll-into-view silently do nothing.
+                    // The content here is a fixed handful of cards, so building
+                    // it all costs nothing. `stretch` restores the full-width
+                    // cross-axis sizing children got from the sliver.
+                    child: SingleChildScrollView(
+                    // Always scrollable so a day with no readings still accepts
+                    // the overscroll pull that triggers a refresh.
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -310,6 +354,9 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                         dayNavHeader(
                           todayTitle: loc.vitalsTitle,
                           historyTitle: loc.vitalsHistoryTitle,
+                        ),
+                        LastLoadedLabel(
+                          lastLoadedAt: controller.lastLoadedAt,
                         ),
                         const SizedBox(height: 16),
                         LedgeCard(
@@ -392,6 +439,7 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                           child: Text(loc.vitalsSaveButton),
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),

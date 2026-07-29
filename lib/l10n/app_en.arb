@@ -1963,5 +1963,30 @@
   "careHistoryNoCareItemsBody": "You haven't set up any care items yet. Add one to start tracking.",
   "@careHistoryNoCareItemsBody": {
     "description": "Body copy paired with careHistoryNoCareItemsTitle, prompting the user toward care management rather than describing an empty date range (distinct from careHistoryEmptyBody, 'Nothing was scheduled in this period.')."
+  },
+  "lastUpdatedAt": "Updated {time}",
+  "@lastUpdatedAt": {
+    "description": "A small line at the top of a data-bearing health screen (overview, trends, and the day-keyed trackers) showing the clock time its data was last successfully loaded, so the user can tell how old the shown content is. {time} is a localized clock time following the system 12/24-hour setting (e.g. '9:41 AM' or '21:41'), not a machine timestamp.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshDiscardTitle": "Discard unsaved changes?",
+  "@refreshDiscardTitle": {
+    "description": "Title of the confirmation dialog shown when the user pulls to refresh the vitals screen while it holds unsaved edits — reloading would overwrite the draft, so it confirms first."
+  },
+  "refreshDiscardMessage": "Refreshing will discard your unsaved changes.",
+  "@refreshDiscardMessage": {
+    "description": "Body of the confirmation dialog shown when pulling to refresh the vitals screen with unsaved edits, explaining that a refresh replaces the draft with freshly loaded data."
+  },
+  "discard": "Discard",
+  "@discard": {
+    "description": "Confirm button on the refresh-with-unsaved-changes dialog — proceeds with the reload and drops the unsaved draft."
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Generic cancel button — dismisses the refresh-with-unsaved-changes dialog without reloading, keeping the draft."
   }
 }

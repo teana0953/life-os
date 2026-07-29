@@ -26,11 +26,18 @@ class VitalsController extends ChangeNotifier {
   /// deterministic.
   final TimeOfDay Function() _clock;
 
+  /// Injectable wall-clock used to stamp [lastLoadedAt] on a successful load.
+  /// Separate from [_clock] (a [TimeOfDay] for reading defaults); defaults to
+  /// [DateTime.now]; tests pin it so the stamp is deterministic.
+  final DateTime Function() _loadClock;
+
   VitalsController(
     this._getDay,
     this._saveDay, {
     TimeOfDay Function() clock = TimeOfDay.now,
-  }) : _clock = clock;
+    DateTime Function() loadClock = DateTime.now,
+  }) : _clock = clock,
+       _loadClock = loadClock;
 
   /// The current time as a strict ASCII "HH:mm" — manual zero-pad (NOT
   /// `formatTimeOfDay`, which can localize digits/separators) so the wire
@@ -43,6 +50,11 @@ class VitalsController extends ChangeNotifier {
 
   VitalsStatus status = VitalsStatus.loading;
   VitalsError? error;
+
+  /// When the day was last loaded successfully, or `null` before the first
+  /// success — updated only on a successful [load], left unchanged on failure
+  /// so it always reflects the data currently shown.
+  DateTime? lastLoadedAt;
 
   /// The last successfully loaded/saved record, or `null` before the first
   /// successful load — the screen's "have data yet" signal.
@@ -75,6 +87,7 @@ class VitalsController extends ChangeNotifier {
     try {
       _applyRecord(await _getDay(idToken, day));
       status = VitalsStatus.loaded;
+      lastLoadedAt = _loadClock();
     } on VitalsReauthenticationRequired {
       status = VitalsStatus.needsReauth;
     } on VitalsFetchFailure {

@@ -17,8 +17,10 @@ mixin TrackerDayScreen<T extends StatefulWidget> on State<T> {
   DateTime Function() get clock;
 
   /// Reloads the tracker's controller for [day] (usually
-  /// `controller.load(idToken, day)`).
-  void reloadDay(String day);
+  /// `controller.load(idToken, day)`). Returns a [Future] that completes when
+  /// the reload finishes, so pull-to-refresh can await it and settle its
+  /// spinner only then.
+  Future<void> reloadDay(String day);
 
   late DateTime _viewedDate = DateTime.parse(initialDay);
 
@@ -50,6 +52,24 @@ mixin TrackerDayScreen<T extends StatefulWidget> on State<T> {
     if (picked != null) {
       setDay(DateTime(picked.year, picked.month, picked.day));
     }
+  }
+
+  /// Wraps [child] (the screen's scrollable) in a pull-to-refresh. The default
+  /// [onRefresh] reloads the viewed day; the spinner settles when that reload
+  /// finishes. Vitals overrides [onRefresh] to confirm before discarding an
+  /// unsaved draft — the three other trackers have no draft-overwrite hazard,
+  /// so this shared default keeps them uncluttered.
+  ///
+  /// The wrapped scrollable must use [AlwaysScrollableScrollPhysics] so a day
+  /// with little content still accepts the overscroll pull.
+  Widget refreshable({
+    required Widget child,
+    Future<void> Function()? onRefresh,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () => reloadDay(viewedDay),
+      child: child,
+    );
   }
 
   /// The shared mascot + title + day-selector header, wired to this screen's day

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'bowel_controller.dart';
@@ -40,7 +41,8 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  void reloadDay(String day) => widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) =>
+      widget.controller.load(widget.idToken, day);
 
   @override
   void initState() {
@@ -126,13 +128,18 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
                       : null,
                 ),
                 Expanded(
-                  child: ListView(
+                  child: refreshable(
+                    child: ListView(
+                    // Always scrollable so a short day still accepts the
+                    // overscroll pull that triggers a refresh.
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     children: [
                       dayNavHeader(
                         todayTitle: loc.bowelTitle,
                         historyTitle: loc.bowelHistoryTitle,
                       ),
+                      LastLoadedLabel(lastLoadedAt: controller.lastLoadedAt),
                       const SizedBox(height: 16),
                       LedgeCard(
                         padding: const EdgeInsets.all(16),
@@ -213,6 +220,7 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
                         child: Text(loc.bowelSaveButton),
                       ),
                     ],
+                    ),
                   ),
                 ),
               ],

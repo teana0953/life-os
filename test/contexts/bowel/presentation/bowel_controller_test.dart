@@ -219,4 +219,52 @@ void main() {
       expect(controller.hasUnsavedChanges, isFalse);
     });
   });
+
+  group('BowelController.lastLoadedAt', () {
+    final at = DateTime(2026, 7, 18, 9, 41);
+
+    BowelController controllerWithClock(FakeBowelRepository repository) =>
+        BowelController(
+          GetBowelDay(repository),
+          SaveBowelDay(repository),
+          clock: () => at,
+        );
+
+    test('is null before the first successful load', () {
+      final controller = controllerWithClock(FakeBowelRepository());
+      expect(controller.lastLoadedAt, isNull);
+    });
+
+    test('is set to the clock value on a successful load', () async {
+      final controller = controllerWithClock(FakeBowelRepository());
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.lastLoadedAt, at);
+    });
+
+    test('is left unchanged when a load fails (needsReauth)', () async {
+      final repository = FakeBowelRepository();
+      final controller = controllerWithClock(repository);
+      await controller.load('token', '2026-07-18');
+      final firstLoad = controller.lastLoadedAt;
+
+      repository.getError = const BowelReauthenticationRequired();
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, BowelStatus.needsReauth);
+      expect(controller.lastLoadedAt, firstLoad);
+    });
+
+    test('stays null after a failed load with no prior success', () async {
+      final repository = FakeBowelRepository()
+        ..getError = const BowelFetchFailure('boom');
+      final controller = controllerWithClock(repository);
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, BowelStatus.error);
+      expect(controller.lastLoadedAt, isNull);
+    });
+  });
 }

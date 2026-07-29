@@ -10,6 +10,7 @@ import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -40,6 +41,7 @@ class FakeVitalsRepository implements VitalsRepository {
   Object? saveError;
 
   VitalsDay? savedDay;
+  int getDayCallCount = 0;
 
   FakeVitalsRepository({VitalsDay? stored})
     : stored =
@@ -55,6 +57,7 @@ class FakeVitalsRepository implements VitalsRepository {
 
   @override
   Future<VitalsDay> getDay(String idToken, String day) async {
+    getDayCallCount++;
     if (getError != null) throw getError!;
     return stored;
   }
@@ -494,6 +497,135 @@ void main() {
         );
       }
     }
+  });
+
+  group('VitalsScreen pull-to-refresh', () {
+    testWidgets('the scroll body is always scrollable so a short day pulls', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, repository: FakeVitalsRepository());
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      final scrollable = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byType(RefreshIndicator),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      expect(scrollable.physics, isA<AlwaysScrollableScrollPhysics>());
+    });
+
+    testWidgets('with no unsaved edits, pulling reloads without a prompt', (
+      tester,
+    ) async {
+      final repository = FakeVitalsRepository();
+      await _pumpScreen(tester, repository: repository);
+      final before = repository.getDayCallCount;
+
+      await tester.fling(
+        find.byType(RefreshIndicator),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.refreshDiscardTitle), findsNothing);
+      expect(repository.getDayCallCount, before + 1);
+    });
+
+    testWidgets(
+      'with unsaved edits, pulling asks first and cancelling keeps the draft '
+      '(no reload)',
+      (tester) async {
+        final repository = FakeVitalsRepository();
+        final controller = await _pumpScreen(tester, repository: repository);
+
+        controller.setWeight(70);
+        await tester.pump();
+        expect(controller.hasUnsavedChanges, isTrue);
+        final before = repository.getDayCallCount;
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        // Not pumpAndSettle: the RefreshIndicator spinner animates until its
+        // onRefresh future resolves, which is gated on this dialog — so settle
+        // would time out. Pump enough frames to surface the dialog instead.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        // The confirm dialog is up; cancelling keeps the draft and reloads
+        // nothing.
+        expect(find.text(loc.refreshDiscardTitle), findsOneWidget);
+        await tester.tap(find.text(loc.cancel));
+        await tester.pumpAndSettle();
+
+        expect(controller.weightKg, 70);
+        expect(controller.hasUnsavedChanges, isTrue);
+        expect(repository.getDayCallCount, before);
+      },
+    );
+
+    testWidgets(
+      'with unsaved edits, confirming the discard reloads and drops the draft',
+      (tester) async {
+        final repository = FakeVitalsRepository();
+        final controller = await _pumpScreen(tester, repository: repository);
+
+        controller.setWeight(70);
+        await tester.pump();
+        final before = repository.getDayCallCount;
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        // See the cancel test: the spinner won't settle while the dialog is
+        // open, so pump frames rather than settle.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        await tester.tap(find.text(loc.discard));
+        await tester.pumpAndSettle();
+
+        expect(repository.getDayCallCount, before + 1);
+        // The reload reset the draft to the stored (empty) record.
+        expect(controller.weightKg, isNull);
+        expect(controller.hasUnsavedChanges, isFalse);
+      },
+    );
+
+    testWidgets('shows the controller\'s last-loaded time', (tester) async {
+      final repository = FakeVitalsRepository();
+      final controller = VitalsController(
+        GetVitalsDay(repository),
+        SaveVitalsDay(repository),
+        clock: _pinnedClock,
+        loadClock: () => DateTime(2026, 7, 18, 9, 41),
+      );
+      await controller.load('token', '2026-07-18');
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: VitalsScreen(
+            controller: controller,
+            idToken: 'token',
+            day: '2026-07-18',
+            clock: _defaultClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = tester.widget<LastLoadedLabel>(
+        find.byType(LastLoadedLabel),
+      );
+      expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
+    });
   });
 
   group('VitalsScreen autoAddSection (PWA shortcut)', () {

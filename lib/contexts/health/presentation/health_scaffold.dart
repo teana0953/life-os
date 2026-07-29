@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/data_revision.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -159,6 +162,21 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   bool _loading = false;
   bool _reloadPending = false;
 
+  /// Resolves when the current in-flight reload (including a round coalesced
+  /// onto it) finishes — reused across the whole in-flight window so every
+  /// caller that arrived during it (a pull-to-refresh gesture and the bump
+  /// that coalesced onto it) awaits the same future and it completes exactly
+  /// once. `null` when nothing is in flight.
+  Completer<void>? _refreshCompleter;
+
+  /// When the overview/trends batch last loaded successfully, or `null` before
+  /// the first success. Updated only when a `_load` leaves at least one
+  /// overview/trend controller in its `loaded` status — NOT merely because
+  /// `Future.wait` resolved (the cards catch their own errors, so a
+  /// network-down load resolves with every card failed). Left unchanged
+  /// otherwise, so it always reflects data actually fetched.
+  DateTime? _lastOverviewLoadAt;
+
   @override
   void initState() {
     super.initState();
@@ -166,7 +184,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       c.addListener(_onChanged);
     }
     widget.dataRevision.addListener(_onRevisionChanged);
-    _scheduleLoad();
+    unawaited(_scheduleLoad());
   }
 
   List<Listenable> get _overviewControllers => [
@@ -190,15 +208,22 @@ class _HealthScaffoldState extends State<HealthScaffold> {
 
   void _onChanged() => setState(() {});
 
-  void _onRevisionChanged() => _scheduleLoad();
+  void _onRevisionChanged() => unawaited(_scheduleLoad());
 
   /// Runs [_load] immediately if nothing is in flight, otherwise marks a
   /// reload as pending so exactly one more load runs once the current one
-  /// finishes.
-  void _scheduleLoad() {
+  /// finishes. Returns a [Future] that resolves when the round this call
+  /// belongs to (including a coalesced pending round) has finished — so a
+  /// pull-to-refresh gesture can await it and settle its spinner only then.
+  Future<void> _scheduleLoad() {
+    // Reuse the same completer for the whole in-flight window: a gesture that
+    // arrives while a load is already running must await the round that
+    // actually finishes, and the completer must be completed exactly once.
+    _refreshCompleter ??= Completer<void>();
+    final completer = _refreshCompleter!;
     if (_loading) {
       _reloadPending = true;
-      return;
+      return completer.future;
     }
     _loading = true;
     // Clear the flag on failure too: a load that throws (the token fetch is the
@@ -209,8 +234,19 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       _loading = false;
       final pending = _reloadPending;
       _reloadPending = false;
-      if (pending && mounted) _scheduleLoad();
+      if (pending && mounted) {
+        // Continue the same in-flight window: keep the completer so both the
+        // original gesture and the coalesced bump resolve on the round that
+        // truly finishes. Do NOT touch `_refreshCompleter` here.
+        unawaited(_scheduleLoad());
+      } else {
+        // The window is over: complete once, then clear so the next gesture
+        // gets a fresh completer.
+        _refreshCompleter = null;
+        if (!completer.isCompleted) completer.complete();
+      }
     });
+    return completer.future;
   }
 
   Future<void> _load() async {
@@ -235,7 +271,27 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.careTodayController.load(token),
       widget.careAdherenceController.load(token),
     ]);
+    if (!mounted) return;
+    // Stamp the batch's last-loaded time only when at least one overview/trend
+    // card actually loaded. The cards catch their own errors and don't rethrow,
+    // so `Future.wait` above resolves even when every card failed (network
+    // down) — keying off it would falsely claim a just-now load. Reading each
+    // controller's status keeps this honest and aligned with the trackers.
+    if (_overviewLoadedAny) {
+      setState(() => _lastOverviewLoadAt = widget.clock());
+    }
   }
+
+  /// Whether at least one overview/trend controller ended its load in a
+  /// successful (`loaded`) status — the signal that the batch fetched real
+  /// data, used to decide whether [_lastOverviewLoadAt] advances.
+  bool get _overviewLoadedAny =>
+      widget.weightGoalController.status == WeightGoalStatus.loaded ||
+      widget.trendController.status == TrendStatus.loaded ||
+      widget.healthCalendarController.status == HealthCalendarStatus.loaded ||
+      widget.menstrualController.status == MenstrualStatus.loaded ||
+      widget.careTodayController.status == CareTodayLoadStatus.loaded ||
+      widget.careAdherenceController.status == CareHistoryLoadStatus.loaded;
 
   bool get _overviewNeedsReauth =>
       widget.weightGoalController.status == WeightGoalStatus.needsReauth ||
@@ -314,6 +370,8 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             careTodayController: widget.careTodayController,
             menstrualController: widget.menstrualController,
             idToken: idToken,
+            onRefresh: _scheduleLoad,
+            lastLoadedAt: _lastOverviewLoadAt,
           ),
           const _RecordHub(),
           _TrendBody(
@@ -323,6 +381,8 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             heightCm: widget.weightGoalController.goal?.heightCm,
             onOpenCareHistory: widget.onOpenCareHistory,
             onOpenCareItems: widget.onOpenCareItems,
+            onRefresh: _scheduleLoad,
+            lastLoadedAt: _lastOverviewLoadAt,
           ),
           _MoreBody(
             onOpenSettings: widget.onOpenSettings,
@@ -370,6 +430,14 @@ class _OverviewBody extends StatelessWidget {
   final MenstrualController menstrualController;
   final String idToken;
 
+  /// Pull-to-refresh handler — the scaffold's batched reload; its future
+  /// settles when the reload finishes so the spinner stays until then.
+  final Future<void> Function() onRefresh;
+
+  /// When the overview/trends batch last loaded successfully (shared with the
+  /// trend tab), or `null` before the first success.
+  final DateTime? lastLoadedAt;
+
   const _OverviewBody({
     required this.pushHealthController,
     required this.weightGoalController,
@@ -377,6 +445,8 @@ class _OverviewBody extends StatelessWidget {
     required this.careTodayController,
     required this.menstrualController,
     required this.idToken,
+    required this.onRefresh,
+    required this.lastLoadedAt,
   });
 
   @override
@@ -385,39 +455,47 @@ class _OverviewBody extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Only with slots today: the summary card renders for
-              // zero-schedule users too (its setup prompt), and warning
-              // someone with no reminders that notifications are off is pure
-              // noise to them.
-              if (careTodayController.slots.isNotEmpty)
-                PushOffBanner(health: pushHealthController.health),
-              CareTodaySummaryCard(
-                controller: careTodayController,
-                idToken: idToken,
-                onManage: () => context.push('/care-items'),
-                onSetup: () => context.push('/care-items'),
-              ),
-              GoalCard(controller: weightGoalController, idToken: idToken),
-              const SizedBox(height: 16),
-              // Above the calendar card, not after it: the calendar is a whole
-              // month grid plus three rings, so anything below it is off the
-              // first screen on a phone — and being seen without opening the
-              // tracker is this card's entire purpose.
-              NextPeriodCard(
-                controller: menstrualController,
-                idToken: idToken,
-                onOpen: () => context.push('/health/menstrual'),
-              ),
-              const SizedBox(height: 16),
-              HealthCalendarCard(
-                controller: healthCalendarController,
-                idToken: idToken,
-                weightAchievementRate: weightGoalController.goal?.achievementRate,
-              ),
-            ],
+          child: RefreshIndicator(
+            onRefresh: onRefresh,
+            child: ListView(
+              // Always scrollable so a short overview (few cards) still accepts
+              // the overscroll pull that triggers a refresh.
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                LastLoadedLabel(lastLoadedAt: lastLoadedAt),
+                // Only with slots today: the summary card renders for
+                // zero-schedule users too (its setup prompt), and warning
+                // someone with no reminders that notifications are off is pure
+                // noise to them.
+                if (careTodayController.slots.isNotEmpty)
+                  PushOffBanner(health: pushHealthController.health),
+                CareTodaySummaryCard(
+                  controller: careTodayController,
+                  idToken: idToken,
+                  onManage: () => context.push('/care-items'),
+                  onSetup: () => context.push('/care-items'),
+                ),
+                GoalCard(controller: weightGoalController, idToken: idToken),
+                const SizedBox(height: 16),
+                // Above the calendar card, not after it: the calendar is a whole
+                // month grid plus three rings, so anything below it is off the
+                // first screen on a phone — and being seen without opening the
+                // tracker is this card's entire purpose.
+                NextPeriodCard(
+                  controller: menstrualController,
+                  idToken: idToken,
+                  onOpen: () => context.push('/health/menstrual'),
+                ),
+                const SizedBox(height: 16),
+                HealthCalendarCard(
+                  controller: healthCalendarController,
+                  idToken: idToken,
+                  weightAchievementRate:
+                      weightGoalController.goal?.achievementRate,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -436,6 +514,14 @@ class _TrendBody extends StatelessWidget {
   final VoidCallback onOpenCareHistory;
   final VoidCallback onOpenCareItems;
 
+  /// Pull-to-refresh handler — the same batched reload the overview uses (they
+  /// load together); its future settles when the reload finishes.
+  final Future<void> Function() onRefresh;
+
+  /// When the overview/trends batch last loaded successfully (shared with the
+  /// overview tab), or `null` before the first success.
+  final DateTime? lastLoadedAt;
+
   const _TrendBody({
     required this.controller,
     required this.careAdherenceController,
@@ -443,6 +529,8 @@ class _TrendBody extends StatelessWidget {
     required this.heightCm,
     required this.onOpenCareHistory,
     required this.onOpenCareItems,
+    required this.onRefresh,
+    required this.lastLoadedAt,
   });
 
   @override
@@ -451,18 +539,29 @@ class _TrendBody extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              TrendCard(controller: controller, idToken: idToken, heightCm: heightCm),
-              const SizedBox(height: 16),
-              CareAdherenceCard(
-                controller: careAdherenceController,
-                idToken: idToken,
-                onOpenHistory: onOpenCareHistory,
-                onOpenCareItems: onOpenCareItems,
-              ),
-            ],
+          child: RefreshIndicator(
+            onRefresh: onRefresh,
+            child: ListView(
+              // Always scrollable so the short trends tab (two cards) still
+              // accepts the overscroll pull that triggers a refresh.
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                LastLoadedLabel(lastLoadedAt: lastLoadedAt),
+                TrendCard(
+                  controller: controller,
+                  idToken: idToken,
+                  heightCm: heightCm,
+                ),
+                const SizedBox(height: 16),
+                CareAdherenceCard(
+                  controller: careAdherenceController,
+                  idToken: idToken,
+                  onOpenHistory: onOpenCareHistory,
+                  onOpenCareItems: onOpenCareItems,
+                ),
+              ],
+            ),
           ),
         ),
       ),
