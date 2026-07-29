@@ -129,6 +129,12 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
                 ),
                 Expanded(
                   child: refreshable(
+                    // Bowel confirms before discarding an unsaved draft (a
+                    // reload overwrites it), like vitals and unlike the other
+                    // trackers.
+                    onRefresh: () => refreshWithUnsavedGuard(
+                      hasUnsavedChanges: controller.hasUnsavedChanges,
+                    ),
                     child: ListView(
                     // Always scrollable so a short day still accepts the
                     // overscroll pull that triggers a refresh.

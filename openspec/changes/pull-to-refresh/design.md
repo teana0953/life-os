@@ -124,16 +124,19 @@ controller，只在 `initState` 與 `DataRevision.bump()`（chaodays 匯入成�
 
 ### vitals 未存草稿的邊界（proposal review 的 non_blocking）
 
-vitals controller 把當天資料載進**可編輯 draft**，畫面在本地改、`save` 才 upsert；
-`reloadDay`→`load` 會 `_applyRecord` **覆寫 draft**（同 day 也是）。所以在 vitals 畫面
-下拉重整，會靜默吃掉還沒存的輸入。
+**vitals 與 bowel** controller 都把當天資料載進**可編輯 draft**，畫面在本地改、`save` 才
+upsert；`reloadDay`→`load` 會 `_applyRecord` **覆寫 draft**（同 day 也是）。所以在這兩個
+畫面下拉重整，會靜默吃掉還沒存的輸入。（初版誤判「只有 vitals 有」，review 抓到 bowel 同構。）
 
-**決策**：vitals 畫面的下拉 `onRefresh`，若 `controller.hasUnsavedChanges` 為 true，
-**先跳一個確認**（「有未儲存的變更，重新整理會捨棄，要繼續嗎？」走 ARB），
-使用者確認才 `reloadDay`；否則不重載、手勢直接收。沒有未存變更就照常重載。
-其餘三個追蹤畫面（water/bowel/exercise）沒有這個 draft-覆寫問題，不需確認 ——
-所以這段確認邏輯放在 **vitals 畫面覆寫 mixin 的 `onRefresh`**，不是塞進共用 mixin
-（避免為單一畫面的邊界污染四畫面共用路徑）。
+**決策**：這兩個畫面的下拉 `onRefresh`，若 `controller.hasUnsavedChanges` 為 true，
+**先跳一個確認**（「有未儲存的變更，重新整理會捨棄」走 ARB），使用者確認才 `reloadDay`；
+否則不重載、手勢直接收。沒有未存變更就照常重載。
+確認閘抽成 `TrackerDayScreen` mixin 的 `refreshWithUnsavedGuard({required bool hasUnsavedChanges})`
+共用方法（vitals 與 bowel 邏輯同構，抽出來比各寫一份乾淨），呼叫端傳
+`controller.hasUnsavedChanges`。**water/exercise 沒有 draft-覆寫問題，不呼叫這個閘**，
+維持預設 `reloadDay(viewedDay)` —— mixin 的 doc comment 標明這條界線。
+確認對話框按 repo 破壞性對話框慣例（menstrual 刪除）配按鈕：破壞性「捨棄」用弱化 `TextButton`、
+安全「取消」用強調 `FilledButton`。
 
 ### 可及性
 

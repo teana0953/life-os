@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../date/day_format.dart';
 import 'tracker_day_nav_header.dart';
 
@@ -70,6 +71,45 @@ mixin TrackerDayScreen<T extends StatefulWidget> on State<T> {
       onRefresh: onRefresh ?? () => reloadDay(viewedDay),
       child: child,
     );
+  }
+
+  /// A pull-to-refresh handler for trackers whose reload OVERWRITES an editable
+  /// draft (vitals, bowel) — a plain reload would silently eat unsaved edits.
+  /// Pass this as [refreshable]'s `onRefresh`, wiring [hasUnsavedChanges] to the
+  /// controller's flag. With no unsaved edits it reloads immediately, exactly
+  /// like the shared default; with edits it confirms first and reloads only if
+  /// the user accepts (cancelling keeps the draft and reloads nothing). Trackers
+  /// with no draft-overwrite hazard (water, exercise) must NOT use this — they
+  /// keep the plain default so they stay uncluttered.
+  Future<void> refreshWithUnsavedGuard({
+    required bool hasUnsavedChanges,
+  }) async {
+    if (!hasUnsavedChanges) {
+      return reloadDay(viewedDay);
+    }
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.refreshDiscardTitle),
+        content: Text(loc.refreshDiscardMessage),
+        actions: [
+          // Discarding loses data, so the safe "cancel" is the emphasized
+          // default; the destructive "discard" is the de-emphasized action.
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(loc.discard),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(loc.cancel),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await reloadDay(viewedDay);
+    }
   }
 
   /// The shared mascot + title + day-selector header, wired to this screen's day

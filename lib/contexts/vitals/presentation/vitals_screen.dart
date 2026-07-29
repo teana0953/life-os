@@ -49,41 +49,6 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   Future<void> reloadDay(String day) =>
       widget.controller.load(widget.idToken, day);
 
-  /// Pull-to-refresh for vitals: unlike the other trackers, a reload here
-  /// overwrites the editable draft (via `VitalsController._applyRecord`), so it
-  /// would silently eat unsaved edits. When there are unsaved changes, confirm
-  /// first — reload only if the user accepts; cancelling keeps the draft and
-  /// reloads nothing. With no unsaved edits it behaves like the shared default.
-  /// This gate lives here, not in the shared mixin — only vitals has the
-  /// draft-overwrite hazard.
-  Future<void> _refreshWithUnsavedGuard() async {
-    if (!widget.controller.hasUnsavedChanges) {
-      return reloadDay(viewedDay);
-    }
-    final loc = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(loc.refreshDiscardTitle),
-        content: Text(loc.refreshDiscardMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(loc.cancel),
-          ),
-          FilledButton(
-            key: const Key('vitals-refresh-discard-confirm'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(loc.discard),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await reloadDay(viewedDay);
-    }
-  }
-
   /// Whether [widget.autoAddSection] has already been consumed. Lives on the
   /// State (not the widget): `build` runs on every keystroke/rotation, and
   /// without this the user would collect a pile of blank rows.
@@ -334,7 +299,9 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
                   child: refreshable(
                     // Vitals confirms before discarding an unsaved draft (a
                     // reload overwrites it), unlike the other trackers.
-                    onRefresh: _refreshWithUnsavedGuard,
+                    onRefresh: () => refreshWithUnsavedGuard(
+                      hasUnsavedChanges: controller.hasUnsavedChanges,
+                    ),
                     // Deliberately NOT a ListView: its lazy delegate only builds
                     // what is near the viewport, so with a few readings already
                     // logged the glucose/bp section a shortcut targets is never
