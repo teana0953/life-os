@@ -1988,5 +1988,85 @@
   "cancel": "Cancel",
   "@cancel": {
     "description": "Generic cancel button — dismisses the refresh-with-unsaved-changes dialog without reloading, keeping the draft."
+  },
+  "sharedFoodItemCreateTitle": "New shared item",
+  "@sharedFoodItemCreateTitle": {
+    "description": "Title of the bottom sheet used to create a new shared dictionary item."
+  },
+  "sharedFoodItemEditTitle": "Edit shared item",
+  "@sharedFoodItemEditTitle": {
+    "description": "Title of the bottom sheet used to edit an existing shared dictionary item."
+  },
+  "sharedFoodItemNameLabel": "Name",
+  "@sharedFoodItemNameLabel": {
+    "description": "Label for the name field on the shared dictionary item form."
+  },
+  "sharedFoodItemCarbLabel": "Carbs (g)",
+  "@sharedFoodItemCarbLabel": {
+    "description": "Label for the carbohydrate (grams) field on the shared dictionary item form."
+  },
+  "sharedFoodItemProteinLabel": "Protein (g)",
+  "@sharedFoodItemProteinLabel": {
+    "description": "Label for the protein (grams) field on the shared dictionary item form."
+  },
+  "sharedFoodItemFatLabel": "Fat (g)",
+  "@sharedFoodItemFatLabel": {
+    "description": "Label for the fat (grams) field on the shared dictionary item form."
+  },
+  "sharedFoodItemSugarLabel": "Sugar (g)",
+  "@sharedFoodItemSugarLabel": {
+    "description": "Label for the sugar (grams) field on the shared dictionary item form."
+  },
+  "sharedFoodItemFiberLabel": "Fiber (g)",
+  "@sharedFoodItemFiberLabel": {
+    "description": "Label for the fiber (grams) field on the shared dictionary item form."
+  },
+  "sharedFoodItemKcalLabel": "Calories (kcal)",
+  "@sharedFoodItemKcalLabel": {
+    "description": "Label for the calories (kcal) field on the shared dictionary item form."
+  },
+  "sharedFoodItemMeasureAmountLabel": "Measure amount",
+  "@sharedFoodItemMeasureAmountLabel": {
+    "description": "Label for the measure-basis amount field (e.g. 50 for '50g') on the shared dictionary item form."
+  },
+  "sharedFoodItemMeasureUnitLabel": "Measure unit",
+  "@sharedFoodItemMeasureUnitLabel": {
+    "description": "Label for the measure-basis unit field ('g' or 'ml') on the shared dictionary item form."
+  },
+  "sharedFoodItemSubmitButton": "Save",
+  "@sharedFoodItemSubmitButton": {
+    "description": "Label for the shared dictionary item form's submit button, for both create and edit."
+  },
+  "sharedFoodItemMeasurePairError": "Give both the measure amount and unit, or leave them both empty.",
+  "@sharedFoodItemMeasurePairError": {
+    "description": "Validation error shown next to the measure fields when only one of amount/unit is filled in."
+  },
+  "sharedFoodItemMeasureAmountPositiveError": "The measure amount must be greater than zero.",
+  "@sharedFoodItemMeasureAmountPositiveError": {
+    "description": "Validation error shown next to the measure amount field when it is zero or negative."
+  },
+  "sharedFoodItemCreateSuccess": "Shared item created.",
+  "@sharedFoodItemCreateSuccess": {
+    "description": "SnackBar shown after successfully creating a shared dictionary item."
+  },
+  "sharedFoodItemEditSuccess": "Shared item updated.",
+  "@sharedFoodItemEditSuccess": {
+    "description": "SnackBar shown after successfully editing a shared dictionary item."
+  },
+  "sharedFoodItemForbiddenError": "You don't have permission to do this.",
+  "@sharedFoodItemForbiddenError": {
+    "description": "Error shown in the shared dictionary item form when the backend refuses the request because the user is not an administrator, distinct from a generic retryable failure."
+  },
+  "sharedFoodItemSaveFailed": "Couldn't save. Please try again.",
+  "@sharedFoodItemSaveFailed": {
+    "description": "Retryable error shown in the shared dictionary item form when the create/update request fails for a reason other than a permission refusal."
+  },
+  "createSharedItemTooltip": "New shared item",
+  "@createSharedItemTooltip": {
+    "description": "Tooltip/accessible label for the app-bar action, shown only to administrators, that opens the empty create-shared-item form."
+  },
+  "editSharedItemTooltip": "Edit shared item",
+  "@editSharedItemTooltip": {
+    "description": "Tooltip/accessible label for the per-row action, shown only to administrators on shared items, that opens the edit-shared-item form."
   }
 }

@@ -1486,4 +1486,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String get sharedFoodItemCreateTitle => 'New shared item';
+
+  @override
+  String get sharedFoodItemEditTitle => 'Edit shared item';
+
+  @override
+  String get sharedFoodItemNameLabel => 'Name';
+
+  @override
+  String get sharedFoodItemCarbLabel => 'Carbs (g)';
+
+  @override
+  String get sharedFoodItemProteinLabel => 'Protein (g)';
+
+  @override
+  String get sharedFoodItemFatLabel => 'Fat (g)';
+
+  @override
+  String get sharedFoodItemSugarLabel => 'Sugar (g)';
+
+  @override
+  String get sharedFoodItemFiberLabel => 'Fiber (g)';
+
+  @override
+  String get sharedFoodItemKcalLabel => 'Calories (kcal)';
+
+  @override
+  String get sharedFoodItemMeasureAmountLabel => 'Measure amount';
+
+  @override
+  String get sharedFoodItemMeasureUnitLabel => 'Measure unit';
+
+  @override
+  String get sharedFoodItemSubmitButton => 'Save';
+
+  @override
+  String get sharedFoodItemMeasurePairError =>
+      'Give both the measure amount and unit, or leave them both empty.';
+
+  @override
+  String get sharedFoodItemMeasureAmountPositiveError =>
+      'The measure amount must be greater than zero.';
+
+  @override
+  String get sharedFoodItemCreateSuccess => 'Shared item created.';
+
+  @override
+  String get sharedFoodItemEditSuccess => 'Shared item updated.';
+
+  @override
+  String get sharedFoodItemForbiddenError =>
+      'You don\'t have permission to do this.';
+
+  @override
+  String get sharedFoodItemSaveFailed => 'Couldn\'t save. Please try again.';
+
+  @override
+  String get createSharedItemTooltip => 'New shared item';
+
+  @override
+  String get editSharedItemTooltip => 'Edit shared item';
 }
