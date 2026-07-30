@@ -43,9 +43,13 @@ manual refresh.
 - **WHEN** an administrator opens the edit form for a shared item, changes its name and one nutrient, and submits
 - **THEN** the item's name and that nutrient change, its other values are untouched, and the updated item is visible in the list
 
-#### Scenario: Creating a shared item
-- **WHEN** an administrator submits the create form with a name and values
-- **THEN** the item is created as a shared item and a subsequent search finds it
+#### Scenario: Creating a shared item makes it visible immediately
+- **WHEN** an administrator submits the create form with a name and values while the screen is showing favorites rather than search results
+- **THEN** the item is created as a shared item and the screen ends up showing it, rather than a favorites list that cannot contain it
+
+#### Scenario: Nothing changed cannot be submitted
+- **WHEN** an administrator opens the edit form and submits without changing any field
+- **THEN** the submit control is unavailable, so no empty request is sent
 
 #### Scenario: Submission in progress
 - **WHEN** the administrator submits the form
@@ -73,4 +77,14 @@ administrator entered still present.
 
 #### Scenario: Permission refused is reported as a permission problem
 - **WHEN** the backend refuses the request because the user is not an administrator
-- **THEN** the message says the user does not have permission, distinct from a generic try-again error
+- **THEN** the form stays open with its values, and the message says the user does not have permission, distinct from a generic try-again error
+
+### Requirement: Editing a dictionary item does not alter items already in the tray
+
+A food already added to the meal tray SHALL keep the values it was added with, even
+if an administrator then edits that dictionary item. The tray's per-row preview and
+running total SHALL NOT change retroactively.
+
+#### Scenario: A tray entry keeps its snapshot
+- **WHEN** an administrator adds a shared item to the tray and then edits that item's portions
+- **THEN** the tray entry and the tray total still show the values from when it was added
