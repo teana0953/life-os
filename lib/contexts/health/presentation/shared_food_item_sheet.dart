@@ -132,7 +132,7 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   /// since the backend rejects an empty PATCH with 400).
   bool get _hasChanges {
     final item = _item;
-    if (item == null) return true;
+    if (item == null) return _name.text.trim().isNotEmpty;
     return _name.text.trim() != item.name ||
         _staple.text.trim() != _seedNullable(item.staple) ||
         _meat.text.trim() != _seedNullable(item.meat) ||

@@ -275,6 +275,7 @@ void main() {
         find.byKey(const Key('shared-food-item-name-field')),
         'New item',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
       await tester.pump();
 
@@ -316,6 +317,7 @@ void main() {
         find.byKey(const Key('shared-food-item-name-field')),
         'New item',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
       await tester.pumpAndSettle();
 
@@ -339,6 +341,7 @@ void main() {
         find.byKey(const Key('shared-food-item-name-field')),
         'New item',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
       await tester.pumpAndSettle();
 
