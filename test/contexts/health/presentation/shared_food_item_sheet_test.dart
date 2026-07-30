@@ -368,10 +368,143 @@ void main() {
         find.byKey(const Key('shared-food-item-name-field')),
         'New item',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
       await tester.pumpAndSettle();
 
       expect(received?.id, 'rice-1');
+    });
+
+    testWidgets('create mode with a blank name disables the submit control', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSheet(repository: FakeFoodDictionaryRepository()),
+      );
+
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('shared-food-item-submit-button')),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('a fresh sheet never shows an error left over from a previous submission', (
+      tester,
+    ) async {
+      final repository = FakeFoodDictionaryRepository()
+        ..errorToThrow = const DietForbidden();
+      final controller = SharedFoodItemController(
+        CreateSharedFoodItem(repository),
+        UpdateSharedFoodItem(repository),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      // First sheet instance: submit fails and shows the forbidden error.
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: SharedFoodItemSheet(
+              key: const Key('sheet-1'),
+              controller: controller,
+              idToken: 'token-123',
+              onSuccess: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-name-field')),
+        'New item',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(loc.sharedFoodItemForbiddenError), findsOneWidget);
+
+      // A brand-new sheet instance (as if the sheet was dismissed and the
+      // admin tapped '+' again) sharing the same app-wide controller.
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: SharedFoodItemSheet(
+              key: const Key('sheet-2'),
+              controller: controller,
+              idToken: 'token-123',
+              onSuccess: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.sharedFoodItemForbiddenError), findsNothing);
+    });
+
+    testWidgets('a non-numeric value in a macro field blocks submission with an error', (
+      tester,
+    ) async {
+      final repository = FakeFoodDictionaryRepository();
+      await tester.pumpWidget(_buildSheet(repository: repository));
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-name-field')),
+        'New item',
+      );
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-carb-field')),
+        '6o',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(loc.sharedFoodItemNumberFieldError(loc.sharedFoodItemCarbLabel)),
+        findsOneWidget,
+      );
+      expect(repository.receivedInput, isNull);
+    });
+
+    testWidgets('a negative value in a macro field blocks submission with an error', (
+      tester,
+    ) async {
+      final repository = FakeFoodDictionaryRepository();
+      await tester.pumpWidget(_buildSheet(repository: repository));
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-name-field')),
+        'New item',
+      );
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-protein-field')),
+        '-3',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(loc.sharedFoodItemNumberFieldError(loc.sharedFoodItemProteinLabel)),
+        findsOneWidget,
+      );
+      expect(repository.receivedInput, isNull);
+    });
+
+    testWidgets('an empty macro field still submits as zero', (tester) async {
+      final repository = FakeFoodDictionaryRepository();
+      await tester.pumpWidget(_buildSheet(repository: repository));
+
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-name-field')),
+        'New item',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(repository.receivedInput?.carbG, 0);
     });
   });
 }

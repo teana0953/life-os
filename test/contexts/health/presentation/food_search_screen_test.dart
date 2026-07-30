@@ -1542,6 +1542,7 @@ void main() {
           find.byKey(const Key('shared-food-item-name-field')),
           '飯/1碗',
         );
+        await tester.pump();
         await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
         await tester.pumpAndSettle();
 

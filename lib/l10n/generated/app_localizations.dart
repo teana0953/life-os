@@ -2828,6 +2828,12 @@ abstract class AppLocalizations {
   /// **'The measure amount must be greater than zero.'**
   String get sharedFoodItemMeasureAmountPositiveError;
 
+  /// Validation error shown on the shared dictionary item form when a numeric macro/portion field is unparseable or negative, naming the offending field's label.
+  ///
+  /// In en, this message translates to:
+  /// **'{field} must be zero or a positive number.'**
+  String sharedFoodItemNumberFieldError(String field);
+
   /// SnackBar shown after successfully creating a shared dictionary item.
   ///
   /// In en, this message translates to:

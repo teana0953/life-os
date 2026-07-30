@@ -1532,6 +1532,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'The measure amount must be greater than zero.';
 
   @override
+  String sharedFoodItemNumberFieldError(String field) {
+    return '$field must be zero or a positive number.';
+  }
+
+  @override
   String get sharedFoodItemCreateSuccess => 'Shared item created.';
 
   @override

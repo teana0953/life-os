@@ -2045,6 +2045,15 @@
   "@sharedFoodItemMeasureAmountPositiveError": {
     "description": "Validation error shown next to the measure amount field when it is zero or negative."
   },
+  "sharedFoodItemNumberFieldError": "{field} must be zero or a positive number.",
+  "@sharedFoodItemNumberFieldError": {
+    "description": "Validation error shown on the shared dictionary item form when a numeric macro/portion field is unparseable or negative, naming the offending field's label.",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
   "sharedFoodItemCreateSuccess": "Shared item created.",
   "@sharedFoodItemCreateSuccess": {
     "description": "SnackBar shown after successfully creating a shared dictionary item."

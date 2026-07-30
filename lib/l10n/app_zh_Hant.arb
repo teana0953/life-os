@@ -454,6 +454,7 @@
   "sharedFoodItemSubmitButton": "儲存",
   "sharedFoodItemMeasurePairError": "數量與單位要一起填,或一起留空。",
   "sharedFoodItemMeasureAmountPositiveError": "數量必須大於零。",
+  "sharedFoodItemNumberFieldError": "{field} 必須是零或正數。",
   "sharedFoodItemCreateSuccess": "已建立共用品項。",
   "sharedFoodItemEditSuccess": "已更新共用品項。",
   "sharedFoodItemForbiddenError": "你沒有權限執行此操作。",

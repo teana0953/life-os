@@ -66,6 +66,7 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   late final TextEditingController _measureUnit;
 
   String? _measureError;
+  String? _numberError;
 
   FoodItem? get _item => widget.item;
 
@@ -178,7 +179,41 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     return double.tryParse(text) ?? 0;
   }
 
+  /// Validates every macro/portion numeric field: empty stays meaning `0`
+  /// (the project-wide empty-zero convention), but non-empty text that
+  /// isn't a parseable, non-negative number blocks submission — otherwise
+  /// e.g. `6o` typed into carbs would silently PATCH `carb_g: 0`. Sets
+  /// [_numberError] (naming the offending field) and returns false when
+  /// invalid, mirroring [_validateMeasure]'s pattern.
+  bool _validateNumbers() {
+    final loc = AppLocalizations.of(context)!;
+    final fields = <(TextEditingController, String)>[
+      (_staple, loc.dietCategoryStaple),
+      (_meat, loc.dietCategoryMeat),
+      (_fruit, loc.dietCategoryFruit),
+      (_veg, loc.dietCategoryVeg),
+      (_carb, loc.sharedFoodItemCarbLabel),
+      (_protein, loc.sharedFoodItemProteinLabel),
+      (_fat, loc.sharedFoodItemFatLabel),
+      (_sugar, loc.sharedFoodItemSugarLabel),
+      (_fiber, loc.sharedFoodItemFiberLabel),
+      (_kcal, loc.sharedFoodItemKcalLabel),
+    ];
+    for (final (controller, label) in fields) {
+      final text = controller.text.trim();
+      if (text.isEmpty) continue;
+      final value = double.tryParse(text);
+      if (value == null || value < 0) {
+        setState(() => _numberError = loc.sharedFoodItemNumberFieldError(label));
+        return false;
+      }
+    }
+    setState(() => _numberError = null);
+    return true;
+  }
+
   Future<void> _submit() async {
+    if (!_validateNumbers()) return;
     if (!_validateMeasure()) return;
 
     final amountText = _measureAmount.text.trim();
@@ -314,6 +349,14 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
                   _numberField(const Key('shared-food-item-kcal-field'), _kcal, loc.sharedFoodItemKcalLabel),
                 ],
               ),
+              if (_numberError != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _numberError!,
+                  key: const Key('shared-food-item-number-error'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
