@@ -34,6 +34,7 @@ import 'contexts/health/presentation/dictionary_controller.dart';
 import 'contexts/health/presentation/diet_day_screen.dart';
 import 'contexts/health/presentation/food_search_screen.dart';
 import 'contexts/health/presentation/health_scaffold.dart';
+import 'contexts/health/presentation/shared_food_item_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/hydration/presentation/water_controller.dart';
 import 'contexts/hydration/presentation/water_screen.dart';
@@ -167,6 +168,7 @@ class App extends StatefulWidget {
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
   final CreateMealController healthCreateMealController;
+  final SharedFoodItemController healthSharedFoodItemController;
   final GetLoggedDays healthGetLoggedDays;
   final WaterController waterController;
   final BowelController bowelController;
@@ -216,6 +218,7 @@ class App extends StatefulWidget {
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
     required this.healthCreateMealController,
+    required this.healthSharedFoodItemController,
     required this.healthGetLoggedDays,
     required this.waterController,
     required this.bowelController,
@@ -303,6 +306,7 @@ class _AppState extends State<App> {
     // is deferred a frame (see `_scheduleDeepLinkCheck`) to let that redirect
     // land first (design.md D6).
     _authNotifier.addListener(_scheduleDeepLinkCheck);
+    _authNotifier.addListener(_resetHomeControllerOnSignOut);
     _pendingDeepLinkController.start();
   }
 
@@ -315,9 +319,25 @@ class _AppState extends State<App> {
     });
   }
 
+  /// `true` while a signed-in user's profile (and so `isAdmin`) may still be
+  /// loaded on [widget.homeController] — cleared on sign-out (design.md D2)
+  /// so a subsequently signed-in user never inherits the previous user's
+  /// admin status. `AuthRouterNotifier` exposes no uid to compare, only
+  /// `signedIn`, so the signal is that transition (true → false) rather than
+  /// "a different user signed in" — signing in as anyone else necessarily
+  /// passes through a sign-out first.
+  bool _wasSignedIn = false;
+
+  void _resetHomeControllerOnSignOut() {
+    final signedIn = _authNotifier.signedIn;
+    if (_wasSignedIn && !signedIn) widget.homeController.reset();
+    _wasSignedIn = signedIn;
+  }
+
   @override
   void dispose() {
     _authNotifier.removeListener(_scheduleDeepLinkCheck);
+    _authNotifier.removeListener(_resetHomeControllerOnSignOut);
     _pendingDeepLinkController.dispose();
     _authNotifier.dispose();
     super.dispose();
@@ -551,13 +571,20 @@ class _AppState extends State<App> {
                     if (args is! ({String meal, String day})) {
                       return const _Redirect(to: '/health/diet');
                     }
-                    return FoodSearchScreen(
-                      meal: args.meal,
-                      dictionaryController: widget.healthDictionaryController,
-                      createMealController: widget.healthCreateMealController,
-                      idToken: _idToken,
-                      day: args.day,
-                      signOut: widget.signOut,
+                    return ListenableBuilder(
+                      listenable: widget.homeController,
+                      builder: (context, _) => FoodSearchScreen(
+                        meal: args.meal,
+                        dictionaryController: widget.healthDictionaryController,
+                        createMealController: widget.healthCreateMealController,
+                        idToken: _idToken,
+                        day: args.day,
+                        signOut: widget.signOut,
+                        isAdmin: widget.homeController.profile?.isAdmin ?? false,
+                        sharedFoodItemController: widget.healthSharedFoodItemController,
+                        onNeedProfile: () =>
+                            widget.homeController.ensureLoaded(_idToken),
+                      ),
                     );
                   },
                 ),
@@ -571,20 +598,29 @@ class _AppState extends State<App> {
                   builder: (context, state) {
                     final args = state.extra;
                     if (args is ({String day, List<String> mealNames})) {
-                      return FoodSearchScreen(
-                        meal: null,
-                        mealNames: args.mealNames,
-                        dictionaryController: widget.healthDictionaryController,
-                        createMealController: widget.healthCreateMealController,
-                        idToken: _idToken,
-                        day: args.day,
-                        signOut: widget.signOut,
+                      return ListenableBuilder(
+                        listenable: widget.homeController,
+                        builder: (context, _) => FoodSearchScreen(
+                          meal: null,
+                          mealNames: args.mealNames,
+                          dictionaryController: widget.healthDictionaryController,
+                          createMealController: widget.healthCreateMealController,
+                          idToken: _idToken,
+                          day: args.day,
+                          signOut: widget.signOut,
+                          isAdmin: widget.homeController.profile?.isAdmin ?? false,
+                          sharedFoodItemController: widget.healthSharedFoodItemController,
+                          onNeedProfile: () =>
+                              widget.homeController.ensureLoaded(_idToken),
+                        ),
                       );
                     }
                     return _UrlDictionaryScreen(
                       todayController: widget.healthTodayController,
                       dictionaryController: widget.healthDictionaryController,
                       createMealController: widget.healthCreateMealController,
+                      sharedFoodItemController: widget.healthSharedFoodItemController,
+                      homeController: widget.homeController,
                       idToken: _idToken,
                       day: _today,
                       signOut: widget.signOut,
@@ -711,6 +747,8 @@ class _UrlDictionaryScreen extends StatefulWidget {
   final TodayController todayController;
   final DictionaryController dictionaryController;
   final CreateMealController createMealController;
+  final SharedFoodItemController sharedFoodItemController;
+  final HomeController homeController;
   final String idToken;
   final String day;
   final SignOut signOut;
@@ -719,6 +757,8 @@ class _UrlDictionaryScreen extends StatefulWidget {
     required this.todayController,
     required this.dictionaryController,
     required this.createMealController,
+    required this.sharedFoodItemController,
+    required this.homeController,
     required this.idToken,
     required this.day,
     required this.signOut,
@@ -936,14 +976,20 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
         if (log == null || log.day != widget.day) {
           return shell(const Center(child: CircularProgressIndicator()));
         }
-        return FoodSearchScreen(
-          meal: null,
-          mealNames: log.meals.map((m) => m.meal).toList(),
-          dictionaryController: widget.dictionaryController,
-          createMealController: widget.createMealController,
-          idToken: widget.idToken,
-          day: widget.day,
-          signOut: widget.signOut,
+        return ListenableBuilder(
+          listenable: widget.homeController,
+          builder: (context, _) => FoodSearchScreen(
+            meal: null,
+            mealNames: log.meals.map((m) => m.meal).toList(),
+            dictionaryController: widget.dictionaryController,
+            createMealController: widget.createMealController,
+            idToken: widget.idToken,
+            day: widget.day,
+            signOut: widget.signOut,
+            isAdmin: widget.homeController.profile?.isAdmin ?? false,
+            sharedFoodItemController: widget.sharedFoodItemController,
+            onNeedProfile: () => widget.homeController.ensureLoaded(widget.idToken),
+          ),
         );
     }
   }

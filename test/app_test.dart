@@ -24,6 +24,7 @@ import 'package:life_os/contexts/health_calendar/domain/health_calendar_reposito
 import 'package:life_os/contexts/health_calendar/presentation/health_calendar_controller.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
+import 'package:life_os/contexts/health/application/create_shared_food_item.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
 import 'package:life_os/contexts/health/application/delete_meal_item.dart';
 import 'package:life_os/contexts/health/application/edit_meal_item.dart';
@@ -35,6 +36,7 @@ import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
+import 'package:life_os/contexts/health/application/update_shared_food_item.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
@@ -67,10 +69,13 @@ import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
+import 'package:life_os/contexts/health/presentation/shared_food_item_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/snack_naming.dart';
@@ -154,6 +159,17 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
   @override
   Future<void> unfavorite(String idToken, String foodItemId) async {}
+
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 /// A meal repository that can hold ONE named day's fetch in flight — for
@@ -706,6 +722,7 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   DictionaryController dictionary,
   DailyTargetController dailyTarget,
   CreateMealController createMeal,
+  SharedFoodItemController sharedFoodItem,
   GetLoggedDays getLoggedDays,
   WaterController water,
   BowelController bowel,
@@ -748,6 +765,10 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
       SetDailyTarget(dailyTargetRepository),
     ),
     createMeal: CreateMealController(CreateMeal(mealRepository)),
+    sharedFoodItem: SharedFoodItemController(
+      CreateSharedFoodItem(foodDictionaryRepository),
+      UpdateSharedFoodItem(foodDictionaryRepository),
+    ),
     getLoggedDays: GetLoggedDays(mealRepository),
     water: WaterController(
       GetWaterDay(waterRepository),
@@ -879,6 +900,7 @@ final _testProfile = UserProfile(
   email: 'user@example.com',
   displayName: 'Test User',
   createdAt: '2026-01-01T00:00:00.000Z',
+  isAdmin: false,
 );
 
 /// Builds a fresh [ThemeController] backed by an empty, mocked
@@ -1021,6 +1043,7 @@ Future<LocaleController> pumpApp(
       healthDictionaryController: health.dictionary,
       healthDailyTargetController: health.dailyTarget,
       healthCreateMealController: health.createMeal,
+      healthSharedFoodItemController: health.sharedFoodItem,
       healthGetLoggedDays: health.getLoggedDays,
       waterController: health.water,
       bowelController: health.bowel,
@@ -2533,4 +2556,112 @@ void main() {
       expect(find.text('重試'), findsOneWidget);
     });
   });
+
+  group('App admin entry points', () {
+    testWidgets(
+      'entering the dictionary deep link before the profile has loaded shows '
+      'admin entry points once it resolves',
+      (tester) async {
+        final adminProfile = UserProfile(
+          id: 'admin-1',
+          firebaseUid: 'firebase-admin',
+          email: 'admin@example.com',
+          displayName: 'Admin',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: true,
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(adminProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        // The launcher-shortcut path (`_UrlDictionaryScreen`) never goes
+        // through `_AuthenticatedHome.initState`, so without `ensureLoaded`
+        // triggered from `FoodSearchScreen.initState` (design.md D2) the
+        // profile — and so the admin entry point — would never load here.
+        expect(find.byKey(const Key('food-search-create-button')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'signing out then signing in as a non-admin shows no admin entry point',
+      (tester) async {
+        final adminProfile = UserProfile(
+          id: 'admin-1',
+          firebaseUid: 'firebase-admin',
+          email: 'admin@example.com',
+          displayName: 'Admin',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: true,
+        );
+        final nonAdminProfile = UserProfile(
+          id: 'user-2',
+          firebaseUid: 'firebase-user-2',
+          email: 'user2@example.com',
+          displayName: 'Non Admin',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = _SwitchableProfileRepository(adminProfile);
+        final homeController = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: homeController,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('food-search-create-button')), findsOneWidget);
+
+        // Sign out (reset fires from app.dart's auth listener — design.md
+        // D2/2.5), then sign in as a non-admin. Without the reset, the new
+        // user would inherit the previous (admin) user's `isAdmin`.
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+        profileRepository.profile = nonAdminProfile;
+        await authRepository.signIn(
+          FakeAuthRepository.validEmail,
+          FakeAuthRepository.validPassword,
+        );
+        await tester.pumpAndSettle();
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('food-search-create-button')), findsNothing);
+      },
+    );
+  });
+}
+
+class _SwitchableProfileRepository implements ProfileRepository {
+  UserProfile profile;
+
+  _SwitchableProfileRepository(this.profile);
+
+  @override
+  Future<UserProfile> getProfile(String idToken) async => profile;
 }
