@@ -106,6 +106,10 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
       c.addListener(_onChanged);
     }
     widget.controller.addListener(_onChanged);
+    // The controller is an app-wide singleton reused across sheet openings —
+    // clear any error left over from a previous, unrelated submission so a
+    // freshly opened sheet never shows it (see shared_food_item_controller.dart).
+    widget.controller.clearError();
   }
 
   void _onChanged() => setState(() {});
