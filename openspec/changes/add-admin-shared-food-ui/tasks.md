@@ -14,11 +14,11 @@ Timezone note: this change touches no dates, so `TZ=UTC flutter test` is not req
 
 ## 1. The admin flag reaches the app
 
-- [ ] 1.1 Test first — `UserProfile.fromJson` maps `is_admin: true` to
+- [x] 1.1 Test first — `UserProfile.fromJson` maps `is_admin: true` to
       `isAdmin == true`, `is_admin: false` to false, and a response **missing** the
       key to false without throwing (deliberate: a missing key must degrade to
       "not an admin", not fail the whole profile load).
-- [ ] 1.2 Add `final bool isAdmin` to `lib/contexts/user/domain/user_profile.dart`
+- [x] 1.2 Add `final bool isAdmin` to `lib/contexts/user/domain/user_profile.dart`
       and parse it as `json['is_admin'] as bool? ?? false`. Fix every existing
       `UserProfile(...)` construction in `lib/` and `test/` that the new required
       field breaks (grep `UserProfile(`).
@@ -30,19 +30,19 @@ Do NOT move the existing `homeController.load` out of `_AuthenticatedHome.initSt
 load (leave `/` and come back → remount → reload), and moving it would put the whole
 auth/home flow at risk for a secondary feature.
 
-- [ ] 2.1 Test first — `HomeController.ensureLoaded(idToken)` calls `GetProfile`
+- [x] 2.1 Test first — `HomeController.ensureLoaded(idToken)` calls `GetProfile`
       exactly once when invoked repeatedly (already-loaded and in-flight both no-op);
       after a **failed** load it DOES fetch again (the judgment is `profile != null`,
       not "was ever called" — a failed first attempt must be retryable, and this is
       the only retry a deep-linked screen gets); and `reset()` clears the profile so a
       later `ensureLoaded` fetches again. Use a fake `GetProfile` that counts calls.
-- [ ] 2.2 Implement `ensureLoaded` and `reset` on
+- [x] 2.2 Implement `ensureLoaded` and `reset` on
       `lib/contexts/user/presentation/home_controller.dart`. `load` keeps its current
       always-reload behavior (the home screen's retry depends on it).
-- [ ] 2.3 Test first — entering the dictionary deep link with no profile loaded
+- [x] 2.3 Test first — entering the dictionary deep link with no profile loaded
       results in the profile being fetched, and the admin entry points appear once it
       resolves (drive it the way the existing PWA-shortcut/go_router tests do).
-- [ ] 2.4 Trigger `ensureLoaded` **once from `FoodSearchScreen.initState`**, inside
+- [x] 2.4 Trigger `ensureLoaded` **once from `FoodSearchScreen.initState`**, inside
       `WidgetsBinding.instance.addPostFrameCallback`. Put it in the screen, not in the
       route builders: there are THREE construction sites (lib/app.dart — the
       `food-search` route, the `extra`-carrying `dictionary` route, and
@@ -56,7 +56,7 @@ auth/home flow at risk for a secondary feature.
       about `HomeController` — pass a `VoidCallback? onNeedProfile` (or equivalent)
       from the wiring in app.dart, keeping the screen ignorant of where admin status
       comes from (same rule as `isAdmin` being a plain bool).
-- [ ] 2.5 Call `homeController.reset()` when the session ends, from app.dart's
+- [x] 2.5 Call `homeController.reset()` when the session ends, from app.dart's
       existing auth listener (`_authNotifier.addListener(...)`, lib/app.dart:304).
       **Detect sign-out, not "a different user"**: `AuthRouterNotifier`
       (lib/shared/routing/auth_router_notifier.dart:16-34) exposes only
@@ -69,7 +69,7 @@ auth/home flow at risk for a secondary feature.
 
 ## 3. Repository + use cases
 
-- [ ] 3.1 Test first (fake `http.Client`) for
+- [x] 3.1 Test first (fake `http.Client`) for
       `lib/contexts/health/infrastructure/http_food_dictionary_repository.dart`:
       - `createSharedItem` POSTs to `/api/admin/food-items` with snake_case fields and
         returns the created `FoodItem`;
@@ -80,23 +80,23 @@ auth/home flow at risk for a secondary feature.
         distinguishable from "not supplied";
       - 401 throws the existing reauth error, 403 throws a NEW distinct
         forbidden error, other non-2xx throw the existing failure type.
-- [ ] 3.2 Add the two methods to the `FoodDictionaryRepository` port
+- [x] 3.2 Add the two methods to the `FoodDictionaryRepository` port
       (`lib/contexts/health/domain/food_dictionary_repository.dart`) with an input
       type for create and a patch type for update that can express
       "absent vs explicitly null" for the measure basis. Add the forbidden error to
       `lib/contexts/health/domain/diet_exceptions.dart`.
-- [ ] 3.3 Implement in `HttpFoodDictionaryRepository`, reusing the existing `_send`
+- [x] 3.3 Implement in `HttpFoodDictionaryRepository`, reusing the existing `_send`
       helper so 401 handling stays in one place.
-- [ ] 3.4 Test first, then add the two use cases in
+- [x] 3.4 Test first, then add the two use cases in
       `lib/contexts/health/application/` (`create_shared_food_item.dart`,
       `update_shared_food_item.dart`), thin wrappers over the port like the existing
       ones (`favorite_food.dart` is the shape to copy).
-- [ ] 3.5 Update every fake/stub implementing `FoodDictionaryRepository` in `test/`
+- [x] 3.5 Update every fake/stub implementing `FoodDictionaryRepository` in `test/`
       so it satisfies the widened port.
 
 ## 4. The form (bottom sheet, create + edit)
 
-- [ ] 4.1 Add the ARB copy first to **all three** ARB files — `lib/l10n/app_en.arb`
+- [x] 4.1 Add the ARB copy first to **all three** ARB files — `lib/l10n/app_en.arb`
       (with a `description` for each key), `lib/l10n/app_zh_Hant.arb`, and
       `lib/l10n/app_zh.arb` (this repo keeps `app_zh.arb` as a full translation, byte-
       identical to `app_zh_Hant.arb` apart from `@@locale`; skipping it makes
@@ -106,14 +106,14 @@ auth/home flow at risk for a secondary feature.
       success messages, the forbidden message, the generic retryable failure, and
       the tooltips for the two entry points. Regenerate with `flutter gen-l10n` and
       commit the generated files.
-- [ ] 4.2 Add `lib/contexts/health/presentation/shared_food_item_controller.dart` —
+- [x] 4.2 Add `lib/contexts/health/presentation/shared_food_item_controller.dart` —
       a `ChangeNotifier` holding the submit state (idle / submitting / typed error)
       and the two use cases, built in `lib/main.dart` and passed down through the
       routes to `FoodSearchScreen` and from there to the sheet. The sheet must not
       hold use cases directly (this project's layering is screen → controller → use
       case). Test it first with fake use cases: success, generic failure, forbidden,
       and that a second submit while one is in flight does not fire twice.
-- [ ] 4.3 Test first — widget tests for a new
+- [x] 4.3 Test first — widget tests for a new
       `lib/contexts/health/presentation/shared_food_item_sheet.dart` driven through
       `l10nTestApp` (test/support/l10n_test_app.dart):
       - create mode opens empty; edit mode opens prefilled from the given `FoodItem`;
@@ -131,7 +131,7 @@ auth/home flow at risk for a secondary feature.
       - a failed submission keeps the sheet open with values intact and shows a
         retryable message; a forbidden failure keeps the sheet open and shows the
         permission message (NOT closing the sheet or hiding the entry point).
-- [ ] 4.4 Implement the sheet with `showModalBottomSheet(isScrollControlled: true)`
+- [x] 4.4 Implement the sheet with `showModalBottomSheet(isScrollControlled: true)`
       **and bottom padding of `MediaQuery.of(context).viewInsets.bottom`** —
       `isScrollControlled` alone does not lift content above the soft keyboard, which
       is the entire reason for choosing a sheet over a dialog; every existing sheet in
@@ -144,7 +144,7 @@ auth/home flow at risk for a secondary feature.
 
 ## 5. Entry points in the search screen
 
-- [ ] 5.1 Test first — `test/` widget tests for `FoodSearchScreen` with
+- [x] 5.1 Test first — `test/` widget tests for `FoodSearchScreen` with
       `isAdmin: true` / `false`:
       - admin + shared item (`ownerUserId == null`) → the row shows the edit action;
       - admin + custom item (`ownerUserId != null`) → no edit action on that row;
@@ -155,13 +155,13 @@ auth/home flow at risk for a secondary feature.
       - admin taps the app bar create action → the sheet opens empty;
       - after a successful create or edit the screen re-runs the current search (or
         reloads favorites when the query is empty) and shows a success message.
-- [ ] 5.2 Implement in `lib/contexts/health/presentation/food_search_screen.dart`:
+- [x] 5.2 Implement in `lib/contexts/health/presentation/food_search_screen.dart`:
       add an `isAdmin` parameter **defaulting to `false`** (the screen must not know
       how admin status is obtained, and a default keeps the eight existing
       constructions in `test/` compiling — "unknown" must mean "not an admin"); render the per-row `⋮` menu only for `isAdmin && item.ownerUserId
       == null`; add the app-bar create action only for `isAdmin`. Both carry tooltips.
       Keep the existing row shape, favorite control, and `onTap` behavior untouched.
-- [ ] 5.3 Wire **all three** construction sites in `lib/app.dart` — the `food-search`
+- [x] 5.3 Wire **all three** construction sites in `lib/app.dart` — the `food-search`
       route, the `dictionary` route that receives `extra`, and `_UrlDictionaryScreen`
       (lib/app.dart:939), which builds `FoodSearchScreen` itself and is the path the
       PWA launcher shortcut takes (`web/manifest.json` points at
@@ -170,7 +170,7 @@ auth/home flow at risk for a secondary feature.
       notifies (`ListenableBuilder`) so the entry points appear once the profile
       lands. Wire the new controller and use cases from `lib/main.dart` the way the
       existing dictionary ones are wired.
-- [ ] 5.4 After a successful **create**, set the search field to the new item's name
+- [x] 5.4 After a successful **create**, set the search field to the new item's name
       and run that search — with an empty query the screen shows favorites
       (food_search_screen.dart:299-300), which a brand-new shared item can never be
       in, so a plain "reload" would look like the create silently failed.
@@ -186,16 +186,16 @@ auth/home flow at risk for a secondary feature.
       than asserting immediately.
       After a successful **edit**, re-run the current search (or reload favorites when
       the query is empty).
-- [ ] 5.5 Items already in the tray keep the values they were added with — an edit
+- [x] 5.5 Items already in the tray keep the values they were added with — an edit
       must not rewrite `TrayItem`'s snapshot (create_meal_controller.dart:26-31).
       Add a test that pins this.
 
 ## 6. Verify
 
-- [ ] 6.1 `flutter analyze` clean.
-- [ ] 6.2 `flutter test` — must print `All tests passed!`. A run that hangs is NOT a
+- [x] 6.1 `flutter analyze` clean.
+- [x] 6.2 `flutter test` — must print `All tests passed!`. A run that hangs is NOT a
       pass (this project has hit an infinite `notifyListeners` re-entrancy before);
       if it hangs, treat it as a failure and find the cause.
-- [ ] 6.3 `npx openspec validate add-admin-shared-food-ui --strict` passes.
-- [ ] 6.4 Confirm the non-admin path is untouched: existing food-search tests still
+- [x] 6.3 `npx openspec validate add-admin-shared-food-ui --strict` passes.
+- [x] 6.4 Confirm the non-admin path is untouched: existing food-search tests still
       green without modification (if one needed editing, say why in the report).
