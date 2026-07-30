@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/create_meal.dart';
+import 'package:life_os/contexts/health/application/create_shared_food_item.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
+import 'package:life_os/contexts/health/application/update_shared_food_item.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
@@ -17,17 +19,21 @@ import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
+import 'package:life_os/contexts/health/presentation/shared_food_item_controller.dart';
 import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
 
-FoodItem _riceItem({double? baseAmount, String? measureUnit}) => FoodItem.fromJson({
+FoodItem _riceItem({double? baseAmount, String? measureUnit, String? ownerUserId}) =>
+    FoodItem.fromJson({
   'id': 'rice-1',
-  'owner_user_id': null,
+  'owner_user_id': ownerUserId,
   'name': '飯/1碗',
   'carb_g': 60,
   'protein_g': 4,
@@ -89,6 +95,35 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   @override
   Future<void> unfavorite(String idToken, String foodItemId) async {
     if (toggleError != null) throw toggleError!;
+  }
+
+  SharedFoodItemInput? receivedCreateInput;
+  String? receivedUpdateId;
+  SharedFoodItemPatch? receivedUpdatePatch;
+  FoodItem? createResult;
+  FoodItem? updateResult;
+  Object? createUpdateError;
+
+  @override
+  Future<FoodItem> createSharedItem(
+    String idToken,
+    SharedFoodItemInput input,
+  ) async {
+    if (createUpdateError != null) throw createUpdateError!;
+    receivedCreateInput = input;
+    return createResult ?? _riceItem();
+  }
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) async {
+    if (createUpdateError != null) throw createUpdateError!;
+    receivedUpdateId = id;
+    receivedUpdatePatch = patch;
+    return updateResult ?? _riceItem();
   }
 }
 
@@ -180,6 +215,9 @@ DictionaryController _dictionaryController(FakeFoodDictionaryRepository repo) =>
       UnfavoriteFood(repo),
     );
 
+SharedFoodItemController _sharedFoodItemController(FakeFoodDictionaryRepository repo) =>
+    SharedFoodItemController(CreateSharedFoodItem(repo), UpdateSharedFoodItem(repo));
+
 Future<FakeMealRepository> _pumpScreen(
   WidgetTester tester, {
   FakeFoodDictionaryRepository? dictionaryRepository,
@@ -188,6 +226,9 @@ Future<FakeMealRepository> _pumpScreen(
   String? meal = 'lunch',
   List<String> mealNames = const <String>[],
   Locale locale = const Locale('en'),
+  bool isAdmin = false,
+  SharedFoodItemController? sharedFoodItemController,
+  VoidCallback? onNeedProfile,
 }) async {
   final resolvedDictionaryRepository =
       dictionaryRepository ?? FakeFoodDictionaryRepository();
@@ -196,6 +237,8 @@ Future<FakeMealRepository> _pumpScreen(
   await dictionaryController.load('token-123');
   final createMealController = CreateMealController(CreateMeal(resolvedMealRepository))
     ..start(meal);
+  final resolvedSharedFoodItemController =
+      sharedFoodItemController ?? _sharedFoodItemController(resolvedDictionaryRepository);
 
   await tester.pumpWidget(
     l10nRouterTestApp(
@@ -208,6 +251,9 @@ Future<FakeMealRepository> _pumpScreen(
         idToken: 'token-123',
         day: '2026-07-18',
         signOut: SignOut(authRepository ?? FakeAuthRepository()),
+        isAdmin: isAdmin,
+        sharedFoodItemController: resolvedSharedFoodItemController,
+        onNeedProfile: onNeedProfile,
       ),
     ),
   );
@@ -1394,6 +1440,147 @@ void main() {
 
       expect(find.byType(FoodSearchScreen), findsOneWidget);
       expect(find.byKey(const Key('food-search-tray')), findsNothing);
+    });
+  });
+
+  group('FoodSearchScreen admin entry points', () {
+    testWidgets('admin sees the edit action on a shared item, and tapping the row still adds it', (
+      tester,
+    ) async {
+      final mealRepository = await _pumpScreen(
+        tester,
+        isAdmin: true,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          favorites: [_riceItem(ownerUserId: null)],
+        ),
+      );
+
+      expect(find.byKey(const Key('food-search-result-menu-rice-1')), findsOneWidget);
+
+      await tester.tap(find.text('飯/1碗').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.receivedItems, hasLength(1));
+    });
+
+    testWidgets('admin sees no edit action on another user\'s custom item', (tester) async {
+      await _pumpScreen(
+        tester,
+        isAdmin: true,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          favorites: [_riceItem(ownerUserId: 'someone-else')],
+        ),
+      );
+
+      expect(find.byKey(const Key('food-search-result-menu-rice-1')), findsNothing);
+    });
+
+    testWidgets('non-admin sees no row action and no create action', (tester) async {
+      await _pumpScreen(tester, isAdmin: false);
+
+      expect(find.byKey(const Key('food-search-result-menu-rice-1')), findsNothing);
+      expect(find.byKey(const Key('food-search-create-button')), findsNothing);
+    });
+
+    testWidgets('admin sees the app-bar create action', (tester) async {
+      await _pumpScreen(tester, isAdmin: true);
+
+      expect(find.byKey(const Key('food-search-create-button')), findsOneWidget);
+    });
+
+    testWidgets('admin taps the row edit action and the sheet opens prefilled', (tester) async {
+      await _pumpScreen(
+        tester,
+        isAdmin: true,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          favorites: [_riceItem(ownerUserId: null)],
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('food-search-result-menu-rice-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('food-search-result-edit-item')));
+      await tester.pumpAndSettle();
+
+      final nameField = tester.widget<TextField>(
+        find.byKey(const Key('shared-food-item-name-field')),
+      );
+      expect(nameField.controller!.text, '飯/1碗');
+    });
+
+    testWidgets('admin taps the app-bar create action and the sheet opens empty', (tester) async {
+      await _pumpScreen(tester, isAdmin: true);
+
+      await tester.tap(find.byKey(const Key('food-search-create-button')));
+      await tester.pumpAndSettle();
+
+      final nameField = tester.widget<TextField>(
+        find.byKey(const Key('shared-food-item-name-field')),
+      );
+      expect(nameField.controller!.text, isEmpty);
+    });
+
+    testWidgets(
+      'after a successful create, the screen searches for the new item and shows a success message',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository(
+          favorites: [_riceItem()],
+          searchResults: [_riceItem()],
+        )..createResult = _riceItem();
+        await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+
+        await tester.tap(find.byKey(const Key('food-search-create-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          '飯/1碗',
+        );
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.sharedFoodItemCreateSuccess), findsOneWidget);
+        final searchField = tester.widget<TextField>(
+          find.byKey(const Key('food-search-field')),
+        );
+        expect(searchField.controller!.text, '飯/1碗');
+      },
+    );
+
+    testWidgets(
+      'after a successful edit, the screen re-runs the current search and shows a success message',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository(
+          favorites: [_riceItem(ownerUserId: null)],
+        )..updateResult = _riceItem();
+        await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+
+        await tester.tap(find.byKey(const Key('food-search-result-menu-rice-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('food-search-result-edit-item')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          '飯/1碗改',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.sharedFoodItemEditSuccess), findsOneWidget);
+      },
+    );
+  });
+
+  group('FoodSearchScreen admin profile loading', () {
+    testWidgets('calls onNeedProfile once, post-frame', (tester) async {
+      var callCount = 0;
+      await _pumpScreen(tester, onNeedProfile: () => callCount++);
+
+      expect(callCount, 1);
     });
   });
 }

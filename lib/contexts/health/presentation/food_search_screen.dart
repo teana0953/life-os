@@ -12,6 +12,8 @@ import 'create_meal_controller.dart';
 import 'dictionary_controller.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
+import 'shared_food_item_controller.dart';
+import 'shared_food_item_sheet.dart';
 import 'snack_naming.dart';
 
 /// The effective quantity previewed for a dictionary tray row: the entered
@@ -78,6 +80,24 @@ class FoodSearchScreen extends StatefulWidget {
   /// control, mirroring `TodayScreen`/`HomeScreen`'s recovery exit.
   final SignOut signOut;
 
+  /// Whether the current user is an administrator (design.md D2) — a plain
+  /// bool, not a controller: this screen doesn't know or care how admin
+  /// status is determined. Defaults to `false` so "unknown" never means
+  /// "admin", and so every pre-existing construction of this screen (which
+  /// predates admin entry points) keeps compiling.
+  final bool isAdmin;
+
+  /// Drives the create/edit shared-item bottom sheet's submit state.
+  /// `null` when [isAdmin] is (and will stay) `false` for this screen's
+  /// lifetime — the entry points that would need it aren't shown.
+  final SharedFoodItemController? sharedFoodItemController;
+
+  /// Requests that the caller ensure the profile (and so [isAdmin]) is
+  /// loaded — called once, post-frame, from [initState] (design.md D2).
+  /// The screen stays ignorant of `HomeController`; the wiring in app.dart
+  /// supplies this.
+  final VoidCallback? onNeedProfile;
+
   const FoodSearchScreen({
     super.key,
     required this.meal,
@@ -87,6 +107,9 @@ class FoodSearchScreen extends StatefulWidget {
     required this.idToken,
     required this.day,
     required this.signOut,
+    this.isAdmin = false,
+    this.sharedFoodItemController,
+    this.onNeedProfile,
   });
 
   @override
@@ -94,21 +117,69 @@ class FoodSearchScreen extends StatefulWidget {
 }
 
 class _FoodSearchScreenState extends State<FoodSearchScreen> {
+  /// Owns the search field's text so a successful create can set it to the
+  /// new item's name (design.md D7) — without this the field was a bare
+  /// `TextField` with nothing able to set its text programmatically.
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     widget.dictionaryController.addListener(_onChanged);
     widget.createMealController.addListener(_onChanged);
+    widget.sharedFoodItemController?.addListener(_onChanged);
+    // Post-frame: `HomeController.load` (behind `onNeedProfile`) notifies
+    // synchronously before its first await, and this screen can be reached
+    // mid router-stack-rebuild (e.g. the PWA-shortcut deep link), where a
+    // synchronous notify during that build would throw.
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.onNeedProfile?.call());
   }
 
   @override
   void dispose() {
     widget.dictionaryController.removeListener(_onChanged);
     widget.createMealController.removeListener(_onChanged);
+    widget.sharedFoodItemController?.removeListener(_onChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
   void _onChanged() => setState(() {});
+
+  Future<void> _openSharedFoodItemSheet({FoodItem? item}) async {
+    final controller = widget.sharedFoodItemController;
+    if (controller == null) return;
+    final loc = AppLocalizations.of(context)!;
+    final wasCreate = item == null;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SharedFoodItemSheet(
+        controller: controller,
+        idToken: widget.idToken,
+        item: item,
+        onSuccess: (result) {
+          Navigator.of(sheetContext).pop();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                wasCreate ? loc.sharedFoodItemCreateSuccess : loc.sharedFoodItemEditSuccess,
+              ),
+            ),
+          );
+          if (wasCreate) {
+            _searchController.text = result.name;
+            widget.dictionaryController.search(result.name);
+          } else if (widget.dictionaryController.query.isEmpty) {
+            widget.dictionaryController.load(widget.idToken);
+          } else {
+            widget.dictionaryController.search(widget.dictionaryController.query);
+          }
+        },
+      ),
+    );
+  }
 
   /// Asks which meal the tray belongs to (dictionary mode only), returning
   /// the chosen meal — or null if the sheet was dismissed without choosing,
@@ -275,13 +346,34 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
               veg: item.veg,
             ),
           ),
-          trailing: IconButton(
-            tooltip: isFavorite
-                ? loc.dietUnfavoriteTooltip
-                : loc.dietFavoriteTooltip,
-            icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
-            onPressed: () =>
-                dictionary.toggleFavorite(item, isFavorite: isFavorite),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: isFavorite
+                    ? loc.dietUnfavoriteTooltip
+                    : loc.dietFavoriteTooltip,
+                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+                onPressed: () =>
+                    dictionary.toggleFavorite(item, isFavorite: isFavorite),
+              ),
+              // Admin-only, and only on shared items (design.md D3): a custom
+              // item belongs to some other user, and editing it isn't
+              // something the backend allows (404).
+              if (widget.isAdmin && item.ownerUserId == null)
+                PopupMenuButton<void>(
+                  key: Key('food-search-result-menu-${item.id}'),
+                  tooltip: loc.editSharedItemTooltip,
+                  icon: const Icon(Icons.more_vert),
+                  itemBuilder: (context) => [
+                    PopupMenuItem<void>(
+                      key: const Key('food-search-result-edit-item'),
+                      onTap: () => _openSharedFoodItemSheet(item: item),
+                      child: Text(loc.editSharedItemTooltip),
+                    ),
+                  ],
+                ),
+            ],
           ),
           onTap: () => widget.createMealController.add(item),
         );
@@ -314,6 +406,15 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
               ? loc.dietDictionaryTitle
               : loc.dietAddToMealButton(mealDisplayLabel(loc, meal)),
         ),
+        actions: [
+          if (widget.isAdmin)
+            IconButton(
+              key: const Key('food-search-create-button'),
+              tooltip: loc.createSharedItemTooltip,
+              icon: const Icon(Icons.add),
+              onPressed: () => _openSharedFoodItemSheet(),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -321,6 +422,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: TextField(
               key: const Key('food-search-field'),
+              controller: _searchController,
               decoration: InputDecoration(hintText: loc.dietSearchFoodHint),
               onChanged: dictionary.search,
             ),
