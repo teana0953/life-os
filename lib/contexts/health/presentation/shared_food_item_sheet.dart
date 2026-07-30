@@ -238,7 +238,10 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
         ),
       );
     }
-    if (result != null) widget.onSuccess(result);
+    // The sheet may have been dismissed (tapped outside, dragged down) while
+    // this request was in flight — this State is disposed by then, so
+    // `onSuccess` (which pops the now-gone sheet route) must not run.
+    if (result != null && mounted) widget.onSuccess(result);
   }
 
   Widget _numberField(Key key, TextEditingController controller, String label) {

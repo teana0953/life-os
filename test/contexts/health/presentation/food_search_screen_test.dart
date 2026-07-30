@@ -104,6 +104,10 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   FoodItem? updateResult;
   Object? createUpdateError;
 
+  /// Held open (never completed) to keep [createSharedItem] in flight, so a
+  /// test can dismiss the sheet before the request resolves.
+  Completer<FoodItem>? createGate;
+
   @override
   Future<FoodItem> createSharedItem(
     String idToken,
@@ -111,6 +115,7 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   ) async {
     if (createUpdateError != null) throw createUpdateError!;
     receivedCreateInput = input;
+    if (createGate != null) return createGate!.future;
     return createResult ?? _riceItem();
   }
 
@@ -1571,6 +1576,40 @@ void main() {
 
         final loc = lookupAppLocalizations(const Locale('en'));
         expect(find.text(loc.sharedFoodItemEditSuccess), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'dismissing the sheet while a submit is in flight does not crash when it later resolves',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..createGate = Completer<FoodItem>();
+        await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+
+        await tester.tap(find.byKey(const Key('food-search-create-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pump();
+
+        // The admin dismisses the sheet (e.g. taps outside it) while the
+        // create request is still pending.
+        Navigator.of(
+          tester.element(find.byKey(const Key('shared-food-item-name-field'))),
+        ).pop();
+        await tester.pumpAndSettle();
+
+        // The request now resolves successfully, after the sheet is gone.
+        repository.createGate!.complete(_riceItem());
+        await tester.pumpAndSettle();
+
+        // No exception was thrown, and the food-search screen itself (not
+        // just the sheet) is still on screen.
+        expect(find.byKey(const Key('food-search-create-button')), findsOneWidget);
       },
     );
   });
