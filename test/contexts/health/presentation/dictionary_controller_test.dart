@@ -6,6 +6,8 @@ import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
@@ -40,6 +42,17 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
     if (toggleErrorToThrow != null) throw toggleErrorToThrow!;
     unfavoritedId = foodItemId;
   }
+
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 FoodItem _item(String id, String name) => FoodItem.fromJson({

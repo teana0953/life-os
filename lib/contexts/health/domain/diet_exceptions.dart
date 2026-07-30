@@ -22,3 +22,11 @@ class DietFetchFailure implements Exception {
 class DietNotFound implements Exception {
   const DietNotFound();
 }
+
+/// Thrown by a diet repository mutation when the backend returns `403` —
+/// the caller is not an administrator. Distinct from [DietFetchFailure] so
+/// the screen can say "you don't have permission" instead of a generic
+/// retryable failure.
+class DietForbidden implements Exception {
+  const DietForbidden();
+}

@@ -3,6 +3,8 @@ import 'package:life_os/contexts/health/application/favorite_food.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   String? favoritedIdToken;
@@ -27,6 +29,17 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
     unfavoritedIdToken = idToken;
     unfavoritedItemId = foodItemId;
   }
+
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 void main() {

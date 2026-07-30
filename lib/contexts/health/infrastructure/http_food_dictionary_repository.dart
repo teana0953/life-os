@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../domain/diet_exceptions.dart';
 import '../domain/food_dictionary_repository.dart';
 import '../domain/food_item.dart';
+import '../domain/shared_food_item_input.dart';
+import '../domain/shared_food_item_patch.dart';
 
 /// [FoodDictionaryRepository] driven adapter backed by the
 /// `/api/food-items` HTTP endpoints.
@@ -101,5 +103,54 @@ class HttpFoodDictionaryRepository implements FoodDictionaryRepository {
         'Failed to unfavorite the item (status ${response.statusCode}).',
       );
     }
+  }
+
+  Map<String, String> _jsonHeaders(String idToken) => {
+    ..._headers(idToken),
+    'Content-Type': 'application/json',
+  };
+
+  @override
+  Future<FoodItem> createSharedItem(
+    String idToken,
+    SharedFoodItemInput input,
+  ) async {
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/admin/food-items'),
+        headers: _jsonHeaders(idToken),
+        body: jsonEncode(input.toJson()),
+      ),
+    );
+    if (response.statusCode == 403) throw const DietForbidden();
+    if (response.statusCode != 201) {
+      throw DietFetchFailure(
+        'Failed to create the item (status ${response.statusCode}).',
+      );
+    }
+    return FoodItem.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) async {
+    final response = await _send(
+      () => client.patch(
+        Uri.parse('$baseUrl/api/admin/food-items/$id'),
+        headers: _jsonHeaders(idToken),
+        body: jsonEncode(patch.toJson()),
+      ),
+    );
+    if (response.statusCode == 403) throw const DietForbidden();
+    if (response.statusCode == 404) throw const DietNotFound();
+    if (response.statusCode != 200) {
+      throw DietFetchFailure(
+        'Failed to update the item (status ${response.statusCode}).',
+      );
+    }
+    return FoodItem.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 }

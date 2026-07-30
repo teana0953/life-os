@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 
 class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   List<FoodItem> favoritesToReturn = [];
@@ -21,6 +23,17 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
   @override
   Future<void> unfavorite(String idToken, String foodItemId) async {}
+
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 FoodItem _riceItem() => FoodItem.fromJson({
