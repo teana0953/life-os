@@ -24,6 +24,26 @@ class HomeController extends ChangeNotifier {
   UserProfile? profile;
   ProfileError? error;
 
+  Future<void>? _ensureLoadedInFlight;
+
+  /// Loads the profile only if it isn't already loaded and no load is
+  /// currently in flight. Unlike [load], a failed attempt (`profile ==
+  /// null`) is retried on the next call — this is the only retry a
+  /// deep-linked screen (one that never mounts `_AuthenticatedHome`) gets.
+  Future<void> ensureLoaded(String idToken) {
+    if (profile != null) return Future.value();
+    return _ensureLoadedInFlight ??= load(idToken).whenComplete(() {
+      _ensureLoadedInFlight = null;
+    });
+  }
+
+  /// Clears the loaded profile on sign-out so a subsequently signed-in user
+  /// doesn't inherit the previous user's admin status.
+  void reset() {
+    profile = null;
+    status = HomeStatus.loading;
+  }
+
   Future<void> load(String idToken) async {
     status = HomeStatus.loading;
     error = null;
