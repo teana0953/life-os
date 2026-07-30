@@ -1479,8 +1479,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String sharedFoodItemNumberFieldError(String field) {
-    return '$field 必須是零或正數。';
+    return '$field必須是零或正數。';
   }
+
+  @override
+  String get sharedFoodItemNameRequiredError => '名稱為必填。';
 
   @override
   String get sharedFoodItemCreateSuccess => '已建立共用品項。';
@@ -2976,8 +2979,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String sharedFoodItemNumberFieldError(String field) {
-    return '$field 必須是零或正數。';
+    return '$field必須是零或正數。';
   }
+
+  @override
+  String get sharedFoodItemNameRequiredError => '名稱為必填。';
 
   @override
   String get sharedFoodItemCreateSuccess => '已建立共用品項。';

@@ -2054,6 +2054,10 @@
       }
     }
   },
+  "sharedFoodItemNameRequiredError": "Name is required.",
+  "@sharedFoodItemNameRequiredError": {
+    "description": "Validation error shown next to the name field on the shared dictionary item form (create or edit mode) when it is blank; blocks submission."
+  },
   "sharedFoodItemCreateSuccess": "Shared item created.",
   "@sharedFoodItemCreateSuccess": {
     "description": "SnackBar shown after successfully creating a shared dictionary item."

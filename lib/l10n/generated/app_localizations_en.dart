@@ -1537,6 +1537,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get sharedFoodItemNameRequiredError => 'Name is required.';
+
+  @override
   String get sharedFoodItemCreateSuccess => 'Shared item created.';
 
   @override

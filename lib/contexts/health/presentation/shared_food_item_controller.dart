@@ -34,15 +34,6 @@ class SharedFoodItemController extends ChangeNotifier {
     return _submit(() => _updateSharedFoodItem(idToken, id, patch));
   }
 
-  /// Clears a stale submit error so a freshly opened sheet (a new `State`
-  /// sharing this app-wide controller) never inherits an error left over
-  /// from a previous, unrelated submission.
-  void clearError() {
-    if (error == null) return;
-    error = null;
-    notifyListeners();
-  }
-
   Future<FoodItem?> _submit(Future<FoodItem> Function() request) async {
     if (status == SharedFoodItemControllerStatus.submitting) return null;
     status = SharedFoodItemControllerStatus.submitting;

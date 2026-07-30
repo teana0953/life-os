@@ -65,8 +65,19 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   late final TextEditingController _measureAmount;
   late final TextEditingController _measureUnit;
 
+  String? _nameError;
   String? _measureError;
   String? _numberError;
+
+  /// The error from this sheet's own last submission, or `null`. Deliberately
+  /// separate from [SharedFoodItemController.error]: that field lives on an
+  /// app-wide singleton controller reused across sheet openings, so reading
+  /// it directly in `build()` would show an error left over from a previous,
+  /// unrelated sheet (including one whose submission only failed after that
+  /// sheet was already dismissed). This field is only ever set from this
+  /// State's own [_submit], so a freshly opened sheet starts with it `null`
+  /// and never inherits someone else's error.
+  SharedFoodItemError? _ownError;
 
   FoodItem? get _item => widget.item;
 
@@ -107,10 +118,6 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
       c.addListener(_onChanged);
     }
     widget.controller.addListener(_onChanged);
-    // The controller is an app-wide singleton reused across sheet openings —
-    // clear any error left over from a previous, unrelated submission so a
-    // freshly opened sheet never shows it (see shared_food_item_controller.dart).
-    widget.controller.clearError();
   }
 
   void _onChanged() => setState(() {});
@@ -127,13 +134,15 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
 
   double _parseOrZero(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
 
-  /// `true` in create mode (nothing to compare against — always submittable);
-  /// in edit mode, `true` only once at least one field's text differs from
-  /// its seeded original (design.md D5b: an unchanged edit must not submit,
+  /// `true` in create mode (nothing to compare against — always submittable;
+  /// a blank name is instead blocked by [_validateName] with a visible
+  /// error, not by silently disabling this button — design.md D9); in edit
+  /// mode, `true` only once at least one field's text differs from its
+  /// seeded original (design.md D5b: an unchanged edit must not submit,
   /// since the backend rejects an empty PATCH with 400).
   bool get _hasChanges {
     final item = _item;
-    if (item == null) return _name.text.trim().isNotEmpty;
+    if (item == null) return true;
     return _name.text.trim() != item.name ||
         _staple.text.trim() != _seedNullable(item.staple) ||
         _meat.text.trim() != _seedNullable(item.meat) ||
@@ -147,6 +156,19 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
         _kcal.text.trim() != _seedNullable(item.kcal) ||
         _measureAmount.text.trim() != _seedNullable(item.baseAmount) ||
         _measureUnit.text.trim() != (item.measureUnit ?? '');
+  }
+
+  /// An empty (or whitespace-only) name must never be submittable, in either
+  /// mode — checked before any request is sent. Sets [_nameError] and
+  /// returns false when invalid, mirroring [_validateMeasure]/[_validateNumbers].
+  bool _validateName() {
+    if (_name.text.trim().isEmpty) {
+      final loc = AppLocalizations.of(context)!;
+      setState(() => _nameError = loc.sharedFoodItemNameRequiredError);
+      return false;
+    }
+    setState(() => _nameError = null);
+    return true;
   }
 
   /// Validates the measure-basis pair rule (design.md D5): both filled or
@@ -213,6 +235,7 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   }
 
   Future<void> _submit() async {
+    if (!_validateName()) return;
     if (!_validateNumbers()) return;
     if (!_validateMeasure()) return;
 
@@ -275,8 +298,15 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     }
     // The sheet may have been dismissed (tapped outside, dragged down) while
     // this request was in flight — this State is disposed by then, so
-    // `onSuccess` (which pops the now-gone sheet route) must not run.
-    if (result != null && mounted) widget.onSuccess(result);
+    // neither `onSuccess` (which pops the now-gone sheet route) nor setting
+    // `_ownError` (which would show a stale error on a since-gone sheet) may
+    // run.
+    if (!mounted) return;
+    if (result != null) {
+      widget.onSuccess(result);
+    } else {
+      setState(() => _ownError = widget.controller.error);
+    }
   }
 
   Widget _numberField(Key key, TextEditingController controller, String label) {
@@ -300,9 +330,9 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     final canSubmit = !submitting && _hasChanges;
 
     String? errorMessage;
-    if (controller.error == SharedFoodItemError.forbidden) {
+    if (_ownError == SharedFoodItemError.forbidden) {
       errorMessage = loc.sharedFoodItemForbiddenError;
-    } else if (controller.error == SharedFoodItemError.saveFailed) {
+    } else if (_ownError == SharedFoodItemError.saveFailed) {
       errorMessage = loc.sharedFoodItemSaveFailed;
     }
 
@@ -325,6 +355,14 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
                 controller: _name,
                 decoration: InputDecoration(labelText: loc.sharedFoodItemNameLabel),
               ),
+              if (_nameError != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _nameError!,
+                  key: const Key('shared-food-item-name-error'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ],
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,

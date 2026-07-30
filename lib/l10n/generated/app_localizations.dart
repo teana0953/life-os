@@ -2834,6 +2834,12 @@ abstract class AppLocalizations {
   /// **'{field} must be zero or a positive number.'**
   String sharedFoodItemNumberFieldError(String field);
 
+  /// Validation error shown next to the name field on the shared dictionary item form (create or edit mode) when it is blank; blocks submission.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required.'**
+  String get sharedFoodItemNameRequiredError;
+
   /// SnackBar shown after successfully creating a shared dictionary item.
   ///
   /// In en, this message translates to:

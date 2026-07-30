@@ -96,6 +96,62 @@ Widget _buildSheet({
   );
 }
 
+/// Mimics `FoodSearchScreen` (food_search_screen.dart:130): a persistent
+/// widget that stays mounted across sheet opens/closes, listens to the same
+/// app-wide [SharedFoodItemController], and calls `setState` on every
+/// notification — reproducing the hazard where a freshly opened sheet
+/// notifying that same controller during its own `initState` could crash
+/// with "setState() or markNeedsBuild() called during build".
+class _SheetHost extends StatefulWidget {
+  final SharedFoodItemController controller;
+
+  const _SheetHost({required this.controller});
+
+  @override
+  State<_SheetHost> createState() => _SheetHostState();
+}
+
+class _SheetHostState extends State<_SheetHost> {
+  bool _showSheet = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          ElevatedButton(
+            key: const Key('host-toggle-button'),
+            onPressed: () => setState(() => _showSheet = !_showSheet),
+            child: const Text('toggle'),
+          ),
+          if (_showSheet)
+            Expanded(
+              child: SharedFoodItemSheet(
+                controller: widget.controller,
+                idToken: 'token-123',
+                onSuccess: (_) {},
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 void main() {
   group('SharedFoodItemSheet', () {
     testWidgets('create mode opens empty', (tester) async {
@@ -375,18 +431,39 @@ void main() {
       expect(received?.id, 'rice-1');
     });
 
-    testWidgets('create mode with a blank name disables the submit control', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _buildSheet(repository: FakeFoodDictionaryRepository()),
-      );
+    testWidgets(
+      'create mode with a blank name shows a required error and does not submit',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
 
-      final button = tester.widget<FilledButton>(
-        find.byKey(const Key('shared-food-item-submit-button')),
-      );
-      expect(button.onPressed, isNull);
-    });
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.sharedFoodItemNameRequiredError), findsOneWidget);
+        expect(repository.receivedInput, isNull);
+      },
+    );
+
+    testWidgets(
+      'clearing the name in edit mode shows a required error and does not submit',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(
+          _buildSheet(repository: repository, item: _riceItem()),
+        );
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.enterText(find.byKey(const Key('shared-food-item-name-field')), '');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.sharedFoodItemNameRequiredError), findsOneWidget);
+        expect(repository.receivedPatch, isNull);
+      },
+    );
 
     testWidgets('a fresh sheet never shows an error left over from a previous submission', (
       tester,
@@ -506,5 +583,77 @@ void main() {
 
       expect(repository.receivedInput?.carbG, 0);
     });
+
+    testWidgets(
+      'reopening a sheet after a failed submit does not notify during build',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..errorToThrow = const DietForbidden();
+        final controller = SharedFoodItemController(
+          CreateSharedFoodItem(repository),
+          UpdateSharedFoodItem(repository),
+        );
+
+        await tester.pumpWidget(l10nTestApp(home: _SheetHost(controller: controller)));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        // Close the sheet — the controller's error is left over.
+        await tester.tap(find.byKey(const Key('host-toggle-button')));
+        await tester.pump();
+
+        // Reopen a fresh sheet instance while the host's listener (mirroring
+        // FoodSearchScreen, which is never torn down between sheet opens)
+        // stays attached to the same controller.
+        await tester.tap(find.byKey(const Key('host-toggle-button')));
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'an error from a submission that outlived its own sheet does not leak to the next sheet',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()..gate = Completer<FoodItem>();
+        final controller = SharedFoodItemController(
+          CreateSharedFoodItem(repository),
+          UpdateSharedFoodItem(repository),
+        );
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.pumpWidget(l10nTestApp(home: _SheetHost(controller: controller)));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pump(); // submit in flight, gated
+
+        // Dismiss the sheet while the request is still in flight.
+        await tester.tap(find.byKey(const Key('host-toggle-button')));
+        await tester.pump();
+
+        // The in-flight request now fails, landing an error on the shared
+        // controller after its own sheet is already gone.
+        repository.gate!.completeError(const DietForbidden());
+        await tester.pumpAndSettle();
+
+        // A brand-new sheet opens next — it must not show that stale error.
+        await tester.tap(find.byKey(const Key('host-toggle-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.sharedFoodItemForbiddenError), findsNothing);
+      },
+    );
   });
 }
