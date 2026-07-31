@@ -50,6 +50,18 @@ class NetWorthController extends ChangeNotifier {
   MonthlyNetWorth? monthly;
   List<NetWorthTrendPoint> trend = [];
 
+  /// Clears every loaded figure on sign-out so a subsequently signed-in user
+  /// never sees the previous user's accounts or net worth. This controller is
+  /// an app-lifetime singleton (main.dart), so nothing else would clear it.
+  void reset() {
+    selectedMonth = '';
+    status = FinanceStatus.loading;
+    error = null;
+    accounts = [];
+    monthly = null;
+    trend = [];
+  }
+
   /// Loads [month]'s accounts, figures, and trend in one batch. The trend
   /// window is the 12 months ending at [month], so it moves with the month
   /// switcher.

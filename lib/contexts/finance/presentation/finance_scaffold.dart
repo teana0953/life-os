@@ -53,6 +53,13 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// Whether the 淨值 tab has ever been opened (see the IndexedStack below).
   bool _netWorthOpened = false;
 
+  /// Whether [_loadNetWorth] has already run **for this State**. Deliberately
+  /// not derived from `netWorthController.selectedMonth`: that controller is
+  /// an app-lifetime singleton, so a non-empty month there only means *some*
+  /// earlier visit loaded it — re-entering finance would then never refetch,
+  /// and a newly signed-in user could be shown the previous user's figures.
+  bool _netWorthLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -87,15 +94,19 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await widget.controller.load(token, month);
   }
 
-  /// Loads the 淨值 tab the first time it's opened. It is deliberately *not*
-  /// loaded alongside the ledger: its month is its own, and its data is only
-  /// needed once the user actually opens the tab.
+  /// Loads the 淨值 tab the first time it's opened *in this scaffold*. It is
+  /// deliberately *not* loaded alongside the ledger: its month is its own, and
+  /// its data is only needed once the user actually opens the tab. Mirroring
+  /// [_load], the month the user last looked at is kept across a re-entry —
+  /// only the data is refetched.
   Future<void> _loadNetWorth() async {
     final idToken = _idToken;
-    if (idToken == null || widget.netWorthController.selectedMonth.isNotEmpty) {
-      return;
-    }
-    await widget.netWorthController.load(idToken, monthOf(_todayDate));
+    if (idToken == null || _netWorthLoaded) return;
+    _netWorthLoaded = true;
+    final month = widget.netWorthController.selectedMonth.isEmpty
+        ? monthOf(_todayDate)
+        : widget.netWorthController.selectedMonth;
+    await widget.netWorthController.load(idToken, month);
   }
 
   Future<void> _switchNetWorthMonth(String month) async {

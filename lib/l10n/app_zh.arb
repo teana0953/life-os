@@ -507,6 +507,8 @@
   "networthNetWorthLabel": "淨值",
   "networthGrowthUp": "上升",
   "networthGrowthDown": "下降",
+  "networthGrowthFlat": "持平",
+  "networthArchivedSubtotal": "已封存科目",
   "networthAssetsTitle": "資產",
   "networthLiabilitiesTitle": "負債",
   "networthTotalAssets": "資產合計",

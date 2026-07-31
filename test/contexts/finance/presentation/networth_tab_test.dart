@@ -79,6 +79,25 @@ void main() {
       expect(find.text('10.0%'), findsOneWidget);
     });
 
+    testWidgets('unchanged net worth reads as flat, with no direction arrow', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()
+        ..seedSnapshot('acc-cash', '2026-06', 1000)
+        ..seedSnapshot('acc-cash', '2026-07', 1000);
+
+      await _pumpTab(tester, repo);
+
+      expect(find.byKey(const Key('networth-growth')), findsOneWidget);
+      // 0% is neither a rise nor a fall — no direction arrow, no "Up".
+      expect(find.byIcon(Icons.arrow_upward), findsNothing);
+      expect(find.byIcon(Icons.arrow_downward), findsNothing);
+      expect(find.text(_loc.networthGrowthUp), findsNothing);
+      expect(find.text(_loc.networthGrowthDown), findsNothing);
+      expect(find.text(_loc.networthGrowthFlat), findsOneWidget);
+      expect(find.text('0.0%'), findsOneWidget);
+    });
+
     testWidgets('the first recorded month shows no growth figure', (tester) async {
       final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 1000);
 
@@ -125,6 +144,38 @@ void main() {
       expect(find.byKey(const Key('account-row-acc-card')), findsNothing);
       expect(find.byKey(const Key('account-row-acc-cash')), findsOneWidget);
     });
+
+    testWidgets(
+      "an archived account's snapshot is explained, so the group total still "
+      'adds up to what is on screen',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..seedSnapshot('acc-cash', '2026-07', 100)
+          ..seedSnapshot('acc-card', '2026-07', 50);
+        final controller = await _pumpTab(tester, repo);
+
+        await controller.updateAccount('token', 'acc-card', archived: true);
+        await tester.pumpAndSettle();
+
+        // The row is gone, but its 50 still counts toward the backend's
+        // liability total — so the difference is spelled out rather than
+        // leaving an unexplained gap between the rows and the total.
+        expect(find.byKey(const Key('account-row-acc-card')), findsNothing);
+        final archivedRow = find.byKey(const Key('networth-archived-liability'));
+        expect(archivedRow, findsOneWidget);
+        expect(
+          find.descendant(of: archivedRow, matching: find.text(_loc.networthArchivedSubtotal)),
+          findsOneWidget,
+        );
+        // 0 listed rows + 50 archived = the 50 liability total on screen.
+        expect(
+          find.descendant(of: archivedRow, matching: find.text('50')),
+          findsOneWidget,
+        );
+        // Assets hold no archived snapshot, so no such row there.
+        expect(find.byKey(const Key('networth-archived-asset')), findsNothing);
+      },
+    );
 
     testWidgets('tapping an account row asks to edit that account', (tester) async {
       final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 100);

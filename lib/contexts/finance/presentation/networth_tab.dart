@@ -76,6 +76,15 @@ class NetWorthTab extends StatelessWidget {
         final valueByAccount = {
           for (final value in monthly.accounts) value.accountId: value.value,
         };
+        // …which would otherwise leave the group total larger than the rows
+        // above it with nothing on screen to explain the gap. Surfacing the
+        // archived accounts' share as its own row keeps the arithmetic
+        // visible without diverging from the backend's totals (and so from
+        // the headline net worth).
+        final activeIds = {for (final account in active) account.id};
+        int archivedTotal(NetWorthKind kind) => monthly.accounts
+            .where((v) => v.kind == kind && !activeIds.contains(v.accountId))
+            .fold(0, (sum, v) => sum + v.value);
 
         return SafeArea(
           child: Center(
@@ -119,6 +128,8 @@ class NetWorthTab extends StatelessWidget {
                     title: loc.networthAssetsTitle,
                     totalLabel: loc.networthTotalAssets,
                     total: monthly.totalAsset,
+                    archivedTotal: archivedTotal(NetWorthKind.asset),
+                    archivedKey: const Key('networth-archived-asset'),
                     accounts: active.where((a) => a.kind == NetWorthKind.asset).toList(),
                     valueByAccount: valueByAccount,
                     onTap: onEditAccountValue,
@@ -128,6 +139,8 @@ class NetWorthTab extends StatelessWidget {
                     title: loc.networthLiabilitiesTitle,
                     totalLabel: loc.networthTotalLiabilities,
                     total: monthly.totalLiability,
+                    archivedTotal: archivedTotal(NetWorthKind.liability),
+                    archivedKey: const Key('networth-archived-liability'),
                     accounts: active
                         .where((a) => a.kind == NetWorthKind.liability)
                         .toList(),
@@ -199,8 +212,13 @@ class _GrowthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final rising = growth >= 0;
-    final color = rising
+    // 0 is its own case: it is neither a rise nor a fall, so it gets a neutral
+    // dash rather than an up arrow claiming growth that didn't happen.
+    final flat = growth == 0;
+    final rising = growth > 0;
+    final color = flat
+        ? theme.colorScheme.onSurfaceVariant
+        : rising
         ? financeIncomeColor(theme.colorScheme)
         : theme.colorScheme.error;
     final percent = '${(growth * 100).abs().toStringAsFixed(1)}%';
@@ -208,10 +226,22 @@ class _GrowthRow extends StatelessWidget {
     return Row(
       key: const Key('networth-growth'),
       children: [
-        Icon(rising ? Icons.arrow_upward : Icons.arrow_downward, size: 18, color: color),
+        Icon(
+          flat
+              ? Icons.remove
+              : rising
+              ? Icons.arrow_upward
+              : Icons.arrow_downward,
+          size: 18,
+          color: color,
+        ),
         const SizedBox(width: 4),
         Text(
-          rising ? loc.networthGrowthUp : loc.networthGrowthDown,
+          flat
+              ? loc.networthGrowthFlat
+              : rising
+              ? loc.networthGrowthUp
+              : loc.networthGrowthDown,
           style: theme.textTheme.bodyMedium?.copyWith(color: color),
         ),
         const SizedBox(width: 6),
@@ -228,11 +258,18 @@ class _GrowthRow extends StatelessWidget {
 }
 
 /// One asset/liability group: its accounts (tap a row to record that month's
-/// value) and the group's month total.
+/// value), the archived accounts' share of the month when there is one, and
+/// the group's month total.
 class _AccountGroup extends StatelessWidget {
   final String title;
   final String totalLabel;
   final int total;
+
+  /// How much of [total] comes from archived accounts, which have no row of
+  /// their own. Shown as its own row when non-zero so the listed values plus
+  /// this add up to [total]; `0` hides the row entirely.
+  final int archivedTotal;
+  final Key archivedKey;
   final List<NetWorthAccount> accounts;
   final Map<String, int> valueByAccount;
   final void Function(NetWorthAccount account) onTap;
@@ -241,6 +278,8 @@ class _AccountGroup extends StatelessWidget {
     required this.title,
     required this.totalLabel,
     required this.total,
+    required this.archivedTotal,
+    required this.archivedKey,
     required this.accounts,
     required this.valueByAccount,
     required this.onTap,
@@ -275,6 +314,28 @@ class _AccountGroup extends StatelessWidget {
                     ),
                   ),
                   onTap: () => onTap(account),
+                ),
+              if (archivedTotal != 0)
+                Padding(
+                  key: archivedKey,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        loc.networthArchivedSubtotal,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        formatMinorUnits(archivedTotal, defaultCurrency),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),

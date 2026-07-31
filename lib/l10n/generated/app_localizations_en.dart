@@ -1700,6 +1700,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networthGrowthDown => 'Down';
 
   @override
+  String get networthGrowthFlat => 'Flat';
+
+  @override
+  String get networthArchivedSubtotal => 'Archived accounts';
+
+  @override
   String get networthAssetsTitle => 'Assets';
 
   @override

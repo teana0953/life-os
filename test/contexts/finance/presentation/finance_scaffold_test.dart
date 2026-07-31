@@ -113,6 +113,46 @@ void main() {
       expect(controller.selectedMonth, '2026-07');
     });
 
+    testWidgets('re-entering finance reloads the 淨值 tab, keeping its month', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 1234);
+      final netWorthController = testNetWorthController(repo);
+
+      Widget scaffold() => l10nTestApp(
+        home: FinanceScaffold(
+          authRepository: _FakeAuthRepository(),
+          controller: testFinanceController(repo),
+          netWorthController: netWorthController,
+          clock: () => DateTime(2026, 7, 15),
+        ),
+      );
+
+      await tester.pumpWidget(scaffold());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('networth-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('networth-month-previous')));
+      await tester.pumpAndSettle();
+
+      expect(netWorthController.selectedMonth, '2026-06');
+      expect(repo.trendCalls.length, 2);
+
+      // Leave finance entirely (the State is disposed), then come back. The
+      // controller is an app-lifetime singleton, so without a per-State
+      // "already loaded" flag the tab would never refetch.
+      await tester.pumpWidget(l10nTestApp(home: const Scaffold(body: Text('away'))));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(scaffold());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('networth-tab')));
+      await tester.pumpAndSettle();
+
+      expect(repo.trendCalls.length, 3);
+      // The month the user was last looking at is kept, not reset to today.
+      expect(netWorthController.selectedMonth, '2026-06');
+    });
+
     testWidgets('tapping an account row opens the value sheet', (tester) async {
       final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 1234);
 

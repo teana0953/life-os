@@ -145,6 +145,7 @@ import 'package:life_os/shared/theme/app_colors.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'contexts/finance/finance_test_support.dart';
 import 'support/l10n_test_app.dart';
 import 'support/push_health.dart';
 
@@ -1071,6 +1072,7 @@ Future<LocaleController> pumpApp(
   CareHistoryController? careHistoryController,
   CareHistoryController? careAdherenceController,
   FinanceController? financeController,
+  NetWorthController? netWorthController,
 
   /// Shared, mirroring main.dart, between the import controller (which
   /// bumps it), the health shell (which listens to it), and both
@@ -1110,17 +1112,19 @@ Future<LocaleController> pumpApp(
           DeleteBudget(repository),
         );
       }();
-  final resolvedNetWorthController = () {
-    final repository = _FakeFinanceRepository();
-    return NetWorthController(
-      ListNetWorthAccounts(repository),
-      CreateNetWorthAccount(repository),
-      UpdateNetWorthAccount(repository),
-      UpsertSnapshot(repository),
-      GetMonthlyNetWorth(repository),
-      GetNetWorthTrend(repository),
-    );
-  }();
+  final resolvedNetWorthController =
+      netWorthController ??
+      () {
+        final repository = _FakeFinanceRepository();
+        return NetWorthController(
+          ListNetWorthAccounts(repository),
+          CreateNetWorthAccount(repository),
+          UpdateNetWorthAccount(repository),
+          UpsertSnapshot(repository),
+          GetMonthlyNetWorth(repository),
+          GetNetWorthTrend(repository),
+        );
+      }();
   final health = testHealthControllers(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
@@ -2819,6 +2823,43 @@ void main() {
         router.go('/health/diet/dictionary');
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('food-search-create-button')), findsNothing);
+      },
+    );
+  });
+
+  group('App sign-out state reset', () {
+    testWidgets(
+      'signing out clears the net worth controller, so the next user never '
+      "sees the previous user's figures",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 999);
+        final netWorthController = testNetWorthController(repo);
+        await netWorthController.load('tok', '2026-07');
+        expect(netWorthController.monthly, isNotNull);
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          netWorthController: netWorthController,
+        );
+        await tester.pumpAndSettle();
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // The controller is an app-lifetime singleton (main.dart), so without
+        // an explicit reset the next signed-in user would open 淨值 on the
+        // previous user's accounts and figures.
+        expect(netWorthController.selectedMonth, isEmpty);
+        expect(netWorthController.monthly, isNull);
+        expect(netWorthController.accounts, isEmpty);
+        expect(netWorthController.trend, isEmpty);
       },
     );
   });

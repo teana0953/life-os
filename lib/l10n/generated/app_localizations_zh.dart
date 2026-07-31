@@ -1642,6 +1642,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networthGrowthDown => '下降';
 
   @override
+  String get networthGrowthFlat => '持平';
+
+  @override
+  String get networthArchivedSubtotal => '已封存科目';
+
+  @override
   String get networthAssetsTitle => '資產';
 
   @override
@@ -3344,6 +3350,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get networthGrowthDown => '下降';
+
+  @override
+  String get networthGrowthFlat => '持平';
+
+  @override
+  String get networthArchivedSubtotal => '已封存科目';
 
   @override
   String get networthAssetsTitle => '資產';

@@ -3152,6 +3152,18 @@ abstract class AppLocalizations {
   /// **'Down'**
   String get networthGrowthDown;
 
+  /// Direction word shown when net worth was unchanged month over month (0%) — neither a rise nor a fall, so no arrow is shown.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat'**
+  String get networthGrowthFlat;
+
+  /// Row label for the sum of this month's snapshots belonging to archived accounts, which are no longer listed individually but still count toward the group total.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived accounts'**
+  String get networthArchivedSubtotal;
+
   /// Section heading above the asset accounts in the net worth tab.
   ///
   /// In en, this message translates to:
