@@ -1628,6 +1628,84 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get financeBudgetInvalidAmount => 'Enter a valid amount';
+
+  @override
+  String get financeTabNetWorth => '淨值';
+
+  @override
+  String get networthNetWorthLabel => '淨值';
+
+  @override
+  String get networthGrowthUp => '上升';
+
+  @override
+  String get networthGrowthDown => '下降';
+
+  @override
+  String get networthAssetsTitle => '資產';
+
+  @override
+  String get networthLiabilitiesTitle => '負債';
+
+  @override
+  String get networthTotalAssets => '資產合計';
+
+  @override
+  String get networthTotalLiabilities => '負債合計';
+
+  @override
+  String get networthTrendTitle => '淨值趨勢';
+
+  @override
+  String get networthTrendInsufficient => '資料不足,持續記錄以看趨勢。';
+
+  @override
+  String get networthTrendSummary => '近幾個月的淨值趨勢。';
+
+  @override
+  String get networthEmptyTitle => '本月尚未記錄任何市值';
+
+  @override
+  String get networthEmptyCta => '記錄第一筆';
+
+  @override
+  String get networthManageAccounts => '管理科目';
+
+  @override
+  String get networthAddAccount => '新增科目';
+
+  @override
+  String get networthAccountNameLabel => '科目名稱';
+
+  @override
+  String get networthKindAsset => '資產';
+
+  @override
+  String get networthKindLiability => '負債';
+
+  @override
+  String get networthArchiveButton => '封存';
+
+  @override
+  String get networthRestoreButton => '復原';
+
+  @override
+  String get networthArchivedLabel => '已封存';
+
+  @override
+  String get networthMoveUpTooltip => '上移';
+
+  @override
+  String get networthValueLabel => '市值 (TWD)';
+
+  @override
+  String get networthNotRecorded => '未記錄';
+
+  @override
+  String get networthInvalidValue => '請輸入 0 或以上的整數';
+
+  @override
+  String get networthSnapshotSheetTitle => '更新市值';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3254,4 +3332,82 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeBudgetInvalidAmount => '請輸入有效金額';
+
+  @override
+  String get financeTabNetWorth => '淨值';
+
+  @override
+  String get networthNetWorthLabel => '淨值';
+
+  @override
+  String get networthGrowthUp => '上升';
+
+  @override
+  String get networthGrowthDown => '下降';
+
+  @override
+  String get networthAssetsTitle => '資產';
+
+  @override
+  String get networthLiabilitiesTitle => '負債';
+
+  @override
+  String get networthTotalAssets => '資產合計';
+
+  @override
+  String get networthTotalLiabilities => '負債合計';
+
+  @override
+  String get networthTrendTitle => '淨值趨勢';
+
+  @override
+  String get networthTrendInsufficient => '資料不足,持續記錄以看趨勢。';
+
+  @override
+  String get networthTrendSummary => '近幾個月的淨值趨勢。';
+
+  @override
+  String get networthEmptyTitle => '本月尚未記錄任何市值';
+
+  @override
+  String get networthEmptyCta => '記錄第一筆';
+
+  @override
+  String get networthManageAccounts => '管理科目';
+
+  @override
+  String get networthAddAccount => '新增科目';
+
+  @override
+  String get networthAccountNameLabel => '科目名稱';
+
+  @override
+  String get networthKindAsset => '資產';
+
+  @override
+  String get networthKindLiability => '負債';
+
+  @override
+  String get networthArchiveButton => '封存';
+
+  @override
+  String get networthRestoreButton => '復原';
+
+  @override
+  String get networthArchivedLabel => '已封存';
+
+  @override
+  String get networthMoveUpTooltip => '上移';
+
+  @override
+  String get networthValueLabel => '市值 (TWD)';
+
+  @override
+  String get networthNotRecorded => '未記錄';
+
+  @override
+  String get networthInvalidValue => '請輸入 0 或以上的整數';
+
+  @override
+  String get networthSnapshotSheetTitle => '更新市值';
 }

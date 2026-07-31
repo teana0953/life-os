@@ -48,9 +48,11 @@ import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
@@ -1108,6 +1110,17 @@ Future<LocaleController> pumpApp(
           DeleteBudget(repository),
         );
       }();
+  final resolvedNetWorthController = () {
+    final repository = _FakeFinanceRepository();
+    return NetWorthController(
+      ListNetWorthAccounts(repository),
+      CreateNetWorthAccount(repository),
+      UpdateNetWorthAccount(repository),
+      UpsertSnapshot(repository),
+      GetMonthlyNetWorth(repository),
+      GetNetWorthTrend(repository),
+    );
+  }();
   final health = testHealthControllers(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
@@ -1203,6 +1216,7 @@ Future<LocaleController> pumpApp(
       exerciseController: health.exercise,
       menstrualController: health.menstrual,
       financeController: resolvedFinanceController,
+      netWorthController: resolvedNetWorthController,
       weightGoalController: health.weightGoal,
       trendController: health.trend,
       healthCalendarController: health.healthCalendar,

@@ -16,6 +16,7 @@ import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
+import 'contexts/finance/presentation/networth_controller.dart';
 import 'contexts/finance/presentation/finance_scaffold.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
@@ -178,6 +179,7 @@ class App extends StatefulWidget {
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
   final FinanceController financeController;
+  final NetWorthController netWorthController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
   final HealthCalendarController healthCalendarController;
@@ -229,6 +231,7 @@ class App extends StatefulWidget {
     required this.exerciseController,
     required this.menstrualController,
     required this.financeController,
+    required this.netWorthController,
     required this.weightGoalController,
     required this.trendController,
     required this.healthCalendarController,
@@ -516,6 +519,7 @@ class _AppState extends State<App> {
           builder: (context, state) => FinanceScaffold(
             authRepository: widget.authRepository,
             controller: widget.financeController,
+            netWorthController: widget.netWorthController,
             clock: widget.clock,
           ),
         ),

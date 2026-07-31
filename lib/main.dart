@@ -33,9 +33,11 @@ import 'contexts/finance/application/delete_budget.dart';
 import 'contexts/finance/application/delete_transaction.dart';
 import 'contexts/finance/application/get_finance_month.dart';
 import 'contexts/finance/application/update_transaction.dart';
+import 'contexts/finance/application/networth_use_cases.dart';
 import 'contexts/finance/application/upsert_budget.dart';
 import 'contexts/finance/infrastructure/http_finance_repository.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
+import 'contexts/finance/presentation/networth_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
 import 'contexts/health/application/create_shared_food_item.dart';
@@ -227,6 +229,14 @@ Future<void> main() async {
     UpsertBudget(financeRepository),
     DeleteBudget(financeRepository),
   );
+  final netWorthController = NetWorthController(
+    ListNetWorthAccounts(financeRepository),
+    CreateNetWorthAccount(financeRepository),
+    UpdateNetWorthAccount(financeRepository),
+    UpsertSnapshot(financeRepository),
+    GetMonthlyNetWorth(financeRepository),
+    GetNetWorthTrend(financeRepository),
+  );
   final bodyProfileRepository = HttpBodyProfileRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -345,6 +355,7 @@ Future<void> main() async {
       exerciseController: exerciseController,
       menstrualController: menstrualController,
       financeController: financeController,
+      netWorthController: netWorthController,
       weightGoalController: weightGoalController,
       trendController: trendController,
       healthCalendarController: healthCalendarController,

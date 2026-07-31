@@ -1,0 +1,279 @@
+import 'package:flutter/material.dart';
+
+import '../../../l10n/generated/app_localizations.dart';
+import '../domain/networth_account.dart';
+import 'finance_controller.dart';
+import 'networth_controller.dart';
+
+/// The net worth account management sheet (design.md 4.4): add an account
+/// (kind + name), rename, reorder within its group, and archive/restore.
+///
+/// Archived accounts stay listed *here* (so they can be restored) but leave
+/// the tab's entry list — their past snapshots keep counting toward historical
+/// net worth, which the backend guarantees.
+class AccountManageSheet extends StatefulWidget {
+  final NetWorthController controller;
+  final String idToken;
+
+  const AccountManageSheet({
+    super.key,
+    required this.controller,
+    required this.idToken,
+  });
+
+  @override
+  State<AccountManageSheet> createState() => _AccountManageSheetState();
+}
+
+class _AccountManageSheetState extends State<AccountManageSheet> {
+  final _newNameController = TextEditingController();
+  final Map<String, TextEditingController> _nameControllers = {};
+  NetWorthKind _newKind = NetWorthKind.asset;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _newNameController.addListener(_onChanged);
+  }
+
+  void _onChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _newNameController.removeListener(_onChanged);
+    _newNameController.dispose();
+    for (final controller in _nameControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  /// A name field per account, seeded once and kept across the reloads a
+  /// write triggers.
+  TextEditingController _nameControllerFor(NetWorthAccount account) =>
+      _nameControllers.putIfAbsent(
+        account.id,
+        () => TextEditingController(text: account.name),
+      );
+
+  List<NetWorthAccount> _group(NetWorthKind kind) =>
+      widget.controller.accounts.where((a) => a.kind == kind).toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  /// Runs a write and surfaces a failure as a snackbar, leaving the sheet
+  /// open — the controller has already reloaded either way.
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    await action();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (widget.controller.status == FinanceStatus.loaded) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          widget.controller.status == FinanceStatus.needsReauth
+              ? loc.pleaseSignInAgain
+              : loc.financeSaveFailed,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _add() {
+    final name = _newNameController.text.trim();
+    return _run(() async {
+      await widget.controller.createAccount(
+        widget.idToken,
+        kind: _newKind,
+        name: name,
+      );
+      if (widget.controller.status == FinanceStatus.loaded) {
+        _newNameController.clear();
+      }
+    });
+  }
+
+  Future<void> _rename(NetWorthAccount account) {
+    final name = _nameControllerFor(account).text.trim();
+    if (name.isEmpty || name == account.name) return Future.value();
+    return _run(
+      () => widget.controller.updateAccount(widget.idToken, account.id, name: name),
+    );
+  }
+
+  /// Swaps [account]'s sort order with the account above it in its group.
+  Future<void> _moveUp(NetWorthAccount account) {
+    final group = _group(account.kind);
+    final index = group.indexWhere((a) => a.id == account.id);
+    if (index <= 0) return Future.value();
+    final above = group[index - 1];
+    return _run(() async {
+      await widget.controller.updateAccount(
+        widget.idToken,
+        account.id,
+        sortOrder: above.sortOrder,
+      );
+      if (widget.controller.status != FinanceStatus.loaded) return;
+      await widget.controller.updateAccount(
+        widget.idToken,
+        above.id,
+        sortOrder: account.sortOrder,
+      );
+    });
+  }
+
+  Future<void> _toggleArchived(NetWorthAccount account) => _run(
+    () => widget.controller.updateAccount(
+      widget.idToken,
+      account.id,
+      archived: !account.archived,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(loc.networthManageAccounts, style: theme.textTheme.titleLarge),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  ChoiceChip(
+                    key: const Key('account-add-kind-asset'),
+                    label: Text(loc.networthKindAsset),
+                    selected: _newKind == NetWorthKind.asset,
+                    onSelected: _busy
+                        ? null
+                        : (_) => setState(() => _newKind = NetWorthKind.asset),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    key: const Key('account-add-kind-liability'),
+                    label: Text(loc.networthKindLiability),
+                    selected: _newKind == NetWorthKind.liability,
+                    onSelected: _busy
+                        ? null
+                        : (_) => setState(() => _newKind = NetWorthKind.liability),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('account-add-name'),
+                      controller: _newNameController,
+                      enabled: !_busy,
+                      decoration: InputDecoration(labelText: loc.networthAccountNameLabel),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('account-add-submit'),
+                    onPressed: _busy || _newNameController.text.trim().isEmpty
+                        ? null
+                        : _add,
+                    child: Text(loc.networthAddAccount),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _GroupSection(
+                title: loc.networthAssetsTitle,
+                accounts: _group(NetWorthKind.asset),
+                builder: _accountRow,
+              ),
+              const SizedBox(height: 16),
+              _GroupSection(
+                title: loc.networthLiabilitiesTitle,
+                accounts: _group(NetWorthKind.liability),
+                builder: _accountRow,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _accountRow(NetWorthAccount account, bool isFirstInGroup) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  key: Key('account-name-${account.id}'),
+                  controller: _nameControllerFor(account),
+                  enabled: !_busy,
+                  decoration: const InputDecoration(isDense: true),
+                  onSubmitted: (_) => _rename(account),
+                ),
+                if (account.archived)
+                  Text(
+                    loc.networthArchivedLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: Key('account-move-up-${account.id}'),
+            tooltip: loc.networthMoveUpTooltip,
+            icon: const Icon(Icons.arrow_upward),
+            onPressed: _busy || isFirstInGroup ? null : () => _moveUp(account),
+          ),
+          TextButton(
+            key: Key('account-archive-${account.id}'),
+            onPressed: _busy ? null : () => _toggleArchived(account),
+            child: Text(
+              account.archived ? loc.networthRestoreButton : loc.networthArchiveButton,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupSection extends StatelessWidget {
+  final String title;
+  final List<NetWorthAccount> accounts;
+  final Widget Function(NetWorthAccount account, bool isFirstInGroup) builder;
+
+  const _GroupSection({
+    required this.title,
+    required this.accounts,
+    required this.builder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        for (var i = 0; i < accounts.length; i++) builder(accounts[i], i == 0),
+      ],
+    );
+  }
+}

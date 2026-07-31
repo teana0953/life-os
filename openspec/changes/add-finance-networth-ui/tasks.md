@@ -17,14 +17,14 @@
 
 ## 4. Presentation
 
-- [ ] 4.1 `FinanceScaffold` 底部 nav 加第三格「淨值」(總覽/明細/淨值);`Key('networth-tab')`。
-- [ ] 4.2 `NetWorthTab`:MonthNavHeader(keyPrefix `networth-month`)、淨值大數字卡(`networth-net-value`)+ 月成長率(`networth-growth`,箭頭方向+百分比,null→只顯淨值)、資產/負債分組科目列(`account-row-<id>`)、趨勢 fl_chart LineChart(<2 點顯示不足提示,照 vitals trend 慣例)、科目管理鈕(`account-manage-button`)、空月引導、loading/error+retry/reauth。
-- [ ] 4.3 `SnapshotInputSheet`:點科目列開(viewInsets padding),金額數字鍵盤、**0 合法(≥0)、空=未記錄不送、只有負數/非數字才 errorText+存檔 disabled**(不沿用 budget 的 ≤0 非法),不靜默,存=upsert;`Key('snapshot-field')`。
-- [ ] 4.4 科目管理(sheet 或區塊):新增(kind asset/liability + name)、改名/排序/封存;archived 不在市值列表、管理區可見可復原。
-- [ ] 4.5 widget tests:淨值卡數字+成長率三態(漲/跌/null)、資產負債分組、科目列開 sheet、快照 upsert、非法輸入 gate、科目管理、趨勢 <2 點提示、空月引導、競態、l10nTestApp。
+- [x] 4.1 `FinanceScaffold` 底部 nav 加第三格「淨值」(總覽/明細/淨值);`Key('networth-tab')`。
+- [x] 4.2 `NetWorthTab`:MonthNavHeader(keyPrefix `networth-month`)、淨值大數字卡(`networth-net-value`)+ 月成長率(`networth-growth`,箭頭方向+百分比,null→只顯淨值)、資產/負債分組科目列(`account-row-<id>`)、趨勢 fl_chart LineChart(<2 點顯示不足提示,照 vitals trend 慣例)、科目管理鈕(`account-manage-button`)、空月引導、loading/error+retry/reauth。
+- [x] 4.3 `SnapshotInputSheet`:點科目列開(viewInsets padding),金額數字鍵盤、**0 合法(≥0)、空=未記錄不送、只有負數/非數字才 errorText+存檔 disabled**(不沿用 budget 的 ≤0 非法),不靜默,存=upsert;`Key('snapshot-field')`。
+- [x] 4.4 科目管理(sheet 或區塊):新增(kind asset/liability + name)、改名/排序/封存;archived 不在市值列表、管理區可見可復原。
+- [x] 4.5 widget tests:淨值卡數字+成長率三態(漲/跌/null)、資產負債分組、科目列開 sheet、快照 upsert、非法輸入 gate、科目管理、趨勢 <2 點提示、空月引導、競態、l10nTestApp。
 
 ## 5. 入口 + i18n + 收尾
 
-- [ ] 5.1 `app.dart`/`main.dart` DI 組線(NetWorthController + networth use cases)。
-- [ ] 5.2 ARB 三檔(en 含 description、zh_Hant、zh)+ `flutter gen-l10n`,generated commit。
+- [x] 5.1 `app.dart`/`main.dart` DI 組線(NetWorthController + networth use cases)。
+- [x] 5.2 ARB 三檔(en 含 description、zh_Hant、zh)+ `flutter gen-l10n`,generated commit。
 - [ ] 5.3 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠(`All tests passed!`);`TZ=UTC flutter test` 複驗。

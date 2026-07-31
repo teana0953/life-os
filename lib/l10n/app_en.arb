@@ -2249,5 +2249,109 @@
   "financeBudgetInvalidAmount": "Enter a valid amount",
   "@financeBudgetInvalidAmount": {
     "description": "Field error shown when a budget amount has content but isn't a positive whole number; leaving it empty clears the budget instead."
+  },
+  "financeTabNetWorth": "Net worth",
+  "@financeTabNetWorth": {
+    "description": "Bottom-nav destination label for the finance shell's net worth tab."
+  },
+  "networthNetWorthLabel": "Net worth",
+  "@networthNetWorthLabel": {
+    "description": "Label above the headline net worth figure."
+  },
+  "networthGrowthUp": "Up",
+  "@networthGrowthUp": {
+    "description": "Direction word shown with the growth arrow when net worth grew month over month (never color alone)."
+  },
+  "networthGrowthDown": "Down",
+  "@networthGrowthDown": {
+    "description": "Direction word shown with the growth arrow when net worth fell month over month (never color alone)."
+  },
+  "networthAssetsTitle": "Assets",
+  "@networthAssetsTitle": {
+    "description": "Section heading above the asset accounts in the net worth tab."
+  },
+  "networthLiabilitiesTitle": "Liabilities",
+  "@networthLiabilitiesTitle": {
+    "description": "Section heading above the liability accounts in the net worth tab."
+  },
+  "networthTotalAssets": "Total assets",
+  "@networthTotalAssets": {
+    "description": "Row label for the sum of the month's asset snapshots."
+  },
+  "networthTotalLiabilities": "Total liabilities",
+  "@networthTotalLiabilities": {
+    "description": "Row label for the sum of the month's liability snapshots."
+  },
+  "networthTrendTitle": "Net worth trend",
+  "@networthTrendTitle": {
+    "description": "Section heading above the net worth trend chart."
+  },
+  "networthTrendInsufficient": "Not enough data yet — keep recording to see your trend.",
+  "@networthTrendInsufficient": {
+    "description": "Shown instead of the trend chart when fewer than two months have snapshots."
+  },
+  "networthTrendSummary": "Net worth trend over the last months.",
+  "@networthTrendSummary": {
+    "description": "Accessible summary read in place of the trend chart's visuals."
+  },
+  "networthEmptyTitle": "No values recorded for this month yet",
+  "@networthEmptyTitle": {
+    "description": "Empty-month guide title in the net worth tab."
+  },
+  "networthEmptyCta": "Record your first value",
+  "@networthEmptyCta": {
+    "description": "Empty-month guide call to action that opens the value sheet."
+  },
+  "networthManageAccounts": "Manage accounts",
+  "@networthManageAccounts": {
+    "description": "Tooltip/title for the net worth account management sheet."
+  },
+  "networthAddAccount": "Add account",
+  "@networthAddAccount": {
+    "description": "Button that creates a new net worth account."
+  },
+  "networthAccountNameLabel": "Account name",
+  "@networthAccountNameLabel": {
+    "description": "Label for the net worth account name field."
+  },
+  "networthKindAsset": "Asset",
+  "@networthKindAsset": {
+    "description": "The asset account kind."
+  },
+  "networthKindLiability": "Liability",
+  "@networthKindLiability": {
+    "description": "The liability account kind."
+  },
+  "networthArchiveButton": "Archive",
+  "@networthArchiveButton": {
+    "description": "Button that archives a net worth account (its past snapshots still count)."
+  },
+  "networthRestoreButton": "Restore",
+  "@networthRestoreButton": {
+    "description": "Button that un-archives a net worth account."
+  },
+  "networthArchivedLabel": "Archived",
+  "@networthArchivedLabel": {
+    "description": "Marks an archived net worth account in the management sheet."
+  },
+  "networthMoveUpTooltip": "Move up",
+  "@networthMoveUpTooltip": {
+    "description": "Tooltip for the button that moves a net worth account earlier in its group."
+  },
+  "networthValueLabel": "Value (TWD)",
+  "@networthValueLabel": {
+    "description": "Label for the monthly market-value field in the snapshot sheet."
+  },
+  "networthNotRecorded": "Not recorded",
+  "@networthNotRecorded": {
+    "description": "Shown as an account's value when the selected month has no snapshot for it."
+  },
+  "networthInvalidValue": "Enter a whole number of 0 or more",
+  "@networthInvalidValue": {
+    "description": "Field error when the typed market value isn't a non-negative whole number; leaving it empty means the month is unrecorded."
+  },
+  "networthSnapshotSheetTitle": "Update value",
+  "@networthSnapshotSheetTitle": {
+    "description": "Title of the bottom sheet that records an account's value for the selected month."
   }
 }

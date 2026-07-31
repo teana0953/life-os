@@ -3127,6 +3127,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter a valid amount'**
   String get financeBudgetInvalidAmount;
+
+  /// Bottom-nav destination label for the finance shell's net worth tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Net worth'**
+  String get financeTabNetWorth;
+
+  /// Label above the headline net worth figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Net worth'**
+  String get networthNetWorthLabel;
+
+  /// Direction word shown with the growth arrow when net worth grew month over month (never color alone).
+  ///
+  /// In en, this message translates to:
+  /// **'Up'**
+  String get networthGrowthUp;
+
+  /// Direction word shown with the growth arrow when net worth fell month over month (never color alone).
+  ///
+  /// In en, this message translates to:
+  /// **'Down'**
+  String get networthGrowthDown;
+
+  /// Section heading above the asset accounts in the net worth tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Assets'**
+  String get networthAssetsTitle;
+
+  /// Section heading above the liability accounts in the net worth tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Liabilities'**
+  String get networthLiabilitiesTitle;
+
+  /// Row label for the sum of the month's asset snapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Total assets'**
+  String get networthTotalAssets;
+
+  /// Row label for the sum of the month's liability snapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Total liabilities'**
+  String get networthTotalLiabilities;
+
+  /// Section heading above the net worth trend chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Net worth trend'**
+  String get networthTrendTitle;
+
+  /// Shown instead of the trend chart when fewer than two months have snapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough data yet — keep recording to see your trend.'**
+  String get networthTrendInsufficient;
+
+  /// Accessible summary read in place of the trend chart's visuals.
+  ///
+  /// In en, this message translates to:
+  /// **'Net worth trend over the last months.'**
+  String get networthTrendSummary;
+
+  /// Empty-month guide title in the net worth tab.
+  ///
+  /// In en, this message translates to:
+  /// **'No values recorded for this month yet'**
+  String get networthEmptyTitle;
+
+  /// Empty-month guide call to action that opens the value sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record your first value'**
+  String get networthEmptyCta;
+
+  /// Tooltip/title for the net worth account management sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage accounts'**
+  String get networthManageAccounts;
+
+  /// Button that creates a new net worth account.
+  ///
+  /// In en, this message translates to:
+  /// **'Add account'**
+  String get networthAddAccount;
+
+  /// Label for the net worth account name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Account name'**
+  String get networthAccountNameLabel;
+
+  /// The asset account kind.
+  ///
+  /// In en, this message translates to:
+  /// **'Asset'**
+  String get networthKindAsset;
+
+  /// The liability account kind.
+  ///
+  /// In en, this message translates to:
+  /// **'Liability'**
+  String get networthKindLiability;
+
+  /// Button that archives a net worth account (its past snapshots still count).
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get networthArchiveButton;
+
+  /// Button that un-archives a net worth account.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get networthRestoreButton;
+
+  /// Marks an archived net worth account in the management sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get networthArchivedLabel;
+
+  /// Tooltip for the button that moves a net worth account earlier in its group.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get networthMoveUpTooltip;
+
+  /// Label for the monthly market-value field in the snapshot sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Value (TWD)'**
+  String get networthValueLabel;
+
+  /// Shown as an account's value when the selected month has no snapshot for it.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded'**
+  String get networthNotRecorded;
+
+  /// Field error when the typed market value isn't a non-negative whole number; leaving it empty means the month is unrecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number of 0 or more'**
+  String get networthInvalidValue;
+
+  /// Title of the bottom sheet that records an account's value for the selected month.
+  ///
+  /// In en, this message translates to:
+  /// **'Update value'**
+  String get networthSnapshotSheetTitle;
 }
 
 class _AppLocalizationsDelegate
