@@ -8,7 +8,7 @@
 
 ## 2. Controller(重要邏輯,測試必須覆蓋)
 
-- [ ] 2.1 `presentation/finance_controller.dart`:selectedMonth 狀態、`load(month)`(categories+summary+月 transactions;**回應 month == 當前 selectedMonth 才落地**)、auth 組線(idToken;401→`needsReauth` 狀態)、add/update 成功後 **reload 該筆 date 所在月(跨月則 selectedMonth 跳過去)**、delete 後 reload 當前月、typed error、首個 await 前不 notify。測試:狀態轉換、切月競態(舊回應不覆蓋)、跨月寫入跳月、401→needsReauth、寫入後 reload。
+- [x] 2.1 `presentation/finance_controller.dart`:selectedMonth 狀態、`load(month)`(categories+summary+月 transactions;**回應 month == 當前 selectedMonth 才落地**)、auth 組線(idToken;401→`needsReauth` 狀態)、add/update 成功後 **reload 該筆 date 所在月(跨月則 selectedMonth 跳過去)**、delete 後 reload 當前月、typed error、首個 await 前不 notify。測試:狀態轉換、切月競態(舊回應不覆蓋)、跨月寫入跳月、401→needsReauth、寫入後 reload。
 
 ## 3. Presentation
 
