@@ -260,6 +260,16 @@ Color importRunningIconColor(ColorScheme scheme) =>
         ? importRunningIconLight
         : scheme.primary;
 
+/// The finance ledger's income amount color (design.md): `sageSuccess` isn't
+/// registered in [ColorScheme] and, as a pastel, fails AA as foreground text
+/// on the light card — this returns the deeper AA-safe [financeIncomeTextLight]
+/// there and the sage pastel (already AA-safe) on dark. Screens call this
+/// rather than referencing either raw token directly.
+Color financeIncomeColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? financeIncomeTextLight
+        : sageSuccess;
+
 /// The "toy ledge" shadow used under cards and primary buttons: a soft,
 /// downward-offset shadow rather than a symmetric `elevation` blur. Wrap a
 /// `Container`/`Material` with this via `BoxDecoration.boxShadow`.

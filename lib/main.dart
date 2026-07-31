@@ -28,6 +28,12 @@ import 'contexts/exercise/application/get_exercise_day.dart';
 import 'contexts/exercise/application/list_exercise_activities.dart';
 import 'contexts/exercise/infrastructure/http_exercise_repository.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
+import 'contexts/finance/application/add_transaction.dart';
+import 'contexts/finance/application/delete_transaction.dart';
+import 'contexts/finance/application/get_finance_month.dart';
+import 'contexts/finance/application/update_transaction.dart';
+import 'contexts/finance/infrastructure/http_finance_repository.dart';
+import 'contexts/finance/presentation/finance_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
 import 'contexts/health/application/create_shared_food_item.dart';
@@ -207,6 +213,16 @@ Future<void> main() async {
     UpdatePeriod(menstrualRepository),
     DeletePeriod(menstrualRepository),
   );
+  final financeRepository = HttpFinanceRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final financeController = FinanceController(
+    GetFinanceMonth(financeRepository),
+    AddTransaction(financeRepository),
+    UpdateTransaction(financeRepository),
+    DeleteTransaction(financeRepository),
+  );
   final bodyProfileRepository = HttpBodyProfileRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -324,6 +340,7 @@ Future<void> main() async {
       vitalsController: vitalsController,
       exerciseController: exerciseController,
       menstrualController: menstrualController,
+      financeController: financeController,
       weightGoalController: weightGoalController,
       trendController: trendController,
       healthCalendarController: healthCalendarController,

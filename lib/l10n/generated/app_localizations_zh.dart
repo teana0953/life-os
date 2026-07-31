@@ -1514,6 +1514,87 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sharedFoodItemNutrientsHeading => '營養素';
+
+  @override
+  String get financeTabOverview => '總覽';
+
+  @override
+  String get financeTabTransactions => '明細';
+
+  @override
+  String get financeFabTooltip => '記一筆';
+
+  @override
+  String get financeAddTitle => '記一筆';
+
+  @override
+  String get financeEditTitle => '編輯交易';
+
+  @override
+  String get financeAmountLabel => '金額';
+
+  @override
+  String get financeTypeExpense => '支出';
+
+  @override
+  String get financeTypeIncome => '收入';
+
+  @override
+  String get financeCategoryLabel => '分類';
+
+  @override
+  String get financeDateLabel => '日期';
+
+  @override
+  String get financeCurrencyLabel => '幣別';
+
+  @override
+  String get financeNoteLabel => '備註';
+
+  @override
+  String get financeSaveButton => '儲存';
+
+  @override
+  String get financeDeleteButton => '刪除';
+
+  @override
+  String get financeDeleteConfirmTitle => '刪除這筆交易?';
+
+  @override
+  String get financeDeleteConfirmMessage => '此動作無法復原。';
+
+  @override
+  String get financeDeleteConfirmButton => '刪除';
+
+  @override
+  String get financeCancelButton => '取消';
+
+  @override
+  String get financeSaveFailed => '儲存失敗,請檢查網路後重試。';
+
+  @override
+  String get financeLoadFailed => '財務資料載入失敗。';
+
+  @override
+  String get financeEmptyTitle => '這個月還沒有紀錄';
+
+  @override
+  String get financeEmptyCta => '記第一筆';
+
+  @override
+  String get financeExpenseTotal => '支出';
+
+  @override
+  String get financeIncomeTotal => '收入';
+
+  @override
+  String get financeNetTotal => '結餘';
+
+  @override
+  String get financeRecentTransactions => '最近交易';
+
+  @override
+  String get financeCategoryBreakdown => '分類統計';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3026,4 +3107,85 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sharedFoodItemNutrientsHeading => '營養素';
+
+  @override
+  String get financeTabOverview => '總覽';
+
+  @override
+  String get financeTabTransactions => '明細';
+
+  @override
+  String get financeFabTooltip => '記一筆';
+
+  @override
+  String get financeAddTitle => '記一筆';
+
+  @override
+  String get financeEditTitle => '編輯交易';
+
+  @override
+  String get financeAmountLabel => '金額';
+
+  @override
+  String get financeTypeExpense => '支出';
+
+  @override
+  String get financeTypeIncome => '收入';
+
+  @override
+  String get financeCategoryLabel => '分類';
+
+  @override
+  String get financeDateLabel => '日期';
+
+  @override
+  String get financeCurrencyLabel => '幣別';
+
+  @override
+  String get financeNoteLabel => '備註';
+
+  @override
+  String get financeSaveButton => '儲存';
+
+  @override
+  String get financeDeleteButton => '刪除';
+
+  @override
+  String get financeDeleteConfirmTitle => '刪除這筆交易?';
+
+  @override
+  String get financeDeleteConfirmMessage => '此動作無法復原。';
+
+  @override
+  String get financeDeleteConfirmButton => '刪除';
+
+  @override
+  String get financeCancelButton => '取消';
+
+  @override
+  String get financeSaveFailed => '儲存失敗,請檢查網路後重試。';
+
+  @override
+  String get financeLoadFailed => '財務資料載入失敗。';
+
+  @override
+  String get financeEmptyTitle => '這個月還沒有紀錄';
+
+  @override
+  String get financeEmptyCta => '記第一筆';
+
+  @override
+  String get financeExpenseTotal => '支出';
+
+  @override
+  String get financeIncomeTotal => '收入';
+
+  @override
+  String get financeNetTotal => '結餘';
+
+  @override
+  String get financeRecentTransactions => '最近交易';
+
+  @override
+  String get financeCategoryBreakdown => '分類統計';
 }

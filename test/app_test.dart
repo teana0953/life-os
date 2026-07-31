@@ -37,6 +37,16 @@ import 'package:life_os/contexts/health/application/search_dictionary.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/health/application/update_shared_food_item.dart';
+import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/delete_transaction.dart';
+import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/update_transaction.dart';
+import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_repository.dart';
+import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
+import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
 import 'package:life_os/contexts/import/application/import_diet_target.dart';
@@ -458,6 +468,67 @@ class _FakeMenstrualRepository implements MenstrualRepository {
 
   @override
   Future<bool> deletePeriod(String idToken, String id) async => true;
+}
+
+/// An inert fake: empty categories/transactions, an empty summary for any
+/// month — enough for `App` construction/routing tests that don't exercise
+/// the finance module itself.
+class _FakeFinanceRepository implements FinanceRepository {
+  @override
+  Future<List<FinanceCategory>> getCategories(String idToken) async => const [];
+
+  @override
+  Future<List<FinanceTransaction>> getTransactions(
+    String idToken, {
+    required String from,
+    required String to,
+  }) async => const [];
+
+  @override
+  Future<MonthlySummary> getSummary(String idToken, String month) async =>
+      MonthlySummary(month: month, totals: const [], byCategory: const []);
+
+  @override
+  Future<FinanceTransaction> addTransaction(
+    String idToken, {
+    required FinanceType type,
+    required int amount,
+    required String currency,
+    required String categoryId,
+    required String date,
+    String? note,
+  }) async => FinanceTransaction(
+    id: 't1',
+    type: type,
+    amount: amount,
+    currency: currency,
+    categoryId: categoryId,
+    date: date,
+    note: note,
+  );
+
+  @override
+  Future<FinanceTransaction> updateTransaction(
+    String idToken,
+    String id, {
+    required FinanceType type,
+    required int amount,
+    required String currency,
+    required String categoryId,
+    required String date,
+    String? note,
+  }) async => FinanceTransaction(
+    id: id,
+    type: type,
+    amount: amount,
+    currency: currency,
+    categoryId: categoryId,
+    date: date,
+    note: note,
+  );
+
+  @override
+  Future<void> deleteTransaction(String idToken, String id) async {}
 }
 
 class _FakeImportRepository implements ImportRepository {
@@ -930,6 +1001,7 @@ Future<LocaleController> pumpApp(
   CareTodayController? careTodayController,
   CareHistoryController? careHistoryController,
   CareHistoryController? careAdherenceController,
+  FinanceController? financeController,
 
   /// Shared, mirroring main.dart, between the import controller (which
   /// bumps it), the health shell (which listens to it), and both
@@ -956,6 +1028,17 @@ Future<LocaleController> pumpApp(
       themeController ?? await testThemeController();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
+  final resolvedFinanceController =
+      financeController ??
+      () {
+        final repository = _FakeFinanceRepository();
+        return FinanceController(
+          GetFinanceMonth(repository),
+          AddTransaction(repository),
+          UpdateTransaction(repository),
+          DeleteTransaction(repository),
+        );
+      }();
   final health = testHealthControllers(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
@@ -1050,6 +1133,7 @@ Future<LocaleController> pumpApp(
       vitalsController: health.vitals,
       exerciseController: health.exercise,
       menstrualController: health.menstrual,
+      financeController: resolvedFinanceController,
       weightGoalController: health.weightGoal,
       trendController: health.trend,
       healthCalendarController: health.healthCalendar,

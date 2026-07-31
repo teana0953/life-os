@@ -2899,6 +2899,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nutrients'**
   String get sharedFoodItemNutrientsHeading;
+
+  /// Bottom-nav destination label for the finance shell's overview tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get financeTabOverview;
+
+  /// Bottom-nav destination label for the finance shell's transaction-list tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get financeTabTransactions;
+
+  /// Tooltip/accessible label for the finance shell's floating action button that opens the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a transaction'**
+  String get financeFabTooltip;
+
+  /// Heading shown at the top of the record sheet when creating a new transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a transaction'**
+  String get financeAddTitle;
+
+  /// Heading shown at the top of the record sheet when editing an existing transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit transaction'**
+  String get financeEditTitle;
+
+  /// Label for the amount field in the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get financeAmountLabel;
+
+  /// Label for the expense option in the record sheet's expense/income toggle, and for the expense total on the overview card.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense'**
+  String get financeTypeExpense;
+
+  /// Label for the income option in the record sheet's expense/income toggle, and for the income total on the overview card.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get financeTypeIncome;
+
+  /// Label above the category grid in the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get financeCategoryLabel;
+
+  /// Label for the date field in the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get financeDateLabel;
+
+  /// Label for the currency selector in the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get financeCurrencyLabel;
+
+  /// Label for the optional note field in the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get financeNoteLabel;
+
+  /// Label for the record sheet's save/submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get financeSaveButton;
+
+  /// Label for the delete action shown in the record sheet when editing an existing transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get financeDeleteButton;
+
+  /// Title of the confirmation dialog shown before deleting a transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this transaction?'**
+  String get financeDeleteConfirmTitle;
+
+  /// Body text of the confirmation dialog shown before deleting a transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone.'**
+  String get financeDeleteConfirmMessage;
+
+  /// Confirm button label in the delete-transaction confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get financeDeleteConfirmButton;
+
+  /// Cancel button label in the delete-transaction confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get financeCancelButton;
+
+  /// Snackbar shown when recording/editing/deleting a transaction fails for a retryable reason (network/server error); the sheet stays open with its content intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please check your connection and try again.'**
+  String get financeSaveFailed;
+
+  /// Error message shown (with a retry action) when the finance month fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your finance data.'**
+  String get financeLoadFailed;
+
+  /// Empty-state guide shown on the overview and transactions tabs when the selected month has no transactions.
+  ///
+  /// In en, this message translates to:
+  /// **'No transactions yet this month'**
+  String get financeEmptyTitle;
+
+  /// Call-to-action button in the empty-state guide that opens the record sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record your first one'**
+  String get financeEmptyCta;
+
+  /// Row label for a currency's expense total on the overview cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense'**
+  String get financeExpenseTotal;
+
+  /// Row label for a currency's income total on the overview cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get financeIncomeTotal;
+
+  /// Row label for a currency's net (income - expense) total on the overview cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get financeNetTotal;
+
+  /// Section heading above the five most recent transactions on the overview tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent transactions'**
+  String get financeRecentTransactions;
+
+  /// Section heading above the per-category expense breakdown bars on the overview tab.
+  ///
+  /// In en, this message translates to:
+  /// **'By category'**
+  String get financeCategoryBreakdown;
 }
 
 class _AppLocalizationsDelegate
