@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
@@ -202,21 +203,6 @@ class _MonthDots extends StatelessWidget {
 
   const _MonthDots({required this.month, required this.loggedDays});
 
-  /// The weeks of the month as day-of-month (or null for leading/trailing blanks).
-  List<List<int?>> _weeks() {
-    final firstOfMonth = DateTime(month.year, month.month, 1);
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final leadingBlanks = firstOfMonth.weekday % 7; // DateTime.sunday == 7
-    final cells = <int?>[
-      for (var i = 0; i < leadingBlanks; i++) null,
-      for (var day = 1; day <= daysInMonth; day++) day,
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(null);
-    }
-    return [for (var i = 0; i < cells.length; i += 7) cells.sublist(i, i + 7)];
-  }
-
   String _dayKey(int day) =>
       '${month.year}-${_pad(month.month)}-${_pad(day)}';
 
@@ -244,7 +230,7 @@ class _MonthDots extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        for (final week in _weeks())
+        for (final week in monthWeeks(month))
           Row(
             children: [
               for (final day in week)

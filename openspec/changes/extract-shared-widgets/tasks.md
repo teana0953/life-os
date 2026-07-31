@@ -4,8 +4,8 @@
 
 ## 1. monthWeeks 純函式
 
-- [ ] 1.1 `lib/shared/date/month_grid.dart` 新增 `monthWeeks(DateTime)`(週日優先、前後補 null、切整週),搬自三份逐字實作之一。測試 `test/shared/date/month_grid_test.dart`:閏年二月、1 號週日、1 號週六、月末補白。
-- [ ] 1.2 三處改用:`menstrual_calendar.dart:85-101`、`health_calendar_card.dart:206-218`、`diet_day_screen.dart:299-316` 刪本地 `_weeks()` 改呼叫共用件。跑既有測試確認不破。
+- [x] 1.1 `lib/shared/date/month_grid.dart` 新增 `monthWeeks(DateTime)`(週日優先、前後補 null、切整週),搬自三份逐字實作之一。測試 `test/shared/date/month_grid_test.dart`:閏年二月、1 號週日、1 號週六、月末補白。
+- [x] 1.2 三處改用:`menstrual_calendar.dart:85-101`、`health_calendar_card.dart:206-218`、`diet_day_screen.dart:299-316` 刪本地 `_weeks()` 改呼叫共用件。跑既有測試確認不破。
 
 ## 2. DateField
 

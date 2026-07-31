@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/tracker_day_nav_header.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -295,26 +296,6 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
     _loadLoggedDays();
   }
 
-  /// The visible month's day cells, grouped into weeks (`null` for the
-  /// leading/trailing blanks), Sunday-first.
-  List<List<int?>> _weeks() {
-    final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final daysInMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + 1,
-      0,
-    ).day;
-    final leadingBlanks = firstOfMonth.weekday % 7; // DateTime.sunday == 7
-    final cells = <int?>[
-      for (var i = 0; i < leadingBlanks; i++) null,
-      for (var day = 1; day <= daysInMonth; day++) day,
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(null);
-    }
-    return [for (var i = 0; i < cells.length; i += 7) cells.sublist(i, i + 7)];
-  }
-
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -384,7 +365,7 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
               ],
             ),
             const SizedBox(height: 4),
-            for (final week in _weeks())
+            for (final week in monthWeeks(_visibleMonth))
               Row(
                 children: [
                   for (final day in week)
