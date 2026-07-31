@@ -9,8 +9,8 @@
 
 ## 2. DateField
 
-- [ ] 2.1 `lib/shared/widgets/date_field.dart`:`DateField({fieldKey, label, value(DateTime?), placeholder, onTap(VoidCallback?)})`,結構照現有(Column > Text(label, labelLarge, onSurfaceVariant) + SizedBox(4) + OutlinedButton(fieldKey) > Align(centerLeft) > Text)。測試:key 存在、value/placeholder 切換、onTap null 時 disabled。
-- [ ] 2.2 兩處改用:`menstrual_screen.dart:532-571`、`chaodays_import_screen.dart:470-511`。既有測試零改動確認。
+- [x] 2.1 `lib/shared/widgets/date_field.dart`:`DateField({fieldKey, label, value(DateTime?), placeholder, onTap(VoidCallback?)})`,結構照現有(Column > Text(label, labelLarge, onSurfaceVariant) + SizedBox(4) + OutlinedButton(fieldKey) > Align(centerLeft) > Text)。測試:key 存在、value/placeholder 切換、onTap null 時 disabled。
+- [x] 2.2 兩處改用:`menstrual_screen.dart:532-571`、`chaodays_import_screen.dart:470-511`。既有測試零改動確認。
 
 ## 3. CardErrorRetry
 

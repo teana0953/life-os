@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/date_field.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/menstrual_period.dart';
 import 'menstrual_calendar.dart';
@@ -464,7 +465,7 @@ class _PeriodDialogState extends State<_PeriodDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DateField(
+          DateField(
             fieldKey: const Key('menstrual-start-date'),
             label: loc.menstrualStartDateLabel,
             value: _start,
@@ -475,7 +476,7 @@ class _PeriodDialogState extends State<_PeriodDialog> {
           Row(
             children: [
               Expanded(
-                child: _DateField(
+                child: DateField(
                   fieldKey: const Key('menstrual-end-date'),
                   label: loc.menstrualEndDateLabel,
                   value: _end,
@@ -521,51 +522,6 @@ class _PeriodDialogState extends State<_PeriodDialog> {
                 ).pop(_PeriodDialogResult.save(_start, _end))
               : null,
           child: Text(loc.menstrualSavePeriod),
-        ),
-      ],
-    );
-  }
-}
-
-/// A labelled, tappable date display used in the period dialog: shows the
-/// formatted [value] or a [placeholder] when unset. Colors from [Theme].
-class _DateField extends StatelessWidget {
-  final Key fieldKey;
-  final String label;
-  final DateTime? value;
-  final String placeholder;
-  final VoidCallback onTap;
-
-  const _DateField({
-    required this.fieldKey,
-    required this.label,
-    required this.value,
-    required this.placeholder,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        OutlinedButton(
-          key: fieldKey,
-          onPressed: onTap,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value == null ? placeholder : mediumDateLabel(context, value!),
-            ),
-          ),
         ),
       ],
     );
