@@ -87,6 +87,16 @@ failure, an error state with a retry action.
 - **THEN** an empty-state message with a record call-to-action appears, and
   tapping it opens the record sheet
 
+The month switcher within the 總覽 tab SHALL be rendered by the shared
+`MonthNavHeader` widget (keyPrefix `finance-month`), preserving the existing
+behavior and test keys.
+
+#### Scenario: Month switcher uses the shared header
+
+- **WHEN** the 總覽 tab renders its month switcher
+- **THEN** it is the shared MonthNavHeader and its existing month-change
+  behavior is unchanged
+
 ### Requirement: Transaction list and editing
 
 The 明細 tab SHALL group the selected month's transactions by day, newest
