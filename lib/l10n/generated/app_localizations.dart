@@ -3121,6 +3121,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Will be cleared'**
   String get financeBudgetClearedLabel;
+
+  /// Field error shown when a budget amount has content but isn't a positive whole number; leaving it empty clears the budget instead.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid amount'**
+  String get financeBudgetInvalidAmount;
 }
 
 class _AppLocalizationsDelegate

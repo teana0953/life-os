@@ -1625,6 +1625,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get financeBudgetClearedLabel => '將被清空';
+
+  @override
+  String get financeBudgetInvalidAmount => 'Enter a valid amount';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3248,4 +3251,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeBudgetClearedLabel => '將被清空';
+
+  @override
+  String get financeBudgetInvalidAmount => '請輸入有效金額';
 }

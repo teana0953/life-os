@@ -1683,4 +1683,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeBudgetClearedLabel => 'Will be cleared';
+
+  @override
+  String get financeBudgetInvalidAmount => 'Enter a valid amount';
 }

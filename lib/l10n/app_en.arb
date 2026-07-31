@@ -2245,5 +2245,9 @@
   "financeBudgetClearedLabel": "Will be cleared",
   "@financeBudgetClearedLabel": {
     "description": "Shown after tapping the clear button for an archived category's budget."
+  },
+  "financeBudgetInvalidAmount": "Enter a valid amount",
+  "@financeBudgetInvalidAmount": {
+    "description": "Field error shown when a budget amount has content but isn't a positive whole number; leaving it empty clears the budget instead."
   }
 }

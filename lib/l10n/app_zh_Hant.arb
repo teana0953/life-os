@@ -502,5 +502,6 @@
   "financeBudgetSheetHint": "預算為每月循環設定,修改即套用到所有月份。",
   "financeBudgetArchivedLabel": "已封存,僅能清空",
   "financeBudgetClearButton": "清空",
-  "financeBudgetClearedLabel": "將被清空"
+  "financeBudgetClearedLabel": "將被清空",
+  "financeBudgetInvalidAmount": "請輸入有效金額"
 }

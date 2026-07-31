@@ -55,19 +55,41 @@ class _BudgetSheetState extends State<BudgetSheet> {
     _rows = _buildRows();
     for (final row in _rows) {
       final existing = _existingAmount(row.categoryId);
-      _amountControllers[row.categoryId] = TextEditingController(
+      final controller = TextEditingController(
         text: existing == null || existing == 0 ? '' : formatMinorUnits(existing, defaultCurrency),
       );
+      // Re-evaluate per-field validity + the save gate as the amount is typed
+      // (NumericAmountField owns the field and exposes no onChanged), mirroring
+      // AddTransactionSheet.
+      controller.addListener(_onAmountChanged);
+      _amountControllers[row.categoryId] = controller;
     }
   }
+
+  void _onAmountChanged() => setState(() {});
 
   @override
   void dispose() {
     for (final controller in _amountControllers.values) {
+      controller.removeListener(_onAmountChanged);
       controller.dispose();
     }
     super.dispose();
   }
+
+  /// Whether [categoryId]'s editable field holds an invalid amount: non-empty
+  /// content that doesn't parse to a positive whole-number amount. An empty
+  /// string is *not* invalid — it means "clear / not set". Archived rows have
+  /// no editable field, so they're never invalid.
+  bool _fieldIsInvalid(_BudgetRowSpec row) {
+    if (row.archived) return false;
+    final text = _amountControllers[row.categoryId]!.text.trim();
+    if (text.isEmpty) return false;
+    final parsed = parseAmountToMinorUnits(text, defaultCurrency);
+    return parsed == null || parsed <= 0;
+  }
+
+  bool get _hasInvalidField => _rows.any(_fieldIsInvalid);
 
   List<_BudgetRowSpec> _buildRows() {
     final controller = widget.controller;
@@ -135,7 +157,13 @@ class _BudgetSheetState extends State<BudgetSheet> {
     }
     setState(() => _saving = false);
     final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    // Map the controller's typed failure to actionable copy: a rejected token
+    // asks the user to sign in again; everything else stays the generic
+    // retryable message (i18n rule: error copy is mapped in presentation).
+    final message = widget.controller.status == FinanceStatus.needsReauth
+        ? loc.pleaseSignInAgain
+        : loc.financeSaveFailed;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -162,6 +190,7 @@ class _BudgetSheetState extends State<BudgetSheet> {
                   row: row,
                   amountController: _amountControllers[row.categoryId]!,
                   saving: _saving,
+                  invalid: _fieldIsInvalid(row),
                   cleared: _clearedArchived.contains(row.categoryId),
                   onToggleCleared: row.archived
                       ? () => setState(() {
@@ -185,7 +214,7 @@ class _BudgetSheetState extends State<BudgetSheet> {
                 width: double.infinity,
                 child: FilledButton(
                   key: const Key('budget-sheet-save'),
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _hasInvalidField ? null : _save,
                   child: _saving
                       ? const SizedBox(
                           height: 20,
@@ -207,6 +236,7 @@ class _BudgetFieldRow extends StatelessWidget {
   final _BudgetRowSpec row;
   final TextEditingController amountController;
   final bool saving;
+  final bool invalid;
   final bool cleared;
   final VoidCallback? onToggleCleared;
 
@@ -214,6 +244,7 @@ class _BudgetFieldRow extends StatelessWidget {
     required this.row,
     required this.amountController,
     required this.saving,
+    required this.invalid,
     required this.cleared,
     required this.onToggleCleared,
   });
@@ -246,6 +277,7 @@ class _BudgetFieldRow extends StatelessWidget {
           label: loc.financeAmountLabel,
           allowDecimal: false,
           enabled: !saving && !row.archived,
+          errorText: invalid ? loc.financeBudgetInvalidAmount : null,
         ),
         if (row.archived) ...[
           const SizedBox(width: 4),

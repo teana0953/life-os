@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/presentation/budget_sheet.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -136,4 +137,80 @@ void main() {
       expect(controller.budgets.any((b) => b.categoryId == 'cat-food'), isFalse);
     },
   );
+
+  testWidgets(
+    'invalid (unparseable) amount shows an error, disables save, and never '
+    'deletes the existing budget',
+    (tester) async {
+      final repo = FakeFinanceRepository()..seedBudget(amount: 10000);
+      final controller = await pumpSheet(tester, repo: repo);
+
+      // Type non-numeric junk into the overall field — this must NOT be
+      // treated as "clear the budget".
+      await tester.enterText(find.byKey(const Key('budget-field-total')), 'abc');
+      await tester.pump();
+
+      // Field error is shown and the save button is disabled.
+      expect(find.text(loc.financeBudgetInvalidAmount), findsOneWidget);
+      final saveButton = tester.widget<FilledButton>(
+        find.byKey(const Key('budget-sheet-save')),
+      );
+      expect(saveButton.onPressed, isNull);
+
+      // Tapping save (disabled) triggers no write at all — the existing
+      // budget is untouched.
+      repo.budgetCalls.clear();
+      await tester.tap(find.byKey(const Key('budget-sheet-save')));
+      await tester.pumpAndSettle();
+
+      expect(repo.budgetCalls, isEmpty);
+      expect(find.byKey(const Key('budget-sheet-save')), findsOneWidget);
+      expect(controller.budgets.any((b) => b.categoryId == null), isTrue);
+    },
+  );
+
+  testWidgets('empty string still clears the existing budget (delete)', (
+    tester,
+  ) async {
+    final repo = FakeFinanceRepository()
+      ..seedBudget(amount: 10000)
+      ..seedBudget(categoryId: 'cat-food', amount: 3000);
+    final controller = await pumpSheet(tester, repo: repo);
+
+    // Empty out the overall field — an empty string means "clear".
+    await tester.enterText(find.byKey(const Key('budget-field-total')), '');
+    await tester.pump();
+
+    // No error, save enabled.
+    expect(find.text(loc.financeBudgetInvalidAmount), findsNothing);
+
+    repo.budgetCalls.clear();
+    await tester.tap(find.byKey(const Key('budget-sheet-save')));
+    await tester.pumpAndSettle();
+
+    // The overall budget was deleted.
+    expect(repo.budgetCalls.where((c) => c.startsWith('delete:')), hasLength(1));
+    expect(controller.budgets.any((b) => b.categoryId == null), isFalse);
+  });
+
+  testWidgets('save hitting a reauth error shows the sign-in-again message', (
+    tester,
+  ) async {
+    final repo = FakeFinanceRepository()..seedBudget(amount: 10000);
+    final controller = await pumpSheet(tester, repo: repo);
+
+    await tester.enterText(find.byKey(const Key('budget-field-total')), '12000');
+    await tester.pump();
+
+    // The upsert will be rejected with a 401 → reauth required.
+    repo.failNext = const FinanceReauthenticationRequired();
+    await tester.tap(find.byKey(const Key('budget-sheet-save')));
+    await tester.pumpAndSettle();
+
+    // Sheet stays open and shows a "sign in again" message, not the generic
+    // save-failed copy.
+    expect(controller.status, FinanceStatus.needsReauth);
+    expect(find.text(loc.pleaseSignInAgain), findsOneWidget);
+    expect(find.text(loc.financeSaveFailed), findsNothing);
+  });
 }
