@@ -4,6 +4,7 @@ import 'package:life_os/contexts/finance/application/add_transaction.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
@@ -16,6 +17,7 @@ import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
+import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 
 /// An overall (`categoryId` `null`) or category budget definition — recurring
 /// across months, mirroring the real backend (design.md: budgets apply to
@@ -336,6 +338,9 @@ class FakeFinanceRepository implements FinanceRepository {
   /// `create:<kind>:<name>`, `update:<id>:<field>=<value>`).
   final List<String> networthCalls = [];
 
+  /// Every trend range requested, as `<from>..<to>`.
+  final List<String> trendCalls = [];
+
   /// Holds `getMonthlyNetWorth` for a month until its completer completes —
   /// the hook the controller's stale-response race test uses.
   final Map<String, Completer<void>> monthlyGates = {};
@@ -497,6 +502,7 @@ class FakeFinanceRepository implements FinanceRepository {
     required String from,
     required String to,
   }) async {
+    trendCalls.add('$from..$to');
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;
@@ -510,6 +516,16 @@ class FakeFinanceRepository implements FinanceRepository {
     ];
   }
 }
+
+NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
+    NetWorthController(
+      ListNetWorthAccounts(repo),
+      CreateNetWorthAccount(repo),
+      UpdateNetWorthAccount(repo),
+      UpsertSnapshot(repo),
+      GetMonthlyNetWorth(repo),
+      GetNetWorthTrend(repo),
+    );
 
 FinanceController testFinanceController(FakeFinanceRepository repo) =>
     FinanceController(

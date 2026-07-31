@@ -13,7 +13,7 @@
 
 ## 3. Controller(重要邏輯,測試必須覆蓋)
 
-- [ ] 3.1 `NetWorthController`:selectedMonth、`load(month)`(accounts+monthly+trend 同批 Future.wait;trend 視窗=selectedMonth 往前 11 個月到 selectedMonth 近 12 月;月份 gate 同月才落地;切月同步清除;**淨值 selectedMonth 獨立於記帳,不連動**;401→needsReauth;首個 await 前不 notify)、`saveSnapshot` 後 reload、科目 create/update 後 reload。測試:load 落地、競態(舊月不覆蓋)、切月清除、saveSnapshot reload、科目 CRUD reload、401、非法輸入不送。
+- [x] 3.1 `NetWorthController`:selectedMonth、`load(month)`(accounts+monthly+trend 同批 Future.wait;trend 視窗=selectedMonth 往前 11 個月到 selectedMonth 近 12 月;月份 gate 同月才落地;切月同步清除;**淨值 selectedMonth 獨立於記帳,不連動**;401→needsReauth;首個 await 前不 notify)、`saveSnapshot` 後 reload、科目 create/update 後 reload。測試:load 落地、競態(舊月不覆蓋)、切月清除、saveSnapshot reload、科目 CRUD reload、401、非法輸入不送。
 
 ## 4. Presentation
 
