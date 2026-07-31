@@ -9,6 +9,8 @@ import '../domain/finance_repository.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 import '../domain/monthly_summary.dart';
+import '../domain/networth_account.dart';
+import '../domain/networth_snapshot.dart';
 
 /// [FinanceRepository] driven adapter backed by the `/api/finance/*` HTTP
 /// endpoints (contract frozen in design.md).
@@ -253,5 +255,132 @@ class HttpFinanceRepository implements FinanceRepository {
       ),
     );
     if (response.statusCode != 200) _throwForStatus(response.statusCode);
+  }
+
+  /// Decodes a 200 body with [parse], turning any malformed payload into the
+  /// generic fetch failure (mirrors the ledger methods above).
+  T _decode<T>(http.Response response, T Function(Map<String, dynamic>) parse) {
+    try {
+      return parse(jsonDecode(response.body) as Map<String, dynamic>);
+    } catch (_) {
+      throw const FinanceFetchFailure(_genericFailureMessage);
+    }
+  }
+
+  @override
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/networth/accounts'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(
+      response,
+      (json) => (json['accounts'] as List)
+          .map((e) => NetWorthAccount.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<NetWorthAccount> createNetWorthAccount(
+    String idToken, {
+    required NetWorthKind kind,
+    required String name,
+    int? sortOrder,
+  }) async {
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/finance/networth/accounts'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          'kind': netWorthKindToJson(kind),
+          'name': name,
+          if (sortOrder != null) 'sort_order': sortOrder,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, NetWorthAccount.fromJson);
+  }
+
+  @override
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+  }) async {
+    final response = await _send(
+      () => client.put(
+        Uri.parse('$baseUrl/api/finance/networth/accounts/$id'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          if (name != null) 'name': name,
+          if (sortOrder != null) 'sort_order': sortOrder,
+          if (archived != null) 'archived': archived,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, NetWorthAccount.fromJson);
+  }
+
+  @override
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  }) async {
+    final response = await _send(
+      () => client.put(
+        Uri.parse('$baseUrl/api/finance/networth/snapshots'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          'account_id': accountId,
+          'month': month,
+          'value': value,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, NetWorthSnapshot.fromJson);
+  }
+
+  @override
+  Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/networth?month=$month'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, MonthlyNetWorth.fromJson);
+  }
+
+  @override
+  Future<List<NetWorthTrendPoint>> getNetWorthTrend(
+    String idToken, {
+    required String from,
+    required String to,
+  }) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/networth/trend?from=$from&to=$to'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(
+      response,
+      (json) => (json['points'] as List)
+          .map((e) => NetWorthTrendPoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
   }
 }

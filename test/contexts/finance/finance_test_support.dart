@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
@@ -11,7 +14,10 @@ import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
+import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
+import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 
 /// An overall (`categoryId` `null`) or category budget definition — recurring
 /// across months, mirroring the real backend (design.md: budgets apply to
@@ -304,7 +310,222 @@ class FakeFinanceRepository implements FinanceRepository {
     }
     _budgetDefs.removeWhere((d) => d.id == id);
   }
+
+  // ---------------------------------------------------------------- networth
+
+  /// The net worth accounts this fake returns, mutated by create/update.
+  List<NetWorthAccount> accounts = [
+    const NetWorthAccount(
+      id: 'acc-cash',
+      kind: NetWorthKind.asset,
+      name: '台幣活存',
+      sortOrder: 0,
+      archived: false,
+    ),
+    const NetWorthAccount(
+      id: 'acc-card',
+      kind: NetWorthKind.liability,
+      name: '信用卡',
+      sortOrder: 0,
+      archived: false,
+    ),
+  ];
+
+  /// `accountId -> month -> value`.
+  final Map<String, Map<String, int>> snapshots = {};
+
+  /// Every networth write, in order (`upsert:<accountId>:<month>:<value>`,
+  /// `create:<kind>:<name>`, `update:<id>:<field>=<value>`).
+  final List<String> networthCalls = [];
+
+  /// Every trend range requested, as `<from>..<to>`.
+  final List<String> trendCalls = [];
+
+  /// Holds `getMonthlyNetWorth` for a month until its completer completes —
+  /// the hook the controller's stale-response race test uses.
+  final Map<String, Completer<void>> monthlyGates = {};
+
+  int _nextAccountId = 1;
+
+  void seedSnapshot(String accountId, String month, int value) {
+    (snapshots[accountId] ??= {})[month] = value;
+  }
+
+  int _netWorthFor(String month) {
+    var total = 0;
+    for (final account in accounts) {
+      final value = snapshots[account.id]?[month];
+      if (value == null) continue;
+      total += account.kind == NetWorthKind.asset ? value : -value;
+    }
+    return total;
+  }
+
+  bool _hasAnySnapshot(String month) =>
+      snapshots.values.any((byMonth) => byMonth.containsKey(month));
+
+  @override
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken) async {
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    return List.of(accounts);
+  }
+
+  @override
+  Future<NetWorthAccount> createNetWorthAccount(
+    String idToken, {
+    required NetWorthKind kind,
+    required String name,
+    int? sortOrder,
+  }) async {
+    networthCalls.add('create:${netWorthKindToJson(kind)}:$name');
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final account = NetWorthAccount(
+      id: 'acc-new${_nextAccountId++}',
+      kind: kind,
+      name: name,
+      sortOrder: sortOrder ?? accounts.length,
+      archived: false,
+    );
+    accounts = [...accounts, account];
+    return account;
+  }
+
+  @override
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+  }) async {
+    networthCalls.add(
+      'update:$id:'
+      '${name != null ? 'name=$name' : ''}'
+      '${sortOrder != null ? 'sort=$sortOrder' : ''}'
+      '${archived != null ? 'archived=$archived' : ''}',
+    );
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final index = accounts.indexWhere((a) => a.id == id);
+    if (index < 0) throw const FinanceNotFound();
+    final current = accounts[index];
+    final updated = NetWorthAccount(
+      id: current.id,
+      kind: current.kind,
+      name: name ?? current.name,
+      sortOrder: sortOrder ?? current.sortOrder,
+      archived: archived ?? current.archived,
+    );
+    accounts = [...accounts]..[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  }) async {
+    networthCalls.add('upsert:$accountId:$month:$value');
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    seedSnapshot(accountId, month, value);
+    return NetWorthSnapshot(
+      id: 'snap-$accountId-$month',
+      accountId: accountId,
+      month: month,
+      value: value,
+    );
+  }
+
+  @override
+  Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month) async {
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final gate = monthlyGates[month];
+    if (gate != null) await gate.future;
+
+    final values = [
+      for (final account in accounts)
+        if (snapshots[account.id]?[month] != null)
+          NetWorthAccountValue(
+            accountId: account.id,
+            kind: account.kind,
+            name: account.name,
+            value: snapshots[account.id]![month]!,
+          ),
+    ];
+    final totalAsset = values
+        .where((v) => v.kind == NetWorthKind.asset)
+        .fold(0, (sum, v) => sum + v.value);
+    final totalLiability = values
+        .where((v) => v.kind == NetWorthKind.liability)
+        .fold(0, (sum, v) => sum + v.value);
+    // "Prior month" = the most recent earlier month holding any snapshot.
+    final earlier =
+        snapshots.values.expand((byMonth) => byMonth.keys).where((m) => m.compareTo(month) < 0).toList()
+          ..sort();
+    final prev = earlier.isEmpty ? null : _netWorthFor(earlier.last);
+    final net = totalAsset - totalLiability;
+    return MonthlyNetWorth(
+      month: month,
+      accounts: values,
+      totalAsset: totalAsset,
+      totalLiability: totalLiability,
+      netWorth: net,
+      prevNetWorth: prev,
+      growthRate: prev == null || prev <= 0 ? null : (net - prev) / prev,
+    );
+  }
+
+  @override
+  Future<List<NetWorthTrendPoint>> getNetWorthTrend(
+    String idToken, {
+    required String from,
+    required String to,
+  }) async {
+    trendCalls.add('$from..$to');
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final months = snapshots.values.expand((byMonth) => byMonth.keys).toSet().toList()..sort();
+    return [
+      for (final month in months)
+        if (month.compareTo(from) >= 0 && month.compareTo(to) <= 0 && _hasAnySnapshot(month))
+          NetWorthTrendPoint(month: month, netWorth: _netWorthFor(month)),
+    ];
+  }
 }
+
+NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
+    NetWorthController(
+      ListNetWorthAccounts(repo),
+      CreateNetWorthAccount(repo),
+      UpdateNetWorthAccount(repo),
+      UpsertSnapshot(repo),
+      GetMonthlyNetWorth(repo),
+      GetNetWorthTrend(repo),
+    );
 
 FinanceController testFinanceController(FakeFinanceRepository repo) =>
     FinanceController(

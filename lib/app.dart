@@ -16,6 +16,7 @@ import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
+import 'contexts/finance/presentation/networth_controller.dart';
 import 'contexts/finance/presentation/finance_scaffold.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
@@ -178,6 +179,7 @@ class App extends StatefulWidget {
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
   final FinanceController financeController;
+  final NetWorthController netWorthController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
   final HealthCalendarController healthCalendarController;
@@ -229,6 +231,7 @@ class App extends StatefulWidget {
     required this.exerciseController,
     required this.menstrualController,
     required this.financeController,
+    required this.netWorthController,
     required this.weightGoalController,
     required this.trendController,
     required this.healthCalendarController,
@@ -310,7 +313,7 @@ class _AppState extends State<App> {
     // is deferred a frame (see `_scheduleDeepLinkCheck`) to let that redirect
     // land first (design.md D6).
     _authNotifier.addListener(_scheduleDeepLinkCheck);
-    _authNotifier.addListener(_resetHomeControllerOnSignOut);
+    _authNotifier.addListener(_resetControllersOnSignOut);
     _pendingDeepLinkController.start();
   }
 
@@ -323,25 +326,30 @@ class _AppState extends State<App> {
     });
   }
 
-  /// `true` while a signed-in user's profile (and so `isAdmin`) may still be
-  /// loaded on [widget.homeController] — cleared on sign-out (design.md D2)
-  /// so a subsequently signed-in user never inherits the previous user's
-  /// admin status. `AuthRouterNotifier` exposes no uid to compare, only
-  /// `signedIn`, so the signal is that transition (true → false) rather than
-  /// "a different user signed in" — signing in as anyone else necessarily
-  /// passes through a sign-out first.
+  /// `true` while a signed-in user's data may still be loaded on the
+  /// app-lifetime controllers — cleared on sign-out (design.md D2) so a
+  /// subsequently signed-in user never inherits the previous user's profile
+  /// (and so `isAdmin`) or net worth figures. `AuthRouterNotifier` exposes no
+  /// uid to compare, only `signedIn`, so the signal is that transition
+  /// (true → false) rather than "a different user signed in" — signing in as
+  /// anyone else necessarily passes through a sign-out first.
   bool _wasSignedIn = false;
 
-  void _resetHomeControllerOnSignOut() {
+  void _resetControllersOnSignOut() {
     final signedIn = _authNotifier.signedIn;
-    if (_wasSignedIn && !signedIn) widget.homeController.reset();
+    if (_wasSignedIn && !signedIn) {
+      widget.homeController.reset();
+      // Unlike `FinanceController`, which `FinanceScaffold` reloads on every
+      // entry, nothing else clears the net worth controller.
+      widget.netWorthController.reset();
+    }
     _wasSignedIn = signedIn;
   }
 
   @override
   void dispose() {
     _authNotifier.removeListener(_scheduleDeepLinkCheck);
-    _authNotifier.removeListener(_resetHomeControllerOnSignOut);
+    _authNotifier.removeListener(_resetControllersOnSignOut);
     _pendingDeepLinkController.dispose();
     _authNotifier.dispose();
     super.dispose();
@@ -516,6 +524,7 @@ class _AppState extends State<App> {
           builder: (context, state) => FinanceScaffold(
             authRepository: widget.authRepository,
             controller: widget.financeController,
+            netWorthController: widget.netWorthController,
             clock: widget.clock,
           ),
         ),

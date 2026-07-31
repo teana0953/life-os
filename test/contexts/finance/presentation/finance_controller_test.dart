@@ -14,6 +14,8 @@ import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
+import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 
 /// A controllable in-memory fake: `getSummary` (used as the load's "slow"
@@ -257,6 +259,48 @@ class FakeFinanceRepository implements FinanceRepository {
     }
     _budgetDefs.removeWhere((d) => d.id == id);
   }
+
+  // The ledger controller under test never touches the networth port; these
+  // satisfy the shared FinanceRepository interface only.
+  @override
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken) =>
+      throw UnimplementedError();
+
+  @override
+  Future<NetWorthAccount> createNetWorthAccount(
+    String idToken, {
+    required NetWorthKind kind,
+    required String name,
+    int? sortOrder,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<NetWorthTrendPoint>> getNetWorthTrend(
+    String idToken, {
+    required String from,
+    required String to,
+  }) => throw UnimplementedError();
 }
 
 /// An overall (`categoryId` `null`) or category budget definition — recurring

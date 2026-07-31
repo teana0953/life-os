@@ -1686,4 +1686,101 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeBudgetInvalidAmount => 'Enter a valid amount';
+
+  @override
+  String get financeTabNetWorth => 'Net worth';
+
+  @override
+  String get networthNetWorthLabel => 'Net worth';
+
+  @override
+  String get networthGrowthUp => 'Up';
+
+  @override
+  String get networthGrowthDown => 'Down';
+
+  @override
+  String get networthGrowthFlat => 'Flat';
+
+  @override
+  String get networthArchivedSubtotal => 'Archived accounts';
+
+  @override
+  String get networthAssetsTitle => 'Assets';
+
+  @override
+  String get networthLiabilitiesTitle => 'Liabilities';
+
+  @override
+  String get networthTotalAssets => 'Total assets';
+
+  @override
+  String get networthTotalLiabilities => 'Total liabilities';
+
+  @override
+  String get networthTrendTitle => 'Net worth trend';
+
+  @override
+  String get networthTrendInsufficient =>
+      'Not enough data yet — keep recording to see your trend.';
+
+  @override
+  String get networthTrendSummary => 'Net worth trend over the last months.';
+
+  @override
+  String get networthEmptyTitle => 'No values recorded for this month yet';
+
+  @override
+  String get networthEmptyCta => 'Record your first value';
+
+  @override
+  String get networthManageAccounts => 'Manage accounts';
+
+  @override
+  String get networthAddAccount => 'Add account';
+
+  @override
+  String get networthAccountNameLabel => 'Account name';
+
+  @override
+  String get networthKindAsset => 'Asset';
+
+  @override
+  String get networthKindLiability => 'Liability';
+
+  @override
+  String get networthArchiveButton => 'Archive';
+
+  @override
+  String get networthRestoreButton => 'Restore';
+
+  @override
+  String get networthArchivedLabel => 'Archived';
+
+  @override
+  String get networthMoveUpTooltip => 'Move up';
+
+  @override
+  String get networthValueLabel => 'Value (TWD)';
+
+  @override
+  String get networthNotRecorded => 'Not recorded';
+
+  @override
+  String get networthInvalidValue => 'Enter a whole number of 0 or more';
+
+  @override
+  String get networthSnapshotSheetTitle => 'Update value';
+
+  @override
+  String get networthAccountNameRequired => 'Enter an account name';
+
+  @override
+  String get networthSaveNameTooltip => 'Save name';
+
+  @override
+  String get monthNavPreviousTooltip => 'Previous month';
+
+  @override
+  String get monthNavNextTooltip => 'Next month';
 }

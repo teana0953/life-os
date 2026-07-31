@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/month_nav_header.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
@@ -74,9 +76,16 @@ class FinanceOverviewTab extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  _MonthNav(
-                    month: controller.selectedMonth,
-                    onSwitchMonth: onSwitchMonth,
+                  MonthNavHeader(
+                    monthLabel: monthYearLabel(
+                      context,
+                      monthDateTime(controller.selectedMonth),
+                    ),
+                    keyPrefix: 'finance-month',
+                    onPrevious: () =>
+                        onSwitchMonth(previousMonth(controller.selectedMonth)),
+                    onNext: () =>
+                        onSwitchMonth(nextMonth(controller.selectedMonth)),
                   ),
                   const SizedBox(height: 16),
                   BudgetCard(controller: controller, onEdit: onEditBudgets),
@@ -117,34 +126,6 @@ class FinanceOverviewTab extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// The `‹ 2026-07 ›` month switcher row.
-class _MonthNav extends StatelessWidget {
-  final String month;
-  final Future<void> Function(String month) onSwitchMonth;
-
-  const _MonthNav({required this.month, required this.onSwitchMonth});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          key: const Key('finance-month-previous'),
-          icon: const Icon(Icons.chevron_left),
-          onPressed: () => onSwitchMonth(previousMonth(month)),
-        ),
-        Text(month, key: const Key('finance-month-label'), style: Theme.of(context).textTheme.titleLarge),
-        IconButton(
-          key: const Key('finance-month-next'),
-          icon: const Icon(Icons.chevron_right),
-          onPressed: () => onSwitchMonth(nextMonth(month)),
-        ),
-      ],
     );
   }
 }
