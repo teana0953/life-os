@@ -66,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openHealth(BuildContext context) => context.push('/health');
 
+  void _openFinance(BuildContext context) => context.push('/finance');
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -202,16 +204,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: Text(spacePreviewNames[index]),
                   );
-                  if (index != 0) return tile;
-                  return Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      key: const Key('health-tile'),
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => _openHealth(context),
-                      child: tile,
-                    ),
-                  );
+                  if (index == 0) {
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        key: const Key('health-tile'),
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _openHealth(context),
+                        child: tile,
+                      ),
+                    );
+                  }
+                  if (index == 1) {
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        key: const Key('finance-tile'),
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _openFinance(context),
+                        child: tile,
+                      ),
+                    );
+                  }
+                  return tile;
                 },
               ),
               const SizedBox(height: 24),

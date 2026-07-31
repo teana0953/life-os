@@ -1570,4 +1570,86 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharedFoodItemNutrientsHeading => 'Nutrients';
+
+  @override
+  String get financeTabOverview => 'Overview';
+
+  @override
+  String get financeTabTransactions => 'Transactions';
+
+  @override
+  String get financeFabTooltip => 'Record a transaction';
+
+  @override
+  String get financeAddTitle => 'Record a transaction';
+
+  @override
+  String get financeEditTitle => 'Edit transaction';
+
+  @override
+  String get financeAmountLabel => 'Amount';
+
+  @override
+  String get financeTypeExpense => 'Expense';
+
+  @override
+  String get financeTypeIncome => 'Income';
+
+  @override
+  String get financeCategoryLabel => 'Category';
+
+  @override
+  String get financeDateLabel => 'Date';
+
+  @override
+  String get financeCurrencyLabel => 'Currency';
+
+  @override
+  String get financeNoteLabel => 'Note';
+
+  @override
+  String get financeSaveButton => 'Save';
+
+  @override
+  String get financeDeleteButton => 'Delete';
+
+  @override
+  String get financeDeleteConfirmTitle => 'Delete this transaction?';
+
+  @override
+  String get financeDeleteConfirmMessage => 'This can\'t be undone.';
+
+  @override
+  String get financeDeleteConfirmButton => 'Delete';
+
+  @override
+  String get financeCancelButton => 'Cancel';
+
+  @override
+  String get financeSaveFailed =>
+      'Couldn\'t save. Please check your connection and try again.';
+
+  @override
+  String get financeLoadFailed => 'Couldn\'t load your finance data.';
+
+  @override
+  String get financeEmptyTitle => 'No transactions yet this month';
+
+  @override
+  String get financeEmptyCta => 'Record your first one';
+
+  @override
+  String get financeExpenseTotal => 'Expense';
+
+  @override
+  String get financeIncomeTotal => 'Income';
+
+  @override
+  String get financeNetTotal => 'Net';
+
+  @override
+  String get financeRecentTransactions => 'Recent transactions';
+
+  @override
+  String get financeCategoryBreakdown => 'By category';
 }

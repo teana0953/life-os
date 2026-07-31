@@ -52,6 +52,14 @@ const errorTextLight = Color(0xFFB4453D);
 const importSuccessIconLight = Color(0xFFA88428); // 3.45:1 on #FFFDF8
 const importRunningIconLight = Color(0xFF3F8FA6); // 3.63:1 on #FFFDF8
 
+// Same idea again, for the finance ledger's income amounts (design.md):
+// `sageSuccess` is a pastel meant for borders/fills, not foreground text —
+// only ~1.9:1 on the light card, far under AA. `financeIncomeTextLight`
+// keeps the sage hue and drops lightness to clear AA (6.26:1 on
+// `surfaceLight`). The dark theme's pastel already clears AA there and is
+// kept as-is (see `financeIncomeColor` in `app_theme.dart`).
+const financeIncomeTextLight = Color(0xFF2E6B41); // 6.26:1 on #FFFDF8
+
 // Diet category colors (staple/meat/fruit/veg) — exposed via the
 // `DietCategoryColors` ThemeExtension in `app_theme.dart`, never referenced
 // directly from screens.

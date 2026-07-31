@@ -78,6 +78,11 @@ Future<void> pumpHomeScreen(
             const Scaffold(body: Text('HEALTH-ROUTE')),
       ),
       GoRoute(
+        path: '/finance',
+        builder: (context, state) =>
+            const Scaffold(body: Text('FINANCE-ROUTE')),
+      ),
+      GoRoute(
         path: '/settings',
         builder: (context, state) =>
             const Scaffold(body: Text('SETTINGS-ROUTE')),
@@ -151,6 +156,34 @@ void main() {
         // HomeScreen pushes `/health`; the app router builds the module there.
         // The full grid → health → diet flow is covered at the app level.
         expect(find.text('HEALTH-ROUTE'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'tapping the finance tile navigates to the finance route',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            isAdmin: false,
+          );
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(FakeAuthRepository()),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller);
+
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+
+        await tester.tap(find.byKey(const Key('finance-tile')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('FINANCE-ROUTE'), findsOneWidget);
       },
     );
 

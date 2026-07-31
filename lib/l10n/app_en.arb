@@ -2097,5 +2097,113 @@
   "sharedFoodItemNutrientsHeading": "Nutrients",
   "@sharedFoodItemNutrientsHeading": {
     "description": "Section heading above the six macro/calorie fields (carbs/protein/fat/sugar/fiber/kcal) in the shared dictionary item form."
+  },
+  "financeTabOverview": "Overview",
+  "@financeTabOverview": {
+    "description": "Bottom-nav destination label for the finance shell's overview tab."
+  },
+  "financeTabTransactions": "Transactions",
+  "@financeTabTransactions": {
+    "description": "Bottom-nav destination label for the finance shell's transaction-list tab."
+  },
+  "financeFabTooltip": "Record a transaction",
+  "@financeFabTooltip": {
+    "description": "Tooltip/accessible label for the finance shell's floating action button that opens the record sheet."
+  },
+  "financeAddTitle": "Record a transaction",
+  "@financeAddTitle": {
+    "description": "Heading shown at the top of the record sheet when creating a new transaction."
+  },
+  "financeEditTitle": "Edit transaction",
+  "@financeEditTitle": {
+    "description": "Heading shown at the top of the record sheet when editing an existing transaction."
+  },
+  "financeAmountLabel": "Amount",
+  "@financeAmountLabel": {
+    "description": "Label for the amount field in the record sheet."
+  },
+  "financeTypeExpense": "Expense",
+  "@financeTypeExpense": {
+    "description": "Label for the expense option in the record sheet's expense/income toggle, and for the expense total on the overview card."
+  },
+  "financeTypeIncome": "Income",
+  "@financeTypeIncome": {
+    "description": "Label for the income option in the record sheet's expense/income toggle, and for the income total on the overview card."
+  },
+  "financeCategoryLabel": "Category",
+  "@financeCategoryLabel": {
+    "description": "Label above the category grid in the record sheet."
+  },
+  "financeDateLabel": "Date",
+  "@financeDateLabel": {
+    "description": "Label for the date field in the record sheet."
+  },
+  "financeCurrencyLabel": "Currency",
+  "@financeCurrencyLabel": {
+    "description": "Label for the currency selector in the record sheet."
+  },
+  "financeNoteLabel": "Note",
+  "@financeNoteLabel": {
+    "description": "Label for the optional note field in the record sheet."
+  },
+  "financeSaveButton": "Save",
+  "@financeSaveButton": {
+    "description": "Label for the record sheet's save/submit button."
+  },
+  "financeDeleteButton": "Delete",
+  "@financeDeleteButton": {
+    "description": "Label for the delete action shown in the record sheet when editing an existing transaction."
+  },
+  "financeDeleteConfirmTitle": "Delete this transaction?",
+  "@financeDeleteConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a transaction."
+  },
+  "financeDeleteConfirmMessage": "This can't be undone.",
+  "@financeDeleteConfirmMessage": {
+    "description": "Body text of the confirmation dialog shown before deleting a transaction."
+  },
+  "financeDeleteConfirmButton": "Delete",
+  "@financeDeleteConfirmButton": {
+    "description": "Confirm button label in the delete-transaction confirmation dialog."
+  },
+  "financeCancelButton": "Cancel",
+  "@financeCancelButton": {
+    "description": "Cancel button label in the delete-transaction confirmation dialog."
+  },
+  "financeSaveFailed": "Couldn't save. Please check your connection and try again.",
+  "@financeSaveFailed": {
+    "description": "Snackbar shown when recording/editing/deleting a transaction fails for a retryable reason (network/server error); the sheet stays open with its content intact."
+  },
+  "financeLoadFailed": "Couldn't load your finance data.",
+  "@financeLoadFailed": {
+    "description": "Error message shown (with a retry action) when the finance month fails to load."
+  },
+  "financeEmptyTitle": "No transactions yet this month",
+  "@financeEmptyTitle": {
+    "description": "Empty-state guide shown on the overview and transactions tabs when the selected month has no transactions."
+  },
+  "financeEmptyCta": "Record your first one",
+  "@financeEmptyCta": {
+    "description": "Call-to-action button in the empty-state guide that opens the record sheet."
+  },
+  "financeExpenseTotal": "Expense",
+  "@financeExpenseTotal": {
+    "description": "Row label for a currency's expense total on the overview cards."
+  },
+  "financeIncomeTotal": "Income",
+  "@financeIncomeTotal": {
+    "description": "Row label for a currency's income total on the overview cards."
+  },
+  "financeNetTotal": "Net",
+  "@financeNetTotal": {
+    "description": "Row label for a currency's net (income - expense) total on the overview cards."
+  },
+  "financeRecentTransactions": "Recent transactions",
+  "@financeRecentTransactions": {
+    "description": "Section heading above the five most recent transactions on the overview tab."
+  },
+  "financeCategoryBreakdown": "By category",
+  "@financeCategoryBreakdown": {
+    "description": "Section heading above the per-category expense breakdown bars on the overview tab."
   }
 }

@@ -15,6 +15,8 @@ import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
+import 'contexts/finance/presentation/finance_controller.dart';
+import 'contexts/finance/presentation/finance_scaffold.dart';
 import 'contexts/import/presentation/chaodays_import_controller.dart';
 import 'contexts/import/presentation/chaodays_import_screen.dart';
 import 'contexts/notifications/presentation/care_history_controller.dart';
@@ -175,6 +177,7 @@ class App extends StatefulWidget {
   final VitalsController vitalsController;
   final ExerciseController exerciseController;
   final MenstrualController menstrualController;
+  final FinanceController financeController;
   final WeightGoalController weightGoalController;
   final TrendController trendController;
   final HealthCalendarController healthCalendarController;
@@ -225,6 +228,7 @@ class App extends StatefulWidget {
     required this.vitalsController,
     required this.exerciseController,
     required this.menstrualController,
+    required this.financeController,
     required this.weightGoalController,
     required this.trendController,
     required this.healthCalendarController,
@@ -503,6 +507,16 @@ class _AppState extends State<App> {
           builder: (context, state) => CareHistoryScreen(
             controller: widget.careHistoryController,
             authRepository: widget.authRepository,
+          ),
+        ),
+        // Single route, no nested tabs (design.md — the two tabs are the
+        // shell's own internal state, mirroring HealthScaffold's record hub).
+        GoRoute(
+          path: '/finance',
+          builder: (context, state) => FinanceScaffold(
+            authRepository: widget.authRepository,
+            controller: widget.financeController,
+            clock: widget.clock,
           ),
         ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL
