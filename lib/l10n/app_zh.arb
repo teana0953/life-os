@@ -530,5 +530,9 @@
   "networthValueLabel": "市值 (TWD)",
   "networthNotRecorded": "未記錄",
   "networthInvalidValue": "請輸入 0 或以上的整數",
-  "networthSnapshotSheetTitle": "更新市值"
+  "networthSnapshotSheetTitle": "更新市值",
+  "networthAccountNameRequired": "請輸入科目名稱",
+  "networthSaveNameTooltip": "儲存名稱",
+  "monthNavPreviousTooltip": "上個月",
+  "monthNavNextTooltip": "下個月"
 }

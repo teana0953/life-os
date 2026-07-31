@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -94,7 +95,10 @@ class NetWorthTab extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 children: [
                   MonthNavHeader(
-                    monthLabel: controller.selectedMonth,
+                    monthLabel: monthYearLabel(
+                      context,
+                      monthDateTime(controller.selectedMonth),
+                    ),
                     keyPrefix: 'networth-month',
                     onPrevious: () =>
                         onSwitchMonth(previousMonth(controller.selectedMonth)),
@@ -120,8 +124,17 @@ class NetWorthTab extends StatelessWidget {
                     ],
                   ),
                   if (monthly.accounts.isEmpty)
+                    // With no account to record against, "record a value" has
+                    // nowhere to go — so the CTA points at the step that is
+                    // actually missing (create an account) instead of being a
+                    // dead button whose only escape is the tune icon.
                     _EmptyState(
-                      onRecord: active.isEmpty ? null : () => onEditAccountValue(active.first),
+                      ctaLabel: active.isEmpty
+                          ? loc.networthManageAccounts
+                          : loc.networthEmptyCta,
+                      onCta: active.isEmpty
+                          ? onManageAccounts
+                          : () => onEditAccountValue(active.first),
                     ),
                   const SizedBox(height: 8),
                   _AccountGroup(
@@ -465,9 +478,10 @@ class _TrendSection extends StatelessWidget {
 /// The guide shown when the selected month holds no snapshot at all
 /// (design.md — never a blank tab).
 class _EmptyState extends StatelessWidget {
-  final VoidCallback? onRecord;
+  final String ctaLabel;
+  final VoidCallback onCta;
 
-  const _EmptyState({required this.onRecord});
+  const _EmptyState({required this.ctaLabel, required this.onCta});
 
   @override
   Widget build(BuildContext context) {
@@ -486,8 +500,8 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           FilledButton(
             key: const Key('networth-empty-cta'),
-            onPressed: onRecord,
-            child: Text(loc.networthEmptyCta),
+            onPressed: onCta,
+            child: Text(ctaLabel),
           ),
         ],
       ),

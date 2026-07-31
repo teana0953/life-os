@@ -8,11 +8,19 @@ import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../support/l10n_test_app.dart';
 import '../finance_test_support.dart';
 
 const _locale = Locale('en');
 final _loc = lookupAppLocalizations(_locale);
+
+/// What the shared month header should read for a `YYYY-MM` month in the
+/// test locale — the same locale-aware label the rest of the app uses,
+/// never the raw `2026-07`.
+String _monthLabel(int year, int month) =>
+    DateFormat.yMMM('en').format(DateTime(year, month));
 
 Future<NetWorthController> _pumpTab(
   WidgetTester tester,
@@ -196,6 +204,43 @@ void main() {
       expect(find.byKey(const Key('networth-empty-cta')), findsOneWidget);
     });
 
+    testWidgets(
+      'with no accounts at all the empty-state CTA opens account management '
+      'instead of being a dead button',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeFinanceRepository()..accounts = const [];
+        final controller = testNetWorthController(repo);
+        await controller.load('token', '2026-07');
+        var managed = false;
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => NetWorthTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('token', m),
+                  onEditAccountValue: (_) {},
+                  onManageAccounts: () => managed = true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final cta = find.byKey(const Key('networth-empty-cta'));
+        expect(tester.widget<FilledButton>(cta).onPressed, isNotNull);
+        await tester.tap(cta);
+        await tester.pump();
+
+        expect(managed, isTrue);
+      },
+    );
+
     testWidgets('a trend with fewer than two points shows the shortfall note', (
       tester,
     ) async {
@@ -231,7 +276,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.selectedMonth, '2026-06');
-      expect(find.text('2026-06'), findsOneWidget);
+      expect(find.text(_monthLabel(2026, 6)), findsOneWidget);
       expect(find.text('100'), findsWidgets);
     });
 
@@ -254,7 +299,7 @@ void main() {
       expect(find.byKey(const Key('networth-month-label')), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('networth-month-label'))).data,
-        '2026-07',
+        _monthLabel(2026, 7),
       );
       expect(
         tester.widget<Text>(find.byKey(const Key('networth-net-value'))).data,

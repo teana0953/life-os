@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
@@ -76,7 +77,10 @@ class FinanceOverviewTab extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 children: [
                   MonthNavHeader(
-                    monthLabel: controller.selectedMonth,
+                    monthLabel: monthYearLabel(
+                      context,
+                      monthDateTime(controller.selectedMonth),
+                    ),
                     keyPrefix: 'finance-month',
                     onPrevious: () =>
                         onSwitchMonth(previousMonth(controller.selectedMonth)),

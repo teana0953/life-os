@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/month_nav_header.dart';
+
+import '../../support/l10n_test_app.dart';
+
+final _loc = lookupAppLocalizations(const Locale('en'));
 
 void main() {
   group('MonthNavHeader', () {
     testWidgets('renders the month label', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           home: Scaffold(
             body: MonthNavHeader(
               monthLabel: '2026-07',
@@ -26,7 +31,7 @@ void main() {
       var previousTaps = 0;
       var nextTaps = 0;
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           home: Scaffold(
             body: MonthNavHeader(
               monthLabel: '2026-07',
@@ -47,7 +52,7 @@ void main() {
       var previousTaps = 0;
       var nextTaps = 0;
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           home: Scaffold(
             body: MonthNavHeader(
               monthLabel: '2026-07',
@@ -64,11 +69,37 @@ void main() {
       expect(previousTaps, 0);
     });
 
+    testWidgets('both arrows carry a tooltip for sighted and screen-reader use', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: 'Jul 2026',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<IconButton>(find.byKey(const Key('nw-month-previous'))).tooltip,
+        _loc.monthNavPreviousTooltip,
+      );
+      expect(
+        tester.widget<IconButton>(find.byKey(const Key('nw-month-next'))).tooltip,
+        _loc.monthNavNextTooltip,
+      );
+    });
+
     testWidgets('keyPrefix isolates two instances on one screen', (
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
+        l10nTestApp(
           home: Scaffold(
             body: Column(
               children: [

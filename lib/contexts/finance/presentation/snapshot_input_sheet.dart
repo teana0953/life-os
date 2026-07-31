@@ -11,10 +11,10 @@ import 'networth_controller.dart';
 /// class this repo keeps re-growing).
 int? parseSnapshotValue(String text) {
   final trimmed = text.trim();
-  if (trimmed.isEmpty) return null;
-  final value = int.tryParse(trimmed);
-  if (value == null || value < 0) return null;
-  return value;
+  // Digits only, checked before parsing: `int.tryParse` also accepts `0x1f`
+  // (31) and `+5`, which would silently store a number the user never typed.
+  if (!RegExp(r'^\d+$').hasMatch(trimmed)) return null;
+  return int.tryParse(trimmed);
 }
 
 /// The bottom sheet that records one account's market value for the selected

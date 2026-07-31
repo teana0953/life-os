@@ -5,8 +5,14 @@ import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../support/l10n_test_app.dart';
 import '../finance_test_support.dart';
+
+/// The locale-aware month header text for a month, in the test locale.
+String _monthLabel(int year, int month) =>
+    DateFormat.yMMM('en').format(DateTime(year, month));
 
 Future<void> pumpOverview(
   WidgetTester tester,
@@ -105,11 +111,60 @@ void main() {
       },
     );
 
-    testWidgets('shows the month label from the controller', (tester) async {
+    testWidgets('shows the month label from the controller, localized', (
+      tester,
+    ) async {
       await pumpOverview(tester, FakeFinanceRepository(), month: '2026-09');
 
-      expect(find.text('2026-09'), findsOneWidget);
+      // The locale-aware label the rest of the app uses, not the raw
+      // `2026-09` wire format.
+      expect(find.text(_monthLabel(2026, 9)), findsOneWidget);
+      expect(find.text('2026-09'), findsNothing);
     });
+
+    testWidgets(
+      'the previous-month arrow steps the ledger back a month, end to end',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-06'] = [
+            const FinanceTransaction(
+              id: 't-june',
+              type: FinanceType.expense,
+              amount: 600,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-06-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('tok', m),
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('finance-month-previous')));
+        await tester.pumpAndSettle();
+
+        // Backwards, never forwards — the direction is pinned here so the
+        // shared header refactor can't quietly flip it.
+        expect(controller.selectedMonth, '2026-06');
+        expect(find.text(_monthLabel(2026, 6)), findsOneWidget);
+        expect(find.text('600'), findsWidgets);
+      },
+    );
 
     testWidgets(
       'a failed month switch shows the error screen with retry — never the '

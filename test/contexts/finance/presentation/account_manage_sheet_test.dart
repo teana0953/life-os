@@ -78,6 +78,55 @@ void main() {
       );
     });
 
+    testWidgets('a typed name is saved by the explicit save button', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository();
+      final controller = await _pumpSheet(tester, repo);
+
+      // No save control until the field actually differs from the account.
+      expect(find.byKey(const Key('account-name-save-acc-cash')), findsNothing);
+
+      await tester.enterText(find.byKey(const Key('account-name-acc-cash')), '主帳戶');
+      await tester.pump();
+
+      // The edit is visibly unsaved, and saving it is one tap away — it is
+      // never silently dropped by tapping some other control.
+      final save = find.byKey(const Key('account-name-save-acc-cash'));
+      expect(save, findsOneWidget);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      expect(repo.networthCalls.single, contains('name=主帳戶'));
+      expect(
+        controller.accounts.firstWhere((a) => a.id == 'acc-cash').name,
+        '主帳戶',
+      );
+      // Saved: nothing left pending on screen.
+      expect(find.byKey(const Key('account-name-save-acc-cash')), findsNothing);
+    });
+
+    testWidgets('an emptied name shows an error and cannot be saved', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository();
+      await _pumpSheet(tester, repo);
+
+      await tester.enterText(find.byKey(const Key('account-name-acc-cash')), '   ');
+      await tester.pump();
+
+      expect(find.text(_loc.networthAccountNameRequired), findsOneWidget);
+      expect(find.byKey(const Key('account-name-save-acc-cash')), findsNothing);
+
+      // Submitting anyway writes nothing — and says so rather than silently
+      // discarding the edit.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(repo.networthCalls, isEmpty);
+      expect(find.text(_loc.networthAccountNameRequired), findsOneWidget);
+    });
+
     testWidgets('archiving an account keeps it listed here, restorable', (
       tester,
     ) async {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
+
 /// The shared `‹ 2026-07 ›` month switcher row, used by the finance ledger
 /// 總覽 tab and the 淨值 tab.
 ///
@@ -28,11 +30,13 @@ class MonthNavHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
           key: Key('$keyPrefix-previous'),
+          tooltip: loc.monthNavPreviousTooltip,
           icon: const Icon(Icons.chevron_left),
           onPressed: onPrevious,
         ),
@@ -43,6 +47,7 @@ class MonthNavHeader extends StatelessWidget {
         ),
         IconButton(
           key: Key('$keyPrefix-next'),
+          tooltip: loc.monthNavNextTooltip,
           icon: const Icon(Icons.chevron_right),
           onPressed: onNext,
         ),

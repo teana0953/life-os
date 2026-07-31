@@ -1712,6 +1712,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networthSnapshotSheetTitle => '更新市值';
+
+  @override
+  String get networthAccountNameRequired => '請輸入科目名稱';
+
+  @override
+  String get networthSaveNameTooltip => '儲存名稱';
+
+  @override
+  String get monthNavPreviousTooltip => '上個月';
+
+  @override
+  String get monthNavNextTooltip => '下個月';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3422,4 +3434,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get networthSnapshotSheetTitle => '更新市值';
+
+  @override
+  String get networthAccountNameRequired => '請輸入科目名稱';
+
+  @override
+  String get networthSaveNameTooltip => '儲存名稱';
+
+  @override
+  String get monthNavPreviousTooltip => '上個月';
+
+  @override
+  String get monthNavNextTooltip => '下個月';
 }

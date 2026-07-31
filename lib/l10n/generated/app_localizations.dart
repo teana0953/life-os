@@ -3295,6 +3295,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Update value'**
   String get networthSnapshotSheetTitle;
+
+  /// Field error shown when an account's name is cleared while renaming it; the rename can't be saved until a name is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an account name'**
+  String get networthAccountNameRequired;
+
+  /// Tooltip/accessible label for the button that saves a typed account name.
+  ///
+  /// In en, this message translates to:
+  /// **'Save name'**
+  String get networthSaveNameTooltip;
+
+  /// Tooltip/accessible label for the shared month header's previous-month arrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get monthNavPreviousTooltip;
+
+  /// Tooltip/accessible label for the shared month header's next-month arrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get monthNavNextTooltip;
 }
 
 class _AppLocalizationsDelegate

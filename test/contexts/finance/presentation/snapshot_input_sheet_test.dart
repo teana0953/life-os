@@ -59,6 +59,14 @@ void main() {
       expect(parseSnapshotValue('12.5'), isNull);
       expect(parseSnapshotValue('abc'), isNull);
     });
+
+    test('rejects notations Dart would silently reinterpret', () {
+      // `int.tryParse('0x1f')` is 31 in Dart — typing a hex-looking value
+      // must never be stored as some other decimal number.
+      expect(parseSnapshotValue('0x1f'), isNull);
+      expect(parseSnapshotValue('+5'), isNull);
+      expect(parseSnapshotValue('1 000'), isNull);
+    });
   });
 
   group('SnapshotInputSheet', () {

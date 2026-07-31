@@ -32,6 +32,15 @@ String previousMonth(String month) {
   return monthNum == 1 ? _format(year - 1, 12) : _format(year, monthNum - 1);
 }
 
+/// [month] (`YYYY-MM`) as the first day of that month, for locale-aware
+/// formatting (`monthYearLabel`). The fields come straight from the string
+/// and are only ever read back as year/month, so the local-time constructor
+/// can't shift the month.
+DateTime monthDateTime(String month) {
+  final (year, monthNum) = _parse(month);
+  return DateTime(year, monthNum);
+}
+
 (int, int) _parse(String month) {
   final parts = month.split('-');
   return (int.parse(parts[0]), int.parse(parts[1]));

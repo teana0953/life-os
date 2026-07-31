@@ -44,18 +44,30 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     _newNameController.removeListener(_onChanged);
     _newNameController.dispose();
     for (final controller in _nameControllers.values) {
+      controller.removeListener(_onChanged);
       controller.dispose();
     }
     super.dispose();
   }
 
   /// A name field per account, seeded once and kept across the reloads a
-  /// write triggers.
+  /// write triggers. Each field notifies the sheet as it is typed in, so the
+  /// row can show whether the edit is saved yet.
   TextEditingController _nameControllerFor(NetWorthAccount account) =>
-      _nameControllers.putIfAbsent(
-        account.id,
-        () => TextEditingController(text: account.name),
-      );
+      _nameControllers.putIfAbsent(account.id, () {
+        final controller = TextEditingController(text: account.name);
+        controller.addListener(_onChanged);
+        return controller;
+      });
+
+  /// The typed name differs from the stored one — i.e. there is an edit on
+  /// screen that the backend hasn't been told about.
+  bool _isDirty(NetWorthAccount account) =>
+      _nameControllerFor(account).text.trim() != account.name;
+
+  /// A dirty field emptied to nothing: an error, never a silent no-op.
+  bool _isNameMissing(NetWorthAccount account) =>
+      _nameControllerFor(account).text.trim().isEmpty;
 
   List<NetWorthAccount> _group(NetWorthKind kind) =>
       widget.controller.accounts.where((a) => a.kind == kind).toList()
@@ -95,6 +107,9 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     });
   }
 
+  /// Saves the typed name. Called only from the row's explicit save button
+  /// (and the keyboard's done action, which is the same action) — an empty
+  /// name is surfaced as an `errorText` by the row instead of being written.
   Future<void> _rename(NetWorthAccount account) {
     final name = _nameControllerFor(account).text.trim();
     if (name.isEmpty || name == account.name) return Future.value();
@@ -223,7 +238,12 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
                   key: Key('account-name-${account.id}'),
                   controller: _nameControllerFor(account),
                   enabled: !_busy,
-                  decoration: const InputDecoration(isDense: true),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    errorText: _isDirty(account) && _isNameMissing(account)
+                        ? loc.networthAccountNameRequired
+                        : null,
+                  ),
                   onSubmitted: (_) => _rename(account),
                 ),
                 if (account.archived)
@@ -236,6 +256,16 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
               ],
             ),
           ),
+          // Only shown while the typed name differs from the stored one, so a
+          // pending edit is visible as pending — the rename is never lost by
+          // tapping elsewhere or closing the sheet believing it was saved.
+          if (_isDirty(account) && !_isNameMissing(account))
+            IconButton(
+              key: Key('account-name-save-${account.id}'),
+              tooltip: loc.networthSaveNameTooltip,
+              icon: const Icon(Icons.check),
+              onPressed: _busy ? null : () => _rename(account),
+            ),
           IconButton(
             key: Key('account-move-up-${account.id}'),
             tooltip: loc.networthMoveUpTooltip,

@@ -1771,4 +1771,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networthSnapshotSheetTitle => 'Update value';
+
+  @override
+  String get networthAccountNameRequired => 'Enter an account name';
+
+  @override
+  String get networthSaveNameTooltip => 'Save name';
+
+  @override
+  String get monthNavPreviousTooltip => 'Previous month';
+
+  @override
+  String get monthNavNextTooltip => 'Next month';
 }

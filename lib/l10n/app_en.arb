@@ -2361,5 +2361,21 @@
   "networthSnapshotSheetTitle": "Update value",
   "@networthSnapshotSheetTitle": {
     "description": "Title of the bottom sheet that records an account's value for the selected month."
+  },
+  "networthAccountNameRequired": "Enter an account name",
+  "@networthAccountNameRequired": {
+    "description": "Field error shown when an account's name is cleared while renaming it; the rename can't be saved until a name is typed."
+  },
+  "networthSaveNameTooltip": "Save name",
+  "@networthSaveNameTooltip": {
+    "description": "Tooltip/accessible label for the button that saves a typed account name."
+  },
+  "monthNavPreviousTooltip": "Previous month",
+  "@monthNavPreviousTooltip": {
+    "description": "Tooltip/accessible label for the shared month header's previous-month arrow."
+  },
+  "monthNavNextTooltip": "Next month",
+  "@monthNavNextTooltip": {
+    "description": "Tooltip/accessible label for the shared month header's next-month arrow."
   }
 }
