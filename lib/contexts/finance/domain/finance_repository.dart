@@ -3,6 +3,8 @@ import 'finance_category.dart';
 import 'finance_transaction.dart';
 import 'finance_type.dart';
 import 'monthly_summary.dart';
+import 'networth_account.dart';
+import 'networth_snapshot.dart';
 
 /// Port covering transactions, categories, and the monthly summary — a
 /// single port for the whole finance ledger slice (design.md: YAGNI, no
@@ -51,4 +53,44 @@ abstract class FinanceRepository {
   Future<void> upsertBudget(String idToken, {String? categoryId, required int amount});
 
   Future<void> deleteBudget(String idToken, String id);
+
+  /// Every net worth account, archived included. The first call for a user
+  /// with none seeds the backend defaults.
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken);
+
+  /// [kind] is fixed at creation (the backend rejects later changes).
+  Future<NetWorthAccount> createNetWorthAccount(
+    String idToken, {
+    required NetWorthKind kind,
+    required String name,
+    int? sortOrder,
+  });
+
+  /// Partial update — only the non-null fields are sent.
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+  });
+
+  /// Upserts one (account, [month] `YYYY-MM`) snapshot; [value] is a
+  /// non-negative TWD integer.
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  });
+
+  /// [month] is `YYYY-MM`.
+  Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month);
+
+  /// [from]/[to] are `YYYY-MM` strings (inclusive range), ascending result.
+  Future<List<NetWorthTrendPoint>> getNetWorthTrend(
+    String idToken, {
+    required String from,
+    required String to,
+  });
 }

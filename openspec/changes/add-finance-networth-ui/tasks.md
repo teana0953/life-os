@@ -7,9 +7,9 @@
 
 ## 2. Domain + application + infrastructure
 
-- [ ] 2.1 `domain/`:`NetWorthAccount`/`NetWorthSnapshot`/`MonthlyNetWorth`(accounts+totals+net+prev+growth,growth/prev 可 null)/`NetWorthTrendPoint`;`FinanceRepository` port 加 listAccounts/createAccount/updateAccount/upsertSnapshot/getMonthlyNetWorth/getNetWorthTrend。
-- [ ] 2.2 `application/` networth use cases(thin,照既有 finance use case 慣例):ListNetWorthAccounts/CreateNetWorthAccount/UpdateNetWorthAccount/UpsertSnapshot/GetMonthlyNetWorth/GetNetWorthTrend——controller 呼 use case 不直呼 port。
-- [ ] 2.3 `HttpFinanceRepository` networth 方法(契約照 design.md;status→typed exception)。測試:mock client、body 形狀(含 growth null)、401/404/400。
+- [x] 2.1 `domain/`:`NetWorthAccount`/`NetWorthSnapshot`/`MonthlyNetWorth`(accounts+totals+net+prev+growth,growth/prev 可 null)/`NetWorthTrendPoint`;`FinanceRepository` port 加 listAccounts/createAccount/updateAccount/upsertSnapshot/getMonthlyNetWorth/getNetWorthTrend。
+- [x] 2.2 `application/` networth use cases(thin,照既有 finance use case 慣例):ListNetWorthAccounts/CreateNetWorthAccount/UpdateNetWorthAccount/UpsertSnapshot/GetMonthlyNetWorth/GetNetWorthTrend——controller 呼 use case 不直呼 port。
+- [x] 2.3 `HttpFinanceRepository` networth 方法(契約照 design.md;status→typed exception)。測試:mock client、body 形狀(含 growth null)、401/404/400。
 
 ## 3. Controller(重要邏輯,測試必須覆蓋)
 

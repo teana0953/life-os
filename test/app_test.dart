@@ -49,6 +49,8 @@ import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
+import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
@@ -546,6 +548,54 @@ class _FakeFinanceRepository implements FinanceRepository {
 
   @override
   Future<void> deleteBudget(String idToken, String id) async {}
+
+  @override
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken) async =>
+      const [];
+
+  @override
+  Future<NetWorthAccount> createNetWorthAccount(
+    String idToken, {
+    required NetWorthKind kind,
+    required String name,
+    int? sortOrder,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month) async =>
+      MonthlyNetWorth(
+        month: month,
+        accounts: const [],
+        totalAsset: 0,
+        totalLiability: 0,
+        netWorth: 0,
+        prevNetWorth: null,
+        growthRate: null,
+      );
+
+  @override
+  Future<List<NetWorthTrendPoint>> getNetWorthTrend(
+    String idToken, {
+    required String from,
+    required String to,
+  }) async => const [];
 }
 
 class _FakeImportRepository implements ImportRepository {
