@@ -27,4 +27,4 @@
 
 - [x] 5.1 `app.dart`/`main.dart` DI 組線(NetWorthController + networth use cases)。
 - [x] 5.2 ARB 三檔(en 含 description、zh_Hant、zh)+ `flutter gen-l10n`,generated commit。
-- [ ] 5.3 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠(`All tests passed!`);`TZ=UTC flutter test` 複驗。
+- [x] 5.3 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠(`All tests passed!`);`TZ=UTC flutter test` 複驗。
