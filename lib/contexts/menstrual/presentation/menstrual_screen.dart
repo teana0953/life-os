@@ -5,6 +5,7 @@ import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/date_field.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../domain/menstrual_period.dart';
 import 'menstrual_calendar.dart';
 import 'menstrual_controller.dart';
@@ -193,14 +194,9 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
           body: SafeArea(
             child: Column(
               children: [
-                SizedBox(
-                  height: 3,
-                  child: busy
-                      ? const LinearProgressIndicator(
-                          key: Key('menstrual-busy'),
-                          minHeight: 3,
-                        )
-                      : null,
+                TrackerBusyBar(
+                  busy: busy,
+                  indicatorKey: const Key('menstrual-busy'),
                 ),
                 Expanded(
                   child: ListView(

@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'bowel_controller.dart';
 
@@ -118,14 +119,9 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
           body: SafeArea(
             child: Column(
               children: [
-                SizedBox(
-                  height: 3,
-                  child: busy
-                      ? const LinearProgressIndicator(
-                          key: Key('bowel-busy'),
-                          minHeight: 3,
-                        )
-                      : null,
+                TrackerBusyBar(
+                  busy: busy,
+                  indicatorKey: const Key('bowel-busy'),
                 ),
                 Expanded(
                   child: refreshable(

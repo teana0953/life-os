@@ -6,6 +6,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'water_controller.dart';
 
@@ -157,14 +158,9 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
               children: [
                 // Subtle busy indicator during a mutation/reload — the content
                 // below stays visible rather than blanking to a full spinner.
-                SizedBox(
-                  height: 3,
-                  child: busy
-                      ? const LinearProgressIndicator(
-                          key: Key('water-busy'),
-                          minHeight: 3,
-                        )
-                      : null,
+                TrackerBusyBar(
+                  busy: busy,
+                  indicatorKey: const Key('water-busy'),
                 ),
                 Expanded(
                   child: refreshable(

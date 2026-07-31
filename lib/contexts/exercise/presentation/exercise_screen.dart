@@ -5,6 +5,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
+import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/exercise_day.dart';
 import 'exercise_controller.dart';
@@ -169,14 +170,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
           body: SafeArea(
             child: Column(
               children: [
-                SizedBox(
-                  height: 3,
-                  child: busy
-                      ? const LinearProgressIndicator(
-                          key: Key('exercise-busy'),
-                          minHeight: 3,
-                        )
-                      : null,
+                TrackerBusyBar(
+                  busy: busy,
+                  indicatorKey: const Key('exercise-busy'),
                 ),
                 Expanded(
                   child: refreshable(

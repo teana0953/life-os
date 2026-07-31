@@ -24,9 +24,9 @@
 
 ## 5. TrackerBusyBar
 
-- [ ] 5.1 `lib/shared/widgets/tracker_busy_bar.dart`:`TrackerBusyBar({busy, indicatorKey})`(SizedBox height 3 + busy 時 LinearProgressIndicator minHeight 3)。**不要**放進 TrackerDayScreen mixin(menstrual 沒用)。測試:busy true/false。
-- [ ] 5.2 五處改用:`vitals_screen:289`、`water_screen:160`、`exercise_screen:172`、`bowel_screen:121`、`menstrual_screen:195`。**注意五個 `*-busy` key 在既有測試零命中**(這組沒有測試保護)——抽取後以 byKey 人工確認每頁 busy 態仍渲染出對應 key。
+- [x] 5.1 `lib/shared/widgets/tracker_busy_bar.dart`:`TrackerBusyBar({busy, indicatorKey})`(SizedBox height 3 + busy 時 LinearProgressIndicator minHeight 3)。**不要**放進 TrackerDayScreen mixin(menstrual 沒用)。測試:busy true/false。
+- [x] 5.2 五處改用:`vitals_screen:289`、`water_screen:160`、`exercise_screen:172`、`bowel_screen:121`、`menstrual_screen:195`。**注意五個 `*-busy` key 在既有測試零命中**(這組沒有測試保護)——抽取後以 byKey 人工確認每頁 busy 態仍渲染出對應 key。
 
 ## 6. 收尾
 
-- [ ] 6.1 `bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠(**既有測試未經修改**)+ `TZ=UTC flutter test` 複驗。確認削減行數約 200。
+- [x] 6.1 `bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠(**既有測試未經修改**)+ `TZ=UTC flutter test` 複驗。確認削減行數約 200。

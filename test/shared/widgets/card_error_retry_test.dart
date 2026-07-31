@@ -59,9 +59,8 @@ void main() {
       expect(find.byType(Center), findsNothing);
     });
 
-    testWidgets('header widgets render above the message and stay interactive', (
-      tester,
-    ) async {
+    testWidgets('header widgets render above the message and stay '
+        'interactive', (tester) async {
       var headerTaps = 0;
       await _pump(
         tester,
@@ -78,10 +77,13 @@ void main() {
       await tester.tap(find.byKey(const Key('card-header-action')));
       expect(headerTaps, 1);
 
-      final headerY = tester.getTopLeft(
-        find.byKey(const Key('card-header-action')),
-      ).dy;
-      expect(headerY, lessThan(tester.getTopLeft(find.byKey(const Key('card-error'))).dy));
+      final headerY = tester
+          .getTopLeft(find.byKey(const Key('card-header-action')))
+          .dy;
+      final messageY = tester
+          .getTopLeft(find.byKey(const Key('card-error')))
+          .dy;
+      expect(headerY, lessThan(messageY));
     });
 
     testWidgets('a header aligns the column to start and centers the message '
