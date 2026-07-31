@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
+import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
@@ -77,22 +78,11 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
         controller.calendar == null) {
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              loc.healthCalendarLoadFailed,
-              key: const Key('health-calendar-error'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('health-calendar-retry'),
-              onPressed: () => controller.load(widget.idToken),
-              child: Text(loc.retry),
-            ),
-          ],
+        child: CardErrorRetry(
+          message: loc.healthCalendarLoadFailed,
+          messageKey: const Key('health-calendar-error'),
+          retryKey: const Key('health-calendar-retry'),
+          onRetry: () => controller.load(widget.idToken),
         ),
       );
     }

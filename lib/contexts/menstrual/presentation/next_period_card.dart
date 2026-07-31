@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/next_period_status.dart';
@@ -67,22 +68,11 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
       // again while giving them nothing to try again with is a dead end.
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              loc.errorMenstrualLoadFailed,
-              key: const Key('next-period-error'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('next-period-retry'),
-              onPressed: () => controller.load(widget.idToken),
-              child: Text(loc.retry),
-            ),
-          ],
+        child: CardErrorRetry(
+          message: loc.errorMenstrualLoadFailed,
+          messageKey: const Key('next-period-error'),
+          retryKey: const Key('next-period-retry'),
+          onRetry: () => controller.load(widget.idToken),
         ),
       );
     }

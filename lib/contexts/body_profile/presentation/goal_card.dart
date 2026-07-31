@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/weight_goal.dart';
@@ -107,25 +108,13 @@ class _GoalCardState extends State<GoalCard> {
     // re-attempted, which is the behaviour that was already here.
     if (controller.status == WeightGoalStatus.error &&
         (goal == null || controller.lastFailureWasSave)) {
-      final theme = Theme.of(context);
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              loc.errorWeightGoalLoadFailed,
-              key: const Key('goal-card-error'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('goal-card-retry'),
-              onPressed: () => controller.load(widget.idToken),
-              child: Text(loc.retry),
-            ),
-          ],
+        child: CardErrorRetry(
+          message: loc.errorWeightGoalLoadFailed,
+          messageKey: const Key('goal-card-error'),
+          retryKey: const Key('goal-card-retry'),
+          onRetry: () => controller.load(widget.idToken),
         ),
       );
     }

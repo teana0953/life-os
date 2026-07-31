@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/vitals_day.dart';
 import '../domain/vitals_series.dart';
@@ -123,22 +124,11 @@ class _TrendCardState extends State<TrendCard> {
     if (controller.status == TrendStatus.error) {
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              loc.trendLoadFailed,
-              key: const Key('trend-card-error'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('trend-card-retry'),
-              onPressed: () => controller.load(widget.idToken),
-              child: Text(loc.retry),
-            ),
-          ],
+        child: CardErrorRetry(
+          message: loc.trendLoadFailed,
+          messageKey: const Key('trend-card-error'),
+          retryKey: const Key('trend-card-retry'),
+          onRetry: () => controller.load(widget.idToken),
         ),
       );
     }

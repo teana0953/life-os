@@ -14,8 +14,8 @@
 
 ## 3. CardErrorRetry
 
-- [ ] 3.1 `lib/shared/widgets/card_error_retry.dart`:`CardErrorRetry({message, messageKey, retryKey, onRetry, header=const <Widget>[], headerSpacing=16})`。**header 是 `List<Widget>` 直接 spread 進 Column**(包一層 Column 會撐高卡片);header 非空時 `crossAxisAlignment: start` + 訊息/按鈕各包 `Center`;**訊息到按鈕的間距五份一律 12**(不是 16)。測試:key、retry 觸發、無 header 版面、有 header 版面(header widget 仍在且可互動、置中不靠左)。
-- [ ] 3.2 五處改用:`goal_card.dart:111-131`、`next_period_card.dart:68-88`、`trend_card.dart:124-143`、`health_calendar_card.dart:77-97`(四份皆無 header)、`care_adherence_card.dart:225-252`(header 三個 sibling + headerSpacing 16 + Center 包法)。逐一比對抽取前後視覺一致;care 的 SegmentedButton 有測試在點,確認仍可互動。
+- [x] 3.1 `lib/shared/widgets/card_error_retry.dart`:`CardErrorRetry({message, messageKey, retryKey, onRetry, header=const <Widget>[], headerSpacing=16})`。**header 是 `List<Widget>` 直接 spread 進 Column**(包一層 Column 會撐高卡片);header 非空時 `crossAxisAlignment: start` + 訊息/按鈕各包 `Center`;**訊息到按鈕的間距五份一律 12**(不是 16)。測試:key、retry 觸發、無 header 版面、有 header 版面(header widget 仍在且可互動、置中不靠左)。
+- [x] 3.2 五處改用:`goal_card.dart:111-131`、`next_period_card.dart:68-88`、`trend_card.dart:124-143`、`health_calendar_card.dart:77-97`(四份皆無 header)、`care_adherence_card.dart:225-252`(header 三個 sibling + headerSpacing 16 + Center 包法)。逐一比對抽取前後視覺一致;care 的 SegmentedButton 有測試在點,確認仍可互動。
 
 ## 4. CardLoading
 
