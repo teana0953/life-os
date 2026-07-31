@@ -154,19 +154,13 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     // `useSafeArea`/`showDragHandle` match every other modal sheet in this
     // app (exercise_screen.dart / goal_card.dart / care_today_screen.dart).
     //
-    // Caveat checked against `SharedFoodItemSheet`'s `PopScope` (which blocks
-    // dismissal while a submit is in flight): the barrier tap and the system
-    // back gesture both route through `Navigator.maybePop()`, which respects
-    // `PopScope.canPop` and so stay blocked. The drag handle does not — its
-    // `onClosing` calls `Navigator.pop()` directly (see Flutter's
-    // `bottom_sheet.dart`), and Flutter also keeps the handle's own tap/drag
-    // area live for accessibility even with `enableDrag: false`, so this
-    // can't be closed off from application code without dropping the
-    // repo-wide drag handle convention. A drag-dismiss mid-submit is
-    // therefore still possible; `_submit`'s `mounted` guard (already in
-    // place as defence in depth) keeps that from crashing — the admin just
-    // doesn't see the success SnackBar/list refresh for that one request,
-    // same as if they'd force-closed the app.
+    // Note on dismissal during an in-flight submit: the sheet's `PopScope`
+    // blocks the barrier tap and the system back gesture (both route through
+    // `Navigator.maybePop`), but NOT the drag handle, whose `onClosing` calls
+    // `Navigator.pop` directly (Flutter's bottom_sheet.dart) and which stays
+    // live for accessibility even with `enableDrag: false`. That is fine here:
+    // `onSuccess` below is the *screen's* callback and survives the sheet, so
+    // a drag-dismissed submit still reports its result.
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -177,8 +171,17 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
         idToken: widget.idToken,
         item: item,
         onSuccess: (result) {
-          Navigator.of(sheetContext).pop();
+          // The sheet is usually still up; but a drag-dismiss during an
+          // in-flight submit closes it early (its `onClosing` calls
+          // `Navigator.pop` directly, bypassing the sheet's `PopScope`), so
+          // this callback can arrive with the sheet's route already gone.
+          // `sheetContext` is unusable by then (its element is deactivated,
+          // so even `Navigator.maybeOf` throws), hence the mounted check on
+          // THIS screen first: it outlives the sheet either way, and its own
+          // navigator pops the sheet route when one is still there.
           if (!mounted) return;
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) navigator.pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

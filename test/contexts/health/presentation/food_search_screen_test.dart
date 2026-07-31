@@ -1503,15 +1503,15 @@ void main() {
     );
 
     testWidgets(
-      'dragging the sheet down while a submit is in flight dismisses it '
-      '(a Flutter framework limit: the drag handle calls Navigator.pop '
-      'directly, bypassing PopScope/maybePop — see the comment at the '
-      'showModalBottomSheet call site), but the in-flight request completing '
-      'afterwards does not crash',
+      'dragging the sheet down mid-submit still reports the result: the drag '
+      'handle bypasses PopScope (its onClosing pops directly), but onSuccess '
+      'belongs to the screen, so the success message and the refreshed search '
+      'still happen instead of the write completing silently',
       (tester) async {
         final repository = FakeFoodDictionaryRepository()
           ..createGate = Completer<FoodItem>();
         await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+        final loc = lookupAppLocalizations(const Locale('en'));
 
         await tester.tap(find.byKey(const Key('food-search-create-button')));
         await tester.pumpAndSettle();
@@ -1523,14 +1523,26 @@ void main() {
         await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
         await tester.pump();
 
+        // The drag handle is the one dismissal path PopScope cannot block.
         await tester.drag(find.byType(BottomSheet), const Offset(0, 400));
         await tester.pumpAndSettle();
-
         expect(find.byKey(const Key('shared-food-item-name-field')), findsNothing);
 
         repository.createGate!.complete(_riceItem());
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettle(const Duration(seconds: 1));
+
         expect(tester.takeException(), isNull);
+        // The point of the fix: the admin is told it worked and the list is
+        // refreshed for the item they created, rather than being left to
+        // wonder and possibly create a duplicate.
+        expect(find.text(loc.sharedFoodItemCreateSuccess), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('food-search-field')))
+              .controller
+              ?.text,
+          _riceItem().name,
+        );
       },
     );
 

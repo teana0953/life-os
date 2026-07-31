@@ -343,17 +343,22 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
         ),
       );
     }
-    // The sheet may have been dismissed (tapped outside, dragged down) while
-    // this request was in flight — this State is disposed by then, so
-    // neither `onSuccess` (which pops the now-gone sheet route) nor setting
-    // `_ownError` (which would show a stale error on a since-gone sheet) may
-    // run.
-    if (!mounted) return;
+    // A successful write must be reported even if this sheet is already gone:
+    // `PopScope` blocks the barrier tap and the back gesture while submitting,
+    // but the drag handle's `onClosing` calls `Navigator.pop` directly
+    // (Flutter's bottom_sheet.dart), so a drag-dismiss mid-flight still
+    // disposes this State. `onSuccess` belongs to the *screen*, which outlives
+    // the sheet, and it already guards its own `mounted` before touching the
+    // screen's context — so it runs regardless, and the admin gets the success
+    // message and the refreshed list instead of silently wondering whether the
+    // item was created. Only the failure branch is gated on this State, since
+    // `_ownError` would paint an error onto a sheet the user can no longer see.
     if (result != null) {
       widget.onSuccess(result);
-    } else {
-      setState(() => _ownError = widget.controller.error);
+      return;
     }
+    if (!mounted) return;
+    setState(() => _ownError = widget.controller.error);
   }
 
   Widget _numberField(Key key, TextEditingController controller, String label) {
