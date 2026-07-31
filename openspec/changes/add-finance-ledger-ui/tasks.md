@@ -4,7 +4,7 @@
 
 - [x] 1.1 `lib/contexts/finance/domain/`:實體(`FinanceTransaction`/`FinanceCategory`/`MonthlySummary`)、`FinanceRepository` port、typed exceptions(照 diet_exceptions 慣例)、幣別小數位映射+金額格式化/解析(`{TWD:0,JPY:0,KRW:0,其餘:2}`)。測試:格式化/解析各幣別+非法輸入。
 - [x] 1.2 `domain/finance_month.dart`:`YYYY-MM` 純字串月份工具(上/下月、月初/月底、當月)。測試:跨年、月底天數(含閏年)。
-- [ ] 1.3 `infrastructure/http_finance_repository.dart`:照 http_water_repository 模式接 `/api/finance/*`(契約見 design.md;POST/PUT 帶 Content-Type: application/json)。測試:mock http.Client——status→typed exception 映射、body 形狀。
+- [x] 1.3 `infrastructure/http_finance_repository.dart`:照 http_water_repository 模式接 `/api/finance/*`(契約見 design.md;POST/PUT 帶 Content-Type: application/json)。測試:mock http.Client——status→typed exception 映射、body 形狀。
 
 ## 2. Controller(重要邏輯,測試必須覆蓋)
 
