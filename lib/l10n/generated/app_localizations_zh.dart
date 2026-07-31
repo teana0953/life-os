@@ -1595,6 +1595,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get financeCategoryBreakdown => '分類統計';
+
+  @override
+  String get financeBudgetCardTitle => '預算';
+
+  @override
+  String get financeBudgetOverallLabel => '總額';
+
+  @override
+  String get financeBudgetEmptyTitle => '尚未設定預算';
+
+  @override
+  String get financeBudgetEmptyCta => '設定預算';
+
+  @override
+  String get financeBudgetOverLabel => '已超支';
+
+  @override
+  String get financeBudgetSheetTitle => '預算設定';
+
+  @override
+  String get financeBudgetSheetHint => '預算為每月循環設定,修改即套用到所有月份。';
+
+  @override
+  String get financeBudgetArchivedLabel => '已封存,僅能清空';
+
+  @override
+  String get financeBudgetClearButton => '清空';
+
+  @override
+  String get financeBudgetClearedLabel => '將被清空';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3188,4 +3218,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeCategoryBreakdown => '分類統計';
+
+  @override
+  String get financeBudgetCardTitle => '預算';
+
+  @override
+  String get financeBudgetOverallLabel => '總額';
+
+  @override
+  String get financeBudgetEmptyTitle => '尚未設定預算';
+
+  @override
+  String get financeBudgetEmptyCta => '設定預算';
+
+  @override
+  String get financeBudgetOverLabel => '已超支';
+
+  @override
+  String get financeBudgetSheetTitle => '預算設定';
+
+  @override
+  String get financeBudgetSheetHint => '預算為每月循環設定,修改即套用到所有月份。';
+
+  @override
+  String get financeBudgetArchivedLabel => '已封存,僅能清空';
+
+  @override
+  String get financeBudgetClearButton => '清空';
+
+  @override
+  String get financeBudgetClearedLabel => '將被清空';
 }

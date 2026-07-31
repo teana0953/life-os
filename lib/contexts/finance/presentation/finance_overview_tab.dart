@@ -11,6 +11,7 @@ import '../domain/finance_money.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 import '../domain/monthly_summary.dart';
+import 'budget_card.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
 
@@ -23,12 +24,14 @@ class FinanceOverviewTab extends StatelessWidget {
   final FinanceController controller;
   final Future<void> Function(String month) onSwitchMonth;
   final VoidCallback onAdd;
+  final VoidCallback onEditBudgets;
 
   const FinanceOverviewTab({
     super.key,
     required this.controller,
     required this.onSwitchMonth,
     required this.onAdd,
+    required this.onEditBudgets,
   });
 
   @override
@@ -75,6 +78,8 @@ class FinanceOverviewTab extends StatelessWidget {
                     month: controller.selectedMonth,
                     onSwitchMonth: onSwitchMonth,
                   ),
+                  const SizedBox(height: 16),
+                  BudgetCard(controller: controller, onEdit: onEditBudgets),
                   const SizedBox(height: 16),
                   if (isEmpty)
                     _EmptyState(onAdd: onAdd)

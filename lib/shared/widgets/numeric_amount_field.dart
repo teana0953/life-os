@@ -23,6 +23,12 @@ class NumericAmountField extends StatelessWidget {
   /// existing caller keeps rendering exactly as before.
   final String? errorText;
 
+  /// Whether the field accepts input. Defaults to `true` — every existing
+  /// caller keeps rendering exactly as before. A caller sets this to `false`
+  /// for a field that must show its current value but not be retyped (e.g.
+  /// an archived budget category, which can only be cleared, not changed).
+  final bool enabled;
+
   const NumericAmountField({
     super.key,
     required this.fieldKey,
@@ -30,6 +36,7 @@ class NumericAmountField extends StatelessWidget {
     required this.label,
     this.allowDecimal = true,
     this.errorText,
+    this.enabled = true,
   });
 
   @override
@@ -39,6 +46,7 @@ class NumericAmountField extends StatelessWidget {
       child: TextField(
         key: fieldKey,
         controller: controller,
+        enabled: enabled,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.numberWithOptions(decimal: allowDecimal),
         decoration: InputDecoration(

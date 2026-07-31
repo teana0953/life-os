@@ -1652,4 +1652,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeCategoryBreakdown => 'By category';
+
+  @override
+  String get financeBudgetCardTitle => 'Budget';
+
+  @override
+  String get financeBudgetOverallLabel => 'Overall';
+
+  @override
+  String get financeBudgetEmptyTitle => 'No budgets set yet';
+
+  @override
+  String get financeBudgetEmptyCta => 'Set a budget';
+
+  @override
+  String get financeBudgetOverLabel => 'Over budget';
+
+  @override
+  String get financeBudgetSheetTitle => 'Budgets';
+
+  @override
+  String get financeBudgetSheetHint =>
+      'Budgets are recurring monthly settings and apply to every month.';
+
+  @override
+  String get financeBudgetArchivedLabel => 'Archived — can only be cleared';
+
+  @override
+  String get financeBudgetClearButton => 'Clear';
+
+  @override
+  String get financeBudgetClearedLabel => 'Will be cleared';
 }

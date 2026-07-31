@@ -3061,6 +3061,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'By category'**
   String get financeCategoryBreakdown;
+
+  /// Title of the budget progress card on the overview tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get financeBudgetCardTitle;
+
+  /// Row label for the overall (non-category-specific) budget.
+  ///
+  /// In en, this message translates to:
+  /// **'Overall'**
+  String get financeBudgetOverallLabel;
+
+  /// Guidance shown on the budget card when no budgets are set.
+  ///
+  /// In en, this message translates to:
+  /// **'No budgets set yet'**
+  String get financeBudgetEmptyTitle;
+
+  /// Call-to-action button on the budget card's empty state, opens the budget sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a budget'**
+  String get financeBudgetEmptyCta;
+
+  /// Badge label shown on a budget row that has reached or exceeded 100%.
+  ///
+  /// In en, this message translates to:
+  /// **'Over budget'**
+  String get financeBudgetOverLabel;
+
+  /// Title of the budget-setting bottom sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Budgets'**
+  String get financeBudgetSheetTitle;
+
+  /// Explanatory text shown under the budget sheet's title.
+  ///
+  /// In en, this message translates to:
+  /// **'Budgets are recurring monthly settings and apply to every month.'**
+  String get financeBudgetSheetHint;
+
+  /// Shown under an archived category's budget field in the budget sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived — can only be cleared'**
+  String get financeBudgetArchivedLabel;
+
+  /// Button that marks an archived category's budget to be deleted on save.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get financeBudgetClearButton;
+
+  /// Shown after tapping the clear button for an archived category's budget.
+  ///
+  /// In en, this message translates to:
+  /// **'Will be cleared'**
+  String get financeBudgetClearedLabel;
 }
 
 class _AppLocalizationsDelegate

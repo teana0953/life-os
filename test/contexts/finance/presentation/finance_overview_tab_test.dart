@@ -23,6 +23,7 @@ Future<void> pumpOverview(
           controller: controller,
           onSwitchMonth: (m) async {},
           onAdd: () {},
+          onEditBudgets: () {},
         ),
       ),
     ),
@@ -52,6 +53,7 @@ void main() {
               controller: controller,
               onSwitchMonth: (m) async {},
               onAdd: () => tapped = true,
+              onEditBudgets: () {},
             ),
           ),
         ),
@@ -141,6 +143,7 @@ void main() {
                     await controller.load('tok', m);
                   },
                   onAdd: () {},
+                  onEditBudgets: () {},
                 ),
               ),
             ),

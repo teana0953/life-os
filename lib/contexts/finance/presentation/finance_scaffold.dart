@@ -8,6 +8,7 @@ import '../../auth/domain/auth_repository.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_transaction.dart';
 import 'add_transaction_sheet.dart';
+import 'budget_sheet.dart';
 import 'finance_controller.dart';
 import 'finance_overview_tab.dart';
 import 'finance_transactions_tab.dart';
@@ -99,6 +100,16 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     );
   }
 
+  Future<void> _openBudgetSheet() async {
+    final idToken = _idToken;
+    if (idToken == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BudgetSheet(controller: widget.controller, idToken: idToken),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -123,6 +134,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             controller: controller,
             onSwitchMonth: _switchMonth,
             onAdd: () => _openSheet(),
+            onEditBudgets: _openBudgetSheet,
           ),
           FinanceTransactionsTab(
             controller: controller,
