@@ -2085,5 +2085,17 @@
   "editSharedItemTooltip": "Edit shared item",
   "@editSharedItemTooltip": {
     "description": "Tooltip/accessible label for the per-row action, shown only to administrators on shared items, that opens the edit-shared-item form."
+  },
+  "editSharedItemMenuLabel": "Edit",
+  "@editSharedItemMenuLabel": {
+    "description": "Label for the single item inside the per-row '⋮' menu on a shared item, shown only to administrators. Kept short and generic (unlike the menu's own descriptive tooltip) since the menu already scopes it to this row; a future 'delete' entry will join it in the same menu."
+  },
+  "sharedFoodItemPortionsHeading": "Portions",
+  "@sharedFoodItemPortionsHeading": {
+    "description": "Section heading above the four food-group portion fields (staple/meat/fruit/veg) in the shared dictionary item form, naming them as portion counts."
+  },
+  "sharedFoodItemNutrientsHeading": "Nutrients",
+  "@sharedFoodItemNutrientsHeading": {
+    "description": "Section heading above the six macro/calorie fields (carbs/protein/fat/sugar/fiber/kcal) in the shared dictionary item form."
   }
 }

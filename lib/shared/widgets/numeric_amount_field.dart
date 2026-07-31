@@ -18,12 +18,18 @@ class NumericAmountField extends StatelessWidget {
   /// decimal the field would silently reject.
   final bool allowDecimal;
 
+  /// A per-field validation error, shown via `InputDecoration.errorText`
+  /// right below this field. `null` (the default) shows no error — every
+  /// existing caller keeps rendering exactly as before.
+  final String? errorText;
+
   const NumericAmountField({
     super.key,
     required this.fieldKey,
     required this.controller,
     required this.label,
     this.allowDecimal = true,
+    this.errorText,
   });
 
   @override
@@ -35,7 +41,11 @@ class NumericAmountField extends StatelessWidget {
         controller: controller,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.numberWithOptions(decimal: allowDecimal),
-        decoration: InputDecoration(labelText: label, hintText: '0'),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: '0',
+          errorText: errorText,
+        ),
       ),
     );
   }

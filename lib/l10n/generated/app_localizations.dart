@@ -2881,6 +2881,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit shared item'**
   String get editSharedItemTooltip;
+
+  /// Label for the single item inside the per-row '⋮' menu on a shared item, shown only to administrators. Kept short and generic (unlike the menu's own descriptive tooltip) since the menu already scopes it to this row; a future 'delete' entry will join it in the same menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editSharedItemMenuLabel;
+
+  /// Section heading above the four food-group portion fields (staple/meat/fruit/veg) in the shared dictionary item form, naming them as portion counts.
+  ///
+  /// In en, this message translates to:
+  /// **'Portions'**
+  String get sharedFoodItemPortionsHeading;
+
+  /// Section heading above the six macro/calorie fields (carbs/protein/fat/sugar/fiber/kcal) in the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrients'**
+  String get sharedFoodItemNutrientsHeading;
 }
 
 class _AppLocalizationsDelegate

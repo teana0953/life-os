@@ -462,5 +462,8 @@
   "sharedFoodItemSaveFailed": "儲存失敗,請再試一次。",
   "sharedFoodItemNeedsReauthError": "請重新登入以儲存。",
   "createSharedItemTooltip": "新增共用品項",
-  "editSharedItemTooltip": "編輯共用品項"
+  "editSharedItemTooltip": "編輯共用品項",
+  "editSharedItemMenuLabel": "編輯",
+  "sharedFoodItemPortionsHeading": "份量",
+  "sharedFoodItemNutrientsHeading": "營養素"
 }

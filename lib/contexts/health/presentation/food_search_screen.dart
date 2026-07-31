@@ -151,9 +151,27 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     if (controller == null) return;
     final loc = AppLocalizations.of(context)!;
     final wasCreate = item == null;
+    // `useSafeArea`/`showDragHandle` match every other modal sheet in this
+    // app (exercise_screen.dart / goal_card.dart / care_today_screen.dart).
+    //
+    // Caveat checked against `SharedFoodItemSheet`'s `PopScope` (which blocks
+    // dismissal while a submit is in flight): the barrier tap and the system
+    // back gesture both route through `Navigator.maybePop()`, which respects
+    // `PopScope.canPop` and so stay blocked. The drag handle does not — its
+    // `onClosing` calls `Navigator.pop()` directly (see Flutter's
+    // `bottom_sheet.dart`), and Flutter also keeps the handle's own tap/drag
+    // area live for accessibility even with `enableDrag: false`, so this
+    // can't be closed off from application code without dropping the
+    // repo-wide drag handle convention. A drag-dismiss mid-submit is
+    // therefore still possible; `_submit`'s `mounted` guard (already in
+    // place as defence in depth) keeps that from crashing — the admin just
+    // doesn't see the success SnackBar/list refresh for that one request,
+    // same as if they'd force-closed the app.
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (sheetContext) => SharedFoodItemSheet(
         controller: controller,
         idToken: widget.idToken,
@@ -369,7 +387,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                     PopupMenuItem<void>(
                       key: const Key('food-search-result-edit-item'),
                       onTap: () => _openSharedFoodItemSheet(item: item),
-                      child: Text(loc.editSharedItemTooltip),
+                      child: Text(loc.editSharedItemMenuLabel),
                     ),
                   ],
                 ),

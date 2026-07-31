@@ -815,6 +815,47 @@ void main() {
       },
     );
 
+    testWidgets('shows a Portions heading above the portion fields and a '
+        'Nutrients heading above the macro fields', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(repository: FakeFoodDictionaryRepository()),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.sharedFoodItemPortionsHeading), findsOneWidget);
+      expect(find.text(loc.sharedFoodItemNutrientsHeading), findsOneWidget);
+    });
+
+    testWidgets('a Cancel control sits beside Save, and is disabled while submitting', (
+      tester,
+    ) async {
+      final repository = FakeFoodDictionaryRepository()..gate = Completer<FoodItem>();
+      await tester.pumpWidget(_buildSheet(repository: repository));
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.cancel), findsOneWidget);
+      final enabledCancel = tester.widget<OutlinedButton>(
+        find.byKey(const Key('shared-food-item-cancel-button')),
+      );
+      expect(enabledCancel.onPressed, isNotNull);
+
+      await tester.enterText(
+        find.byKey(const Key('shared-food-item-name-field')),
+        'New item',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+      await tester.pump();
+
+      final duringSubmit = tester.widget<OutlinedButton>(
+        find.byKey(const Key('shared-food-item-cancel-button')),
+      );
+      expect(duringSubmit.onPressed, isNull);
+
+      repository.gate!.complete(_riceItem());
+      await tester.pumpAndSettle();
+    });
+
     testWidgets(
       'a 401 on submit shows the reauth message, not the generic save-failed one',
       (tester) async {

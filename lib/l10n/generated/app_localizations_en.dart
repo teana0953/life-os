@@ -1561,4 +1561,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editSharedItemTooltip => 'Edit shared item';
+
+  @override
+  String get editSharedItemMenuLabel => 'Edit';
+
+  @override
+  String get sharedFoodItemPortionsHeading => 'Portions';
+
+  @override
+  String get sharedFoodItemNutrientsHeading => 'Nutrients';
 }

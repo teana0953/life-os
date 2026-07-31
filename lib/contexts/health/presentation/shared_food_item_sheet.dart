@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/numeric_amount_field.dart';
 import '../domain/field_update.dart';
 import '../domain/food_item.dart';
 import '../domain/shared_food_item_input.dart';
@@ -356,21 +357,11 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   }
 
   Widget _numberField(Key key, TextEditingController controller, String label) {
-    return SizedBox(
-      width: 140,
-      child: TextField(
-        key: key,
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(
-          decimal: true,
-          signed: true,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: '0',
-          errorText: _numberErrors[controller],
-        ),
-      ),
+    return NumericAmountField(
+      fieldKey: key,
+      controller: controller,
+      label: label,
+      errorText: _numberErrors[controller],
     );
   }
 
@@ -436,6 +427,12 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                Text(
+                  loc.sharedFoodItemPortionsHeading,
+                  key: const Key('shared-food-item-portions-heading'),
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -463,6 +460,12 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                Text(
+                  loc.sharedFoodItemNutrientsHeading,
+                  key: const Key('shared-food-item-nutrients-heading'),
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -546,16 +549,38 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
                   ),
                 ],
                 const SizedBox(height: 20),
-                FilledButton(
-                  key: const Key('shared-food-item-submit-button'),
-                  onPressed: canSubmit ? () => _submit() : null,
-                  child: submitting
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(loc.sharedFoodItemSubmitButton),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('shared-food-item-cancel-button'),
+                        // Blocked while submitting for the same reason as the
+                        // `PopScope` above (design.md D5b): the only escape
+                        // hatch out of the sheet during an in-flight request
+                        // is the barrier/back gesture, which `PopScope`
+                        // already blocks — this button must not offer a
+                        // second, unguarded way out.
+                        onPressed: submitting
+                            ? null
+                            : () => Navigator.of(context).maybePop(),
+                        child: Text(loc.cancel),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        key: const Key('shared-food-item-submit-button'),
+                        onPressed: canSubmit ? () => _submit() : null,
+                        child: submitting
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(loc.sharedFoodItemSubmitButton),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

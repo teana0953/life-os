@@ -1470,6 +1470,85 @@ void main() {
       expect(mealRepository.receivedItems, hasLength(1));
     });
 
+    testWidgets('the row menu item reads a plain "Edit" label, distinct from its '
+        'own descriptive tooltip', (tester) async {
+      await _pumpScreen(
+        tester,
+        isAdmin: true,
+        dictionaryRepository: FakeFoodDictionaryRepository(
+          favorites: [_riceItem(ownerUserId: null)],
+        ),
+      );
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.tap(find.byKey(const Key('food-search-result-menu-rice-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.editSharedItemMenuLabel), findsOneWidget);
+      expect(find.text(loc.editSharedItemTooltip), findsNothing);
+    });
+
+    testWidgets(
+      'the create/edit sheet opens with the app\'s standard modal-sheet '
+      'contract (safe area + drag handle)',
+      (tester) async {
+        await _pumpScreen(tester, isAdmin: true);
+
+        await tester.tap(find.byKey(const Key('food-search-create-button')));
+        await tester.pumpAndSettle();
+
+        final sheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
+        expect(sheet.showDragHandle, isTrue);
+      },
+    );
+
+    testWidgets(
+      'dragging the sheet down while a submit is in flight dismisses it '
+      '(a Flutter framework limit: the drag handle calls Navigator.pop '
+      'directly, bypassing PopScope/maybePop — see the comment at the '
+      'showModalBottomSheet call site), but the in-flight request completing '
+      'afterwards does not crash',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..createGate = Completer<FoodItem>();
+        await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+
+        await tester.tap(find.byKey(const Key('food-search-create-button')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pump();
+
+        await tester.drag(find.byType(BottomSheet), const Offset(0, 400));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('shared-food-item-name-field')), findsNothing);
+
+        repository.createGate!.complete(_riceItem());
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('admin taps cancel and the sheet closes without saving', (tester) async {
+      final repository = FakeFoodDictionaryRepository();
+      await _pumpScreen(tester, isAdmin: true, dictionaryRepository: repository);
+
+      await tester.tap(find.byKey(const Key('food-search-create-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('shared-food-item-name-field')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('shared-food-item-cancel-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('shared-food-item-name-field')), findsNothing);
+      expect(repository.receivedCreateInput, isNull);
+    });
+
     testWidgets('admin sees no edit action on another user\'s custom item', (tester) async {
       await _pumpScreen(
         tester,

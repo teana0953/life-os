@@ -1505,6 +1505,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get editSharedItemTooltip => '編輯共用品項';
+
+  @override
+  String get editSharedItemMenuLabel => '編輯';
+
+  @override
+  String get sharedFoodItemPortionsHeading => '份量';
+
+  @override
+  String get sharedFoodItemNutrientsHeading => '營養素';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3008,4 +3017,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get editSharedItemTooltip => '編輯共用品項';
+
+  @override
+  String get editSharedItemMenuLabel => '編輯';
+
+  @override
+  String get sharedFoodItemPortionsHeading => '份量';
+
+  @override
+  String get sharedFoodItemNutrientsHeading => '營養素';
 }
