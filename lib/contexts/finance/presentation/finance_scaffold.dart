@@ -76,7 +76,11 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _switchMonth(String month) async {
     final idToken = _idToken;
     if (idToken == null) return;
-    await widget.controller.load(idToken, month);
+    // notifyOnStart: this is a user-gesture call (the month switcher or a
+    // retry tap), not the initial entry load, so it's safe to notify before
+    // the fetch resolves — giving the switch immediate loading feedback
+    // instead of leaving the old month's content on screen while it loads.
+    await widget.controller.load(idToken, month, notifyOnStart: true);
   }
 
   Future<void> _openSheet({FinanceTransaction? editing}) async {
@@ -120,7 +124,11 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             onSwitchMonth: _switchMonth,
             onAdd: () => _openSheet(),
           ),
-          FinanceTransactionsTab(controller: controller, onEdit: (txn) => _openSheet(editing: txn)),
+          FinanceTransactionsTab(
+            controller: controller,
+            onEdit: (txn) => _openSheet(editing: txn),
+            onSwitchMonth: _switchMonth,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(

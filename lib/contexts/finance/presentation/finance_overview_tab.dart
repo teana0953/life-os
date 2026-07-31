@@ -41,7 +41,7 @@ class FinanceOverviewTab extends StatelessWidget {
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       builder: (context) {
-        if (controller.summary == null) {
+        if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),

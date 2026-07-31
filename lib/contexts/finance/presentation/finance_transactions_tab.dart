@@ -16,11 +16,13 @@ import 'finance_controller.dart';
 class FinanceTransactionsTab extends StatelessWidget {
   final FinanceController controller;
   final ValueChanged<FinanceTransaction> onEdit;
+  final Future<void> Function(String month) onSwitchMonth;
 
   const FinanceTransactionsTab({
     super.key,
     required this.controller,
     required this.onEdit,
+    required this.onSwitchMonth,
   });
 
   @override
@@ -33,9 +35,20 @@ class FinanceTransactionsTab extends StatelessWidget {
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       builder: (context) {
-        if (controller.summary == null) {
+        if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(
-            child: Text(loc.financeLoadFailed, textAlign: TextAlign.center),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(loc.financeLoadFailed, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('finance-transactions-retry'),
+                  onPressed: () => onSwitchMonth(controller.selectedMonth),
+                  child: Text(loc.retry),
+                ),
+              ],
+            ),
           );
         }
 

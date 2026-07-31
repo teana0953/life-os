@@ -16,7 +16,11 @@ void main() {
       await tester.pumpWidget(
         l10nTestApp(
           home: Scaffold(
-            body: FinanceTransactionsTab(controller: controller, onEdit: (_) {}),
+            body: FinanceTransactionsTab(
+              controller: controller,
+              onEdit: (_) {},
+              onSwitchMonth: (m) async {},
+            ),
           ),
         ),
       );
@@ -52,7 +56,11 @@ void main() {
       await tester.pumpWidget(
         l10nTestApp(
           home: Scaffold(
-            body: FinanceTransactionsTab(controller: controller, onEdit: (_) {}),
+            body: FinanceTransactionsTab(
+              controller: controller,
+              onEdit: (_) {},
+              onSwitchMonth: (m) async {},
+            ),
           ),
         ),
       );
@@ -94,6 +102,7 @@ void main() {
             body: FinanceTransactionsTab(
               controller: controller,
               onEdit: (t) => edited = t,
+              onSwitchMonth: (m) async {},
             ),
           ),
         ),

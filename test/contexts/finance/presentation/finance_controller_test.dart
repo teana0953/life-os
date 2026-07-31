@@ -240,6 +240,72 @@ void main() {
         expect(controller.status, FinanceStatus.loaded);
       },
     );
+
+    test(
+      'a failed month switch sets error status and discards the old '
+      'month\'s data — never label August while showing July\'s summary',
+      () async {
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary!.month, '2026-07');
+
+        repo.failNext = const FinanceFetchFailure('boom');
+        await controller.load('tok', '2026-08');
+
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.error, FinanceError.fetchFailed);
+        // July's stale summary/transactions must not linger under the
+        // August label.
+        expect(controller.summary, isNull);
+        expect(controller.transactions, isEmpty);
+      },
+    );
+
+    test(
+      'switching months clears the old summary synchronously, before the '
+      'fetch resolves',
+      () async {
+        final repo = FakeFinanceRepository();
+        repo.gates['2026-08'] = Completer<void>();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary!.month, '2026-07');
+
+        final future = controller.load('tok', '2026-08');
+        // Synchronously after calling load (before the gated fetch
+        // resolves): the label has already moved to August, and July's
+        // summary must already be gone.
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.summary, isNull);
+        expect(controller.status, FinanceStatus.loading);
+
+        repo.gates['2026-08']!.complete();
+        await future;
+        expect(controller.summary!.month, '2026-08');
+      },
+    );
+
+    test(
+      'notifyOnStart notifies immediately (before the fetch resolves) so a '
+      'user-gesture month switch shows loading feedback right away',
+      () async {
+        final repo = FakeFinanceRepository();
+        repo.gates['2026-08'] = Completer<void>();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        var notifyCount = 0;
+        controller.addListener(() => notifyCount++);
+
+        final future = controller.load('tok', '2026-08', notifyOnStart: true);
+        expect(notifyCount, 1);
+
+        repo.gates['2026-08']!.complete();
+        await future;
+        expect(notifyCount, 2);
+      },
+    );
   });
 
   group('addTransaction', () {

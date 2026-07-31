@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
@@ -107,5 +108,59 @@ void main() {
 
       expect(find.text('2026-09'), findsOneWidget);
     });
+
+    testWidgets(
+      'a failed month switch shows the error screen with retry — never the '
+      'old month\'s data under the new month\'s label',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+
+        repo.failNext = const FinanceFetchFailure('boom');
+        var switchedTo = '';
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {
+                    switchedTo = m;
+                    await controller.load('tok', m);
+                  },
+                  onAdd: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await controller.load('tok', '2026-08');
+        await tester.pumpAndSettle();
+
+        // July's stale content must be gone — no "300" total, no month
+        // label showing July.
+        expect(find.text('300'), findsNothing);
+        expect(find.text('2026-07'), findsNothing);
+        expect(find.byKey(const Key('finance-overview-retry')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('finance-overview-retry')));
+        await tester.pump();
+        expect(switchedTo, '2026-08');
+      },
+    );
   });
 }

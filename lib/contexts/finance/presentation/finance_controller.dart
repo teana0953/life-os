@@ -61,12 +61,29 @@ class FinanceController extends ChangeNotifier {
   /// [selectedMonth] to [month] synchronously (so a concurrent call started
   /// after this one can tell this one is now stale) but — the repo's
   /// no-sync-notify rule — does NOT call [notifyListeners] before the first
-  /// `await`, so callers may trigger this from `initState` (via a
+  /// `await` by default, so callers may trigger this from `initState` (via a
   /// post-frame callback) without risking a "setState during build" crash.
-  Future<void> load(String idToken, String month) async {
+  ///
+  /// If [month] differs from the [selectedMonth] this call is switching away
+  /// from, [summary]/[transactions] (which belong to that old month) are
+  /// discarded synchronously — otherwise a failed switch would leave the
+  /// screen showing the old month's data under the new month's label (the
+  /// class doc's month-mismatch bug class).
+  ///
+  /// [notifyOnStart]: set by user-gesture-triggered callers (e.g. the month
+  /// switcher, not the initial entry load) so the screen can show loading
+  /// feedback immediately — safe here because, unlike the entry call, it
+  /// runs well after the widget has built.
+  Future<void> load(String idToken, String month, {bool notifyOnStart = false}) async {
+    final isMonthChange = month != selectedMonth;
     selectedMonth = month;
     status = FinanceStatus.loading;
     error = null;
+    if (isMonthChange) {
+      summary = null;
+      transactions = [];
+    }
+    if (notifyOnStart) notifyListeners();
 
     try {
       final data = await _getFinanceMonth(idToken, month);
