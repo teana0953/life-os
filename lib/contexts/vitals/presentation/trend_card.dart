@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/card_error_retry.dart';
+import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/vitals_day.dart';
 import '../domain/vitals_series.dart';
@@ -111,13 +112,7 @@ class _TrendCardState extends State<TrendCard> {
         controller.status == TrendStatus.needsReauth) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            height: 48,
-            width: 48,
-            child: CircularProgressIndicator(key: Key('trend-card-loading')),
-          ),
-        ),
+        child: CardLoading(indicatorKey: Key('trend-card-loading')),
       );
     }
 

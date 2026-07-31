@@ -19,8 +19,8 @@
 
 ## 4. CardLoading
 
-- [ ] 4.1 `lib/shared/widgets/card_loading.dart`:`CardLoading({indicatorKey})`。五份已核實**完全逐字相同**(padding 24、48×48),只有 key 不同——不要加多餘參數。測試:key 存在。
-- [ ] 4.2 五處改用:`goal_card:83`、`next_period_card:94`、`trend_card:111`、`health_calendar_card:56-67`、`care_adherence_card:175`。
+- [x] 4.1 `lib/shared/widgets/card_loading.dart`:`CardLoading({indicatorKey})`。五份已核實**完全逐字相同**(padding 24、48×48),只有 key 不同——不要加多餘參數。測試:key 存在。
+- [x] 4.2 五處改用:`goal_card:83`、`next_period_card:94`、`trend_card:111`、`health_calendar_card:56-67`、`care_adherence_card:175`。
 
 ## 5. TrackerBusyBar
 

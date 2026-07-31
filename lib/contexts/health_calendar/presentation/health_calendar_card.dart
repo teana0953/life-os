@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/card_error_retry.dart';
+import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
@@ -57,15 +58,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
         controller.calendar == null) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            height: 48,
-            width: 48,
-            child: CircularProgressIndicator(
-              key: Key('health-calendar-loading'),
-            ),
-          ),
-        ),
+        child: CardLoading(indicatorKey: Key('health-calendar-loading')),
       );
     }
 

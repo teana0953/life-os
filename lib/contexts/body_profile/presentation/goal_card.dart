@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/card_error_retry.dart';
+import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/weight_goal.dart';
@@ -83,13 +84,7 @@ class _GoalCardState extends State<GoalCard> {
         (saving && (goal == null || !goal.isProfileSet))) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            height: 48,
-            width: 48,
-            child: CircularProgressIndicator(key: Key('goal-card-loading')),
-          ),
-        ),
+        child: CardLoading(indicatorKey: Key('goal-card-loading')),
       );
     }
 

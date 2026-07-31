@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/card_error_retry.dart';
+import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/next_period_status.dart';
@@ -83,13 +84,7 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
     if (overview == null) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            height: 48,
-            width: 48,
-            child: CircularProgressIndicator(key: Key('next-period-loading')),
-          ),
-        ),
+        child: CardLoading(indicatorKey: Key('next-period-loading')),
       );
     }
 
