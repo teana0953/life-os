@@ -16,14 +16,14 @@
 - [x] 3.2 `FinanceOverviewTab`:月份 ‹ › 列、支出/收入/結餘卡按幣別分行(收入色用 app_theme 新增的 `financeIncomeColor` helper、支出用 colorScheme.error)、分類統計用 `fractional_progress_bar` 橫條列(每分類 icon+名+金額+比例,依金額排序、幣別分組;不用 fl_chart)、最近 5 筆、空狀態(引導+CTA 開 sheet)、loading/reauth 走 async_state_scaffold、error+retry 在 builder 自建(照 health tab 現行做法)。分類 icon 映射以 name 為 key、fallback icon 欄→泛用 icon。
 - [x] 3.3 `FinanceTransactionsTab`:按日分組倒序、row(分類 icon+name、note、帶號金額)、點 row 開編輯 sheet。
 - [x] 3.4 `AddTransactionSheet`(記一筆+編輯同一 sheet):`showModalBottomSheet(isScrollControlled:true)` + viewInsets bottom padding(照 exercise_screen.dart:385);金額數字鍵盤 empty-zero 慣例、支出/收入 segmented(換分類 grid)、分類 grid、日期預設今天、幣別下拉預設 TWD、note;存檔鈕 gate(金額>0 且有分類);編輯模式帶現值+刪除(confirm);失敗 snackbar+內容保留。互動元件加 Key(`finance-fab`/`amount-field`/`save-transaction-button` 等)。
-- [ ] 3.5 widget tests:表單 gate(空→disabled)、送出呼叫 use case、失敗保留內容、明細分組、總覽卡數字與幣別分行、空狀態 CTA、l10nTestApp 包裝。
+- [x] 3.5 widget tests:表單 gate(空→disabled)、送出呼叫 use case、失敗保留內容、明細分組、總覽卡數字與幣別分行、空狀態 CTA、l10nTestApp 包裝。
 
 ## 4. 入口 + 路由 + i18n
 
 - [x] 4.1 ARB 三檔(en 含 description、zh_Hant、zh 同步)+ `flutter gen-l10n`,generated commit。分類 name 直接顯示後端值,不進 ARB。
 - [x] 4.2 `home_screen.dart` 把既有財務 placeholder tile(index 1)變可點:InkWell + `Key('finance-tile')` + push `/finance`(照 index 0 health-tile 現行寫法);`app.dart` 加 `/finance` GoRoute + theme helper `financeIncomeColor`(app_theme.dart,light/dark AA 安全);`main.dart` DI 組線。測試:tile 可點+導航。
-- [ ] 4.3 既有測試回歸:home_screen 測試預期不破(不是新增一格);跑全套確認。
+- [x] 4.3 既有測試回歸:home_screen 測試預期不破(不是新增一格);跑全套確認。
 
 ## 5. 收尾
 
-- [ ] 5.1 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠(看到 `All tests passed!`);`TZ=UTC flutter test` 複驗。
+- [x] 5.1 `bash scripts/lint-actions.sh` + `flutter analyze` + `flutter test` 全綠(看到 `All tests passed!`);`TZ=UTC flutter test` 複驗。
