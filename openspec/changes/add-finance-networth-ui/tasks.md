@@ -2,8 +2,8 @@
 
 ## 1. 共用 month component + 重構(先做)
 
-- [ ] 1.1 `lib/shared/widgets/month_nav_header.dart`:`MonthNavHeader` **啞展示元件**(`monthLabel`、`onPrevious()`、`onNext()`、`keyPrefix`;不依賴 finance domain,前後月運算由 caller 做;key `<prefix>-previous/label/next`)。測試:點箭頭呼對應 callback、keyPrefix 隔離。
-- [ ] 1.2 重構 `finance_overview_tab.dart` 的 private `_MonthNav` → `MonthNavHeader(keyPrefix: 'finance-month')`;caller 用 finance_month 的 previousMonth/nextMonth 算好傳進 onChanged。保留既有 `finance-month-*` key + label 文字。跑既有記帳測試確認不破。
+- [x] 1.1 `lib/shared/widgets/month_nav_header.dart`:`MonthNavHeader` **啞展示元件**(`monthLabel`、`onPrevious()`、`onNext()`、`keyPrefix`;不依賴 finance domain,前後月運算由 caller 做;key `<prefix>-previous/label/next`)。測試:點箭頭呼對應 callback、keyPrefix 隔離。
+- [x] 1.2 重構 `finance_overview_tab.dart` 的 private `_MonthNav` → `MonthNavHeader(keyPrefix: 'finance-month')`;caller 用 finance_month 的 previousMonth/nextMonth 算好傳進 onChanged。保留既有 `finance-month-*` key + label 文字。跑既有記帳測試確認不破。
 
 ## 2. Domain + application + infrastructure
 
