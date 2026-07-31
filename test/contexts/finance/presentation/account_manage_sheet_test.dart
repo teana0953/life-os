@@ -35,6 +35,23 @@ Future<NetWorthController> _pumpSheet(
   return controller;
 }
 
+const _twoAssets = [
+  NetWorthAccount(
+    id: 'a1',
+    kind: NetWorthKind.asset,
+    name: 'First',
+    sortOrder: 0,
+    archived: false,
+  ),
+  NetWorthAccount(
+    id: 'a2',
+    kind: NetWorthKind.asset,
+    name: 'Second',
+    sortOrder: 1,
+    archived: false,
+  ),
+];
+
 void main() {
   group('AccountManageSheet', () {
     testWidgets('adds an account with the chosen kind and name', (tester) async {
@@ -150,6 +167,50 @@ void main() {
         controller.accounts.firstWhere((a) => a.id == 'acc-cash').archived,
         isFalse,
       );
+    });
+
+    testWidgets('a new account gets its name field without build creating it', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository();
+      final controller = await _pumpSheet(tester, repo);
+
+      await tester.enterText(find.byKey(const Key('account-add-name')), '新帳戶');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('account-add-submit')));
+      await tester.pumpAndSettle();
+
+      // The row for an account that did not exist at the last build is seeded
+      // and settled in the frame the controller's notification triggers —
+      // building a row must stay a pure read, never a create-and-subscribe.
+      final id = controller.accounts.firstWhere((a) => a.name == '新帳戶').id;
+      final field = tester.widget<TextField>(find.byKey(Key('account-name-$id')));
+      expect(field.controller?.text, '新帳戶');
+      expect(tester.takeException(), isNull);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    });
+
+    testWidgets('the reorder button never moves as a rename comes and goes', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()..accounts = _twoAssets;
+      await _pumpSheet(tester, repo);
+
+      final moveUp = find.byKey(const Key('account-move-up-a2'));
+      final atRest = tester.getTopLeft(moveUp);
+
+      // A pending rename adds a save button to the same row...
+      await tester.enterText(find.byKey(const Key('account-name-a2')), 'Renamed');
+      await tester.pump();
+      expect(find.byKey(const Key('account-name-save-a2')), findsOneWidget);
+      expect(tester.getTopLeft(moveUp), atRest);
+
+      // ...and saving takes it away again. Neither may slide the reorder
+      // button under the finger that just tapped save: reordering has no undo.
+      await tester.tap(find.byKey(const Key('account-name-save-a2')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('account-name-save-a2')), findsNothing);
+      expect(tester.getTopLeft(moveUp), atRest);
     });
 
     testWidgets('moving an account up swaps its order with the one above', (

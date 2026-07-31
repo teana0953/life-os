@@ -35,12 +35,18 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   void initState() {
     super.initState();
     _newNameController.addListener(_onChanged);
+    // Keep the per-account fields in step with the controller *outside* of
+    // build: every account list change arrives as a notification, and this
+    // listener runs before the rebuild it triggers.
+    widget.controller.addListener(_syncNameControllers);
+    _syncNameControllers();
   }
 
   void _onChanged() => setState(() {});
 
   @override
   void dispose() {
+    widget.controller.removeListener(_syncNameControllers);
     _newNameController.removeListener(_onChanged);
     _newNameController.dispose();
     for (final controller in _nameControllers.values) {
@@ -50,15 +56,28 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     super.dispose();
   }
 
-  /// A name field per account, seeded once and kept across the reloads a
-  /// write triggers. Each field notifies the sheet as it is typed in, so the
-  /// row can show whether the edit is saved yet.
-  TextEditingController _nameControllerFor(NetWorthAccount account) =>
+  /// Creates the name field for any account that doesn't have one yet, seeded
+  /// once and then kept across the reloads a write triggers. Each field
+  /// notifies the sheet as it is typed in, so the row can show whether the
+  /// edit is saved yet.
+  ///
+  /// Deliberately *not* called from `build`: creating a controller and
+  /// subscribing to it is a side effect, and doing it mid-build is how this
+  /// repo has previously grown "notifies listeners during build" bugs.
+  void _syncNameControllers() {
+    for (final account in widget.controller.accounts) {
       _nameControllers.putIfAbsent(account.id, () {
         final controller = TextEditingController(text: account.name);
         controller.addListener(_onChanged);
         return controller;
       });
+    }
+  }
+
+  /// [account]'s name field. Always already built by [_syncNameControllers] —
+  /// this is a pure read, safe to call from `build`.
+  TextEditingController _nameControllerFor(NetWorthAccount account) =>
+      _nameControllers[account.id]!;
 
   /// The typed name differs from the stored one — i.e. there is an edit on
   /// screen that the backend hasn't been told about.

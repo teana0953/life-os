@@ -1,7 +1,21 @@
-/// Pure `YYYY-MM` string month arithmetic for the finance ledger. Every
-/// function here is integer/string math (`DateTime.utc` is used only as a
-/// days-in-month helper, never `DateTime.now()` or local-time construction),
-/// so this file is inherently `TZ=UTC flutter test`-safe.
+/// Pure `YYYY-MM` string month arithmetic for the finance ledger, and so
+/// inherently `TZ=UTC flutter test`-safe. The invariant that buys that is
+/// **no function here ever reads the ambient clock or converts between time
+/// zones**: every result is derived from the digits of the input string.
+///
+/// Two functions do build a [DateTime], and both are safe for the same
+/// reason — the fields go straight in from the parsed string and only ever
+/// come back out as calendar fields, with no instant-to-instant conversion
+/// in between, so the zone the fields are interpreted in cannot shift them:
+///
+/// - [_daysInMonth] uses `DateTime.utc` purely as a calendar table.
+/// - [monthDateTime] uses the local-time constructor `DateTime(y, m)`
+///   because its caller formats it with a locale-aware month formatter,
+///   which reads `year`/`month` back off the same fields.
+///
+/// Verified under UTC, UTC+8, UTC+14 and UTC-11. If you ever add a function
+/// that subtracts two `DateTime`s, calls `toUtc`/`toLocal`, or touches
+/// `DateTime.now()`, this file stops being zone-agnostic — don't.
 library;
 
 /// The `YYYY-MM` month containing [date] (a `YYYY-MM-DD` string).
