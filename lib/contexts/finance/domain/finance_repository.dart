@@ -1,3 +1,4 @@
+import 'finance_budget.dart';
 import 'finance_category.dart';
 import 'finance_transaction.dart';
 import 'finance_type.dart';
@@ -42,4 +43,12 @@ abstract class FinanceRepository {
   });
 
   Future<void> deleteTransaction(String idToken, String id);
+
+  /// [month] is `YYYY-MM`. Returns every budget with that month's progress.
+  Future<List<FinanceBudget>> listBudgets(String idToken, String month);
+
+  /// Upserts the overall budget ([categoryId] `null`) or a category budget.
+  Future<void> upsertBudget(String idToken, {String? categoryId, required int amount});
+
+  Future<void> deleteBudget(String idToken, String id);
 }

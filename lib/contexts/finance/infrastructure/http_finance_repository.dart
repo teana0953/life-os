@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../domain/finance_budget.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_exceptions.dart';
 import '../domain/finance_repository.dart';
@@ -202,6 +203,52 @@ class HttpFinanceRepository implements FinanceRepository {
     final response = await _send(
       () => client.delete(
         Uri.parse('$baseUrl/api/finance/transactions/$id'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+  }
+
+  @override
+  Future<List<FinanceBudget>> listBudgets(String idToken, String month) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/budgets?month=$month'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return (json['budgets'] as List)
+          .map((e) => FinanceBudget.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      throw const FinanceFetchFailure(_genericFailureMessage);
+    }
+  }
+
+  @override
+  Future<void> upsertBudget(
+    String idToken, {
+    String? categoryId,
+    required int amount,
+  }) async {
+    final response = await _send(
+      () => client.put(
+        Uri.parse('$baseUrl/api/finance/budgets'),
+        headers: _headers(idToken),
+        body: jsonEncode({'category_id': categoryId, 'amount': amount}),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+  }
+
+  @override
+  Future<void> deleteBudget(String idToken, String id) async {
+    final response = await _send(
+      () => client.delete(
+        Uri.parse('$baseUrl/api/finance/budgets/$id'),
         headers: _headers(idToken),
       ),
     );

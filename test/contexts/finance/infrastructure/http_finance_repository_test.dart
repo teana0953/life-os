@@ -229,6 +229,146 @@ void main() {
       expect(capturedMethod, 'DELETE');
     });
 
+    test('listBudgets GETs with a month query param', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(
+          jsonEncode({
+            'month': '2026-07',
+            'budgets': [
+              {
+                'id': 'b1',
+                'category_id': null,
+                'amount': 10000,
+                'spent': 3500,
+                'remaining': 6500,
+                'percent': 35,
+              },
+              {
+                'id': 'b2',
+                'category_id': 'cat-food',
+                'amount': 3000,
+                'spent': 2500,
+                'remaining': 500,
+                'percent': 83,
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final budgets = await repository.listBudgets('token-123', '2026-07');
+
+      expect(
+        capturedUri,
+        Uri.parse('https://example.test/api/finance/budgets?month=2026-07'),
+      );
+      expect(budgets, hasLength(2));
+      expect(budgets[0].categoryId, isNull);
+      expect(budgets[0].percent, 35);
+      expect(budgets[1].categoryId, 'cat-food');
+      expect(budgets[1].percent, 83);
+    });
+
+    test('upsertBudget PUTs the budget body with Content-Type json', () async {
+      Uri? capturedUri;
+      String? capturedMethod;
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedMethod = request.method;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'id': 'b1', 'category_id': 'cat-food', 'amount': 3000}),
+          200,
+        );
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.upsertBudget('token-123', categoryId: 'cat-food', amount: 3000);
+
+      expect(capturedUri, Uri.parse('https://example.test/api/finance/budgets'));
+      expect(capturedMethod, 'PUT');
+      expect(capturedBody, {'category_id': 'cat-food', 'amount': 3000});
+    });
+
+    test('upsertBudget sends a null category_id for the overall budget', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'id': 'b1', 'category_id': null, 'amount': 10000}),
+          200,
+        );
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.upsertBudget('token-123', amount: 10000);
+
+      expect(capturedBody, {'category_id': null, 'amount': 10000});
+    });
+
+    test('deleteBudget DELETEs to /budgets/:id', () async {
+      Uri? capturedUri;
+      String? capturedMethod;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedMethod = request.method;
+        return http.Response(jsonEncode({'deleted': true}), 200);
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      await repository.deleteBudget('token-123', 'b1');
+
+      expect(capturedUri, Uri.parse('https://example.test/api/finance/budgets/b1'));
+      expect(capturedMethod, 'DELETE');
+    });
+
+    test('throws FinanceValidationFailure on a 400 budget upsert (income/archived category)', () async {
+      final client = MockClient(
+        (request) async => http.Response('Bad Request', 400),
+      );
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.upsertBudget('token-123', categoryId: 'cat-food', amount: 3000),
+        throwsA(isA<FinanceValidationFailure>()),
+      );
+    });
+
+    test('throws FinanceNotFound on a 404 budget delete', () async {
+      final client = MockClient(
+        (request) async => http.Response('Not Found', 404),
+      );
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.deleteBudget('token-123', 'missing'),
+        throwsA(isA<FinanceNotFound>()),
+      );
+    });
+
     test('throws FinanceReauthenticationRequired on 401', () async {
       final client = MockClient(
         (request) async => http.Response('Unauthorized', 401),

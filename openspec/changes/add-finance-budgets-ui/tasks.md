@@ -2,8 +2,8 @@
 
 ## 1. Domain + infrastructure
 
-- [ ] 1.1 `domain/`:`FinanceBudget` 實體(id、categoryId?、amount、spent、remaining、percent);`FinanceRepository` port 加 `listBudgets(month)`/`upsertBudget(categoryId?, amount)`/`deleteBudget(id)`。
-- [ ] 1.2 `HttpFinanceRepository` 三方法(契約照 design.md;status→typed exception 照既有映射)。測試:mock client、body 形狀、401/404/400。
+- [x] 1.1 `domain/`:`FinanceBudget` 實體(id、categoryId?、amount、spent、remaining、percent);`FinanceRepository` port 加 `listBudgets(month)`/`upsertBudget(categoryId?, amount)`/`deleteBudget(id)`。
+- [x] 1.2 `HttpFinanceRepository` 三方法(契約照 design.md;status→typed exception 照既有映射)。測試:mock client、body 形狀、401/404/400。
 
 ## 2. Controller(重要邏輯,測試必須覆蓋)
 
