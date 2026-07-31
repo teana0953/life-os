@@ -50,15 +50,22 @@ class DateField extends StatelessWidget {
 
 ### 3. `CardErrorRetry`
 
-五份:`goal_card.dart:111-131`、`next_period_card.dart:68-88`、`trend_card.dart:124-143`、`health_calendar_card.dart:77-97`、`care_adherence_card.dart:226-250`。
+五份:`goal_card.dart:111-131`、`next_period_card.dart:68-88`、`trend_card.dart:124-143`、`health_calendar_card.dart:77-97`、`care_adherence_card.dart:225-252`。
 
-差異只有:訊息文案、兩個 key、間距(12 vs 16)、care 那份多保留 header。全部參數化:
+差異(**已逐檔核對原始碼**,勿照盤點摘要照抄):
+- 四份(goal_card / next_period_card / trend_card / health_calendar_card):`Column(mainAxisSize.min)` > Text(訊息) + SizedBox(12) + FilledButton。
+- `care_adherence_card.dart:225-252` 多三處:(a)前面有 **header,是三個 sibling widget**(標題列 + SegmentedButton 等),不是單一 widget;(b)`crossAxisAlignment: CrossAxisAlignment.start`;(c)header 與訊息之間隔 **16**,但**訊息到按鈕仍是 12**(五份一致);(d)訊息與按鈕**各自包一層 `Center`**(因為 crossAxisAlignment 是 start,不包就靠左)。
+
+API 必須涵蓋這些:
 ```dart
 class CardErrorRetry extends StatelessWidget {
   const CardErrorRetry({super.key, required this.message, required this.messageKey,
-    required this.retryKey, required this.onRetry, this.header, this.spacing = 12});
+    required this.retryKey, required this.onRetry,
+    this.header = const <Widget>[],   // List<Widget>,直接 spread 進 Column(不可包 Column,會撐高卡片)
+    this.headerSpacing = 16});        // header 到訊息的間距;訊息到按鈕固定 12
 }
 ```
+`header` 非空時:`crossAxisAlignment: start` + 訊息/按鈕各包 `Center`;為空時維持原四份的版面。care 的 SegmentedButton 在 error 態有測試在點,header 必須真的還在且可互動。
 
 ### 4. `CardLoading`
 
@@ -68,17 +75,21 @@ class CardLoading extends StatelessWidget {
   const CardLoading({super.key, required this.indicatorKey});
 }
 ```
-注意 health_calendar_card 那份的 padding/尺寸若與其他不同,以參數涵蓋或保留原值——**不得改變任何一頁的視覺**。
+五份**實測完全逐字相同**(含 health_calendar_card 的 padding 24 與 48×48),差異只有 indicator key——不需要額外參數。
 
 ### 5. `TrackerBusyBar`
 
-五份(`vitals_screen:289`、`water_screen:160`、`exercise_screen:172`、`bowel_screen:120`、`menstrual_screen:194`),差異只有 key:
+五份(`vitals_screen:289`、`water_screen:160`、`exercise_screen:172`、`bowel_screen:121`、`menstrual_screen:195`),差異只有 key:
 ```dart
 class TrackerBusyBar extends StatelessWidget {
   const TrackerBusyBar({super.key, required this.busy, required this.indicatorKey});
 }
 ```
 **不要**放進 `TrackerDayScreen` mixin(menstrual 沒用那個 mixin)。
+
+## 外殼歸屬(決定)
+
+五個抽出物**都不含 `LedgeCard` 外殼**——各呼叫點現況就是外面自己包 `LedgeCard`,抽出物只負責內容。這樣呼叫端改動最小(只換內層),也不會讓 shared 元件對卡片外觀做假設。
 
 ## 風險與紀律
 

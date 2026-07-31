@@ -37,6 +37,13 @@ state, and a tracker busy bar.
 - **WHEN** the retry control of the card error state is tapped
 - **THEN** the caller's retry callback runs
 
+#### Scenario: Card error state with a header keeps its layout
+
+- **WHEN** the card error state is given header widgets
+- **THEN** the header widgets render above the message and stay interactive,
+  the message and retry control remain centered, and the card is not made
+  taller by wrapping the header in an extra full-height container
+
 #### Scenario: Disabled date field
 
 - **WHEN** a date field is given a null tap callback
