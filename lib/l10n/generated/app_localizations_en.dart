@@ -1553,6 +1553,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharedFoodItemSaveFailed => 'Couldn\'t save. Please try again.';
 
   @override
+  String get sharedFoodItemNeedsReauthError =>
+      'Please sign in again to save this.';
+
+  @override
   String get createSharedItemTooltip => 'New shared item';
 
   @override

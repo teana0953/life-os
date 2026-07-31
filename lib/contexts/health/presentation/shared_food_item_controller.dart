@@ -13,7 +13,9 @@ enum SharedFoodItemControllerStatus { idle, submitting }
 /// [SharedFoodItemSheet] (which has no [BuildContext]-free way to localize a
 /// message here). [forbidden] is kept distinct from [saveFailed] so the
 /// sheet can say "no permission" instead of a generic retryable message.
-enum SharedFoodItemError { forbidden, saveFailed }
+/// [needsReauth] is likewise kept distinct: an expired session (401) isn't
+/// fixed by retrying, unlike a [saveFailed].
+enum SharedFoodItemError { forbidden, saveFailed, needsReauth }
 
 /// Drives [SharedFoodItemSheet]'s submit state (idle/submitting/typed
 /// error) for both creating and editing a shared dictionary item.
@@ -45,6 +47,8 @@ class SharedFoodItemController extends ChangeNotifier {
       result = await request();
     } on DietForbidden {
       error = SharedFoodItemError.forbidden;
+    } on DietReauthenticationRequired {
+      error = SharedFoodItemError.needsReauth;
     } catch (_) {
       error = SharedFoodItemError.saveFailed;
     }

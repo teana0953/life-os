@@ -1498,6 +1498,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sharedFoodItemSaveFailed => '儲存失敗,請再試一次。';
 
   @override
+  String get sharedFoodItemNeedsReauthError => '請重新登入以儲存。';
+
+  @override
   String get createSharedItemTooltip => '新增共用品項';
 
   @override
@@ -2996,6 +2999,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sharedFoodItemSaveFailed => '儲存失敗,請再試一次。';
+
+  @override
+  String get sharedFoodItemNeedsReauthError => '請重新登入以儲存。';
 
   @override
   String get createSharedItemTooltip => '新增共用品項';

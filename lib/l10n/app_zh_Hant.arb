@@ -460,6 +460,7 @@
   "sharedFoodItemEditSuccess": "已更新共用品項。",
   "sharedFoodItemForbiddenError": "你沒有權限執行此操作。",
   "sharedFoodItemSaveFailed": "儲存失敗,請再試一次。",
+  "sharedFoodItemNeedsReauthError": "請重新登入以儲存。",
   "createSharedItemTooltip": "新增共用品項",
   "editSharedItemTooltip": "編輯共用品項"
 }

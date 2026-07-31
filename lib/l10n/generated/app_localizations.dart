@@ -2864,6 +2864,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save. Please try again.'**
   String get sharedFoodItemSaveFailed;
 
+  /// Error shown in the shared dictionary item form when the create/update request fails because the session expired (401), distinct from the generic retryable saveFailed message so the admin knows retrying won't help without signing in again.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again to save this.'**
+  String get sharedFoodItemNeedsReauthError;
+
   /// Tooltip/accessible label for the app-bar action, shown only to administrators, that opens the empty create-shared-item form.
   ///
   /// In en, this message translates to:

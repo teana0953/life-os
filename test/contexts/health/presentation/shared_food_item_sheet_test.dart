@@ -655,5 +655,185 @@ void main() {
         expect(find.text(loc.sharedFoodItemForbiddenError), findsNothing);
       },
     );
+
+    testWidgets(
+      'while submitting the sheet is not poppable, and it becomes poppable '
+      'again once the request resolves',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()..gate = Completer<FoodItem>();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
+
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pump();
+        expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isFalse);
+
+        repository.gate!.complete(_riceItem());
+        await tester.pumpAndSettle();
+        expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
+      },
+    );
+
+    testWidgets(
+      'multiple invalid macro fields are all flagged at once, each beside its own field',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-carb-field')),
+          '6o',
+        );
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-protein-field')),
+          '-3',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        final carbField = tester.widget<TextField>(
+          find.byKey(const Key('shared-food-item-carb-field')),
+        );
+        final proteinField = tester.widget<TextField>(
+          find.byKey(const Key('shared-food-item-protein-field')),
+        );
+        expect(
+          carbField.decoration?.errorText,
+          loc.sharedFoodItemNumberFieldError(loc.sharedFoodItemCarbLabel),
+        );
+        expect(
+          proteinField.decoration?.errorText,
+          loc.sharedFoodItemNumberFieldError(loc.sharedFoodItemProteinLabel),
+        );
+        expect(repository.receivedInput, isNull);
+      },
+    );
+
+    testWidgets(
+      'correcting an invalid macro field clears its error without waiting for the next submit',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-carb-field')),
+          '6o',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('shared-food-item-carb-field')))
+              .decoration
+              ?.errorText,
+          loc.sharedFoodItemNumberFieldError(loc.sharedFoodItemCarbLabel),
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-carb-field')),
+          '60',
+        );
+        await tester.pump();
+
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('shared-food-item-carb-field')))
+              .decoration
+              ?.errorText,
+          isNull,
+        );
+      },
+    );
+
+    testWidgets(
+      'editing the name after a required-name error clears it without waiting for the next submit',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+        expect(find.text(loc.sharedFoodItemNameRequiredError), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+
+        expect(find.text(loc.sharedFoodItemNameRequiredError), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'editing the measure amount after a measure-pair error clears it without waiting for the next submit',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-measure-amount-field')),
+          '5',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+        expect(find.text(loc.sharedFoodItemMeasurePairError), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-measure-amount-field')),
+          '',
+        );
+        await tester.pump();
+
+        expect(find.text(loc.sharedFoodItemMeasurePairError), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a 401 on submit shows the reauth message, not the generic save-failed one',
+      (tester) async {
+        final repository = FakeFoodDictionaryRepository()
+          ..errorToThrow = const DietReauthenticationRequired();
+        await tester.pumpWidget(_buildSheet(repository: repository));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.enterText(
+          find.byKey(const Key('shared-food-item-name-field')),
+          'New item',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.sharedFoodItemNeedsReauthError), findsOneWidget);
+        expect(find.text(loc.sharedFoodItemSaveFailed), findsNothing);
+      },
+    );
   });
 }

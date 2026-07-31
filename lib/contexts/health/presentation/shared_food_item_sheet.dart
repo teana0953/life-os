@@ -67,7 +67,20 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
 
   String? _nameError;
   String? _measureError;
-  String? _numberError;
+
+  /// Per-field numeric validation errors (FIX for follow-up: previously a
+  /// single aggregate `_numberError` named only the first bad field and
+  /// rendered below both `Wrap` groups, off-screen on a phone with the
+  /// keyboard up). Keyed by the field's own controller so each error can be
+  /// shown via that field's `InputDecoration.errorText`, right where the
+  /// user is looking.
+  final Map<TextEditingController, String?> _numberErrors = {};
+
+  /// One listener per controller (rather than one shared listener) so a
+  /// keystroke can clear only *that* field's stale error (FIX for
+  /// follow-up: errors used to stay visible after the value was corrected,
+  /// reappearing only at the next submit if still bad).
+  final Map<TextEditingController, VoidCallback> _fieldListeners = {};
 
   /// The error from this sheet's own last submission, or `null`. Deliberately
   /// separate from [SharedFoodItemController.error]: that field lives on an
@@ -112,27 +125,44 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     _sugar = TextEditingController(text: _seedNullable(item?.sugarG));
     _fiber = TextEditingController(text: _seedNullable(item?.fiberG));
     _kcal = TextEditingController(text: _seedNullable(item?.kcal));
-    _measureAmount = TextEditingController(text: _seedNullable(item?.baseAmount));
+    _measureAmount = TextEditingController(
+      text: _seedNullable(item?.baseAmount),
+    );
     _measureUnit = TextEditingController(text: item?.measureUnit ?? '');
     for (final c in _allControllers) {
-      c.addListener(_onChanged);
+      void listener() => _onFieldChanged(c);
+      _fieldListeners[c] = listener;
+      c.addListener(listener);
     }
     widget.controller.addListener(_onChanged);
   }
 
   void _onChanged() => setState(() {});
 
+  void _onFieldChanged(TextEditingController controller) {
+    setState(() {
+      if (controller == _name) {
+        _nameError = null;
+      } else if (controller == _measureAmount || controller == _measureUnit) {
+        _measureError = null;
+      } else {
+        _numberErrors[controller] = null;
+      }
+    });
+  }
+
   @override
   void dispose() {
     for (final c in _allControllers) {
-      c.removeListener(_onChanged);
+      c.removeListener(_fieldListeners[c]!);
       c.dispose();
     }
     widget.controller.removeListener(_onChanged);
     super.dispose();
   }
 
-  double _parseOrZero(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
+  double _parseOrZero(TextEditingController c) =>
+      double.tryParse(c.text.trim()) ?? 0;
 
   /// `true` in create mode (nothing to compare against — always submittable;
   /// a blank name is instead blocked by [_validateName] with a visible
@@ -185,7 +215,9 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     if (amountText.isNotEmpty) {
       final amount = double.tryParse(amountText);
       if (amount == null || amount <= 0) {
-        setState(() => _measureError = loc.sharedFoodItemMeasureAmountPositiveError);
+        setState(
+          () => _measureError = loc.sharedFoodItemMeasureAmountPositiveError,
+        );
         return false;
       }
     }
@@ -204,9 +236,12 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
   /// Validates every macro/portion numeric field: empty stays meaning `0`
   /// (the project-wide empty-zero convention), but non-empty text that
   /// isn't a parseable, non-negative number blocks submission — otherwise
-  /// e.g. `6o` typed into carbs would silently PATCH `carb_g: 0`. Sets
-  /// [_numberError] (naming the offending field) and returns false when
-  /// invalid, mirroring [_validateMeasure]'s pattern.
+  /// e.g. `6o` typed into carbs would silently PATCH `carb_g: 0`. Unlike
+  /// [_validateName]/[_validateMeasure], this checks every field (not just
+  /// the first offending one) and records each error into [_numberErrors]
+  /// keyed by its own field, so an admin with several typos sees all of
+  /// them at once, each beside the field it names. Returns false if any
+  /// field is invalid.
   bool _validateNumbers() {
     final loc = AppLocalizations.of(context)!;
     final fields = <(TextEditingController, String)>[
@@ -221,17 +256,28 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
       (_fiber, loc.sharedFoodItemFiberLabel),
       (_kcal, loc.sharedFoodItemKcalLabel),
     ];
+    var valid = true;
+    final errors = <TextEditingController, String?>{};
     for (final (controller, label) in fields) {
       final text = controller.text.trim();
-      if (text.isEmpty) continue;
+      if (text.isEmpty) {
+        errors[controller] = null;
+        continue;
+      }
       final value = double.tryParse(text);
       if (value == null || value < 0) {
-        setState(() => _numberError = loc.sharedFoodItemNumberFieldError(label));
-        return false;
+        errors[controller] = loc.sharedFoodItemNumberFieldError(label);
+        valid = false;
+      } else {
+        errors[controller] = null;
       }
     }
-    setState(() => _numberError = null);
-    return true;
+    setState(() {
+      _numberErrors
+        ..clear()
+        ..addAll(errors);
+    });
+    return valid;
   }
 
   Future<void> _submit() async {
@@ -315,8 +361,15 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
       child: TextField(
         key: key,
         controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-        decoration: InputDecoration(labelText: label, hintText: '0'),
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: '0',
+          errorText: _numberErrors[controller],
+        ),
       ),
     );
   }
@@ -326,129 +379,186 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
-    final submitting = controller.status == SharedFoodItemControllerStatus.submitting;
+    final submitting =
+        controller.status == SharedFoodItemControllerStatus.submitting;
     final canSubmit = !submitting && _hasChanges;
 
     String? errorMessage;
     if (_ownError == SharedFoodItemError.forbidden) {
       errorMessage = loc.sharedFoodItemForbiddenError;
+    } else if (_ownError == SharedFoodItemError.needsReauth) {
+      errorMessage = loc.sharedFoodItemNeedsReauthError;
     } else if (_ownError == SharedFoodItemError.saveFailed) {
       errorMessage = loc.sharedFoodItemSaveFailed;
     }
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _item == null ? loc.sharedFoodItemCreateTitle : loc.sharedFoodItemEditTitle,
-                style: theme.textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('shared-food-item-name-field'),
-                controller: _name,
-                decoration: InputDecoration(labelText: loc.sharedFoodItemNameLabel),
-              ),
-              if (_nameError != null) ...[
-                const SizedBox(height: 4),
+    return PopScope(
+      // While a submit is in flight, this State is the only thing that
+      // knows the request is still running — blocking dismissal here (both
+      // the barrier tap and the back/drag gesture) is the only lever
+      // available from inside the sheet. Without this, a submit that
+      // completes successfully after the sheet was already dismissed is
+      // silent: `_submit`'s `mounted` guard (kept as defence in depth)
+      // discards the result, so the admin sees no confirmation and no list
+      // refresh, and may create a duplicate.
+      canPop: !submitting,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
-                  _nameError!,
-                  key: const Key('shared-food-item-name-error'),
-                  style: TextStyle(color: theme.colorScheme.error),
+                  _item == null
+                      ? loc.sharedFoodItemCreateTitle
+                      : loc.sharedFoodItemEditTitle,
+                  style: theme.textTheme.titleLarge,
                 ),
-              ],
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _numberField(const Key('shared-food-item-staple-field'), _staple, loc.dietCategoryStaple),
-                  _numberField(const Key('shared-food-item-meat-field'), _meat, loc.dietCategoryMeat),
-                  _numberField(const Key('shared-food-item-fruit-field'), _fruit, loc.dietCategoryFruit),
-                  _numberField(const Key('shared-food-item-veg-field'), _veg, loc.dietCategoryVeg),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _numberField(const Key('shared-food-item-carb-field'), _carb, loc.sharedFoodItemCarbLabel),
-                  _numberField(const Key('shared-food-item-protein-field'), _protein, loc.sharedFoodItemProteinLabel),
-                  _numberField(const Key('shared-food-item-fat-field'), _fat, loc.sharedFoodItemFatLabel),
-                  _numberField(const Key('shared-food-item-sugar-field'), _sugar, loc.sharedFoodItemSugarLabel),
-                  _numberField(const Key('shared-food-item-fiber-field'), _fiber, loc.sharedFoodItemFiberLabel),
-                  _numberField(const Key('shared-food-item-kcal-field'), _kcal, loc.sharedFoodItemKcalLabel),
-                ],
-              ),
-              if (_numberError != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _numberError!,
-                  key: const Key('shared-food-item-number-error'),
-                  style: TextStyle(color: theme.colorScheme.error),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('shared-food-item-name-field'),
+                  controller: _name,
+                  decoration: InputDecoration(
+                    labelText: loc.sharedFoodItemNameLabel,
+                  ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('shared-food-item-measure-amount-field'),
-                      controller: _measureAmount,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                      decoration: InputDecoration(
-                        labelText: loc.sharedFoodItemMeasureAmountLabel,
-                        hintText: '0',
+                if (_nameError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _nameError!,
+                    key: const Key('shared-food-item-name-error'),
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _numberField(
+                      const Key('shared-food-item-staple-field'),
+                      _staple,
+                      loc.dietCategoryStaple,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-meat-field'),
+                      _meat,
+                      loc.dietCategoryMeat,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-fruit-field'),
+                      _fruit,
+                      loc.dietCategoryFruit,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-veg-field'),
+                      _veg,
+                      loc.dietCategoryVeg,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _numberField(
+                      const Key('shared-food-item-carb-field'),
+                      _carb,
+                      loc.sharedFoodItemCarbLabel,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-protein-field'),
+                      _protein,
+                      loc.sharedFoodItemProteinLabel,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-fat-field'),
+                      _fat,
+                      loc.sharedFoodItemFatLabel,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-sugar-field'),
+                      _sugar,
+                      loc.sharedFoodItemSugarLabel,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-fiber-field'),
+                      _fiber,
+                      loc.sharedFoodItemFiberLabel,
+                    ),
+                    _numberField(
+                      const Key('shared-food-item-kcal-field'),
+                      _kcal,
+                      loc.sharedFoodItemKcalLabel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('shared-food-item-measure-amount-field'),
+                        controller: _measureAmount,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: loc.sharedFoodItemMeasureAmountLabel,
+                          hintText: '0',
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      key: const Key('shared-food-item-measure-unit-field'),
-                      controller: _measureUnit,
-                      decoration: InputDecoration(labelText: loc.sharedFoodItemMeasureUnitLabel),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        key: const Key('shared-food-item-measure-unit-field'),
+                        controller: _measureUnit,
+                        decoration: InputDecoration(
+                          labelText: loc.sharedFoodItemMeasureUnitLabel,
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+                if (_measureError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _measureError!,
+                    key: const Key('shared-food-item-measure-error'),
+                    style: TextStyle(color: theme.colorScheme.error),
                   ),
                 ],
-              ),
-              if (_measureError != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _measureError!,
-                  key: const Key('shared-food-item-measure-error'),
-                  style: TextStyle(color: theme.colorScheme.error),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorMessage,
+                    key: const Key('shared-food-item-error-message'),
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                FilledButton(
+                  key: const Key('shared-food-item-submit-button'),
+                  onPressed: canSubmit ? () => _submit() : null,
+                  child: submitting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(loc.sharedFoodItemSubmitButton),
                 ),
               ],
-              if (errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage,
-                  key: const Key('shared-food-item-error-message'),
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-              ],
-              const SizedBox(height: 20),
-              FilledButton(
-                key: const Key('shared-food-item-submit-button'),
-                onPressed: canSubmit ? () => _submit() : null,
-                child: submitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(loc.sharedFoodItemSubmitButton),
-              ),
-            ],
+            ),
           ),
         ),
       ),

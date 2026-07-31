@@ -2074,6 +2074,10 @@
   "@sharedFoodItemSaveFailed": {
     "description": "Retryable error shown in the shared dictionary item form when the create/update request fails for a reason other than a permission refusal."
   },
+  "sharedFoodItemNeedsReauthError": "Please sign in again to save this.",
+  "@sharedFoodItemNeedsReauthError": {
+    "description": "Error shown in the shared dictionary item form when the create/update request fails because the session expired (401), distinct from the generic retryable saveFailed message so the admin knows retrying won't help without signing in again."
+  },
   "createSharedItemTooltip": "New shared item",
   "@createSharedItemTooltip": {
     "description": "Tooltip/accessible label for the app-bar action, shown only to administrators, that opens the empty create-shared-item form."

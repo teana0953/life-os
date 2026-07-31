@@ -1581,7 +1581,8 @@ void main() {
     );
 
     testWidgets(
-      'dismissing the sheet while a submit is in flight does not crash when it later resolves',
+      'a dismissal attempt while a submit is in flight is blocked, and the '
+      'success message shows once it resolves',
       (tester) async {
         final repository = FakeFoodDictionaryRepository()
           ..createGate = Completer<FoodItem>();
@@ -1597,20 +1598,28 @@ void main() {
         await tester.tap(find.byKey(const Key('shared-food-item-submit-button')));
         await tester.pump();
 
-        // The admin dismisses the sheet (e.g. taps outside it) while the
-        // create request is still pending.
-        Navigator.of(
+        // The admin attempts to dismiss the sheet (tap outside it / back
+        // gesture — both go through `maybePop`) while the create request is
+        // still pending. Before the fix this would succeed, disposing the
+        // sheet's State; the eventual success then landed on nothing (no
+        // SnackBar, no list refresh — the admin could create a duplicate).
+        // `maybePop`'s returned bool means "the request was handled" (true
+        // whether or not it actually popped — `PopScope`'s `doNotPop` path
+        // returns true too), so the real assertion is that the sheet itself
+        // is still there afterwards.
+        await Navigator.of(
           tester.element(find.byKey(const Key('shared-food-item-name-field'))),
-        ).pop();
-        await tester.pumpAndSettle();
+        ).maybePop();
+        await tester.pump();
 
-        // The request now resolves successfully, after the sheet is gone.
+        expect(find.byKey(const Key('shared-food-item-name-field')), findsOneWidget);
+
+        // The request now resolves successfully, with the sheet still open.
         repository.createGate!.complete(_riceItem());
         await tester.pumpAndSettle();
 
-        // No exception was thrown, and the food-search screen itself (not
-        // just the sheet) is still on screen.
-        expect(find.byKey(const Key('food-search-create-button')), findsOneWidget);
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.sharedFoodItemCreateSuccess), findsOneWidget);
       },
     );
   });
