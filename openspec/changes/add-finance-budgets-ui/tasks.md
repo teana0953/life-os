@@ -7,7 +7,7 @@
 
 ## 2. Controller(重要邏輯,測試必須覆蓋)
 
-- [ ] 2.1 `FinanceController`:`budgets` 狀態併入 `load(month)` 同批抓取(沿用月份 gate——同月才落地);`saveBudgets` 逐筆循序批次(改→upsert、清空既有→delete、未動不發);**部分失敗:立即 reload、回報失敗、diff 基準重算(重試不重送已成功筆)**;切月同步清 budgets(比照 summary)。測試:競態(舊月 budgets 不落地)、切月清除、diff 各分支、部分失敗重試不重送、typed error。
+- [x] 2.1 `FinanceController`:`budgets` 狀態併入 `load(month)` 同批抓取(沿用月份 gate——同月才落地);`saveBudgets` 逐筆循序批次(改→upsert、清空既有→delete、未動不發);**部分失敗:立即 reload、回報失敗、diff 基準重算(重試不重送已成功筆)**;切月同步清 budgets(比照 summary)。測試:競態(舊月 budgets 不落地)、切月清除、diff 各分支、部分失敗重試不重送、typed error。
 
 ## 3. Presentation
 

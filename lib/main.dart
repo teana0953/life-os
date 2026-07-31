@@ -29,9 +29,11 @@ import 'contexts/exercise/application/list_exercise_activities.dart';
 import 'contexts/exercise/infrastructure/http_exercise_repository.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/finance/application/add_transaction.dart';
+import 'contexts/finance/application/delete_budget.dart';
 import 'contexts/finance/application/delete_transaction.dart';
 import 'contexts/finance/application/get_finance_month.dart';
 import 'contexts/finance/application/update_transaction.dart';
+import 'contexts/finance/application/upsert_budget.dart';
 import 'contexts/finance/infrastructure/http_finance_repository.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
@@ -222,6 +224,8 @@ Future<void> main() async {
     AddTransaction(financeRepository),
     UpdateTransaction(financeRepository),
     DeleteTransaction(financeRepository),
+    UpsertBudget(financeRepository),
+    DeleteBudget(financeRepository),
   );
   final bodyProfileRepository = HttpBodyProfileRepository(
     baseUrl: apiBaseUrl,
