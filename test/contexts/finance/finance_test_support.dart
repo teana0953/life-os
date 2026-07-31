@@ -6,6 +6,7 @@ import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
@@ -34,6 +35,20 @@ class FakeFinanceRepository implements FinanceRepository {
   final List<_BudgetDef> _budgetDefs = [];
   int _nextBudgetId = 1;
   final List<String> budgetCalls = [];
+
+  /// Throws [FinanceValidationFailure] the [failOnBudgetCallNumber]th time
+  /// `upsertBudget`/`deleteBudget` is called — the batch partial-failure case.
+  int? failOnBudgetCallNumber;
+  int _budgetCallCount = 0;
+
+  /// Seeds an existing budget directly, without recording a [budgetCalls]
+  /// entry or advancing [failOnBudgetCallNumber]'s counter — for setting up a
+  /// widget test's starting state.
+  void seedBudget({String? categoryId, required int amount}) {
+    _budgetDefs.add(
+      _BudgetDef(id: 'budget${_nextBudgetId++}', categoryId: categoryId, amount: amount),
+    );
+  }
 
   List<FinanceCategory> categoriesToReturn = const [
     FinanceCategory(
@@ -251,10 +266,15 @@ class FakeFinanceRepository implements FinanceRepository {
     required int amount,
   }) async {
     budgetCalls.add('upsert:$categoryId:$amount');
+    _budgetCallCount++;
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;
       throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
     }
     final index = _budgetDefs.indexWhere((d) => d.categoryId == categoryId);
     final def = _BudgetDef(
@@ -272,10 +292,15 @@ class FakeFinanceRepository implements FinanceRepository {
   @override
   Future<void> deleteBudget(String idToken, String id) async {
     budgetCalls.add('delete:$id');
+    _budgetCallCount++;
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;
       throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
     }
     _budgetDefs.removeWhere((d) => d.id == id);
   }
