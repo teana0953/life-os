@@ -24,6 +24,8 @@ import 'package:life_os/contexts/health/domain/food_item.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
@@ -126,6 +128,15 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   Future<void> favorite(String idToken, String foodItemId) async {}
   @override
   Future<void> unfavorite(String idToken, String foodItemId) async {}
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 /// The diet day screen wired to the given [meals] repo. Controllers are created

@@ -2743,6 +2743,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// Title of the bottom sheet used to create a new shared dictionary item.
+  ///
+  /// In en, this message translates to:
+  /// **'New shared item'**
+  String get sharedFoodItemCreateTitle;
+
+  /// Title of the bottom sheet used to edit an existing shared dictionary item.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit shared item'**
+  String get sharedFoodItemEditTitle;
+
+  /// Label for the name field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get sharedFoodItemNameLabel;
+
+  /// Label for the carbohydrate (grams) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Carbs (g)'**
+  String get sharedFoodItemCarbLabel;
+
+  /// Label for the protein (grams) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Protein (g)'**
+  String get sharedFoodItemProteinLabel;
+
+  /// Label for the fat (grams) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Fat (g)'**
+  String get sharedFoodItemFatLabel;
+
+  /// Label for the sugar (grams) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Sugar (g)'**
+  String get sharedFoodItemSugarLabel;
+
+  /// Label for the fiber (grams) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Fiber (g)'**
+  String get sharedFoodItemFiberLabel;
+
+  /// Label for the calories (kcal) field on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Calories (kcal)'**
+  String get sharedFoodItemKcalLabel;
+
+  /// Label for the measure-basis amount field (e.g. 50 for '50g') on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Measure amount'**
+  String get sharedFoodItemMeasureAmountLabel;
+
+  /// Label for the measure-basis unit field ('g' or 'ml') on the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Measure unit'**
+  String get sharedFoodItemMeasureUnitLabel;
+
+  /// Label for the shared dictionary item form's submit button, for both create and edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get sharedFoodItemSubmitButton;
+
+  /// Validation error shown next to the measure fields when only one of amount/unit is filled in.
+  ///
+  /// In en, this message translates to:
+  /// **'Give both the measure amount and unit, or leave them both empty.'**
+  String get sharedFoodItemMeasurePairError;
+
+  /// Validation error shown next to the measure amount field when it is zero or negative.
+  ///
+  /// In en, this message translates to:
+  /// **'The measure amount must be greater than zero.'**
+  String get sharedFoodItemMeasureAmountPositiveError;
+
+  /// Validation error shown on the shared dictionary item form when a numeric macro/portion field is unparseable or negative, naming the offending field's label.
+  ///
+  /// In en, this message translates to:
+  /// **'{field} must be zero or a positive number.'**
+  String sharedFoodItemNumberFieldError(String field);
+
+  /// Validation error shown next to the name field on the shared dictionary item form (create or edit mode) when it is blank; blocks submission.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required.'**
+  String get sharedFoodItemNameRequiredError;
+
+  /// SnackBar shown after successfully creating a shared dictionary item.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared item created.'**
+  String get sharedFoodItemCreateSuccess;
+
+  /// SnackBar shown after successfully editing a shared dictionary item.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared item updated.'**
+  String get sharedFoodItemEditSuccess;
+
+  /// Error shown in the shared dictionary item form when the backend refuses the request because the user is not an administrator, distinct from a generic retryable failure.
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to do this.'**
+  String get sharedFoodItemForbiddenError;
+
+  /// Retryable error shown in the shared dictionary item form when the create/update request fails for a reason other than a permission refusal.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please try again.'**
+  String get sharedFoodItemSaveFailed;
+
+  /// Error shown in the shared dictionary item form when the create/update request fails because the session expired (401), distinct from the generic retryable saveFailed message so the admin knows retrying won't help without signing in again.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again to save this.'**
+  String get sharedFoodItemNeedsReauthError;
+
+  /// Tooltip/accessible label for the app-bar action, shown only to administrators, that opens the empty create-shared-item form.
+  ///
+  /// In en, this message translates to:
+  /// **'New shared item'**
+  String get createSharedItemTooltip;
+
+  /// Tooltip/accessible label for the per-row action, shown only to administrators on shared items, that opens the edit-shared-item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit shared item'**
+  String get editSharedItemTooltip;
+
+  /// Label for the single item inside the per-row '⋮' menu on a shared item, shown only to administrators. Kept short and generic (unlike the menu's own descriptive tooltip) since the menu already scopes it to this row; a future 'delete' entry will join it in the same menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editSharedItemMenuLabel;
+
+  /// Section heading above the four food-group portion fields (staple/meat/fruit/veg) in the shared dictionary item form, naming them as portion counts.
+  ///
+  /// In en, this message translates to:
+  /// **'Portions'**
+  String get sharedFoodItemPortionsHeading;
+
+  /// Section heading above the six macro/calorie fields (carbs/protein/fat/sugar/fiber/kcal) in the shared dictionary item form.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrients'**
+  String get sharedFoodItemNutrientsHeading;
 }
 
 class _AppLocalizationsDelegate

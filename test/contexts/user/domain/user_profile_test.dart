@@ -31,5 +31,43 @@ void main() {
       expect(profile.email, isNull);
       expect(profile.displayName, isNull);
     });
+
+    test('maps is_admin: true to isAdmin true', () {
+      final profile = UserProfile.fromJson({
+        'id': 'user-1',
+        'firebase_uid': 'firebase-abc',
+        'email': null,
+        'display_name': null,
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'is_admin': true,
+      });
+
+      expect(profile.isAdmin, isTrue);
+    });
+
+    test('maps is_admin: false to isAdmin false', () {
+      final profile = UserProfile.fromJson({
+        'id': 'user-1',
+        'firebase_uid': 'firebase-abc',
+        'email': null,
+        'display_name': null,
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'is_admin': false,
+      });
+
+      expect(profile.isAdmin, isFalse);
+    });
+
+    test('treats a missing is_admin key as isAdmin false, not a throw', () {
+      final profile = UserProfile.fromJson({
+        'id': 'user-1',
+        'firebase_uid': 'firebase-abc',
+        'email': null,
+        'display_name': null,
+        'created_at': '2026-01-01T00:00:00.000Z',
+      });
+
+      expect(profile.isAdmin, isFalse);
+    });
   });
 }

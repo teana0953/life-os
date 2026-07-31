@@ -116,6 +116,40 @@ void main() {
       expect(entry.measureMode, isFalse);
     });
 
+    test('a tray item keeps the FoodItem snapshot it was added with, even if the same id is later edited', () {
+      final controller = CreateMealController(CreateMeal(FakeMealRepository()))
+        ..start('lunch');
+      final original = _riceItem();
+
+      controller.add(original);
+
+      // An admin edit doesn't mutate the existing FoodItem (it's immutable);
+      // it produces a NEW instance with the same id — design.md D10: the
+      // tray must not pick that up retroactively.
+      final edited = FoodItem.fromJson({
+        'id': original.id,
+        'owner_user_id': null,
+        'name': original.name,
+        'carb_g': 999,
+        'protein_g': original.proteinG,
+        'fat_g': original.fatG,
+        'sugar_g': original.sugarG,
+        'fiber_g': original.fiberG,
+        'kcal': original.kcal,
+        'staple': 999,
+        'meat': original.meat,
+        'fruit': original.fruit,
+        'veg': original.veg,
+        'base_amount': original.baseAmount,
+        'measure_unit': original.measureUnit,
+      });
+
+      final trayItem = controller.tray.single as TrayItem;
+      expect(trayItem.item.staple, original.staple);
+      expect(trayItem.item.staple, isNot(edited.staple));
+      expect(identical(trayItem.item, edited), isFalse);
+    });
+
     test('remove removes exactly the given tray item', () {
       final controller = CreateMealController(CreateMeal(FakeMealRepository()))
         ..start('lunch');

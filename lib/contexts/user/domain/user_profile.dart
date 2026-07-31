@@ -5,6 +5,7 @@ class UserProfile {
   final String? email;
   final String? displayName;
   final String createdAt;
+  final bool isAdmin;
 
   UserProfile({
     required this.id,
@@ -12,6 +13,7 @@ class UserProfile {
     required this.email,
     required this.displayName,
     required this.createdAt,
+    required this.isAdmin,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class UserProfile {
       email: json['email'] as String?,
       displayName: json['display_name'] as String?,
       createdAt: json['created_at'] as String,
+      isAdmin: json['is_admin'] as bool? ?? false,
     );
   }
 }

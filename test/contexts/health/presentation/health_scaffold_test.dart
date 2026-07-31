@@ -42,6 +42,8 @@ import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
+import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
@@ -334,6 +336,17 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   @override
   Future<void> unfavorite(String idToken, String foodItemId) =>
       throw UnimplementedError();
+
+  @override
+  Future<FoodItem> createSharedItem(String idToken, SharedFoodItemInput input) =>
+      throw UnimplementedError();
+
+  @override
+  Future<FoodItem> updateSharedItem(
+    String idToken,
+    String id,
+    SharedFoodItemPatch patch,
+  ) => throw UnimplementedError();
 }
 
 class _FakeWaterRepository implements WaterRepository {

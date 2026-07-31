@@ -1434,6 +1434,86 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cancel => '取消';
+
+  @override
+  String get sharedFoodItemCreateTitle => '新增共用品項';
+
+  @override
+  String get sharedFoodItemEditTitle => '編輯共用品項';
+
+  @override
+  String get sharedFoodItemNameLabel => '名稱';
+
+  @override
+  String get sharedFoodItemCarbLabel => '碳水化合物 (g)';
+
+  @override
+  String get sharedFoodItemProteinLabel => '蛋白質 (g)';
+
+  @override
+  String get sharedFoodItemFatLabel => '脂肪 (g)';
+
+  @override
+  String get sharedFoodItemSugarLabel => '糖 (g)';
+
+  @override
+  String get sharedFoodItemFiberLabel => '纖維 (g)';
+
+  @override
+  String get sharedFoodItemKcalLabel => '熱量 (kcal)';
+
+  @override
+  String get sharedFoodItemMeasureAmountLabel => '量基準數量';
+
+  @override
+  String get sharedFoodItemMeasureUnitLabel => '量基準單位';
+
+  @override
+  String get sharedFoodItemSubmitButton => '儲存';
+
+  @override
+  String get sharedFoodItemMeasurePairError => '數量與單位要一起填,或一起留空。';
+
+  @override
+  String get sharedFoodItemMeasureAmountPositiveError => '數量必須大於零。';
+
+  @override
+  String sharedFoodItemNumberFieldError(String field) {
+    return '$field必須是零或正數。';
+  }
+
+  @override
+  String get sharedFoodItemNameRequiredError => '名稱為必填。';
+
+  @override
+  String get sharedFoodItemCreateSuccess => '已建立共用品項。';
+
+  @override
+  String get sharedFoodItemEditSuccess => '已更新共用品項。';
+
+  @override
+  String get sharedFoodItemForbiddenError => '你沒有權限執行此操作。';
+
+  @override
+  String get sharedFoodItemSaveFailed => '儲存失敗,請再試一次。';
+
+  @override
+  String get sharedFoodItemNeedsReauthError => '請重新登入以儲存。';
+
+  @override
+  String get createSharedItemTooltip => '新增共用品項';
+
+  @override
+  String get editSharedItemTooltip => '編輯共用品項';
+
+  @override
+  String get editSharedItemMenuLabel => '編輯';
+
+  @override
+  String get sharedFoodItemPortionsHeading => '份量';
+
+  @override
+  String get sharedFoodItemNutrientsHeading => '營養素';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2866,4 +2946,84 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cancel => '取消';
+
+  @override
+  String get sharedFoodItemCreateTitle => '新增共用品項';
+
+  @override
+  String get sharedFoodItemEditTitle => '編輯共用品項';
+
+  @override
+  String get sharedFoodItemNameLabel => '名稱';
+
+  @override
+  String get sharedFoodItemCarbLabel => '碳水化合物 (g)';
+
+  @override
+  String get sharedFoodItemProteinLabel => '蛋白質 (g)';
+
+  @override
+  String get sharedFoodItemFatLabel => '脂肪 (g)';
+
+  @override
+  String get sharedFoodItemSugarLabel => '糖 (g)';
+
+  @override
+  String get sharedFoodItemFiberLabel => '纖維 (g)';
+
+  @override
+  String get sharedFoodItemKcalLabel => '熱量 (kcal)';
+
+  @override
+  String get sharedFoodItemMeasureAmountLabel => '量基準數量';
+
+  @override
+  String get sharedFoodItemMeasureUnitLabel => '量基準單位';
+
+  @override
+  String get sharedFoodItemSubmitButton => '儲存';
+
+  @override
+  String get sharedFoodItemMeasurePairError => '數量與單位要一起填,或一起留空。';
+
+  @override
+  String get sharedFoodItemMeasureAmountPositiveError => '數量必須大於零。';
+
+  @override
+  String sharedFoodItemNumberFieldError(String field) {
+    return '$field必須是零或正數。';
+  }
+
+  @override
+  String get sharedFoodItemNameRequiredError => '名稱為必填。';
+
+  @override
+  String get sharedFoodItemCreateSuccess => '已建立共用品項。';
+
+  @override
+  String get sharedFoodItemEditSuccess => '已更新共用品項。';
+
+  @override
+  String get sharedFoodItemForbiddenError => '你沒有權限執行此操作。';
+
+  @override
+  String get sharedFoodItemSaveFailed => '儲存失敗,請再試一次。';
+
+  @override
+  String get sharedFoodItemNeedsReauthError => '請重新登入以儲存。';
+
+  @override
+  String get createSharedItemTooltip => '新增共用品項';
+
+  @override
+  String get editSharedItemTooltip => '編輯共用品項';
+
+  @override
+  String get editSharedItemMenuLabel => '編輯';
+
+  @override
+  String get sharedFoodItemPortionsHeading => '份量';
+
+  @override
+  String get sharedFoodItemNutrientsHeading => '營養素';
 }

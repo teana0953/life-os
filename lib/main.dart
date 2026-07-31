@@ -30,6 +30,7 @@ import 'contexts/exercise/infrastructure/http_exercise_repository.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/health/application/change_meal_time.dart';
 import 'contexts/health/application/create_meal.dart';
+import 'contexts/health/application/create_shared_food_item.dart';
 import 'contexts/health/application/delete_meal.dart';
 import 'contexts/health/application/delete_meal_item.dart';
 import 'contexts/health/application/edit_meal_item.dart';
@@ -41,6 +42,7 @@ import 'contexts/health/application/list_favorites.dart';
 import 'contexts/health/application/search_dictionary.dart';
 import 'contexts/health/application/set_daily_target.dart';
 import 'contexts/health/application/unfavorite_food.dart';
+import 'contexts/health/application/update_shared_food_item.dart';
 import 'contexts/health/infrastructure/http_daily_target_repository.dart';
 import 'contexts/health/infrastructure/http_food_dictionary_repository.dart';
 import 'contexts/health/infrastructure/http_meal_repository.dart';
@@ -71,6 +73,7 @@ import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
+import 'contexts/health/presentation/shared_food_item_controller.dart';
 import 'contexts/health/presentation/today_controller.dart';
 import 'contexts/hydration/application/add_water.dart';
 import 'contexts/hydration/application/get_water_day.dart';
@@ -152,6 +155,10 @@ Future<void> main() async {
   );
   final healthCreateMealController = CreateMealController(
     CreateMeal(mealRepository),
+  );
+  final healthSharedFoodItemController = SharedFoodItemController(
+    CreateSharedFoodItem(foodDictionaryRepository),
+    UpdateSharedFoodItem(foodDictionaryRepository),
   );
   final healthGetLoggedDays = GetLoggedDays(mealRepository);
   final waterRepository = HttpWaterRepository(
@@ -310,6 +317,7 @@ Future<void> main() async {
       healthDictionaryController: healthDictionaryController,
       healthDailyTargetController: healthDailyTargetController,
       healthCreateMealController: healthCreateMealController,
+      healthSharedFoodItemController: healthSharedFoodItemController,
       healthGetLoggedDays: healthGetLoggedDays,
       waterController: waterController,
       bowelController: bowelController,
