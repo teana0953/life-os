@@ -1,13 +1,28 @@
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
+import 'package:life_os/contexts/finance/application/upsert_budget.dart';
+import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
+
+/// An overall (`categoryId` `null`) or category budget definition — recurring
+/// across months, mirroring the real backend (design.md: budgets apply to
+/// every month, only [FinanceBudget.spent]/`remaining`/`percent` vary).
+class _BudgetDef {
+  final String id;
+  final String? categoryId;
+  final int amount;
+
+  const _BudgetDef({required this.id, required this.categoryId, required this.amount});
+}
 
 /// A shared in-memory [FinanceRepository] fake for finance presentation/
 /// widget tests: seeded categories, per-month transactions, and a summary
@@ -16,6 +31,24 @@ class FakeFinanceRepository implements FinanceRepository {
   final Map<String, List<FinanceTransaction>> byMonth = {};
   int nextId = 1;
   Object? failNext;
+
+  final List<_BudgetDef> _budgetDefs = [];
+  int _nextBudgetId = 1;
+  final List<String> budgetCalls = [];
+
+  /// Throws [FinanceValidationFailure] the [failOnBudgetCallNumber]th time
+  /// `upsertBudget`/`deleteBudget` is called — the batch partial-failure case.
+  int? failOnBudgetCallNumber;
+  int _budgetCallCount = 0;
+
+  /// Seeds an existing budget directly, without recording a [budgetCalls]
+  /// entry or advancing [failOnBudgetCallNumber]'s counter — for setting up a
+  /// widget test's starting state.
+  void seedBudget({String? categoryId, required int amount}) {
+    _budgetDefs.add(
+      _BudgetDef(id: 'budget${_nextBudgetId++}', categoryId: categoryId, amount: amount),
+    );
+  }
 
   List<FinanceCategory> categoriesToReturn = const [
     FinanceCategory(
@@ -191,6 +224,86 @@ class FakeFinanceRepository implements FinanceRepository {
       list.removeWhere((t) => t.id == id);
     }
   }
+
+  int _spentFor(String month, String? categoryId) {
+    final txns = byMonth[month] ?? const [];
+    return txns
+        .where(
+          (t) =>
+              t.type == FinanceType.expense &&
+              t.currency == 'TWD' &&
+              (categoryId == null || t.categoryId == categoryId),
+        )
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  @override
+  Future<List<FinanceBudget>> listBudgets(String idToken, String month) async {
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    return [
+      for (final def in _budgetDefs)
+        FinanceBudget(
+          id: def.id,
+          categoryId: def.categoryId,
+          amount: def.amount,
+          spent: _spentFor(month, def.categoryId),
+          remaining: def.amount - _spentFor(month, def.categoryId),
+          percent: def.amount == 0
+              ? 0
+              : ((_spentFor(month, def.categoryId) * 100) / def.amount).round(),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> upsertBudget(
+    String idToken, {
+    String? categoryId,
+    required int amount,
+  }) async {
+    budgetCalls.add('upsert:$categoryId:$amount');
+    _budgetCallCount++;
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
+    }
+    final index = _budgetDefs.indexWhere((d) => d.categoryId == categoryId);
+    final def = _BudgetDef(
+      id: index >= 0 ? _budgetDefs[index].id : 'budget${_nextBudgetId++}',
+      categoryId: categoryId,
+      amount: amount,
+    );
+    if (index >= 0) {
+      _budgetDefs[index] = def;
+    } else {
+      _budgetDefs.add(def);
+    }
+  }
+
+  @override
+  Future<void> deleteBudget(String idToken, String id) async {
+    budgetCalls.add('delete:$id');
+    _budgetCallCount++;
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
+    }
+    _budgetDefs.removeWhere((d) => d.id == id);
+  }
 }
 
 FinanceController testFinanceController(FakeFinanceRepository repo) =>
@@ -199,4 +312,6 @@ FinanceController testFinanceController(FakeFinanceRepository repo) =>
       AddTransaction(repo),
       UpdateTransaction(repo),
       DeleteTransaction(repo),
+      UpsertBudget(repo),
+      DeleteBudget(repo),
     );

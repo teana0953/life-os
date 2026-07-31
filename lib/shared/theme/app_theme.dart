@@ -270,6 +270,16 @@ Color financeIncomeColor(ColorScheme scheme) =>
         ? financeIncomeTextLight
         : sageSuccess;
 
+/// The finance budget card's "≥80% approaching the limit" warning color
+/// (design.md): `honeyWarning` is a pastel and fails AA (2.08:1) as
+/// foreground text on the light card — mirrors [financeIncomeColor]'s
+/// AA-safe swap with the deeper [financeBudgetWarningTextLight] (4.96:1).
+/// The dark theme's pastel already clears AA (6.97:1) and is kept.
+Color financeBudgetWarningColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.light
+        ? financeBudgetWarningTextLight
+        : honeyWarning;
+
 /// The "toy ledge" shadow used under cards and primary buttons: a soft,
 /// downward-offset shadow rather than a symmetric `elevation` blur. Wrap a
 /// `Container`/`Material` with this via `BoxDecoration.boxShadow`.

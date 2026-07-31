@@ -60,6 +60,15 @@ const importRunningIconLight = Color(0xFF3F8FA6); // 3.63:1 on #FFFDF8
 // kept as-is (see `financeIncomeColor` in `app_theme.dart`).
 const financeIncomeTextLight = Color(0xFF2E6B41); // 6.26:1 on #FFFDF8
 
+// Same idea again, for the finance budget card's "approaching the limit"
+// (>= 80%) warning row (design.md): `honeyWarning` is a pastel meant for
+// borders/fills, not foreground text — only ~2.08:1 on the light card, far
+// under AA. `financeBudgetWarningTextLight` keeps the honey hue and drops
+// lightness to clear AA (4.96:1 on `surfaceLight`). The dark theme's pastel
+// already clears AA there (6.97:1) and is kept as-is (see
+// `financeBudgetWarningColor` in `app_theme.dart`).
+const financeBudgetWarningTextLight = Color(0xFF8A6A1E); // 4.96:1 on #FFFDF8
+
 // Diet category colors (staple/meat/fruit/veg) — exposed via the
 // `DietCategoryColors` ThemeExtension in `app_theme.dart`, never referenced
 // directly from screens.

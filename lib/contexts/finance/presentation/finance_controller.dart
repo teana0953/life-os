@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import '../application/add_transaction.dart';
+import '../application/delete_budget.dart';
 import '../application/delete_transaction.dart';
 import '../application/get_finance_month.dart';
 import '../application/update_transaction.dart';
+import '../application/upsert_budget.dart';
+import '../domain/finance_budget.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_exceptions.dart';
 import '../domain/finance_month.dart';
@@ -37,12 +40,16 @@ class FinanceController extends ChangeNotifier {
   final AddTransaction _addTransaction;
   final UpdateTransaction _updateTransaction;
   final DeleteTransaction _deleteTransaction;
+  final UpsertBudget _upsertBudget;
+  final DeleteBudget _deleteBudget;
 
   FinanceController(
     this._getFinanceMonth,
     this._addTransaction,
     this._updateTransaction,
     this._deleteTransaction,
+    this._upsertBudget,
+    this._deleteBudget,
   );
 
   /// `YYYY-MM`. Empty until the first [load] call — callers compute the
@@ -56,6 +63,7 @@ class FinanceController extends ChangeNotifier {
   List<FinanceCategory> categories = [];
   List<FinanceTransaction> transactions = [];
   MonthlySummary? summary;
+  List<FinanceBudget> budgets = [];
 
   /// Loads [month]'s categories, summary, and transactions. Sets
   /// [selectedMonth] to [month] synchronously (so a concurrent call started
@@ -82,6 +90,7 @@ class FinanceController extends ChangeNotifier {
     if (isMonthChange) {
       summary = null;
       transactions = [];
+      budgets = [];
     }
     if (notifyOnStart) notifyListeners();
 
@@ -94,6 +103,7 @@ class FinanceController extends ChangeNotifier {
       categories = data.categories;
       summary = data.summary;
       transactions = data.transactions;
+      budgets = data.budgets;
       status = FinanceStatus.loaded;
     } on FinanceReauthenticationRequired {
       if (selectedMonth != month) return;
@@ -166,6 +176,71 @@ class FinanceController extends ChangeNotifier {
         await _deleteTransaction(idToken, id);
         await load(idToken, selectedMonth);
       });
+
+  /// Applies only the differences between [desired] and the currently loaded
+  /// [budgets], sequentially: [desired] maps a budget's `categoryId` (`null`
+  /// = overall) to its wanted amount — `null` or `0` means "not set". A
+  /// changed/new amount upserts, a cleared existing budget deletes, and an
+  /// untouched entry sends nothing (design.md's batch-diff rule).
+  ///
+  /// On success the month reloads and this returns with [status] `loaded`.
+  /// On failure of any step, the month reloads immediately — so the sheet
+  /// can show what was actually applied — and [status]/[error] then reflect
+  /// the failure (unless the reload itself needs reauth, which takes
+  /// priority). Because the diff is always computed against the *current*
+  /// [budgets], a caller that retries with the same [desired] map after a
+  /// failure will only re-send the steps that didn't already succeed.
+  Future<void> saveBudgets(String idToken, Map<String?, int?> desired) async {
+    final currentByCategory = {for (final budget in budgets) budget.categoryId: budget};
+    try {
+      for (final entry in desired.entries) {
+        final categoryId = entry.key;
+        final wantedAmount = entry.value;
+        final current = currentByCategory[categoryId];
+        if (wantedAmount == null || wantedAmount == 0) {
+          if (current != null) await _deleteBudget(idToken, current.id);
+        } else if (current == null || current.amount != wantedAmount) {
+          await _upsertBudget(idToken, categoryId: categoryId, amount: wantedAmount);
+        }
+      }
+      await load(idToken, selectedMonth);
+      return;
+    } on FinanceReauthenticationRequired {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.needsReauth;
+        notifyListeners();
+      }
+    } on FinanceValidationFailure {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.validation;
+        notifyListeners();
+      }
+    } on FinanceNotFound {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.notFound;
+        notifyListeners();
+      }
+    } on FinanceFetchFailure {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.fetchFailed;
+        notifyListeners();
+      }
+    } catch (_) {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.unknown;
+        notifyListeners();
+      }
+    }
+  }
 
   /// Runs a write [action], mapping its typed failures onto [status]/[error]
   /// — mirrors `ExerciseController._apply`: on failure the previously loaded

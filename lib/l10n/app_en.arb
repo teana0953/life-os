@@ -2205,5 +2205,49 @@
   "financeCategoryBreakdown": "By category",
   "@financeCategoryBreakdown": {
     "description": "Section heading above the per-category expense breakdown bars on the overview tab."
+  },
+  "financeBudgetCardTitle": "Budget",
+  "@financeBudgetCardTitle": {
+    "description": "Title of the budget progress card on the overview tab."
+  },
+  "financeBudgetOverallLabel": "Overall",
+  "@financeBudgetOverallLabel": {
+    "description": "Row label for the overall (non-category-specific) budget."
+  },
+  "financeBudgetEmptyTitle": "No budgets set yet",
+  "@financeBudgetEmptyTitle": {
+    "description": "Guidance shown on the budget card when no budgets are set."
+  },
+  "financeBudgetEmptyCta": "Set a budget",
+  "@financeBudgetEmptyCta": {
+    "description": "Call-to-action button on the budget card's empty state, opens the budget sheet."
+  },
+  "financeBudgetOverLabel": "Over budget",
+  "@financeBudgetOverLabel": {
+    "description": "Badge label shown on a budget row that has reached or exceeded 100%."
+  },
+  "financeBudgetSheetTitle": "Budgets",
+  "@financeBudgetSheetTitle": {
+    "description": "Title of the budget-setting bottom sheet."
+  },
+  "financeBudgetSheetHint": "Budgets are recurring monthly settings and apply to every month.",
+  "@financeBudgetSheetHint": {
+    "description": "Explanatory text shown under the budget sheet's title."
+  },
+  "financeBudgetArchivedLabel": "Archived — can only be cleared",
+  "@financeBudgetArchivedLabel": {
+    "description": "Shown under an archived category's budget field in the budget sheet."
+  },
+  "financeBudgetClearButton": "Clear",
+  "@financeBudgetClearButton": {
+    "description": "Button that marks an archived category's budget to be deleted on save."
+  },
+  "financeBudgetClearedLabel": "Will be cleared",
+  "@financeBudgetClearedLabel": {
+    "description": "Shown after tapping the clear button for an archived category's budget."
+  },
+  "financeBudgetInvalidAmount": "Enter a valid amount",
+  "@financeBudgetInvalidAmount": {
+    "description": "Field error shown when a budget amount has content but isn't a positive whole number; leaving it empty clears the budget instead."
   }
 }

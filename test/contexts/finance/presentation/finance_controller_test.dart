@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
+import 'package:life_os/contexts/finance/application/upsert_budget.dart';
+import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
@@ -24,6 +27,20 @@ class FakeFinanceRepository implements FinanceRepository {
   /// When set for a month, `getSummary` for that month awaits the completer
   /// instead of resolving immediately.
   final Map<String, Completer<void>> gates = {};
+
+  /// When set for a month, `listBudgets` for that month awaits the completer
+  /// instead of resolving immediately (the budgets race test's slow leg).
+  final Map<String, Completer<void>> budgetGates = {};
+
+  final List<_BudgetDef> _budgetDefs = [];
+  int _nextBudgetId = 1;
+  final List<String> budgetCalls = [];
+
+  /// Throws [failNext] the [n]th time `upsertBudget`/`deleteBudget` is
+  /// called (1-indexed), instead of on the very next call — lets a test make
+  /// a later step of a batch fail while an earlier one succeeds.
+  int? failOnBudgetCallNumber;
+  int _budgetCallCount = 0;
 
   @override
   Future<List<FinanceCategory>> getCategories(String idToken) async {
@@ -158,6 +175,98 @@ class FakeFinanceRepository implements FinanceRepository {
       list.removeWhere((t) => t.id == id);
     }
   }
+
+  int _spentFor(String month, String? categoryId) {
+    final txns = _byMonth[month] ?? const [];
+    return txns
+        .where(
+          (t) =>
+              t.type == FinanceType.expense &&
+              t.currency == 'TWD' &&
+              (categoryId == null || t.categoryId == categoryId),
+        )
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  @override
+  Future<List<FinanceBudget>> listBudgets(String idToken, String month) async {
+    final gate = budgetGates[month];
+    if (gate != null) await gate.future;
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    return [
+      for (final def in _budgetDefs)
+        FinanceBudget(
+          id: def.id,
+          categoryId: def.categoryId,
+          amount: def.amount,
+          spent: _spentFor(month, def.categoryId),
+          remaining: def.amount - _spentFor(month, def.categoryId),
+          percent: def.amount == 0
+              ? 0
+              : ((_spentFor(month, def.categoryId) * 100) / def.amount).round(),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> upsertBudget(
+    String idToken, {
+    String? categoryId,
+    required int amount,
+  }) async {
+    budgetCalls.add('upsert:$categoryId:$amount');
+    _budgetCallCount++;
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
+    }
+    final index = _budgetDefs.indexWhere((d) => d.categoryId == categoryId);
+    final def = _BudgetDef(
+      id: index >= 0 ? _budgetDefs[index].id : 'budget${_nextBudgetId++}',
+      categoryId: categoryId,
+      amount: amount,
+    );
+    if (index >= 0) {
+      _budgetDefs[index] = def;
+    } else {
+      _budgetDefs.add(def);
+    }
+  }
+
+  @override
+  Future<void> deleteBudget(String idToken, String id) async {
+    budgetCalls.add('delete:$id');
+    _budgetCallCount++;
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    if (failOnBudgetCallNumber == _budgetCallCount) {
+      failOnBudgetCallNumber = null;
+      throw const FinanceValidationFailure();
+    }
+    _budgetDefs.removeWhere((d) => d.id == id);
+  }
+}
+
+/// An overall (`categoryId` `null`) or category budget definition — recurring
+/// across months, mirroring the real backend.
+class _BudgetDef {
+  final String id;
+  final String? categoryId;
+  final int amount;
+
+  const _BudgetDef({required this.id, required this.categoryId, required this.amount});
 }
 
 FinanceController _controller(FakeFinanceRepository repo) => FinanceController(
@@ -165,6 +274,8 @@ FinanceController _controller(FakeFinanceRepository repo) => FinanceController(
   AddTransaction(repo),
   UpdateTransaction(repo),
   DeleteTransaction(repo),
+  UpsertBudget(repo),
+  DeleteBudget(repo),
 );
 
 void main() {
@@ -306,6 +417,164 @@ void main() {
         expect(notifyCount, 2);
       },
     );
+
+    test('populates budgets alongside categories/summary/transactions', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      await repo.upsertBudget('tok', categoryId: 'cat-food', amount: 3000);
+      repo.budgetCalls.clear();
+      final controller = _controller(repo);
+
+      await controller.load('tok', '2026-07');
+
+      expect(controller.budgets, hasLength(2));
+      expect(controller.budgets.map((b) => b.categoryId), containsAll([null, 'cat-food']));
+    });
+
+    test('switching months clears the old month\'s budgets synchronously', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      repo.gates['2026-08'] = Completer<void>();
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+      expect(controller.budgets, hasLength(1));
+
+      final future = controller.load('tok', '2026-08');
+      // Synchronously: July's budgets must already be gone before August's
+      // (gated) response resolves.
+      expect(controller.budgets, isEmpty);
+
+      repo.gates['2026-08']!.complete();
+      await future;
+      expect(controller.budgets, hasLength(1));
+    });
+
+    test(
+      'a slow budgets response for a previously selected month never lands '
+      'under the currently selected month',
+      () async {
+        final repo = FakeFinanceRepository();
+        await repo.upsertBudget('tok', amount: 10000);
+        repo.budgetGates['2026-07'] = Completer<void>();
+        final controller = _controller(repo);
+
+        final julyFuture = controller.load('tok', '2026-07');
+        final augustFuture = controller.load('tok', '2026-08');
+        await augustFuture;
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.budgets, hasLength(1));
+
+        repo.budgetGates['2026-07']!.complete();
+        await julyFuture;
+
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.budgets, hasLength(1));
+      },
+    );
+  });
+
+  group('saveBudgets', () {
+    test('sends only the diff: one upsert, one delete, unchanged skipped', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      await repo.upsertBudget('tok', categoryId: 'cat-food', amount: 3000);
+      repo.budgetCalls.clear();
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+      final existingId = controller.budgets.firstWhere((b) => b.categoryId == 'cat-food').id;
+
+      await controller.saveBudgets('tok', {
+        null: 25000, // changed
+        'cat-food': null, // cleared -> delete
+        // 'cat-transport' is intentionally absent — untouched fields send
+        // nothing, so it's simply never included in the desired map.
+      });
+
+      expect(repo.budgetCalls, ['upsert:null:25000', 'delete:$existingId']);
+      expect(controller.status, FinanceStatus.loaded);
+      expect(controller.budgets, hasLength(1));
+      expect(controller.budgets.single.categoryId, isNull);
+      expect(controller.budgets.single.amount, 25000);
+    });
+
+    test('an unchanged amount sends nothing', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      repo.budgetCalls.clear();
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+
+      await controller.saveBudgets('tok', {null: 10000});
+
+      expect(repo.budgetCalls, isEmpty);
+      expect(controller.status, FinanceStatus.loaded);
+    });
+
+    test('amount 0 is treated the same as clearing (delete)', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      repo.budgetCalls.clear();
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+      final id = controller.budgets.single.id;
+
+      await controller.saveBudgets('tok', {null: 0});
+
+      expect(repo.budgetCalls, ['delete:$id']);
+      expect(controller.budgets, isEmpty);
+    });
+
+    test(
+      'partial failure: reloads immediately showing the applied step, keeps '
+      'the failed step reflected as an error, and a retry does not re-send '
+      'the already-applied delete',
+      () async {
+        final repo = FakeFinanceRepository();
+        await repo.upsertBudget('tok', amount: 10000);
+        await repo.upsertBudget('tok', categoryId: 'cat-food', amount: 3000);
+        repo.budgetCalls.clear();
+        repo._budgetCallCount = 0;
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        final foodId = controller.budgets.firstWhere((b) => b.categoryId == 'cat-food').id;
+
+        // Batch: delete cat-food (succeeds, call #1), then upsert the
+        // overall budget (fails, call #2).
+        repo.failOnBudgetCallNumber = 2;
+        await controller.saveBudgets('tok', {'cat-food': null, null: 25000});
+
+        expect(repo.budgetCalls, ['delete:$foodId', 'upsert:null:25000']);
+        // The reload reflects the delete that did apply.
+        expect(controller.budgets, hasLength(1));
+        expect(controller.budgets.single.categoryId, isNull);
+        expect(controller.budgets.single.amount, 10000); // upsert never landed
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.error, FinanceError.validation);
+
+        // Retry with the same desired map: the diff is recomputed against
+        // the reloaded state, so the already-applied delete isn't resent —
+        // only the still-pending upsert goes out.
+        repo.budgetCalls.clear();
+        await controller.saveBudgets('tok', {'cat-food': null, null: 25000});
+
+        expect(repo.budgetCalls, ['upsert:null:25000']);
+        expect(controller.status, FinanceStatus.loaded);
+        expect(controller.budgets.single.amount, 25000);
+      },
+    );
+
+    test('a 401 during a batch surfaces needsReauth after reloading', () async {
+      final repo = FakeFinanceRepository();
+      await repo.upsertBudget('tok', amount: 10000);
+      repo.budgetCalls.clear();
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+
+      repo.failNext = const FinanceReauthenticationRequired();
+      await controller.saveBudgets('tok', {null: 25000});
+
+      expect(controller.status, FinanceStatus.needsReauth);
+    });
   });
 
   group('addTransaction', () {

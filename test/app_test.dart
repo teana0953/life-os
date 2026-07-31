@@ -38,9 +38,12 @@ import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/application/unfavorite_food.dart';
 import 'package:life_os/contexts/health/application/update_shared_food_item.dart';
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
+import 'package:life_os/contexts/finance/application/upsert_budget.dart';
+import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
@@ -529,6 +532,20 @@ class _FakeFinanceRepository implements FinanceRepository {
 
   @override
   Future<void> deleteTransaction(String idToken, String id) async {}
+
+  @override
+  Future<List<FinanceBudget>> listBudgets(String idToken, String month) async =>
+      const [];
+
+  @override
+  Future<void> upsertBudget(
+    String idToken, {
+    String? categoryId,
+    required int amount,
+  }) async {}
+
+  @override
+  Future<void> deleteBudget(String idToken, String id) async {}
 }
 
 class _FakeImportRepository implements ImportRepository {
@@ -1037,6 +1054,8 @@ Future<LocaleController> pumpApp(
           AddTransaction(repository),
           UpdateTransaction(repository),
           DeleteTransaction(repository),
+          UpsertBudget(repository),
+          DeleteBudget(repository),
         );
       }();
   final health = testHealthControllers(

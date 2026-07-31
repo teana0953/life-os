@@ -492,5 +492,15 @@
   "financeIncomeTotal": "收入",
   "financeNetTotal": "結餘",
   "financeRecentTransactions": "最近交易",
-  "financeCategoryBreakdown": "分類統計"
+  "financeCategoryBreakdown": "分類統計",
+  "financeBudgetCardTitle": "預算",
+  "financeBudgetOverallLabel": "總額",
+  "financeBudgetEmptyTitle": "尚未設定預算",
+  "financeBudgetEmptyCta": "設定預算",
+  "financeBudgetOverLabel": "已超支",
+  "financeBudgetSheetTitle": "預算設定",
+  "financeBudgetSheetHint": "預算為每月循環設定,修改即套用到所有月份。",
+  "financeBudgetArchivedLabel": "已封存,僅能清空",
+  "financeBudgetClearButton": "清空",
+  "financeBudgetClearedLabel": "將被清空"
 }
