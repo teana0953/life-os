@@ -90,7 +90,9 @@ picker 回 `DateTime`,而財務的月份切換路徑吃 `YYYY-MM` 字串。若�
 
 - `MonthPickerDialog`:年份切換、選月回傳正確 `DateTime`、取消回 null、first/last 邊界 disabled、當前月高亮。
 - `MonthNavHeader`:`onPickMonth` 為 null 時標籤不可點(既有行為不變);有傳時點擊開 dialog。
-- 財務兩處 + diet:點標籤開 dialog、選月後畫面切到該月(用既有 controller 的月份 gate,不繞過)。
+- 財務兩處:點標籤開 dialog、選月後畫面切到該月(用既有 controller 的月份 gate,不繞過)。
+- diet:點標題開 dialog、選月後月曆切到該月**且重抓該月 loggedDays**。
+- 月經:點標題開 dialog、選月後月曆切到該月。
 - 迴歸:既有 `finance-month-*` / `networth-month-*` / diet 月曆 / `menstrual-*-month` 測試全綠。
 - `TZ=UTC flutter test` 複驗(碰日期)。
 

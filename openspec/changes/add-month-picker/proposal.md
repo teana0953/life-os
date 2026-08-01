@@ -28,4 +28,4 @@ Issue #114:「健康或是財務裡的時間選擇,如果跨度大會不方便�
 - 新增 `lib/shared/widgets/month_picker_dialog.dart` + 測試。
 - `lib/shared/widgets/month_nav_header.dart`:+ 可選 `onPickMonth`(既有 key 與行為不變)。
 - `finance_overview_tab.dart` / `networth_tab.dart` / `diet_day_screen.dart` / `menstrual_calendar.dart`:接上跳轉。
-- `lib/l10n/*.arb` + generated(月份名、對話框標題、tooltip)。
+- `lib/l10n/*.arb` + generated(對話框標題、年份箭頭 tooltip;**月份名走 intl `DateFormat.MMM`,不進 ARB**)。
