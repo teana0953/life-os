@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 
 import '../../../support/l10n_test_app.dart';
@@ -296,6 +297,85 @@ void main() {
 
         expect(find.byKey(const Key('account-add-name')), findsOneWidget);
         _expectSheetHasDragHandle(tester);
+      });
+
+      /// Enough accounts that the management sheet's content is taller than the
+      /// viewport — the state the user actually hit. At this height the sheet
+      /// covers the whole screen, so there is no scrim left to tap: if the
+      /// handle stops working the sheet is not degraded, it is inescapable.
+      FakeFinanceRepository tallAccountsRepo() {
+        return FakeFinanceRepository()
+          ..accounts = [
+            for (var i = 0; i < 14; i++)
+              NetWorthAccount(
+                id: 'acc-asset-$i',
+                kind: NetWorthKind.asset,
+                name: '資產 $i',
+                sortOrder: i,
+                archived: false,
+              ),
+            for (var i = 0; i < 6; i++)
+              NetWorthAccount(
+                id: 'acc-liab-$i',
+                kind: NetWorthKind.liability,
+                name: '負債 $i',
+                sortOrder: i,
+                archived: false,
+              ),
+          ];
+      }
+
+      Future<Finder> openTallAccountSheet(WidgetTester tester) async {
+        await pumpScaffold(tester, tallAccountsRepo());
+        await tester.tap(find.byKey(const Key('networth-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('account-manage-button')));
+        await tester.pumpAndSettle();
+
+        final sheet = find.byType(BottomSheet);
+        expect(find.byKey(const Key('account-add-name')), findsOneWidget);
+        // Precondition for everything below: the sheet really does fill the
+        // viewport, leaving no scrim to tap outside of.
+        final sheetRect = tester.getRect(sheet);
+        final viewport = tester.view.physicalSize / tester.view.devicePixelRatio;
+        expect(sheetRect.top, lessThanOrEqualTo(0));
+        expect(sheetRect.height, greaterThanOrEqualTo(viewport.height));
+        return sheet;
+      }
+
+      testWidgets('pulling the handle down closes a viewport-filling sheet', (
+        tester,
+      ) async {
+        final sheet = await openTallAccountSheet(tester);
+
+        await tester.drag(_dragHandleIn(tester, sheet), const Offset(0, 500));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.byKey(const Key('account-add-name')), findsNothing);
+        // Closed the sheet, not popped the whole finance route — the original
+        // complaint was that the only way out took the user off the screen.
+        expect(find.byType(FinanceScaffold), findsOneWidget);
+        expect(find.byKey(const Key('networth-tab')), findsOneWidget);
+        expect(find.byKey(const Key('account-manage-button')), findsOneWidget);
+      });
+
+      testWidgets('pulling the content down scrolls it instead of closing', (
+        tester,
+      ) async {
+        final sheet = await openTallAccountSheet(tester);
+
+        // Well below the 48px handle strip: the content's own scrollable, which
+        // is exactly what swallowed the pull-down before the handle existed.
+        final sheetRect = tester.getRect(sheet);
+        await tester.dragFrom(
+          Offset(sheetRect.center.dx, sheetRect.top + 300),
+          const Offset(0, 500),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(find.byKey(const Key('account-add-name')), findsOneWidget);
       });
     });
   });
