@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/theme/app_theme.dart';
 import 'package:life_os/shared/widgets/month_picker_dialog.dart';
 
 import '../../support/l10n_test_app.dart';
+import '../../support/semantics_tree.dart';
 
 final _loc = lookupAppLocalizations(const Locale('en'));
 
@@ -18,12 +20,14 @@ Future<({DateTime? Function() result, bool Function() completed})> _open(
   DateTime? firstMonth,
   DateTime? lastMonth,
   Locale locale = const Locale('en'),
+  ThemeData? theme,
 }) async {
   DateTime? result;
   var completed = false;
   await tester.pumpWidget(
     l10nTestApp(
       locale: locale,
+      theme: theme,
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
@@ -269,7 +273,7 @@ void main() {
         await _open(tester, initialMonth: DateTime(2026, 7));
 
         final julyLabel = DateFormat.MMM('en').format(DateTime(2026, 7));
-        final july = _dataForLabel(tester, julyLabel);
+        final july = semanticsDataForLabel(tester, julyLabel);
         expect(
           july,
           isNotNull,
@@ -281,7 +285,7 @@ void main() {
         expect(july.flagsCollection.isSelected, isTrue);
 
         final juneLabel = DateFormat.MMM('en').format(DateTime(2026, 6));
-        final june = _dataForLabel(tester, juneLabel);
+        final june = semanticsDataForLabel(tester, juneLabel);
         expect(june, isNotNull);
         expect(june!.flagsCollection.isButton, isTrue);
         expect(june.flagsCollection.isSelected, isFalse);
@@ -289,30 +293,208 @@ void main() {
       },
     );
   });
-}
 
-/// The semantics data of the live-tree node whose merged label is [label].
-///
-/// Walks the real `SemanticsOwner` tree rather than reading a widget's cached
-/// node, so it can only pass when the node actually reaching the platform
-/// carries the flags.
-SemanticsData? _dataForLabel(WidgetTester tester, String label) {
-  var root = tester.getSemantics(find.byType(MaterialApp));
-  while (root.parent != null) {
-    root = root.parent!;
-  }
-  SemanticsData? found;
-  void visit(SemanticsNode node) {
-    final data = node.getSemanticsData();
-    // Nodes merged into an ancestor never reach the platform on their own —
-    // only the surviving node is what a screen reader reads.
-    if (!node.isMergedIntoParent && data.label == label) found ??= data;
-    node.visitChildren((child) {
-      visit(child);
-      return true;
+  group('month cell sizing', () {
+    // The uiux leg measured 40dp-tall, wrapping cells under the default
+    // dialog/button padding at 320dp — below the 48dp touch minimum. These
+    // measure the laid-out render boxes and the real paragraph, so they can
+    // only pass when the cells genuinely fit.
+    for (final width in [320.0, 360.0, 390.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final entry in {'default': null, 'app': lightTheme}.entries) {
+          testWidgets(
+            'cells are >=48dp tall and unwrapped at ${width.toInt()}dp / '
+            '${locale.toLanguageTag()} / ${entry.key} theme',
+            (tester) async {
+              await tester.binding.setSurfaceSize(Size(width, 800));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await _open(
+                tester,
+                initialMonth: DateTime(2026, 7),
+                locale: locale,
+                theme: entry.value,
+              );
+
+              for (var month = 1; month <= 12; month++) {
+                final cell = find.byKey(Key('month-picker-month-$month'));
+                expect(
+                  tester.getSize(cell).height,
+                  greaterThanOrEqualTo(48.0),
+                  reason: 'month $month is below the 48dp touch minimum',
+                );
+                final paragraph = tester.renderObject<RenderParagraph>(
+                  find.descendant(of: cell, matching: find.byType(RichText)),
+                );
+                // The height one line of this exact span occupies, laid out
+                // unconstrained — a laid-out cell taller than that wrapped,
+                // whether or not `maxLines` is in place to stop it.
+                final oneLine =
+                    TextPainter(
+                      text: paragraph.text,
+                      textDirection: paragraph.textDirection,
+                      textScaler: paragraph.textScaler,
+                    )..layout();
+                expect(
+                  paragraph.size.height,
+                  lessThanOrEqualTo(oneLine.height + 0.5),
+                  reason: 'month $month wrapped onto more than one line',
+                );
+                expect(
+                  paragraph.didExceedMaxLines,
+                  isFalse,
+                  reason: 'month $month is truncated by maxLines',
+                );
+              }
+            },
+          );
+        }
+      }
+    }
+  });
+
+  group('year list', () {
+    testWidgets('tapping the year label opens a list and picking a year '
+        'returns to the months', (tester) async {
+      final picker = await _open(tester, initialMonth: DateTime(2026, 7));
+
+      await tester.tap(find.byKey(const Key('month-picker-year-label')));
+      await tester.pumpAndSettle();
+
+      // The list replaces the grid — the two are not both live at once.
+      expect(find.byKey(const Key('month-picker-year-2024')), findsOneWidget);
+      expect(find.byKey(const Key('month-picker-month-1')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('month-picker-year-2024')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('month-picker-year-label')))
+            .data,
+        '2024',
+      );
+      expect(find.byKey(const Key('month-picker-month-1')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('month-picker-month-3')));
+      await tester.pumpAndSettle();
+      expect(picker.result(), DateTime(2024, 3, 1));
     });
-  }
 
-  visit(root);
-  return found;
+    testWidgets('the list opens near the current year, not at 1970', (
+      tester,
+    ) async {
+      await _open(tester, initialMonth: DateTime(2026, 7));
+      await tester.tap(find.byKey(const Key('month-picker-year-label')));
+      await tester.pumpAndSettle();
+
+      // Only the years around the current one are built, which is what
+      // "scrolled to the current year" means for a lazy list.
+      expect(find.byKey(const Key('month-picker-year-2026')), findsOneWidget);
+      expect(find.byKey(const Key('month-picker-year-1970')), findsNothing);
+      expect(find.byKey(const Key('month-picker-year-2100')), findsNothing);
+    });
+
+    testWidgets('a far year is reachable by scrolling the list', (
+      tester,
+    ) async {
+      final picker = await _open(tester, initialMonth: DateTime(2026, 7));
+      await tester.tap(find.byKey(const Key('month-picker-year-label')));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('month-picker-year-1999')),
+        -100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.byKey(const Key('month-picker-year-1999')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-month-2')));
+      await tester.pumpAndSettle();
+
+      expect(picker.result(), DateTime(1999, 2, 1));
+    });
+
+    testWidgets('the list only offers years the bounds can reach', (
+      tester,
+    ) async {
+      await _open(
+        tester,
+        initialMonth: DateTime(2026, 7),
+        firstMonth: DateTime(2025, 4),
+        lastMonth: DateTime(2027, 8),
+      );
+      await tester.tap(find.byKey(const Key('month-picker-year-label')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('month-picker-year-2025')), findsOneWidget);
+      expect(find.byKey(const Key('month-picker-year-2027')), findsOneWidget);
+      expect(find.byKey(const Key('month-picker-year-2024')), findsNothing);
+      expect(find.byKey(const Key('month-picker-year-2028')), findsNothing);
+    });
+  });
+
+  group('out-of-bounds initialMonth', () {
+    testWidgets('an initialMonth before firstMonth is clamped in, not a dead '
+        'end', (tester) async {
+      final picker = await _open(
+        tester,
+        initialMonth: DateTime(2020, 5),
+        firstMonth: DateTime(2026, 3),
+        lastMonth: DateTime(2026, 12),
+      );
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('month-picker-year-label')))
+            .data,
+        '2026',
+      );
+      expect(_monthEnabled(tester, 3), isTrue);
+      expect(_monthSelected(tester, 3), isTrue);
+
+      await tester.tap(find.byKey(const Key('month-picker-month-4')));
+      await tester.pumpAndSettle();
+      expect(picker.result(), DateTime(2026, 4, 1));
+    });
+
+    testWidgets('an initialMonth after lastMonth is clamped in', (
+      tester,
+    ) async {
+      await _open(
+        tester,
+        initialMonth: DateTime(2030, 5),
+        firstMonth: DateTime(2024, 1),
+        lastMonth: DateTime(2026, 9),
+      );
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('month-picker-year-label')))
+            .data,
+        '2026',
+      );
+      expect(_monthEnabled(tester, 9), isTrue);
+      expect(_monthSelected(tester, 9), isTrue);
+    });
+  });
+
+  group('affordance', () {
+    testWidgets('the year label shows a drop-down caret and a tooltip', (
+      tester,
+    ) async {
+      await _open(tester, initialMonth: DateTime(2026, 7));
+
+      expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('month-picker-year-label')),
+          matching: find.byWidgetPredicate(
+            (w) => w is Tooltip && w.message == _loc.monthPickerYearTooltip,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
 }

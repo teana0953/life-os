@@ -1733,6 +1733,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get monthPickerNextYearTooltip => '下一年';
+
+  @override
+  String get monthPickerYearTooltip => '選擇年份';
+
+  @override
+  String get monthPickerOpenTooltip => '選擇月份';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3464,4 +3470,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get monthPickerNextYearTooltip => '下一年';
+
+  @override
+  String get monthPickerYearTooltip => '選擇年份';
+
+  @override
+  String get monthPickerOpenTooltip => '選擇月份';
 }

@@ -537,5 +537,7 @@
   "monthNavNextTooltip": "下個月",
   "monthPickerTitle": "選擇月份",
   "monthPickerPreviousYearTooltip": "上一年",
-  "monthPickerNextYearTooltip": "下一年"
+  "monthPickerNextYearTooltip": "下一年",
+  "monthPickerYearTooltip": "選擇年份",
+  "monthPickerOpenTooltip": "選擇月份"
 }

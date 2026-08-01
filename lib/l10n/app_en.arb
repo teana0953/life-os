@@ -2389,5 +2389,13 @@
   "monthPickerNextYearTooltip": "Next year",
   "@monthPickerNextYearTooltip": {
     "description": "Tooltip/accessible label for the month picker's next-year arrow."
+  },
+  "monthPickerYearTooltip": "Select year",
+  "@monthPickerYearTooltip": {
+    "description": "Tooltip/accessible label for the month picker's year label, which opens a scrollable list of years."
+  },
+  "monthPickerOpenTooltip": "Select month",
+  "@monthPickerOpenTooltip": {
+    "description": "Tooltip/accessible label for a month label that opens the month picker."
   }
 }

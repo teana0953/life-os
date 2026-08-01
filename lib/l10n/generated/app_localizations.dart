@@ -3337,6 +3337,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next year'**
   String get monthPickerNextYearTooltip;
+
+  /// Tooltip/accessible label for the month picker's year label, which opens a scrollable list of years.
+  ///
+  /// In en, this message translates to:
+  /// **'Select year'**
+  String get monthPickerYearTooltip;
+
+  /// Tooltip/accessible label for a month label that opens the month picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Select month'**
+  String get monthPickerOpenTooltip;
 }
 
 class _AppLocalizationsDelegate

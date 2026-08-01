@@ -1792,4 +1792,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get monthPickerNextYearTooltip => 'Next year';
+
+  @override
+  String get monthPickerYearTooltip => 'Select year';
+
+  @override
+  String get monthPickerOpenTooltip => 'Select month';
 }
