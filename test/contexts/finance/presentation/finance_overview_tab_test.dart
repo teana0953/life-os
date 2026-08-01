@@ -312,5 +312,44 @@ void main() {
       expect(switches, 0);
       expect(controller.selectedMonth, '2026-07');
     });
+
+    // Regression: the month label's `▾` affordance added padding + an icon to
+    // a centred, non-shrinkable Row. Widget tests default to an 800x600
+    // surface, so nothing else in this mobile-first PWA's suite caught it.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final controller = testFinanceController(FakeFinanceRepository());
+            await controller.load('tok', '2026-07');
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: FinanceOverviewTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onAdd: () {},
+                    onEditBudgets: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expect(
+              find.byKey(const Key('finance-month-label')),
+              findsOneWidget,
+            );
+          },
+        );
+      }
+    }
   });
 }

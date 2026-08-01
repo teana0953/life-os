@@ -484,4 +484,37 @@ void main() {
       findsOneWidget,
     );
   });
+
+  // Regression: the month label's `▾` affordance added an icon to a centred,
+  // non-shrinkable Row inside the calendar dialog. Widget tests default to an
+  // 800x600 surface, so nothing else in this mobile-first PWA's suite caught
+  // it.
+  for (final width in [320.0, 360.0]) {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the calendar month header does not overflow at ${width.toInt()}dp, '
+        'locale=$locale',
+        (tester) async {
+          await tester.binding.setSurfaceSize(Size(width, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          await tester.pumpWidget(
+            l10nRouterTestApp(
+              locale: locale,
+              home: _dietDay(meals: _FakeMealRepository()),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('day-nav-label')));
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          expect(
+            find.byKey(const Key('calendar-month-label')),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+  }
 }

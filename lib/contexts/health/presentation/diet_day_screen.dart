@@ -364,12 +364,18 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                monthYearLabel(context, _visibleMonth),
-                                key: const Key('calendar-month-label'),
-                                style: theme.textTheme.bodyLarge,
+                              // `Flexible` + ellipsis so the label gives way
+                              // to the `▾` instead of overflowing on a 320dp
+                              // phone.
+                              Flexible(
+                                child: Text(
+                                  monthYearLabel(context, _visibleMonth),
+                                  key: const Key('calendar-month-label'),
+                                  style: theme.textTheme.bodyLarge,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              const Icon(Icons.arrow_drop_down),
+                              const Icon(Icons.arrow_drop_down, size: 20),
                             ],
                           ),
                         ),

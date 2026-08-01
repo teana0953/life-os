@@ -43,6 +43,7 @@ class MonthNavHeader extends StatelessWidget {
       monthLabel,
       key: Key('$keyPrefix-label'),
       style: Theme.of(context).textTheme.titleLarge,
+      overflow: TextOverflow.ellipsis,
     );
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -60,21 +61,32 @@ class MonthNavHeader extends StatelessWidget {
           // bare `InkWell` is only `tap`, which screen readers don't announce
           // as a button. The `▾` and the tooltip are the visible clue that the
           // label opens anything — without one nobody finds the picker.
-          Tooltip(
-            message: loc.monthPickerOpenTooltip,
-            child: Semantics(
-              button: true,
-              child: InkWell(
-                onTap: onPickMonth,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [label, const Icon(Icons.arrow_drop_down)],
+          // `Flexible` on both the entry and the label inside it: a `Row`
+          // lays a non-flexible child out with an *unbounded* main-axis
+          // constraint, so without the outer one the inner one can never
+          // shrink. Between them the label ellipsizes instead of overflowing
+          // on a 320dp phone — the `▾` + its padding cost ~48dp that this
+          // centred row had no other way to give back.
+          Flexible(
+            child: Tooltip(
+              message: loc.monthPickerOpenTooltip,
+              child: Semantics(
+                button: true,
+                child: InkWell(
+                  onTap: onPickMonth,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(child: label),
+                        const Icon(Icons.arrow_drop_down, size: 20),
+                      ],
+                    ),
                   ),
                 ),
               ),

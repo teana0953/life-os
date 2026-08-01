@@ -6,6 +6,7 @@ import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
+import 'package:life_os/shared/widgets/month_nav_header.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import 'package:intl/intl.dart';
@@ -381,5 +382,56 @@ void main() {
         _monthLabel(2026, 7),
       );
     });
+
+    // Regression: the month label's `▾` affordance added padding + an icon to
+    // a centred, non-shrinkable Row. Widget tests default to an 800x600
+    // surface, so nothing else in this mobile-first PWA's suite caught it.
+    // Pumped inline rather than through `_pumpTab`, which forces a 600dp-wide
+    // surface for the trend section.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 2400));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final controller = testNetWorthController(FakeFinanceRepository());
+            await controller.load('token', '2026-07');
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: NetWorthTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onEditAccountValue: (a) {},
+                    onManageAccounts: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            // Drains the *pre-existing* account-group total-row overflow —
+            // already on main at 320dp/en, unrelated to the `▾` — which
+            // otherwise fails this test outright. (Follow-up; not this
+            // change's regression.) The header is therefore asserted
+            // geometrically: both its ends must stay inside the surface.
+            tester.takeException();
+            final header = tester.getRect(find.byType(MonthNavHeader));
+            final prev = tester.getRect(
+              find.byKey(const Key('networth-month-previous')),
+            );
+            final next = tester.getRect(
+              find.byKey(const Key('networth-month-next')),
+            );
+            expect(prev.left, greaterThanOrEqualTo(header.left));
+            expect(next.right, lessThanOrEqualTo(header.right));
+          },
+        );
+      }
+    }
   });
 }

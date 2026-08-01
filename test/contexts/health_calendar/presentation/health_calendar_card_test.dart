@@ -49,6 +49,7 @@ Future<HealthCalendarController> _pump(
   WidgetTester tester,
   _FakeRepository repo, {
   int? weightAchievementRate = 75,
+  Locale locale = const Locale('en'),
 }) async {
   final controller = HealthCalendarController(
     GetHealthCalendar(repo),
@@ -57,6 +58,7 @@ Future<HealthCalendarController> _pump(
   await controller.load('token');
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: Scaffold(
         body: SingleChildScrollView(
           child: HealthCalendarCard(
@@ -340,5 +342,30 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
     });
+
+    // Regression: the month label's `▾` affordance added padding + an icon to
+    // a centred, non-shrinkable Row, which blew the card's header out of a
+    // narrow phone. Widget tests default to an 800x600 surface, so nothing
+    // else in this mobile-first PWA's suite would have caught it.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await _pump(tester, _FakeRepository(), locale: locale);
+
+            expect(tester.takeException(), isNull);
+            expect(
+              find.byKey(const Key('health-calendar-month-label')),
+              findsOneWidget,
+            );
+          },
+        );
+      }
+    }
   });
 }

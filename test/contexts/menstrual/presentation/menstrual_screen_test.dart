@@ -480,5 +480,46 @@ void main() {
         findsOneWidget,
       );
     });
+
+    // Regression: the month label's `▾` affordance added an icon to a centred,
+    // non-shrinkable Row. Widget tests default to an 800x600 surface, so
+    // nothing else in this mobile-first PWA's suite caught it.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 1400));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await _pumpScreen(
+              tester,
+              FakeMenstrualRepository(),
+              locale: locale,
+            );
+
+            // Drains the *pre-existing* `menstrual-legend` overflow — already
+            // on main at these widths, unrelated to the `▾` — which otherwise
+            // fails every narrow-width test on this screen. (Follow-up; not
+            // this change's regression.) The header is therefore asserted
+            // geometrically: both its ends must stay inside the surface.
+            tester.takeException();
+            final entry = tester.getRect(
+              find.ancestor(
+                of: find.byKey(const Key('menstrual-month-label')),
+                matching: find.byType(Tooltip),
+              ),
+            );
+            final label = tester.getRect(
+              find.byKey(const Key('menstrual-month-label')),
+            );
+            final caret = tester.getRect(find.byIcon(Icons.arrow_drop_down));
+            expect(label.left, greaterThanOrEqualTo(entry.left));
+            expect(caret.right, lessThanOrEqualTo(entry.right));
+          },
+        );
+      }
+    }
   });
 }
