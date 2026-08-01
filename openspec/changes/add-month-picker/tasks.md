@@ -22,6 +22,6 @@
 
 ## 4. i18n + 收尾
 
-- [ ] 4.1 月份名用 **intl `DateFormat.MMM(locale)`**(短名——`zh` 的 `MONTHS` 是「三月」、`SHORTMONTHS` 才是「3月」,必須用 MMM),不手寫 36 筆;對話框標題與年份箭頭 tooltip 走 ARB 三檔 + `flutter gen-l10n`,generated commit。
-- [ ] 4.2 迴歸:既有 `finance-month-*`、`networth-month-*`、diet 月曆、`menstrual-*-month` 測試全綠(**不修改既有測試**;若非改不可代表行為變了,停下回報)。
-- [ ] 4.3 `bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
+- [x] 4.1 月份名用 **intl `DateFormat.MMM(locale)`**(短名——`zh` 的 `MONTHS` 是「三月」、`SHORTMONTHS` 才是「3月」,必須用 MMM),不手寫 36 筆;對話框標題與年份箭頭 tooltip 走 ARB 三檔 + `flutter gen-l10n`,generated commit。
+- [x] 4.2 迴歸:既有 `finance-month-*`、`networth-month-*`、diet 月曆、`menstrual-*-month` 測試全綠(**不修改既有測試**;若非改不可代表行為變了,停下回報)。
+- [x] 4.3 `bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
