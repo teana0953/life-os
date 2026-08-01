@@ -530,5 +530,47 @@ void main() {
         );
       }
     }
+
+    // Regression: this change moved the other three month-label entries to
+    // `ShrinkToFitText` (scale instead of truncate) and left this one on a
+    // plain `Text` + `TextOverflow.ellipsis`. The width tests above ran at the
+    // default text scale of 1.0, where the label fits either way, so they
+    // passed while a user on a large system font size silently lost the month
+    // digits (`2026年7月` → `202…`, painted 32px and ellipsized). Only the
+    // painted-size assertion, taken under a real `textScaler`, sees it.
+    for (final width in [320.0, 360.0]) {
+      for (final textScale in [1.0, 2.0]) {
+        for (final locale in testSupportedLocales) {
+          testWidgets(
+            'the month label stays whole at ${width.toInt()}dp/'
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 1400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await _pumpScreen(
+                tester,
+                FakeMenstrualRepository(),
+                locale: locale,
+              );
+
+              // Same pre-existing `menstrual-legend` overflow as above (and,
+              // at 2x, the day grid) — drained so the header can be asserted
+              // on its own.
+              tester.takeException();
+              expectMonthLabelFullyVisible(
+                tester,
+                const Key('menstrual-month-label'),
+              );
+              expectMonthLabelPaintedReadable(
+                tester,
+                const Key('menstrual-month-label'),
+              );
+            },
+          );
+        }
+      }
+    }
   });
 }

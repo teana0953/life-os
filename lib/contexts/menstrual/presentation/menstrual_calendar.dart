@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/shrink_to_fit_text.dart';
 import '../domain/menstrual_period.dart';
 
 /// Strips the time-of-day, keeping only the calendar date.
@@ -127,14 +128,18 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // `Flexible` + ellipsis so the label gives way to
-                          // the `▾` instead of overflowing on a 320dp phone.
+                          // `Flexible` + `ShrinkToFitText` so the label gives
+                          // way to the `▾` instead of overflowing on a 320dp
+                          // phone — by *scaling*, not ellipsizing: an
+                          // ellipsis silently ate the month digits
+                          // (`2026年7月` → `202…`) once the user turned their
+                          // system font size up. Same treatment as the other
+                          // three month-label entries.
                           Flexible(
-                            child: Text(
-                              monthYearLabel(context, _visibleMonth),
-                              key: const Key('menstrual-month-label'),
+                            child: ShrinkToFitText(
+                              text: monthYearLabel(context, _visibleMonth),
+                              textKey: const Key('menstrual-month-label'),
                               style: theme.textTheme.bodyLarge,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const Icon(Icons.arrow_drop_down, size: 20),
