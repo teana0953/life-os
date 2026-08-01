@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/menstrual/application/add_period.dart';
 import 'package:life_os/contexts/menstrual/application/delete_period.dart';
 import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
@@ -231,6 +232,63 @@ void main() {
       await _pumpScreen(tester, repo);
 
       expect(find.byKey(const Key('menstrual-empty-hint')), findsNothing);
+    });
+
+    testWidgets(
+      'tapping the month title jumps the calendar to a month a year back',
+      (tester) async {
+        await _pumpScreen(tester, FakeMenstrualRepository());
+
+        await tester.tap(find.byKey(const Key('menstrual-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-3')));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<Text>(find.byKey(const Key('menstrual-month-label')))
+              .data,
+          DateFormat.yMMM('en').format(DateTime(2025, 3)),
+        );
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      await tester.tap(find.byKey(const Key('menstrual-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 7)),
+      );
+    });
+
+    testWidgets('the previous/next month arrows still step one month', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      await tester.tap(find.byKey(const Key('menstrual-prev-month')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 6)),
+      );
+
+      await tester.tap(find.byKey(const Key('menstrual-next-month')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 7)),
+      );
     });
   });
 

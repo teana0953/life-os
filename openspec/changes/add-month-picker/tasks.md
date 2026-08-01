@@ -17,8 +17,8 @@
 
 ## 3b. 月經月曆接上
 
-- [ ] 3b.1 `menstrual_calendar.dart:95-118` 的月份標題(key `menstrual-month-label`)變可點,開同一個 picker;不設邊界(既有箭頭亦無界);選中後更新 `_visibleMonth`(純本地,無 fetch)。
-- [ ] 3b.2 測試:點標題開 picker、選月後月曆切到該月;既有 `menstrual-prev-month`/`next-month` 行為不變。
+- [x] 3b.1 `menstrual_calendar.dart:95-118` 的月份標題(key `menstrual-month-label`)變可點,開同一個 picker;不設邊界(既有箭頭亦無界);選中後更新 `_visibleMonth`(純本地,無 fetch)。
+- [x] 3b.2 測試:點標題開 picker、選月後月曆切到該月;既有 `menstrual-prev-month`/`next-month` 行為不變。
 
 ## 4. i18n + 收尾
 

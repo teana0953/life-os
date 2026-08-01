@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
 import '../domain/menstrual_period.dart';
 
 /// Strips the time-of-day, keeping only the calendar date.
@@ -81,6 +82,14 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
     });
   }
 
+  /// No first/last bound, matching the ‹ › arrows (which have none either), so
+  /// nothing reachable by stepping is unreachable by jumping.
+  Future<void> _pickMonth() async {
+    final picked = await showMonthPicker(context, initialMonth: _visibleMonth);
+    if (picked == null || !mounted) return;
+    setState(() => _visibleMonth = DateTime(picked.year, picked.month));
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -101,11 +110,23 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
               icon: const Icon(Icons.chevron_left),
             ),
             Expanded(
-              child: Text(
-                monthYearLabel(context, _visibleMonth),
-                key: const Key('menstrual-month-label'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge,
+              // The key stays on the `Text`; the tappable wrapper goes outside
+              // it.
+              child: Semantics(
+                button: true,
+                child: InkWell(
+                  onTap: _pickMonth,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      monthYearLabel(context, _visibleMonth),
+                      key: const Key('menstrual-month-label'),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                  ),
+                ),
               ),
             ),
             IconButton(
