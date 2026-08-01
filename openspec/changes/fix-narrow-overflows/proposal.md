@@ -6,12 +6,14 @@
 
 ## What Changes
 
-修四處溢出:
+修**六處**(proposal review 逐格實測後更正,初版漏一處、錯兩處歸因):
 
-- `menstrual_screen` 的 `menstrual-legend` Row(320/en 60px、360/en 20px)
-- `networth_tab` 科目小計 Row(320/en 15px;textScale 2.0 時放大成 20 個 exception 並讓 viewport 壞到無法查詢)
-- `health_calendar_card` 三個 ring 的 `spaceEvenly` Row(320/en 12px)
-- diet 月曆對話框橫向 640×360 垂直溢出 140px
+- `menstrual_calendar.dart:216` legend Row(320/en 60px、360/en 20px)
+- `networth_tab.dart:370` 科目小計 Row(320/en 15px)
+- `networth_tab.dart:325-345` 科目 `ListTile`(ts 2.0 時 20 個 exception,**非 RenderFlex**,與上一項是獨立問題)
+- `health_calendar_card.dart:148` 三 ring Row(320/en 12px)+ `:280` 月份圓點日格(ts 2.0 時 31 個垂直溢出)
+- `diet_day_screen.dart:344` 對話框橫向 640×360(垂直 140px)
+- `category_progress_bar.dart:42` 共用元件(ts 2.0 時最多 144px)——**初版完全漏掉**
 
 原則:讓會撐寬的子項可收縮,或窄寬度改變排列(Row → Wrap/Column);優先內容完整可讀而非截字。
 
@@ -27,6 +29,6 @@
 
 ## Impact
 
-- `menstrual_screen.dart` / `networth_tab.dart` / `health_calendar_card.dart` / `diet_day_screen.dart` 各一段 Row 的排列方式。
-- 既有窄寬度測試中用 `takeException()` 排除溢出的部分改為硬斷言(需逐一記錄)。
+- `menstrual_calendar.dart` / `networth_tab.dart`(兩處)/ `health_calendar_card.dart`(兩處)/ `diet_day_screen.dart` / `category_progress_bar.dart`(共用元件,影響多個宿主畫面)。
+- 8 處 / 5 檔 / 約 36 個測試案例的 `takeException()` 改硬斷言(含一處死 drain 直接移除)。
 - 無行為變更,純版面。

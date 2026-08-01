@@ -8,12 +8,21 @@
 
 ## 四處溢出(皆已實測)
 
-| 位置 | 溢出量 | 備註 |
-|---|---|---|
-| `menstrual_screen` 的 `menstrual-legend` Row | 320/en **60px**、360/en **20px** | zh 乾淨。360dp 是 Android 主流寬度 |
-| `networth_tab.dart` 科目小計 Row | 320/en **15px** | textScale 2.0 時放大成 **20 個 layout exception**,且 viewport 壞到 `find.byKey().evaluate()` 自己會 crash |
-| `health_calendar_card` 三個 ring 的 `spaceEvenly` Row | 320/en **12px** | 補上正式環境 `padding: 20` 後才浮現 |
-| diet 月曆對話框 | 橫向 640×360 **垂直溢出 140px** | 唯一的垂直溢出 |
+| # | 位置 | ts 1.0 | ts 2.0 | 備註 |
+|---|---|---|---|---|
+| 1 | `menstrual_calendar.dart:216` legend Row | 320/en **60px**、360/en **20px** | 320/en 300px、360/en 260px | zh 兩種寬度都乾淨 |
+| 2 | `networth_tab.dart:370` 科目小計 Row | 320/en **15px** | — | 見下方「networth 的 2.0 是另一回事」 |
+| 2b | `networth_tab.dart:325-345` 科目 `ListTile` | — | **20 個 exception**(320 與 360/en 都有) | 非 RenderFlex:trailing 寬度爆掉 + `_RenderListTile` 沒 layout 的 assert;此時 `find.byKey().evaluate()` 自己丟 `_TypeError` |
+| 3 | `health_calendar_card.dart:148` 三 ring Row | 320/en **12px**(必須帶 `padding: all(20)` 才測得到) | ring 252px | |
+| 3b | `health_calendar_card.dart:280` 月份圓點日格 | — | **31 個垂直溢出**(en/zh 皆有,四種組合都中) | 初版漏列 |
+| 4 | `diet_day_screen.dart:344` 對話框橫向 640×360 | **140px 垂直**(en/zh 相同) | 176px | 直向 320/360 在 1.0/2.0 皆乾淨 |
+| 5 | `category_progress_bar.dart:42` | — | 320/en **4 個(59/2.5/31/144px)**、360/en 2 個(19/104px) | **初版完全漏掉**;共用元件,今日畫面也用;正被 `diet_day_screen_test.dart:550` 吞掉,而該行註解誤記成「對話框裡的 day grid」(對話框實測乾淨) |
+
+以上為 proposal review 逐格實測(收集全部 FlutterError 而非只取第一個)的結果,已取代初版憑三個 agent 回報彙整的表格。初版的 ts 1.0 數字全部吻合,錯在 ts 2.0 的歸因與遺漏。
+
+### networth 的 2.0 是另一回事
+
+初版把「textScale 2.0 時放大成 20 個 exception」歸給小計 Row(#2),**實測不成立**:2.0 時完全沒有 RenderFlex 溢出,那 20 個是 `ListTile` 的問題(#2b),且 360/en 也會炸(初版只寫 320)。**修 #2 不會讓 #2b 變好**,兩者要分開處理。
 
 ## 為何值得修(不只是黃黑條紋)
 
@@ -24,13 +33,16 @@
 
 共同原則:**讓會撐寬的子項可收縮**(`Flexible`/`Expanded` + 適當的 overflow 策略),或在窄寬度改變排列方式(Row → Wrap/Column)。優先選「內容完整可讀」而非截字——與 `ShrinkToFitText` 那輪的結論一致。
 
-- **legend / ring 這類「多個並排的小項目」**:窄寬度改 `Wrap` 通常比壓縮每一項好。
+- **legend**:窄寬度改 `Wrap` 或可收縮子項。
+- **ring 那列不要用 `Wrap`**(review 指出):三項在 320dp 會變 2+1 不對稱兩列;而且撐寬的不是 ring 本身(非固定寬度),是 `health_calendar_card.dart:355` 那個沒受限的標籤 `Text` —— 正解是每個 ring 包 `Expanded` + 標籤置中換行。
 - **科目小計 Row**:名稱可收縮 + 金額固定,或名稱用 `ShrinkToFitText`。
-- **diet 對話框橫向垂直溢出**:內容需可捲動(`SingleChildScrollView`)或限制高度。
+- **diet 對話框橫向垂直溢出**:內容需可捲動(`SingleChildScrollView`)或限制高度。**注意這不是唯一的垂直溢出**(#3b 月份圓點日格也是垂直)。
+- **#2b `ListTile`**:trailing 在大字級下需可收縮或改版面(非 RenderFlex,是 `ListTile` 自身的 layout 限制)。
+- **#5 `category_progress_bar`**:共用元件,修它會影響所有用到的畫面——改動需在多個宿主畫面驗證。
 
 ## 範圍
 
-- 只修上述四處的溢出。
+- 修上述**六處**(#1、#2、#2b、#3、#3b、#4、#5——編號含子項共七項)。
 - **修完必須把對應測試從 `takeException()` 改成硬斷言零 exception**——這是本 change 的驗收重點之一,否則守門仍是假的。
 - 範圍外:`dialogTheme` 收斂(9 個 AlertDialog 的 insetPadding 不一致)、月份標籤觸控區 37–38dp——兩者已在 backlog,與溢出無關。
 

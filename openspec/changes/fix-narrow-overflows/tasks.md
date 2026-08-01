@@ -7,25 +7,33 @@
 - [ ] 1.1 實測確認當前溢出量與成因,修到 {320,360} × {en,zh} × textScale {1.0,2.0} 零溢出。優先 `Wrap` 或可收縮子項,不截字。
 - [ ] 1.2 該畫面既有窄寬度測試中的 `takeException()` 改硬斷言零 exception。
 
-## 2. networth 科目小計 Row(320/en 15px;textScale 2.0 放大成 20 個 exception)
+## 2. networth 兩處(**是兩個獨立問題,別混為一談**)
 
-- [ ] 2.1 實測後修;注意 textScale 2.0 時 viewport 會壞到 `find.byKey().evaluate()` 自己 crash,修好後該情境要能正常查詢。
-- [ ] 2.2 對應測試改硬斷言。
+- [ ] 2.1 `networth_tab.dart:370` 科目小計 Row:320/en 15px(ts 1.0)。
+- [ ] 2.2 `networth_tab.dart:325-345` 科目 `ListTile`:ts 2.0 時 20 個 exception(320 與 360/en 都有),**非 RenderFlex**——是 trailing 寬度爆掉 + `_RenderListTile` 沒 layout 的 assert;此時 `find.byKey().evaluate()` 自己丟 `_TypeError`。修好後該情境要能正常查詢。
+- [ ] 2.3 對應測試改硬斷言。
 
-## 3. health_calendar_card 三 ring Row(320/en 12px)
+## 3. health_calendar_card 兩處
 
-- [ ] 3.1 實測後修(三個 ring 的 `spaceEvenly`)。注意測試需帶正式環境的 `padding: EdgeInsets.all(20)`,否則測不到。
-- [ ] 3.2 對應測試改硬斷言。
+- [ ] 3.1 `:148` 三 ring Row:320/en 12px。**不要用 `Wrap`**(320dp 會變 2+1 不對稱);撐寬的是 `:355` 沒受限的標籤 `Text`,正解是每個 ring 包 `Expanded` + 標籤置中換行。測試需帶 `padding: EdgeInsets.all(20)` 否則測不到。
+- [ ] 3.2 `:280` 月份圓點日格:ts 2.0 時 **31 個垂直溢出**(en/zh 四種組合都中)。
+- [ ] 3.3 對應測試改硬斷言。
 
-## 4. diet 對話框橫向垂直溢出(640×360,140px)
+## 4. diet 對話框橫向(640×360,ts1.0 140px / ts2.0 176px)
 
-- [ ] 4.1 實測後修(內容可捲動或限制高度)。這是唯一的垂直溢出。
+- [ ] 4.1 實測後修(內容可捲動或限制高度)。直向 320/360 在 1.0/2.0 皆乾淨。
 - [ ] 4.2 補橫向版面測試。
+
+## 4b. category_progress_bar(**proposal review 發現的第五處**)
+
+- [ ] 4b.1 `category_progress_bar.dart:42`:ts 2.0 時 320/en 4 個溢出(59/2.5/31/144px)、360/en 2 個(19/104px)。**共用元件**,修改需在所有宿主畫面驗證(今日畫面也用)。
+- [ ] 4b.2 `diet_day_screen_test.dart:550` 目前吞掉它,且該行註解誤記成「對話框裡的 day grid」(對話框實測乾淨)——改硬斷言並更正註解。
 
 ## 5. 守門機制
 
-- [ ] 5.1 抽一個共用的版面守門 helper(收集**全部** `FlutterError` 而非只取第一個——binding 只保留第一個,`takeException()` 看不到後續),放 `test/support/`。四處測試共用。
-- [ ] 5.2 逐一記錄改了哪幾支既有測試的 `takeException()`、為何(這是本 change 的驗收目標,不是違反零改動原則)。
+- [ ] 5.1 抽一個共用的版面守門 helper(收集**全部** `FlutterError` 而非只取第一個),放 `test/support/`,各處共用。**兩個實測踩過的陷阱**:(a) 必須**先還原 `FlutterError.onError` 再斷言**,否則 `binding.dart:1019` 的 assert 會蓋掉真正的錯誤;(b) onError callback 內部若丟例外,test run 會**無限卡住且沒有紅字**(本專案「測試卡死≠通過」累犯)。binding 自己會在 postTest 還原,不會汙染其他測試。
+- [ ] 5.2 改動範圍 = **8 處 / 5 檔 / 約 36 個測試案例**,逐一處理並記錄:`menstrual_screen_test.dart:508,561`、`health_calendar_card_test.dart:375,419,454`、`networth_tab_test.dart:423`、`finance_overview_tab_test.dart:392`、`diet_day_screen_test.dart:550`。其中兩個特例:`finance_overview_tab_test.dart:392` 不在溢出清單、實測全格 0 exception(**死 drain,註解也錯**)→ 直接移除;`health_calendar_card_test.dart:454` 是 280dp(在宣告的 320/360 範圍外)→ 判斷後處理。
+- [ ] 5.3 spec 第二條的守門要求**只涵蓋本 change 觸及的測試**,不得擴及既有約 45 處 `expect(takeException(), isNull)`(含 login/home responsive 等)——那些不在範圍內。
 
 ## 6. 收尾
 
