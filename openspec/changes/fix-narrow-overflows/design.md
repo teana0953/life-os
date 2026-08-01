@@ -13,8 +13,8 @@
 | 1 | `menstrual_calendar.dart:216` legend Row | 320/en **60px**、360/en **20px** | 320/en 300px、360/en 260px | zh 兩種寬度都乾淨 |
 | 2 | `networth_tab.dart:370` 科目小計 Row | 320/en **15px** | — | 見下方「networth 的 2.0 是另一回事」 |
 | 2b | `networth_tab.dart:325-345` 科目 `ListTile` | — | **20 個 exception**(320 與 360/en 都有) | 非 RenderFlex:trailing 寬度爆掉 + `_RenderListTile` 沒 layout 的 assert;此時 `find.byKey().evaluate()` 自己丟 `_TypeError` |
-| 3 | `health_calendar_card.dart:148` 三 ring Row | 320/en **12px**(必須帶 `padding: all(20)` 才測得到) | ring 252px | |
-| 3b | `health_calendar_card.dart:280` 月份圓點日格 | — | **31 個垂直溢出**(en/zh 皆有,四種組合都中) | 初版漏列 |
+| 3 | `health_calendar_card.dart:148` 三 ring Row | 320/en **12px**(必須帶 `padding: all(20)` 才測得到) | 320/en 252px、360/en 212px、**320/zh 32px**(zh 在 2.0 也會炸) | |
+| 3b | `health_calendar_card.dart:280` 月份圓點日格 | — | **31 個垂直溢出**(en/zh 皆有,四種組合都中) | 初版漏列;修法方向:日格高度需隨字級增長(給格子彈性高度或讓內容可縮),不可寫死 |
 | 4 | `diet_day_screen.dart:344` 對話框橫向 640×360 | **140px 垂直**(en/zh 相同) | 176px | 直向 320/360 在 1.0/2.0 皆乾淨 |
 | 5 | `category_progress_bar.dart:42` | — | 320/en **4 個(59/2.5/31/144px)**、360/en 2 個(19/104px) | **初版完全漏掉**;共用元件,今日畫面也用;正被 `diet_day_screen_test.dart:550` 吞掉,而該行註解誤記成「對話框裡的 day grid」(對話框實測乾淨) |
 
@@ -42,7 +42,7 @@
 
 ## 範圍
 
-- 修上述**六處**(#1、#2、#2b、#3、#3b、#4、#5——編號含子項共七項)。
+- 修上述**七項**(#1、#2、#2b、#3、#3b、#4、#5)。
 - **修完必須把對應測試從 `takeException()` 改成硬斷言零 exception**——這是本 change 的驗收重點之一,否則守門仍是假的。
 - 範圍外:`dialogTheme` 收斂(9 個 AlertDialog 的 insetPadding 不一致)、月份標籤觸控區 37–38dp——兩者已在 backlog,與溢出無關。
 
@@ -54,4 +54,4 @@
 
 ## 驗收
 
-四處在 {320,360}dp × {en,zh} × textScale {1.0,2.0} 皆零 RenderFlex exception;相關測試不再需要 `takeException()`;`flutter analyze` 0 issue、`flutter test` 全綠、`TZ=UTC` 複驗。
+七項在 {320,360}dp × {en,zh} × textScale {1.0,2.0} 皆**零 layout exception**(不限 RenderFlex——#2b 正是非 RenderFlex 的 `ListTile` assert,寫死 RenderFlex 會讓它不修也過驗收);相關測試不再需要 `takeException()`;`flutter analyze` 0 issue、`flutter test` 全綠、`TZ=UTC` 複驗。

@@ -1,6 +1,7 @@
 # Tasks
 
-> 每處動手前**先讀原始碼並實測**當前溢出量(design 的數字來自三個 agent 的對照量測,但行號可能已飄)。修法依實測決定,不照抄 design 的方向猜測。
+> 每處動手前**先讀原始碼並實測**當前狀況。design 的表格是 proposal review 逐格實測的結果(行號當時已驗證),但仍以你動手當下的實測為準。修法依實測決定,不照抄方向猜測。
+> **驗收判準是「零 layout exception」不是「零 RenderFlex overflow」**——#2b 正是非 RenderFlex 的 `ListTile` assert。
 
 ## 1. menstrual-legend Row(最大宗:320/en 60px、360/en 20px)
 
@@ -16,7 +17,7 @@
 ## 3. health_calendar_card 兩處
 
 - [ ] 3.1 `:148` 三 ring Row:320/en 12px。**不要用 `Wrap`**(320dp 會變 2+1 不對稱);撐寬的是 `:355` 沒受限的標籤 `Text`,正解是每個 ring 包 `Expanded` + 標籤置中換行。測試需帶 `padding: EdgeInsets.all(20)` 否則測不到。
-- [ ] 3.2 `:280` 月份圓點日格:ts 2.0 時 **31 個垂直溢出**(en/zh 四種組合都中)。
+- [ ] 3.2 `:280` 月份圓點日格:ts 2.0 時 **31 個垂直溢出**(en/zh 四種組合都中)。方向:日格高度需隨字級增長(彈性高度或內容可縮),不可寫死。
 - [ ] 3.3 對應測試改硬斷言。
 
 ## 4. diet 對話框橫向(640×360,ts1.0 140px / ts2.0 176px)
@@ -37,5 +38,5 @@
 
 ## 6. 收尾
 
-- [ ] 6.1 `bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
+- [ ] 6.1 七項在 {320,360} × {en,zh} × ts{1.0,2.0} 皆**零 layout exception**;`bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
 - [ ] 6.2 **mutation 驗證**:在任一受守畫面人為加一個溢出 → 守門測試應變紅(證明不再是假守門)。

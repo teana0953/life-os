@@ -6,7 +6,7 @@
 
 ## What Changes
 
-修**六處**(proposal review 逐格實測後更正,初版漏一處、錯兩處歸因):
+修**七項**(proposal review 逐格實測後更正,初版漏一處、錯兩處歸因):
 
 - `menstrual_calendar.dart:216` legend Row(320/en 60px、360/en 20px)
 - `networth_tab.dart:370` 科目小計 Row(320/en 15px)

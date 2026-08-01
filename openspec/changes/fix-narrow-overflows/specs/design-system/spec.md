@@ -2,10 +2,13 @@
 
 ### Requirement: No layout overflow on narrow phones
 
-Screens SHALL lay out without RenderFlex overflow at the phone widths the app
-targets (320dp and 360dp), in every supported locale, and at accessibility
-text scales up to 2.0. Where a row of items cannot fit, it SHALL reflow or
-shrink rather than overflow, keeping content readable rather than clipped.
+Screens SHALL lay out without **any layout error** — overflow or otherwise —
+at the phone widths the app targets (320dp and 360dp), in every supported
+locale, and at accessibility text scales up to 2.0. Not every such failure is
+a RenderFlex overflow: a list tile whose trailing content cannot be laid out
+raises a different error and must equally not occur. Where content cannot
+fit, it SHALL reflow or shrink rather than overflow, keeping content readable
+rather than clipped.
 
 #### Scenario: Narrow width in either locale
 
@@ -16,8 +19,11 @@ shrink rather than overflow, keeping content readable rather than clipped.
 
 #### Scenario: Enlarged text
 
-- **WHEN** those screens are rendered at a text scale of 2.0
-- **THEN** no layout overflow occurs
+- **WHEN** those screens are rendered at a text scale of 2.0, at either phone
+  width and in either locale
+- **THEN** no layout error occurs — including the calendar's day cells, whose
+  height must follow the text size, and list tiles whose trailing content must
+  stay layout-able
 
 #### Scenario: Landscape
 
