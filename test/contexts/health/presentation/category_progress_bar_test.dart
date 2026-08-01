@@ -165,6 +165,54 @@ void main() {
       });
     }
 
+    // The degenerate half of that guard. While the trailing text fits on one
+    // line its box *is* its glyphs, so `textAlign: TextAlign.end` changes
+    // nothing and dropping it leaves the alignment tests above green — QA
+    // deleted all four `TextAlign.end` in the app and the whole suite stayed
+    // green. It only starts mattering once the text is too wide for the row
+    // and wraps: the row caps it at the full width, and the alignment is then
+    // the only thing holding the continuation lines against the edge. The
+    // trailing text comes from the host (`trailingLabel`), so a phone-width
+    // row is a real way to reach this, not a contrived one.
+    testWidgets('a trailing label too wide for the row wraps right-aligned', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const trailing = 'still 3 servings of staple food remaining today';
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: const Scaffold(
+            body: CategoryProgressBar(
+              label: 'Staple',
+              logged: 9,
+              effective: 12,
+              color: Colors.amber,
+              trailingLabel: trailing,
+            ),
+          ),
+        ),
+      );
+
+      final barRight = tester.getRect(find.byType(FractionalProgressBar)).right;
+      expect(
+        paintedTextLineCount(tester, find.text(trailing)),
+        greaterThan(1),
+        reason: 'the trailing label must wrap for this to test anything',
+      );
+      for (final lineRight in paintedTextLineRights(
+        tester,
+        find.text(trailing),
+      )) {
+        expect(
+          lineRight,
+          closeTo(barRight, 0.5),
+          reason: 'every wrapped line must stay flush with the bar\'s edge',
+        );
+      }
+    });
+
     // The matching wrapping guard. A flex child is capped at its share of the
     // row, so making both halves flexible cut every label to 50% of the bar
     // and wrapped it while the other half sat empty (the same shape wrapped

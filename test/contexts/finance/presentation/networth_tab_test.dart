@@ -580,6 +580,92 @@ void main() {
         );
       });
     }
+
+    // The degenerate half of the same guard, and the one the tests above
+    // cannot see. While an amount fits on one line its box *is* its glyphs, so
+    // `textAlign: TextAlign.end` changes nothing and dropping it from these
+    // three rows leaves every alignment test green — QA deleted all four
+    // `TextAlign.end` in the app and the suite stayed green. It only starts
+    // mattering once the amount is too wide for the row and wraps: the row
+    // caps it at the full width, and the alignment is then the only thing
+    // holding the continuation lines against the edge (measured 200.0 with it
+    // vs 193.4 without on a 200dp row). So this pins the wrapped case, on
+    // every line, for all three money rows.
+    testWidgets('an amount too wide for the row wraps right-aligned', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const accountAmount = '123456789012345678';
+      const archivedAmount = '123456789012345679';
+      const groupTotal = '246913578024691357'; // the two above, summed
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          ...FakeFinanceRepository().accounts,
+          const NetWorthAccount(
+            id: 'acc-old',
+            kind: NetWorthKind.asset,
+            name: 'Closed savings',
+            sortOrder: 1,
+            archived: true,
+          ),
+        ]
+        ..seedSnapshot('acc-cash', '2026-07', int.parse(accountAmount))
+        ..seedSnapshot('acc-old', '2026-07', int.parse(archivedAmount))
+        ..seedSnapshot('acc-card', '2026-07', 9);
+      final controller = testNetWorthController(repo);
+      await controller.load('token', '2026-07');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: NetWorthTab(
+              controller: controller,
+              onSwitchMonth: (m) async {},
+              onEditAccountValue: (a) {},
+              onManageAccounts: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      void expectWrappedFlushRight(Finder row, Finder amount, String what) {
+        final inRow = find.descendant(of: row, matching: amount);
+        final rowRight = tester
+            .getRect(find.descendant(of: row, matching: find.byType(Row)).first)
+            .right;
+        expect(
+          paintedTextLineCount(tester, inRow),
+          greaterThan(1),
+          reason: '$what must be wide enough to wrap for this to test anything',
+        );
+        for (final lineRight in paintedTextLineRights(tester, inRow)) {
+          expect(
+            lineRight,
+            closeTo(rowRight, 0.5),
+            reason: 'every wrapped line of $what must stay flush right',
+          );
+        }
+      }
+
+      expectWrappedFlushRight(
+        find.byKey(const Key('account-row-acc-cash')),
+        find.text(accountAmount),
+        'the account amount',
+      );
+      expectWrappedFlushRight(
+        find.byKey(const Key('networth-archived-asset')),
+        find.text(archivedAmount),
+        'the archived subtotal',
+      );
+      expectWrappedFlushRight(
+        find.ancestor(of: find.text(groupTotal), matching: find.byType(Padding)).first,
+        find.text(groupTotal),
+        'the group total',
+      );
+    });
   });
 
   // The other half of that guard, and the third regression this row shape has

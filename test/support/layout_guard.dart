@@ -60,6 +60,40 @@ double paintedTextRight(WidgetTester tester, Finder finder) {
   return paragraph.localToGlobal(Offset(localRight, 0)).dx;
 }
 
+/// The global x of the right-most painted glyph **of each line** the `Text`
+/// [finder] matches painted, top line first.
+///
+/// The per-line version of [paintedTextRight], for the case where the value
+/// was forced to wrap: only a per-line measurement can tell "every line is
+/// right-aligned" from "the text merely happens to reach the edge on its
+/// longest line", which is what a single max-over-all-boxes reading gives.
+///
+/// Measured character by character, skipping whitespace, because a line broken
+/// at a space keeps that space in the run and `TextAlign.end` hangs it *past*
+/// the end edge — a run-level reading of a wrapped sentence comes back wider
+/// than the box and defeats the comparison.
+List<double> paintedTextLineRights(WidgetTester tester, Finder finder) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final plain = paragraph.text.toPlainText();
+  final rightByLine = <double, double>{};
+  for (var i = 0; i < plain.length; i++) {
+    if (plain[i].trim().isEmpty) continue;
+    final boxes = paragraph.getBoxesForSelection(
+      TextSelection(baseOffset: i, extentOffset: i + 1),
+    );
+    if (boxes.isEmpty) continue;
+    final top = boxes.first.top.roundToDouble();
+    final right = boxes.map((b) => b.right).reduce(math.max);
+    final known = rightByLine[top];
+    rightByLine[top] = known == null ? right : math.max(known, right);
+  }
+  final tops = rightByLine.keys.toList()..sort();
+  return [
+    for (final top in tops)
+      paragraph.localToGlobal(Offset(rightByLine[top]!, 0)).dx,
+  ];
+}
+
 /// How many lines the `Text` [finder] matches actually painted.
 ///
 /// Counted from the laid-out glyph boxes (one distinct `top` per line), so it
