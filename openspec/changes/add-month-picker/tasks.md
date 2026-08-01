@@ -30,9 +30,9 @@
 
 > 這些是 review legs 與使用者追加的需求,與前四節同源(時間選擇跨度),併入本 change。
 
-- [ ] 5.1 **月份格尺寸(uiux blocking)**:實測預設 theme 下月份格在 320dp 寬只剩 40dp、文字換行、低於 48dp 觸控下限。修:`AlertDialog` 的 `insetPadding` 16 + `contentPadding` 16、月份格 compact padding + `minimumSize(0, 48)` + `maxLines: 1`。測試:320/360/390 三種寬度 × en/zh 兩語系,月份格 ≥48dp 高且文字不換行。
-- [ ] 5.2 **可發現性(uiux blocking + 使用者指定)**:四個月份標籤入口(財務兩處經 `MonthNavHeader`、diet、月經)加 `Icons.arrow_drop_down` 明示可展開,四處一致;同時補 tooltip(箭頭都有、標籤沒有)。dialog 內年份標籤同樣加 `▾`。
-- [ ] 5.3 **年份清單(使用者判定逐年箭頭不夠)**:dialog 的年份標籤可點,開可捲動年份清單(1970–2100 防呆界內,預設捲到當前年附近),選年後回到月份格。年份箭頭保留。Keys:`month-picker-year-label`(可點)、`month-picker-year-<YYYY>`。測試:開清單、選遠年、清單捲動位置合理。
-- [ ] 5.4 **健康記錄月曆可切月(使用者追加)**:`health_calendar_controller.dart` 加 `selectedMonth` 狀態 + `loadMonth(idToken, year, month)`(**含競態防線**:回應落地前確認仍是當前選中月——本專案累犯);`health_calendar_card.dart` 加 `MonthNavHeader`(keyPrefix `health-calendar-month`)。預設當月。後端 `getHealthCalendar` 已收 year/month,不動後端。測試:切月載入該月、跳月、競態(舊月回應不覆蓋)、預設當月。
-- [ ] 5.5 **code review 的兩條**:(a)`initialMonth` 落在 bounds 之外時 12 格與兩個年份箭頭全 disabled 變死巷——clamp `initialMonth` 進範圍或至少讓年份箭頭可動;(b)兩個測試檔逐字重複的 20 行活樹走訪 helper 收進 `test/support/`。
-- [ ] 5.6 迴歸與收尾:既有測試零改動(`git diff --numstat main...HEAD -- test/` 除既有那 1 行 diet fake stub 外不得再增加刪除);`bash scripts/lint-actions.sh` + `flutter analyze` 0 issue + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
+- [x] 5.1 **月份格尺寸(uiux blocking)**:實測預設 theme 下月份格在 320dp 寬只剩 40dp、文字換行、低於 48dp 觸控下限。修:`AlertDialog` 的 `insetPadding` 16 + `contentPadding` 16、月份格 compact padding + `minimumSize(0, 48)` + `maxLines: 1`。測試:320/360/390 三種寬度 × en/zh 兩語系,月份格 ≥48dp 高且文字不換行。
+- [x] 5.2 **可發現性(uiux blocking + 使用者指定)**:四個月份標籤入口(財務兩處經 `MonthNavHeader`、diet、月經)加 `Icons.arrow_drop_down` 明示可展開,四處一致;同時補 tooltip(箭頭都有、標籤沒有)。dialog 內年份標籤同樣加 `▾`。
+- [x] 5.3 **年份清單(使用者判定逐年箭頭不夠)**:dialog 的年份標籤可點,開可捲動年份清單(1970–2100 防呆界內,預設捲到當前年附近),選年後回到月份格。年份箭頭保留。Keys:`month-picker-year-label`(可點)、`month-picker-year-<YYYY>`。測試:開清單、選遠年、清單捲動位置合理。
+- [x] 5.4 **健康記錄月曆可切月(使用者追加)**:`health_calendar_controller.dart` 加 `selectedMonth` 狀態 + `loadMonth(idToken, year, month)`(**含競態防線**:回應落地前確認仍是當前選中月——本專案累犯);`health_calendar_card.dart` 加 `MonthNavHeader`(keyPrefix `health-calendar-month`)。預設當月。後端 `getHealthCalendar` 已收 year/month,不動後端。測試:切月載入該月、跳月、競態(舊月回應不覆蓋)、預設當月。
+- [x] 5.5 **code review 的兩條**:(a)`initialMonth` 落在 bounds 之外時 12 格與兩個年份箭頭全 disabled 變死巷——clamp `initialMonth` 進範圍或至少讓年份箭頭可動;(b)兩個測試檔逐字重複的 20 行活樹走訪 helper 收進 `test/support/`。
+- [x] 5.6 迴歸與收尾:既有測試零改動(`git diff --numstat main...HEAD -- test/` 除既有那 1 行 diet fake stub 外不得再增加刪除);`bash scripts/lint-actions.sh` + `flutter analyze` 0 issue + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
