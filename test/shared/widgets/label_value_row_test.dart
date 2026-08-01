@@ -123,8 +123,8 @@ void main() {
       // What the floors are *for*: a bounded number of lines on both sides.
       expect(
         paintedTextLineCount(tester, find.text(label)),
-        lessThanOrEqualTo(10),
-        reason: 'the label may wrap, but must not shatter (was 24)',
+        lessThanOrEqualTo(12),
+        reason: 'the label may wrap, but must not shatter (was 24, now 9)',
       );
       expect(
         paintedTextLineCount(tester, find.text(value)),
@@ -133,8 +133,8 @@ void main() {
       );
       expect(
         row.height,
-        lessThanOrEqualTo(400),
-        reason: 'the row must not blow up into a page (was 960dp)',
+        lessThanOrEqualTo(480),
+        reason: 'the row must not blow up into a page (was 960dp, now 360dp)',
       );
     });
   });

@@ -42,3 +42,8 @@
 
 - [x] 6.1 七項在 {320,360} × {en,zh} × ts{1.0,2.0} 皆**零 layout exception**;`bash scripts/lint-actions.sh` + `flutter analyze`(0 issue) + `flutter test` 全綠 + `TZ=UTC flutter test` 複驗。
 - [x] 6.2 **mutation 驗證**:在任一受守畫面人為加一個溢出 → 守門測試應變紅(證明不再是假守門)。
+
+## Follow-up(本 change 不修,已記錄於 `label_value_row.dart` dartdoc)
+
+`LabelValueRow` 的 65% 是**固定**的,兩半明明放得下時照樣切:320dp/2x + 短中文標籤(`現金` 56.5dp + `1234567` 197.8dp = 266.3dp,可用列寬 288dp 本可各一行)時,值被壓成 2 行、標籤盒子空著 40.1dp。英文標籤夠長所以不會中,這是第六次「該換行的沒換 / 不該換的換了」鏡射。乾淨修法要問標籤的 intrinsic 寬度,而這正是這個 widget 因宿主約束**刻意不能做**的事,所以接受現狀可能才是對的。
+**它為何拖到第六輪才被發現**:守門只掃**標籤側**(「放得下就不換行」),沒有對稱的「有空間時**值**不換行」守門。要再動這個 fraction 的話,先補上那一側的守門。

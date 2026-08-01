@@ -62,10 +62,34 @@ import 'package:flutter/material.dart';
 /// that grew the row to 960dp, silently, with no exception to catch it.
 ///
 /// So the value is capped at [_maxValueFraction] of the row instead, which
-/// leaves the `Expanded` label the remaining share as a floor. Both halves can
-/// wrap; neither can be squeezed to nothing. Measured on that same row at
-/// 320dp/2x: label 108dp over 9 lines, value 200dp over 2, row 360dp — against
-/// 0dp/24 lines/960dp before.
+/// leaves the `Expanded` label the remaining share as a floor. What that floor
+/// protects is the **box**, not readability: it stops a half shattering into
+/// one-glyph lines, it does not promise the result is comfortable. Measured on
+/// that same row at 320dp/2x: label 108dp over 9 lines, value 200dp over 2,
+/// row 360dp — a large improvement on 0dp/24 lines/960dp, and still a 360dp-tall
+/// account row on a 320dp phone, which nobody would call usable. The remedy at
+/// that point is on the caller's side (shorter labels, a different layout at
+/// that text scale), not here.
+///
+/// That equivalence — "what the value is refused is what the label is given" —
+/// is arithmetic that holds only because the row has **exactly one flex
+/// child**. Add a third child, or pass a [value] that hides an
+/// `Expanded`/`Flexible` inside itself, and the free space is redistributed:
+/// the floor stops following from the cap, silently, with nothing to catch it.
+///
+/// ## Known limitation (accepted, not fixed)
+///
+/// The 65% cap is fixed, so it also applies when both halves would have fit.
+/// At 320dp/2x a short CJK label with a long-ish number — `現金` (56.5dp) with
+/// `1234567` (197.8dp), 266.3dp against 288dp of usable row — is still cut to
+/// 65%, wrapping the value to two lines while the label's box sits 40.1dp
+/// empty. English labels are long enough that they never hit this. Fixing it
+/// cleanly means asking the label for its intrinsic width, which is precisely
+/// what this row must not do (see the host constraints above), so the fixed
+/// fraction is probably the right trade. Note the tests only guard the label
+/// side — "the label wraps only when it has to" — and there is no symmetric
+/// guard that the *value* stays on one line when the row has room; that
+/// asymmetry is why this went unnoticed for five rounds.
 ///
 /// 0.65 rather than the 0.6 or 0.7 either side of it: at 0.7 the value wrapped
 /// to the same 2 lines as at 0.65 while starving the label a further 15dp, so
@@ -100,11 +124,18 @@ class LabelValueRow extends StatelessWidget {
           SizedBox(width: gap),
           ConstrainedBox(
             // Non-flex, so `RenderFlex` lays it out *before* dividing what is
-            // left — that is what makes it take its natural width. Minus the
-            // gap: at 320dp/2x a value that fills the row left the gap with
-            // nowhere to go, a RenderFlex overflow exactly [gap] wide. Times
+            // left — that is what makes it take its natural width. Times
             // [_maxValueFraction]: what is *not* handed to the value is the
-            // label's floor, so neither half can be squeezed to 0dp.
+            // label's floor, so neither half's *box* can be squeezed to 0dp.
+            //
+            // Minus the gap: this was load-bearing back when the value was
+            // capped at the whole row and a full-width value left the gap with
+            // nowhere to go — a RenderFlex overflow exactly [gap] wide. Under
+            // [_maxValueFraction] that is unreachable: `f * W + gap > W` needs
+            // `f > 1 - gap/W` ≈ 0.958 at 320dp/8gap, and f is 0.65. Deleting
+            // the subtraction leaves the suite green. It stays as defence in
+            // depth if the fraction is ever raised, not because any measured
+            // failure still needs it.
             constraints: BoxConstraints(
               maxWidth:
                   (constraints.maxWidth - gap).clamp(0.0, double.infinity) *
