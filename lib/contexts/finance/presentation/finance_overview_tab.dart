@@ -7,6 +7,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/month_nav_header.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
@@ -35,6 +36,19 @@ class FinanceOverviewTab extends StatelessWidget {
     required this.onAdd,
     required this.onEditBudgets,
   });
+
+  /// Opens the month picker and, if a month was chosen, switches to it through
+  /// [onSwitchMonth] — the same guarded path the arrows use, so the stale-
+  /// response guard still applies. No first/last bound: the arrows have none
+  /// either (the ledger records both past and future months).
+  Future<void> _pickMonth(BuildContext context) async {
+    final picked = await showMonthPicker(
+      context,
+      initialMonth: monthDateTime(controller.selectedMonth),
+    );
+    if (picked == null) return;
+    await onSwitchMonth(monthStringOf(picked));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +96,7 @@ class FinanceOverviewTab extends StatelessWidget {
                       monthDateTime(controller.selectedMonth),
                     ),
                     keyPrefix: 'finance-month',
+                    onPickMonth: () => _pickMonth(context),
                     onPrevious: () =>
                         onSwitchMonth(previousMonth(controller.selectedMonth)),
                     onNext: () =>

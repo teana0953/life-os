@@ -8,6 +8,7 @@ import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart'
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 /// The locale-aware month header text for a month, in the test locale.
@@ -220,5 +221,185 @@ void main() {
         expect(switchedTo, '2026-08');
       },
     );
+
+    testWidgets(
+      'tapping the month label jumps to a month picked two years back, '
+      'through the same month-change path the arrows use',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2024-03'] = [
+            const FinanceTransaction(
+              id: 't-old',
+              type: FinanceType.expense,
+              amount: 900,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2024-03-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        var switchedTo = '';
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {
+                    switchedTo = m;
+                    await controller.load('tok', m);
+                  },
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('finance-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-3')));
+        await tester.pumpAndSettle();
+
+        // Routed through onSwitchMonth (the controller's guarded path), not
+        // straight at the controller.
+        expect(switchedTo, '2024-03');
+        expect(controller.selectedMonth, '2024-03');
+        expect(find.text(_monthLabel(2024, 3)), findsOneWidget);
+        expect(find.text('900'), findsWidgets);
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository();
+      final controller = testFinanceController(repo);
+      await controller.load('tok', '2026-07');
+      var switches = 0;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => Scaffold(
+              body: FinanceOverviewTab(
+                controller: controller,
+                onSwitchMonth: (m) async {
+                  switches++;
+                  await controller.load('tok', m);
+                },
+                onAdd: () {},
+                onEditBudgets: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('finance-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(switches, 0);
+      expect(controller.selectedMonth, '2026-07');
+    });
+
+    // Regression: the month label's `▾` affordance added padding + an icon to
+    // a centred, non-shrinkable Row. Widget tests default to an 800x600
+    // surface, so nothing else in this mobile-first PWA's suite caught it.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final controller = testFinanceController(FakeFinanceRepository());
+            await controller.load('tok', '2026-07');
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: FinanceOverviewTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onAdd: () {},
+                    onEditBudgets: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('finance-month-label'),
+            );
+            expectMonthLabelReadable(tester, const Key('finance-month-label'));
+          },
+        );
+      }
+    }
+  });
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  group('month label at a large system text scale', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the month label stays whole at 320dp/textScale=2, locale=$locale',
+        (tester) async {
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final controller = testFinanceController(FakeFinanceRepository());
+          await controller.load('tok', '2026-07');
+          await tester.pumpWidget(
+            l10nTestApp(
+              locale: locale,
+              home: Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {},
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // A 2x text scale overflows rows elsewhere on the tab; the header is
+          // asserted on its own, as the width tests above already do.
+          tester.takeException();
+          expectMonthLabelFullyVisible(
+            tester,
+            const Key('finance-month-label'),
+          );
+          expectMonthLabelPaintedReadable(
+            tester,
+            const Key('finance-month-label'),
+          );
+        },
+      );
+    }
   });
 }

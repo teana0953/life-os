@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/shrink_to_fit_text.dart';
 import '../../../shared/widgets/tracker_day_nav_header.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -290,10 +292,28 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
   }
 
   void _changeMonth(int delta) {
+    _goToMonth(DateTime(_visibleMonth.year, _visibleMonth.month + delta));
+  }
+
+  /// The one way the visible month changes — always paired with a reload, so a
+  /// new month can never keep the previous month's logged-day markers.
+  void _goToMonth(DateTime month) {
     setState(() {
-      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+      _visibleMonth = DateTime(month.year, month.month);
     });
     _loadLoggedDays();
+  }
+
+  /// No first/last bound: the ‹ › arrows have none either (only individual
+  /// future *days* are disabled), so nothing reachable by stepping is
+  /// unreachable by jumping.
+  Future<void> _pickMonth() async {
+    final picked = await showMonthPicker(
+      context,
+      initialMonth: _visibleMonth,
+    );
+    if (picked == null || !mounted) return;
+    _goToMonth(picked);
   }
 
   @override
@@ -302,6 +322,12 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
+      // Material's default 40dp side inset spends a quarter of a 320dp phone
+      // on margin, which left the month label 76dp — too little to show
+      // `Jul 2026` at a readable size (it scaled to 9.2px). 16dp hands those
+      // dp back so the label stays whole *and* above the 12px floor; on wider
+      // screens the dialog is sized by its content, so nothing changes.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Row(
         children: [
           Expanded(child: Text(loc.dietCalendarTitle)),
@@ -327,11 +353,47 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                   icon: const Icon(Icons.chevron_left),
                 ),
                 Expanded(
-                  child: Text(
-                    monthYearLabel(context, _visibleMonth),
-                    key: const Key('calendar-month-label'),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge,
+                  // The key stays on the `Text`; the tappable wrapper goes
+                  // outside it.
+                  child: Tooltip(
+                    message: loc.monthPickerOpenTooltip,
+                    child: Semantics(
+                      button: true,
+                      child: InkWell(
+                        onTap: _pickMonth,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          // The `▾` is the visible clue that the label opens
+                          // the picker — same affordance as the other three
+                          // entries.
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // `Flexible` + `ShrinkToFitText` so the label
+                              // gives way to the `▾` instead of overflowing on
+                              // a 320dp phone — by *scaling*, not ellipsizing:
+                              // inside this dialog's insets the label's share
+                              // is narrower than `Jul 2026` / `2026年7月`
+                              // needs, and an ellipsis ate the month itself.
+                              // The scaling stops at 12px (see the dialog's
+                              // `insetPadding`, which buys the width that
+                              // keeps the label both whole *and* above that
+                              // floor).
+                              Flexible(
+                                child: ShrinkToFitText(
+                                  text: monthYearLabel(context, _visibleMonth),
+                                  textKey: const Key('calendar-month-label'),
+                                  style: theme.textTheme.bodyLarge,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(

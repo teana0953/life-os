@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/shrink_to_fit_text.dart';
 import '../domain/menstrual_period.dart';
 
 /// Strips the time-of-day, keeping only the calendar date.
@@ -81,6 +83,14 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
     });
   }
 
+  /// No first/last bound, matching the ‹ › arrows (which have none either), so
+  /// nothing reachable by stepping is unreachable by jumping.
+  Future<void> _pickMonth() async {
+    final picked = await showMonthPicker(context, initialMonth: _visibleMonth);
+    if (picked == null || !mounted) return;
+    setState(() => _visibleMonth = DateTime(picked.year, picked.month));
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -101,11 +111,43 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
               icon: const Icon(Icons.chevron_left),
             ),
             Expanded(
-              child: Text(
-                monthYearLabel(context, _visibleMonth),
-                key: const Key('menstrual-month-label'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge,
+              // The key stays on the `Text`; the tappable wrapper goes outside
+              // it.
+              child: Tooltip(
+                message: loc.monthPickerOpenTooltip,
+                child: Semantics(
+                  button: true,
+                  child: InkWell(
+                    onTap: _pickMonth,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      // The `▾` is the visible clue that the label opens the
+                      // picker — same affordance as the other three entries.
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // `Flexible` + `ShrinkToFitText` so the label gives
+                          // way to the `▾` instead of overflowing on a 320dp
+                          // phone — by *scaling*, not ellipsizing: an
+                          // ellipsis silently ate the month digits
+                          // (`2026年7月` → `202…`) once the user turned their
+                          // system font size up. Same treatment as the other
+                          // three month-label entries.
+                          Flexible(
+                            child: ShrinkToFitText(
+                              text: monthYearLabel(context, _visibleMonth),
+                              textKey: const Key('menstrual-month-label'),
+                              style: theme.textTheme.bodyLarge,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
             IconButton(

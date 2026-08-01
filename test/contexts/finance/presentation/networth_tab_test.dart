@@ -6,11 +6,13 @@ import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
+import 'package:life_os/shared/widgets/month_nav_header.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 const _locale = Locale('en');
@@ -336,5 +338,106 @@ void main() {
 
       expect(find.byKey(const Key('networth-net-value')), findsOneWidget);
     });
+
+    testWidgets(
+      'tapping the month label jumps to a picked month through onSwitchMonth',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..seedSnapshot('acc-cash', '2026-07', 222)
+          ..seedSnapshot('acc-cash', '2025-07', 111);
+        final controller = await _pumpTab(tester, repo);
+
+        await tester.tap(find.byKey(const Key('networth-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-7')));
+        await tester.pumpAndSettle();
+
+        expect(controller.selectedMonth, '2025-07');
+        expect(
+          tester.widget<Text>(find.byKey(const Key('networth-month-label'))).data,
+          _monthLabel(2025, 7),
+        );
+        expect(
+          tester.widget<Text>(find.byKey(const Key('networth-net-value'))).data,
+          '111',
+        );
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 222);
+      final controller = await _pumpTab(tester, repo);
+
+      await tester.tap(find.byKey(const Key('networth-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(controller.selectedMonth, '2026-07');
+      expect(
+        tester.widget<Text>(find.byKey(const Key('networth-month-label'))).data,
+        _monthLabel(2026, 7),
+      );
+    });
+
+    // Regression: the month label's `▾` affordance added padding + an icon to
+    // a centred, non-shrinkable Row. Widget tests default to an 800x600
+    // surface, so nothing else in this mobile-first PWA's suite caught it.
+    // Pumped inline rather than through `_pumpTab`, which forces a 600dp-wide
+    // surface for the trend section.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 2400));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final controller = testNetWorthController(FakeFinanceRepository());
+            await controller.load('token', '2026-07');
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: NetWorthTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onEditAccountValue: (a) {},
+                    onManageAccounts: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            // Drains the *pre-existing* account-group total-row overflow —
+            // already on main at 320dp/en, unrelated to the `▾` — which
+            // otherwise fails this test outright. (Follow-up; not this
+            // change's regression.) The header is therefore asserted
+            // geometrically: both its ends must stay inside the surface.
+            tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('networth-month-label'),
+            );
+            expectMonthLabelReadable(tester, const Key('networth-month-label'));
+            final header = tester.getRect(find.byType(MonthNavHeader));
+            final prev = tester.getRect(
+              find.byKey(const Key('networth-month-previous')),
+            );
+            final next = tester.getRect(
+              find.byKey(const Key('networth-month-next')),
+            );
+            expect(prev.left, greaterThanOrEqualTo(header.left));
+            expect(next.right, lessThanOrEqualTo(header.right));
+          },
+        );
+      }
+    }
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/menstrual/application/add_period.dart';
 import 'package:life_os/contexts/menstrual/application/delete_period.dart';
 import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
@@ -12,6 +13,7 @@ import 'package:life_os/contexts/menstrual/presentation/menstrual_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 
 /// A stateful in-memory fake mirroring the controller-test fake, so mutations
 /// followed by a re-read reflect the change.
@@ -232,6 +234,63 @@ void main() {
 
       expect(find.byKey(const Key('menstrual-empty-hint')), findsNothing);
     });
+
+    testWidgets(
+      'tapping the month title jumps the calendar to a month a year back',
+      (tester) async {
+        await _pumpScreen(tester, FakeMenstrualRepository());
+
+        await tester.tap(find.byKey(const Key('menstrual-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-3')));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<Text>(find.byKey(const Key('menstrual-month-label')))
+              .data,
+          DateFormat.yMMM('en').format(DateTime(2025, 3)),
+        );
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      await tester.tap(find.byKey(const Key('menstrual-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 7)),
+      );
+    });
+
+    testWidgets('the previous/next month arrows still step one month', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      await tester.tap(find.byKey(const Key('menstrual-prev-month')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 6)),
+      );
+
+      await tester.tap(find.byKey(const Key('menstrual-next-month')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('menstrual-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2026, 7)),
+      );
+    });
   });
 
   group('MenstrualScreen add/edit/delete', () {
@@ -403,5 +462,115 @@ void main() {
       );
       expect(save.onPressed, isNull);
     });
+
+    testWidgets('the month label shows a caret and a tooltip', (tester) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      final entry = find.ancestor(
+        of: find.byKey(const Key('menstrual-month-label')),
+        matching: find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == loc.monthPickerOpenTooltip,
+        ),
+      );
+      expect(entry, findsOneWidget);
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.byIcon(Icons.arrow_drop_down),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    // Regression: the month label's `▾` affordance added an icon to a centred,
+    // non-shrinkable Row. Widget tests default to an 800x600 surface, so
+    // nothing else in this mobile-first PWA's suite caught it.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month header does not overflow at ${width.toInt()}dp, '
+          'locale=$locale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 1400));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await _pumpScreen(
+              tester,
+              FakeMenstrualRepository(),
+              locale: locale,
+            );
+
+            // Drains the *pre-existing* `menstrual-legend` overflow — already
+            // on main at these widths, unrelated to the `▾` — which otherwise
+            // fails every narrow-width test on this screen. (Follow-up; not
+            // this change's regression.) The header is therefore asserted
+            // geometrically: both its ends must stay inside the surface.
+            tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('menstrual-month-label'),
+            );
+            expectMonthLabelReadable(
+              tester,
+              const Key('menstrual-month-label'),
+            );
+            final entry = tester.getRect(
+              find.ancestor(
+                of: find.byKey(const Key('menstrual-month-label')),
+                matching: find.byType(Tooltip),
+              ),
+            );
+            final label = tester.getRect(
+              find.byKey(const Key('menstrual-month-label')),
+            );
+            final caret = tester.getRect(find.byIcon(Icons.arrow_drop_down));
+            expect(label.left, greaterThanOrEqualTo(entry.left));
+            expect(caret.right, lessThanOrEqualTo(entry.right));
+          },
+        );
+      }
+    }
+
+    // Regression: this change moved the other three month-label entries to
+    // `ShrinkToFitText` (scale instead of truncate) and left this one on a
+    // plain `Text` + `TextOverflow.ellipsis`. The width tests above ran at the
+    // default text scale of 1.0, where the label fits either way, so they
+    // passed while a user on a large system font size silently lost the month
+    // digits (`2026年7月` → `202…`, painted 32px and ellipsized). Only the
+    // painted-size assertion, taken under a real `textScaler`, sees it.
+    for (final width in [320.0, 360.0]) {
+      for (final textScale in [1.0, 2.0]) {
+        for (final locale in testSupportedLocales) {
+          testWidgets(
+            'the month label stays whole at ${width.toInt()}dp/'
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 1400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await _pumpScreen(
+                tester,
+                FakeMenstrualRepository(),
+                locale: locale,
+              );
+
+              // Same pre-existing `menstrual-legend` overflow as above (and,
+              // at 2x, the day grid) — drained so the header can be asserted
+              // on its own.
+              tester.takeException();
+              expectMonthLabelFullyVisible(
+                tester,
+                const Key('menstrual-month-label'),
+              );
+              expectMonthLabelPaintedReadable(
+                tester,
+                const Key('menstrual-month-label'),
+              );
+            },
+          );
+        }
+      }
+    }
   });
 }

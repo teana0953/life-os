@@ -876,6 +876,9 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
 }) testHealthControllers({
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
+  /// Threaded into [HealthCalendarController] so a test asserting on the month
+  /// it opens on pins it, rather than reading the real `DateTime.now()`.
+  DateTime Function() clock = DateTime.now,
 }) {
   mealRepository ??= _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -944,6 +947,7 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
     trend: TrendController(GetVitalsTrends(vitalsRepository)),
     healthCalendar: HealthCalendarController(
       GetHealthCalendar(_FakeHealthCalendarRepository()),
+      clock: clock,
     ),
   );
 }
@@ -1074,6 +1078,11 @@ Future<LocaleController> pumpApp(
   FinanceController? financeController,
   NetWorthController? netWorthController,
 
+  /// Hands back the health-calendar controller [App] was wired with — it is
+  /// built internally by [testHealthControllers], so this is how a test gets
+  /// a reference to assert on it.
+  void Function(HealthCalendarController)? onHealthCalendarController,
+
   /// Shared, mirroring main.dart, between the import controller (which
   /// bumps it), the health shell (which listens to it), and both
   /// [CareHistoryController] instances (which are injected with it, so an
@@ -1128,7 +1137,9 @@ Future<LocaleController> pumpApp(
   final health = testHealthControllers(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
+    clock: clock ?? DateTime.now,
   );
+  onHealthCalendarController?.call(health.healthCalendar);
   final resolvedDataRevision = dataRevision ?? DataRevision();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
@@ -2860,6 +2871,44 @@ void main() {
         expect(netWorthController.monthly, isNull);
         expect(netWorthController.accounts, isEmpty);
         expect(netWorthController.trend, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'signing out resets the record calendar to the current month, so the '
+      "next user never opens it on the previous user's month",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        late final HealthCalendarController calendarController;
+        // Pinned, per this repo's injected-clock convention — asserting the
+        // "current month" against the real `DateTime.now()` would be a
+        // month-boundary flake.
+        final now = DateTime(2026, 7, 15, 9);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          onHealthCalendarController: (c) => calendarController = c,
+          clock: () => now,
+        );
+        await tester.pumpAndSettle();
+
+        // The first user browses back to an old month.
+        await calendarController.loadMonth('tok', 2024, 3);
+        expect(calendarController.selectedMonth, DateTime(2024, 3));
+        expect(calendarController.calendar, isNotNull);
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // App-lifetime singleton (main.dart): without the reset the next user
+        // would open 記錄 on March 2024 and the previous user's figures.
+        expect(calendarController.selectedMonth, DateTime(now.year, now.month));
+        expect(calendarController.calendar, isNull);
       },
     );
   });

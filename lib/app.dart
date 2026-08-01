@@ -342,6 +342,10 @@ class _AppState extends State<App> {
       // Unlike `FinanceController`, which `FinanceScaffold` reloads on every
       // entry, nothing else clears the net worth controller.
       widget.netWorthController.reset();
+      // Same reasoning for the record calendar's browsed month: nothing else
+      // clears it, so the next user would open it on the previous user's
+      // month (and its data) instead of their own current month.
+      widget.healthCalendarController.reset();
     }
     _wasSignedIn = signedIn;
   }

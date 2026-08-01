@@ -535,5 +535,10 @@
   "networthAccountNameRequired": "請輸入科目名稱",
   "networthSaveNameTooltip": "儲存名稱",
   "monthNavPreviousTooltip": "上個月",
-  "monthNavNextTooltip": "下個月"
+  "monthNavNextTooltip": "下個月",
+  "monthPickerTitle": "選擇月份",
+  "monthPickerPreviousYearTooltip": "上一年",
+  "monthPickerNextYearTooltip": "下一年",
+  "monthPickerYearTooltip": "選擇年份",
+  "monthPickerOpenTooltip": "選擇月份"
 }

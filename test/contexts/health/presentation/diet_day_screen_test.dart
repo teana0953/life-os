@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
@@ -35,6 +36,7 @@ import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -51,6 +53,10 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakeMealRepository implements MealRepository {
   final List<String> receivedDays = [];
+
+  /// The months the calendar asked for logged days for, so a test can prove a
+  /// month change refetched instead of leaving the old month's markers up.
+  final List<String> receivedMonths = [];
 
   /// Meal group names to report per day, so a test can set up a day that
   /// already has meals (e.g. to check the snapshot handed to the dictionary).
@@ -82,7 +88,10 @@ class _FakeMealRepository implements MealRepository {
   @override
   Future<MealEntry> createMeal(String idToken, {required String day, required String meal, DateTime? time, required List<CreateMealItem> items}) async => throw UnimplementedError();
   @override
-  Future<List<String>> loggedDays(String idToken, String month) async => const [];
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    receivedMonths.add(month);
+    return const [];
+  }
   @override
   Future<void> patchMealItem(String idToken, String id, {double? quantity, double? measure, Portions? portions}) async => throw UnimplementedError();
   @override
@@ -402,4 +411,149 @@ void main() {
     // Diet pushes `/health/diet/target`; the app router builds the screen there.
     expect(find.text('/health/diet/target'), findsOneWidget);
   });
+
+  testWidgets(
+    'jumping the calendar to a month a year back shows it and refetches its '
+    'logged days',
+    (tester) async {
+      final meals = _FakeMealRepository();
+      await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('day-nav-label')));
+      await tester.pumpAndSettle();
+      expect(meals.receivedMonths.last, '2026-07');
+
+      await tester.tap(find.byKey(const Key('calendar-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-month-7')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('calendar-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2025, 7)),
+      );
+      // Without the refetch the grid would keep July 2026's logged-day dots.
+      expect(meals.receivedMonths.last, '2025-07');
+    },
+  );
+
+  testWidgets('dismissing the calendar month picker changes nothing', (
+    tester,
+  ) async {
+    final meals = _FakeMealRepository();
+    await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('day-nav-label')));
+    await tester.pumpAndSettle();
+    final fetchesBefore = meals.receivedMonths.length;
+
+    await tester.tap(find.byKey(const Key('calendar-month-label')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('calendar-month-label'))).data,
+      DateFormat.yMMM('en').format(DateTime(2026, 7)),
+    );
+    expect(meals.receivedMonths.length, fetchesBefore);
+  });
+
+  testWidgets('the calendar month label shows a caret and a tooltip', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('day-nav-label')));
+    await tester.pumpAndSettle();
+
+    final entry = find.ancestor(
+      of: find.byKey(const Key('calendar-month-label')),
+      matching: find.byWidgetPredicate(
+        (w) => w is Tooltip && w.message == _en.monthPickerOpenTooltip,
+      ),
+    );
+    expect(entry, findsOneWidget);
+    expect(
+      find.descendant(of: entry, matching: find.byIcon(Icons.arrow_drop_down)),
+      findsOneWidget,
+    );
+  });
+
+  // Regression: the month label's `▾` affordance added an icon to a centred,
+  // non-shrinkable Row inside the calendar dialog. Widget tests default to an
+  // 800x600 surface, so nothing else in this mobile-first PWA's suite caught
+  // it.
+  for (final width in [320.0, 360.0]) {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the calendar month header does not overflow at ${width.toInt()}dp, '
+        'locale=$locale',
+        (tester) async {
+          await tester.binding.setSurfaceSize(Size(width, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          await tester.pumpWidget(
+            l10nRouterTestApp(
+              locale: locale,
+              home: _dietDay(meals: _FakeMealRepository()),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('day-nav-label')));
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          expectMonthLabelFullyVisible(
+            tester,
+            const Key('calendar-month-label'),
+          );
+          expectMonthLabelReadable(tester, const Key('calendar-month-label'));
+        },
+      );
+    }
+  }
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  for (final locale in testSupportedLocales) {
+    testWidgets(
+      'the calendar month label stays whole at 320dp/textScale=2, '
+      'locale=$locale',
+      (tester) async {
+        useTextScaleFactor(tester, 2.0);
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            locale: locale,
+            home: _dietDay(meals: _FakeMealRepository()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
+
+        // A 2x text scale overflows the day grid inside the dialog; the header
+        // is asserted on its own, as the width tests above already do.
+        tester.takeException();
+        expectMonthLabelFullyVisible(tester, const Key('calendar-month-label'));
+        expectMonthLabelPaintedReadable(
+          tester,
+          const Key('calendar-month-label'),
+        );
+      },
+    );
+  }
 }

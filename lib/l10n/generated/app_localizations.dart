@@ -3319,6 +3319,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next month'**
   String get monthNavNextTooltip;
+
+  /// Title of the dialog that jumps the view to any year and month.
+  ///
+  /// In en, this message translates to:
+  /// **'Select month'**
+  String get monthPickerTitle;
+
+  /// Tooltip/accessible label for the month picker's previous-year arrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous year'**
+  String get monthPickerPreviousYearTooltip;
+
+  /// Tooltip/accessible label for the month picker's next-year arrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Next year'**
+  String get monthPickerNextYearTooltip;
+
+  /// Tooltip/accessible label for the month picker's year label, which opens a scrollable list of years.
+  ///
+  /// In en, this message translates to:
+  /// **'Select year'**
+  String get monthPickerYearTooltip;
+
+  /// Tooltip/accessible label for a month label that opens the month picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Select month'**
+  String get monthPickerOpenTooltip;
 }
 
 class _AppLocalizationsDelegate

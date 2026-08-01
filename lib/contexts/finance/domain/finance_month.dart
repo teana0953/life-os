@@ -1,7 +1,8 @@
 /// Pure `YYYY-MM` string month arithmetic for the finance ledger, and so
 /// inherently `TZ=UTC flutter test`-safe. The invariant that buys that is
 /// **no function here ever reads the ambient clock or converts between time
-/// zones**: every result is derived from the digits of the input string.
+/// zones**: every result is derived from the digits of the input string, or —
+/// for [monthStringOf] — from the calendar fields of the input [DateTime].
 ///
 /// Two functions do build a [DateTime], and both are safe for the same
 /// reason — the fields go straight in from the parsed string and only ever
@@ -54,6 +55,12 @@ DateTime monthDateTime(String month) {
   final (year, monthNum) = _parse(month);
   return DateTime(year, monthNum);
 }
+
+/// The `YYYY-MM` month [date] falls in — the inverse of [monthDateTime], for
+/// turning a month picked in the UI back into the ledger's wire format. Only
+/// the year and month *fields* are read (no instant conversion), so the zone
+/// they were built in can't shift the result.
+String monthStringOf(DateTime date) => _format(date.year, date.month);
 
 (int, int) _parse(String month) {
   final parts = month.split('-');
