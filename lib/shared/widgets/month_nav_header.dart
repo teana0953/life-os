@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/generated/app_localizations.dart';
+import 'shrink_to_fit_text.dart';
 
 /// The shared `‹ 2026-07 ›` month switcher row, used by the finance ledger
 /// 總覽 tab and the 淨值 tab.
@@ -63,8 +64,10 @@ class MonthNavHeader extends StatelessWidget {
           // `Flexible` on both the entry and the label inside it: a `Row`
           // lays a non-flexible child out with an *unbounded* main-axis
           // constraint, so without the outer one the inner one can never
-          // shrink. The inner `FittedBox` then **scales** the label down
-          // rather than ellipsizing it: inside the health card's 20dp page
+          // shrink. The inner `ShrinkToFitText` then **scales** the label
+          // down rather than ellipsizing it — but only down to 12px, so a
+          // future layout change can't shrink it into illegibility the way an
+          // unbounded `FittedBox` would: inside the health card's 20dp page
           // padding a 320dp phone leaves the label ~140dp while `2026年7月`
           // wants 154dp, and an ellipsis ate exactly the month digits
           // (`202…`). Shrunken-but-complete beats truncated-and-silent; at
@@ -88,9 +91,10 @@ class MonthNavHeader extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: label,
+                          child: ShrinkToFitText(
+                            text: monthLabel,
+                            textKey: Key('$keyPrefix-label'),
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
                         ),
                         const Icon(Icons.arrow_drop_down, size: 20),

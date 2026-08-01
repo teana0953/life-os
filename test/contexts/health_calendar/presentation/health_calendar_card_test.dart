@@ -377,6 +377,10 @@ void main() {
               tester,
               const Key('health-calendar-month-label'),
             );
+            expectMonthLabelReadable(
+              tester,
+              const Key('health-calendar-month-label'),
+            );
             final prev = tester.getRect(
               find.byKey(const Key('health-calendar-month-previous')),
             );

@@ -348,6 +348,7 @@ void main() {
               tester,
               const Key('finance-month-label'),
             );
+            expectMonthLabelReadable(tester, const Key('finance-month-label'));
           },
         );
       }

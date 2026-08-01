@@ -342,6 +342,7 @@ void main() {
 
             expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
+            expectMonthLabelReadable(tester, const Key('nw-month-label'));
             expect(find.text(label), findsOneWidget);
           },
         );
@@ -365,6 +366,23 @@ void main() {
 
       expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
       expect(monthLabelScale(tester, const Key('nw-month-label')), 1.0);
+    });
+
+    // The other side of the same coin: `BoxFit.scaleDown` has no lower bound,
+    // so before the floor a row this narrow painted the month at ~5px. Past
+    // the floor the label ellipsizes instead of shrinking further — losing
+    // characters beats losing the whole label to illegibility, and no real
+    // entry gets anywhere near this narrow (the tightest measures 14.0px).
+    testWidgets('it stops shrinking once it hits the readable floor', (
+      tester,
+    ) async {
+      await pumpAt(tester, 160, '2026年7月');
+
+      expectMonthLabelReadable(tester, const Key('nw-month-label'));
+      expect(
+        monthLabelEffectiveFontSize(tester, const Key('nw-month-label')),
+        closeTo(monthLabelMinFontSize, 0.01),
+      );
     });
   });
 }

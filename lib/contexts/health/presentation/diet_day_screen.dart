@@ -5,6 +5,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/shrink_to_fit_text.dart';
 import '../../../shared/widgets/tracker_day_nav_header.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -321,6 +322,12 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
+      // Material's default 40dp side inset spends a quarter of a 320dp phone
+      // on margin, which left the month label 76dp — too little to show
+      // `Jul 2026` at a readable size (it scaled to 9.2px). 16dp hands those
+      // dp back so the label stays whole *and* above the 12px floor; on wider
+      // screens the dialog is sized by its content, so nothing changes.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: Row(
         children: [
           Expanded(child: Text(loc.dietCalendarTitle)),
@@ -364,20 +371,21 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // `Flexible` + `FittedBox` so the label gives
-                              // way to the `▾` instead of overflowing on a
-                              // 320dp phone — by *scaling*, not ellipsizing:
+                              // `Flexible` + `ShrinkToFitText` so the label
+                              // gives way to the `▾` instead of overflowing on
+                              // a 320dp phone — by *scaling*, not ellipsizing:
                               // inside this dialog's insets the label's share
                               // is narrower than `Jul 2026` / `2026年7月`
                               // needs, and an ellipsis ate the month itself.
+                              // The scaling stops at 12px (see the dialog's
+                              // `insetPadding`, which buys the width that
+                              // keeps the label both whole *and* above that
+                              // floor).
                               Flexible(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    monthYearLabel(context, _visibleMonth),
-                                    key: const Key('calendar-month-label'),
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
+                                child: ShrinkToFitText(
+                                  text: monthYearLabel(context, _visibleMonth),
+                                  textKey: const Key('calendar-month-label'),
+                                  style: theme.textTheme.bodyLarge,
                                 ),
                               ),
                               const Icon(Icons.arrow_drop_down, size: 20),

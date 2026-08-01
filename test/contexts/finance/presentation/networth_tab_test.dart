@@ -425,6 +425,7 @@ void main() {
               tester,
               const Key('networth-month-label'),
             );
+            expectMonthLabelReadable(tester, const Key('networth-month-label'));
             final header = tester.getRect(find.byType(MonthNavHeader));
             final prev = tester.getRect(
               find.byKey(const Key('networth-month-previous')),

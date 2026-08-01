@@ -514,6 +514,7 @@ void main() {
             tester,
             const Key('calendar-month-label'),
           );
+          expectMonthLabelReadable(tester, const Key('calendar-month-label'));
         },
       );
     }

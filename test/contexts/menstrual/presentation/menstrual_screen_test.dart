@@ -510,6 +510,10 @@ void main() {
               tester,
               const Key('menstrual-month-label'),
             );
+            expectMonthLabelReadable(
+              tester,
+              const Key('menstrual-month-label'),
+            );
             final entry = tester.getRect(
               find.ancestor(
                 of: find.byKey(const Key('menstrual-month-label')),
