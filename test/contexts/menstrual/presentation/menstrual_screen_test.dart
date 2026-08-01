@@ -461,5 +461,24 @@ void main() {
       );
       expect(save.onPressed, isNull);
     });
+
+    testWidgets('the month label shows a caret and a tooltip', (tester) async {
+      await _pumpScreen(tester, FakeMenstrualRepository());
+
+      final entry = find.ancestor(
+        of: find.byKey(const Key('menstrual-month-label')),
+        matching: find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == loc.monthPickerOpenTooltip,
+        ),
+      );
+      expect(entry, findsOneWidget);
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.byIcon(Icons.arrow_drop_down),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 }

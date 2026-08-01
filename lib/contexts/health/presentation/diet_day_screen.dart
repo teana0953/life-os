@@ -348,18 +348,30 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                 Expanded(
                   // The key stays on the `Text`; the tappable wrapper goes
                   // outside it.
-                  child: Semantics(
-                    button: true,
-                    child: InkWell(
-                      onTap: _pickMonth,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          monthYearLabel(context, _visibleMonth),
-                          key: const Key('calendar-month-label'),
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
+                  child: Tooltip(
+                    message: loc.monthPickerOpenTooltip,
+                    child: Semantics(
+                      button: true,
+                      child: InkWell(
+                        onTap: _pickMonth,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          // The `▾` is the visible clue that the label opens
+                          // the picker — same affordance as the other three
+                          // entries.
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                monthYearLabel(context, _visibleMonth),
+                                key: const Key('calendar-month-label'),
+                                style: theme.textTheme.bodyLarge,
+                              ),
+                              const Icon(Icons.arrow_drop_down),
+                            ],
+                          ),
                         ),
                       ),
                     ),

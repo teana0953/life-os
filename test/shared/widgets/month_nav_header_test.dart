@@ -227,4 +227,56 @@ void main() {
       handle.dispose();
     });
   });
+
+  group('pick-month affordance', () {
+    testWidgets('the tappable label carries a caret and a tooltip', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+              onPickMonth: () {},
+            ),
+          ),
+        ),
+      );
+
+      final entry = find.ancestor(
+        of: find.byKey(const Key('nw-month-label')),
+        matching: find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == _loc.monthPickerOpenTooltip,
+        ),
+      );
+      expect(entry, findsOneWidget);
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.byIcon(Icons.arrow_drop_down),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a label that opens nothing shows no caret', (tester) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
+    });
+  });
 }

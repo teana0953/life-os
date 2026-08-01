@@ -461,4 +461,27 @@ void main() {
     );
     expect(meals.receivedMonths.length, fetchesBefore);
   });
+
+  testWidgets('the calendar month label shows a caret and a tooltip', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      l10nRouterTestApp(home: _dietDay(meals: _FakeMealRepository())),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('day-nav-label')));
+    await tester.pumpAndSettle();
+
+    final entry = find.ancestor(
+      of: find.byKey(const Key('calendar-month-label')),
+      matching: find.byWidgetPredicate(
+        (w) => w is Tooltip && w.message == _en.monthPickerOpenTooltip,
+      ),
+    );
+    expect(entry, findsOneWidget);
+    expect(
+      find.descendant(of: entry, matching: find.byIcon(Icons.arrow_drop_down)),
+      findsOneWidget,
+    );
+  });
 }

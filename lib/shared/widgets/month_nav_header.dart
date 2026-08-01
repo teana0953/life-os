@@ -58,18 +58,25 @@ class MonthNavHeader extends StatelessWidget {
         else
           // `button: true` matches the diet and menstrual month titles: a
           // bare `InkWell` is only `tap`, which screen readers don't announce
-          // as a button.
-          Semantics(
-            button: true,
-            child: InkWell(
-              onTap: onPickMonth,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+          // as a button. The `▾` and the tooltip are the visible clue that the
+          // label opens anything — without one nobody finds the picker.
+          Tooltip(
+            message: loc.monthPickerOpenTooltip,
+            child: Semantics(
+              button: true,
+              child: InkWell(
+                onTap: onPickMonth,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [label, const Icon(Icons.arrow_drop_down)],
+                  ),
                 ),
-                child: label,
               ),
             ),
           ),
