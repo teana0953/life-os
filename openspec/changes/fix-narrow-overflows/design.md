@@ -6,7 +6,7 @@
 
 使用者已指示要修。
 
-## 四處溢出(皆已實測)
+## 七項版面失敗(皆已逐格實測)
 
 | # | 位置 | ts 1.0 | ts 2.0 | 備註 |
 |---|---|---|---|---|
@@ -48,7 +48,7 @@
 
 ## 測試
 
-- 四處各補 {320,360}dp × {en,zh} × textScale {1.0, 2.0} 的版面測試,**硬斷言零 RenderFlex exception**(不用 `takeException()` 排除)。
+- 七項各補 {320,360}dp × {en,zh} × textScale {1.0, 2.0} 的版面測試,**硬斷言零 layout exception**(不限 RenderFlex——helper 不可只濾 RenderFlex,#2b 是 `ListTile` 的 assert;不用 `takeException()` 排除)。
 - 收集**全部** FlutterError 而非只取第一個(binding 只留第一個,`takeException()` 看不到後續)——照 QA 那輪用 `FlutterError.onError` 覆寫收集的做法。
 - 既有測試零改動;既有那些用 `takeException()` 排除溢出的測試,改成硬斷言(這算修既有測試,但屬本 change 的驗收目標,需明確記錄改了哪幾支、為何)。
 
