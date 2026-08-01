@@ -44,7 +44,7 @@
 
 ## 風險
 
-`showDragHandle: true` 會在 sheet 頂端加一條 handle,**四個 sheet 的頂端多出約 22px**——這是預期中的視覺變化(與其他 context 一致),不是回歸。既有 finance sheet 測試**預期續綠**——全為 byKey 斷言,不受位移影響。若仍有測試變紅,確認是位移而非行為改變後再調整該斷言。
+`showDragHandle: true` 會在 sheet 頂端加一條 handle,**四個 sheet 的頂端多出 48px**(SDK 的 `Padding(top: kMinInteractiveDimension)`;handle 圖形本身較細,但佔位是 48px 的可觸區)——這是預期中的視覺變化(與其他 context 一致),不是回歸。既有 finance sheet 測試**預期續綠**——全為 byKey 斷言,不受位移影響。若仍有測試變紅,確認是位移而非行為改變後再調整該斷言。
 
 ## 測試
 

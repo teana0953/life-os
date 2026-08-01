@@ -234,7 +234,7 @@ void main() {
       expect(find.byKey(const Key('account-add-name')), findsOneWidget);
     });
 
-    group('every sheet can be pulled down to close', () {
+    group('sheets carry a drag handle, and it is what closes them', () {
       // Opened from the scaffold itself, not by pumping the sheet widget with a
       // local showModalBottomSheet — the bug lives in the scaffold's call sites,
       // so a test that supplies its own sheet route could never catch it.
@@ -300,9 +300,12 @@ void main() {
       });
 
       /// Enough accounts that the management sheet's content is taller than the
-      /// viewport — the state the user actually hit. At this height the sheet
-      /// covers the whole screen, so there is no scrim left to tap: if the
-      /// handle stops working the sheet is not degraded, it is inescapable.
+      /// viewport — the state the user actually hit. On a phone (<= the M3
+      /// sheet maxWidth of 640) the sheet then covers the screen edge to edge
+      /// with no scrim left to tap, so a broken handle leaves it inescapable
+      /// rather than merely degraded. (This test's 800px-wide viewport keeps
+      /// side scrim; the vertical fill, which is what the drag exercises, is
+      /// the same.)
       FakeFinanceRepository tallAccountsRepo() {
         return FakeFinanceRepository()
           ..accounts = [
@@ -360,7 +363,7 @@ void main() {
         expect(find.byKey(const Key('account-manage-button')), findsOneWidget);
       });
 
-      testWidgets('pulling the content down scrolls it instead of closing', (
+      testWidgets('dragging the content, unlike the handle, never closes the sheet', (
         tester,
       ) async {
         final sheet = await openTallAccountSheet(tester);

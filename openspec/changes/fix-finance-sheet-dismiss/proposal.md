@@ -2,7 +2,7 @@
 
 使用者實機回報:管理科目的 bottom sheet 太長時**關不掉**——點不到外面、沒有下拉把手,只剩實體返回鍵;而 PWA 上實體返回是瀏覽器返回,會退出 go_router 路由堆疊直接**回首頁**,不是回財務頁。
 
-根因:`finance_scaffold.dart` 的四個 `showModalBottomSheet` 只設 `isScrollControlled: true`,缺 `showDragHandle`(關鍵)與 `useSafeArea`。全專案其他呼叫點(food_search、exercise、goal_card、care_today、care_history)都有帶——finance 是唯一沒跟上慣例的,而且四個全中。
+根因:`finance_scaffold.dart` 的四個 `showModalBottomSheet` 只設 `isScrollControlled: true`,缺 `showDragHandle`(關鍵)與 `useSafeArea`。其他 context 的**內容可長的** sheet 都有帶 handle(exercise、goal_card、care_today:314、care_history、food_search 的新增食材 sheet)——finance 是唯一沒跟上的,而且四個全中。(`food_search_screen.dart:214` 的選餐別 picker 三個參數都沒帶,但它只有四個選項、有 scrim,維持現狀合理。)
 
 ## What Changes
 
@@ -23,6 +23,6 @@
 ## Impact
 
 - `lib/contexts/finance/presentation/finance_scaffold.dart`:四處 sheet 參數。
-- 視覺:四個 sheet 頂端多一條 drag handle(約 22px),與其他 context 一致——預期變化,非回歸。
+- 視覺:四個 sheet 頂端多一條 drag handle(**48px**,SDK 的 `Padding(top: kMinInteractiveDimension)`),與其他 context 一致——預期變化,非回歸。
 - 既有 finance sheet 測試預期續綠(全為 byKey 斷言,不受 48px 位移影響)。
 - **已知殘留**:症狀的另一半——財務頁按返回會回首頁而非上一層——本 change 未修(go_router 路由堆疊的獨立問題),值得另開 change。
