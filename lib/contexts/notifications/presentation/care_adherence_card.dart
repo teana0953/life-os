@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/widgets/card_error_retry.dart';
+import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/care_history.dart';
 import 'care_history_controller.dart';
@@ -174,15 +176,7 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
         controller.status == CareHistoryLoadStatus.reauth) {
       return const LedgeCard(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            height: 48,
-            width: 48,
-            child: CircularProgressIndicator(
-              key: Key('care-adherence-card-loading'),
-            ),
-          ),
-        ),
+        child: CardLoading(indicatorKey: Key('care-adherence-card-loading')),
       );
     }
 
@@ -225,29 +219,12 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
     if (controller.status == CareHistoryLoadStatus.error) {
       return LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...header,
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                loc.careErrorForPeriod(controller.spanDays),
-                key: const Key('care-adherence-card-error'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: FilledButton(
-                key: const Key('care-adherence-card-retry'),
-                onPressed: () => controller.load(widget.idToken),
-                child: Text(loc.retry),
-              ),
-            ),
-          ],
+        child: CardErrorRetry(
+          message: loc.careErrorForPeriod(controller.spanDays),
+          messageKey: const Key('care-adherence-card-error'),
+          retryKey: const Key('care-adherence-card-retry'),
+          onRetry: () => controller.load(widget.idToken),
+          header: header,
         ),
       );
     }

@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/date_field.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/domain/auth_repository.dart';
 import 'chaodays_import_controller.dart';
@@ -183,7 +184,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _DateField(
+                                child: DateField(
                                   fieldKey: const Key('import-start-date'),
                                   label: loc.importStartDateLabel,
                                   value: _start,
@@ -193,7 +194,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _DateField(
+                                child: DateField(
                                   fieldKey: const Key('import-end-date'),
                                   label: loc.importEndDateLabel,
                                   value: _end,
@@ -461,51 +462,6 @@ class _TypeResultRow extends StatelessWidget {
               ),
             ),
       secondary: _statusIcon(theme, loc),
-    );
-  }
-}
-
-/// A labelled, tappable date display (mirrors the menstrual screen's private
-/// `_DateField`): shows the formatted [value] or a [placeholder] when unset.
-class _DateField extends StatelessWidget {
-  final Key fieldKey;
-  final String label;
-  final DateTime? value;
-  final String placeholder;
-  final VoidCallback? onTap;
-
-  const _DateField({
-    required this.fieldKey,
-    required this.label,
-    required this.value,
-    required this.placeholder,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        OutlinedButton(
-          key: fieldKey,
-          onPressed: onTap,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value == null ? placeholder : mediumDateLabel(context, value!),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
