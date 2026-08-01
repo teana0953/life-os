@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -66,8 +67,12 @@ bool _yearArrowEnabled(WidgetTester tester, String which) =>
         .onPressed !=
     null;
 
+// `getSemanticsData()`, not the node's own `flagsCollection`: the cell merges
+// its `selected` annotation into the button's node, and only the merged data
+// is what reaches the platform.
 bool _monthSelected(WidgetTester tester, int month) => tester
     .getSemantics(find.byKey(Key('month-picker-month-$month')))
+    .getSemanticsData()
     .flagsCollection
     .isSelected;
 
@@ -255,4 +260,59 @@ void main() {
       expect(find.text('三月'), findsNothing);
     });
   });
+
+  group('month cell semantics', () {
+    testWidgets(
+      'the selected month is one node carrying label + button + selected',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await _open(tester, initialMonth: DateTime(2026, 7));
+
+        final julyLabel = DateFormat.MMM('en').format(DateTime(2026, 7));
+        final july = _dataForLabel(tester, julyLabel);
+        expect(
+          july,
+          isNotNull,
+          reason: 'no semantics node in the live tree is labelled $julyLabel',
+        );
+        // All three on the *same* node: a screen reader reads one node, so
+        // "selected" on a separate, unlabelled parent is never announced.
+        expect(july!.flagsCollection.isButton, isTrue);
+        expect(july.flagsCollection.isSelected, isTrue);
+
+        final juneLabel = DateFormat.MMM('en').format(DateTime(2026, 6));
+        final june = _dataForLabel(tester, juneLabel);
+        expect(june, isNotNull);
+        expect(june!.flagsCollection.isButton, isTrue);
+        expect(june.flagsCollection.isSelected, isFalse);
+        handle.dispose();
+      },
+    );
+  });
+}
+
+/// The semantics data of the live-tree node whose merged label is [label].
+///
+/// Walks the real `SemanticsOwner` tree rather than reading a widget's cached
+/// node, so it can only pass when the node actually reaching the platform
+/// carries the flags.
+SemanticsData? _dataForLabel(WidgetTester tester, String label) {
+  var root = tester.getSemantics(find.byType(MaterialApp));
+  while (root.parent != null) {
+    root = root.parent!;
+  }
+  SemanticsData? found;
+  void visit(SemanticsNode node) {
+    final data = node.getSemanticsData();
+    // Nodes merged into an ancestor never reach the platform on their own —
+    // only the surviving node is what a screen reader reads.
+    if (!node.isMergedIntoParent && data.label == label) found ??= data;
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  visit(root);
+  return found;
 }

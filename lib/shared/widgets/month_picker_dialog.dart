@@ -198,12 +198,16 @@ class _MonthCell extends StatelessWidget {
             child: Text(label),
           );
     // `selected` is carried in the semantics too, so the current month isn't
-    // signalled by fill color alone.
-    return Semantics(
-      key: Key('month-picker-month-$month'),
-      container: true,
-      selected: selected,
-      child: button,
+    // signalled by fill color alone. `MergeSemantics` folds it into the
+    // button's own node: left unmerged, `selected` sits on an unlabelled
+    // parent and a screen reader announces only "Jul, button".
+    return MergeSemantics(
+      child: Semantics(
+        key: Key('month-picker-month-$month'),
+        container: true,
+        selected: selected,
+        child: button,
+      ),
     );
   }
 }

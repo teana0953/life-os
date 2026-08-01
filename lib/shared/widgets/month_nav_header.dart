@@ -56,12 +56,21 @@ class MonthNavHeader extends StatelessWidget {
         if (onPickMonth == null)
           label
         else
-          InkWell(
-            onTap: onPickMonth,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: label,
+          // `button: true` matches the diet and menstrual month titles: a
+          // bare `InkWell` is only `tap`, which screen readers don't announce
+          // as a button.
+          Semantics(
+            button: true,
+            child: InkWell(
+              onTap: onPickMonth,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: label,
+              ),
             ),
           ),
         IconButton(
