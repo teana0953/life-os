@@ -590,6 +590,13 @@ void main() {
                   locale: locale,
                 ),
               );
+
+              // A blank screen also reports no layout error, so pin that the
+              // calendar this guard is about actually rendered.
+              expect(
+                find.byKey(const Key('menstrual-month-label')),
+                findsOneWidget,
+              );
             },
           );
         }

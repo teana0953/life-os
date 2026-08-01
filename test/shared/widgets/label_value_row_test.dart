@@ -4,26 +4,39 @@ import 'package:life_os/shared/widgets/label_value_row.dart';
 
 import '../../support/layout_guard.dart';
 
-Future<void> _pump(WidgetTester tester, Widget value) => tester.pumpWidget(
+Future<void> _pump(
+  WidgetTester tester,
+  Widget value, {
+  Widget label = const Text('Label'),
+  double width = 300,
+}) => tester.pumpWidget(
   MaterialApp(
     home: Scaffold(
       body: SizedBox(
-        width: 300,
-        child: LabelValueRow(label: const Text('Label'), value: value),
+        width: width,
+        child: LabelValueRow(label: label, value: value),
       ),
     ),
   ),
 );
+
+/// The width [text] wants when nothing is squeezing it.
+Future<double> _naturalWidth(WidgetTester tester, String text) async {
+  await tester.pumpWidget(
+    MaterialApp(home: Scaffold(body: Align(child: Text(text)))),
+  );
+  return tester.getRect(find.text(text)).width;
+}
 
 void main() {
   group('LabelValueRow', () {
     testWidgets('aligns a value that names no textAlign to the row edge', (
       tester,
     ) async {
-      // The caller-side footgun this row is built to remove: a bare `Text`
-      // inside the `Expanded` used to draw flush left in a full-width slot,
-      // silently. Measured on the glyphs, not the box — the box spans the row
-      // either way (see paintedTextRight).
+      // The caller-side footgun this row is built to remove: the value used to
+      // sit in a full-width `Expanded` and drew flush left inside it, silently.
+      // Measured on the glyphs, not the box, so it would still catch a
+      // regression that re-expands the value's slot.
       await _pump(tester, const Text('1,234'));
 
       final rowRight = tester.getRect(find.byType(LabelValueRow)).right;
@@ -33,18 +46,32 @@ void main() {
       );
     });
 
-    testWidgets('a value that names its own textAlign still wins', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        const Text('1,234', textAlign: TextAlign.start),
-      );
+    // The priority guard. With the flex on the value instead of the label, a
+    // long label took its natural width and the amount got what was left: QA
+    // measured a 0–9dp column that broke `NT$1,234,567` one digit per line and
+    // grew the row from 64dp to 208dp — at 390dp through 800dp, with no
+    // exception to catch it. The label is the half that must yield.
+    testWidgets('a long label yields so the value stays whole', (tester) async {
+      const value = 'NT\$1,234,567';
+      const label = 'Long-term care savings account'; // 30 characters
+      final natural = await _naturalWidth(tester, value);
 
-      final rowRight = tester.getRect(find.byType(LabelValueRow)).right;
+      await _pump(tester, const Text(value), label: const Text(label));
+
       expect(
-        paintedTextRight(tester, find.text('1,234')),
-        lessThan(rowRight - 10),
+        paintedTextLineCount(tester, find.text(value)),
+        1,
+        reason: 'the value must not be broken across lines',
+      );
+      expect(
+        tester.getRect(find.text(value)).width,
+        greaterThanOrEqualTo(natural - 0.5),
+        reason: 'the value must keep its natural width, not be squeezed',
+      );
+      expect(
+        paintedTextLineCount(tester, find.text(label)),
+        greaterThan(1),
+        reason: 'the label is the half that gives way',
       );
     });
   });

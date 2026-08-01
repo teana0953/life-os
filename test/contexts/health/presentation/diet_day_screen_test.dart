@@ -27,6 +27,7 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
 import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
+import 'package:life_os/contexts/health/presentation/category_progress_bar.dart';
 import 'package:life_os/contexts/health/presentation/create_meal_controller.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
@@ -584,6 +585,13 @@ void main() {
                 );
                 await tester.pumpAndSettle();
               });
+
+              // A screen still loading reports no layout error either, so pin
+              // that the progress bars this guard is about actually rendered.
+              expect(
+                find.byType(CategoryProgressBar),
+                findsWidgets,
+              );
             },
           );
         }

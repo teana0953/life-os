@@ -483,6 +483,20 @@ void main() {
               await expectNoLayoutErrors(
                 () => _pump(tester, _FakeRepository(), locale: locale),
               );
+
+              // A blank card also reports no layout error, so pin that the two
+              // things this guard is about — the month grid and the ring row —
+              // actually rendered.
+              expect(
+                find.byKey(const Key('health-calendar-month-label')),
+                findsOneWidget,
+              );
+              for (final ring in ['logging', 'diet', 'weight']) {
+                expect(
+                  find.byKey(Key('health-calendar-ring-$ring')),
+                  findsOneWidget,
+                );
+              }
             },
           );
         }

@@ -170,7 +170,9 @@ void main() {
     // and wrapped it while the other half sat empty (the same shape wrapped
     // `Total liabilities` onto 3 lines at 390dp in the net-worth tab). This is
     // a shared widget whose label comes from its host, so it is measured with
-    // one longer than half the row but well inside it.
+    // one longer than half the row but still fitting beside the number: at
+    // 390dp this label wants 256.5dp of the 282.3dp left over, and the 50/50
+    // shape would hand it 191dp.
     for (final width in [390.0, 430.0, 600.0, 800.0]) {
       testWidgets('a label that fits the row stays on one line at ${width.toInt()}dp', (
         tester,
@@ -178,7 +180,7 @@ void main() {
         await tester.binding.setSurfaceSize(Size(width, 600));
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
-        const label = 'Staple food portions';
+        const label = 'Staple food target';
         await tester.pumpWidget(
           l10nTestApp(
             home: const Scaffold(
