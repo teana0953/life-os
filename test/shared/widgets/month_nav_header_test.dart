@@ -385,4 +385,66 @@ void main() {
       );
     });
   });
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  group('month label at a large system text scale', () {
+    Future<void> pumpAt(WidgetTester tester, double width, String label) =>
+        tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: width,
+                  child: MonthNavHeader(
+                    monthLabel: label,
+                    keyPrefix: 'nw-month',
+                    onPrevious: () {},
+                    onNext: () {},
+                    onPickMonth: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    for (final textScale in [2.0, 3.0]) {
+      for (final label in ['2026年7月', 'Jul 2026']) {
+        testWidgets(
+          '"$label" stays whole in a 320dp row at textScale=$textScale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await pumpAt(tester, 320, label);
+
+            expect(tester.takeException(), isNull);
+            expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
+            expectMonthLabelPaintedReadable(
+              tester,
+              const Key('nw-month-label'),
+            );
+            expect(find.text(label), findsOneWidget);
+          },
+        );
+      }
+    }
+
+    // The floor still holds when the glyphs are 3x bigger: the `FittedBox`
+    // shrinks by exactly as much as the scaler grew them, so what lands on
+    // screen is the same 12px it is at textScale 1.
+    testWidgets('the floor is measured in painted pixels', (tester) async {
+      useTextScaleFactor(tester, 3.0);
+      await pumpAt(tester, 160, '2026年7月');
+
+      expectMonthLabelPaintedReadable(tester, const Key('nw-month-label'));
+      expect(
+        monthLabelPaintedFontSize(tester, const Key('nw-month-label')),
+        closeTo(monthLabelMinFontSize, 0.01),
+      );
+    });
+  });
 }

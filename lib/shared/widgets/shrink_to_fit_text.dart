@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// A one-line label that **scales down** to fit the width it is given — but
-/// never below [minFontSize].
+/// A one-line label that **scales down** to fit the width it is given — but,
+/// *when width is what constrains it*, never below [minFontSize].
 ///
 /// A bare `FittedBox(fit: BoxFit.scaleDown)` has no lower bound: it keeps
 /// shrinking as the available width falls, so a month header that merely
@@ -16,6 +16,30 @@ import 'package:flutter/material.dart';
 /// childWidth` — can never drop below `minScale`. While the text is narrower
 /// than that cap the label behaves exactly as before; once it isn't, the label
 /// holds [minFontSize] and ellipsizes instead of shrinking further.
+///
+/// `minScale` is measured against the **text-scaled** font size
+/// (`MediaQuery.textScalerOf(context)`), not the authored one, because that is
+/// what actually reaches the screen: the `FittedBox` shrinks by exactly as
+/// much as the scaler grew the glyphs, so the painted size is the same at
+/// every text scale. Comparing the authored size against the floor instead
+/// made the cap bite `textScaler`× too early, and a user on a 3.0 text scale
+/// got the month digits ellipsized away (`2026年7月` → `202…`) while the label
+/// was still being painted comfortably above 12px.
+///
+/// ## What this does *not* guarantee
+///
+/// * **The floor is on the width axis only.** `BoxFit.scaleDown` picks
+///   `min(maxWidth / childWidth, maxHeight / childHeight)` and the
+///   `ConstrainedBox` caps only the width, so a *height*-limited box still
+///   scales past the floor: measured, a 400x12 box paints `titleLarge` (22px,
+///   28px tall) at 9.43px and a 400x8 one at 6.29px. No call site constrains
+///   this widget's height today; one that does has to guard the height itself.
+/// * **Single line only.** The child is `maxLines: 1, softWrap: false`, and
+///   the width cap assumes one line — it does not bound a wrapped paragraph.
+/// * **Past the floor the label ellipsizes.** It stops shrinking, it does not
+///   stop losing characters: below the floor, losing the tail beats losing the
+///   whole label to illegibility. Call sites that must stay whole have to give
+///   the label enough width, not rely on this widget.
 class ShrinkToFitText extends StatelessWidget {
   final String text;
 
@@ -55,7 +79,10 @@ class ShrinkToFitText extends StatelessWidget {
     if (fontSize == null || fontSize <= 0) {
       return FittedBox(fit: BoxFit.scaleDown, child: label);
     }
-    final minScale = (minFontSize / fontSize).clamp(0.01, 1.0);
+    // The glyphs the `FittedBox` scales are already `textScaler`-sized, so the
+    // floor has to be compared against that, not against `fontSize`.
+    final scaledFontSize = MediaQuery.textScalerOf(context).scale(fontSize);
+    final minScale = (minFontSize / scaledFontSize).clamp(0.01, 1.0);
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!constraints.hasBoundedWidth) {

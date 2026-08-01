@@ -354,4 +354,52 @@ void main() {
       }
     }
   });
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  group('month label at a large system text scale', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the month label stays whole at 320dp/textScale=2, locale=$locale',
+        (tester) async {
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final controller = testFinanceController(FakeFinanceRepository());
+          await controller.load('tok', '2026-07');
+          await tester.pumpWidget(
+            l10nTestApp(
+              locale: locale,
+              home: Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {},
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // A 2x text scale overflows rows elsewhere on the tab; the header is
+          // asserted on its own, as the width tests above already do.
+          tester.takeException();
+          expectMonthLabelFullyVisible(
+            tester,
+            const Key('finance-month-label'),
+          );
+          expectMonthLabelPaintedReadable(
+            tester,
+            const Key('finance-month-label'),
+          );
+        },
+      );
+    }
+  });
 }

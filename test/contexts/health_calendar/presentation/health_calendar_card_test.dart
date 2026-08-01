@@ -394,4 +394,79 @@ void main() {
       }
     }
   });
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  group('month label at a large system text scale', () {
+    for (final textScale in [2.0, 3.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month label stays whole at 320dp, textScale=$textScale, '
+          'locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(const Size(320, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await _pump(tester, _FakeRepository(), locale: locale);
+
+            // Drains the pre-existing three-ring row overflow (see above),
+            // which a large text scale only makes louder.
+            tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('health-calendar-month-label'),
+            );
+            expectMonthLabelPaintedReadable(
+              tester,
+              const Key('health-calendar-month-label'),
+            );
+          },
+        );
+      }
+    }
+  });
+
+  // The floor's only *real-entry* guard. At 320dp the tightest real label
+  // still paints at 14px, so deleting the `ConstrainedBox` from
+  // `ShrinkToFitText` — or dropping the 12 to 6 — left every real-entry test
+  // green and only the synthetic 160dp `MonthNavHeader` test red. 280dp is a
+  // 320dp phone at ~115% browser zoom (this ships as a PWA) and is the first
+  // width where this card's label actually reaches the floor: it holds
+  // exactly 12px and ellipsizes rather than shrinking on.
+  group('month label at the readable floor', () {
+    for (final textScale in [1.0, 2.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          'the month label holds the 12px floor at 280dp, '
+          'textScale=$textScale, locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(const Size(280, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await _pump(tester, _FakeRepository(), locale: locale);
+
+            tester.takeException();
+            expectMonthLabelPaintedReadable(
+              tester,
+              const Key('health-calendar-month-label'),
+            );
+            expect(
+              monthLabelPaintedFontSize(
+                tester,
+                const Key('health-calendar-month-label'),
+              ),
+              closeTo(monthLabelMinFontSize, 0.01),
+              reason: 'the label should sit *on* the floor at this width',
+            );
+          },
+        );
+      }
+    }
+  });
 }

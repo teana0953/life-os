@@ -519,4 +519,41 @@ void main() {
       );
     }
   }
+
+  // Regression: the readable floor was computed from the **authored** font
+  // size while the `FittedBox` scales `textScaler`-sized glyphs, so the width
+  // cap bit `textScaler`× too early — a user on a large system font size got
+  // the month digits ellipsized away (`2026年7月` → `202…`): the exact failure
+  // the floor was added to prevent, reintroduced by the fix for it. Nothing in
+  // this suite set a text scale at all before this.
+  for (final locale in testSupportedLocales) {
+    testWidgets(
+      'the calendar month label stays whole at 320dp/textScale=2, '
+      'locale=$locale',
+      (tester) async {
+        useTextScaleFactor(tester, 2.0);
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            locale: locale,
+            home: _dietDay(meals: _FakeMealRepository()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-label')));
+        await tester.pumpAndSettle();
+
+        // A 2x text scale overflows the day grid inside the dialog; the header
+        // is asserted on its own, as the width tests above already do.
+        tester.takeException();
+        expectMonthLabelFullyVisible(tester, const Key('calendar-month-label'));
+        expectMonthLabelPaintedReadable(
+          tester,
+          const Key('calendar-month-label'),
+        );
+      },
+    );
+  }
 }

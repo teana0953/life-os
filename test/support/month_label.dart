@@ -87,3 +87,41 @@ void expectMonthLabelReadable(WidgetTester tester, Key labelKey) {
         '${monthLabelMinFontSize}px and is no longer readable',
   );
 }
+
+/// The size the month label is *painted* at once the platform text scale is
+/// folded in: `textScaler(fontSize)` times the enclosing `FittedBox`'s scale.
+///
+/// [monthLabelEffectiveFontSize] reads the **authored** font size off the
+/// span, so at any `textScaler` other than 1.0 it under-reports what the user
+/// actually sees by exactly that factor — which is why every assertion under a
+/// non-default text scale has to go through this one instead.
+double monthLabelPaintedFontSize(WidgetTester tester, Key labelKey) {
+  final paragraph = tester.renderObject<RenderParagraph>(find.byKey(labelKey));
+  final fontSize = paragraph.text.style?.fontSize;
+  expect(fontSize, isNotNull, reason: 'the month label has no font size');
+  return paragraph.textScaler.scale(fontSize!) *
+      monthLabelScale(tester, labelKey);
+}
+
+/// Like [expectMonthLabelReadable], but measured in *painted* pixels, so it
+/// stays honest when the user has turned their system font size up.
+void expectMonthLabelPaintedReadable(WidgetTester tester, Key labelKey) {
+  final text = tester.widget<Text>(find.byKey(labelKey)).data;
+  expect(
+    monthLabelPaintedFontSize(tester, labelKey),
+    greaterThanOrEqualTo(monthLabelMinFontSize),
+    reason:
+        'the month label "$text" is painted below '
+        '${monthLabelMinFontSize}px and is no longer readable',
+  );
+}
+
+/// Turns the platform text scale up to [factor] for the rest of the test.
+///
+/// Set on the `platformDispatcher` rather than by wrapping the widget under
+/// test in a `MediaQuery`, so it reaches screens the test pumps through their
+/// own helpers — the same path a real user's accessibility setting takes.
+void useTextScaleFactor(WidgetTester tester, double factor) {
+  tester.platformDispatcher.textScaleFactorTestValue = factor;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+}
