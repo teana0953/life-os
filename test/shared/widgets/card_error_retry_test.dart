@@ -40,6 +40,17 @@ void main() {
       expect(find.text(_loc.retry), findsOneWidget);
     });
 
+    testWidgets('the message is centered text in the error color', (
+      tester,
+    ) async {
+      await _pump(tester, onRetry: () {});
+
+      final text = tester.widget<Text>(find.byKey(const Key('card-error')));
+      expect(text.textAlign, TextAlign.center);
+      final theme = Theme.of(tester.element(find.byType(CardErrorRetry)));
+      expect(text.style?.color, theme.colorScheme.error);
+    });
+
     testWidgets('tapping retry invokes onRetry', (tester) async {
       var retries = 0;
       await _pump(tester, onRetry: () => retries++);
@@ -88,11 +99,7 @@ void main() {
 
     testWidgets('a header aligns the column to start and centers the message '
         'and retry individually', (tester) async {
-      await _pump(
-        tester,
-        onRetry: () {},
-        header: const [Text('Header')],
-      );
+      await _pump(tester, onRetry: () {}, header: const [Text('Header')]);
 
       final column = tester.widget<Column>(find.byType(Column));
       expect(column.crossAxisAlignment, CrossAxisAlignment.start);
@@ -102,8 +109,10 @@ void main() {
       expect(find.byType(Column), findsOneWidget);
 
       final width = tester.getSize(find.byType(CardErrorRetry)).width;
-      expect(tester.getCenter(find.byKey(const Key('card-retry'))).dx,
-          moreOrLessEquals(width / 2, epsilon: 1));
+      expect(
+        tester.getCenter(find.byKey(const Key('card-retry'))).dx,
+        moreOrLessEquals(width / 2, epsilon: 1),
+      );
     });
 
     testWidgets('headerSpacing sets the gap between header and message', (
@@ -116,12 +125,28 @@ void main() {
         headerSpacing: 40,
       );
 
-      final spacers = tester
-          .widgetList<SizedBox>(find.byType(SizedBox))
-          .map((s) => s.height)
-          .toList();
-      expect(spacers, contains(40.0));
-      expect(spacers, contains(12.0));
+      // Assert by position, not by "some SizedBox is 40 tall": the header gap
+      // is the spacer between the header and the message, and the fixed 12 is
+      // the one between the message and the retry. Swapping the two must fail.
+      final children = tester.widget<Column>(find.byType(Column)).children;
+      expect(children, hasLength(5));
+      expect(children[0], isA<Text>());
+      expect((children[1] as SizedBox).height, 40.0);
+      expect(
+        find.descendant(
+          of: find.byWidget(children[2]),
+          matching: find.byKey(const Key('card-error')),
+        ),
+        findsOneWidget,
+      );
+      expect((children[3] as SizedBox).height, 12.0);
+      expect(
+        find.descendant(
+          of: find.byWidget(children[4]),
+          matching: find.byKey(const Key('card-retry')),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }
