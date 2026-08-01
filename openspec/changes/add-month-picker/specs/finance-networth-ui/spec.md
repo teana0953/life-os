@@ -11,7 +11,9 @@ use this widget without changing its behavior or its existing test keys.
 The month label SHALL additionally open a month picker when the caller
 supplies a jump handler, so a distant month is reachable in one step instead
 of repeated arrow taps. When no handler is supplied the label stays
-non-interactive, so existing callers keep their behavior.
+non-interactive, so existing callers keep their behavior. The label's
+identifying key SHALL remain on its `Text`, so existing tests that read the
+label's text keep working.
 
 #### Scenario: Arrows move between months
 
@@ -27,4 +29,5 @@ non-interactive, so existing callers keep their behavior.
 
 - **WHEN** the finance month label is tapped and a month two years back is
   chosen
-- **THEN** the screen loads that month's data directly
+- **THEN** the screen loads that month's data directly, through the same
+  month-change path the arrows use (its stale-response guard still applies)
