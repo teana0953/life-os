@@ -9,6 +9,8 @@ import 'package:life_os/contexts/health/presentation/daily_target_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../../../support/month_label.dart';
 
 class FakeDailyTargetRepository implements DailyTargetRepository {
   DailyTargetWithRemaining? targetToReturn;
@@ -190,5 +192,55 @@ void main() {
 
       expect(savedCalled, isTrue);
     });
+  });
+
+  // This screen is the second host of the shared `CategoryProgressBar` (the
+  // other is TodayScreen) and had no width guard at all: on main its four
+  // bars overflowed by 196/140/168/281px at 360dp/en/2x. Guarding it here
+  // keeps the shared widget's narrow-width fix from silently regressing
+  // through a host that no other test pumps narrow.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the screen lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repository = FakeDailyTargetRepository()
+                ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+              final controller = DailyTargetController(
+                GetDailyTargetWithRemaining(repository),
+                SetDailyTarget(repository),
+              );
+              await controller.load('token-123', '2026-07-18');
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  l10nTestApp(
+                    locale: locale,
+                    home: DailyTargetScreen(
+                      controller: controller,
+                      idToken: 'token-123',
+                      day: '2026-07-18',
+                    ),
+                  ),
+                );
+                await tester.pumpAndSettle();
+              });
+
+              expect(
+                find.byKey(const Key('daily-target-staple-progress')).evaluate(),
+                isNotEmpty,
+              );
+            },
+          );
+        }
+      }
+    }
   });
 }

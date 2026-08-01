@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/presentation/category_progress_bar.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/fractional_progress_bar.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 
 void main() {
   group('CategoryProgressBar', () {
@@ -124,5 +126,43 @@ void main() {
         expect(find.text(loc.dietProgressOfTarget(9, 12)), findsNothing);
       },
     );
+
+    // Right-alignment guard. Making both halves shrinkable is easy to get
+    // wrong in a way no overflow test catches: a *loose* `Flexible` around
+    // the number shrink-wraps the text and parks the slack after it, so the
+    // number drifts left of the bar it annotates — and further the wider the
+    // screen (75px at 390dp, 280px at 800dp when this regressed). The bar's
+    // right edge is the reference because they are stacked in the same
+    // stretched Column and read as one unit.
+    for (final width in [390.0, 600.0, 800.0]) {
+      testWidgets('the number stays flush with the bar\'s right edge at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: CategoryProgressBar(
+                label: 'Staple',
+                logged: 9,
+                effective: 12,
+                color: Colors.amber,
+              ),
+            ),
+          ),
+        );
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final numberRight = paintedTextRight(
+          tester,
+          find.text(loc.dietProgressOfTarget(9, 12)),
+        );
+        final bar = tester.getRect(find.byType(FractionalProgressBar));
+
+        expect(numberRight, closeTo(bar.right, 0.5));
+      });
+    }
   });
 }

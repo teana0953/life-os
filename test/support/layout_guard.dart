@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Runs [body] with `FlutterError.onError` redirected so that **every** error
@@ -36,6 +39,25 @@ Future<List<FlutterErrorDetails>> collectLayoutErrors(
     FlutterError.onError = previous;
   }
   return errors;
+}
+
+/// The global x of the right-most **painted glyph** of the `Text` [finder]
+/// matches.
+///
+/// Deliberately not `tester.getRect(...).right`: once a trailing value is
+/// wrapped in an `Expanded`, its box always spans to the row's edge, so a box
+/// measurement would still pass if `TextAlign.end` were dropped. Measuring the
+/// glyph run is what actually pins "the number reads flush right".
+double paintedTextRight(WidgetTester tester, Finder finder) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(
+      baseOffset: 0,
+      extentOffset: paragraph.text.toPlainText().length,
+    ),
+  );
+  final localRight = boxes.map((b) => b.right).reduce(math.max);
+  return paragraph.localToGlobal(Offset(localRight, 0)).dx;
 }
 
 /// Runs [body] and asserts it reported no layout error at all.

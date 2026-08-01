@@ -42,12 +42,18 @@ class CategoryProgressBar extends StatelessWidget {
         // Both halves shrink and wrap rather than pushing the row off a
         // narrow screen: at a 2x text scale these ran up to 144px past a
         // 320dp phone. Shared widget — the change lands on every host.
+        //
+        // The trailing half is `Expanded`, not a loose `Flexible`: a loose
+        // child shrink-wraps its text and leaves the slack *after* it, so
+        // `TextAlign.end` would align inside a box narrower than the slot
+        // and the number would drift left of the bar's right edge — further
+        // the wider the screen (75px at 390dp, 280px at 800dp).
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
             const SizedBox(width: 8),
-            Flexible(
+            Expanded(
               child: Text(
                 trailingLabel ?? loc.dietProgressOfTarget(logged, effective),
                 textAlign: TextAlign.end,

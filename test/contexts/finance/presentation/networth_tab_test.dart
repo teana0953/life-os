@@ -489,4 +489,96 @@ void main() {
       }
     }
   });
+
+  // Right-alignment guard, the other half of the narrow-width work: making
+  // the money column shrinkable must not stop it hugging the card edge. A
+  // *loose* `Flexible` shrink-wraps the amount and leaves the slack after
+  // it, so `TextAlign.end` aligns inside a too-narrow box and the column
+  // drifts inward — 31px at 390dp and 136px at 800dp when that regressed,
+  // i.e. worse the wider the screen. All three money rows of a group (an
+  // account, the archived subtotal, the group total) must share one edge.
+  group('money column alignment', () {
+    for (final width in [390.0, 600.0, 800.0]) {
+      testWidgets('every amount in a group ends at the card edge at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeFinanceRepository()
+          ..accounts = [
+            ...FakeFinanceRepository().accounts,
+            const NetWorthAccount(
+              id: 'acc-old',
+              kind: NetWorthKind.asset,
+              name: 'Closed savings',
+              sortOrder: 1,
+              archived: true,
+            ),
+          ]
+          ..seedSnapshot('acc-cash', '2026-07', 1234567)
+          ..seedSnapshot('acc-old', '2026-07', 42)
+          // A non-zero liability keeps the asset-group total (1234609)
+          // different from the net worth headline, so the total below is
+          // found by its text alone.
+          ..seedSnapshot('acc-card', '2026-07', 9);
+        final controller = testNetWorthController(repo);
+        await controller.load('token', '2026-07');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: NetWorthTab(
+                controller: controller,
+                onSwitchMonth: (m) async {},
+                onEditAccountValue: (a) {},
+                onManageAccounts: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Each amount is measured against the right edge of its own row, so
+        // no padding constant is baked into the test. (The `ListTile` rows
+        // sit 8px further in than the two padded rows — its own content
+        // inset, the same on main.)
+        final archivedRow = find.byKey(const Key('networth-archived-asset'));
+        expect(archivedRow, findsOneWidget);
+
+        void expectFlushRight(Finder row, Finder amount, String what) {
+          final rowRight = tester
+              .getRect(find.descendant(of: row, matching: find.byType(Row)).first)
+              .right;
+          expect(
+            paintedTextRight(tester, find.descendant(of: row, matching: amount)),
+            closeTo(rowRight, 0.5),
+            reason: '$what must hug its row\'s right edge',
+          );
+        }
+
+        expectFlushRight(
+          find.byKey(const Key('account-row-acc-cash')),
+          find.text('1234567'),
+          'the account amount',
+        );
+        expectFlushRight(archivedRow, find.text('42'), 'the archived subtotal');
+        expectFlushRight(
+          find.ancestor(of: find.text('1234609'), matching: find.byType(Padding)).first,
+          find.text('1234609'),
+          'the group total',
+        );
+
+        // The two rows that share a padding must also share one edge, so the
+        // money column reads as a column.
+        expect(
+          paintedTextRight(
+            tester,
+            find.descendant(of: archivedRow, matching: find.text('42')),
+          ),
+          closeTo(paintedTextRight(tester, find.text('1234609')), 0.5),
+        );
+      });
+    }
+  });
 }

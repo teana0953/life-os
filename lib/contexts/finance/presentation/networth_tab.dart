@@ -335,12 +335,17 @@ class _AccountGroup extends StatelessWidget {
                   // the whole tile and the tile refused to lay out at all —
                   // an assertion, not a RenderFlex overflow. Inside the row
                   // both halves are shrinkable and wrap instead.
+                  //
+                  // The amount half is `Expanded`, not a loose `Flexible`:
+                  // a loose child shrink-wraps and leaves the slack after
+                  // it, so `TextAlign.end` would stop short of the card edge
+                  // by more the wider the screen.
                   title: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: Text(account.name)),
                       const SizedBox(width: 12),
-                      Flexible(
+                      Expanded(
                         child: Text(
                           valueByAccount.containsKey(account.id)
                               ? formatMinorUnits(
@@ -377,7 +382,7 @@ class _AccountGroup extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Flexible(
+                      Expanded(
                         child: Text(
                           formatMinorUnits(archivedTotal, defaultCurrency),
                           textAlign: TextAlign.end,
@@ -401,7 +406,7 @@ class _AccountGroup extends StatelessWidget {
                       child: Text(totalLabel, style: theme.textTheme.bodyMedium),
                     ),
                     const SizedBox(width: 12),
-                    Flexible(
+                    Expanded(
                       child: Text(
                         formatMinorUnits(total, defaultCurrency),
                         textAlign: TextAlign.end,
