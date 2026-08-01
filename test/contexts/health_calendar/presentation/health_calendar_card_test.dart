@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar_exceptions.dart';
@@ -252,5 +253,92 @@ void main() {
     expect(repo.getCalls, callsBefore + 1);
     expect(find.byType(StaleNotice), findsNothing);
     expect(find.byKey(const Key('health-calendar-dot-3')), findsOneWidget);
+  });
+
+  group('month switching', () {
+    testWidgets('opens on the current month', (tester) async {
+      final repo = _FakeRepository();
+      await _pump(tester, repo);
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('health-calendar-month-label')))
+            .data,
+        DateFormat.yMMM('en').format(DateTime(2026, 7)),
+      );
+    });
+
+    testWidgets('the previous arrow loads the month before', (tester) async {
+      final repo = _FakeRepository();
+      final controller = await _pump(tester, repo);
+
+      await tester.tap(find.byKey(const Key('health-calendar-month-previous')));
+      await tester.pumpAndSettle();
+
+      expect(controller.selectedMonth, DateTime(2026, 6));
+      expect(controller.calendar!.month, 6);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('health-calendar-month-label')))
+            .data,
+        DateFormat.yMMM('en').format(DateTime(2026, 6)),
+      );
+    });
+
+    testWidgets('the label opens the picker and jumping loads that month', (
+      tester,
+    ) async {
+      final repo = _FakeRepository()
+        ..build = (year, month) => HealthCalendar(
+              year: year,
+              month: month,
+              loggedDays: {'$year-${month.toString().padLeft(2, '0')}-09'},
+              daysElapsed: 30,
+              loggingRate: 50,
+              dietAdherenceRate: 50,
+            );
+      final controller = await _pump(tester, repo);
+
+      await tester.tap(find.byKey(const Key('health-calendar-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-month-2')));
+      await tester.pumpAndSettle();
+
+      expect(controller.selectedMonth, DateTime(2025, 2));
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('health-calendar-month-label')))
+            .data,
+        DateFormat.yMMM('en').format(DateTime(2025, 2)),
+      );
+      // The dots belong to the month now labelled, not the one left behind.
+      expect(find.byKey(const Key('health-calendar-dot-9')), findsOneWidget);
+      expect(find.byKey(const Key('health-calendar-dot-3')), findsNothing);
+    });
+
+    testWidgets('the switcher stays reachable while the new month loads', (
+      tester,
+    ) async {
+      final repo = _FakeRepository();
+      final controller = await _pump(tester, repo);
+
+      final gate = Completer<void>();
+      repo.gate = gate;
+      unawaited(controller.loadMonth('token', 2026, 6));
+      await tester.pump();
+
+      // The outgoing month's dots are gone (never drawn under June's label)
+      // and the switcher is still there to get back.
+      expect(find.byKey(const Key('health-calendar-dot-3')), findsNothing);
+      expect(find.byKey(const Key('health-calendar-loading')), findsOneWidget);
+      expect(
+        find.byKey(const Key('health-calendar-month-label')),
+        findsOneWidget,
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
   });
 }

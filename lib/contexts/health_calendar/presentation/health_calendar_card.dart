@@ -6,6 +6,8 @@ import '../../../shared/date/month_grid.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/month_nav_header.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
 
@@ -48,6 +50,38 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
 
   void _onControllerChanged() => setState(() {});
 
+  void _changeMonth(int delta) {
+    final selected = widget.controller.selectedMonth;
+    final target = DateTime(selected.year, selected.month + delta);
+    widget.controller.loadMonth(widget.idToken, target.year, target.month);
+  }
+
+  Future<void> _pickMonth() async {
+    // No first/last bound, matching the ‹ › arrows — nothing reachable by
+    // stepping should be unreachable by jumping.
+    final picked = await showMonthPicker(
+      context,
+      initialMonth: widget.controller.selectedMonth,
+    );
+    if (picked == null || !mounted) return;
+    await widget.controller.loadMonth(
+      widget.idToken,
+      picked.year,
+      picked.month,
+    );
+  }
+
+  /// The month switcher, shown in every state — including while a month is
+  /// loading and after one failed, so a switch is never a one-way trip into a
+  /// card with no way back.
+  Widget _monthNav(BuildContext context) => MonthNavHeader(
+    monthLabel: monthYearLabel(context, widget.controller.selectedMonth),
+    keyPrefix: 'health-calendar-month',
+    onPrevious: () => _changeMonth(-1),
+    onNext: () => _changeMonth(1),
+    onPickMonth: _pickMonth,
+  );
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -56,9 +90,15 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
 
     if (controller.status == HealthCalendarStatus.loading &&
         controller.calendar == null) {
-      return const LedgeCard(
-        padding: EdgeInsets.all(24),
-        child: CardLoading(indicatorKey: Key('health-calendar-loading')),
+      return LedgeCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _monthNav(context),
+            const CardLoading(indicatorKey: Key('health-calendar-loading')),
+          ],
+        ),
       );
     }
 
@@ -75,6 +115,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
           message: loc.healthCalendarLoadFailed,
           messageKey: const Key('health-calendar-error'),
           retryKey: const Key('health-calendar-retry'),
+          header: [_monthNav(context)],
           onRetry: () => controller.load(widget.idToken),
         ),
       );
@@ -98,20 +139,11 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(loc.healthCalendarTitle, style: theme.textTheme.titleLarge),
-                    ),
-                    Text(
-                      monthYearLabel(context, month),
-                      key: const Key('health-calendar-month'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+                Text(loc.healthCalendarTitle, style: theme.textTheme.titleLarge),
+                // The month moved out of this row and into the switcher below:
+                // the card used to be pinned to the current month, so the
+                // month was a label rather than a control.
+                _monthNav(context),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
