@@ -339,129 +339,135 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
           ),
         ],
       ),
+      // Scrollable because the month grid is taller than a phone in
+      // landscape: on a 360dp-tall surface it ran 140px off the bottom (more
+      // at a large text scale). `AlertDialog` gives its content a bounded,
+      // flexible height, so the scroll view only kicks in when it has to.
       content: SizedBox(
         width: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  key: const Key('calendar-prev-month'),
-                  tooltip: loc.dietCalendarPrevMonth,
-                  onPressed: () => _changeMonth(-1),
-                  icon: const Icon(Icons.chevron_left),
-                ),
-                Expanded(
-                  // The key stays on the `Text`; the tappable wrapper goes
-                  // outside it.
-                  child: Tooltip(
-                    message: loc.monthPickerOpenTooltip,
-                    child: Semantics(
-                      button: true,
-                      child: InkWell(
-                        onTap: _pickMonth,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          // The `▾` is the visible clue that the label opens
-                          // the picker — same affordance as the other three
-                          // entries.
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // `Flexible` + `ShrinkToFitText` so the label
-                              // gives way to the `▾` instead of overflowing on
-                              // a 320dp phone — by *scaling*, not ellipsizing:
-                              // inside this dialog's insets the label's share
-                              // is narrower than `Jul 2026` / `2026年7月`
-                              // needs, and an ellipsis ate the month itself.
-                              // The scaling stops at 12px (see the dialog's
-                              // `insetPadding`, which buys the width that
-                              // keeps the label both whole *and* above that
-                              // floor).
-                              Flexible(
-                                child: ShrinkToFitText(
-                                  text: monthYearLabel(context, _visibleMonth),
-                                  textKey: const Key('calendar-month-label'),
-                                  style: theme.textTheme.bodyLarge,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    key: const Key('calendar-prev-month'),
+                    tooltip: loc.dietCalendarPrevMonth,
+                    onPressed: () => _changeMonth(-1),
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Expanded(
+                    // The key stays on the `Text`; the tappable wrapper goes
+                    // outside it.
+                    child: Tooltip(
+                      message: loc.monthPickerOpenTooltip,
+                      child: Semantics(
+                        button: true,
+                        child: InkWell(
+                          onTap: _pickMonth,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            // The `▾` is the visible clue that the label opens
+                            // the picker — same affordance as the other three
+                            // entries.
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // `Flexible` + `ShrinkToFitText` so the label
+                                // gives way to the `▾` instead of overflowing on
+                                // a 320dp phone — by *scaling*, not ellipsizing:
+                                // inside this dialog's insets the label's share
+                                // is narrower than `Jul 2026` / `2026年7月`
+                                // needs, and an ellipsis ate the month itself.
+                                // The scaling stops at 12px (see the dialog's
+                                // `insetPadding`, which buys the width that
+                                // keeps the label both whole *and* above that
+                                // floor).
+                                Flexible(
+                                  child: ShrinkToFitText(
+                                    text: monthYearLabel(context, _visibleMonth),
+                                    textKey: const Key('calendar-month-label'),
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
                                 ),
-                              ),
-                              const Icon(Icons.arrow_drop_down, size: 20),
-                            ],
+                                const Icon(Icons.arrow_drop_down, size: 20),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                IconButton(
-                  key: const Key('calendar-next-month'),
-                  tooltip: loc.dietCalendarNextMonth,
-                  onPressed: () => _changeMonth(1),
-                  icon: const Icon(Icons.chevron_right),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Weekday header, Sunday-first to match the grid below (which is
-            // always Sunday-first regardless of locale). `narrowWeekdays` is
-            // itself Sunday-first for every locale (index 0 == Sunday); only
-            // `firstDayOfWeekIndex`, which this grid intentionally ignores,
-            // varies by locale.
-            Row(
-              children: [
-                for (var i = 0; i < 7; i++)
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        MaterialLocalizations.of(context).narrowWeekdays[i],
-                        key: Key('calendar-weekday-$i'),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                  IconButton(
+                    key: const Key('calendar-next-month'),
+                    tooltip: loc.dietCalendarNextMonth,
+                    onPressed: () => _changeMonth(1),
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Weekday header, Sunday-first to match the grid below (which is
+              // always Sunday-first regardless of locale). `narrowWeekdays` is
+              // itself Sunday-first for every locale (index 0 == Sunday); only
+              // `firstDayOfWeekIndex`, which this grid intentionally ignores,
+              // varies by locale.
+              Row(
+                children: [
+                  for (var i = 0; i < 7; i++)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          MaterialLocalizations.of(context).narrowWeekdays[i],
+                          key: Key('calendar-weekday-$i'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            for (final week in monthWeeks(_visibleMonth))
-              Row(
-                children: [
-                  for (final day in week)
-                    Expanded(
-                      child: day == null
-                          ? const SizedBox(height: 40)
-                          : _DayCell(
-                              date: DateTime(
-                                _visibleMonth.year,
-                                _visibleMonth.month,
-                                day,
-                              ),
-                              today: widget.today,
-                              isSelected:
-                                  DateTime(
-                                    _visibleMonth.year,
-                                    _visibleMonth.month,
-                                    day,
-                                  ) ==
-                                  widget.initialMonth,
-                              isMarked: _loggedDays.contains(
-                                _dayString(
-                                  DateTime(
-                                    _visibleMonth.year,
-                                    _visibleMonth.month,
-                                    day,
+                ],
+              ),
+              const SizedBox(height: 4),
+              for (final week in monthWeeks(_visibleMonth))
+                Row(
+                  children: [
+                    for (final day in week)
+                      Expanded(
+                        child: day == null
+                            ? const SizedBox(height: 40)
+                            : _DayCell(
+                                date: DateTime(
+                                  _visibleMonth.year,
+                                  _visibleMonth.month,
+                                  day,
+                                ),
+                                today: widget.today,
+                                isSelected:
+                                    DateTime(
+                                      _visibleMonth.year,
+                                      _visibleMonth.month,
+                                      day,
+                                    ) ==
+                                    widget.initialMonth,
+                                isMarked: _loggedDays.contains(
+                                  _dayString(
+                                    DateTime(
+                                      _visibleMonth.year,
+                                      _visibleMonth.month,
+                                      day,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                    ),
-                ],
-              ),
-          ],
+                      ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

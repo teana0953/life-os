@@ -36,6 +36,7 @@ import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
@@ -545,9 +546,10 @@ void main() {
         await tester.tap(find.byKey(const Key('day-nav-label')));
         await tester.pumpAndSettle();
 
-        // A 2x text scale overflows the day grid inside the dialog; the header
-        // is asserted on its own, as the width tests above already do.
-        tester.takeException();
+        // The dialog's grid was never the overflow this drained — that was
+        // the shared `CategoryProgressBar` on the screen behind it (fixed;
+        // see the layout guard below).
+        expect(tester.takeException(), isNull);
         expectMonthLabelFullyVisible(tester, const Key('calendar-month-label'));
         expectMonthLabelPaintedReadable(
           tester,
@@ -556,4 +558,69 @@ void main() {
       },
     );
   }
+
+  // The screen's own overflow guard. What actually overflowed here was the
+  // shared `CategoryProgressBar` (label + used/target on one rigid row), not
+  // the calendar dialog. Asserts *no layout error of any kind* rather than
+  // draining — see `test/support/layout_guard.dart`.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the diet day lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  l10nRouterTestApp(
+                    locale: locale,
+                    home: _dietDay(meals: _FakeMealRepository()),
+                  ),
+                );
+                await tester.pumpAndSettle();
+              });
+            },
+          );
+        }
+      }
+    }
+
+    // Landscape: the calendar dialog is content-sized, so on a 360dp-tall
+    // surface its month grid ran 140px off the bottom (176px at 2x).
+    for (final locale in testSupportedLocales) {
+      for (final textScale in [1.0, 2.0]) {
+        testWidgets(
+          'the calendar dialog lays out cleanly in landscape (640x360), '
+          'textScale=$textScale, locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(const Size(640, 360));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                l10nRouterTestApp(
+                  locale: locale,
+                  home: _dietDay(meals: _FakeMealRepository()),
+                ),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const Key('day-nav-label')));
+              await tester.pumpAndSettle();
+            });
+
+            expect(
+              find.byKey(const Key('calendar-month-label')),
+              findsOneWidget,
+            );
+          },
+        );
+      }
+    }
+  });
 }

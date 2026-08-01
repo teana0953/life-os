@@ -39,13 +39,20 @@ class CategoryProgressBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Both halves shrink and wrap rather than pushing the row off a
+        // narrow screen: at a 2x text scale these ran up to 144px past a
+        // 320dp phone. Shared widget — the change lands on every host.
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: theme.textTheme.bodyMedium),
-            Text(
-              trailingLabel ?? loc.dietProgressOfTarget(logged, effective),
-              style: theme.textTheme.bodyMedium,
+            Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                trailingLabel ?? loc.dietProgressOfTarget(logged, effective),
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyMedium,
+              ),
             ),
           ],
         ),
