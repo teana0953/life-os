@@ -60,6 +60,24 @@ double paintedTextRight(WidgetTester tester, Finder finder) {
   return paragraph.localToGlobal(Offset(localRight, 0)).dx;
 }
 
+/// How many lines the `Text` [finder] matches actually painted.
+///
+/// Counted from the laid-out glyph boxes (one distinct `top` per line), so it
+/// reflects the width the row really handed the label — the thing a "does this
+/// label wrap too early?" guard has to observe. A widget-level check
+/// (`Text.maxLines`, the string itself) cannot see it. `RenderParagraph`
+/// doesn't expose `computeLineMetrics`, hence the box grouping.
+int paintedTextLineCount(WidgetTester tester, Finder finder) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(
+      baseOffset: 0,
+      extentOffset: paragraph.text.toPlainText().length,
+    ),
+  );
+  return boxes.map((b) => b.top.roundToDouble()).toSet().length;
+}
+
 /// Runs [body] and asserts it reported no layout error at all.
 ///
 /// Not limited to `RenderFlex` overflows on purpose: a `ListTile` whose

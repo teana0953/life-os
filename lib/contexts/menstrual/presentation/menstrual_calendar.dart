@@ -261,6 +261,12 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 6),
         // Wraps onto a second line rather than pushing the row past the
         // screen: at a 2x text scale one entry is wider than a 320dp phone.
+        //
+        // Loose, and unlike the label/value rows elsewhere it must stay that
+        // way — not because `Expanded` would fail (the `Wrap` above hands
+        // each entry a bounded width, so it lays out fine) but because it
+        // would stretch every entry to a full line, leaving the `Wrap`'s
+        // `WrapAlignment.center` nothing to centre.
         Flexible(
           child: Text(
             label,

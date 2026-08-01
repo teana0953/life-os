@@ -581,4 +581,66 @@ void main() {
       });
     }
   });
+
+  // The other half of that guard, and the third regression this row shape has
+  // produced: making the halves shrinkable must not make them shrink when
+  // there is room. A flex child is capped at its *share* of the row, so with
+  // `Expanded`/`Flexible` on both halves every label is cut to 50% of the card
+  // however wide the screen — `Total liabilities` wrapped to 3 lines at 390dp
+  // and 2 at 430dp with the right half of the card empty. Labels at these
+  // widths must stay on one line.
+  group('label wrapping', () {
+    for (final width in [390.0, 430.0, 600.0, 800.0]) {
+      testWidgets('no label wraps at ${width.toInt()}dp', (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeFinanceRepository()
+          ..accounts = [
+            ...FakeFinanceRepository().accounts,
+            const NetWorthAccount(
+              id: 'acc-old',
+              kind: NetWorthKind.asset,
+              name: 'Closed savings',
+              sortOrder: 1,
+              archived: true,
+            ),
+          ]
+          ..seedSnapshot('acc-cash', '2026-07', 1234567)
+          ..seedSnapshot('acc-old', '2026-07', 42)
+          ..seedSnapshot('acc-card', '2026-07', 9);
+        final controller = testNetWorthController(repo);
+        await controller.load('token', '2026-07');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: NetWorthTab(
+                controller: controller,
+                onSwitchMonth: (m) async {},
+                onEditAccountValue: (a) {},
+                onManageAccounts: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // `Total liabilities` is the longest of these and the one that
+        // regressed; the others come along so a partial fix can't pass.
+        for (final label in [
+          _loc.networthTotalLiabilities,
+          _loc.networthTotalAssets,
+          _loc.networthArchivedSubtotal,
+          '台幣活存',
+        ]) {
+          expect(
+            paintedTextLineCount(tester, find.text(label)),
+            1,
+            reason: '"$label" has room for one line at ${width.toInt()}dp',
+          );
+        }
+      });
+    }
+  });
 }

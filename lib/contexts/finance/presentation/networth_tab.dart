@@ -5,6 +5,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/label_value_row.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
@@ -334,35 +335,25 @@ class _AccountGroup extends StatelessWidget {
                   // unconstrained, so at a 2x text scale the amount consumed
                   // the whole tile and the tile refused to lay out at all —
                   // an assertion, not a RenderFlex overflow. Inside the row
-                  // both halves are shrinkable and wrap instead.
-                  //
-                  // The amount half is `Expanded`, not a loose `Flexible`:
-                  // a loose child shrink-wraps and leaves the slack after
-                  // it, so `TextAlign.end` would stop short of the card edge
-                  // by more the wider the screen.
-                  title: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: Text(account.name)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          valueByAccount.containsKey(account.id)
-                              ? formatMinorUnits(
-                                  valueByAccount[account.id]!,
-                                  defaultCurrency,
-                                )
-                              : loc.networthNotRecorded,
-                          textAlign: TextAlign.end,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: valueByAccount.containsKey(account.id)
-                                ? null
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                  // the name wraps instead.
+                  title: LabelValueRow(
+                    gap: 12,
+                    label: Text(account.name),
+                    value: Text(
+                      valueByAccount.containsKey(account.id)
+                          ? formatMinorUnits(
+                              valueByAccount[account.id]!,
+                              defaultCurrency,
+                            )
+                          : loc.networthNotRecorded,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: valueByAccount.containsKey(account.id)
+                            ? null
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
-                    ],
+                    ),
                   ),
                   onTap: () => onTap(account),
                 ),
@@ -370,52 +361,38 @@ class _AccountGroup extends StatelessWidget {
                 Padding(
                   key: archivedKey,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          loc.networthArchivedSubtotal,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                  child: LabelValueRow(
+                    gap: 12,
+                    label: Text(
+                      loc.networthArchivedSubtotal,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          formatMinorUnits(archivedTotal, defaultCurrency),
-                          textAlign: TextAlign.end,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                    ),
+                    value: Text(
+                      formatMinorUnits(archivedTotal, defaultCurrency),
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                    ],
+                    ),
                   ),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                // The label gives way and both halves wrap: at 320dp/en the
-                // label plus the amount ran 15px past the card even at a 1x
-                // text scale.
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(totalLabel, style: theme.textTheme.bodyMedium),
+                // The label wraps rather than pushing the amount out: at
+                // 320dp/en the two ran 15px past the card even at a 1x text
+                // scale.
+                child: LabelValueRow(
+                  gap: 12,
+                  label: Text(totalLabel, style: theme.textTheme.bodyMedium),
+                  value: Text(
+                    formatMinorUnits(total, defaultCurrency),
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        formatMinorUnits(total, defaultCurrency),
-                        textAlign: TextAlign.end,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],

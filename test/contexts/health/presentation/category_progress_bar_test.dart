@@ -164,5 +164,36 @@ void main() {
         expect(numberRight, closeTo(bar.right, 0.5));
       });
     }
+
+    // The matching wrapping guard. A flex child is capped at its share of the
+    // row, so making both halves flexible cut every label to 50% of the bar
+    // and wrapped it while the other half sat empty (the same shape wrapped
+    // `Total liabilities` onto 3 lines at 390dp in the net-worth tab). This is
+    // a shared widget whose label comes from its host, so it is measured with
+    // one longer than half the row but well inside it.
+    for (final width in [390.0, 430.0, 600.0, 800.0]) {
+      testWidgets('a label that fits the row stays on one line at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        const label = 'Staple food portions';
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: const Scaffold(
+              body: CategoryProgressBar(
+                label: label,
+                logged: 9,
+                effective: 12,
+                color: Colors.amber,
+              ),
+            ),
+          ),
+        );
+
+        expect(paintedTextLineCount(tester, find.text(label)), 1);
+      });
+    }
   });
 }

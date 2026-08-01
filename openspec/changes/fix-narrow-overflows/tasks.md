@@ -30,6 +30,7 @@
 - [x] 4b.1 `category_progress_bar.dart:42`:ts 2.0 時 320/en 4 個溢出(59/2.5/31/144px)、360/en 2 個(19/104px)。**共用元件**,修改需在所有宿主畫面驗證(今日畫面也用)。
 - [x] 4b.2 `diet_day_screen_test.dart:550` 目前吞掉它,且該行註解誤記成「對話框裡的 day grid」(對話框實測乾淨)——改硬斷言並更正註解。
 - [x] 4b.3 真實宿主是 `today_screen.dart:272-296`、`daily_target_screen.dart:174-207`(diet day 經 today):兩者都補上 {320,360} × {en,zh} × ts{1.0,2.0} 守門(`daily_target_screen` 先前完全沒有)。另補右對齊守門:尾端數值收縮後仍須貼齊右緣(鬆散 `Flexible` 會 shrink-wrap 把餘裕留在後面,愈寬飄愈遠)。
+- [x] 4b.4 兩半都用 flex 子項的話,每半被限在**該列的一半**,標籤在放得下時照樣換行(`Total liabilities` 390dp 3 行、430dp 2 行)。改用共用的 `LabelValueRow`(標籤是受列寬限制的一般子項、數值 `Expanded` 靠右),並補「正常寬度不換行」守門(390/430/600/800dp 量 `RenderParagraph` 行數)。
 
 ## 5. 守門機制
 
