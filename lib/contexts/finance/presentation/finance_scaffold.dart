@@ -125,6 +125,13 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      // The drag handle sits outside the sheet's scrollable content, so a
+      // pull-down always closes it. Without it a tall sheet (many accounts)
+      // fills the viewport: the scrim is gone and the drag is swallowed by
+      // the content's own scrolling, leaving the browser back button as the
+      // only exit — which on the PWA unwinds the router stack to the home.
+      showDragHandle: true,
       builder: (_) => SnapshotInputSheet(
         controller: widget.netWorthController,
         idToken: idToken,
@@ -140,6 +147,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (_) => AccountManageSheet(
         controller: widget.netWorthController,
         idToken: idToken,
@@ -163,6 +172,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (_) => AddTransactionSheet(
         controller: widget.controller,
         idToken: idToken,
@@ -179,6 +190,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (_) => BudgetSheet(controller: widget.controller, idToken: idToken),
     );
   }
