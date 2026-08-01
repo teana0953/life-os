@@ -2,8 +2,8 @@
 
 ## 1. 共用 MonthPickerDialog
 
-- [ ] 1.1 `lib/shared/widgets/month_picker_dialog.dart`:`showMonthPicker(context, {required initialMonth, firstMonth, lastMonth})` → `Future<DateTime?>`(回傳選中月的 1 號,取消回 null)。版面:`AlertDialog` + 年份列 `‹ 2026 ›` + 4×3 月份格;當前月高亮**且加語意 selected**(不只靠色);超界月份與年份箭頭 disabled;**內建 1970–2100 年份防呆界**(非業務邊界,防年份無限步進產出爛字串)。Keys:`month-picker-year-previous/next`、`month-picker-year-label`、`month-picker-month-<1..12>`。全走 theme 與 ARB,不 hard-code 色/字串。
-- [ ] 1.2 測試:年份前後切、選月回傳正確 DateTime、取消回 null、first/last 邊界 disabled(月份格與年份箭頭都要驗)、當前月標記、**1970/2100 防呆界擋住年份步進**。
+- [x] 1.1 `lib/shared/widgets/month_picker_dialog.dart`:`showMonthPicker(context, {required initialMonth, firstMonth, lastMonth})` → `Future<DateTime?>`(回傳選中月的 1 號,取消回 null)。版面:`AlertDialog` + 年份列 `‹ 2026 ›` + 4×3 月份格;當前月高亮**且加語意 selected**(不只靠色);超界月份與年份箭頭 disabled;**內建 1970–2100 年份防呆界**(非業務邊界,防年份無限步進產出爛字串)。Keys:`month-picker-year-previous/next`、`month-picker-year-label`、`month-picker-month-<1..12>`。全走 theme 與 ARB,不 hard-code 色/字串。
+- [x] 1.2 測試:年份前後切、選月回傳正確 DateTime、取消回 null、first/last 邊界 disabled(月份格與年份箭頭都要驗)、當前月標記、**1970/2100 防呆界擋住年份步進**。
 
 ## 2. MonthNavHeader 接上
 

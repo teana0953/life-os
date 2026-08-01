@@ -2377,5 +2377,17 @@
   "monthNavNextTooltip": "Next month",
   "@monthNavNextTooltip": {
     "description": "Tooltip/accessible label for the shared month header's next-month arrow."
+  },
+  "monthPickerTitle": "Select month",
+  "@monthPickerTitle": {
+    "description": "Title of the dialog that jumps the view to any year and month."
+  },
+  "monthPickerPreviousYearTooltip": "Previous year",
+  "@monthPickerPreviousYearTooltip": {
+    "description": "Tooltip/accessible label for the month picker's previous-year arrow."
+  },
+  "monthPickerNextYearTooltip": "Next year",
+  "@monthPickerNextYearTooltip": {
+    "description": "Tooltip/accessible label for the month picker's next-year arrow."
   }
 }
