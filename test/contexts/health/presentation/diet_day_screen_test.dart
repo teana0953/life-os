@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
@@ -52,6 +53,10 @@ class _FakeAuthRepository implements AuthRepository {
 class _FakeMealRepository implements MealRepository {
   final List<String> receivedDays = [];
 
+  /// The months the calendar asked for logged days for, so a test can prove a
+  /// month change refetched instead of leaving the old month's markers up.
+  final List<String> receivedMonths = [];
+
   /// Meal group names to report per day, so a test can set up a day that
   /// already has meals (e.g. to check the snapshot handed to the dictionary).
   final Map<String, List<String>> mealNamesByDay;
@@ -82,7 +87,10 @@ class _FakeMealRepository implements MealRepository {
   @override
   Future<MealEntry> createMeal(String idToken, {required String day, required String meal, DateTime? time, required List<CreateMealItem> items}) async => throw UnimplementedError();
   @override
-  Future<List<String>> loggedDays(String idToken, String month) async => const [];
+  Future<List<String>> loggedDays(String idToken, String month) async {
+    receivedMonths.add(month);
+    return const [];
+  }
   @override
   Future<void> patchMealItem(String idToken, String id, {double? quantity, double? measure, Portions? portions}) async => throw UnimplementedError();
   @override
@@ -401,5 +409,56 @@ void main() {
 
     // Diet pushes `/health/diet/target`; the app router builds the screen there.
     expect(find.text('/health/diet/target'), findsOneWidget);
+  });
+
+  testWidgets(
+    'jumping the calendar to a month a year back shows it and refetches its '
+    'logged days',
+    (tester) async {
+      final meals = _FakeMealRepository();
+      await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('day-nav-label')));
+      await tester.pumpAndSettle();
+      expect(meals.receivedMonths.last, '2026-07');
+
+      await tester.tap(find.byKey(const Key('calendar-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('month-picker-month-7')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('calendar-month-label'))).data,
+        DateFormat.yMMM('en').format(DateTime(2025, 7)),
+      );
+      // Without the refetch the grid would keep July 2026's logged-day dots.
+      expect(meals.receivedMonths.last, '2025-07');
+    },
+  );
+
+  testWidgets('dismissing the calendar month picker changes nothing', (
+    tester,
+  ) async {
+    final meals = _FakeMealRepository();
+    await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('day-nav-label')));
+    await tester.pumpAndSettle();
+    final fetchesBefore = meals.receivedMonths.length;
+
+    await tester.tap(find.byKey(const Key('calendar-month-label')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('calendar-month-label'))).data,
+      DateFormat.yMMM('en').format(DateTime(2026, 7)),
+    );
+    expect(meals.receivedMonths.length, fetchesBefore);
   });
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/month_grid.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
 import '../../../shared/widgets/tracker_day_nav_header.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
@@ -290,10 +291,28 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
   }
 
   void _changeMonth(int delta) {
+    _goToMonth(DateTime(_visibleMonth.year, _visibleMonth.month + delta));
+  }
+
+  /// The one way the visible month changes — always paired with a reload, so a
+  /// new month can never keep the previous month's logged-day markers.
+  void _goToMonth(DateTime month) {
     setState(() {
-      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+      _visibleMonth = DateTime(month.year, month.month);
     });
     _loadLoggedDays();
+  }
+
+  /// No first/last bound: the ‹ › arrows have none either (only individual
+  /// future *days* are disabled), so nothing reachable by stepping is
+  /// unreachable by jumping.
+  Future<void> _pickMonth() async {
+    final picked = await showMonthPicker(
+      context,
+      initialMonth: _visibleMonth,
+    );
+    if (picked == null || !mounted) return;
+    _goToMonth(picked);
   }
 
   @override
@@ -327,11 +346,23 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                   icon: const Icon(Icons.chevron_left),
                 ),
                 Expanded(
-                  child: Text(
-                    monthYearLabel(context, _visibleMonth),
-                    key: const Key('calendar-month-label'),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge,
+                  // The key stays on the `Text`; the tappable wrapper goes
+                  // outside it.
+                  child: Semantics(
+                    button: true,
+                    child: InkWell(
+                      onTap: _pickMonth,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          monthYearLabel(context, _visibleMonth),
+                          key: const Key('calendar-month-label'),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(

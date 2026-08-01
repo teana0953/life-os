@@ -12,8 +12,8 @@
 
 ## 3. diet 月曆接上
 
-- [ ] 3.1 `diet_day_screen.dart` 的月份標題(:331 附近 `monthYearLabel`,key `calendar-month-label`)變可點,開 picker;**不設 first/last**(與既有 › 箭頭一致——現有箭頭對未來月無上界)。選中後**走既有 `_changeMonth` 的等價路徑:更新 `_visibleMonth` 後必須呼叫 `_loadLoggedDays()`**,否則新月份會留著舊月份的記錄圓點(靜默錯誤資料)。
-- [ ] 3.2 測試:點標題開 picker、選月後月曆切到該月、**且 loggedDays 有重抓**(斷言 fake repository 收到新月份的查詢)。
+- [x] 3.1 `diet_day_screen.dart` 的月份標題(:331 附近 `monthYearLabel`,key `calendar-month-label`)變可點,開 picker;**不設 first/last**(與既有 › 箭頭一致——現有箭頭對未來月無上界)。選中後**走既有 `_changeMonth` 的等價路徑:更新 `_visibleMonth` 後必須呼叫 `_loadLoggedDays()`**,否則新月份會留著舊月份的記錄圓點(靜默錯誤資料)。
+- [x] 3.2 測試:點標題開 picker、選月後月曆切到該月、**且 loggedDays 有重抓**(斷言 fake repository 收到新月份的查詢)。
 
 ## 3b. 月經月曆接上
 
