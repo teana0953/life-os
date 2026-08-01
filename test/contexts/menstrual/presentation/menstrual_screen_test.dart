@@ -13,6 +13,7 @@ import 'package:life_os/contexts/menstrual/presentation/menstrual_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 
 /// A stateful in-memory fake mirroring the controller-test fake, so mutations
@@ -500,12 +501,7 @@ void main() {
               locale: locale,
             );
 
-            // Drains the *pre-existing* `menstrual-legend` overflow — already
-            // on main at these widths, unrelated to the `▾` — which otherwise
-            // fails every narrow-width test on this screen. (Follow-up; not
-            // this change's regression.) The header is therefore asserted
-            // geometrically: both its ends must stay inside the surface.
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(
               tester,
               const Key('menstrual-month-label'),
@@ -555,10 +551,7 @@ void main() {
                 locale: locale,
               );
 
-              // Same pre-existing `menstrual-legend` overflow as above (and,
-              // at 2x, the day grid) — drained so the header can be asserted
-              // on its own.
-              tester.takeException();
+              expect(tester.takeException(), isNull);
               expectMonthLabelFullyVisible(
                 tester,
                 const Key('menstrual-month-label'),
@@ -566,6 +559,36 @@ void main() {
               expectMonthLabelPaintedReadable(
                 tester,
                 const Key('menstrual-month-label'),
+              );
+            },
+          );
+        }
+      }
+    }
+  });
+
+  // The screen's own overflow guard: the legend Row was centred and
+  // non-shrinkable, so its two items ran 60px past a 320dp/en surface.
+  // Asserts *no layout error of any kind* rather than draining with
+  // `takeException()` — see `test/support/layout_guard.dart`.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the screen lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await expectNoLayoutErrors(
+                () => _pumpScreen(
+                  tester,
+                  FakeMenstrualRepository(),
+                  locale: locale,
+                ),
               );
             },
           );
