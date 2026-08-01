@@ -35,6 +35,15 @@ class HealthCalendarController extends ChangeNotifier {
   /// month — the card opens on the current month, as it always has.
   late DateTime selectedMonth = DateTime(_clock().year, _clock().month);
 
+  /// Clears the signed-out user's month and data, so the next user opens the
+  /// card on their own current month (design.md D2) rather than inheriting the
+  /// previous user's browsed month and figures.
+  void reset() {
+    selectedMonth = DateTime(_clock().year, _clock().month);
+    calendar = null;
+    status = HealthCalendarStatus.loading;
+  }
+
   /// Reloads the month currently being viewed. (Retries go through here, so a
   /// retry refreshes what the user is looking at, not whatever month it was
   /// when the app started.)

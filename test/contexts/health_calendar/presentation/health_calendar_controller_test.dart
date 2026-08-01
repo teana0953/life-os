@@ -149,6 +149,21 @@ void main() {
     expect(controller.status, HealthCalendarStatus.loaded);
     expect(controller.calendar!.month, 5);
   });
+
+  test('reset clears the viewed month back to the current month and drops the '
+      "previous user's calendar", () async {
+    final repo = _FakeRepository();
+    final controller = _controller(repo);
+    await controller.loadMonth('token', 2024, 3);
+    expect(controller.selectedMonth, DateTime(2024, 3));
+    expect(controller.calendar, isNotNull);
+
+    controller.reset();
+
+    expect(controller.selectedMonth, DateTime(2026, 7));
+    expect(controller.calendar, isNull);
+    expect(controller.status, HealthCalendarStatus.loading);
+  });
 }
 
 /// A repository whose responses are completed by the test, per month, so two
