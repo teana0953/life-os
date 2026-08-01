@@ -387,9 +387,6 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          // A 2x text scale overflows rows elsewhere on the tab; the header is
-          // asserted on its own, as the width tests above already do.
-          tester.takeException();
           expectMonthLabelFullyVisible(
             tester,
             const Key('finance-month-label'),

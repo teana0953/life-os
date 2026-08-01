@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/presentation/category_progress_bar.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/fractional_progress_bar.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 
 void main() {
   group('CategoryProgressBar', () {
@@ -124,5 +126,124 @@ void main() {
         expect(find.text(loc.dietProgressOfTarget(9, 12)), findsNothing);
       },
     );
+
+    // Right-alignment guard. Making both halves shrinkable is easy to get
+    // wrong in a way no overflow test catches: a *loose* `Flexible` around
+    // the number shrink-wraps the text and parks the slack after it, so the
+    // number drifts left of the bar it annotates — and further the wider the
+    // screen (75px at 390dp, 280px at 800dp when this regressed). The bar's
+    // right edge is the reference because they are stacked in the same
+    // stretched Column and read as one unit.
+    for (final width in [390.0, 600.0, 800.0]) {
+      testWidgets('the number stays flush with the bar\'s right edge at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: CategoryProgressBar(
+                label: 'Staple',
+                logged: 9,
+                effective: 12,
+                color: Colors.amber,
+              ),
+            ),
+          ),
+        );
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final numberRight = paintedTextRight(
+          tester,
+          find.text(loc.dietProgressOfTarget(9, 12)),
+        );
+        final bar = tester.getRect(find.byType(FractionalProgressBar));
+
+        expect(numberRight, closeTo(bar.right, 0.5));
+      });
+    }
+
+    // The degenerate half of that guard. While the trailing text fits on one
+    // line its box *is* its glyphs, so `textAlign: TextAlign.end` changes
+    // nothing and dropping it leaves the alignment tests above green — QA
+    // deleted all four `TextAlign.end` in the app and the whole suite stayed
+    // green. It only starts mattering once the text is too wide for the row
+    // and wraps: the row caps it at the full width, and the alignment is then
+    // the only thing holding the continuation lines against the edge. The
+    // trailing text comes from the host (`trailingLabel`), so a phone-width
+    // row is a real way to reach this, not a contrived one.
+    testWidgets('a trailing label too wide for the row wraps right-aligned', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const trailing = 'still 3 servings of staple food remaining today';
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: const Scaffold(
+            body: CategoryProgressBar(
+              label: 'Staple',
+              logged: 9,
+              effective: 12,
+              color: Colors.amber,
+              trailingLabel: trailing,
+            ),
+          ),
+        ),
+      );
+
+      final barRight = tester.getRect(find.byType(FractionalProgressBar)).right;
+      expect(
+        paintedTextLineCount(tester, find.text(trailing)),
+        greaterThan(1),
+        reason: 'the trailing label must wrap for this to test anything',
+      );
+      for (final lineRight in paintedTextLineRights(
+        tester,
+        find.text(trailing),
+      )) {
+        expect(
+          lineRight,
+          closeTo(barRight, 0.5),
+          reason: 'every wrapped line must stay flush with the bar\'s edge',
+        );
+      }
+    });
+
+    // The matching wrapping guard. A flex child is capped at its share of the
+    // row, so making both halves flexible cut every label to 50% of the bar
+    // and wrapped it while the other half sat empty (the same shape wrapped
+    // `Total liabilities` onto 3 lines at 390dp in the net-worth tab). This is
+    // a shared widget whose label comes from its host, so it is measured with
+    // one longer than half the row but still fitting beside the number: at
+    // 390dp this label wants 256.5dp of the 282.3dp left over, and the 50/50
+    // shape would hand it 191dp.
+    for (final width in [390.0, 430.0, 600.0, 800.0]) {
+      testWidgets('a label that fits the row stays on one line at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        const label = 'Staple food target';
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: const Scaffold(
+              body: CategoryProgressBar(
+                label: label,
+                logged: 9,
+                effective: 12,
+                color: Colors.amber,
+              ),
+            ),
+          ),
+        );
+
+        expect(paintedTextLineCount(tester, find.text(label)), 1);
+      });
+    }
   });
 }

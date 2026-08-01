@@ -213,12 +213,17 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
             ],
           ),
         const SizedBox(height: 8),
-        Row(
+        // A `Wrap`, not a `Row`: the two entries together are wider than a
+        // 320dp phone in English, and wider still at a large text scale —
+        // where a single entry alone no longer fits on one line, hence the
+        // shrinkable label inside `_LegendItem` as well.
+        Wrap(
           key: const Key('menstrual-legend'),
-          mainAxisAlignment: MainAxisAlignment.center,
+          alignment: WrapAlignment.center,
+          spacing: 20,
+          runSpacing: 8,
           children: [
             _LegendItem(filled: true, label: loc.menstrualLegendPeriod),
-            const SizedBox(width: 20),
             _LegendItem(filled: false, label: loc.menstrualLegendPredicted),
           ],
         ),
@@ -254,10 +259,20 @@ class _LegendItem extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        // Wraps onto a second line rather than pushing the row past the
+        // screen: at a 2x text scale one entry is wider than a 320dp phone.
+        //
+        // Loose, and unlike the label/value rows elsewhere it must stay that
+        // way — not because `Expanded` would fail (the `Wrap` above hands
+        // each entry a bounded width, so it lays out fine) but because it
+        // would stretch every entry to a full line, leaving the `Wrap`'s
+        // `WrapAlignment.center` nothing to centre.
+        Flexible(
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

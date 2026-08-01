@@ -19,6 +19,8 @@ import 'package:life_os/contexts/health/presentation/today_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../../../support/month_label.dart';
 
 class FakeAuthRepository implements AuthRepository {
   @override
@@ -277,6 +279,7 @@ TodayController _controllerWith({
 Future<void> _pumpTodayScreen(
   WidgetTester tester,
   TodayController controller, {
+  Locale locale = const Locale('en'),
   void Function(String meal)? onAddToMeal,
   VoidCallback? onAddSnack,
   void Function(String snackName)? onAddToSnackGroup,
@@ -285,6 +288,7 @@ Future<void> _pumpTodayScreen(
   await controller.load('token-123', '2026-07-18');
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: TodayScreen(
         controller: controller,
         signOut: SignOut(FakeAuthRepository()),
@@ -1105,5 +1109,46 @@ void main() {
         }
       },
     );
+
+    // The screen-level guard for the shared `CategoryProgressBar` (this is
+    // its other host besides DailyTargetScreen, and the diet day screen
+    // reaches it through here). Wider than the row test above: it sweeps the
+    // text scale and both locales, and asserts on *every* layout error
+    // rather than only the first one `takeException` hands back.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the screen lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final dayLog = DayMealsLog.fromJson({
+                'day': '2026-07-18',
+                'meals': <dynamic>[],
+                'totals': {
+                  'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0,
+                  'fiber_g': 0, 'kcal': 0,
+                  'staple': 9, 'meat': 5, 'fruit': 3, 'veg': 2,
+                },
+              });
+              final controller = _controllerWith(dayLog: dayLog);
+
+              await expectNoLayoutErrors(() async {
+                await _pumpTodayScreen(tester, controller, locale: locale);
+              });
+
+              expect(
+                find.byKey(const Key('today-progress-staple')).evaluate(),
+                isNotEmpty,
+              );
+            },
+          );
+        }
+      }
+    }
   });
 }

@@ -5,6 +5,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/label_value_row.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
@@ -329,16 +330,29 @@ class _AccountGroup extends StatelessWidget {
               for (final account in accounts)
                 ListTile(
                   key: Key('account-row-${account.id}'),
-                  title: Text(account.name),
-                  trailing: Text(
-                    valueByAccount.containsKey(account.id)
-                        ? formatMinorUnits(valueByAccount[account.id]!, defaultCurrency)
-                        : loc.networthNotRecorded,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: valueByAccount.containsKey(account.id)
-                          ? null
-                          : theme.colorScheme.onSurfaceVariant,
+                  // The amount rides in the title row rather than in
+                  // `trailing`: a `ListTile`'s trailing slot is laid out
+                  // unconstrained, so at a 2x text scale the amount consumed
+                  // the whole tile and the tile refused to lay out at all —
+                  // an assertion, not a RenderFlex overflow. Inside the row
+                  // the name wraps instead.
+                  title: LabelValueRow(
+                    gap: 12,
+                    label: Text(account.name),
+                    value: Text(
+                      valueByAccount.containsKey(account.id)
+                          ? formatMinorUnits(
+                              valueByAccount[account.id]!,
+                              defaultCurrency,
+                            )
+                          : loc.networthNotRecorded,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: valueByAccount.containsKey(account.id)
+                            ? null
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   onTap: () => onTap(account),
@@ -347,37 +361,38 @@ class _AccountGroup extends StatelessWidget {
                 Padding(
                   key: archivedKey,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        loc.networthArchivedSubtotal,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                  child: LabelValueRow(
+                    gap: 12,
+                    label: Text(
+                      loc.networthArchivedSubtotal,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      Text(
-                        formatMinorUnits(archivedTotal, defaultCurrency),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    value: Text(
+                      formatMinorUnits(archivedTotal, defaultCurrency),
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                    ],
+                    ),
                   ),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(totalLabel, style: theme.textTheme.bodyMedium),
-                    Text(
-                      formatMinorUnits(total, defaultCurrency),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                // The label wraps rather than pushing the amount out: at
+                // 320dp/en the two ran 15px past the card even at a 1x text
+                // scale.
+                child: LabelValueRow(
+                  gap: 12,
+                  label: Text(totalLabel, style: theme.textTheme.bodyMedium),
+                  value: Text(
+                    formatMinorUnits(total, defaultCurrency),
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],

@@ -12,6 +12,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
@@ -415,12 +416,7 @@ void main() {
             );
             await tester.pumpAndSettle();
 
-            // Drains the *pre-existing* account-group total-row overflow —
-            // already on main at 320dp/en, unrelated to the `▾` — which
-            // otherwise fails this test outright. (Follow-up; not this
-            // change's regression.) The header is therefore asserted
-            // geometrically: both its ends must stay inside the surface.
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(
               tester,
               const Key('networth-month-label'),
@@ -438,6 +434,299 @@ void main() {
           },
         );
       }
+    }
+  });
+
+  // The tab's own overflow guard, covering two independent failures: the
+  // account-group subtotal Row (15px past 320dp/en at a 1x text scale) and
+  // the account `ListTile`s, whose trailing amount could not be laid out at
+  // a 2x text scale — the latter not a RenderFlex overflow at all, which is
+  // why this asserts on *any* layout error. Pumped inline rather than
+  // through `_pumpTab`, which forces a 600dp-wide surface.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the tab lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeFinanceRepository()
+                ..seedSnapshot('acc-cash', '2026-07', 1234567);
+              final controller = testNetWorthController(repo);
+              await controller.load('token', '2026-07');
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  l10nTestApp(
+                    locale: locale,
+                    home: Scaffold(
+                      body: NetWorthTab(
+                        controller: controller,
+                        onSwitchMonth: (m) async {},
+                        onEditAccountValue: (a) {},
+                        onManageAccounts: () {},
+                      ),
+                    ),
+                  ),
+                );
+                await tester.pumpAndSettle();
+              });
+
+              // The account rows must also stay *queryable*: when a
+              // `ListTile` fails to lay out, `evaluate()` itself throws.
+              expect(
+                find.byKey(const Key('account-row-acc-cash')).evaluate(),
+                isNotEmpty,
+              );
+            },
+          );
+        }
+      }
+    }
+  });
+
+  // Right-alignment guard, the other half of the narrow-width work: making
+  // the money column shrinkable must not stop it hugging the card edge. A
+  // *loose* `Flexible` shrink-wraps the amount and leaves the slack after
+  // it, so `TextAlign.end` aligns inside a too-narrow box and the column
+  // drifts inward — 31px at 390dp and 136px at 800dp when that regressed,
+  // i.e. worse the wider the screen. All three money rows of a group (an
+  // account, the archived subtotal, the group total) must share one edge.
+  group('money column alignment', () {
+    for (final width in [390.0, 600.0, 800.0]) {
+      testWidgets('every amount in a group ends at the card edge at ${width.toInt()}dp', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeFinanceRepository()
+          ..accounts = [
+            ...FakeFinanceRepository().accounts,
+            const NetWorthAccount(
+              id: 'acc-old',
+              kind: NetWorthKind.asset,
+              name: 'Closed savings',
+              sortOrder: 1,
+              archived: true,
+            ),
+          ]
+          ..seedSnapshot('acc-cash', '2026-07', 1234567)
+          ..seedSnapshot('acc-old', '2026-07', 42)
+          // A non-zero liability keeps the asset-group total (1234609)
+          // different from the net worth headline, so the total below is
+          // found by its text alone.
+          ..seedSnapshot('acc-card', '2026-07', 9);
+        final controller = testNetWorthController(repo);
+        await controller.load('token', '2026-07');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: NetWorthTab(
+                controller: controller,
+                onSwitchMonth: (m) async {},
+                onEditAccountValue: (a) {},
+                onManageAccounts: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Each amount is measured against the right edge of its own row, so
+        // no padding constant is baked into the test. (The `ListTile` rows
+        // sit 8px further in than the two padded rows — its own content
+        // inset, the same on main.)
+        final archivedRow = find.byKey(const Key('networth-archived-asset'));
+        expect(archivedRow, findsOneWidget);
+
+        void expectFlushRight(Finder row, Finder amount, String what) {
+          final rowRight = tester
+              .getRect(find.descendant(of: row, matching: find.byType(Row)).first)
+              .right;
+          expect(
+            paintedTextRight(tester, find.descendant(of: row, matching: amount)),
+            closeTo(rowRight, 0.5),
+            reason: '$what must hug its row\'s right edge',
+          );
+        }
+
+        expectFlushRight(
+          find.byKey(const Key('account-row-acc-cash')),
+          find.text('1234567'),
+          'the account amount',
+        );
+        expectFlushRight(archivedRow, find.text('42'), 'the archived subtotal');
+        expectFlushRight(
+          find.ancestor(of: find.text('1234609'), matching: find.byType(Padding)).first,
+          find.text('1234609'),
+          'the group total',
+        );
+
+        // The two rows that share a padding must also share one edge, so the
+        // money column reads as a column.
+        expect(
+          paintedTextRight(
+            tester,
+            find.descendant(of: archivedRow, matching: find.text('42')),
+          ),
+          closeTo(paintedTextRight(tester, find.text('1234609')), 0.5),
+        );
+      });
+    }
+
+    // The degenerate half of the same guard, and the one the tests above
+    // cannot see. While an amount fits on one line its box *is* its glyphs, so
+    // `textAlign: TextAlign.end` changes nothing and dropping it from these
+    // three rows leaves every alignment test green — QA deleted all four
+    // `TextAlign.end` in the app and the suite stayed green. It only starts
+    // mattering once the amount is too wide for the row and wraps: the row
+    // caps it at the full width, and the alignment is then the only thing
+    // holding the continuation lines against the edge (measured 200.0 with it
+    // vs 193.4 without on a 200dp row). So this pins the wrapped case, on
+    // every line, for all three money rows.
+    testWidgets('an amount too wide for the row wraps right-aligned', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const accountAmount = '123456789012345678';
+      const archivedAmount = '123456789012345679';
+      const groupTotal = '246913578024691357'; // the two above, summed
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          ...FakeFinanceRepository().accounts,
+          const NetWorthAccount(
+            id: 'acc-old',
+            kind: NetWorthKind.asset,
+            name: 'Closed savings',
+            sortOrder: 1,
+            archived: true,
+          ),
+        ]
+        ..seedSnapshot('acc-cash', '2026-07', int.parse(accountAmount))
+        ..seedSnapshot('acc-old', '2026-07', int.parse(archivedAmount))
+        ..seedSnapshot('acc-card', '2026-07', 9);
+      final controller = testNetWorthController(repo);
+      await controller.load('token', '2026-07');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: NetWorthTab(
+              controller: controller,
+              onSwitchMonth: (m) async {},
+              onEditAccountValue: (a) {},
+              onManageAccounts: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      void expectWrappedFlushRight(Finder row, Finder amount, String what) {
+        final inRow = find.descendant(of: row, matching: amount);
+        final rowRight = tester
+            .getRect(find.descendant(of: row, matching: find.byType(Row)).first)
+            .right;
+        expect(
+          paintedTextLineCount(tester, inRow),
+          greaterThan(1),
+          reason: '$what must be wide enough to wrap for this to test anything',
+        );
+        for (final lineRight in paintedTextLineRights(tester, inRow)) {
+          expect(
+            lineRight,
+            closeTo(rowRight, 0.5),
+            reason: 'every wrapped line of $what must stay flush right',
+          );
+        }
+      }
+
+      expectWrappedFlushRight(
+        find.byKey(const Key('account-row-acc-cash')),
+        find.text(accountAmount),
+        'the account amount',
+      );
+      expectWrappedFlushRight(
+        find.byKey(const Key('networth-archived-asset')),
+        find.text(archivedAmount),
+        'the archived subtotal',
+      );
+      expectWrappedFlushRight(
+        find.ancestor(of: find.text(groupTotal), matching: find.byType(Padding)).first,
+        find.text(groupTotal),
+        'the group total',
+      );
+    });
+  });
+
+  // The other half of that guard, and the third regression this row shape has
+  // produced: making the halves shrinkable must not make them shrink when
+  // there is room. A flex child is capped at its *share* of the row, so with
+  // `Expanded`/`Flexible` on both halves every label is cut to 50% of the card
+  // however wide the screen — `Total liabilities` wrapped to 3 lines at 390dp
+  // and 2 at 430dp with the right half of the card empty. Labels at these
+  // widths must stay on one line.
+  group('label wrapping', () {
+    for (final width in [390.0, 430.0, 600.0, 800.0]) {
+      testWidgets('no label wraps at ${width.toInt()}dp', (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final repo = FakeFinanceRepository()
+          ..accounts = [
+            ...FakeFinanceRepository().accounts,
+            const NetWorthAccount(
+              id: 'acc-old',
+              kind: NetWorthKind.asset,
+              name: 'Closed savings',
+              sortOrder: 1,
+              archived: true,
+            ),
+          ]
+          ..seedSnapshot('acc-cash', '2026-07', 1234567)
+          ..seedSnapshot('acc-old', '2026-07', 42)
+          ..seedSnapshot('acc-card', '2026-07', 9);
+        final controller = testNetWorthController(repo);
+        await controller.load('token', '2026-07');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: NetWorthTab(
+                controller: controller,
+                onSwitchMonth: (m) async {},
+                onEditAccountValue: (a) {},
+                onManageAccounts: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // `Total liabilities` is the longest of these and the one that
+        // regressed; the others come along so a partial fix can't pass.
+        for (final label in [
+          _loc.networthTotalLiabilities,
+          _loc.networthTotalAssets,
+          _loc.networthArchivedSubtotal,
+          '台幣活存',
+        ]) {
+          expect(
+            paintedTextLineCount(tester, find.text(label)),
+            1,
+            reason: '"$label" has room for one line at ${width.toInt()}dp',
+          );
+        }
+      });
     }
   });
 }
