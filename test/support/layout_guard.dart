@@ -56,6 +56,10 @@ double paintedTextRight(WidgetTester tester, Finder finder) {
       extentOffset: paragraph.text.toPlainText().length,
     ),
   );
+  // Same empty-run guard as [paintedTextLineRights], which skips them: a
+  // `Text` that painted no glyph would otherwise die in `reduce` with
+  // "Bad state: No element" instead of naming the widget.
+  if (boxes.isEmpty) fail('$finder painted no glyphs to measure');
   final localRight = boxes.map((b) => b.right).reduce(math.max);
   return paragraph.localToGlobal(Offset(localRight, 0)).dx;
 }

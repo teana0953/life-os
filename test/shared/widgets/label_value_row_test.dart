@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/shared/widgets/label_value_row.dart';
 
 import '../../support/layout_guard.dart';
+import '../../support/month_label.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -72,6 +73,68 @@ void main() {
         paintedTextLineCount(tester, find.text(label)),
         greaterThan(1),
         reason: 'the label is the half that gives way',
+      );
+    });
+
+    // The other end of that priority, and the regression it produced: with the
+    // value allowed the whole row, "the label yields" turned into "the label
+    // gets nothing". QA measured this exact row at 320dp/2x — the label's box
+    // came back `16.0..16.0`, 0dp wide, and its 27 characters broke one glyph
+    // per line into 24 lines that grew the row to 960dp, with no exception to
+    // catch it. Both halves are floored now, so both wrap and neither shatters.
+    testWidgets('neither half collapses when both are too long for the row', (
+      tester,
+    ) async {
+      useTextScaleFactor(tester, 2.0);
+      await tester.binding.setSurfaceSize(const Size(320, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const label = 'Joint emergency fund saving'; // 27 characters
+      const value = 'NT\$12,345,678'; // 8 digits
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: LabelValueRow(
+              gap: 12,
+              label: Text(label),
+              value: Text(value, textAlign: TextAlign.end),
+            ),
+          ),
+        ),
+      );
+
+      final row = tester.getRect(find.byType(LabelValueRow));
+      final labelWidth = tester.getRect(find.text(label)).width;
+      final valueWidth = tester.getRect(find.text(value)).width;
+
+      // The floors themselves, stated as fractions of the row rather than dp
+      // so the numbers survive a font change.
+      expect(
+        labelWidth,
+        greaterThanOrEqualTo(row.width * 0.3),
+        reason: 'the label must keep a readable column, not collapse to 0',
+      );
+      expect(
+        valueWidth,
+        greaterThanOrEqualTo(row.width * 0.3),
+        reason: 'the value must keep a readable column too',
+      );
+      // What the floors are *for*: a bounded number of lines on both sides.
+      expect(
+        paintedTextLineCount(tester, find.text(label)),
+        lessThanOrEqualTo(10),
+        reason: 'the label may wrap, but must not shatter (was 24)',
+      );
+      expect(
+        paintedTextLineCount(tester, find.text(value)),
+        lessThanOrEqualTo(3),
+        reason: 'the value may wrap, but only a little',
+      );
+      expect(
+        row.height,
+        lessThanOrEqualTo(400),
+        reason: 'the row must not blow up into a page (was 960dp)',
       );
     });
   });

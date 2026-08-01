@@ -24,9 +24,17 @@ import 'package:flutter/material.dart';
 /// `contexts/finance/presentation/budget_card.dart`: [value] is a **non-flex**
 /// child, so it is laid out first and takes exactly its natural width, and
 /// [label] is `Expanded` into whatever is left and yields (wraps) when the two
-/// together don't fit. The value's box therefore ends at the row's right edge
-/// by construction — the `Expanded` label is what pushes it there — so nothing
-/// has to opt into `TextAlign.end` to read flush right.
+/// together don't fit. The value's *box* therefore ends at the row's right edge
+/// by construction — the `Expanded` label is what pushes it there.
+///
+/// That places the box, not the glyphs. While the value fits on one line the
+/// box *is* its glyphs and the distinction is invisible, which is why deleting
+/// every `TextAlign.end` in the app once left the whole suite green. Once the
+/// value wraps (see below, and it now can while the row still has room),
+/// `TextAlign.end` is the only thing holding the continuation lines against the
+/// edge. So callers whose value is a number **must** pass
+/// `textAlign: TextAlign.end`; the row cannot impose it on an arbitrary
+/// [value] widget.
 ///
 /// ## What this row needs from its host
 ///
@@ -43,21 +51,37 @@ import 'package:flutter/material.dart';
 ///   constraints and never asks for its intrinsic width — but would not survive
 ///   being wrapped in an `IntrinsicWidth` to "make the columns line up".
 ///
-/// ## The degenerate case
+/// ## The degenerate case: both halves have a floor
 ///
-/// The value is capped at the row's width (minus [gap]) rather than left
-/// unbounded, so a value too wide for the row wraps instead of overflowing. It
-/// then leaves the `Expanded` label nothing, and the *label* is what degrades —
-/// which is the right way round: labels are prose and wrap, values are numbers
-/// and must stay legible. Callers that pass `textAlign: TextAlign.end` on the
-/// value keep those wrapped lines right-aligned; a bare `Text` wraps
-/// left-aligned inside a box that still ends at the row's edge.
+/// The value is bounded rather than left unbounded, so a value too wide for the
+/// row wraps instead of overflowing. Bounding it at the *whole* row (minus
+/// [gap]) is not enough, though: it moves the collapse onto the label instead
+/// of removing it. A value that fills the row leaves the `Expanded` label 0dp,
+/// and 0dp is not "the label wraps" — QA measured a 27-character account name
+/// at 320dp/2x come back as a `16.0..16.0` box broken into 24 one-glyph lines
+/// that grew the row to 960dp, silently, with no exception to catch it.
+///
+/// So the value is capped at [_maxValueFraction] of the row instead, which
+/// leaves the `Expanded` label the remaining share as a floor. Both halves can
+/// wrap; neither can be squeezed to nothing. Measured on that same row at
+/// 320dp/2x: label 108dp over 9 lines, value 200dp over 2, row 360dp — against
+/// 0dp/24 lines/960dp before.
+///
+/// 0.65 rather than the 0.6 or 0.7 either side of it: at 0.7 the value wrapped
+/// to the same 2 lines as at 0.65 while starving the label a further 15dp, so
+/// 0.65 is strictly better; 0.6 gave a shorter row (280dp) but broke the value
+/// into 3 lines, and the value is the half this row exists to keep legible.
 class LabelValueRow extends StatelessWidget {
   final Widget label;
   final Widget value;
 
   /// Minimum space between the two halves.
   final double gap;
+
+  /// The most of the row the value may take, and so — as its complement — the
+  /// label's floor. See "The degenerate case" above for why both halves need
+  /// one and why this number.
+  static const double _maxValueFraction = 0.65;
 
   const LabelValueRow({
     super.key,
@@ -78,9 +102,13 @@ class LabelValueRow extends StatelessWidget {
             // Non-flex, so `RenderFlex` lays it out *before* dividing what is
             // left — that is what makes it take its natural width. Minus the
             // gap: at 320dp/2x a value that fills the row left the gap with
-            // nowhere to go, a RenderFlex overflow exactly [gap] wide.
+            // nowhere to go, a RenderFlex overflow exactly [gap] wide. Times
+            // [_maxValueFraction]: what is *not* handed to the value is the
+            // label's floor, so neither half can be squeezed to 0dp.
             constraints: BoxConstraints(
-              maxWidth: (constraints.maxWidth - gap).clamp(0.0, double.infinity),
+              maxWidth:
+                  (constraints.maxWidth - gap).clamp(0.0, double.infinity) *
+                  _maxValueFraction,
             ),
             child: value,
           ),
