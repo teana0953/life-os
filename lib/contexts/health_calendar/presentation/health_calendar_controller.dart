@@ -31,15 +31,33 @@ class HealthCalendarController extends ChangeNotifier {
   HealthCalendarStatus status = HealthCalendarStatus.loading;
   HealthCalendar? calendar;
 
-  /// The month being viewed, as its first day. Starts at the clock's local
+  /// `null` until a month is explicitly opened — and again after [reset].
+  /// This is the sentinel that makes [reset] immune to in-flight responses
+  /// (see [reset]); [selectedMonth] hides it from callers.
+  DateTime? _selectedMonth;
+
+  /// The month being viewed, as its first day. Falls back to the clock's local
   /// month — the card opens on the current month, as it always has.
-  late DateTime selectedMonth = DateTime(_clock().year, _clock().month);
+  DateTime get selectedMonth => _selectedMonth ?? _currentMonth;
+
+  DateTime get _currentMonth {
+    final now = _clock();
+    return DateTime(now.year, now.month);
+  }
 
   /// Clears the signed-out user's month and data, so the next user opens the
   /// card on their own current month (design.md D2) rather than inheriting the
   /// previous user's browsed month and figures.
+  ///
+  /// Clearing to the `null` sentinel rather than re-assigning the current
+  /// month is what makes this safe, mirroring `NetWorthController.reset`'s
+  /// `''`: the staleness check compares against [_selectedMonth], and the
+  /// current month is precisely the month most likely to be in flight at
+  /// sign-out — so setting it here would let the previous user's response
+  /// land in the next user's card. [selectedMonth] still reads as the current
+  /// month, so the card and [load] open on it as before.
   void reset() {
-    selectedMonth = DateTime(_clock().year, _clock().month);
+    _selectedMonth = null;
     calendar = null;
     status = HealthCalendarStatus.loading;
   }
@@ -58,7 +76,7 @@ class HealthCalendarController extends ChangeNotifier {
         year != selectedMonth.year || month != selectedMonth.month;
     // Set synchronously, so a switch started after this one can tell this one
     // is stale by the time its response arrives.
-    selectedMonth = DateTime(year, month);
+    _selectedMonth = DateTime(year, month);
     if (isMonthChange) calendar = null;
     status = HealthCalendarStatus.loading;
     notifyListeners();
@@ -67,8 +85,10 @@ class HealthCalendarController extends ChangeNotifier {
     final today =
         '${now.year}-${_pad(now.month)}-${_pad(now.day)}';
 
+    // Deliberately reads the nullable field, not the getter: after [reset]
+    // there is no selected month, so *every* in-flight response is stale.
     bool stale() =>
-        selectedMonth.year != year || selectedMonth.month != month;
+        _selectedMonth?.year != year || _selectedMonth?.month != month;
 
     try {
       final loaded = await _getHealthCalendar(

@@ -164,6 +164,49 @@ void main() {
     expect(controller.calendar, isNull);
     expect(controller.status, HealthCalendarStatus.loading);
   });
+
+  test('a response still in flight when reset runs never lands, so the next '
+      "user never inherits the previous user's data", () async {
+    final repo = _SlowRepository();
+    final controller = _controller2(repo);
+
+    // The current month is both what the card loads on entry and what reset
+    // returns to — i.e. the month most likely to be in flight at sign-out.
+    final pending = controller.loadMonth('token', 2026, 7);
+    controller.reset();
+    repo.completeWith(2026, 7);
+    await pending;
+
+    expect(controller.calendar, isNull);
+    expect(controller.status, isNot(HealthCalendarStatus.loaded));
+  });
+
+  test('a failure still in flight when reset runs never lands', () async {
+    final repo = _SlowRepository();
+    final controller = _controller2(repo);
+
+    final pending = controller.loadMonth('token', 2026, 7);
+    controller.reset();
+    repo.failWith(2026, 7, const HealthCalendarFetchFailure());
+    await pending;
+
+    expect(controller.status, HealthCalendarStatus.loading);
+  });
+
+  test('load after reset still opens the current month', () async {
+    final repo = _FakeRepository();
+    final controller = _controller(repo);
+    await controller.loadMonth('token', 2024, 3);
+
+    controller.reset();
+    await controller.load('token');
+
+    expect(repo.gotYear, 2026);
+    expect(repo.gotMonth, 7);
+    expect(controller.selectedMonth, DateTime(2026, 7));
+    expect(controller.status, HealthCalendarStatus.loaded);
+    expect(controller.calendar, isNotNull);
+  });
 }
 
 /// A repository whose responses are completed by the test, per month, so two
