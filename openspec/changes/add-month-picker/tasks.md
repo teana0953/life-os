@@ -7,8 +7,8 @@
 
 ## 2. MonthNavHeader 接上
 
-- [ ] 2.1 `month_nav_header.dart` 加**可選** `onPickMonth`(VoidCallback?):有傳時月份標籤可點,**但 `<keyPrefix>-label` 的 key 必須留在 `Text` 上**(可點的 wrapper 包在外層)——既有 `networth_tab_test.dart:301` 做 `tester.widget<Text>(byKey(...))`,key 移到 wrapper 會炸。不傳時維持純 Text。測試:不傳時不可點(既有行為)、有傳時點擊觸發、key 仍解析為 Text。
-- [ ] 2.2 財務兩處接上:`finance_overview_tab.dart`(keyPrefix `finance-month`)、`networth_tab.dart`(`networth-month`)——點標籤開 picker,選到的月餵給既有的月份切換路徑(**走既有 controller 的月份 gate,不繞過競態防線**)。財務不設 first/last 業務邊界。
+- [x] 2.1 `month_nav_header.dart` 加**可選** `onPickMonth`(VoidCallback?):有傳時月份標籤可點,**但 `<keyPrefix>-label` 的 key 必須留在 `Text` 上**(可點的 wrapper 包在外層)——既有 `networth_tab_test.dart:301` 做 `tester.widget<Text>(byKey(...))`,key 移到 wrapper 會炸。不傳時維持純 Text。測試:不傳時不可點(既有行為)、有傳時點擊觸發、key 仍解析為 Text。
+- [x] 2.2 財務兩處接上:`finance_overview_tab.dart`(keyPrefix `finance-month`)、`networth_tab.dart`(`networth-month`)——點標籤開 picker,選到的月餵給既有的月份切換路徑(**走既有 controller 的月份 gate,不繞過競態防線**)。財務不設 first/last 業務邊界。
 
 ## 3. diet 月曆接上
 

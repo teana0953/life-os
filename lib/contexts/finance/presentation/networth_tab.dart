@@ -7,6 +7,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/month_nav_header.dart';
+import '../../../shared/widgets/month_picker_dialog.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
 import '../domain/networth_account.dart';
@@ -37,6 +38,19 @@ class NetWorthTab extends StatelessWidget {
     required this.onEditAccountValue,
     required this.onManageAccounts,
   });
+
+  /// Opens the month picker and, if a month was chosen, switches to it through
+  /// [onSwitchMonth] — the same guarded path the arrows use, so the stale-
+  /// response guard still applies. No first/last bound, matching the arrows
+  /// (a net worth value can be back-filled for any month).
+  Future<void> _pickMonth(BuildContext context) async {
+    final picked = await showMonthPicker(
+      context,
+      initialMonth: monthDateTime(controller.selectedMonth),
+    );
+    if (picked == null) return;
+    await onSwitchMonth(monthStringOf(picked));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +114,7 @@ class NetWorthTab extends StatelessWidget {
                       monthDateTime(controller.selectedMonth),
                     ),
                     keyPrefix: 'networth-month',
+                    onPickMonth: () => _pickMonth(context),
                     onPrevious: () =>
                         onSwitchMonth(previousMonth(controller.selectedMonth)),
                     onNext: () => onSwitchMonth(nextMonth(controller.selectedMonth)),

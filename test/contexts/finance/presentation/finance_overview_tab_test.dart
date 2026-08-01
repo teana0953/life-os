@@ -220,5 +220,97 @@ void main() {
         expect(switchedTo, '2026-08');
       },
     );
+
+    testWidgets(
+      'tapping the month label jumps to a month picked two years back, '
+      'through the same month-change path the arrows use',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2024-03'] = [
+            const FinanceTransaction(
+              id: 't-old',
+              type: FinanceType.expense,
+              amount: 900,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2024-03-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        var switchedTo = '';
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {
+                    switchedTo = m;
+                    await controller.load('tok', m);
+                  },
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('finance-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-3')));
+        await tester.pumpAndSettle();
+
+        // Routed through onSwitchMonth (the controller's guarded path), not
+        // straight at the controller.
+        expect(switchedTo, '2024-03');
+        expect(controller.selectedMonth, '2024-03');
+        expect(find.text(_monthLabel(2024, 3)), findsOneWidget);
+        expect(find.text('900'), findsWidgets);
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository();
+      final controller = testFinanceController(repo);
+      await controller.load('tok', '2026-07');
+      var switches = 0;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => Scaffold(
+              body: FinanceOverviewTab(
+                controller: controller,
+                onSwitchMonth: (m) async {
+                  switches++;
+                  await controller.load('tok', m);
+                },
+                onAdd: () {},
+                onEditBudgets: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('finance-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(switches, 0);
+      expect(controller.selectedMonth, '2026-07');
+    });
   });
 }

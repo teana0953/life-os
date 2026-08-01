@@ -20,17 +20,30 @@ class MonthNavHeader extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
+  /// Optional: makes the month label tappable — call sites use it to open the
+  /// month picker so a distant month is one step away. Left out, the label
+  /// stays a plain, non-interactive `Text` exactly as before.
+  final VoidCallback? onPickMonth;
+
   const MonthNavHeader({
     super.key,
     required this.monthLabel,
     required this.keyPrefix,
     required this.onPrevious,
     required this.onNext,
+    this.onPickMonth,
   });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    // The key stays on the `Text` (the tappable wrapper goes *outside* it):
+    // call sites' tests read the label through `tester.widget<Text>(byKey(…))`.
+    final label = Text(
+      monthLabel,
+      key: Key('$keyPrefix-label'),
+      style: Theme.of(context).textTheme.titleLarge,
+    );
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -40,11 +53,17 @@ class MonthNavHeader extends StatelessWidget {
           icon: const Icon(Icons.chevron_left),
           onPressed: onPrevious,
         ),
-        Text(
-          monthLabel,
-          key: Key('$keyPrefix-label'),
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        if (onPickMonth == null)
+          label
+        else
+          InkWell(
+            onTap: onPickMonth,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: label,
+            ),
+          ),
         IconButton(
           key: Key('$keyPrefix-next'),
           tooltip: loc.monthNavNextTooltip,

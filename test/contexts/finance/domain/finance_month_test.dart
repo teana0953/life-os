@@ -51,4 +51,23 @@ void main() {
       expect(previousMonth('2026-01'), '2025-12');
     });
   });
+
+  group('monthStringOf', () {
+    test('reads the year and month fields as YYYY-MM', () {
+      expect(monthStringOf(DateTime(2026, 7, 15)), '2026-07');
+    });
+
+    test('pads a single-digit month', () {
+      expect(monthStringOf(DateTime(2024, 3, 1)), '2024-03');
+    });
+
+    test('is unaffected by a time-of-day at either end of the day', () {
+      expect(monthStringOf(DateTime(2026, 1, 1, 0, 0)), '2026-01');
+      expect(monthStringOf(DateTime(2026, 1, 31, 23, 59)), '2026-01');
+    });
+
+    test('round-trips with monthDateTime', () {
+      expect(monthStringOf(monthDateTime('2019-11')), '2019-11');
+    });
+  });
 }

@@ -129,5 +129,76 @@ void main() {
       expect(find.byKey(const Key('networth-month-label')), findsOneWidget);
       expect(find.byKey(const Key('networth-month-next')), findsOneWidget);
     });
+
+    testWidgets('without onPickMonth the label is not tappable', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('nw-month-label')),
+          matching: find.byType(InkWell),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('with onPickMonth tapping the label invokes it', (
+      tester,
+    ) async {
+      var picks = 0;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+              onPickMonth: () => picks++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('nw-month-label')));
+      expect(picks, 1);
+    });
+
+    testWidgets('the label key stays on the Text when it is tappable', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+              onPickMonth: () {},
+            ),
+          ),
+        ),
+      );
+
+      // Existing call sites read the label's text through this key.
+      expect(
+        tester.widget<Text>(find.byKey(const Key('nw-month-label'))).data,
+        '2026-07',
+      );
+    });
   });
 }

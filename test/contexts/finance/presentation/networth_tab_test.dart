@@ -336,5 +336,50 @@ void main() {
 
       expect(find.byKey(const Key('networth-net-value')), findsOneWidget);
     });
+
+    testWidgets(
+      'tapping the month label jumps to a picked month through onSwitchMonth',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..seedSnapshot('acc-cash', '2026-07', 222)
+          ..seedSnapshot('acc-cash', '2025-07', 111);
+        final controller = await _pumpTab(tester, repo);
+
+        await tester.tap(find.byKey(const Key('networth-month-label')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-year-previous')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('month-picker-month-7')));
+        await tester.pumpAndSettle();
+
+        expect(controller.selectedMonth, '2025-07');
+        expect(
+          tester.widget<Text>(find.byKey(const Key('networth-month-label'))).data,
+          _monthLabel(2025, 7),
+        );
+        expect(
+          tester.widget<Text>(find.byKey(const Key('networth-net-value'))).data,
+          '111',
+        );
+      },
+    );
+
+    testWidgets('dismissing the month picker leaves the month alone', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()..seedSnapshot('acc-cash', '2026-07', 222);
+      final controller = await _pumpTab(tester, repo);
+
+      await tester.tap(find.byKey(const Key('networth-month-label')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      expect(controller.selectedMonth, '2026-07');
+      expect(
+        tester.widget<Text>(find.byKey(const Key('networth-month-label'))).data,
+        _monthLabel(2026, 7),
+      );
+    });
   });
 }
