@@ -4,7 +4,7 @@
 
 ## 根因
 
-`finance_scaffold.dart` 的四個 `showModalBottomSheet` 呼叫(記一筆 :125、科目管理 :140、快照輸入 :163、預算 :179)**只設了 `isScrollControlled: true`**,缺 `useSafeArea` 與 `showDragHandle`。
+`finance_scaffold.dart` 的四個 `showModalBottomSheet` 呼叫(快照 :125、科目管理 :140、記一筆 :163、預算 :179)**只設了 `isScrollControlled: true`**,缺 `useSafeArea` 與 `showDragHandle`。
 
 對照全專案其他呼叫點,慣例是三件一組:
 - `food_search_screen.dart:164-168` — isScrollControlled + useSafeArea + showDragHandle
@@ -44,13 +44,13 @@
 
 ## 風險
 
-`showDragHandle: true` 會在 sheet 頂端加一條 handle,**四個 sheet 的頂端多出約 22px**——這是預期中的視覺變化(與其他 context 一致),不是回歸。既有 widget test 若斷言了 sheet 內容的絕對位置可能受影響;若有測試因此變紅,確認是位移而非行為改變後再調整該測試斷言。
+`showDragHandle: true` 會在 sheet 頂端加一條 handle,**四個 sheet 的頂端多出約 22px**——這是預期中的視覺變化(與其他 context 一致),不是回歸。既有 finance sheet 測試**預期續綠**——全為 byKey 斷言,不受位移影響。若仍有測試變紅,確認是位移而非行為改變後再調整該斷言。
 
 ## 測試
 
 - 四條測試**必須寫在 `finance_scaffold_test.dart`**——`budget_sheet_test.dart` 與 `add_transaction_sheet_test.dart` 自帶一份 showModalBottomSheet、另兩支直接 pump widget,寫在那裡會生出永遠不紅的假測試。
 - 迴歸:既有 finance sheet 測試全綠(記一筆、預算、快照、科目管理)。
-- 實機驗證(留給使用者):長內容的科目管理 sheet 能以點外面/下拉關閉,回到淨值頁而非首頁。
+- 實機驗證(留給使用者):長內容的科目管理 sheet 能以**下拉 drag handle** 關閉,回到淨值頁而非首頁。
 
 ## 驗收
 
