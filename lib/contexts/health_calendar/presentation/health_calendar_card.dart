@@ -145,26 +145,37 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
                 // month was a label rather than a control.
                 _monthNav(context),
                 const SizedBox(height: 16),
+                // Each ring takes an equal third and its label wraps inside
+                // it. A `Wrap` was rejected: three items at 320dp break 2+1,
+                // which reads as a broken layout rather than a reflow. What
+                // overflowed was never the ring (60dp fixed) but the
+                // unconstrained label `Text` below it.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _PercentRing(
-                      ringKey: const Key('health-calendar-ring-logging'),
-                      rate: calendar.loggingRate,
-                      label: loc.healthCalendarLoggingRate,
-                      noDataLabel: loc.healthCalendarNoData,
+                    Expanded(
+                      child: _PercentRing(
+                        ringKey: const Key('health-calendar-ring-logging'),
+                        rate: calendar.loggingRate,
+                        label: loc.healthCalendarLoggingRate,
+                        noDataLabel: loc.healthCalendarNoData,
+                      ),
                     ),
-                    _PercentRing(
-                      ringKey: const Key('health-calendar-ring-diet'),
-                      rate: calendar.dietAdherenceRate,
-                      label: loc.healthCalendarDietRate,
-                      noDataLabel: loc.healthCalendarNoData,
+                    Expanded(
+                      child: _PercentRing(
+                        ringKey: const Key('health-calendar-ring-diet'),
+                        rate: calendar.dietAdherenceRate,
+                        label: loc.healthCalendarDietRate,
+                        noDataLabel: loc.healthCalendarNoData,
+                      ),
                     ),
-                    _PercentRing(
-                      ringKey: const Key('health-calendar-ring-weight'),
-                      rate: widget.weightAchievementRate,
-                      label: loc.healthCalendarWeightRate,
-                      noDataLabel: loc.healthCalendarNoData,
+                    Expanded(
+                      child: _PercentRing(
+                        ringKey: const Key('health-calendar-ring-weight'),
+                        rate: widget.weightAchievementRate,
+                        label: loc.healthCalendarWeightRate,
+                        noDataLabel: loc.healthCalendarNoData,
+                      ),
                     ),
                   ],
                 ),
@@ -250,10 +261,13 @@ class _MonthDots extends StatelessWidget {
             children: [
               for (final day in week)
                 Expanded(
-                  child: SizedBox(
-                    height: 36,
+                  // A *minimum* height, not a fixed one: at a 2x text scale
+                  // the day number alone is taller than 36dp, and a fixed box
+                  // overflowed every cell in the month.
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 36),
                     child: day == null
-                        ? null
+                        ? const SizedBox.shrink()
                         : _DayCell(
                             day: day,
                             logged: loggedDays.contains(_dayKey(day)),
@@ -279,6 +293,7 @@ class _DayCell extends StatelessWidget {
     final theme = Theme.of(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '$day',
@@ -354,6 +369,7 @@ class _PercentRing extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

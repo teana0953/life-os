@@ -13,6 +13,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 
 class _FakeRepository implements HealthCalendarRepository {
@@ -366,13 +367,7 @@ void main() {
 
             await _pump(tester, _FakeRepository(), locale: locale);
 
-            // Drains the *pre-existing* three-ring row overflow
-            // (`health_calendar_card.dart`'s `spaceEvenly` Row, 320dp/en
-            // only) — untouched by this change and only visible here because
-            // the pump now reproduces the real page padding. (Follow-up; not
-            // this change's regression.) The header is therefore asserted
-            // geometrically: both arrows must stay inside the surface.
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(
               tester,
               const Key('health-calendar-month-label'),
@@ -414,9 +409,7 @@ void main() {
 
             await _pump(tester, _FakeRepository(), locale: locale);
 
-            // Drains the pre-existing three-ring row overflow (see above),
-            // which a large text scale only makes louder.
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(
               tester,
               const Key('health-calendar-month-label'),
@@ -451,7 +444,7 @@ void main() {
 
             await _pump(tester, _FakeRepository(), locale: locale);
 
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelPaintedReadable(
               tester,
               const Key('health-calendar-month-label'),
@@ -466,6 +459,33 @@ void main() {
             );
           },
         );
+      }
+    }
+  });
+
+  // The card's own overflow guard: the three-ring row (`spaceEvenly`, whose
+  // unconstrained ring labels pushed it 12px past 320dp/en) and the month-dot
+  // day cells (fixed 36dp tall, so every one of them overflowed vertically at
+  // a 2x text scale). Asserts *no layout error of any kind* rather than
+  // draining with `takeException()` — see `test/support/layout_guard.dart`.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the card lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 1600));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await expectNoLayoutErrors(
+                () => _pump(tester, _FakeRepository(), locale: locale),
+              );
+            },
+          );
+        }
       }
     }
   });
