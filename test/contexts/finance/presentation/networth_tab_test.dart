@@ -12,6 +12,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
@@ -415,12 +416,7 @@ void main() {
             );
             await tester.pumpAndSettle();
 
-            // Drains the *pre-existing* account-group total-row overflow —
-            // already on main at 320dp/en, unrelated to the `▾` — which
-            // otherwise fails this test outright. (Follow-up; not this
-            // change's regression.) The header is therefore asserted
-            // geometrically: both its ends must stay inside the surface.
-            tester.takeException();
+            expect(tester.takeException(), isNull);
             expectMonthLabelFullyVisible(
               tester,
               const Key('networth-month-label'),
@@ -437,6 +433,59 @@ void main() {
             expect(next.right, lessThanOrEqualTo(header.right));
           },
         );
+      }
+    }
+  });
+
+  // The tab's own overflow guard, covering two independent failures: the
+  // account-group subtotal Row (15px past 320dp/en at a 1x text scale) and
+  // the account `ListTile`s, whose trailing amount could not be laid out at
+  // a 2x text scale — the latter not a RenderFlex overflow at all, which is
+  // why this asserts on *any* layout error. Pumped inline rather than
+  // through `_pumpTab`, which forces a 600dp-wide surface.
+  group('narrow-width layout guard', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the tab lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, 2400));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeFinanceRepository()
+                ..seedSnapshot('acc-cash', '2026-07', 1234567);
+              final controller = testNetWorthController(repo);
+              await controller.load('token', '2026-07');
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  l10nTestApp(
+                    locale: locale,
+                    home: Scaffold(
+                      body: NetWorthTab(
+                        controller: controller,
+                        onSwitchMonth: (m) async {},
+                        onEditAccountValue: (a) {},
+                        onManageAccounts: () {},
+                      ),
+                    ),
+                  ),
+                );
+                await tester.pumpAndSettle();
+              });
+
+              // The account rows must also stay *queryable*: when a
+              // `ListTile` fails to lay out, `evaluate()` itself throws.
+              expect(
+                find.byKey(const Key('account-row-acc-cash')).evaluate(),
+                isNotEmpty,
+              );
+            },
+          );
+        }
       }
     }
   });

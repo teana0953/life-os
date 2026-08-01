@@ -329,17 +329,35 @@ class _AccountGroup extends StatelessWidget {
               for (final account in accounts)
                 ListTile(
                   key: Key('account-row-${account.id}'),
-                  title: Text(account.name),
-                  trailing: Text(
-                    valueByAccount.containsKey(account.id)
-                        ? formatMinorUnits(valueByAccount[account.id]!, defaultCurrency)
-                        : loc.networthNotRecorded,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: valueByAccount.containsKey(account.id)
-                          ? null
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
+                  // The amount rides in the title row rather than in
+                  // `trailing`: a `ListTile`'s trailing slot is laid out
+                  // unconstrained, so at a 2x text scale the amount consumed
+                  // the whole tile and the tile refused to lay out at all —
+                  // an assertion, not a RenderFlex overflow. Inside the row
+                  // both halves are shrinkable and wrap instead.
+                  title: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Text(account.name)),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          valueByAccount.containsKey(account.id)
+                              ? formatMinorUnits(
+                                  valueByAccount[account.id]!,
+                                  defaultCurrency,
+                                )
+                              : loc.networthNotRecorded,
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: valueByAccount.containsKey(account.id)
+                                ? null
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   onTap: () => onTap(account),
                 ),
@@ -348,18 +366,24 @@ class _AccountGroup extends StatelessWidget {
                   key: archivedKey,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        loc.networthArchivedSubtotal,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      Expanded(
+                        child: Text(
+                          loc.networthArchivedSubtotal,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                      Text(
-                        formatMinorUnits(archivedTotal, defaultCurrency),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          formatMinorUnits(archivedTotal, defaultCurrency),
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ],
@@ -367,14 +391,23 @@ class _AccountGroup extends StatelessWidget {
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                // The label gives way and both halves wrap: at 320dp/en the
+                // label plus the amount ran 15px past the card even at a 1x
+                // text scale.
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(totalLabel, style: theme.textTheme.bodyMedium),
-                    Text(
-                      formatMinorUnits(total, defaultCurrency),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(totalLabel, style: theme.textTheme.bodyMedium),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        formatMinorUnits(total, defaultCurrency),
+                        textAlign: TextAlign.end,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
