@@ -4,6 +4,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/month_nav_header.dart';
 
 import '../../support/l10n_test_app.dart';
+import '../../support/month_label.dart';
 import '../../support/semantics_tree.dart';
 
 final _loc = lookupAppLocalizations(const Locale('en'));
@@ -277,6 +278,93 @@ void main() {
       );
 
       expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
+    });
+
+    testWidgets('the caret stays smaller than the label it sits beside', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: MonthNavHeader(
+              monthLabel: '2026-07',
+              keyPrefix: 'nw-month',
+              onPrevious: () {},
+              onNext: () {},
+              onPickMonth: () {},
+            ),
+          ),
+        ),
+      );
+
+      // 20 (not the 24 default): the caret is a hint next to the month, and
+      // every dp it takes is a dp the label loses on a narrow phone.
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.arrow_drop_down)).size,
+        20,
+      );
+    });
+  });
+
+  // The `▾` affordance cost the centred row ~48dp, which first overflowed a
+  // 320dp phone and then — once the label was allowed to ellipsize — silently
+  // ate the month digits (`2026年7月` → `202…`). The label must therefore
+  // *scale*, never truncate.
+  group('narrow-row month label', () {
+    Future<void> pumpAt(WidgetTester tester, double width, String label) =>
+        tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: width,
+                  child: MonthNavHeader(
+                    monthLabel: label,
+                    keyPrefix: 'nw-month',
+                    onPrevious: () {},
+                    onNext: () {},
+                    onPickMonth: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    // 240dp is what a 320dp phone leaves this row inside the health page's
+    // 20dp padding and the card's own; 280dp is the same on a 360dp phone.
+    for (final width in [240.0, 280.0, 320.0]) {
+      for (final label in ['2026年7月', 'Jul 2026']) {
+        testWidgets(
+          '"$label" stays whole in a ${width.toInt()}dp row',
+          (tester) async {
+            await pumpAt(tester, width, label);
+
+            expect(tester.takeException(), isNull);
+            expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
+            expect(find.text(label), findsOneWidget);
+          },
+        );
+      }
+    }
+
+    testWidgets('it shrinks rather than losing characters when squeezed', (
+      tester,
+    ) async {
+      await pumpAt(tester, 240, '2026年7月');
+
+      expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
+      expect(
+        monthLabelScale(tester, const Key('nw-month-label')),
+        lessThan(1.0),
+      );
+    });
+
+    testWidgets('it keeps its full size once there is room', (tester) async {
+      await pumpAt(tester, 400, '2026年7月');
+
+      expectMonthLabelFullyVisible(tester, const Key('nw-month-label'));
+      expect(monthLabelScale(tester, const Key('nw-month-label')), 1.0);
     });
   });
 }

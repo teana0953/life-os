@@ -12,6 +12,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 const _locale = Locale('en');
@@ -420,6 +421,10 @@ void main() {
             // change's regression.) The header is therefore asserted
             // geometrically: both its ends must stay inside the surface.
             tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('networth-month-label'),
+            );
             final header = tester.getRect(find.byType(MonthNavHeader));
             final prev = tester.getRect(
               find.byKey(const Key('networth-month-previous')),

@@ -36,6 +36,7 @@ import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -509,9 +510,9 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(tester.takeException(), isNull);
-          expect(
-            find.byKey(const Key('calendar-month-label')),
-            findsOneWidget,
+          expectMonthLabelFullyVisible(
+            tester,
+            const Key('calendar-month-label'),
           );
         },
       );

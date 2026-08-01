@@ -43,7 +43,6 @@ class MonthNavHeader extends StatelessWidget {
       monthLabel,
       key: Key('$keyPrefix-label'),
       style: Theme.of(context).textTheme.titleLarge,
-      overflow: TextOverflow.ellipsis,
     );
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -64,9 +63,14 @@ class MonthNavHeader extends StatelessWidget {
           // `Flexible` on both the entry and the label inside it: a `Row`
           // lays a non-flexible child out with an *unbounded* main-axis
           // constraint, so without the outer one the inner one can never
-          // shrink. Between them the label ellipsizes instead of overflowing
-          // on a 320dp phone — the `▾` + its padding cost ~48dp that this
-          // centred row had no other way to give back.
+          // shrink. The inner `FittedBox` then **scales** the label down
+          // rather than ellipsizing it: inside the health card's 20dp page
+          // padding a 320dp phone leaves the label ~140dp while `2026年7月`
+          // wants 154dp, and an ellipsis ate exactly the month digits
+          // (`202…`). Shrunken-but-complete beats truncated-and-silent; at
+          // ≥320dp of row width nothing scales at all. The entry's own
+          // horizontal padding is 4 (not 12) to hand those dp back to the
+          // label — the `▾` already costs ~20dp this centred row can't spare.
           Flexible(
             child: Tooltip(
               message: loc.monthPickerOpenTooltip,
@@ -77,13 +81,18 @@ class MonthNavHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 4,
                       vertical: 6,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(child: label),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: label,
+                          ),
+                        ),
                         const Icon(Icons.arrow_drop_down, size: 20),
                       ],
                     ),

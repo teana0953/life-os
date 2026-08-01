@@ -13,6 +13,7 @@ import 'package:life_os/contexts/menstrual/presentation/menstrual_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 
 /// A stateful in-memory fake mirroring the controller-test fake, so mutations
 /// followed by a re-read reflect the change.
@@ -505,6 +506,10 @@ void main() {
             // this change's regression.) The header is therefore asserted
             // geometrically: both its ends must stay inside the surface.
             tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('menstrual-month-label'),
+            );
             final entry = tester.getRect(
               find.ancestor(
                 of: find.byKey(const Key('menstrual-month-label')),

@@ -364,15 +364,20 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // `Flexible` + ellipsis so the label gives way
-                              // to the `▾` instead of overflowing on a 320dp
-                              // phone.
+                              // `Flexible` + `FittedBox` so the label gives
+                              // way to the `▾` instead of overflowing on a
+                              // 320dp phone — by *scaling*, not ellipsizing:
+                              // inside this dialog's insets the label's share
+                              // is narrower than `Jul 2026` / `2026年7月`
+                              // needs, and an ellipsis ate the month itself.
                               Flexible(
-                                child: Text(
-                                  monthYearLabel(context, _visibleMonth),
-                                  key: const Key('calendar-month-label'),
-                                  style: theme.textTheme.bodyLarge,
-                                  overflow: TextOverflow.ellipsis,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    monthYearLabel(context, _visibleMonth),
+                                    key: const Key('calendar-month-label'),
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
                                 ),
                               ),
                               const Icon(Icons.arrow_drop_down, size: 20),

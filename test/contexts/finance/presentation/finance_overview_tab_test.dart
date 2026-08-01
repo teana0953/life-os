@@ -8,6 +8,7 @@ import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart'
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 /// The locale-aware month header text for a month, in the test locale.
@@ -343,9 +344,9 @@ void main() {
             await tester.pumpAndSettle();
 
             expect(tester.takeException(), isNull);
-            expect(
-              find.byKey(const Key('finance-month-label')),
-              findsOneWidget,
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('finance-month-label'),
             );
           },
         );

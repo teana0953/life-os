@@ -13,6 +13,7 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 
 class _FakeRepository implements HealthCalendarRepository {
   Object? error;
@@ -61,6 +62,10 @@ Future<HealthCalendarController> _pump(
       locale: locale,
       home: Scaffold(
         body: SingleChildScrollView(
+          // Mirrors the real host (`health_scaffold.dart`'s overview/trends
+          // lists): without this padding every width test here measures a
+          // card 40dp wider than the one on the phone.
+          padding: const EdgeInsets.all(20),
           child: HealthCalendarCard(
             controller: controller,
             idToken: 'token',
@@ -345,24 +350,41 @@ void main() {
 
     // Regression: the month label's `▾` affordance added padding + an icon to
     // a centred, non-shrinkable Row, which blew the card's header out of a
-    // narrow phone. Widget tests default to an 800x600 surface, so nothing
-    // else in this mobile-first PWA's suite would have caught it.
+    // narrow phone — and the first fix (ellipsis) traded that for silently
+    // eating the month digits. Widget tests default to an 800x600 surface, so
+    // nothing else in this mobile-first PWA's suite would have caught either.
+    // The pump reproduces `health_scaffold`'s 20dp page padding: without it
+    // the card under test is 40dp wider than on a real phone — exactly the
+    // 40dp where the label starts losing characters.
     for (final width in [320.0, 360.0]) {
       for (final locale in testSupportedLocales) {
         testWidgets(
-          'the month header does not overflow at ${width.toInt()}dp, '
-          'locale=$locale',
+          'the month label stays whole at ${width.toInt()}dp, locale=$locale',
           (tester) async {
             await tester.binding.setSurfaceSize(Size(width, 640));
             addTearDown(() => tester.binding.setSurfaceSize(null));
 
             await _pump(tester, _FakeRepository(), locale: locale);
 
-            expect(tester.takeException(), isNull);
-            expect(
-              find.byKey(const Key('health-calendar-month-label')),
-              findsOneWidget,
+            // Drains the *pre-existing* three-ring row overflow
+            // (`health_calendar_card.dart`'s `spaceEvenly` Row, 320dp/en
+            // only) — untouched by this change and only visible here because
+            // the pump now reproduces the real page padding. (Follow-up; not
+            // this change's regression.) The header is therefore asserted
+            // geometrically: both arrows must stay inside the surface.
+            tester.takeException();
+            expectMonthLabelFullyVisible(
+              tester,
+              const Key('health-calendar-month-label'),
             );
+            final prev = tester.getRect(
+              find.byKey(const Key('health-calendar-month-previous')),
+            );
+            final next = tester.getRect(
+              find.byKey(const Key('health-calendar-month-next')),
+            );
+            expect(prev.left, greaterThanOrEqualTo(0));
+            expect(next.right, lessThanOrEqualTo(width));
           },
         );
       }
