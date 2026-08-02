@@ -19,7 +19,7 @@ import 'networth_controller.dart';
 /// Formats a TWD net worth figure, which — unlike an account value — may be
 /// negative (liabilities can exceed assets).
 String _formatSigned(int value) =>
-    '${value < 0 ? '-' : ''}${formatMinorUnits(value.abs(), defaultCurrency)}';
+    '${value < 0 ? '-' : ''}${formatMinorUnitsForDisplay(value.abs(), defaultCurrency)}';
 
 /// 淨值: the month switcher, the net worth headline with its month-over-month
 /// growth, asset/liability accounts with the month's values, and the recent
@@ -341,7 +341,7 @@ class _AccountGroup extends StatelessWidget {
                     label: Text(account.name),
                     value: Text(
                       valueByAccount.containsKey(account.id)
-                          ? formatMinorUnits(
+                          ? formatMinorUnitsForDisplay(
                               valueByAccount[account.id]!,
                               defaultCurrency,
                             )
@@ -370,7 +370,7 @@ class _AccountGroup extends StatelessWidget {
                       ),
                     ),
                     value: Text(
-                      formatMinorUnits(archivedTotal, defaultCurrency),
+                      formatMinorUnitsForDisplay(archivedTotal, defaultCurrency),
                       textAlign: TextAlign.end,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -387,7 +387,7 @@ class _AccountGroup extends StatelessWidget {
                   gap: 12,
                   label: Text(totalLabel, style: theme.textTheme.bodyMedium),
                   value: Text(
-                    formatMinorUnits(total, defaultCurrency),
+                    formatMinorUnitsForDisplay(total, defaultCurrency),
                     textAlign: TextAlign.end,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w700,
