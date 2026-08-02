@@ -1,0 +1,255 @@
+## ADDED Requirements
+
+### Requirement: The split tab leads with who owes whom
+
+The finance shell SHALL offer a 分帳 tab whose first content is the balance
+with each other person, split into what they owe the caller and what the
+caller owes them, listed per currency and never summed across currencies.
+The direction of a debt SHALL be conveyed in words, not by colour alone.
+While loading, a progress indicator is shown; on failure, an error with a
+retry action; on `401`, the app's existing re-authentication exit.
+
+#### Scenario: Balances are grouped by direction
+
+- **WHEN** the caller is owed by one person and owes another
+- **THEN** the two appear under separate headings for owed-to-me and
+  owed-by-me, each naming the person and the amount
+
+#### Scenario: Two currencies stay apart
+
+- **WHEN** the caller's balance with someone spans two currencies
+- **THEN** each currency is listed on its own line and no combined figure
+  appears
+
+#### Scenario: Direction does not depend on colour
+
+- **WHEN** a balance is shown
+- **THEN** wording states who owes whom, so the direction is readable
+  without perceiving colour
+
+#### Scenario: Nothing yet
+
+- **WHEN** the caller has no split expenses at all
+- **THEN** an empty-state guide explaining how to start is shown together
+  with the record action, not a blank tab
+
+### Requirement: Every person on screen has a name
+
+A user rendered anywhere in the split UI SHALL be shown by display name,
+taken from the name the server returns alongside each share, each group
+member, each balance, and the expense's payer — the payer's name comes with
+the expense because a payer who fronted the money holds no share to carry
+it. When a name is genuinely absent, a neutral placeholder SHALL be
+shown — never a raw identifier and never blank.
+
+#### Scenario: A co-participant the viewer does not know is named
+
+- **WHEN** an expense is shown whose participants include someone who is
+  neither the viewer's friend nor a member of any group they share
+- **THEN** that participant is shown by name
+
+#### Scenario: An unresolvable user degrades to a placeholder
+
+- **WHEN** a participant's name cannot be resolved from either source
+- **THEN** a neutral placeholder is shown, and no raw identifier appears
+  anywhere on screen
+
+### Requirement: Recording a split expense
+
+The split tab SHALL offer recording an expense with a group (optional), a
+payer, an amount and currency, a description, a day, participants, and a
+split mode of equal or exact. The stored amounts SHALL be in the currency's
+minor units. While submitting, the action SHALL be disabled.
+
+#### Scenario: An equal split is recorded
+
+- **WHEN** the caller records an expense split equally between themselves
+  and two others
+- **THEN** the expense is created and the balances reflect it
+
+#### Scenario: Submission cannot be double-fired
+
+- **WHEN** a submission is in flight
+- **THEN** the submit action is disabled
+
+#### Scenario: A failed submission keeps what was typed
+
+- **WHEN** submitting fails
+- **THEN** an explanation is shown and every field the user filled in is
+  still there
+
+### Requirement: The form offers only choices the server would accept
+
+Candidate payers and participants SHALL be limited to the members of the
+selected group, or — with no group selected — to the caller's friends and
+the caller. A split whose caller holds no stake SHALL be refused before
+submission, with an explanation, rather than sent and rejected.
+
+#### Scenario: A group narrows the candidates
+
+- **WHEN** a group is selected
+- **THEN** only that group's members can be chosen as payer or participant
+
+#### Scenario: No group means friends
+
+- **WHEN** no group is selected
+- **THEN** the caller and the caller's friends are the available candidates
+
+#### Scenario: The caller must have a stake
+
+- **WHEN** the caller is neither the payer nor a participant with a share
+  above zero
+- **THEN** submission is refused locally with an explanation, and no request
+  is sent
+
+### Requirement: The split arithmetic is visible while typing
+
+An equal split SHALL show what each participant will owe, including where
+the remainder falls. An exact split SHALL show how far the entered shares
+are from the amount, so the user is not relying on a server error to learn
+they are short.
+
+#### Scenario: Equal shares are previewed
+
+- **WHEN** an amount is split equally between three participants
+- **THEN** each participant's resulting share is displayed before submitting
+
+#### Scenario: The preview matches what gets stored
+
+- **WHEN** an amount that does not divide evenly is split equally
+- **THEN** the previewed shares — including which participants carry the
+  extra minor unit — are exactly the shares the server stores, so no figure
+  changes between preview and save
+
+#### Scenario: An exact split shows the shortfall
+
+- **WHEN** the entered shares do not add up to the amount
+- **THEN** the difference is displayed while typing
+
+### Requirement: Groups
+
+The split UI SHALL let the caller create a group, add a friend to it, view
+its members, its per-currency balances and its expenses, and — if they
+created it — archive it. Archiving SHALL be offered only to the group's
+creator, and SHALL require a confirmation naming the group. An archived group
+SHALL be readable and SHALL hide the actions for adding expenses and
+members, while still allowing an existing expense to be edited or deleted by
+its creator or payer.
+
+#### Scenario: A group is created and populated
+
+- **WHEN** the caller creates a group and adds a friend
+- **THEN** both appear as members of it
+
+#### Scenario: Archiving is confirmed by name
+
+- **WHEN** the group's creator archives it
+- **THEN** a confirmation naming that group is shown, and nothing is sent
+  until it is confirmed
+
+#### Scenario: A member who did not create the group cannot archive it
+
+- **WHEN** a member other than the creator views the group
+- **THEN** no archive action is offered — the server refuses them, so the
+  action would only ever fail
+
+#### Scenario: An archived group stays correctable
+
+- **WHEN** a group is archived
+- **THEN** its expenses remain readable and one of them can still be edited
+  by its creator or payer, while the add-expense and add-member actions are
+  not offered
+
+### Requirement: Only the creator or payer is offered editing
+
+The edit and delete actions for an expense SHALL be offered only to its
+creator or its payer. Another participant SHALL not be shown an action that
+would fail.
+
+#### Scenario: A mere participant sees no edit action
+
+- **WHEN** a participant who is neither creator nor payer views an expense
+- **THEN** no edit or delete action is offered
+
+### Requirement: Destructive actions are confirmed by name
+
+Deleting an expense and archiving a group SHALL each require a confirmation
+that names what is being acted on. Adding a member SHALL NOT require one.
+
+#### Scenario: Deleting an expense is confirmed
+
+- **WHEN** the caller deletes an expense
+- **THEN** a confirmation naming that expense is shown first
+
+#### Scenario: Adding a member is not confirmed
+
+- **WHEN** the caller adds a friend to a group
+- **THEN** the member is added without a confirmation step
+
+### Requirement: Split failures are explained and actionable
+
+Each failure the server distinguishes SHALL be explained in terms the user
+can act on, never as a status code: not friends, not a group member, group
+archived, shares not summing, split too small, duplicate participant,
+already a member, and an invalid link or unknown record SHALL each produce
+their own message.
+
+#### Scenario: Not friends
+
+- **WHEN** the server answers `not_friends`
+- **THEN** the message says the person is not yet a friend and points at
+  adding them first
+
+#### Scenario: Archived group
+
+- **WHEN** the server answers `group_archived`
+- **THEN** the message says the group is archived and no expense can be
+  added to it
+
+#### Scenario: Shares do not add up
+
+- **WHEN** the server answers `shares_do_not_sum_to_amount`
+- **THEN** the message states the discrepancy rather than a status code
+
+### Requirement: Split UI is localized and lays out on small screens
+
+All split copy SHALL come from the app's localizations in English and
+Traditional Chinese — no hard-coded user-facing strings. The split tab, the
+group detail screen, the record sheet, and the finance bottom navigation
+with its fourth destination SHALL lay out without layout errors at 320dp and
+360dp wide, on a phone-height viewport, in each supported locale, at text
+scales 1.0 and 2.0.
+
+#### Scenario: Narrow screens stay clean
+
+- **WHEN** any split screen is rendered at 320dp or 360dp on a phone-height
+  viewport, in any supported locale, at text scale 1.0 or 2.0
+- **THEN** no layout error is raised and no content overflows
+
+#### Scenario: The fourth navigation destination fits
+
+- **WHEN** the finance bottom navigation is rendered at 320dp at text scale
+  2.0 in each supported locale
+- **THEN** all four destinations lay out without error, and each label's
+  painted text stays within its own destination's horizontal bounds and is
+  not reduced to an ellipsis — a label that quietly ellipsizes raises no
+  layout error, so measuring is the only way this catches the regression
+
+#### Scenario: A long name does not push the amount out
+
+- **WHEN** a participant's display name is longer than its row can fit
+- **THEN** the name wraps or shrinks and the amount stays fully visible
+
+### Requirement: Expense days are calendar dates, not instants
+
+An expense's `day` is a plain `YYYY-MM-DD` calendar date and SHALL be
+rendered as such, without instant parsing or timezone conversion, which
+would shift it by a day. Genuine instants elsewhere SHALL go through the
+app's shared helpers with an injectable local-time conversion.
+
+#### Scenario: A day is shown as recorded, not shifted
+
+- **WHEN** an expense recorded on a given day is rendered under a fixed
+  non-UTC offset
+- **THEN** that same day is shown — the day is a plain calendar date, so no
+  timezone conversion is applied to it and it never shifts by one
