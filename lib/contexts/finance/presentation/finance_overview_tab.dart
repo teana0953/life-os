@@ -165,18 +165,18 @@ class _CurrencyTotalsCard extends StatelessWidget {
           const SizedBox(height: 8),
           _TotalRow(
             label: loc.financeExpenseTotal,
-            text: formatMinorUnits(total.expense, total.currency),
+            text: formatMinorUnitsForDisplay(total.expense, total.currency),
             color: theme.colorScheme.error,
           ),
           _TotalRow(
             label: loc.financeIncomeTotal,
-            text: formatMinorUnits(total.income, total.currency),
+            text: formatMinorUnitsForDisplay(total.income, total.currency),
             color: financeIncomeColor(theme.colorScheme),
           ),
           _TotalRow(
             label: loc.financeNetTotal,
             text:
-                '${total.net < 0 ? '-' : ''}${formatMinorUnits(total.net.abs(), total.currency)}',
+                '${total.net < 0 ? '-' : ''}${formatMinorUnitsForDisplay(total.net.abs(), total.currency)}',
           ),
         ],
       ),
@@ -275,7 +275,7 @@ class _CategoryBar extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
             Text(
-              formatMinorUnits(amount.amount, amount.currency),
+              formatMinorUnitsForDisplay(amount.amount, amount.currency),
               style: theme.textTheme.bodyMedium,
             ),
           ],

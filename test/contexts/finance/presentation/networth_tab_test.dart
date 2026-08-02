@@ -68,7 +68,9 @@ void main() {
       await _pumpTab(tester, repo);
 
       expect(find.byKey(const Key('networth-net-value')), findsOneWidget);
-      expect(find.text('478516'), findsOneWidget);
+      // Displayed amounts are thousands-grouped; the raw digits never reach
+      // the screen.
+      expect(find.text('478,516'), findsOneWidget);
       expect(find.byKey(const Key('networth-growth')), findsOneWidget);
       // Direction is carried by an arrow and a word, never color alone.
       expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
@@ -131,8 +133,8 @@ void main() {
       expect(find.text(_loc.networthLiabilitiesTitle), findsOneWidget);
       expect(find.byKey(const Key('account-row-acc-cash')), findsOneWidget);
       expect(find.byKey(const Key('account-row-acc-card')), findsOneWidget);
-      expect(find.text('520000'), findsNWidgets(2)); // row value + assets total
-      expect(find.text('41484'), findsNWidgets(2));
+      expect(find.text('520,000'), findsNWidgets(2)); // row value + assets total
+      expect(find.text('41,484'), findsNWidgets(2));
     });
 
     testWidgets('an account with no snapshot this month reads as not recorded', (
@@ -557,15 +559,17 @@ void main() {
           );
         }
 
+        // Amounts reach the screen thousands-grouped, so the finders match
+        // the grouped form, not the seeded digits.
         expectFlushRight(
           find.byKey(const Key('account-row-acc-cash')),
-          find.text('1234567'),
+          find.text('1,234,567'),
           'the account amount',
         );
         expectFlushRight(archivedRow, find.text('42'), 'the archived subtotal');
         expectFlushRight(
-          find.ancestor(of: find.text('1234609'), matching: find.byType(Padding)).first,
-          find.text('1234609'),
+          find.ancestor(of: find.text('1,234,609'), matching: find.byType(Padding)).first,
+          find.text('1,234,609'),
           'the group total',
         );
 
@@ -576,7 +580,7 @@ void main() {
             tester,
             find.descendant(of: archivedRow, matching: find.text('42')),
           ),
-          closeTo(paintedTextRight(tester, find.text('1234609')), 0.5),
+          closeTo(paintedTextRight(tester, find.text('1,234,609')), 0.5),
         );
       });
     }
@@ -599,7 +603,11 @@ void main() {
 
       const accountAmount = '123456789012345678';
       const archivedAmount = '123456789012345679';
-      const groupTotal = '246913578024691357'; // the two above, summed
+      // The seeds above are what goes into the repository; these are what is
+      // painted, since displayed amounts are thousands-grouped.
+      const accountShown = '123,456,789,012,345,678';
+      const archivedShown = '123,456,789,012,345,679';
+      const groupTotalShown = '246,913,578,024,691,357'; // the two above, summed
       final repo = FakeFinanceRepository()
         ..accounts = [
           ...FakeFinanceRepository().accounts,
@@ -652,17 +660,17 @@ void main() {
 
       expectWrappedFlushRight(
         find.byKey(const Key('account-row-acc-cash')),
-        find.text(accountAmount),
+        find.text(accountShown),
         'the account amount',
       );
       expectWrappedFlushRight(
         find.byKey(const Key('networth-archived-asset')),
-        find.text(archivedAmount),
+        find.text(archivedShown),
         'the archived subtotal',
       );
       expectWrappedFlushRight(
-        find.ancestor(of: find.text(groupTotal), matching: find.byType(Padding)).first,
-        find.text(groupTotal),
+        find.ancestor(of: find.text(groupTotalShown), matching: find.byType(Padding)).first,
+        find.text(groupTotalShown),
         'the group total',
       );
     });
@@ -692,7 +700,15 @@ void main() {
               archived: true,
             ),
           ]
-          ..seedSnapshot('acc-cash', '2026-07', 1234567)
+          // Deliberately short. The test font paints every glyph as a square
+          // of the font size, so a grouped amount measures far wider here than
+          // on a device — at `1234567` ("1,234,567", nine squares of 16px) the
+          // asset total left `Total assets` 145dp for 168dp of label and it
+          // wrapped, with no overflow and nothing misaligned. That is the row
+          // working as designed (the label yields before the amount is pushed
+          // out), not the regression below, so the fixture is sized to leave
+          // the label the room this guard is about.
+          ..seedSnapshot('acc-cash', '2026-07', 12345)
           ..seedSnapshot('acc-old', '2026-07', 42)
           ..seedSnapshot('acc-card', '2026-07', 9);
         final controller = testNetWorthController(repo);

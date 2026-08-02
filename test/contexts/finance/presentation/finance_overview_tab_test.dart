@@ -107,7 +107,8 @@ void main() {
         expect(find.text('TWD'), findsOneWidget);
         expect(find.text('USD'), findsOneWidget);
         expect(find.text('300'), findsWidgets); // TWD expense (card + breakdown/recent)
-        expect(find.text('50000'), findsOneWidget); // TWD income
+        // Grouped: displayed amounts carry thousands separators.
+        expect(find.text('50,000'), findsOneWidget); // TWD income
         expect(find.text('10.00'), findsWidgets); // USD expense
       },
     );

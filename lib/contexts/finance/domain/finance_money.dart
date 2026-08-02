@@ -34,9 +34,15 @@ int _pow10(int exponent) {
   return result;
 }
 
-/// Formats a backend minor-unit integer [amount] (always non-negative) as a
-/// display string for [currency], e.g. `1234` TWD -> `"1234"`, `1234` USD ->
-/// `"12.34"`.
+/// Formats a backend minor-unit integer [amount] (always non-negative) for an
+/// **input field**: no digit grouping, e.g. `1234` TWD -> `"1234"`, `1234` USD
+/// -> `"12.34"`.
+///
+/// Use [formatMinorUnitsForDisplay] for anything the user only reads. This
+/// plain form exists because its output is fed straight back into
+/// [parseAmountToMinorUnits] when a sheet pre-fills an amount for editing, and
+/// that parser takes a bare number — a grouped `"1,234"` would parse as null
+/// and silently blank the field.
 String formatMinorUnits(int amount, String currency) {
   final digits = decimalDigitsFor(currency);
   if (digits == 0) return amount.toString();
@@ -46,11 +52,33 @@ String formatMinorUnits(int amount, String currency) {
   return '$whole.$fraction';
 }
 
-/// [formatMinorUnits] prefixed with a sign for [type] — `"-1234"` for an
+/// Groups the integer part of [digits] into three-digit runs separated by
+/// commas: `"1234567"` -> `"1,234,567"`, `"1234.56"` -> `"1,234.56"`.
+String _groupThousands(String digits) {
+  final dot = digits.indexOf('.');
+  final whole = dot == -1 ? digits : digits.substring(0, dot);
+  final rest = dot == -1 ? '' : digits.substring(dot);
+  final buffer = StringBuffer();
+  for (var i = 0; i < whole.length; i++) {
+    if (i > 0 && (whole.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(whole[i]);
+  }
+  return '$buffer$rest';
+}
+
+/// Formats a backend minor-unit integer [amount] (always non-negative) for
+/// **display**, with thousands separators: `1234567` TWD -> `"1,234,567"`,
+/// `123456` USD -> `"1,234.56"`.
+///
+/// Never feed this back into [parseAmountToMinorUnits] — see [formatMinorUnits].
+String formatMinorUnitsForDisplay(int amount, String currency) =>
+    _groupThousands(formatMinorUnits(amount, currency));
+
+/// [formatMinorUnitsForDisplay] prefixed with a sign for [type] — `"-1234"` for an
 /// expense, `"+1234"` for income — used by the transaction list rows.
 String formatSignedMinorUnits(int amount, String currency, FinanceType type) {
   final sign = type == FinanceType.expense ? '-' : '+';
-  return '$sign${formatMinorUnits(amount, currency)}';
+  return '$sign${formatMinorUnitsForDisplay(amount, currency)}';
 }
 
 /// Parses user-typed amount [text] (e.g. `"12.5"`) into a backend minor-unit

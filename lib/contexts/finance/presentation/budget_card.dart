@@ -106,8 +106,8 @@ class _BudgetRow extends StatelessWidget {
           children: [
             Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
             Text(
-              '${formatMinorUnits(budget.spent, defaultCurrency)} / '
-              '${formatMinorUnits(budget.amount, defaultCurrency)}',
+              '${formatMinorUnitsForDisplay(budget.spent, defaultCurrency)} / '
+              '${formatMinorUnitsForDisplay(budget.amount, defaultCurrency)}',
               style: theme.textTheme.bodyMedium,
             ),
           ],
