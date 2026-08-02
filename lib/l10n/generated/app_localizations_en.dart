@@ -1798,4 +1798,164 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get monthPickerOpenTooltip => 'Select month';
+
+  @override
+  String get friendsTitle => 'Friends';
+
+  @override
+  String get friendsEmptyTitle => 'No friends yet';
+
+  @override
+  String get friendsEmptyMessage =>
+      'Invite someone using a link to add your first friend.';
+
+  @override
+  String get friendsInviteButton => 'Invite a friend';
+
+  @override
+  String get friendsInviteAnotherButton => 'Create another link';
+
+  @override
+  String get friendsCreateAnotherConfirmTitle => 'Create another link?';
+
+  @override
+  String get friendsCreateAnotherConfirmMessage =>
+      'The link above hasn\'t been copied yet. A new link replaces it, and it can\'t be shown again.';
+
+  @override
+  String get friendsCreateAnotherConfirmButton => 'Replace it';
+
+  @override
+  String get friendsLoadErrorMessage => 'Couldn\'t load your friends.';
+
+  @override
+  String get friendsSectionFriends => 'Friends';
+
+  @override
+  String get friendsSectionInvites => 'Outstanding invites';
+
+  @override
+  String get friendsRemoveTooltip => 'Remove';
+
+  @override
+  String friendsRemoveConfirmTitle(String name) {
+    return 'Remove $name?';
+  }
+
+  @override
+  String friendsRemoveConfirmMessage(String name) {
+    return 'You and $name will no longer be friends.';
+  }
+
+  @override
+  String get friendsRemoveConfirmButton => 'Remove';
+
+  @override
+  String get friendsRemoveNotFoundMessage =>
+      'That friendship no longer exists.';
+
+  @override
+  String get friendsRemoveFailedMessage =>
+      'Couldn\'t remove that friend. Try again.';
+
+  @override
+  String get friendsInviteLinkTitle => 'Your invite link';
+
+  @override
+  String get friendsCopyButton => 'Copy';
+
+  @override
+  String get friendsCopiedMessage => 'Link copied';
+
+  @override
+  String get friendsCopyFailedMessage =>
+      'Couldn\'t copy. Select the link above to copy it manually.';
+
+  @override
+  String get friendsCreateInviteFailedMessage =>
+      'Couldn\'t create an invite link. Try again.';
+
+  @override
+  String get friendsCreateInviteRefreshFailedMessage =>
+      'Invite link created, but the list couldn\'t be refreshed.';
+
+  @override
+  String get friendsInviteLinkOnceWarning =>
+      'Copy it now — this link is shown only once and can\'t be retrieved later.';
+
+  @override
+  String friendsInviteCreatedLabel(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String friendsInviteExpiresLabel(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get friendsRevokeButton => 'Revoke';
+
+  @override
+  String get friendsRevokeConfirmTitle => 'Revoke this invite?';
+
+  @override
+  String get friendsRevokeConfirmMessage =>
+      'The link you already shared will stop working, and whoever has it won\'t be able to accept.';
+
+  @override
+  String get friendsRevokeConfirmButton => 'Revoke';
+
+  @override
+  String get friendsRevokeNotFoundMessage => 'That invite no longer exists.';
+
+  @override
+  String get friendsRevokeFailedMessage =>
+      'Couldn\'t revoke that invite. Try again.';
+
+  @override
+  String get inviteTitle => 'Invite';
+
+  @override
+  String inviteFromMessage(String name) {
+    return '$name invited you to be friends';
+  }
+
+  @override
+  String get inviteAcceptButton => 'Accept';
+
+  @override
+  String inviteAlreadyFriendsMessage(String name) {
+    return 'You\'re already friends with $name.';
+  }
+
+  @override
+  String get inviteBackToFriendsButton => 'Back to friends';
+
+  @override
+  String get inviteExpiredMessage =>
+      'This invite has expired. Ask for a new link.';
+
+  @override
+  String get inviteAlreadyUsedMessage => 'This invite has already been used.';
+
+  @override
+  String get inviteRevokedMessage => 'This invite was revoked.';
+
+  @override
+  String get inviteInvalidMessage =>
+      'This link is invalid. Check that it was copied in full.';
+
+  @override
+  String get inviteFetchFailedMessage =>
+      'Couldn\'t load this invite. Check your connection and try again.';
+
+  @override
+  String get inviteOwnInviteMessage => 'This is your own invite link.';
+
+  @override
+  String get settingsFriendsSectionTitle => 'Friends';
+
+  @override
+  String get settingsFriendsRowLabel => 'Friends';
 }

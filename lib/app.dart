@@ -29,6 +29,10 @@ import 'contexts/notifications/presentation/care_today_screen.dart';
 import 'contexts/notifications/presentation/push_health_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_screen.dart';
+import 'contexts/social/application/friend_use_cases.dart';
+import 'contexts/social/application/invite_use_cases.dart';
+import 'contexts/social/presentation/friends_screen.dart';
+import 'contexts/social/presentation/invite_screen.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -187,6 +191,18 @@ class App extends StatefulWidget {
   final ChaodaysImportController chaodaysImportController;
   final ReminderSettingsController reminderSettingsController;
 
+  /// Stateless use cases for `/friends` and `/invite` — the route builders
+  /// pass these down as-is; each screen builds its own [FriendsController]/
+  /// [InviteController] in its `State` (design D9), so none of these live
+  /// here as a singleton.
+  final ListFriends listFriends;
+  final RemoveFriend removeFriend;
+  final CreateInvite createInvite;
+  final ListInvites listInvites;
+  final RevokeInvite revokeInvite;
+  final PreviewInvite previewInvite;
+  final AcceptInvite acceptInvite;
+
   /// Drives the shared push-off banner on the health overview, 今日照護, and
   /// care reminders management (all three subscribe to it).
   final PushHealthController pushHealthController;
@@ -238,6 +254,13 @@ class App extends StatefulWidget {
     required this.pwaUpdateController,
     required this.chaodaysImportController,
     required this.reminderSettingsController,
+    required this.listFriends,
+    required this.removeFriend,
+    required this.createInvite,
+    required this.listInvites,
+    required this.revokeInvite,
+    required this.previewInvite,
+    required this.acceptInvite,
     required this.pushHealthController,
     required this.careItemsController,
     required this.careTodayController,
@@ -480,6 +503,40 @@ class _AppState extends State<App> {
             signOut: widget.signOut,
             pwaInstall: const PwaInstallImpl(),
           ),
+        ),
+        // No `extra`: built purely from injected DI, so a web refresh on this
+        // URL reconstructs the screen. `FriendsController` is built by the
+        // screen's own `State` (design D9), not here.
+        GoRoute(
+          path: '/friends',
+          builder: (context, state) => FriendsScreen(
+            listFriends: widget.listFriends,
+            removeFriend: widget.removeFriend,
+            createInvite: widget.createInvite,
+            listInvites: widget.listInvites,
+            revokeInvite: widget.revokeInvite,
+            authRepository: widget.authRepository,
+            signOut: widget.signOut,
+          ),
+        ),
+        // `key: ValueKey(token)`: go_router's `pageKey` only tracks the path
+        // pattern, not the query — without this key, opening a second invite
+        // link without leaving the app would reuse the first link's `State`
+        // (and its `InviteController`), silently showing the first inviter
+        // while consuming the first token (design D13).
+        GoRoute(
+          path: '/invite',
+          builder: (context, state) {
+            final token = state.uri.queryParameters['token'];
+            return InviteScreen(
+              key: ValueKey(token),
+              previewInvite: widget.previewInvite,
+              acceptInvite: widget.acceptInvite,
+              authRepository: widget.authRepository,
+              signOut: widget.signOut,
+              token: token,
+            );
+          },
         ),
         // No `extra`: built purely from injected DI, so a web refresh on this
         // URL reconstructs the screen.

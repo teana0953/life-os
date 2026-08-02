@@ -52,7 +52,7 @@ DI 在 `main.dart` 手動接;`/friends` 與 `/invite` 兩條 `GoRoute` 加在 `a
 
 **D1 邀請連結的 origin 由注入取得,不寫死。** 連結要組成絕對網址才能貼給別人。web 上是 `Uri.base.origin`,但在 `flutter test` 的 VM 上 `Uri.base` 是 `file://` URI,`.origin` **會 throw `StateError`**——不是「測試綁在 VM 的 Uri.base」而已,是直接炸。所以:
 - 連結是在**好友頁**組出來的(邀請頁只負責接受),注入對象是 `FriendsScreen`/`FriendsController`,**不是** `InviteController`。
-- 參數是 `String Function() origin`,預設 `() => Uri.base.origin` 這個**延遲求值的 closure**——只建畫面不渲染連結時永遠不會被呼叫,所以單純 pump 畫面不會炸。
+- 參數是 `String Function() origin`,預設 `defaultInviteOrigin` 這個**延遲求值的 closure**——只建畫面不渲染連結時永遠不會被呼叫,所以單純 pump 畫面不會炸。closure 裡再依平台分岔:web 用 `Uri.base.origin`(當下真正的 origin),非 web 用設定值 `appWebOrigin`(`shared/config.dart`,可用 `--dart-define=APP_WEB_ORIGIN=` 覆寫)——正式環境沒有任何地方注入 origin,預設若直接讀 `Uri.base.origin`,原生 build 一渲染連結就 `StateError`。
 - **每個 widget 測試都必須注入固定值**(如 `() => 'https://example.test'`),包含 320/360dp 版面守門,否則一渲染連結就是 `StateError`。
 
 **D2 先預覽再接受,不自動接受。** 點連結進來只呼叫 `preview`,畫面顯示「<名字> 邀請你成為好友」+ 明確的「接受」鈕。理由:token 一次性,自動接受會在使用者還沒看清是誰、甚至誤點別人轉貼的連結時就把邀請消耗掉;預覽本身不消耗(後端只讀)。
@@ -67,7 +67,7 @@ DI 在 `main.dart` 手動接;`/friends` 與 `/invite` 兩條 `GoRoute` 加在 `a
 
 **D7 解除好友要二次確認。** 這是破壞性且對方也看得到的動作,用既有的確認 dialog 慣例;文案要指名對象(「解除與 <名字> 的好友關係?」),不是泛泛的「確定嗎?」。
 
-**D8 撤銷邀請不需二次確認。** 邀請還沒被接受、撤銷不影響任何既有關係,重發成本近乎零。與 D7 的差別是有意的。
+**D8(已推翻)撤銷邀請也要二次確認。** 原本寫的是「不需二次確認:邀請還沒被接受、撤銷不影響任何既有關係,重發成本近乎零」。UI/UX review 指出這條算錯了成本的落點:**成本不落在按鈕的人身上,而落在對方**——對方手上那條連結會無聲失效,按下「接受」只會看到「這個邀請已被撤銷」,而發送方永遠不會知道。加上未接受的邀請列表原本只顯示到期日,同一天建立的兩張邀請長得一模一樣,撤錯了也分不出來。因此改成:列表每列同時顯示**建立時間(含 HH:mm)**與到期日以便辨識,撤銷前跳確認 dialog 並說明「已傳出去的連結會失效」。現在 D7/D8 一致:兩個對第三人可見的破壞性動作都要確認。
 
 **D9 兩個 controller 由畫面的 `State` 持有,不當 app 生命期單例、也不在 route builder 裡建。**(proposal review 第四條 + 第二輪修正)`main.dart` 只注入**無狀態**的 `SocialRepository` 與 use case;`GoRoute` 的 builder 只把 use case 傳下去;`FriendsController`/`InviteController` 由 `StatefulWidget` 的 `State` 在 `initState` 建、`dispose` 釋放,隨畫面生滅。
 

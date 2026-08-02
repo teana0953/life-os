@@ -71,7 +71,10 @@ routes from the URL fragment, so a link without `/#/` does not resolve at all
 it to the clipboard. Copying SHALL give visible confirmation. The link text
 SHALL be shown as well, so the user has a fallback when the clipboard is
 unavailable. A created link SHALL NOT survive leaving the page: returning to
-the friends page later SHALL show no link until a new invite is created.
+the friends page later SHALL show no link until a new invite is created —
+and because of that, the link SHALL be presented together with its expiry
+and an explicit warning that it is shown only this once and cannot be
+retrieved afterwards.
 
 #### Scenario: Link is created and copyable
 
@@ -79,6 +82,19 @@ the friends page later SHALL show no link until a new invite is created.
   token
 - **THEN** the full `<origin>/#/invite?token=…` link is shown, and activating
   copy places that exact link on the clipboard with visible confirmation
+
+#### Scenario: The link says it is shown only once
+
+- **WHEN** an invite link is presented
+- **THEN** its expiry is shown alongside it, together with a warning that
+  the link is shown only this once and cannot be retrieved later
+
+#### Scenario: A failed refresh does not destroy the link
+
+- **WHEN** the invite is created successfully but the follow-up refresh of
+  the lists fails
+- **THEN** the invite link stays on screen and the refresh failure is
+  reported separately — the page does not fall back to a load-error state
 
 #### Scenario: Invite creation fails
 
@@ -94,13 +110,21 @@ the friends page later SHALL show no link until a new invite is created.
 ### Requirement: Outstanding invites
 
 The friends page SHALL list the user's own still-usable invites with their
-expiry, and SHALL let each be revoked without a confirmation step. A
-revoked invite disappears from the list.
+expiry **and their creation time, so that invites sharing an expiry date can
+be told apart**, and SHALL ask for confirmation before revoking one — the
+link is already in someone else's hands and revoking silently stops it
+working for them. A revoked invite disappears from the list.
 
 #### Scenario: Invites show their expiry
 
 - **WHEN** the user has an outstanding invite expiring on a given date
 - **THEN** that invite is listed with its expiry date
+
+#### Scenario: Invites sharing an expiry date are distinguishable
+
+- **WHEN** the user has two outstanding invites that expire on the same date
+- **THEN** each is listed with its own creation time, so the rows are not
+  identical
 
 #### Scenario: A new invite joins the list
 
@@ -109,11 +133,23 @@ revoked invite disappears from the list.
 - **THEN** the new invite appears in that list without the user having to
   leave and re-enter the page
 
+#### Scenario: Revoking is confirmed first
+
+- **WHEN** the user activates revoke on an outstanding invite
+- **THEN** a confirmation explaining that the shared link will stop working
+  is shown, and nothing is sent until it is confirmed
+
 #### Scenario: Revoking removes the invite
 
-- **WHEN** the user revokes an outstanding invite and the request succeeds
-- **THEN** that invite is no longer listed, and no confirmation dialog was
-  required
+- **WHEN** the user confirms revoking an outstanding invite and the request
+  succeeds
+- **THEN** that invite is no longer listed
+
+#### Scenario: A failed mutation is visible wherever it was triggered
+
+- **WHEN** revoking an invite fails
+- **THEN** the failure is surfaced in a transient message overlaying the
+  page, not as text that may be scrolled out of view
 
 ### Requirement: Accepting an invite
 
@@ -244,6 +280,13 @@ supported locale, at text scales 1.0 and 2.0.
 - **WHEN** the friends page or the invite page is rendered at 320dp or 360dp
   in any supported locale at text scale 1.0 or 2.0
 - **THEN** no layout error is raised and no content overflows its bounds
+
+#### Scenario: The invite page can always be left
+
+- **WHEN** the invite page is reached without anything to go back to (a
+  cold start from an externally shared link), in any of its states
+- **THEN** it offers a way out that lands on the home screen, so accepting
+  is never the only available action
 
 #### Scenario: The friends page can always be left
 

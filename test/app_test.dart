@@ -80,6 +80,13 @@ import 'package:life_os/contexts/notifications/presentation/care_items_controlle
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
+import 'package:life_os/contexts/social/application/friend_use_cases.dart';
+import 'package:life_os/contexts/social/application/invite_use_cases.dart';
+import 'package:life_os/contexts/social/domain/friend.dart';
+import 'package:life_os/contexts/social/domain/friend_invite.dart';
+import 'package:life_os/contexts/social/domain/invite_preview.dart';
+import 'package:life_os/contexts/social/domain/social_exceptions.dart';
+import 'package:life_os/contexts/social/domain/social_repository.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
@@ -856,6 +863,42 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   }) async => BodyProfile(heightCm: heightCm, targetWeightKg: targetWeightKg);
 }
 
+/// An inert [SocialRepository]: empty friends/invites, and every mutation
+/// throws [SocialFetchFailure] — enough for `App` construction/routing tests
+/// that don't exercise `/friends`/`/invite` themselves.
+class _FakeSocialRepository implements SocialRepository {
+  @override
+  Future<List<Friend>> listFriends(String idToken) async => const [];
+
+  @override
+  Future<void> removeFriend(String idToken, String friendUserId) async {
+    throw const SocialFetchFailure();
+  }
+
+  @override
+  Future<({String token, String expiresAt})> createInvite(String idToken) async {
+    throw const SocialFetchFailure();
+  }
+
+  @override
+  Future<List<FriendInvite>> listInvites(String idToken) async => const [];
+
+  @override
+  Future<void> revokeInvite(String idToken, String id) async {
+    throw const SocialFetchFailure();
+  }
+
+  @override
+  Future<InvitePreview> previewInvite(String idToken, String token) async {
+    throw const SocialFetchFailure();
+  }
+
+  @override
+  Future<AcceptInviteResult> acceptInvite(String idToken, String token) async {
+    throw const SocialFetchFailure();
+  }
+}
+
 /// Builds a fresh set of fake-backed health controllers for wiring [App] in
 /// tests that don't exercise the diet module themselves.
 ({
@@ -1070,6 +1113,10 @@ Future<LocaleController> pumpApp(
   SignUp? signUp,
   ChaodaysImportController? chaodaysImportController,
   ReminderSettingsController? reminderSettingsController,
+
+  /// Backs `/friends`/`/invite`'s use cases when a test doesn't supply its
+  /// own — an inert [_FakeSocialRepository] by default.
+  SocialRepository? socialRepository,
   PushHealthController? pushHealthController,
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
@@ -1141,6 +1188,7 @@ Future<LocaleController> pumpApp(
   );
   onHealthCalendarController?.call(health.healthCalendar);
   final resolvedDataRevision = dataRevision ?? DataRevision();
+  final resolvedSocialRepository = socialRepository ?? _FakeSocialRepository();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
       () {
@@ -1240,6 +1288,13 @@ Future<LocaleController> pumpApp(
       pwaUpdateController: PwaUpdateController(const PwaUpdateImpl()),
       chaodaysImportController: resolvedChaodaysImportController,
       reminderSettingsController: resolvedReminderSettingsController,
+      listFriends: ListFriends(resolvedSocialRepository),
+      removeFriend: RemoveFriend(resolvedSocialRepository),
+      createInvite: CreateInvite(resolvedSocialRepository),
+      listInvites: ListInvites(resolvedSocialRepository),
+      revokeInvite: RevokeInvite(resolvedSocialRepository),
+      previewInvite: PreviewInvite(resolvedSocialRepository),
+      acceptInvite: AcceptInvite(resolvedSocialRepository),
       pushHealthController:
           pushHealthController ?? testPushHealthController(PushHealth.ok),
       careItemsController: resolvedCareItemsController,
@@ -1335,6 +1390,13 @@ void main() {
           initiallyAuthenticated: true,
         );
         final profileRepository = FakeProfileRepository(_testProfile);
+        // The settings list (theme + language + friends + sign-out) exceeds
+        // the default 800x600 test viewport, so widen it — otherwise the
+        // sign-out button sits far enough below the fold that even
+        // `ensureVisible`'s finder (skipOffstage: true by default) can't
+        // locate it to scroll it into view.
+        await tester.binding.setSurfaceSize(const Size(800, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
         await pumpApp(
           tester,
           authRepository: authRepository,

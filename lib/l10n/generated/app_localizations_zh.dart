@@ -1739,6 +1739,154 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get monthPickerOpenTooltip => '選擇月份';
+
+  @override
+  String get friendsTitle => '好友';
+
+  @override
+  String get friendsEmptyTitle => '還沒有好友';
+
+  @override
+  String get friendsEmptyMessage => '用邀請連結加入你的第一位好友。';
+
+  @override
+  String get friendsInviteButton => '邀請好友';
+
+  @override
+  String get friendsInviteAnotherButton => '再產生一個連結';
+
+  @override
+  String get friendsCreateAnotherConfirmTitle => '要再產生一個連結嗎?';
+
+  @override
+  String get friendsCreateAnotherConfirmMessage =>
+      '上面那個連結還沒有複製。產生新的連結會取代它,而且沒辦法再顯示一次。';
+
+  @override
+  String get friendsCreateAnotherConfirmButton => '取代';
+
+  @override
+  String get friendsLoadErrorMessage => '無法載入好友清單。';
+
+  @override
+  String get friendsSectionFriends => '好友';
+
+  @override
+  String get friendsSectionInvites => '未接受的邀請';
+
+  @override
+  String get friendsRemoveTooltip => '解除好友';
+
+  @override
+  String friendsRemoveConfirmTitle(String name) {
+    return '解除與 $name 的好友關係?';
+  }
+
+  @override
+  String friendsRemoveConfirmMessage(String name) {
+    return '解除後你和 $name 將不再是好友。';
+  }
+
+  @override
+  String get friendsRemoveConfirmButton => '解除';
+
+  @override
+  String get friendsRemoveNotFoundMessage => '這段好友關係已經不存在。';
+
+  @override
+  String get friendsRemoveFailedMessage => '解除好友失敗,請再試一次。';
+
+  @override
+  String get friendsInviteLinkTitle => '你的邀請連結';
+
+  @override
+  String get friendsCopyButton => '複製';
+
+  @override
+  String get friendsCopiedMessage => '已複製連結';
+
+  @override
+  String get friendsCopyFailedMessage => '複製失敗,請直接選取上方的連結手動複製。';
+
+  @override
+  String get friendsCreateInviteFailedMessage => '建立邀請連結失敗,請再試一次。';
+
+  @override
+  String get friendsCreateInviteRefreshFailedMessage => '邀請連結已建立,但清單沒有更新成功。';
+
+  @override
+  String get friendsInviteLinkOnceWarning => '請立刻複製:這個連結只會顯示這一次,離開後就再也拿不到了。';
+
+  @override
+  String friendsInviteCreatedLabel(String date) {
+    return '$date 建立';
+  }
+
+  @override
+  String friendsInviteExpiresLabel(String date) {
+    return '$date 到期';
+  }
+
+  @override
+  String get friendsRevokeButton => '撤銷';
+
+  @override
+  String get friendsRevokeConfirmTitle => '要撤銷這個邀請嗎?';
+
+  @override
+  String get friendsRevokeConfirmMessage => '已經傳出去的連結會立刻失效,拿到連結的人將無法接受邀請。';
+
+  @override
+  String get friendsRevokeConfirmButton => '撤銷';
+
+  @override
+  String get friendsRevokeNotFoundMessage => '這個邀請已經不存在了。';
+
+  @override
+  String get friendsRevokeFailedMessage => '撤銷邀請失敗,請再試一次。';
+
+  @override
+  String get inviteTitle => '邀請';
+
+  @override
+  String inviteFromMessage(String name) {
+    return '$name 邀請你成為好友';
+  }
+
+  @override
+  String get inviteAcceptButton => '接受';
+
+  @override
+  String inviteAlreadyFriendsMessage(String name) {
+    return '你和 $name 已經是好友了。';
+  }
+
+  @override
+  String get inviteBackToFriendsButton => '回到好友列表';
+
+  @override
+  String get inviteExpiredMessage => '這個邀請已經過期,請對方重新產生一個連結。';
+
+  @override
+  String get inviteAlreadyUsedMessage => '這個邀請已經被使用過了。';
+
+  @override
+  String get inviteRevokedMessage => '這個邀請已被撤銷。';
+
+  @override
+  String get inviteInvalidMessage => '連結無效,請確認是否複製完整。';
+
+  @override
+  String get inviteFetchFailedMessage => '無法載入這個邀請,請檢查網路連線後再試一次。';
+
+  @override
+  String get inviteOwnInviteMessage => '這是你自己發出的邀請。';
+
+  @override
+  String get settingsFriendsSectionTitle => '好友';
+
+  @override
+  String get settingsFriendsRowLabel => '好友';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3476,4 +3624,152 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get monthPickerOpenTooltip => '選擇月份';
+
+  @override
+  String get friendsTitle => '好友';
+
+  @override
+  String get friendsEmptyTitle => '還沒有好友';
+
+  @override
+  String get friendsEmptyMessage => '用邀請連結加入你的第一位好友。';
+
+  @override
+  String get friendsInviteButton => '邀請好友';
+
+  @override
+  String get friendsInviteAnotherButton => '再產生一個連結';
+
+  @override
+  String get friendsCreateAnotherConfirmTitle => '要再產生一個連結嗎?';
+
+  @override
+  String get friendsCreateAnotherConfirmMessage =>
+      '上面那個連結還沒有複製。產生新的連結會取代它,而且沒辦法再顯示一次。';
+
+  @override
+  String get friendsCreateAnotherConfirmButton => '取代';
+
+  @override
+  String get friendsLoadErrorMessage => '無法載入好友清單。';
+
+  @override
+  String get friendsSectionFriends => '好友';
+
+  @override
+  String get friendsSectionInvites => '未接受的邀請';
+
+  @override
+  String get friendsRemoveTooltip => '解除好友';
+
+  @override
+  String friendsRemoveConfirmTitle(String name) {
+    return '解除與 $name 的好友關係?';
+  }
+
+  @override
+  String friendsRemoveConfirmMessage(String name) {
+    return '解除後你和 $name 將不再是好友。';
+  }
+
+  @override
+  String get friendsRemoveConfirmButton => '解除';
+
+  @override
+  String get friendsRemoveNotFoundMessage => '這段好友關係已經不存在。';
+
+  @override
+  String get friendsRemoveFailedMessage => '解除好友失敗,請再試一次。';
+
+  @override
+  String get friendsInviteLinkTitle => '你的邀請連結';
+
+  @override
+  String get friendsCopyButton => '複製';
+
+  @override
+  String get friendsCopiedMessage => '已複製連結';
+
+  @override
+  String get friendsCopyFailedMessage => '複製失敗,請直接選取上方的連結手動複製。';
+
+  @override
+  String get friendsCreateInviteFailedMessage => '建立邀請連結失敗,請再試一次。';
+
+  @override
+  String get friendsCreateInviteRefreshFailedMessage => '邀請連結已建立,但清單沒有更新成功。';
+
+  @override
+  String get friendsInviteLinkOnceWarning => '請立刻複製:這個連結只會顯示這一次,離開後就再也拿不到了。';
+
+  @override
+  String friendsInviteCreatedLabel(String date) {
+    return '$date 建立';
+  }
+
+  @override
+  String friendsInviteExpiresLabel(String date) {
+    return '$date 到期';
+  }
+
+  @override
+  String get friendsRevokeButton => '撤銷';
+
+  @override
+  String get friendsRevokeConfirmTitle => '要撤銷這個邀請嗎?';
+
+  @override
+  String get friendsRevokeConfirmMessage => '已經傳出去的連結會立刻失效,拿到連結的人將無法接受邀請。';
+
+  @override
+  String get friendsRevokeConfirmButton => '撤銷';
+
+  @override
+  String get friendsRevokeNotFoundMessage => '這個邀請已經不存在了。';
+
+  @override
+  String get friendsRevokeFailedMessage => '撤銷邀請失敗,請再試一次。';
+
+  @override
+  String get inviteTitle => '邀請';
+
+  @override
+  String inviteFromMessage(String name) {
+    return '$name 邀請你成為好友';
+  }
+
+  @override
+  String get inviteAcceptButton => '接受';
+
+  @override
+  String inviteAlreadyFriendsMessage(String name) {
+    return '你和 $name 已經是好友了。';
+  }
+
+  @override
+  String get inviteBackToFriendsButton => '回到好友列表';
+
+  @override
+  String get inviteExpiredMessage => '這個邀請已經過期,請對方重新產生一個連結。';
+
+  @override
+  String get inviteAlreadyUsedMessage => '這個邀請已經被使用過了。';
+
+  @override
+  String get inviteRevokedMessage => '這個邀請已被撤銷。';
+
+  @override
+  String get inviteInvalidMessage => '連結無效,請確認是否複製完整。';
+
+  @override
+  String get inviteFetchFailedMessage => '無法載入這個邀請,請檢查網路連線後再試一次。';
+
+  @override
+  String get inviteOwnInviteMessage => '這是你自己發出的邀請。';
+
+  @override
+  String get settingsFriendsSectionTitle => '好友';
+
+  @override
+  String get settingsFriendsRowLabel => '好友';
 }

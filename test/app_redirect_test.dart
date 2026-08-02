@@ -39,6 +39,46 @@ void main() {
     });
   });
 
+  group('invite link deep-link (design.md D6): query is not dropped', () {
+    test('loading at /invite?token=abc remembers the full URI, query included', () {
+      final r = resolve(
+        loc: '/invite',
+        deepLink: '/invite?token=abc',
+        loading: true,
+      );
+      expect(r.location, '/splash');
+      expect(r.pendingDeepLink, '/invite?token=abc');
+    });
+
+    test('resolved at splash replays /invite?token=abc with the query intact', () {
+      final r = resolve(
+        loc: '/splash',
+        signedIn: true,
+        pending: '/invite?token=abc',
+      );
+      expect(r.location, '/invite?token=abc');
+      expect(r.pendingDeepLink, isNull);
+    });
+
+    test('a signed-out user opening the link is sent to login, keeping it pending', () {
+      final r = resolve(
+        loc: '/invite',
+        deepLink: '/invite?token=abc',
+        loading: false,
+        signedIn: false,
+        pending: '/invite?token=abc',
+      );
+      expect(r.location, '/login');
+      expect(r.pendingDeepLink, '/invite?token=abc');
+    });
+
+    test('once signed in and replayed, the login screen replays it and clears it', () {
+      final r = resolve(loc: '/login', signedIn: true, pending: '/invite?token=abc');
+      expect(r.location, '/invite?token=abc');
+      expect(r.pendingDeepLink, isNull);
+    });
+  });
+
   group('deep-link cold start, already signed in', () {
     test('loading at a deep link remembers it and shows splash', () {
       final r = resolve(loc: '/care-today', loading: true);

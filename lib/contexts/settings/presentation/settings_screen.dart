@@ -164,6 +164,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                _SettingsSection(
+                  title: loc.settingsFriendsSectionTitle,
+                  children: [
+                    _NavRow(
+                      rowKey: const Key('settings-friends-row'),
+                      label: loc.settingsFriendsRowLabel,
+                      onTap: () => context.push('/friends'),
+                    ),
+                  ],
+                ),
                 ..._buildInstallSection(context, loc),
                 const SizedBox(height: 20),
                 OutlinedButton(
@@ -245,6 +256,27 @@ class _OptionRow<T> extends StatelessWidget {
         selected ? Icons.check_circle : Icons.circle_outlined,
         color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
       ),
+    );
+  }
+}
+
+/// A tappable row that navigates elsewhere (trailing chevron) — distinct
+/// from [_OptionRow], which models a selectable option within a group
+/// (value/groupValue/onSelected + a filled/outline circle).
+class _NavRow extends StatelessWidget {
+  final Key rowKey;
+  final String label;
+  final VoidCallback onTap;
+
+  const _NavRow({required this.rowKey, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      key: rowKey,
+      onTap: onTap,
+      title: Text(label),
+      trailing: const Icon(Icons.chevron_right),
     );
   }
 }
