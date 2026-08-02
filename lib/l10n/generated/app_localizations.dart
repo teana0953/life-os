@@ -3349,6 +3349,276 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select month'**
   String get monthPickerOpenTooltip;
+
+  /// AppBar title of the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get friendsTitle;
+
+  /// Empty-state title on the friends page when the user has no friends.
+  ///
+  /// In en, this message translates to:
+  /// **'No friends yet'**
+  String get friendsEmptyTitle;
+
+  /// Empty-state body text explaining how to add a friend, shown together with the invite action.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite someone using a link to add your first friend.'**
+  String get friendsEmptyMessage;
+
+  /// Button that creates a new invite link on the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite a friend'**
+  String get friendsInviteButton;
+
+  /// Label of the same create-invite button once a link is already on screen — creating another one replaces it, so the label says what it does instead of 'Invite a friend'.
+  ///
+  /// In en, this message translates to:
+  /// **'Create another link'**
+  String get friendsInviteAnotherButton;
+
+  /// Title of the confirmation shown when the user asks for a new invite link while an uncopied one is still displayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Create another link?'**
+  String get friendsCreateAnotherConfirmTitle;
+
+  /// Body of the confirmation shown before replacing an uncopied invite link, explaining that the old link is lost for good.
+  ///
+  /// In en, this message translates to:
+  /// **'The link above hasn\'t been copied yet. A new link replaces it, and it can\'t be shown again.'**
+  String get friendsCreateAnotherConfirmMessage;
+
+  /// Confirm action of the replace-the-uncopied-invite-link dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace it'**
+  String get friendsCreateAnotherConfirmButton;
+
+  /// Error message shown on the friends page when loading friends/invites fails, alongside a retry action.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your friends.'**
+  String get friendsLoadErrorMessage;
+
+  /// Section header above the list of friends on the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get friendsSectionFriends;
+
+  /// Section header above the list of the user's own still-usable invites on the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding invites'**
+  String get friendsSectionInvites;
+
+  /// Tooltip/accessible label for the button that starts removing a friend (opens the confirmation dialog).
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get friendsRemoveTooltip;
+
+  /// Title of the confirmation dialog shown before removing a friend, naming the friend being removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}?'**
+  String friendsRemoveConfirmTitle(String name);
+
+  /// Body text of the remove-friend confirmation dialog, naming the friend being removed.
+  ///
+  /// In en, this message translates to:
+  /// **'You and {name} will no longer be friends.'**
+  String friendsRemoveConfirmMessage(String name);
+
+  /// Confirm button label in the remove-friend confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get friendsRemoveConfirmButton;
+
+  /// Shown when removing a friend fails because the friendship is already gone (404). Deliberately distinct from the invite-invalid-link copy shown on the invite page.
+  ///
+  /// In en, this message translates to:
+  /// **'That friendship no longer exists.'**
+  String get friendsRemoveNotFoundMessage;
+
+  /// Generic error shown when removing a friend fails for a reason other than the friendship already being gone.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove that friend. Try again.'**
+  String get friendsRemoveFailedMessage;
+
+  /// Heading above the just-created invite link and its copy action on the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Your invite link'**
+  String get friendsInviteLinkTitle;
+
+  /// Button that copies the invite link to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get friendsCopyButton;
+
+  /// SnackBar confirmation shown after the invite link is copied to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get friendsCopiedMessage;
+
+  /// SnackBar shown when copying the invite link to the clipboard fails (e.g. the browser rejects the clipboard write); the link text stays on screen so the user can select and copy it manually.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t copy. Select the link above to copy it manually.'**
+  String get friendsCopyFailedMessage;
+
+  /// Error message shown when creating a new invite fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t create an invite link. Try again.'**
+  String get friendsCreateInviteFailedMessage;
+
+  /// Shown when the invite was created successfully but the follow-up refresh of the friends/invites lists failed. Deliberately distinct from the creation-failed message: the link is on screen and must still be copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite link created, but the list couldn\'t be refreshed.'**
+  String get friendsCreateInviteRefreshFailedMessage;
+
+  /// Warning shown with a freshly created invite link: the plaintext token exists only in the create response, so leaving the page loses the link for good.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy it now — this link is shown only once and can\'t be retrieved later.'**
+  String get friendsInviteLinkOnceWarning;
+
+  /// Shows an outstanding invite's creation date and time, already formatted for display. Distinguishes invites that share an expiry date.
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String friendsInviteCreatedLabel(String date);
+
+  /// Shows an outstanding invite's expiry date, already formatted for display.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String friendsInviteExpiresLabel(String date);
+
+  /// Button that revokes an outstanding invite; opens a confirmation first.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get friendsRevokeButton;
+
+  /// Title of the confirmation shown before revoking an outstanding invite.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke this invite?'**
+  String get friendsRevokeConfirmTitle;
+
+  /// Body of the revoke confirmation, explaining that the cost of revoking lands on the person holding the link.
+  ///
+  /// In en, this message translates to:
+  /// **'The link you already shared will stop working, and whoever has it won\'t be able to accept.'**
+  String get friendsRevokeConfirmMessage;
+
+  /// Confirming action of the revoke-invite confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get friendsRevokeConfirmButton;
+
+  /// Shown when revoking an invite answers 404 because it is already gone; the listed row was stale and the list is refreshed.
+  ///
+  /// In en, this message translates to:
+  /// **'That invite no longer exists.'**
+  String get friendsRevokeNotFoundMessage;
+
+  /// Error message shown when revoking an outstanding invite fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t revoke that invite. Try again.'**
+  String get friendsRevokeFailedMessage;
+
+  /// AppBar title of the invite page. The bar also carries the page's only exit, so it is present in every state.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get inviteTitle;
+
+  /// Shown on the invite page after a successful preview, naming the inviter.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} invited you to be friends'**
+  String inviteFromMessage(String name);
+
+  /// Button that accepts a previewed invite, creating the friendship. Disabled while the request is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get inviteAcceptButton;
+
+  /// Shown on the invite page when preview or accept reports the user is already friends with the inviter — worded distinctly from a fresh acceptance.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re already friends with {name}.'**
+  String inviteAlreadyFriendsMessage(String name);
+
+  /// Button on the invite page's error/already-friends states that returns to the friends list.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to friends'**
+  String get inviteBackToFriendsButton;
+
+  /// Shown on the invite page when the invite has expired.
+  ///
+  /// In en, this message translates to:
+  /// **'This invite has expired. Ask for a new link.'**
+  String get inviteExpiredMessage;
+
+  /// Shown on the invite page when the invite has already been used.
+  ///
+  /// In en, this message translates to:
+  /// **'This invite has already been used.'**
+  String get inviteAlreadyUsedMessage;
+
+  /// Shown on the invite page when the invite was revoked by the person who created it.
+  ///
+  /// In en, this message translates to:
+  /// **'This invite was revoked.'**
+  String get inviteRevokedMessage;
+
+  /// Shown on the invite page for an unknown link (404), a blank/missing token, or a malformed request.
+  ///
+  /// In en, this message translates to:
+  /// **'This link is invalid. Check that it was copied in full.'**
+  String get inviteInvalidMessage;
+
+  /// Shown on the invite page for a generic/network failure while previewing or accepting the invite (SocialFetchFailure) — distinct from the invalid-link message since the link itself may be fine, and paired with a retry action.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this invite. Check your connection and try again.'**
+  String get inviteFetchFailedMessage;
+
+  /// Shown on the invite page after the user activates accept on their own invite link (only detectable at that point, not at preview).
+  ///
+  /// In en, this message translates to:
+  /// **'This is your own invite link.'**
+  String get inviteOwnInviteMessage;
+
+  /// Heading for the friends section of the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get settingsFriendsSectionTitle;
+
+  /// Label of the settings row that navigates to the friends page.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get settingsFriendsRowLabel;
 }
 
 class _AppLocalizationsDelegate

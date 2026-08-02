@@ -80,6 +80,9 @@ import 'contexts/notifications/presentation/care_items_controller.dart';
 import 'contexts/notifications/presentation/care_today_controller.dart';
 import 'contexts/notifications/presentation/push_health_controller.dart';
 import 'contexts/notifications/presentation/reminder_settings_controller.dart';
+import 'contexts/social/application/friend_use_cases.dart';
+import 'contexts/social/application/invite_use_cases.dart';
+import 'contexts/social/infrastructure/http_social_repository.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
@@ -334,6 +337,20 @@ Future<void> main() async {
     spanDays: 30,
   );
 
+  // Stateless only (design D9): `/friends`/`/invite` build their own
+  // controllers per-screen, so nothing social lives here as a singleton.
+  final socialRepository = HttpSocialRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final listFriends = ListFriends(socialRepository);
+  final removeFriend = RemoveFriend(socialRepository);
+  final createInvite = CreateInvite(socialRepository);
+  final listInvites = ListInvites(socialRepository);
+  final revokeInvite = RevokeInvite(socialRepository);
+  final previewInvite = PreviewInvite(socialRepository);
+  final acceptInvite = AcceptInvite(socialRepository);
+
   runApp(
     App(
       authRepository: authRepository,
@@ -362,6 +379,13 @@ Future<void> main() async {
       pwaUpdateController: pwaUpdateController,
       chaodaysImportController: chaodaysImportController,
       reminderSettingsController: reminderSettingsController,
+      listFriends: listFriends,
+      removeFriend: removeFriend,
+      createInvite: createInvite,
+      listInvites: listInvites,
+      revokeInvite: revokeInvite,
+      previewInvite: previewInvite,
+      acceptInvite: acceptInvite,
       pushHealthController: pushHealthController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,

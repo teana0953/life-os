@@ -2397,5 +2397,215 @@
   "monthPickerOpenTooltip": "Select month",
   "@monthPickerOpenTooltip": {
     "description": "Tooltip/accessible label for a month label that opens the month picker."
+  },
+  "friendsTitle": "Friends",
+  "@friendsTitle": {
+    "description": "AppBar title of the friends page."
+  },
+  "friendsEmptyTitle": "No friends yet",
+  "@friendsEmptyTitle": {
+    "description": "Empty-state title on the friends page when the user has no friends."
+  },
+  "friendsEmptyMessage": "Invite someone using a link to add your first friend.",
+  "@friendsEmptyMessage": {
+    "description": "Empty-state body text explaining how to add a friend, shown together with the invite action."
+  },
+  "friendsInviteButton": "Invite a friend",
+  "@friendsInviteButton": {
+    "description": "Button that creates a new invite link on the friends page."
+  },
+  "friendsInviteAnotherButton": "Create another link",
+  "@friendsInviteAnotherButton": {
+    "description": "Label of the same create-invite button once a link is already on screen — creating another one replaces it, so the label says what it does instead of 'Invite a friend'."
+  },
+  "friendsCreateAnotherConfirmTitle": "Create another link?",
+  "@friendsCreateAnotherConfirmTitle": {
+    "description": "Title of the confirmation shown when the user asks for a new invite link while an uncopied one is still displayed."
+  },
+  "friendsCreateAnotherConfirmMessage": "The link above hasn't been copied yet. A new link replaces it, and it can't be shown again.",
+  "@friendsCreateAnotherConfirmMessage": {
+    "description": "Body of the confirmation shown before replacing an uncopied invite link, explaining that the old link is lost for good."
+  },
+  "friendsCreateAnotherConfirmButton": "Replace it",
+  "@friendsCreateAnotherConfirmButton": {
+    "description": "Confirm action of the replace-the-uncopied-invite-link dialog."
+  },
+  "friendsLoadErrorMessage": "Couldn't load your friends.",
+  "@friendsLoadErrorMessage": {
+    "description": "Error message shown on the friends page when loading friends/invites fails, alongside a retry action."
+  },
+  "friendsSectionFriends": "Friends",
+  "@friendsSectionFriends": {
+    "description": "Section header above the list of friends on the friends page."
+  },
+  "friendsSectionInvites": "Outstanding invites",
+  "@friendsSectionInvites": {
+    "description": "Section header above the list of the user's own still-usable invites on the friends page."
+  },
+  "friendsRemoveTooltip": "Remove",
+  "@friendsRemoveTooltip": {
+    "description": "Tooltip/accessible label for the button that starts removing a friend (opens the confirmation dialog)."
+  },
+  "friendsRemoveConfirmTitle": "Remove {name}?",
+  "@friendsRemoveConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before removing a friend, naming the friend being removed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "friendsRemoveConfirmMessage": "You and {name} will no longer be friends.",
+  "@friendsRemoveConfirmMessage": {
+    "description": "Body text of the remove-friend confirmation dialog, naming the friend being removed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "friendsRemoveConfirmButton": "Remove",
+  "@friendsRemoveConfirmButton": {
+    "description": "Confirm button label in the remove-friend confirmation dialog."
+  },
+  "friendsRemoveNotFoundMessage": "That friendship no longer exists.",
+  "@friendsRemoveNotFoundMessage": {
+    "description": "Shown when removing a friend fails because the friendship is already gone (404). Deliberately distinct from the invite-invalid-link copy shown on the invite page."
+  },
+  "friendsRemoveFailedMessage": "Couldn't remove that friend. Try again.",
+  "@friendsRemoveFailedMessage": {
+    "description": "Generic error shown when removing a friend fails for a reason other than the friendship already being gone."
+  },
+  "friendsInviteLinkTitle": "Your invite link",
+  "@friendsInviteLinkTitle": {
+    "description": "Heading above the just-created invite link and its copy action on the friends page."
+  },
+  "friendsCopyButton": "Copy",
+  "@friendsCopyButton": {
+    "description": "Button that copies the invite link to the clipboard."
+  },
+  "friendsCopiedMessage": "Link copied",
+  "@friendsCopiedMessage": {
+    "description": "SnackBar confirmation shown after the invite link is copied to the clipboard."
+  },
+  "friendsCopyFailedMessage": "Couldn't copy. Select the link above to copy it manually.",
+  "@friendsCopyFailedMessage": {
+    "description": "SnackBar shown when copying the invite link to the clipboard fails (e.g. the browser rejects the clipboard write); the link text stays on screen so the user can select and copy it manually."
+  },
+  "friendsCreateInviteFailedMessage": "Couldn't create an invite link. Try again.",
+  "@friendsCreateInviteFailedMessage": {
+    "description": "Error message shown when creating a new invite fails."
+  },
+  "friendsCreateInviteRefreshFailedMessage": "Invite link created, but the list couldn't be refreshed.",
+  "@friendsCreateInviteRefreshFailedMessage": {
+    "description": "Shown when the invite was created successfully but the follow-up refresh of the friends/invites lists failed. Deliberately distinct from the creation-failed message: the link is on screen and must still be copied."
+  },
+  "friendsInviteLinkOnceWarning": "Copy it now — this link is shown only once and can't be retrieved later.",
+  "@friendsInviteLinkOnceWarning": {
+    "description": "Warning shown with a freshly created invite link: the plaintext token exists only in the create response, so leaving the page loses the link for good."
+  },
+  "friendsInviteCreatedLabel": "Created {date}",
+  "@friendsInviteCreatedLabel": {
+    "description": "Shows an outstanding invite's creation date and time, already formatted for display. Distinguishes invites that share an expiry date.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "friendsInviteExpiresLabel": "Expires {date}",
+  "@friendsInviteExpiresLabel": {
+    "description": "Shows an outstanding invite's expiry date, already formatted for display.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "friendsRevokeButton": "Revoke",
+  "@friendsRevokeButton": {
+    "description": "Button that revokes an outstanding invite; opens a confirmation first."
+  },
+  "friendsRevokeConfirmTitle": "Revoke this invite?",
+  "@friendsRevokeConfirmTitle": {
+    "description": "Title of the confirmation shown before revoking an outstanding invite."
+  },
+  "friendsRevokeConfirmMessage": "The link you already shared will stop working, and whoever has it won't be able to accept.",
+  "@friendsRevokeConfirmMessage": {
+    "description": "Body of the revoke confirmation, explaining that the cost of revoking lands on the person holding the link."
+  },
+  "friendsRevokeConfirmButton": "Revoke",
+  "@friendsRevokeConfirmButton": {
+    "description": "Confirming action of the revoke-invite confirmation dialog."
+  },
+  "friendsRevokeNotFoundMessage": "That invite no longer exists.",
+  "@friendsRevokeNotFoundMessage": {
+    "description": "Shown when revoking an invite answers 404 because it is already gone; the listed row was stale and the list is refreshed."
+  },
+  "friendsRevokeFailedMessage": "Couldn't revoke that invite. Try again.",
+  "@friendsRevokeFailedMessage": {
+    "description": "Error message shown when revoking an outstanding invite fails."
+  },
+  "inviteTitle": "Invite",
+  "@inviteTitle": {
+    "description": "AppBar title of the invite page. The bar also carries the page's only exit, so it is present in every state."
+  },
+  "inviteFromMessage": "{name} invited you to be friends",
+  "@inviteFromMessage": {
+    "description": "Shown on the invite page after a successful preview, naming the inviter.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteAcceptButton": "Accept",
+  "@inviteAcceptButton": {
+    "description": "Button that accepts a previewed invite, creating the friendship. Disabled while the request is in flight."
+  },
+  "inviteAlreadyFriendsMessage": "You're already friends with {name}.",
+  "@inviteAlreadyFriendsMessage": {
+    "description": "Shown on the invite page when preview or accept reports the user is already friends with the inviter — worded distinctly from a fresh acceptance.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteBackToFriendsButton": "Back to friends",
+  "@inviteBackToFriendsButton": {
+    "description": "Button on the invite page's error/already-friends states that returns to the friends list."
+  },
+  "inviteExpiredMessage": "This invite has expired. Ask for a new link.",
+  "@inviteExpiredMessage": {
+    "description": "Shown on the invite page when the invite has expired."
+  },
+  "inviteAlreadyUsedMessage": "This invite has already been used.",
+  "@inviteAlreadyUsedMessage": {
+    "description": "Shown on the invite page when the invite has already been used."
+  },
+  "inviteRevokedMessage": "This invite was revoked.",
+  "@inviteRevokedMessage": {
+    "description": "Shown on the invite page when the invite was revoked by the person who created it."
+  },
+  "inviteInvalidMessage": "This link is invalid. Check that it was copied in full.",
+  "@inviteInvalidMessage": {
+    "description": "Shown on the invite page for an unknown link (404), a blank/missing token, or a malformed request."
+  },
+  "inviteFetchFailedMessage": "Couldn't load this invite. Check your connection and try again.",
+  "@inviteFetchFailedMessage": {
+    "description": "Shown on the invite page for a generic/network failure while previewing or accepting the invite (SocialFetchFailure) — distinct from the invalid-link message since the link itself may be fine, and paired with a retry action."
+  },
+  "inviteOwnInviteMessage": "This is your own invite link.",
+  "@inviteOwnInviteMessage": {
+    "description": "Shown on the invite page after the user activates accept on their own invite link (only detectable at that point, not at preview)."
+  },
+  "settingsFriendsSectionTitle": "Friends",
+  "@settingsFriendsSectionTitle": {
+    "description": "Heading for the friends section of the settings page."
+  },
+  "settingsFriendsRowLabel": "Friends",
+  "@settingsFriendsRowLabel": {
+    "description": "Label of the settings row that navigates to the friends page."
   }
 }

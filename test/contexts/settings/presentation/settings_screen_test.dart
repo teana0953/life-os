@@ -263,6 +263,24 @@ void main() {
     });
   });
 
+  group('SettingsScreen friends entry', () {
+    testWidgets('activating the friends row navigates to the friends page', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(tester);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('settings-friends-row')),
+      );
+      await tester.tap(find.byKey(const Key('settings-friends-row')));
+      await tester.pumpAndSettle();
+
+      // `l10nRouterTestApp` renders any push it doesn't otherwise know as
+      // `Text(state.matchedLocation)` — see test/support/l10n_test_app.dart.
+      expect(find.text('/friends'), findsOneWidget);
+    });
+  });
+
   group('SettingsScreen localization', () {
     testWidgets('renders English strings', (tester) async {
       await _pumpSettingsScreen(tester, locale: const Locale('en'));
