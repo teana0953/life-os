@@ -87,6 +87,11 @@ import 'package:life_os/contexts/social/domain/friend_invite.dart';
 import 'package:life_os/contexts/social/domain/invite_preview.dart';
 import 'package:life_os/contexts/social/domain/social_exceptions.dart';
 import 'package:life_os/contexts/social/domain/social_repository.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
+import 'package:life_os/contexts/split/application/expense_use_cases.dart';
+import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/domain/split_group.dart';
+import 'package:life_os/contexts/split/domain/split_repository.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
@@ -153,6 +158,7 @@ import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'contexts/finance/finance_test_support.dart';
+import 'contexts/split/support/fake_split_repository.dart';
 import 'support/l10n_test_app.dart';
 import 'support/push_health.dart';
 
@@ -1117,6 +1123,10 @@ Future<LocaleController> pumpApp(
   /// Backs `/friends`/`/invite`'s use cases when a test doesn't supply its
   /// own — an inert [_FakeSocialRepository] by default.
   SocialRepository? socialRepository,
+
+  /// Backs `/finance`'s 分帳 tab and the nested `/finance/groups/:id` route's
+  /// use cases — an inert [FakeSplitRepository] by default.
+  SplitRepository? splitRepository,
   PushHealthController? pushHealthController,
   CareItemsController? careItemsController,
   CareTodayController? careTodayController,
@@ -1189,6 +1199,7 @@ Future<LocaleController> pumpApp(
   onHealthCalendarController?.call(health.healthCalendar);
   final resolvedDataRevision = dataRevision ?? DataRevision();
   final resolvedSocialRepository = socialRepository ?? _FakeSocialRepository();
+  final resolvedSplitRepository = splitRepository ?? FakeSplitRepository();
   final resolvedChaodaysImportController =
       chaodaysImportController ??
       () {
@@ -1295,6 +1306,18 @@ Future<LocaleController> pumpApp(
       revokeInvite: RevokeInvite(resolvedSocialRepository),
       previewInvite: PreviewInvite(resolvedSocialRepository),
       acceptInvite: AcceptInvite(resolvedSocialRepository),
+      splitGetBalances: GetBalances(resolvedSplitRepository),
+      splitListGroups: ListGroups(resolvedSplitRepository),
+      splitCreateGroup: CreateGroup(resolvedSplitRepository),
+      splitGetGroup: GetGroup(resolvedSplitRepository),
+      splitGetGroupBalances: GetGroupBalances(resolvedSplitRepository),
+      splitAddGroupMember: AddGroupMember(resolvedSplitRepository),
+      splitArchiveGroup: ArchiveGroup(resolvedSplitRepository),
+      splitListExpenses: ListExpenses(resolvedSplitRepository),
+      splitCreateExpense: CreateExpense(resolvedSplitRepository),
+      splitUpdateExpense: UpdateExpense(resolvedSplitRepository),
+      splitDeleteExpense: DeleteExpense(resolvedSplitRepository),
+      splitGetProfile: GetProfile(FakeProfileRepository(_testProfile)),
       pushHealthController:
           pushHealthController ?? testPushHealthController(PushHealth.ok),
       careItemsController: resolvedCareItemsController,
@@ -2974,6 +2997,62 @@ void main() {
       },
     );
   });
+
+  group('the nested /finance/groups/:id route', () {
+    testWidgets(
+      'a second group id shows the second group, not the first one over again',
+      (tester) async {
+        // go_router derives a page key from the path *pattern*, so both ids
+        // match the same key and the framework updates the existing element
+        // in place — reusing `GroupDetailScreen`'s `State`, and with it the
+        // `GroupDetailController` that only ever loaded the first group.
+        // `key: ValueKey(groupId)` in the route builder is what forces a new
+        // `State`; the friends change shipped this exact bug once already.
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final splitRepository = FakeSplitRepository()
+          ..groupsByIdToReturn = const {
+            'g1': SplitGroup(
+              id: 'g1',
+              name: 'Kyoto trip',
+              createdByUserId: 'u1',
+              archivedAt: null,
+            ),
+            'g2': SplitGroup(
+              id: 'g2',
+              name: 'Beach house',
+              createdByUserId: 'u1',
+              archivedAt: null,
+            ),
+          };
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          splitRepository: splitRepository,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/finance/groups/g1');
+        await tester.pumpAndSettle();
+        expect(find.text('Kyoto trip'), findsOneWidget);
+
+        router.go('/finance/groups/g2');
+        await tester.pumpAndSettle();
+
+        expect(find.text('Beach house'), findsOneWidget);
+        expect(find.text('Kyoto trip'), findsNothing);
+      },
+    );
+  });
+
 }
 
 class _SwitchableProfileRepository implements ProfileRepository {

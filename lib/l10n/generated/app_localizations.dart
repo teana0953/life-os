@@ -3619,6 +3619,516 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Friends'**
   String get settingsFriendsRowLabel;
+
+  /// Label of the finance shell's fourth bottom-nav destination and app bar title, for the split-expenses tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Split'**
+  String get financeTabSplit;
+
+  /// Tooltip for the split tab's floating action button, which opens the record-expense sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a split expense'**
+  String get splitFabTooltip;
+
+  /// Title shown on the split tab when the caller has no groups, balances, or expenses at all.
+  ///
+  /// In en, this message translates to:
+  /// **'No split expenses yet'**
+  String get splitEmptyTitle;
+
+  /// Call-to-action button in the split tab's empty state, opening the record-expense sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a split expense'**
+  String get splitEmptyCta;
+
+  /// Shown on the split tab when loading balances/groups/expenses fails for a reason other than needing reauthentication.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your split expenses. Check your connection and try again.'**
+  String get splitLoadFailedMessage;
+
+  /// Shown on the split tab when the caller's own profile (needed to gate the split UI) could not be fetched — design D5c: the tab goes to an error state rather than carrying a null user id forward.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your profile. Try again.'**
+  String get splitProfileFailedMessage;
+
+  /// Heading for the split tab's list of people who owe the caller money.
+  ///
+  /// In en, this message translates to:
+  /// **'Owed to you'**
+  String get splitSectionOwedToMe;
+
+  /// One row under the 'owed to you' heading: the person's name and the amount, already formatted with currency grouping.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} owes you {amount}'**
+  String splitOwedToMeRow(String name, String amount);
+
+  /// Heading for the split tab's list of people the caller owes money to.
+  ///
+  /// In en, this message translates to:
+  /// **'You owe'**
+  String get splitSectionOwedByMe;
+
+  /// One row under the 'you owe' heading: the person's name and the amount, already formatted with currency grouping.
+  ///
+  /// In en, this message translates to:
+  /// **'You owe {name} {amount}'**
+  String splitOwedByMeRow(String name, String amount);
+
+  /// Heading for the split tab's list of the caller's groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get splitSectionGroups;
+
+  /// Shown in the groups section of the split tab when the caller has no groups.
+  ///
+  /// In en, this message translates to:
+  /// **'No groups yet'**
+  String get splitNoGroupsYet;
+
+  /// Button on the split tab that opens the create-group dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get splitAddGroupButton;
+
+  /// Heading for the split tab's list of recent split expenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent expenses'**
+  String get splitSectionRecentExpenses;
+
+  /// Shown in the recent-expenses section of the split tab when there are none.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses yet'**
+  String get splitNoExpensesYet;
+
+  /// Subtitle of an expense row: who fronted the money, and the day it was spent. The payer's name comes with the expense itself because a payer holds no share to carry it.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid by {name} · {date}'**
+  String splitExpensePaidBy(String name, String date);
+
+  /// Shown on an expense row when the viewer holds a share in it, so a participant can read what they owe without opening anything.
+  ///
+  /// In en, this message translates to:
+  /// **'Your share {amount}'**
+  String splitYourShare(String amount);
+
+  /// Shown in place of a balances list when nothing is owed in either direction — distinguishes 'settled' from 'failed to load'.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone is settled up'**
+  String get splitAllSettledUp;
+
+  /// Label standing in for the caller's own name in a candidate list (payer/participant picker) — the caller's own display name is never fetched for this purpose.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get splitYouLabel;
+
+  /// Neutral placeholder shown in place of a person's name when the server genuinely has none to give — never a raw id, never blank (design D1).
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get splitUnknownMember;
+
+  /// Title of the dialog used to create a new split group.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get splitCreateGroupTitle;
+
+  /// Text field label in the create-group dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get splitGroupNameLabel;
+
+  /// Validation message shown when trying to create a group with an empty name.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a group name'**
+  String get splitGroupNameRequired;
+
+  /// Confirm button label in the create-group dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get splitCreateButton;
+
+  /// Title of the record-expense sheet when creating a new expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a split expense'**
+  String get splitExpenseAddTitle;
+
+  /// Title of the record-expense sheet when editing an existing expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit split expense'**
+  String get splitExpenseEditTitle;
+
+  /// Label of the record-expense sheet's group selector, shown only when creating a group-less-or-grouped expense (hidden entirely while editing, since group_id is immutable server-side).
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get splitGroupFieldLabel;
+
+  /// Option in the record-expense sheet's group selector meaning the expense has no group — candidates are then the caller's friends plus themselves.
+  ///
+  /// In en, this message translates to:
+  /// **'No group (one-off)'**
+  String get splitGroupNoneOption;
+
+  /// Label of the record-expense sheet's payer selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid by'**
+  String get splitPayerLabel;
+
+  /// Label of the record-expense sheet's description field.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get splitDescriptionLabel;
+
+  /// Validation message shown when trying to save an expense with an empty description.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a description'**
+  String get splitDescriptionRequired;
+
+  /// Label of the record-expense sheet's date field (a plain calendar date, not an instant).
+  ///
+  /// In en, this message translates to:
+  /// **'Day'**
+  String get splitDayLabel;
+
+  /// Label of the record-expense sheet's participant checklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants'**
+  String get splitParticipantsLabel;
+
+  /// Label of the record-expense sheet's equal/exact split-mode toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Split'**
+  String get splitSplitModeLabel;
+
+  /// Option label for an equal split.
+  ///
+  /// In en, this message translates to:
+  /// **'Equal'**
+  String get splitModeEqual;
+
+  /// Option label for an exact (custom per-person amount) split.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact'**
+  String get splitModeExact;
+
+  /// One row of the equal-split live preview: a participant's name and the share they will be recorded with, computed identically to the backend so the preview never diverges from what gets stored.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: {amount}'**
+  String splitEqualShareRow(String name, String amount);
+
+  /// Field label for one participant's amount entry in exact-split mode.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s share'**
+  String splitExactShareLabel(String name);
+
+  /// Live shortfall shown in exact-split mode: how much of the total amount the entered shares don't yet add up to.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining to assign: {amount}'**
+  String splitExactRemaining(String amount);
+
+  /// Exact-split running total when the entered shares add up to MORE than the amount — a separate string from the shortfall one, because a negative shortfall reads as its own opposite.
+  ///
+  /// In en, this message translates to:
+  /// **'Over by {amount}'**
+  String splitExactOverAssigned(String amount);
+
+  /// Exact-split running total when the entered shares add up to exactly the amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned in full'**
+  String get splitExactAssignedInFull;
+
+  /// Shown in the record-expense sheet when the caller is neither the payer nor a participant with a share above zero — submission is refused locally before any request is sent.
+  ///
+  /// In en, this message translates to:
+  /// **'You must be the payer, or hold a share above zero, to record this expense.'**
+  String get splitStakeWarning;
+
+  /// Shown in the record-expense sheet when the entered amount exceeds the maximum the backend accepts (2147483647 minor units).
+  ///
+  /// In en, this message translates to:
+  /// **'This amount is too large.'**
+  String get splitAmountTooLarge;
+
+  /// Reason shown above a disabled Save in the record-expense sheet when the amount is missing or not a positive number.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount greater than zero.'**
+  String get splitAmountRequired;
+
+  /// Reason shown above a disabled Save in the record-expense sheet when no payer is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who paid.'**
+  String get splitPayerRequired;
+
+  /// Reason shown above a disabled Save in the record-expense sheet when no participant is ticked.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one participant.'**
+  String get splitParticipantsRequired;
+
+  /// Reason shown above a disabled Save when the payer and the participants are the same single person; the backend refuses such a split outright.
+  ///
+  /// In en, this message translates to:
+  /// **'A split needs at least two people — add someone besides the payer.'**
+  String get splitTooFewPeople;
+
+  /// Reason shown above a disabled Save when the caller has no group and no friends, so the participant list holds nobody but themselves and no amount of typing in the sheet can complete the form.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no friends yet — add a friend first, then you can split with them.'**
+  String get splitNoFriendsYet;
+
+  /// Button that leaves for the friends page, offered wherever splitting is blocked by the caller having no friends yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a friend'**
+  String get splitAddFriendAction;
+
+  /// Reason shown above a disabled Save when an equal split's amount is smaller than the participant count, which the backend refuses outright.
+  ///
+  /// In en, this message translates to:
+  /// **'This amount is too small to split equally between {count} people.'**
+  String splitAmountBelowParticipants(int count);
+
+  /// Reason shown above a disabled Save in exact-split mode when the entered shares do not add up to the total amount.
+  ///
+  /// In en, this message translates to:
+  /// **'The shares must add up to the amount.'**
+  String get splitExactMustSumToAmount;
+
+  /// Title of the confirmation dialog shown before deleting a split expense, naming it by its description.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{description}\"?'**
+  String splitDeleteConfirmTitle(String description);
+
+  /// Body text of the confirmation dialog shown before deleting a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the expense and its split for everyone involved. This can\'t be undone.'**
+  String get splitDeleteConfirmMessage;
+
+  /// Confirm button label in the delete-expense confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get splitDeleteConfirmButton;
+
+  /// Generic fallback shown when saving a split expense fails for a reason with no more specific mapped message.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Try again.'**
+  String get splitSaveFailedMessage;
+
+  /// Actionable message for the backend's not_friends error.
+  ///
+  /// In en, this message translates to:
+  /// **'This person isn\'t your friend yet — add them as a friend first.'**
+  String get splitErrorNotFriends;
+
+  /// Actionable message for the backend's not_a_group_member error.
+  ///
+  /// In en, this message translates to:
+  /// **'That person isn\'t a member of this group.'**
+  String get splitErrorNotAGroupMember;
+
+  /// Actionable message for the backend's group_archived error.
+  ///
+  /// In en, this message translates to:
+  /// **'This group is archived, so no expense can be added to it.'**
+  String get splitErrorGroupArchived;
+
+  /// Message for the backend's shares_do_not_sum_to_amount error, including the backend's own discrepancy text rather than a bare status code.
+  ///
+  /// In en, this message translates to:
+  /// **'The shares don\'t add up to the amount: {message}'**
+  String splitErrorSharesMismatch(String message);
+
+  /// Actionable message for the backend's split_too_small error.
+  ///
+  /// In en, this message translates to:
+  /// **'This amount is too small to split.'**
+  String get splitErrorTooSmall;
+
+  /// Actionable message for the backend's duplicate_participant error.
+  ///
+  /// In en, this message translates to:
+  /// **'The same person can\'t be listed twice.'**
+  String get splitErrorDuplicateParticipant;
+
+  /// Actionable message for the backend's already_a_group_member error.
+  ///
+  /// In en, this message translates to:
+  /// **'That person is already a member of this group.'**
+  String get splitErrorAlreadyMember;
+
+  /// Actionable message for the backend's not_a_participant error.
+  ///
+  /// In en, this message translates to:
+  /// **'You need a share in this expense to do that.'**
+  String get splitErrorNotAParticipant;
+
+  /// Message for the backend's invalid_split_input error. The framing sentence is localized so a reader always gets one sentence in their own language; {message} is the backend's own (English) explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'This split couldn\'t be accepted: {message}'**
+  String splitErrorInvalidInput(String message);
+
+  /// Message for the backend's bad_request error (route-level input validation). The framing sentence is localized — and deliberately different from invalid_split_input's — so the two never collapse into each other; {message} is the backend's own (English) explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry was rejected: {message}'**
+  String splitErrorBadRequest(String message);
+
+  /// Message for a 404 not_found response — visibility, never distinguished from 'not yours to see'.
+  ///
+  /// In en, this message translates to:
+  /// **'This couldn\'t be found. It may have been deleted.'**
+  String get splitErrorNotFound;
+
+  /// Fallback message for a split failure with no more specific mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get splitErrorGeneric;
+
+  /// Badge shown on the group detail screen when the group is archived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get splitGroupArchivedBadge;
+
+  /// Heading for the group detail screen's member list.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get splitGroupMembersTitle;
+
+  /// Heading for the group detail screen's per-member balances.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances'**
+  String get splitGroupBalancesTitle;
+
+  /// A group balance row for a member who is net owed by the group (design D2 — group balances read differently from the two-person 'owed to me' balance, so this has its own wording).
+  ///
+  /// In en, this message translates to:
+  /// **'{name} should collect {amount}'**
+  String splitGroupBalanceShouldCollect(String name, String amount);
+
+  /// A group balance row for a member who net owes the group.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} should pay {amount}'**
+  String splitGroupBalanceShouldPay(String name, String amount);
+
+  /// Heading for the group detail screen's list of the group's expenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get splitGroupExpensesTitle;
+
+  /// Shown in the group detail screen's expenses section when the group has none.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses in this group yet'**
+  String get splitGroupNoExpensesYet;
+
+  /// Button on the group detail screen that opens the add-member picker, hidden once the group is archived.
+  ///
+  /// In en, this message translates to:
+  /// **'Add member'**
+  String get splitAddMemberButton;
+
+  /// Title of the add-member picker dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a friend to this group'**
+  String get splitAddMemberTitle;
+
+  /// Shown in the add-member picker when every one of the caller's friends is already a member.
+  ///
+  /// In en, this message translates to:
+  /// **'All your friends are already in this group.'**
+  String get splitAddMemberEmpty;
+
+  /// Button on the group detail screen that archives the group, shown only to the group's creator.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive group'**
+  String get splitArchiveButton;
+
+  /// Title of the confirmation dialog shown before archiving a group, naming it.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive \"{groupName}\"?'**
+  String splitArchiveConfirmTitle(String groupName);
+
+  /// Body text of the confirmation dialog shown before archiving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'The group becomes read-only: no new expenses or members can be added, though its existing expenses can still be edited by their creator or payer.'**
+  String get splitArchiveConfirmMessage;
+
+  /// Confirm button label in the archive-group confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get splitArchiveConfirmButton;
+
+  /// Tooltip for the group detail screen's floating action button, which opens the record-expense sheet pre-locked to this group.
+  ///
+  /// In en, this message translates to:
+  /// **'Record a split expense'**
+  String get splitAddExpenseTooltip;
+
+  /// Tooltip for an expense row's edit icon button, shown only to the expense's creator or payer.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get splitEditExpenseTooltip;
+
+  /// Tooltip for an expense row's delete icon button, shown only to the expense's creator or payer.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get splitDeleteExpenseTooltip;
+
+  /// Shown on the group detail screen when loading fails for a reason other than needing reauthentication.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this group. Check your connection and try again.'**
+  String get splitGroupLoadFailedMessage;
 }
 
 class _AppLocalizationsDelegate
