@@ -83,6 +83,10 @@ import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/social/application/friend_use_cases.dart';
 import 'contexts/social/application/invite_use_cases.dart';
 import 'contexts/social/infrastructure/http_social_repository.dart';
+import 'contexts/split/application/balance_use_cases.dart';
+import 'contexts/split/application/expense_use_cases.dart';
+import 'contexts/split/application/group_use_cases.dart';
+import 'contexts/split/infrastructure/http_split_repository.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
 import 'contexts/health/presentation/dictionary_controller.dart';
@@ -351,6 +355,30 @@ Future<void> main() async {
   final previewInvite = PreviewInvite(socialRepository);
   final acceptInvite = AcceptInvite(socialRepository);
 
+  // Stateless only (design.md — controllers are owned by the split tab's and
+  // group detail screen's own `State`, never built here): `/finance`'s 分帳
+  // tab and the nested `/finance/groups/:id` route build their controllers
+  // from these. `GetProfile` gets its own instance sharing `profileRepository`
+  // with `homeController` above — both are stateless wrappers over the same
+  // adapter, so a second instance costs nothing and keeps the split context
+  // from reaching into `homeController`'s internals.
+  final splitRepository = HttpSplitRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
+  final splitGetBalances = GetBalances(splitRepository);
+  final splitListGroups = ListGroups(splitRepository);
+  final splitCreateGroup = CreateGroup(splitRepository);
+  final splitGetGroup = GetGroup(splitRepository);
+  final splitGetGroupBalances = GetGroupBalances(splitRepository);
+  final splitAddGroupMember = AddGroupMember(splitRepository);
+  final splitArchiveGroup = ArchiveGroup(splitRepository);
+  final splitListExpenses = ListExpenses(splitRepository);
+  final splitCreateExpense = CreateExpense(splitRepository);
+  final splitUpdateExpense = UpdateExpense(splitRepository);
+  final splitDeleteExpense = DeleteExpense(splitRepository);
+  final splitGetProfile = GetProfile(profileRepository);
+
   runApp(
     App(
       authRepository: authRepository,
@@ -386,6 +414,18 @@ Future<void> main() async {
       revokeInvite: revokeInvite,
       previewInvite: previewInvite,
       acceptInvite: acceptInvite,
+      splitGetBalances: splitGetBalances,
+      splitListGroups: splitListGroups,
+      splitCreateGroup: splitCreateGroup,
+      splitGetGroup: splitGetGroup,
+      splitGetGroupBalances: splitGetGroupBalances,
+      splitAddGroupMember: splitAddGroupMember,
+      splitArchiveGroup: splitArchiveGroup,
+      splitListExpenses: splitListExpenses,
+      splitCreateExpense: splitCreateExpense,
+      splitUpdateExpense: splitUpdateExpense,
+      splitDeleteExpense: splitDeleteExpense,
+      splitGetProfile: splitGetProfile,
       pushHealthController: pushHealthController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,

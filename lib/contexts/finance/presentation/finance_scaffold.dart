@@ -1,10 +1,17 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../auth/domain/auth_repository.dart';
+import '../../split/domain/split_expense.dart';
+import '../../split/presentation/split_controller.dart';
+import '../../split/presentation/split_error_text.dart';
+import '../../split/presentation/split_expense_sheet.dart';
+import '../../split/presentation/split_tab.dart';
+import '../../split/presentation/split_tab_dependencies.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/networth_account.dart';
@@ -24,10 +31,18 @@ import 'snapshot_input_sheet.dart';
 /// deliberately keeps **its own** month (see [NetWorthController]) — and a FAB
 /// that opens the record sheet from the two ledger tabs. Owns the auth-token
 /// load, mirroring `HealthScaffold`.
+///
+/// A fourth destination, 分帳, is always rendered — see
+/// [SplitTabDependencies] for what wires it. Unlike [netWorthController] (an
+/// app-lifetime singleton built in `main.dart`), the split tab's
+/// `SplitController` is built and disposed by **this widget's own `State`**
+/// (design.md) — unwiring the exact leak `netWorthController` needs
+/// `_resetControllersOnSignOut` to work around.
 class FinanceScaffold extends StatefulWidget {
   final AuthRepository authRepository;
   final FinanceController controller;
   final NetWorthController netWorthController;
+  final SplitTabDependencies split;
 
   /// Returns the current time, used to resolve "today" (the initial month
   /// and the record sheet's default date). Defaults to [DateTime.now];
@@ -39,6 +54,7 @@ class FinanceScaffold extends StatefulWidget {
     required this.authRepository,
     required this.controller,
     required this.netWorthController,
+    required this.split,
     this.clock = DateTime.now,
   });
 
@@ -60,11 +76,37 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// and a newly signed-in user could be shown the previous user's figures.
   bool _netWorthLoaded = false;
 
+  /// Built in [initState], released in [dispose] — **not** an app-lifetime
+  /// singleton like [FinanceScaffold.netWorthController] (class doc).
+  late final SplitController _splitController;
+
+  /// Whether the 分帳 tab has ever been opened (mirrors [_netWorthOpened] —
+  /// the same `IndexedStack`-builds-every-child reason).
+  bool _splitOpened = false;
+
+  /// Whether [_loadSplit] has already run for this `State` (mirrors
+  /// [_netWorthLoaded]). Unlike net worth this controller is per-`State`
+  /// already, so a leftover-singleton refetch bug can't happen here — the
+  /// flag still exists so re-selecting the tab without leaving finance
+  /// doesn't re-fetch on every tap.
+  bool _splitLoaded = false;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
     widget.netWorthController.addListener(_onChanged);
+    _splitController = SplitController(
+      widget.split.getBalances,
+      widget.split.listGroups,
+      widget.split.listExpenses,
+      widget.split.createExpense,
+      widget.split.updateExpense,
+      widget.split.deleteExpense,
+      widget.split.createGroup,
+      widget.split.listFriends,
+      widget.split.getProfile,
+    )..addListener(_onChanged);
     // Post-frame, not called directly from `initState`: `load`'s first
     // synchronous work (before its own first await) must not run as part of
     // this widget's own build — see FinanceController's no-sync-notify rule.
@@ -75,6 +117,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   void dispose() {
     widget.controller.removeListener(_onChanged);
     widget.netWorthController.removeListener(_onChanged);
+    _splitController.removeListener(_onChanged);
+    _splitController.dispose();
     super.dispose();
   }
 
@@ -115,6 +159,92 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await widget.netWorthController.load(idToken, month, notifyOnStart: true);
   }
 
+  /// Loads the 分帳 tab the first time it's opened *in this scaffold*,
+  /// mirroring [_loadNetWorth]. Unlike net worth, [_splitController] is
+  /// itself per-`State` (design.md), so re-entering finance always gets a
+  /// fresh controller and a fresh load without needing this flag for
+  /// correctness — it exists only so re-selecting an already-open tab
+  /// doesn't re-fetch on every tap.
+  Future<void> _loadSplit() async {
+    final idToken = _idToken;
+    if (idToken == null || _splitLoaded) return;
+    _splitLoaded = true;
+    await _splitController.load(idToken);
+  }
+
+  /// A genuine retry (the tab's retry button) always re-fetches, bypassing
+  /// [_splitLoaded] — a stale-profile or fetch failure must not be stuck
+  /// forever behind the "only load once" gate above.
+  Future<void> _retrySplit() async {
+    final idToken = _idToken;
+    if (idToken == null) return;
+    await _splitController.load(idToken);
+  }
+
+  Future<void> _openSplitExpenseSheet({SplitExpense? editing}) async {
+    final idToken = _idToken;
+    final selfUserId = _splitController.selfUserId;
+    if (idToken == null || selfUserId == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => SplitExpenseSheet(
+        writer: _splitController,
+        idToken: idToken,
+        selfUserId: selfUserId,
+        today: _todayDate,
+        groups: _splitController.groups,
+        friends: _splitController.friends,
+        editing: editing,
+        // Close the sheet before leaving for the friends page: the sheet is
+        // an imperative modal route this scaffold pushed, and a router
+        // navigation underneath it would leave it stranded on top of the
+        // new page.
+        onAddFriend: () {
+          Navigator.of(context).pop();
+          widget.split.onAddFriend(context);
+        },
+      ),
+    );
+  }
+
+  Future<void> _openCreateGroupDialog() async {
+    final idToken = _idToken;
+    if (idToken == null) return;
+    final loc = AppLocalizations.of(context)!;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _CreateGroupDialog(),
+    );
+    if (name == null || !mounted) return;
+    final seqBefore = _splitController.mutationErrorSeq;
+    await _splitController.createGroup(idToken, name);
+    // Without this the dialog simply closes and the group is not there:
+    // `_mutate` records the failure on `mutationErrorSeq` and nothing else
+    // reads it. Same shape as `SplitExpenseSheet._save`.
+    if (!mounted || _splitController.mutationErrorSeq == seqBefore) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(splitErrorText(loc, _splitController.mutationError!))));
+  }
+
+  /// Opens a group's detail screen and reloads the split tab once the user
+  /// comes back (task 8.1b). Group detail can add an expense or archive the
+  /// group, either of which the balances/groups/expenses shown here must
+  /// reflect; a genuinely `void` `onOpenGroup` couldn't signal "the user has
+  /// returned" at all, so [SplitTabDependencies.onOpenGroup] returns a
+  /// `Future` that completes on return (mirrors `DietDayScreen`'s own
+  /// await-push-then-reload) and this reloads unconditionally rather than
+  /// threading a "did anything change" result back out of every mutation
+  /// group detail can make.
+  Future<void> _openGroupDetail(String groupId) async {
+    await widget.split.onOpenGroup(context, groupId);
+    if (!mounted) return;
+    await _retrySplit();
+  }
+
   Future<void> _openSnapshotSheet(NetWorthAccount account) async {
     final idToken = _idToken;
     if (idToken == null) return;
@@ -149,10 +279,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => AccountManageSheet(
-        controller: widget.netWorthController,
-        idToken: idToken,
-      ),
+      builder: (_) => AccountManageSheet(controller: widget.netWorthController, idToken: idToken),
     );
   }
 
@@ -218,6 +345,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             loc.financeTabOverview,
             loc.financeTabTransactions,
             loc.financeTabNetWorth,
+            loc.financeTabSplit,
           ][_index],
         ),
       ),
@@ -248,25 +376,78 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             )
           else
             const SizedBox.shrink(),
+          // Same lazy-build gate as 淨值 above: an IndexedStack builds every
+          // child, and an unopened tab would otherwise sit here spinning
+          // forever on a load that was never started.
+          if (_splitOpened)
+            SplitTab(
+              controller: _splitController,
+              onRetry: () => unawaited(_retrySplit()),
+              onRecordExpense: () => _openSplitExpenseSheet(),
+              onOpenGroup: _openGroupDetail,
+              onCreateGroup: _openCreateGroupDialog,
+              onEditExpense: (expense) => _openSplitExpenseSheet(editing: expense),
+              onAddFriend: () => widget.split.onAddFriend(context),
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
-      // The FAB records a transaction, which the 淨值 tab has no use for.
+      // The 淨值 tab has no use for the record-transaction FAB; the 分帳 tab
+      // gets its own FAB (recording a split expense, not a transaction) —
+      // the previous `_index == 2` check alone would otherwise leave the
+      // *transaction* FAB showing on top of the split tab.
       floatingActionButton: _index == 2
           ? null
+          : _index == 3
+          ? FloatingActionButton(
+              key: const Key('split-fab'),
+              // Explicit, distinct hero tags: switching tabs cross-fades one
+              // FAB into the other, and for those ~200ms both are in the
+              // tree. On Flutter's default tag any route transition started
+              // in that window (back, opening a group) finds two heroes
+              // sharing a tag and throws.
+              heroTag: 'split-fab',
+              tooltip: loc.splitFabTooltip,
+              onPressed: () => _openSplitExpenseSheet(),
+              child: const Icon(Icons.add),
+            )
           : FloatingActionButton(
               key: const Key('finance-fab'),
+              heroTag: 'finance-fab',
               tooltip: loc.financeFabTooltip,
               onPressed: () => _openSheet(),
               child: const Icon(Icons.add),
             ),
+      // A taller bar at large text scales, rather than the Material
+      // default's fixed 80dp: `NavigationBar` builds each label as a bare
+      // `Text` with no `maxLines`, so at textScale 2.0 on a 320dp screen a
+      // two-word label ("Transactions", "Net worth") wraps to two lines and
+      // paints ~10dp *below* the bar — silently clipped, raising no layout
+      // error at all. Four destinations narrow each slot to 80dp, which is
+      // what tips those labels over. Growing the bar keeps the label at the
+      // size the user asked for instead of clamping their text scale away.
+      //
+      // `max` against 80 — Material 3's own `NavigationBar` height — bounds
+      // this deliberately: up to 80/70 ≈ 1.14 the bar is byte-for-byte the
+      // one 總覽/交易/淨值 had before this change, so ordinary text scales
+      // see no chrome change at all. Above that threshold it does grow for
+      // all four destinations, which is the intended trade: that is exactly
+      // where their labels have outgrown the default too.
+      // Pinned by split_layout_test.dart's nav-bar guard (both halves: the
+      // slot-containment sweep, and the height at 1.0/1.14/2.0).
       bottomNavigationBar: NavigationBar(
+        height: math.max(80, MediaQuery.textScalerOf(context).scale(70)),
+
         selectedIndex: _index,
         onDestinationSelected: (value) {
           setState(() {
             _index = value;
             if (value == 2) _netWorthOpened = true;
+            if (value == 3) _splitOpened = true;
           });
           if (value == 2) unawaited(_loadNetWorth());
+          if (value == 3) unawaited(_loadSplit());
         },
         destinations: [
           NavigationDestination(
@@ -285,8 +466,70 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             selectedIcon: const Icon(Icons.savings),
             label: loc.financeTabNetWorth,
           ),
+          NavigationDestination(
+            key: const Key('split-tab'),
+            icon: const Icon(Icons.groups_outlined),
+            selectedIcon: const Icon(Icons.groups),
+            label: loc.financeTabSplit,
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// The create-group dialog, as a widget that owns its own text controller.
+///
+/// Not a `TextEditingController` created next to `showDialog` and disposed
+/// right after it returns: the dialog keeps rebuilding through its exit
+/// animation, so a controller disposed at that point is used after disposal
+/// (a red screen on an ordinary "Create" tap). A `State` disposes it when
+/// the route is actually gone.
+class _CreateGroupDialog extends StatefulWidget {
+  const _CreateGroupDialog();
+
+  @override
+  State<_CreateGroupDialog> createState() => _CreateGroupDialogState();
+}
+
+class _CreateGroupDialogState extends State<_CreateGroupDialog> {
+  final _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return AlertDialog(
+      scrollable: true,
+      title: Text(loc.splitCreateGroupTitle),
+      content: TextField(
+        key: const Key('split-group-name-field'),
+        controller: _nameController,
+        decoration: InputDecoration(labelText: loc.splitGroupNameLabel),
+        onChanged: (_) => setState(() {}),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('split-create-group-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(loc.cancel),
+        ),
+        FilledButton(
+          key: const Key('split-create-group-confirm'),
+          // Disabled rather than inert: the old version ran
+          // `if (trimmed.isEmpty) return;`, so an empty name made the button
+          // swallow the tap with no message and no close.
+          onPressed: _nameController.text.trim().isEmpty
+              ? null
+              : () => Navigator.of(context).pop(_nameController.text.trim()),
+          child: Text(loc.splitCreateButton),
+        ),
+      ],
     );
   }
 }

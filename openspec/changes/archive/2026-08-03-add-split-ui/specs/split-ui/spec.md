@@ -31,7 +31,25 @@ retry action; on `401`, the app's existing re-authentication exit.
 
 - **WHEN** the caller has no split expenses at all
 - **THEN** an empty-state guide explaining how to start is shown together
-  with the record action, not a blank tab
+  with **both** first moves — recording a split expense and creating a
+  group — not a blank tab, and not only one of the two
+
+#### Scenario: A caller with no friends yet is pointed at the prerequisite
+
+- **WHEN** the caller has nothing to split *and* no friends, so every route
+  out of the empty state leads to a form whose participant list holds only
+  them
+- **THEN** the empty state states that a friend is the first step and offers
+  a way to the friends page, and the record sheet — whose submit is blocked
+  for the same reason — states it and offers the same way out, rather than
+  asking for a second person the caller cannot produce
+
+#### Scenario: Settled up is stated, not left blank
+
+- **WHEN** nothing is owed in either direction (on the split tab, or in a
+  group whose members are all square)
+- **THEN** a line says everyone is settled, so the user can tell "settled"
+  from "this failed to load"
 
 ### Requirement: Every person on screen has a name
 
@@ -41,6 +59,18 @@ member, each balance, and the expense's payer — the payer's name comes with
 the expense because a payer who fronted the money holds no share to carry
 it. When a name is genuinely absent, a neutral placeholder SHALL be
 shown — never a raw identifier and never blank.
+
+#### Scenario: An expense says who paid it
+
+- **WHEN** an expense is listed
+- **THEN** the row names the payer — the one fact a plain participant
+  cannot reach any other way, since editing is offered only to the
+  creator or payer
+
+#### Scenario: A participant can read their own share
+
+- **WHEN** the viewer holds a share in a listed expense
+- **THEN** that share's amount is shown on the row
 
 #### Scenario: A co-participant the viewer does not know is named
 
@@ -102,6 +132,38 @@ submission, with an explanation, rather than sent and rejected.
 - **THEN** submission is refused locally with an explanation, and no request
   is sent
 
+#### Scenario: A split of one person is refused locally
+
+- **WHEN** the payer and the participants are the same single person — the
+  form's own default state, which the server refuses outright
+- **THEN** submission is refused locally with an explanation, and no request
+  is sent
+
+#### Scenario: An equal split below its participant count is refused locally
+
+- **WHEN** an equal split's amount is smaller than the number of
+  participants, which the server refuses outright
+- **THEN** submission is refused locally with an explanation, and no request
+  is sent
+
+#### Scenario: Every reason submission is refused is stated
+
+- **WHEN** the submit action is disabled for any reason — nobody to split
+  with at all, a missing amount, a blank description, no payer, no
+  participants, no stake, too few people, an amount below the participant
+  count, or exact shares that do not sum
+- **THEN** that reason is readable on screen; the action is never greyed out
+  with nothing explaining it
+
+#### Scenario: The stated reason is the actual blocker
+
+- **WHEN** more than one condition would block submission at once — e.g. the
+  payer has been switched to someone else while the amount is still blank,
+  which makes every previewed share zero
+- **THEN** exactly one reason is shown and it is the first unmet one in the
+  form's own order (here, the missing amount), never a different condition
+  that the pending one merely caused
+
 ### Requirement: The split arithmetic is visible while typing
 
 An equal split SHALL show what each participant will owe, including where
@@ -124,7 +186,14 @@ they are short.
 #### Scenario: An exact split shows the shortfall
 
 - **WHEN** the entered shares do not add up to the amount
-- **THEN** the difference is displayed while typing
+- **THEN** the difference is displayed while typing — including while
+  editing an existing expense's pre-filled shares
+
+#### Scenario: Over-assigning is not reported as a shortfall
+
+- **WHEN** the entered shares add up to more than the amount
+- **THEN** the excess is stated as an excess, never as a negative
+  shortfall, and submission is refused until the shares sum to the amount
 
 ### Requirement: Groups
 
@@ -153,12 +222,34 @@ its creator or payer.
 - **THEN** no archive action is offered — the server refuses them, so the
   action would only ever fail
 
+#### Scenario: An archived group is not offered for a new expense
+
+- **WHEN** the record sheet's group selector is shown
+- **THEN** archived groups are not among the choices, and a caller whose only
+  group is archived is treated as having nowhere to split — they are pointed
+  at adding a friend rather than left with a form the server will reject
+
 #### Scenario: An archived group stays correctable
 
 - **WHEN** a group is archived
 - **THEN** its expenses remain readable and one of them can still be edited
   by its creator or payer, while the add-expense and add-member actions are
   not offered
+
+### Requirement: Permission gates read the signed-in user
+
+Every gate that depends on who the caller is — archiving (creator only),
+editing or deleting an expense (creator or payer), the caller's own stake in
+a split — SHALL be decided by the user id resolved from the signed-in
+profile. A caller-supplied value, in particular anything carried in a URL,
+SHALL NOT decide it.
+
+#### Scenario: A group opened by URL still gates on the signed-in user
+
+- **WHEN** a group screen is reached by a shared, bookmarked or hand-edited
+  link
+- **THEN** the actions offered are exactly those the signed-in user can
+  perform, whatever the link says
 
 ### Requirement: Only the creator or payer is offered editing
 
@@ -211,6 +302,20 @@ their own message.
 - **WHEN** the server answers `shares_do_not_sum_to_amount`
 - **THEN** the message states the discrepancy rather than a status code
 
+#### Scenario: A failed write is never silent
+
+- **WHEN** creating a group, adding a member, or archiving a group fails
+- **THEN** the failure is shown to the user, rather than the dialog closing
+  on nothing
+
+#### Scenario: A pass-through message still reads in the user's language
+
+- **WHEN** the server answers `invalid_split_input` or `bad_request`, whose
+  explanation text the server writes itself
+- **THEN** that text is wrapped in localized framing — the two failures
+  read differently from each other, and the user always gets at least one
+  sentence in their own language
+
 ### Requirement: Split UI is localized and lays out on small screens
 
 All split copy SHALL come from the app's localizations in English and
@@ -231,9 +336,12 @@ scales 1.0 and 2.0.
 - **WHEN** the finance bottom navigation is rendered at 320dp at text scale
   2.0 in each supported locale
 - **THEN** all four destinations lay out without error, and each label's
-  painted text stays within its own destination's horizontal bounds and is
-  not reduced to an ellipsis — a label that quietly ellipsizes raises no
-  layout error, so measuring is the only way this catches the regression
+  painted rectangle lies fully inside its own destination's slot —
+  horizontally *and vertically*. A label too large for its slot wraps and
+  paints past the bar's own bottom edge, clipped, raising no layout error at
+  all, so measuring the painted rectangle is the only way this catches the
+  regression. (An ellipsis check cannot: the bar's labels carry no
+  `maxLines`, so they never ellipsize.)
 
 #### Scenario: A long name does not push the amount out
 

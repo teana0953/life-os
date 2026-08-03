@@ -2607,5 +2607,443 @@
   "settingsFriendsRowLabel": "Friends",
   "@settingsFriendsRowLabel": {
     "description": "Label of the settings row that navigates to the friends page."
+  },
+  "financeTabSplit": "Split",
+  "@financeTabSplit": {
+    "description": "Label of the finance shell's fourth bottom-nav destination and app bar title, for the split-expenses tab."
+  },
+  "splitFabTooltip": "Record a split expense",
+  "@splitFabTooltip": {
+    "description": "Tooltip for the split tab's floating action button, which opens the record-expense sheet."
+  },
+  "splitEmptyTitle": "No split expenses yet",
+  "@splitEmptyTitle": {
+    "description": "Title shown on the split tab when the caller has no groups, balances, or expenses at all."
+  },
+  "splitEmptyCta": "Record a split expense",
+  "@splitEmptyCta": {
+    "description": "Call-to-action button in the split tab's empty state, opening the record-expense sheet."
+  },
+  "splitLoadFailedMessage": "Couldn't load your split expenses. Check your connection and try again.",
+  "@splitLoadFailedMessage": {
+    "description": "Shown on the split tab when loading balances/groups/expenses fails for a reason other than needing reauthentication."
+  },
+  "splitProfileFailedMessage": "Couldn't load your profile. Try again.",
+  "@splitProfileFailedMessage": {
+    "description": "Shown on the split tab when the caller's own profile (needed to gate the split UI) could not be fetched — design D5c: the tab goes to an error state rather than carrying a null user id forward."
+  },
+  "splitSectionOwedToMe": "Owed to you",
+  "@splitSectionOwedToMe": {
+    "description": "Heading for the split tab's list of people who owe the caller money."
+  },
+  "splitOwedToMeRow": "{name} owes you {amount}",
+  "@splitOwedToMeRow": {
+    "description": "One row under the 'owed to you' heading: the person's name and the amount, already formatted with currency grouping.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitSectionOwedByMe": "You owe",
+  "@splitSectionOwedByMe": {
+    "description": "Heading for the split tab's list of people the caller owes money to."
+  },
+  "splitOwedByMeRow": "You owe {name} {amount}",
+  "@splitOwedByMeRow": {
+    "description": "One row under the 'you owe' heading: the person's name and the amount, already formatted with currency grouping.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitSectionGroups": "Groups",
+  "@splitSectionGroups": {
+    "description": "Heading for the split tab's list of the caller's groups."
+  },
+  "splitNoGroupsYet": "No groups yet",
+  "@splitNoGroupsYet": {
+    "description": "Shown in the groups section of the split tab when the caller has no groups."
+  },
+  "splitAddGroupButton": "New group",
+  "@splitAddGroupButton": {
+    "description": "Button on the split tab that opens the create-group dialog."
+  },
+  "splitSectionRecentExpenses": "Recent expenses",
+  "@splitSectionRecentExpenses": {
+    "description": "Heading for the split tab's list of recent split expenses."
+  },
+  "splitNoExpensesYet": "No expenses yet",
+  "@splitNoExpensesYet": {
+    "description": "Shown in the recent-expenses section of the split tab when there are none."
+  },
+  "splitExpensePaidBy": "Paid by {name} · {date}",
+  "@splitExpensePaidBy": {
+    "description": "Subtitle of an expense row: who fronted the money, and the day it was spent. The payer's name comes with the expense itself because a payer holds no share to carry it.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "splitYourShare": "Your share {amount}",
+  "@splitYourShare": {
+    "description": "Shown on an expense row when the viewer holds a share in it, so a participant can read what they owe without opening anything.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitAllSettledUp": "Everyone is settled up",
+  "@splitAllSettledUp": {
+    "description": "Shown in place of a balances list when nothing is owed in either direction — distinguishes 'settled' from 'failed to load'."
+  },
+  "splitYouLabel": "You",
+  "@splitYouLabel": {
+    "description": "Label standing in for the caller's own name in a candidate list (payer/participant picker) — the caller's own display name is never fetched for this purpose."
+  },
+  "splitUnknownMember": "Someone",
+  "@splitUnknownMember": {
+    "description": "Neutral placeholder shown in place of a person's name when the server genuinely has none to give — never a raw id, never blank (design D1)."
+  },
+  "splitCreateGroupTitle": "New group",
+  "@splitCreateGroupTitle": {
+    "description": "Title of the dialog used to create a new split group."
+  },
+  "splitGroupNameLabel": "Group name",
+  "@splitGroupNameLabel": {
+    "description": "Text field label in the create-group dialog."
+  },
+  "splitGroupNameRequired": "Enter a group name",
+  "@splitGroupNameRequired": {
+    "description": "Validation message shown when trying to create a group with an empty name."
+  },
+  "splitCreateButton": "Create",
+  "@splitCreateButton": {
+    "description": "Confirm button label in the create-group dialog."
+  },
+  "splitExpenseAddTitle": "Record a split expense",
+  "@splitExpenseAddTitle": {
+    "description": "Title of the record-expense sheet when creating a new expense."
+  },
+  "splitExpenseEditTitle": "Edit split expense",
+  "@splitExpenseEditTitle": {
+    "description": "Title of the record-expense sheet when editing an existing expense."
+  },
+  "splitGroupFieldLabel": "Group",
+  "@splitGroupFieldLabel": {
+    "description": "Label of the record-expense sheet's group selector, shown only when creating a group-less-or-grouped expense (hidden entirely while editing, since group_id is immutable server-side)."
+  },
+  "splitGroupNoneOption": "No group (one-off)",
+  "@splitGroupNoneOption": {
+    "description": "Option in the record-expense sheet's group selector meaning the expense has no group — candidates are then the caller's friends plus themselves."
+  },
+  "splitPayerLabel": "Paid by",
+  "@splitPayerLabel": {
+    "description": "Label of the record-expense sheet's payer selector."
+  },
+  "splitDescriptionLabel": "Description",
+  "@splitDescriptionLabel": {
+    "description": "Label of the record-expense sheet's description field."
+  },
+  "splitDescriptionRequired": "Enter a description",
+  "@splitDescriptionRequired": {
+    "description": "Validation message shown when trying to save an expense with an empty description."
+  },
+  "splitDayLabel": "Day",
+  "@splitDayLabel": {
+    "description": "Label of the record-expense sheet's date field (a plain calendar date, not an instant)."
+  },
+  "splitParticipantsLabel": "Participants",
+  "@splitParticipantsLabel": {
+    "description": "Label of the record-expense sheet's participant checklist."
+  },
+  "splitSplitModeLabel": "Split",
+  "@splitSplitModeLabel": {
+    "description": "Label of the record-expense sheet's equal/exact split-mode toggle."
+  },
+  "splitModeEqual": "Equal",
+  "@splitModeEqual": {
+    "description": "Option label for an equal split."
+  },
+  "splitModeExact": "Exact",
+  "@splitModeExact": {
+    "description": "Option label for an exact (custom per-person amount) split."
+  },
+  "splitEqualShareRow": "{name}: {amount}",
+  "@splitEqualShareRow": {
+    "description": "One row of the equal-split live preview: a participant's name and the share they will be recorded with, computed identically to the backend so the preview never diverges from what gets stored.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExactShareLabel": "{name}'s share",
+  "@splitExactShareLabel": {
+    "description": "Field label for one participant's amount entry in exact-split mode.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExactRemaining": "Remaining to assign: {amount}",
+  "@splitExactRemaining": {
+    "description": "Live shortfall shown in exact-split mode: how much of the total amount the entered shares don't yet add up to.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExactOverAssigned": "Over by {amount}",
+  "@splitExactOverAssigned": {
+    "description": "Exact-split running total when the entered shares add up to MORE than the amount — a separate string from the shortfall one, because a negative shortfall reads as its own opposite.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExactAssignedInFull": "Assigned in full",
+  "@splitExactAssignedInFull": {
+    "description": "Exact-split running total when the entered shares add up to exactly the amount."
+  },
+  "splitStakeWarning": "You must be the payer, or hold a share above zero, to record this expense.",
+  "@splitStakeWarning": {
+    "description": "Shown in the record-expense sheet when the caller is neither the payer nor a participant with a share above zero — submission is refused locally before any request is sent."
+  },
+  "splitAmountTooLarge": "This amount is too large.",
+  "@splitAmountTooLarge": {
+    "description": "Shown in the record-expense sheet when the entered amount exceeds the maximum the backend accepts (2147483647 minor units)."
+  },
+  "splitAmountRequired": "Enter an amount greater than zero.",
+  "@splitAmountRequired": {
+    "description": "Reason shown above a disabled Save in the record-expense sheet when the amount is missing or not a positive number."
+  },
+  "splitPayerRequired": "Choose who paid.",
+  "@splitPayerRequired": {
+    "description": "Reason shown above a disabled Save in the record-expense sheet when no payer is selected."
+  },
+  "splitParticipantsRequired": "Choose at least one participant.",
+  "@splitParticipantsRequired": {
+    "description": "Reason shown above a disabled Save in the record-expense sheet when no participant is ticked."
+  },
+  "splitTooFewPeople": "A split needs at least two people — add someone besides the payer.",
+  "@splitTooFewPeople": {
+    "description": "Reason shown above a disabled Save when the payer and the participants are the same single person; the backend refuses such a split outright."
+  },
+  "splitNoFriendsYet": "You have no friends yet — add a friend first, then you can split with them.",
+  "@splitNoFriendsYet": {
+    "description": "Reason shown above a disabled Save when the caller has no group and no friends, so the participant list holds nobody but themselves and no amount of typing in the sheet can complete the form."
+  },
+  "splitAddFriendAction": "Add a friend",
+  "@splitAddFriendAction": {
+    "description": "Button that leaves for the friends page, offered wherever splitting is blocked by the caller having no friends yet."
+  },
+  "splitAmountBelowParticipants": "This amount is too small to split equally between {count} people.",
+  "@splitAmountBelowParticipants": {
+    "description": "Reason shown above a disabled Save when an equal split's amount is smaller than the participant count, which the backend refuses outright.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "splitExactMustSumToAmount": "The shares must add up to the amount.",
+  "@splitExactMustSumToAmount": {
+    "description": "Reason shown above a disabled Save in exact-split mode when the entered shares do not add up to the total amount."
+  },
+  "splitDeleteConfirmTitle": "Delete \"{description}\"?",
+  "@splitDeleteConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a split expense, naming it by its description.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitDeleteConfirmMessage": "This removes the expense and its split for everyone involved. This can't be undone.",
+  "@splitDeleteConfirmMessage": {
+    "description": "Body text of the confirmation dialog shown before deleting a split expense."
+  },
+  "splitDeleteConfirmButton": "Delete",
+  "@splitDeleteConfirmButton": {
+    "description": "Confirm button label in the delete-expense confirmation dialog."
+  },
+  "splitSaveFailedMessage": "Couldn't save. Try again.",
+  "@splitSaveFailedMessage": {
+    "description": "Generic fallback shown when saving a split expense fails for a reason with no more specific mapped message."
+  },
+  "splitErrorNotFriends": "This person isn't your friend yet — add them as a friend first.",
+  "@splitErrorNotFriends": {
+    "description": "Actionable message for the backend's not_friends error."
+  },
+  "splitErrorNotAGroupMember": "That person isn't a member of this group.",
+  "@splitErrorNotAGroupMember": {
+    "description": "Actionable message for the backend's not_a_group_member error."
+  },
+  "splitErrorGroupArchived": "This group is archived, so no expense can be added to it.",
+  "@splitErrorGroupArchived": {
+    "description": "Actionable message for the backend's group_archived error."
+  },
+  "splitErrorSharesMismatch": "The shares don't add up to the amount: {message}",
+  "@splitErrorSharesMismatch": {
+    "description": "Message for the backend's shares_do_not_sum_to_amount error, including the backend's own discrepancy text rather than a bare status code.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "splitErrorTooSmall": "This amount is too small to split.",
+  "@splitErrorTooSmall": {
+    "description": "Actionable message for the backend's split_too_small error."
+  },
+  "splitErrorDuplicateParticipant": "The same person can't be listed twice.",
+  "@splitErrorDuplicateParticipant": {
+    "description": "Actionable message for the backend's duplicate_participant error."
+  },
+  "splitErrorAlreadyMember": "That person is already a member of this group.",
+  "@splitErrorAlreadyMember": {
+    "description": "Actionable message for the backend's already_a_group_member error."
+  },
+  "splitErrorNotAParticipant": "You need a share in this expense to do that.",
+  "@splitErrorNotAParticipant": {
+    "description": "Actionable message for the backend's not_a_participant error."
+  },
+  "splitErrorInvalidInput": "This split couldn't be accepted: {message}",
+  "@splitErrorInvalidInput": {
+    "description": "Message for the backend's invalid_split_input error. The framing sentence is localized so a reader always gets one sentence in their own language; {message} is the backend's own (English) explanation.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "splitErrorBadRequest": "This entry was rejected: {message}",
+  "@splitErrorBadRequest": {
+    "description": "Message for the backend's bad_request error (route-level input validation). The framing sentence is localized — and deliberately different from invalid_split_input's — so the two never collapse into each other; {message} is the backend's own (English) explanation.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "splitErrorNotFound": "This couldn't be found. It may have been deleted.",
+  "@splitErrorNotFound": {
+    "description": "Message for a 404 not_found response — visibility, never distinguished from 'not yours to see'."
+  },
+  "splitErrorGeneric": "Something went wrong. Try again.",
+  "@splitErrorGeneric": {
+    "description": "Fallback message for a split failure with no more specific mapping."
+  },
+  "splitGroupArchivedBadge": "Archived",
+  "@splitGroupArchivedBadge": {
+    "description": "Badge shown on the group detail screen when the group is archived."
+  },
+  "splitGroupMembersTitle": "Members",
+  "@splitGroupMembersTitle": {
+    "description": "Heading for the group detail screen's member list."
+  },
+  "splitGroupBalancesTitle": "Balances",
+  "@splitGroupBalancesTitle": {
+    "description": "Heading for the group detail screen's per-member balances."
+  },
+  "splitGroupBalanceShouldCollect": "{name} should collect {amount}",
+  "@splitGroupBalanceShouldCollect": {
+    "description": "A group balance row for a member who is net owed by the group (design D2 — group balances read differently from the two-person 'owed to me' balance, so this has its own wording).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitGroupBalanceShouldPay": "{name} should pay {amount}",
+  "@splitGroupBalanceShouldPay": {
+    "description": "A group balance row for a member who net owes the group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitGroupExpensesTitle": "Expenses",
+  "@splitGroupExpensesTitle": {
+    "description": "Heading for the group detail screen's list of the group's expenses."
+  },
+  "splitGroupNoExpensesYet": "No expenses in this group yet",
+  "@splitGroupNoExpensesYet": {
+    "description": "Shown in the group detail screen's expenses section when the group has none."
+  },
+  "splitAddMemberButton": "Add member",
+  "@splitAddMemberButton": {
+    "description": "Button on the group detail screen that opens the add-member picker, hidden once the group is archived."
+  },
+  "splitAddMemberTitle": "Add a friend to this group",
+  "@splitAddMemberTitle": {
+    "description": "Title of the add-member picker dialog."
+  },
+  "splitAddMemberEmpty": "All your friends are already in this group.",
+  "@splitAddMemberEmpty": {
+    "description": "Shown in the add-member picker when every one of the caller's friends is already a member."
+  },
+  "splitArchiveButton": "Archive group",
+  "@splitArchiveButton": {
+    "description": "Button on the group detail screen that archives the group, shown only to the group's creator."
+  },
+  "splitArchiveConfirmTitle": "Archive \"{groupName}\"?",
+  "@splitArchiveConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before archiving a group, naming it.",
+    "placeholders": {
+      "groupName": {
+        "type": "String"
+      }
+    }
+  },
+  "splitArchiveConfirmMessage": "The group becomes read-only: no new expenses or members can be added, though its existing expenses can still be edited by their creator or payer.",
+  "@splitArchiveConfirmMessage": {
+    "description": "Body text of the confirmation dialog shown before archiving a group."
+  },
+  "splitArchiveConfirmButton": "Archive",
+  "@splitArchiveConfirmButton": {
+    "description": "Confirm button label in the archive-group confirmation dialog."
+  },
+  "splitAddExpenseTooltip": "Record a split expense",
+  "@splitAddExpenseTooltip": {
+    "description": "Tooltip for the group detail screen's floating action button, which opens the record-expense sheet pre-locked to this group."
+  },
+  "splitEditExpenseTooltip": "Edit",
+  "@splitEditExpenseTooltip": {
+    "description": "Tooltip for an expense row's edit icon button, shown only to the expense's creator or payer."
+  },
+  "splitDeleteExpenseTooltip": "Delete",
+  "@splitDeleteExpenseTooltip": {
+    "description": "Tooltip for an expense row's delete icon button, shown only to the expense's creator or payer."
+  },
+  "splitGroupLoadFailedMessage": "Couldn't load this group. Check your connection and try again.",
+  "@splitGroupLoadFailedMessage": {
+    "description": "Shown on the group detail screen when loading fails for a reason other than needing reauthentication."
   }
 }

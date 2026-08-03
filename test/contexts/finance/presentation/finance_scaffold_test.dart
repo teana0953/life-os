@@ -1,11 +1,43 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
+import 'package:life_os/contexts/social/application/friend_use_cases.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
+import 'package:life_os/contexts/split/application/expense_use_cases.dart';
+import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/domain/split_exceptions.dart';
+import 'package:life_os/contexts/split/domain/split_group.dart';
+import 'package:life_os/contexts/split/presentation/split_tab_dependencies.dart';
+import 'package:life_os/contexts/user/application/get_profile.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../split/support/fake_split_repository.dart';
+import '../../split/support/split_presentation_fakes.dart';
 import '../finance_test_support.dart';
+
+SplitTabDependencies _splitDeps(
+  FakeSplitRepository repo, {
+  Future<void> Function(BuildContext, String)? onOpenGroup,
+  void Function(BuildContext)? onAddFriend,
+}) => SplitTabDependencies(
+  getBalances: GetBalances(repo),
+  listGroups: ListGroups(repo),
+  listExpenses: ListExpenses(repo),
+  createExpense: CreateExpense(repo),
+  updateExpense: UpdateExpense(repo),
+  deleteExpense: DeleteExpense(repo),
+  createGroup: CreateGroup(repo),
+  listFriends: ListFriends(FakeSocialRepositoryForSplit()),
+  getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+  onOpenGroup: onOpenGroup ?? (_, __) async {},
+  onAddFriend: onAddFriend ?? (_) {},
+);
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -70,6 +102,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: testNetWorthController(repo),
+            split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
         ),
@@ -94,6 +127,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: testNetWorthController(repo),
+            split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
         ),
@@ -120,6 +154,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: netWorthController,
+            split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
         ),
@@ -157,6 +192,7 @@ void main() {
           authRepository: _FakeAuthRepository(),
           controller: testFinanceController(repo),
           netWorthController: netWorthController,
+          split: _splitDeps(FakeSplitRepository()),
           clock: () => DateTime(2026, 7, 15),
         ),
       );
@@ -195,6 +231,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: testFinanceController(repo),
             netWorthController: testNetWorthController(repo),
+            split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
         ),
@@ -220,6 +257,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: testFinanceController(repo),
             netWorthController: testNetWorthController(repo),
+            split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
         ),
@@ -245,6 +283,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              split: _splitDeps(FakeSplitRepository()),
               clock: () => DateTime(2026, 7, 15),
             ),
           ),
@@ -380,6 +419,278 @@ void main() {
         expect(find.byType(BottomSheet), findsOneWidget);
         expect(find.byKey(const Key('account-add-name')), findsOneWidget);
       });
+    });
+
+    group('the 分帳 tab (task 5.4)', () {
+      // `split` was optional through part 2 of this change so `FinanceScaffold`
+      // kept compiling before its DI existed (see `SplitTabDependencies`'
+      // doc comment); the "is absent when not supplied" case that tested is
+      // no longer expressible now that `split` is a required constructor
+      // parameter (task 8.1) — an omission is a compile error, not a runtime
+      // state to assert on.
+
+      testWidgets('appears as the fourth destination, lazily loaded, with its own FAB', (
+        tester,
+      ) async {
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(splitRepo),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Not fetched until the tab is actually opened.
+        expect(splitRepo.gotIdToken, isNull);
+
+        expect(find.byKey(const Key('split-tab')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        expect(splitRepo.gotIdToken, 'tok');
+        // The transaction FAB is gone; the split tab has its own.
+        expect(find.byKey(const Key('finance-fab')), findsNothing);
+        expect(find.byKey(const Key('split-fab')), findsOneWidget);
+        // AppBar title indexes cleanly into the fourth slot — no RangeError.
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+        'popping a route mid tab-switch does not collide the two FABs as heroes',
+        (tester) async {
+          final repo = FakeFinanceRepository();
+          final scaffold = FinanceScaffold(
+            authRepository: _FakeAuthRepository(),
+            controller: testFinanceController(repo),
+            netWorthController: testNetWorthController(repo),
+            split: _splitDeps(FakeSplitRepository()),
+            clock: () => DateTime(2026, 7, 15),
+          );
+
+          await tester.pumpWidget(
+            l10nRouterTestApp(
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    key: const Key('open-finance'),
+                    onPressed: () => context.push('/finance', extra: scaffold),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('open-finance')));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byKey(const Key('split-tab')));
+          // Deliberately *not* `pumpAndSettle`: switching to 分帳 cross-fades
+          // the transaction FAB into the split FAB, and for those ~200ms both
+          // are in the tree. Starting a route transition inside that window
+          // is what makes two default-tagged heroes visible to the same
+          // flight — settling first makes this test pass either way.
+          await tester.pump(const Duration(milliseconds: 100));
+          GoRouter.of(tester.element(find.byKey(const Key('split-tab')))).pop();
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets('the FAB opens the record-expense sheet', (tester) async {
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(splitRepo),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('split-fab')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('split-amount-field')), findsOneWidget);
+        expect(find.byKey(const Key('split-save-button')), findsOneWidget);
+      });
+
+      testWidgets('the friendless empty state leaves for the friends page, closing the sheet', (
+        tester,
+      ) async {
+        // The one prerequisite for splitting that finance cannot create
+        // itself. Both surfaces are wired to the same injected exit: the
+        // empty state's own button, and the record sheet's blocked-Save
+        // action once the user has already tapped through to it.
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository();
+        var addFriendCalls = 0;
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(splitRepo, onAddFriend: (_) => addFriendCalls++),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('split-empty-add-friend')));
+        await tester.pumpAndSettle();
+        expect(addFriendCalls, 1);
+
+        await tester.tap(find.byKey(const Key('split-fab')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('split-add-friend-action')));
+        await tester.tap(find.byKey(const Key('split-add-friend-action')));
+        await tester.pumpAndSettle();
+
+        expect(addFriendCalls, 2);
+        // Navigating out from under an open modal sheet would strand it on
+        // top of the friends page.
+        expect(find.byKey(const Key('split-amount-field')), findsNothing);
+      });
+
+      testWidgets('tapping a group row calls the injected onOpenGroup with the group id', (
+        tester,
+      ) async {
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        String? openedGroupId;
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(
+                splitRepo,
+                onOpenGroup: (context, groupId) async {
+                  openedGroupId = groupId;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pumpAndSettle();
+
+        expect(openedGroupId, 'g1');
+      });
+
+      testWidgets('a failed create-group says so instead of closing on nothing', (tester) async {
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(splitRepo),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        splitRepo.failNext = const SplitBadRequest('name is required');
+        await tester.tap(find.byKey(const Key('split-empty-create-group')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('split-group-name-field')), 'Trip');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-create-group-confirm')));
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.splitErrorBadRequest('name is required')), findsOneWidget);
+      });
+
+      testWidgets(
+        'returning from group detail reloads the split tab so an add/archive there is '
+        'reflected (task 8.1b)',
+        (tester) async {
+          final repo = FakeFinanceRepository();
+          final splitRepo = FakeSplitRepository()
+            ..groupsToReturn = const [
+              SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+            ];
+          // Stands in for the real `onOpenGroup` (a `context.push` that
+          // completes only once the pushed screen is popped) — held open
+          // until the test explicitly completes it, so the reload-on-return
+          // assertion below can distinguish "navigated away" from "come
+          // back".
+          final returned = Completer<void>();
+
+          await tester.pumpWidget(
+            l10nTestApp(
+              home: FinanceScaffold(
+                authRepository: _FakeAuthRepository(),
+                controller: testFinanceController(repo),
+                netWorthController: testNetWorthController(repo),
+                split: _splitDeps(
+                  splitRepo,
+                  onOpenGroup: (context, groupId) => returned.future,
+                ),
+                clock: () => DateTime(2026, 7, 15),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('split-tab')));
+          await tester.pumpAndSettle();
+
+          expect(splitRepo.getBalancesCalls, 1);
+
+          await tester.tap(find.byKey(const Key('split-group-row-g1')));
+          await tester.pump();
+
+          // Still "away": the split tab must not reload while the group
+          // screen is still on top.
+          expect(splitRepo.getBalancesCalls, 1);
+
+          returned.complete();
+          await tester.pumpAndSettle();
+
+          // Reloaded exactly once more on return.
+          expect(splitRepo.getBalancesCalls, 2);
+        },
+      );
     });
   });
 }

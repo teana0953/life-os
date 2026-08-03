@@ -1887,6 +1887,294 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsFriendsRowLabel => '好友';
+
+  @override
+  String get financeTabSplit => '分帳';
+
+  @override
+  String get splitFabTooltip => '記一筆分帳';
+
+  @override
+  String get splitEmptyTitle => '還沒有分帳';
+
+  @override
+  String get splitEmptyCta => '記一筆分帳';
+
+  @override
+  String get splitLoadFailedMessage => '無法載入分帳資料,請檢查網路連線後再試一次。';
+
+  @override
+  String get splitProfileFailedMessage => '無法載入你的個人資料,請再試一次。';
+
+  @override
+  String get splitSectionOwedToMe => '別人欠你';
+
+  @override
+  String splitOwedToMeRow(String name, String amount) {
+    return '$name 欠你 $amount';
+  }
+
+  @override
+  String get splitSectionOwedByMe => '你欠別人';
+
+  @override
+  String splitOwedByMeRow(String name, String amount) {
+    return '你欠 $name $amount';
+  }
+
+  @override
+  String get splitSectionGroups => '群組';
+
+  @override
+  String get splitNoGroupsYet => '還沒有群組';
+
+  @override
+  String get splitAddGroupButton => '新增群組';
+
+  @override
+  String get splitSectionRecentExpenses => '最近的支出';
+
+  @override
+  String get splitNoExpensesYet => '還沒有支出';
+
+  @override
+  String splitExpensePaidBy(String name, String date) {
+    return '$name 付款 · $date';
+  }
+
+  @override
+  String splitYourShare(String amount) {
+    return '你的份額 $amount';
+  }
+
+  @override
+  String get splitAllSettledUp => '大家都結清了';
+
+  @override
+  String get splitYouLabel => '你';
+
+  @override
+  String get splitUnknownMember => '某人';
+
+  @override
+  String get splitCreateGroupTitle => '新增群組';
+
+  @override
+  String get splitGroupNameLabel => '群組名稱';
+
+  @override
+  String get splitGroupNameRequired => '請輸入群組名稱';
+
+  @override
+  String get splitCreateButton => '建立';
+
+  @override
+  String get splitExpenseAddTitle => '記一筆分帳';
+
+  @override
+  String get splitExpenseEditTitle => '編輯分帳';
+
+  @override
+  String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitGroupNoneOption => '不選群組(一對一)';
+
+  @override
+  String get splitPayerLabel => '付款人';
+
+  @override
+  String get splitDescriptionLabel => '說明';
+
+  @override
+  String get splitDescriptionRequired => '請輸入說明';
+
+  @override
+  String get splitDayLabel => '日期';
+
+  @override
+  String get splitParticipantsLabel => '參與者';
+
+  @override
+  String get splitSplitModeLabel => '拆法';
+
+  @override
+  String get splitModeEqual => '均分';
+
+  @override
+  String get splitModeExact => '自訂';
+
+  @override
+  String splitEqualShareRow(String name, String amount) {
+    return '$name: $amount';
+  }
+
+  @override
+  String splitExactShareLabel(String name) {
+    return '$name 的份額';
+  }
+
+  @override
+  String splitExactRemaining(String amount) {
+    return '還差 $amount';
+  }
+
+  @override
+  String splitExactOverAssigned(String amount) {
+    return '超出 $amount';
+  }
+
+  @override
+  String get splitExactAssignedInFull => '已分配完畢';
+
+  @override
+  String get splitStakeWarning => '你必須是付款人,或持有大於零的份額,才能記這筆分帳。';
+
+  @override
+  String get splitAmountTooLarge => '金額過大。';
+
+  @override
+  String get splitAmountRequired => '請輸入大於 0 的金額。';
+
+  @override
+  String get splitPayerRequired => '請選擇付款人。';
+
+  @override
+  String get splitParticipantsRequired => '請至少選一位參與者。';
+
+  @override
+  String get splitTooFewPeople => '分帳至少要兩個人——除了付款人之外,再選一位。';
+
+  @override
+  String get splitNoFriendsYet => '你還沒有好友——先加一位好友,才能跟人分帳。';
+
+  @override
+  String get splitAddFriendAction => '去加好友';
+
+  @override
+  String splitAmountBelowParticipants(int count) {
+    return '這筆金額太小,無法平均分給 $count 個人。';
+  }
+
+  @override
+  String get splitExactMustSumToAmount => '各人份額加總必須等於總額。';
+
+  @override
+  String splitDeleteConfirmTitle(String description) {
+    return '刪除「$description」?';
+  }
+
+  @override
+  String get splitDeleteConfirmMessage => '這會移除這筆支出與所有人的分擔,且無法復原。';
+
+  @override
+  String get splitDeleteConfirmButton => '刪除';
+
+  @override
+  String get splitSaveFailedMessage => '儲存失敗,請再試一次。';
+
+  @override
+  String get splitErrorNotFriends => '對方還不是你的好友,先加好友再分帳。';
+
+  @override
+  String get splitErrorNotAGroupMember => '對方不是這個群組的成員。';
+
+  @override
+  String get splitErrorGroupArchived => '這個群組已封存,無法新增支出。';
+
+  @override
+  String splitErrorSharesMismatch(String message) {
+    return '分擔金額加總不等於總額:$message';
+  }
+
+  @override
+  String get splitErrorTooSmall => '金額太小,無法分帳。';
+
+  @override
+  String get splitErrorDuplicateParticipant => '同一個人不能重複列入。';
+
+  @override
+  String get splitErrorAlreadyMember => '對方已經是這個群組的成員。';
+
+  @override
+  String get splitErrorNotAParticipant => '你需要持有這筆支出的份額才能這麼做。';
+
+  @override
+  String splitErrorInvalidInput(String message) {
+    return '這筆分帳無法接受:$message';
+  }
+
+  @override
+  String splitErrorBadRequest(String message) {
+    return '這筆資料被退回:$message';
+  }
+
+  @override
+  String get splitErrorNotFound => '找不到這筆資料,可能已被刪除。';
+
+  @override
+  String get splitErrorGeneric => '發生錯誤,請再試一次。';
+
+  @override
+  String get splitGroupArchivedBadge => '已封存';
+
+  @override
+  String get splitGroupMembersTitle => '成員';
+
+  @override
+  String get splitGroupBalancesTitle => '餘額';
+
+  @override
+  String splitGroupBalanceShouldCollect(String name, String amount) {
+    return '$name 應收 $amount';
+  }
+
+  @override
+  String splitGroupBalanceShouldPay(String name, String amount) {
+    return '$name 應付 $amount';
+  }
+
+  @override
+  String get splitGroupExpensesTitle => '支出';
+
+  @override
+  String get splitGroupNoExpensesYet => '這個群組還沒有支出';
+
+  @override
+  String get splitAddMemberButton => '新增成員';
+
+  @override
+  String get splitAddMemberTitle => '從好友加入這個群組';
+
+  @override
+  String get splitAddMemberEmpty => '你的好友都已經在這個群組裡了。';
+
+  @override
+  String get splitArchiveButton => '封存群組';
+
+  @override
+  String splitArchiveConfirmTitle(String groupName) {
+    return '封存「$groupName」?';
+  }
+
+  @override
+  String get splitArchiveConfirmMessage =>
+      '群組會變成唯讀:不能再新增支出或成員,但既有支出仍可由建立者或付款人編輯。';
+
+  @override
+  String get splitArchiveConfirmButton => '封存';
+
+  @override
+  String get splitAddExpenseTooltip => '記一筆分帳';
+
+  @override
+  String get splitEditExpenseTooltip => '編輯';
+
+  @override
+  String get splitDeleteExpenseTooltip => '刪除';
+
+  @override
+  String get splitGroupLoadFailedMessage => '無法載入這個群組,請檢查網路連線後再試一次。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3772,4 +4060,292 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsFriendsRowLabel => '好友';
+
+  @override
+  String get financeTabSplit => '分帳';
+
+  @override
+  String get splitFabTooltip => '記一筆分帳';
+
+  @override
+  String get splitEmptyTitle => '還沒有分帳';
+
+  @override
+  String get splitEmptyCta => '記一筆分帳';
+
+  @override
+  String get splitLoadFailedMessage => '無法載入分帳資料,請檢查網路連線後再試一次。';
+
+  @override
+  String get splitProfileFailedMessage => '無法載入你的個人資料,請再試一次。';
+
+  @override
+  String get splitSectionOwedToMe => '別人欠你';
+
+  @override
+  String splitOwedToMeRow(String name, String amount) {
+    return '$name 欠你 $amount';
+  }
+
+  @override
+  String get splitSectionOwedByMe => '你欠別人';
+
+  @override
+  String splitOwedByMeRow(String name, String amount) {
+    return '你欠 $name $amount';
+  }
+
+  @override
+  String get splitSectionGroups => '群組';
+
+  @override
+  String get splitNoGroupsYet => '還沒有群組';
+
+  @override
+  String get splitAddGroupButton => '新增群組';
+
+  @override
+  String get splitSectionRecentExpenses => '最近的支出';
+
+  @override
+  String get splitNoExpensesYet => '還沒有支出';
+
+  @override
+  String splitExpensePaidBy(String name, String date) {
+    return '$name 付款 · $date';
+  }
+
+  @override
+  String splitYourShare(String amount) {
+    return '你的份額 $amount';
+  }
+
+  @override
+  String get splitAllSettledUp => '大家都結清了';
+
+  @override
+  String get splitYouLabel => '你';
+
+  @override
+  String get splitUnknownMember => '某人';
+
+  @override
+  String get splitCreateGroupTitle => '新增群組';
+
+  @override
+  String get splitGroupNameLabel => '群組名稱';
+
+  @override
+  String get splitGroupNameRequired => '請輸入群組名稱';
+
+  @override
+  String get splitCreateButton => '建立';
+
+  @override
+  String get splitExpenseAddTitle => '記一筆分帳';
+
+  @override
+  String get splitExpenseEditTitle => '編輯分帳';
+
+  @override
+  String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitGroupNoneOption => '不選群組(一對一)';
+
+  @override
+  String get splitPayerLabel => '付款人';
+
+  @override
+  String get splitDescriptionLabel => '說明';
+
+  @override
+  String get splitDescriptionRequired => '請輸入說明';
+
+  @override
+  String get splitDayLabel => '日期';
+
+  @override
+  String get splitParticipantsLabel => '參與者';
+
+  @override
+  String get splitSplitModeLabel => '拆法';
+
+  @override
+  String get splitModeEqual => '均分';
+
+  @override
+  String get splitModeExact => '自訂';
+
+  @override
+  String splitEqualShareRow(String name, String amount) {
+    return '$name: $amount';
+  }
+
+  @override
+  String splitExactShareLabel(String name) {
+    return '$name 的份額';
+  }
+
+  @override
+  String splitExactRemaining(String amount) {
+    return '還差 $amount';
+  }
+
+  @override
+  String splitExactOverAssigned(String amount) {
+    return '超出 $amount';
+  }
+
+  @override
+  String get splitExactAssignedInFull => '已分配完畢';
+
+  @override
+  String get splitStakeWarning => '你必須是付款人,或持有大於零的份額,才能記這筆分帳。';
+
+  @override
+  String get splitAmountTooLarge => '金額過大。';
+
+  @override
+  String get splitAmountRequired => '請輸入大於 0 的金額。';
+
+  @override
+  String get splitPayerRequired => '請選擇付款人。';
+
+  @override
+  String get splitParticipantsRequired => '請至少選一位參與者。';
+
+  @override
+  String get splitTooFewPeople => '分帳至少要兩個人——除了付款人之外,再選一位。';
+
+  @override
+  String get splitNoFriendsYet => '你還沒有好友——先加一位好友,才能跟人分帳。';
+
+  @override
+  String get splitAddFriendAction => '去加好友';
+
+  @override
+  String splitAmountBelowParticipants(int count) {
+    return '這筆金額太小,無法平均分給 $count 個人。';
+  }
+
+  @override
+  String get splitExactMustSumToAmount => '各人份額加總必須等於總額。';
+
+  @override
+  String splitDeleteConfirmTitle(String description) {
+    return '刪除「$description」?';
+  }
+
+  @override
+  String get splitDeleteConfirmMessage => '這會移除這筆支出與所有人的分擔,且無法復原。';
+
+  @override
+  String get splitDeleteConfirmButton => '刪除';
+
+  @override
+  String get splitSaveFailedMessage => '儲存失敗,請再試一次。';
+
+  @override
+  String get splitErrorNotFriends => '對方還不是你的好友,先加好友再分帳。';
+
+  @override
+  String get splitErrorNotAGroupMember => '對方不是這個群組的成員。';
+
+  @override
+  String get splitErrorGroupArchived => '這個群組已封存,無法新增支出。';
+
+  @override
+  String splitErrorSharesMismatch(String message) {
+    return '分擔金額加總不等於總額:$message';
+  }
+
+  @override
+  String get splitErrorTooSmall => '金額太小,無法分帳。';
+
+  @override
+  String get splitErrorDuplicateParticipant => '同一個人不能重複列入。';
+
+  @override
+  String get splitErrorAlreadyMember => '對方已經是這個群組的成員。';
+
+  @override
+  String get splitErrorNotAParticipant => '你需要持有這筆支出的份額才能這麼做。';
+
+  @override
+  String splitErrorInvalidInput(String message) {
+    return '這筆分帳無法接受:$message';
+  }
+
+  @override
+  String splitErrorBadRequest(String message) {
+    return '這筆資料被退回:$message';
+  }
+
+  @override
+  String get splitErrorNotFound => '找不到這筆資料,可能已被刪除。';
+
+  @override
+  String get splitErrorGeneric => '發生錯誤,請再試一次。';
+
+  @override
+  String get splitGroupArchivedBadge => '已封存';
+
+  @override
+  String get splitGroupMembersTitle => '成員';
+
+  @override
+  String get splitGroupBalancesTitle => '餘額';
+
+  @override
+  String splitGroupBalanceShouldCollect(String name, String amount) {
+    return '$name 應收 $amount';
+  }
+
+  @override
+  String splitGroupBalanceShouldPay(String name, String amount) {
+    return '$name 應付 $amount';
+  }
+
+  @override
+  String get splitGroupExpensesTitle => '支出';
+
+  @override
+  String get splitGroupNoExpensesYet => '這個群組還沒有支出';
+
+  @override
+  String get splitAddMemberButton => '新增成員';
+
+  @override
+  String get splitAddMemberTitle => '從好友加入這個群組';
+
+  @override
+  String get splitAddMemberEmpty => '你的好友都已經在這個群組裡了。';
+
+  @override
+  String get splitArchiveButton => '封存群組';
+
+  @override
+  String splitArchiveConfirmTitle(String groupName) {
+    return '封存「$groupName」?';
+  }
+
+  @override
+  String get splitArchiveConfirmMessage =>
+      '群組會變成唯讀:不能再新增支出或成員,但既有支出仍可由建立者或付款人編輯。';
+
+  @override
+  String get splitArchiveConfirmButton => '封存';
+
+  @override
+  String get splitAddExpenseTooltip => '記一筆分帳';
+
+  @override
+  String get splitEditExpenseTooltip => '編輯';
+
+  @override
+  String get splitDeleteExpenseTooltip => '刪除';
+
+  @override
+  String get splitGroupLoadFailedMessage => '無法載入這個群組,請檢查網路連線後再試一次。';
 }

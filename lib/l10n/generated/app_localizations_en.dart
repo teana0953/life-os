@@ -1958,4 +1958,308 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsFriendsRowLabel => 'Friends';
+
+  @override
+  String get financeTabSplit => 'Split';
+
+  @override
+  String get splitFabTooltip => 'Record a split expense';
+
+  @override
+  String get splitEmptyTitle => 'No split expenses yet';
+
+  @override
+  String get splitEmptyCta => 'Record a split expense';
+
+  @override
+  String get splitLoadFailedMessage =>
+      'Couldn\'t load your split expenses. Check your connection and try again.';
+
+  @override
+  String get splitProfileFailedMessage =>
+      'Couldn\'t load your profile. Try again.';
+
+  @override
+  String get splitSectionOwedToMe => 'Owed to you';
+
+  @override
+  String splitOwedToMeRow(String name, String amount) {
+    return '$name owes you $amount';
+  }
+
+  @override
+  String get splitSectionOwedByMe => 'You owe';
+
+  @override
+  String splitOwedByMeRow(String name, String amount) {
+    return 'You owe $name $amount';
+  }
+
+  @override
+  String get splitSectionGroups => 'Groups';
+
+  @override
+  String get splitNoGroupsYet => 'No groups yet';
+
+  @override
+  String get splitAddGroupButton => 'New group';
+
+  @override
+  String get splitSectionRecentExpenses => 'Recent expenses';
+
+  @override
+  String get splitNoExpensesYet => 'No expenses yet';
+
+  @override
+  String splitExpensePaidBy(String name, String date) {
+    return 'Paid by $name · $date';
+  }
+
+  @override
+  String splitYourShare(String amount) {
+    return 'Your share $amount';
+  }
+
+  @override
+  String get splitAllSettledUp => 'Everyone is settled up';
+
+  @override
+  String get splitYouLabel => 'You';
+
+  @override
+  String get splitUnknownMember => 'Someone';
+
+  @override
+  String get splitCreateGroupTitle => 'New group';
+
+  @override
+  String get splitGroupNameLabel => 'Group name';
+
+  @override
+  String get splitGroupNameRequired => 'Enter a group name';
+
+  @override
+  String get splitCreateButton => 'Create';
+
+  @override
+  String get splitExpenseAddTitle => 'Record a split expense';
+
+  @override
+  String get splitExpenseEditTitle => 'Edit split expense';
+
+  @override
+  String get splitGroupFieldLabel => 'Group';
+
+  @override
+  String get splitGroupNoneOption => 'No group (one-off)';
+
+  @override
+  String get splitPayerLabel => 'Paid by';
+
+  @override
+  String get splitDescriptionLabel => 'Description';
+
+  @override
+  String get splitDescriptionRequired => 'Enter a description';
+
+  @override
+  String get splitDayLabel => 'Day';
+
+  @override
+  String get splitParticipantsLabel => 'Participants';
+
+  @override
+  String get splitSplitModeLabel => 'Split';
+
+  @override
+  String get splitModeEqual => 'Equal';
+
+  @override
+  String get splitModeExact => 'Exact';
+
+  @override
+  String splitEqualShareRow(String name, String amount) {
+    return '$name: $amount';
+  }
+
+  @override
+  String splitExactShareLabel(String name) {
+    return '$name\'s share';
+  }
+
+  @override
+  String splitExactRemaining(String amount) {
+    return 'Remaining to assign: $amount';
+  }
+
+  @override
+  String splitExactOverAssigned(String amount) {
+    return 'Over by $amount';
+  }
+
+  @override
+  String get splitExactAssignedInFull => 'Assigned in full';
+
+  @override
+  String get splitStakeWarning =>
+      'You must be the payer, or hold a share above zero, to record this expense.';
+
+  @override
+  String get splitAmountTooLarge => 'This amount is too large.';
+
+  @override
+  String get splitAmountRequired => 'Enter an amount greater than zero.';
+
+  @override
+  String get splitPayerRequired => 'Choose who paid.';
+
+  @override
+  String get splitParticipantsRequired => 'Choose at least one participant.';
+
+  @override
+  String get splitTooFewPeople =>
+      'A split needs at least two people — add someone besides the payer.';
+
+  @override
+  String get splitNoFriendsYet =>
+      'You have no friends yet — add a friend first, then you can split with them.';
+
+  @override
+  String get splitAddFriendAction => 'Add a friend';
+
+  @override
+  String splitAmountBelowParticipants(int count) {
+    return 'This amount is too small to split equally between $count people.';
+  }
+
+  @override
+  String get splitExactMustSumToAmount =>
+      'The shares must add up to the amount.';
+
+  @override
+  String splitDeleteConfirmTitle(String description) {
+    return 'Delete \"$description\"?';
+  }
+
+  @override
+  String get splitDeleteConfirmMessage =>
+      'This removes the expense and its split for everyone involved. This can\'t be undone.';
+
+  @override
+  String get splitDeleteConfirmButton => 'Delete';
+
+  @override
+  String get splitSaveFailedMessage => 'Couldn\'t save. Try again.';
+
+  @override
+  String get splitErrorNotFriends =>
+      'This person isn\'t your friend yet — add them as a friend first.';
+
+  @override
+  String get splitErrorNotAGroupMember =>
+      'That person isn\'t a member of this group.';
+
+  @override
+  String get splitErrorGroupArchived =>
+      'This group is archived, so no expense can be added to it.';
+
+  @override
+  String splitErrorSharesMismatch(String message) {
+    return 'The shares don\'t add up to the amount: $message';
+  }
+
+  @override
+  String get splitErrorTooSmall => 'This amount is too small to split.';
+
+  @override
+  String get splitErrorDuplicateParticipant =>
+      'The same person can\'t be listed twice.';
+
+  @override
+  String get splitErrorAlreadyMember =>
+      'That person is already a member of this group.';
+
+  @override
+  String get splitErrorNotAParticipant =>
+      'You need a share in this expense to do that.';
+
+  @override
+  String splitErrorInvalidInput(String message) {
+    return 'This split couldn\'t be accepted: $message';
+  }
+
+  @override
+  String splitErrorBadRequest(String message) {
+    return 'This entry was rejected: $message';
+  }
+
+  @override
+  String get splitErrorNotFound =>
+      'This couldn\'t be found. It may have been deleted.';
+
+  @override
+  String get splitErrorGeneric => 'Something went wrong. Try again.';
+
+  @override
+  String get splitGroupArchivedBadge => 'Archived';
+
+  @override
+  String get splitGroupMembersTitle => 'Members';
+
+  @override
+  String get splitGroupBalancesTitle => 'Balances';
+
+  @override
+  String splitGroupBalanceShouldCollect(String name, String amount) {
+    return '$name should collect $amount';
+  }
+
+  @override
+  String splitGroupBalanceShouldPay(String name, String amount) {
+    return '$name should pay $amount';
+  }
+
+  @override
+  String get splitGroupExpensesTitle => 'Expenses';
+
+  @override
+  String get splitGroupNoExpensesYet => 'No expenses in this group yet';
+
+  @override
+  String get splitAddMemberButton => 'Add member';
+
+  @override
+  String get splitAddMemberTitle => 'Add a friend to this group';
+
+  @override
+  String get splitAddMemberEmpty =>
+      'All your friends are already in this group.';
+
+  @override
+  String get splitArchiveButton => 'Archive group';
+
+  @override
+  String splitArchiveConfirmTitle(String groupName) {
+    return 'Archive \"$groupName\"?';
+  }
+
+  @override
+  String get splitArchiveConfirmMessage =>
+      'The group becomes read-only: no new expenses or members can be added, though its existing expenses can still be edited by their creator or payer.';
+
+  @override
+  String get splitArchiveConfirmButton => 'Archive';
+
+  @override
+  String get splitAddExpenseTooltip => 'Record a split expense';
+
+  @override
+  String get splitEditExpenseTooltip => 'Edit';
+
+  @override
+  String get splitDeleteExpenseTooltip => 'Delete';
+
+  @override
+  String get splitGroupLoadFailedMessage =>
+      'Couldn\'t load this group. Check your connection and try again.';
 }

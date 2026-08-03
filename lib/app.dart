@@ -33,6 +33,11 @@ import 'contexts/social/application/friend_use_cases.dart';
 import 'contexts/social/application/invite_use_cases.dart';
 import 'contexts/social/presentation/friends_screen.dart';
 import 'contexts/social/presentation/invite_screen.dart';
+import 'contexts/split/application/balance_use_cases.dart';
+import 'contexts/split/application/expense_use_cases.dart';
+import 'contexts/split/application/group_use_cases.dart';
+import 'contexts/split/presentation/group_detail_screen.dart';
+import 'contexts/split/presentation/split_tab_dependencies.dart';
 import 'contexts/health/application/get_logged_days.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -51,6 +56,7 @@ import 'contexts/settings/presentation/settings_screen.dart';
 import 'contexts/vitals/presentation/trend_controller.dart';
 import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/vitals/presentation/vitals_screen.dart';
+import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -203,6 +209,25 @@ class App extends StatefulWidget {
   final PreviewInvite previewInvite;
   final AcceptInvite acceptInvite;
 
+  /// Stateless split-context use cases and their `GetProfile` (design D5c —
+  /// resolved per-load by `SplitController`/`GroupDetailController`, not
+  /// cached here) — `/finance`'s 分帳 tab and the nested `/finance/groups/:id`
+  /// route build their own controllers from these, mirroring the friends
+  /// use cases above (design.md, task 8.1). `listFriends` above is reused
+  /// for split's candidate lists (design D5b) rather than duplicated here.
+  final GetBalances splitGetBalances;
+  final ListGroups splitListGroups;
+  final CreateGroup splitCreateGroup;
+  final GetGroup splitGetGroup;
+  final GetGroupBalances splitGetGroupBalances;
+  final AddGroupMember splitAddGroupMember;
+  final ArchiveGroup splitArchiveGroup;
+  final ListExpenses splitListExpenses;
+  final CreateExpense splitCreateExpense;
+  final UpdateExpense splitUpdateExpense;
+  final DeleteExpense splitDeleteExpense;
+  final GetProfile splitGetProfile;
+
   /// Drives the shared push-off banner on the health overview, 今日照護, and
   /// care reminders management (all three subscribe to it).
   final PushHealthController pushHealthController;
@@ -261,6 +286,18 @@ class App extends StatefulWidget {
     required this.revokeInvite,
     required this.previewInvite,
     required this.acceptInvite,
+    required this.splitGetBalances,
+    required this.splitListGroups,
+    required this.splitCreateGroup,
+    required this.splitGetGroup,
+    required this.splitGetGroupBalances,
+    required this.splitAddGroupMember,
+    required this.splitArchiveGroup,
+    required this.splitListExpenses,
+    required this.splitCreateExpense,
+    required this.splitUpdateExpense,
+    required this.splitDeleteExpense,
+    required this.splitGetProfile,
     required this.pushHealthController,
     required this.careItemsController,
     required this.careTodayController,
@@ -578,16 +615,75 @@ class _AppState extends State<App> {
             authRepository: widget.authRepository,
           ),
         ),
-        // Single route, no nested tabs (design.md — the two tabs are the
-        // shell's own internal state, mirroring HealthScaffold's record hub).
+        // The three ledger/net-worth/split tabs are the shell's own internal
+        // state (design.md — mirroring HealthScaffold's record hub), but a
+        // group's own detail screen is nested under `/finance/groups/:id`
+        // (task 8.1) — nested, not flat, for the same reason `/health`'s
+        // sub-routes are: a web back button or refresh reconstructs the
+        // whole stack from the URL hierarchy, where a flat route would only
+        // rebuild the leaf and collapse back-navigation straight to the grid.
         GoRoute(
           path: '/finance',
           builder: (context, state) => FinanceScaffold(
             authRepository: widget.authRepository,
             controller: widget.financeController,
             netWorthController: widget.netWorthController,
+            split: SplitTabDependencies(
+              getBalances: widget.splitGetBalances,
+              listGroups: widget.splitListGroups,
+              listExpenses: widget.splitListExpenses,
+              createExpense: widget.splitCreateExpense,
+              updateExpense: widget.splitUpdateExpense,
+              deleteExpense: widget.splitDeleteExpense,
+              createGroup: widget.splitCreateGroup,
+              listFriends: widget.listFriends,
+              getProfile: widget.splitGetProfile,
+              // Just the group id: the caller's own id (design D5c) is
+              // resolved by the group screen itself from `/api/me`. It used
+              // to ride in a `?self=` query parameter, which made every
+              // permission gate on that screen a function of a shareable,
+              // hand-editable, history-persisted URL — a link carrying
+              // someone else's id offered the creator-only archive and the
+              // payer-only edit to a viewer who was neither.
+              onOpenGroup: (context, groupId) =>
+                  context.push<void>('/finance/groups/$groupId'),
+              // `push`, not `go`: adding a friend is a detour, and the user
+              // is expected back on the split tab afterwards.
+              onAddFriend: (context) => context.push('/friends'),
+            ),
             clock: widget.clock,
           ),
+          routes: [
+            GoRoute(
+              path: 'groups/:id',
+              builder: (context, state) {
+                final groupId = state.pathParameters['id']!;
+                return GroupDetailScreen(
+                  // go_router's `pageKey` is derived from the path
+                  // *pattern* only, not the matched `:id` — without this key,
+                  // opening a second group from the first group's screen
+                  // (in-app push, no intervening pop) would reuse the first
+                  // group's `State`, and with it its `GroupDetailController`,
+                  // silently showing the first group's data under the new
+                  // URL (the friends change's invite-token bug, same shape).
+                  key: ValueKey(groupId),
+                  getGroup: widget.splitGetGroup,
+                  getGroupBalances: widget.splitGetGroupBalances,
+                  listExpenses: widget.splitListExpenses,
+                  addGroupMember: widget.splitAddGroupMember,
+                  archiveGroup: widget.splitArchiveGroup,
+                  createExpense: widget.splitCreateExpense,
+                  updateExpense: widget.splitUpdateExpense,
+                  deleteExpense: widget.splitDeleteExpense,
+                  listFriends: widget.listFriends,
+                  getProfile: widget.splitGetProfile,
+                  authRepository: widget.authRepository,
+                  groupId: groupId,
+                  clock: widget.clock,
+                );
+              },
+            ),
+          ],
         ),
         // Nested so a web back / refresh rebuilds the whole stack from the URL
         // (flat routes rebuilt only the leaf, collapsing back-navigation to the
