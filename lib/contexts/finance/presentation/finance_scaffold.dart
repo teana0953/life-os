@@ -6,12 +6,15 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../auth/domain/auth_repository.dart';
+import '../../split/domain/settlement.dart';
 import '../../split/domain/split_expense.dart';
+import '../../split/presentation/settle_up_sheet.dart';
 import '../../split/presentation/split_controller.dart';
 import '../../split/presentation/split_error_text.dart';
 import '../../split/presentation/split_expense_sheet.dart';
 import '../../split/presentation/split_tab.dart';
 import '../../split/presentation/split_tab_dependencies.dart';
+import '../domain/finance_money.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/networth_account.dart';
@@ -106,6 +109,9 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       widget.split.createGroup,
       widget.split.listFriends,
       widget.split.getProfile,
+      widget.split.listSettlements,
+      widget.split.createSettlement,
+      widget.split.deleteSettlement,
     )..addListener(_onChanged);
     // Post-frame, not called directly from `initState`: `load`'s first
     // synchronous work (before its own first await) must not run as part of
@@ -208,6 +214,79 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
         },
       ),
     );
+  }
+
+  /// Opens the settle-up sheet for one currency of a two-person balance
+  /// (design D0–D2). A successful submission already reloads
+  /// [_splitController] itself (`SplitController.createSettlement`'s
+  /// `_mutate`/`load` path), so nothing further is needed here on return.
+  Future<void> _openSettleUpSheet({
+    required String otherUserId,
+    required String? otherDisplayName,
+    required int balanceAmount,
+    required String currency,
+  }) async {
+    final idToken = _idToken;
+    final selfUserId = _splitController.selfUserId;
+    if (idToken == null || selfUserId == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => SettleUpSheet(
+        writer: _splitController,
+        idToken: idToken,
+        selfUserId: selfUserId,
+        otherUserId: otherUserId,
+        otherDisplayName: otherDisplayName,
+        balanceAmount: balanceAmount,
+        currency: currency,
+        today: _todayDate,
+      ),
+    );
+  }
+
+  /// Confirms and deletes a repayment (design D4) — naming the other person
+  /// and the amount, mirroring `SplitExpenseSheet._delete`'s confirmation
+  /// shape but as a standalone dialog since a repayment has no edit sheet to
+  /// host it in.
+  Future<void> _confirmDeleteSettlement(Settlement settlement) async {
+    final idToken = _idToken;
+    final selfUserId = _splitController.selfUserId;
+    if (idToken == null) return;
+    final loc = AppLocalizations.of(context)!;
+    final otherName = settlement.fromUserId == selfUserId
+        ? (settlement.toDisplayName ?? loc.splitUnknownMember)
+        : (settlement.fromDisplayName ?? loc.splitUnknownMember);
+    final amountText = formatMinorUnitsForDisplay(settlement.amount, settlement.currency);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text(loc.splitDeleteSettlementConfirmTitle),
+        content: Text(loc.splitDeleteSettlementConfirmMessage(otherName, amountText)),
+        actions: [
+          TextButton(
+            key: const Key('split-delete-settlement-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(loc.cancel),
+          ),
+          FilledButton(
+            key: const Key('split-delete-settlement-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(loc.splitDeleteSettlementConfirmButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final seqBefore = _splitController.mutationErrorSeq;
+    await _splitController.deleteSettlement(idToken, settlement.id);
+    if (!mounted || _splitController.mutationErrorSeq == seqBefore) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(splitErrorText(loc, _splitController.mutationError!))));
   }
 
   Future<void> _openCreateGroupDialog() async {
@@ -388,6 +467,18 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
               onCreateGroup: _openCreateGroupDialog,
               onEditExpense: (expense) => _openSplitExpenseSheet(editing: expense),
               onAddFriend: () => widget.split.onAddFriend(context),
+              onSettleUp: ({
+                required otherUserId,
+                required otherDisplayName,
+                required balanceAmount,
+                required currency,
+              }) => _openSettleUpSheet(
+                otherUserId: otherUserId,
+                otherDisplayName: otherDisplayName,
+                balanceAmount: balanceAmount,
+                currency: currency,
+              ),
+              onDeleteSettlement: _confirmDeleteSettlement,
             )
           else
             const SizedBox.shrink(),

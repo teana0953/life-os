@@ -8,11 +8,14 @@ import '../../user/domain/profile_exceptions.dart';
 import '../application/balance_use_cases.dart';
 import '../application/expense_use_cases.dart';
 import '../application/group_use_cases.dart';
+import '../application/settlement_use_cases.dart';
 import '../domain/balance.dart';
+import '../domain/settlement.dart';
 import '../domain/split_exceptions.dart';
 import '../domain/split_group.dart';
 import '../domain/split_input.dart';
 import '../domain/split_expense.dart';
+import 'settlement_writer.dart';
 import 'split_expense_writer.dart';
 
 enum SplitStatus { loading, loaded, error, needsReauth }
@@ -38,7 +41,7 @@ enum SplitError {
 /// is the one to avoid here (a `main.dart` singleton needs an explicit
 /// `_resetControllersOnSignOut` entry, which is exactly the leak this
 /// change must not add another instance of).
-class SplitController extends ChangeNotifier implements SplitExpenseWriter {
+class SplitController extends ChangeNotifier implements SplitExpenseWriter, SettlementWriter {
   final GetBalances _getBalances;
   final ListGroups _listGroups;
   final ListExpenses _listExpenses;
@@ -48,6 +51,9 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter {
   final CreateGroup _createGroup;
   final ListFriends _listFriends;
   final GetProfile _getProfile;
+  final ListSettlements _listSettlements;
+  final CreateSettlement _createSettlement;
+  final DeleteSettlement _deleteSettlement;
 
   SplitController(
     this._getBalances,
@@ -59,6 +65,9 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter {
     this._createGroup,
     this._listFriends,
     this._getProfile,
+    this._listSettlements,
+    this._createSettlement,
+    this._deleteSettlement,
   );
 
   SplitStatus status = SplitStatus.loading;
@@ -73,6 +82,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter {
   List<Balance> balances = [];
   List<SplitGroup> groups = [];
   List<SplitExpense> expenses = [];
+  List<Settlement> settlements = [];
 
   /// Candidate list for a group-less expense's payer/participants: the
   /// caller's friends (design D5b — reused from the social context's own
@@ -129,11 +139,13 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter {
         _listGroups(idToken),
         _listExpenses(idToken),
         _listFriends(idToken),
+        _listSettlements(idToken),
       ]);
       balances = results[0] as List<Balance>;
       groups = results[1] as List<SplitGroup>;
       expenses = results[2] as List<SplitExpense>;
       friends = results[3] as List<Friend>;
+      settlements = results[4] as List<Settlement>;
       status = SplitStatus.loaded;
     } on SplitReauthenticationRequired {
       status = SplitStatus.needsReauth;
@@ -206,6 +218,43 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter {
     await _deleteExpense(idToken, expenseId);
     await load(idToken);
   });
+
+  /// Records a repayment (design.md task 4/5). [groupId] is always sent as
+  /// `null` regardless of what the caller passes — settling only ever starts
+  /// from a two-person balance (design D0), which is the only place a
+  /// from/to pair is well-defined, so a group's per-member net figure never
+  /// reaches this.
+  @override
+  Future<void> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  }) => _mutate(idToken, () async {
+    await _createSettlement(
+      idToken,
+      groupId: null,
+      fromUserId: fromUserId,
+      toUserId: toUserId,
+      amount: amount,
+      currency: currency,
+      day: day,
+      note: note,
+    );
+    await load(idToken);
+  });
+
+  /// Deletes a repayment (design D4 — offered only to its creator or payer;
+  /// the screen gates the entry point, this trusts it).
+  Future<void> deleteSettlement(String idToken, String settlementId) =>
+      _mutate(idToken, () async {
+        await _deleteSettlement(idToken, settlementId);
+        await load(idToken);
+      });
 
   /// Runs a write [action], mapping a reauth failure onto [status] (like
   /// `FinanceController._mutate`) and anything else onto [mutationError] —

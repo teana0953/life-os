@@ -20,5 +20,6 @@ String splitErrorText(AppLocalizations loc, Object error) {
   if (error is InvalidSplitInput) return loc.splitErrorInvalidInput(error.message);
   if (error is SplitBadRequest) return loc.splitErrorBadRequest(error.message);
   if (error is SplitNotFound) return loc.splitErrorNotFound;
+  if (error is CannotSettleWithSelf) return loc.splitErrorCannotSettleWithSelf;
   return loc.splitErrorGeneric;
 }

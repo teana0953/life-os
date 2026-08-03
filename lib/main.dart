@@ -32,6 +32,7 @@ import 'contexts/finance/application/add_transaction.dart';
 import 'contexts/finance/application/delete_budget.dart';
 import 'contexts/finance/application/delete_transaction.dart';
 import 'contexts/finance/application/get_finance_month.dart';
+import 'contexts/finance/application/get_split_spending.dart';
 import 'contexts/finance/application/update_transaction.dart';
 import 'contexts/finance/application/networth_use_cases.dart';
 import 'contexts/finance/application/upsert_budget.dart';
@@ -86,6 +87,7 @@ import 'contexts/social/infrastructure/http_social_repository.dart';
 import 'contexts/split/application/balance_use_cases.dart';
 import 'contexts/split/application/expense_use_cases.dart';
 import 'contexts/split/application/group_use_cases.dart';
+import 'contexts/split/application/settlement_use_cases.dart';
 import 'contexts/split/infrastructure/http_split_repository.dart';
 import 'contexts/health/presentation/create_meal_controller.dart';
 import 'contexts/health/presentation/daily_target_controller.dart';
@@ -235,6 +237,7 @@ Future<void> main() async {
     DeleteTransaction(financeRepository),
     UpsertBudget(financeRepository),
     DeleteBudget(financeRepository),
+    GetSplitSpending(financeRepository),
   );
   final netWorthController = NetWorthController(
     ListNetWorthAccounts(financeRepository),
@@ -378,6 +381,9 @@ Future<void> main() async {
   final splitUpdateExpense = UpdateExpense(splitRepository);
   final splitDeleteExpense = DeleteExpense(splitRepository);
   final splitGetProfile = GetProfile(profileRepository);
+  final splitListSettlements = ListSettlements(splitRepository);
+  final splitCreateSettlement = CreateSettlement(splitRepository);
+  final splitDeleteSettlement = DeleteSettlement(splitRepository);
 
   runApp(
     App(
@@ -426,6 +432,9 @@ Future<void> main() async {
       splitUpdateExpense: splitUpdateExpense,
       splitDeleteExpense: splitDeleteExpense,
       splitGetProfile: splitGetProfile,
+      splitListSettlements: splitListSettlements,
+      splitCreateSettlement: splitCreateSettlement,
+      splitDeleteSettlement: splitDeleteSettlement,
       pushHealthController: pushHealthController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,

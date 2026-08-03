@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
@@ -76,6 +78,8 @@ Widget _screen({
     updateExpense: UpdateExpense(repo),
     deleteExpense: DeleteExpense(repo),
     listFriends: ListFriends(FakeSocialRepositoryForSplit()..friends = friends),
+    getBalances: GetBalances(repo),
+    createSettlement: CreateSettlement(repo),
     // The screen resolves the caller's own id from `/api/me` itself — it is
     // never handed one by whoever navigated there.
     getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
@@ -133,6 +137,11 @@ void main() {
 
       await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
       await tester.pumpAndSettle();
+      // The new "your balance with each member" section (design D8) pushed
+      // the archive button below the fold of the test's default surface —
+      // `ensureVisible` works directly (no `scrollUntilVisible` drag loop
+      // needed) since the screen's `ListView` builds every child eagerly.
+      await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
       expect(find.byKey(const Key('split-archive-button')), findsOneWidget);
 
       final repo2 = FakeSplitRepository()
@@ -159,6 +168,7 @@ void main() {
       await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
       await tester.tap(find.byKey(const Key('split-archive-button')));
       await tester.pumpAndSettle();
 
@@ -171,6 +181,7 @@ void main() {
       // it to the very same value, so it held either way.
       expect(repo.archiveCalls, 0);
 
+      await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
       await tester.tap(find.byKey(const Key('split-archive-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-archive-confirm')));
@@ -191,6 +202,7 @@ void main() {
       await tester.pumpAndSettle();
 
       repo.failNext = const SplitNotFound();
+      await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
       await tester.tap(find.byKey(const Key('split-archive-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-archive-confirm')));
@@ -244,6 +256,7 @@ void main() {
       await tester.pumpWidget(_screen(repo: repo, selfUserId: 'creator-1'));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
       expect(find.byKey(const Key('split-archive-button')), findsOneWidget);
     });
 
@@ -355,6 +368,210 @@ void main() {
 
       expect(find.text(_loc.splitUnknownMember), findsOneWidget);
       expect(find.text('ghost-uuid-123'), findsNothing);
+    });
+  });
+
+  group('the two balance sections (design D8, task 5b)', () {
+    testWidgets('the group-balances section is labelled as excluding repayments', (tester) async {
+      final repo = FakeSplitRepository()
+        ..groupToReturn = const SplitGroup(
+          id: 'g1',
+          name: 'Trip',
+          createdByUserId: 'self-1',
+          archivedAt: null,
+        );
+
+      await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_loc.splitGroupBalancesTitle), findsOneWidget);
+      expect(find.byKey(const Key('split-group-balances-note')), findsOneWidget);
+    });
+
+    testWidgets(
+      'the group-balances section offers no settle action, even for a non-zero balance',
+      (tester) async {
+        // BOTH sections must actually render, otherwise "no settle action
+        // here" is true because the widget was never built: members so the
+        // personal card is not filtered down to its empty state, group
+        // figures so `_GroupBalancesCard` has a row at all.
+        final repo = FakeSplitRepository()
+          ..groupToReturn = const SplitGroup(
+            id: 'g1',
+            name: 'Trip',
+            createdByUserId: 'self-1',
+            archivedAt: null,
+          )
+          ..membersToReturn = const [
+            GroupMember(
+              groupId: 'g1',
+              userId: 'self-1',
+              displayName: 'Self',
+              joinedAt: '2026-01-01T00:00:00Z',
+            ),
+            GroupMember(
+              groupId: 'g1',
+              userId: 'u2',
+              displayName: 'Bo',
+              joinedAt: '2026-01-01T00:00:00Z',
+            ),
+          ]
+          ..balancesToReturn = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+            ),
+          ]
+          ..personalBalancesToReturn = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+            ),
+          ];
+
+        await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+        await tester.pumpAndSettle();
+
+        // The settle-able section IS on screen and DOES offer the action —
+        // so the assertion below is about the group card, not about a
+        // missing widget.
+        expect(find.byKey(const Key('split-group-personal-settle-0')), findsOneWidget);
+
+        // The group card's own row: a non-zero figure, and nothing tappable
+        // in it.
+        final groupRow = find.byKey(const Key('split-group-balance-0'));
+        expect(groupRow, findsOneWidget);
+        expect(find.descendant(of: groupRow, matching: find.byType(IconButton)), findsNothing);
+        expect(
+          find.descendant(of: groupRow, matching: find.byType(ButtonStyleButton)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: groupRow, matching: find.byType(InkWell)),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('the personal-balances section is labelled as spanning all shared history', (
+      tester,
+    ) async {
+      final repo = FakeSplitRepository()
+        ..groupToReturn = const SplitGroup(
+          id: 'g1',
+          name: 'Trip',
+          createdByUserId: 'self-1',
+          archivedAt: null,
+        );
+
+      await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_loc.splitGroupPersonalBalancesTitle), findsOneWidget);
+      expect(find.byKey(const Key('split-group-personal-balances-note')), findsOneWidget);
+    });
+
+    testWidgets(
+      'the personal-balances section is filtered to this group\'s members and offers settling',
+      (tester) async {
+        final repo = FakeSplitRepository()
+          ..groupToReturn = const SplitGroup(
+            id: 'g1',
+            name: 'Trip',
+            createdByUserId: 'self-1',
+            archivedAt: null,
+          )
+          ..membersToReturn = const [
+            GroupMember(groupId: 'g1', userId: 'self-1', displayName: 'Self', joinedAt: '2026-01-01T00:00:00Z'),
+            GroupMember(groupId: 'g1', userId: 'u2', displayName: 'Bo', joinedAt: '2026-01-01T00:00:00Z'),
+          ]
+          // The caller's *personal* balances include someone who isn't in
+          // this group at all — proving the section is filtered, not a raw
+          // dump of every two-person balance.
+          ..personalBalancesToReturn = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+            ),
+            Balance(
+              userId: 'stranger',
+              displayName: 'Not In This Group',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 999)],
+            ),
+          ];
+
+        await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('split-group-personal-balance-0')), findsOneWidget);
+        expect(find.byKey(const Key('split-group-personal-settle-0')), findsOneWidget);
+        expect(find.textContaining('Not In This Group'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a group member who is not a friend still gets a settle action — no friendship gate (backend #70)',
+      (tester) async {
+        final repo = FakeSplitRepository()
+          ..groupToReturn = const SplitGroup(
+            id: 'g1',
+            name: 'Trip',
+            createdByUserId: 'self-1',
+            archivedAt: null,
+          )
+          ..membersToReturn = const [
+            GroupMember(groupId: 'g1', userId: 'self-1', displayName: 'Self', joinedAt: '2026-01-01T00:00:00Z'),
+            GroupMember(groupId: 'g1', userId: 'u2', displayName: 'Bo', joinedAt: '2026-01-01T00:00:00Z'),
+          ]
+          ..personalBalancesToReturn = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+            ),
+          ];
+
+        // No friends at all — `u2` is a group co-member only.
+        await tester.pumpWidget(
+          _screen(repo: repo, selfUserId: 'self-1', friends: const []),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('split-group-personal-settle-0')), findsOneWidget);
+      },
+    );
+
+    testWidgets('tapping a settle icon opens the settle-up sheet for that member', (tester) async {
+      final repo = FakeSplitRepository()
+        ..groupToReturn = const SplitGroup(
+          id: 'g1',
+          name: 'Trip',
+          createdByUserId: 'self-1',
+          archivedAt: null,
+        )
+        ..membersToReturn = const [
+          GroupMember(groupId: 'g1', userId: 'self-1', displayName: 'Self', joinedAt: '2026-01-01T00:00:00Z'),
+          GroupMember(groupId: 'g1', userId: 'u2', displayName: 'Bo', joinedAt: '2026-01-01T00:00:00Z'),
+        ]
+        ..personalBalancesToReturn = const [
+          Balance(
+            userId: 'u2',
+            displayName: 'Bo',
+            balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+          ),
+        ];
+
+      await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('split-group-personal-settle-0')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('settle-up-title')), findsOneWidget);
+      expect(find.text(_loc.settleUpTitleReceiving('Bo')), findsOneWidget);
     });
   });
 }

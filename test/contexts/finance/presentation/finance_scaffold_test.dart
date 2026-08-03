@@ -10,6 +10,9 @@ import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
+import 'package:life_os/contexts/split/domain/balance.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/presentation/split_tab_dependencies.dart';
@@ -35,6 +38,9 @@ SplitTabDependencies _splitDeps(
   createGroup: CreateGroup(repo),
   listFriends: ListFriends(FakeSocialRepositoryForSplit()),
   getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+  listSettlements: ListSettlements(repo),
+  createSettlement: CreateSettlement(repo),
+  deleteSettlement: DeleteSettlement(repo),
   onOpenGroup: onOpenGroup ?? (_, __) async {},
   onAddFriend: onAddFriend ?? (_) {},
 );
@@ -689,6 +695,156 @@ void main() {
 
           // Reloaded exactly once more on return.
           expect(splitRepo.getBalancesCalls, 2);
+        },
+      );
+
+      // The settle wiring is the one place the *signed* balance crosses from
+      // a tab row into the sheet, and the sign is the whole direction of the
+      // money (design D1/D2). Driving `SettleUpSheet` directly with a
+      // hand-passed `balanceAmount` cannot see this hand-over at all:
+      // negating it here transposes payer and payee for every settlement
+      // started from the split tab, and every such test stays green.
+      for (final (label, amount, settleKey, receiving) in [
+        ('they owe me', 450, 'split-owed-to-me-settle-0', true),
+        ('I owe them', -450, 'split-owed-by-me-settle-0', false),
+      ]) {
+        testWidgets(
+          'settling from the split tab ($label) opens the sheet for that row and posts the '
+          'repayment in that direction',
+          (tester) async {
+            final repo = FakeFinanceRepository();
+            final splitRepo = FakeSplitRepository()
+              ..balancesToReturn = [
+                Balance(
+                  userId: 'u2',
+                  displayName: 'Bo',
+                  balances: [CurrencyBalance(currency: 'TWD', amount: amount)],
+                ),
+              ]
+              // Without this the fake's `createSettlement` throws on
+              // `settlementToReturn!` *after* recording its arguments: the
+              // direction assertions below would still pass while the flow
+              // sat on its error path (sheet open, snackbar, no reload).
+              ..settlementToReturn = Settlement(
+                id: 's-new',
+                groupId: null,
+                fromUserId: receiving ? 'u2' : 'self-1',
+                fromDisplayName: receiving ? 'Bo' : 'Self',
+                toUserId: receiving ? 'self-1' : 'u2',
+                toDisplayName: receiving ? 'Self' : 'Bo',
+                amount: 450,
+                currency: 'TWD',
+                day: '2026-07-15',
+                note: null,
+                createdByUserId: 'self-1',
+              );
+
+            await tester.pumpWidget(
+              l10nTestApp(
+                home: FinanceScaffold(
+                  authRepository: _FakeAuthRepository(),
+                  controller: testFinanceController(repo),
+                  netWorthController: testNetWorthController(repo),
+                  split: _splitDeps(splitRepo),
+                  clock: () => DateTime(2026, 7, 15),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.byKey(const Key('split-tab')));
+            await tester.pumpAndSettle();
+
+            await tester.tap(find.byKey(Key(settleKey)));
+            await tester.pumpAndSettle();
+
+            final loc = lookupAppLocalizations(const Locale('en'));
+            // The heading states the direction in words, so a transposed
+            // sign is visible here before anything is even submitted.
+            expect(
+              find.text(
+                receiving ? loc.settleUpTitleReceiving('Bo') : loc.settleUpTitlePaying('Bo'),
+              ),
+              findsOneWidget,
+            );
+
+            final balanceCallsBeforeConfirm = splitRepo.getBalancesCalls;
+
+            await tester.tap(find.byKey(const Key('settle-up-confirm-button')));
+            await tester.pumpAndSettle();
+
+            expect(splitRepo.gotFromUserId, receiving ? 'u2' : 'self-1');
+            expect(splitRepo.gotToUserId, receiving ? 'self-1' : 'u2');
+            expect(splitRepo.gotAmount, 450);
+            // D0: settling always starts from a two-person balance.
+            expect(splitRepo.gotCreateSettlementGroupId, isNull);
+
+            // What *success* means, as opposed to "the arguments were
+            // recorded before something threw": the sheet closes, no error
+            // is surfaced, and the tab's balances are re-fetched so the row
+            // reflects the repayment without leaving the tab.
+            expect(find.byKey(const Key('settle-up-title')), findsNothing);
+            expect(find.byType(SnackBar), findsNothing);
+            expect(splitRepo.getBalancesCalls, greaterThan(balanceCallsBeforeConfirm));
+          },
+        );
+      }
+
+      testWidgets(
+        'deleting a repayment asks first — naming the person and the amount — and only '
+        'deletes once confirmed',
+        (tester) async {
+          final repo = FakeFinanceRepository();
+          final splitRepo = FakeSplitRepository()
+            ..settlementsToReturn = const [
+              Settlement(
+                id: 's1',
+                groupId: null,
+                fromUserId: 'self-1',
+                fromDisplayName: 'Self',
+                toUserId: 'u2',
+                toDisplayName: 'Bo',
+                amount: 450,
+                currency: 'TWD',
+                day: '2026-07-10',
+                note: null,
+                createdByUserId: 'self-1',
+              ),
+            ];
+
+          await tester.pumpWidget(
+            l10nTestApp(
+              home: FinanceScaffold(
+                authRepository: _FakeAuthRepository(),
+                controller: testFinanceController(repo),
+                netWorthController: testNetWorthController(repo),
+                split: _splitDeps(splitRepo),
+                clock: () => DateTime(2026, 7, 15),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('split-tab')));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
+          await tester.pumpAndSettle();
+
+          final loc = lookupAppLocalizations(const Locale('en'));
+          // The counterpart is the *other* party, never the caller.
+          expect(find.text(loc.splitDeleteSettlementConfirmMessage('Bo', '450')), findsOneWidget);
+
+          // Cancelling deletes nothing.
+          await tester.tap(find.byKey(const Key('split-delete-settlement-cancel')));
+          await tester.pumpAndSettle();
+          expect(splitRepo.deleteSettlementCalls, 0);
+
+          await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('split-delete-settlement-confirm')));
+          await tester.pumpAndSettle();
+
+          expect(splitRepo.deleteSettlementCalls, 1);
+          expect(splitRepo.gotSettlementId, 's1');
         },
       );
     });

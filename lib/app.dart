@@ -36,6 +36,7 @@ import 'contexts/social/presentation/invite_screen.dart';
 import 'contexts/split/application/balance_use_cases.dart';
 import 'contexts/split/application/expense_use_cases.dart';
 import 'contexts/split/application/group_use_cases.dart';
+import 'contexts/split/application/settlement_use_cases.dart';
 import 'contexts/split/presentation/group_detail_screen.dart';
 import 'contexts/split/presentation/split_tab_dependencies.dart';
 import 'contexts/health/application/get_logged_days.dart';
@@ -228,6 +229,14 @@ class App extends StatefulWidget {
   final DeleteExpense splitDeleteExpense;
   final GetProfile splitGetProfile;
 
+  /// Settlement (repayment) use cases (design.md task 5/5b/6) — shared by
+  /// the split tab (`SplitTabDependencies`) and a group's own person-to-
+  /// person section (`GroupDetailScreen`), since both settle a two-person
+  /// balance the same way (design D0).
+  final ListSettlements splitListSettlements;
+  final CreateSettlement splitCreateSettlement;
+  final DeleteSettlement splitDeleteSettlement;
+
   /// Drives the shared push-off banner on the health overview, 今日照護, and
   /// care reminders management (all three subscribe to it).
   final PushHealthController pushHealthController;
@@ -298,6 +307,9 @@ class App extends StatefulWidget {
     required this.splitUpdateExpense,
     required this.splitDeleteExpense,
     required this.splitGetProfile,
+    required this.splitListSettlements,
+    required this.splitCreateSettlement,
+    required this.splitDeleteSettlement,
     required this.pushHealthController,
     required this.careItemsController,
     required this.careTodayController,
@@ -399,9 +411,13 @@ class _AppState extends State<App> {
     final signedIn = _authNotifier.signedIn;
     if (_wasSignedIn && !signedIn) {
       widget.homeController.reset();
-      // Unlike `FinanceController`, which `FinanceScaffold` reloads on every
-      // entry, nothing else clears the net worth controller.
       widget.netWorthController.reset();
+      // `FinanceScaffold` reloads this one on entry, but a reload is not a
+      // clear: re-entering finance in the same calendar month keeps the
+      // previous account's split-spending figures on the controller until
+      // the new account's own fetch lands, and the overview paints them in
+      // the meantime.
+      widget.financeController.reset();
       // Same reasoning for the record calendar's browsed month: nothing else
       // clears it, so the next user would open it on the previous user's
       // month (and its data) instead of their own current month.
@@ -638,6 +654,9 @@ class _AppState extends State<App> {
               createGroup: widget.splitCreateGroup,
               listFriends: widget.listFriends,
               getProfile: widget.splitGetProfile,
+              listSettlements: widget.splitListSettlements,
+              createSettlement: widget.splitCreateSettlement,
+              deleteSettlement: widget.splitDeleteSettlement,
               // Just the group id: the caller's own id (design D5c) is
               // resolved by the group screen itself from `/api/me`. It used
               // to ride in a `?self=` query parameter, which made every
@@ -676,6 +695,8 @@ class _AppState extends State<App> {
                   updateExpense: widget.splitUpdateExpense,
                   deleteExpense: widget.splitDeleteExpense,
                   listFriends: widget.listFriends,
+                  getBalances: widget.splitGetBalances,
+                  createSettlement: widget.splitCreateSettlement,
                   getProfile: widget.splitGetProfile,
                   authRepository: widget.authRepository,
                   groupId: groupId,

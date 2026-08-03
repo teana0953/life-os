@@ -29,6 +29,17 @@ void main() {
         loc.splitErrorBadRequest('missing field'),
       );
       expect(splitErrorText(loc, const SplitNotFound()), loc.splitErrorNotFound);
+      // Not reachable from either settle entry point today (both derive the
+      // counterpart from a balance with someone else), so it is pinned here
+      // — at the mapping — rather than by a UI test that could never fail.
+      expect(
+        splitErrorText(loc, const CannotSettleWithSelf()),
+        loc.splitErrorCannotSettleWithSelf,
+      );
+      expect(
+        splitErrorText(loc, const CannotSettleWithSelf()),
+        isNot(loc.splitErrorGeneric),
+      );
     });
 
     test('the two pass-through failures are framed in the reader\'s own language', () {

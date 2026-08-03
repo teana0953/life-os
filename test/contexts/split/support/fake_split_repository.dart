@@ -1,5 +1,6 @@
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_input.dart';
@@ -35,6 +36,24 @@ class FakeSplitRepository implements SplitRepository {
   List<Balance> balancesToReturn = const [];
   List<SplitExpense> expensesToReturn = const [];
   SplitExpense? expenseToReturn;
+
+  String? gotFromUserId;
+  String? gotToUserId;
+  String? gotNote;
+  String? gotSettlementId;
+
+  /// The `group_id` the most recent `createSettlement` call actually
+  /// received — separate from [gotGroupId], which a follow-up reload (e.g.
+  /// `GroupDetailController.createSettlement`'s own `load` call, which hits
+  /// `getGroup`/`getGroupBalances`) overwrites with the *screen's* group id
+  /// right after, masking whether the settlement write itself sent `null`
+  /// (design D0/D8 — settling only ever sends `group_id: null`).
+  String? gotCreateSettlementGroupId;
+  List<Settlement> settlementsToReturn = const [];
+  Settlement? settlementToReturn;
+
+  /// How many times [deleteSettlement] has been called.
+  int deleteSettlementCalls = 0;
 
   /// How many times [getBalances] has been called — a cheap "was the whole
   /// split load re-run" signal for tests pinning a reload (e.g. task 8.1b's
@@ -180,11 +199,66 @@ class FakeSplitRepository implements SplitRepository {
     _maybeThrow();
   }
 
+  /// What [getBalances] (the caller's own two-person balances) returns, when
+  /// set — distinct from [balancesToReturn] (which backs [getGroupBalances],
+  /// the per-member-vs-group figures). `GroupDetailController` now calls
+  /// both (design D8), and a test that needs them to disagree — e.g. proving
+  /// the group screen's two sections really read from two different
+  /// endpoints — couldn't otherwise tell them apart. Falls back to
+  /// [balancesToReturn] when unset, so every pre-existing caller that only
+  /// ever set one field keeps working unchanged.
+  List<Balance>? personalBalancesToReturn;
+
   @override
   Future<List<Balance>> getBalances(String idToken) async {
     gotIdToken = idToken;
     getBalancesCalls++;
     _maybeThrow();
-    return balancesToReturn;
+    return personalBalancesToReturn ?? balancesToReturn;
+  }
+
+  @override
+  Future<Settlement> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  }) async {
+    gotIdToken = idToken;
+    gotGroupId = groupId;
+    gotCreateSettlementGroupId = groupId;
+    gotFromUserId = fromUserId;
+    gotToUserId = toUserId;
+    gotAmount = amount;
+    gotCurrency = currency;
+    gotDay = day;
+    gotNote = note;
+    _maybeThrow();
+    return settlementToReturn!;
+  }
+
+  @override
+  Future<List<Settlement>> listSettlements(
+    String idToken, {
+    String? groupId,
+    String? withUserId,
+  }) async {
+    gotIdToken = idToken;
+    gotGroupId = groupId;
+    gotWithUserId = withUserId;
+    _maybeThrow();
+    return settlementsToReturn;
+  }
+
+  @override
+  Future<void> deleteSettlement(String idToken, String settlementId) async {
+    gotIdToken = idToken;
+    gotSettlementId = settlementId;
+    deleteSettlementCalls++;
+    _maybeThrow();
   }
 }

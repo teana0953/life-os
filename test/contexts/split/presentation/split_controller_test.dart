@@ -5,7 +5,9 @@ import 'package:life_os/contexts/social/domain/social_exceptions.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
@@ -31,6 +33,9 @@ SplitController _controller(
   CreateGroup(repo),
   ListFriends(socialRepo),
   GetProfile(profileRepo),
+  ListSettlements(repo),
+  CreateSettlement(repo),
+  DeleteSettlement(repo),
 );
 
 void main() {
@@ -189,6 +194,102 @@ void main() {
     });
   });
 
+  group('SplitController settlements (task 5.1/5.2/5.3)', () {
+    test('load also loads settlements alongside balances/groups/expenses', () async {
+      final repo = FakeSplitRepository()
+        ..settlementsToReturn = [_sampleSettlement()];
+      final profileRepo = FakeProfileRepository()..profileToReturn = testProfile(id: 'self-1');
+      final socialRepo = FakeSocialRepositoryForSplit();
+      final controller = _controller(repo, profileRepo, socialRepo);
+
+      await controller.load('tok');
+
+      expect(controller.settlements.single.id, 's1');
+    });
+
+    test('createSettlement always sends group_id null, even if a caller passed one', () async {
+      final repo = FakeSplitRepository()..settlementToReturn = _sampleSettlement();
+      final profileRepo = FakeProfileRepository()..profileToReturn = testProfile(id: 'self-1');
+      final socialRepo = FakeSocialRepositoryForSplit();
+      final controller = _controller(repo, profileRepo, socialRepo);
+      await controller.load('tok');
+
+      await controller.createSettlement(
+        'tok',
+        groupId: 'g-should-be-ignored',
+        fromUserId: 'self-1',
+        toUserId: 'u2',
+        amount: 300,
+        currency: 'TWD',
+        day: '2026-08-02',
+      );
+
+      // `gotCreateSettlementGroupId`, not `gotGroupId`: the follow-up
+      // `load` runs an unfiltered `listSettlements`, which resets
+      // `gotGroupId` to null — so asserting on it would pass whatever the
+      // write actually sent (mirrors group_detail_controller_test.dart).
+      expect(repo.gotCreateSettlementGroupId, isNull);
+      expect(repo.gotFromUserId, 'self-1');
+      expect(repo.gotToUserId, 'u2');
+    });
+
+    test('createSettlement reloads on success', () async {
+      final repo = FakeSplitRepository()..settlementToReturn = _sampleSettlement();
+      final profileRepo = FakeProfileRepository()..profileToReturn = testProfile(id: 'self-1');
+      final socialRepo = FakeSocialRepositoryForSplit();
+      final controller = _controller(repo, profileRepo, socialRepo);
+      await controller.load('tok');
+      final loadsBefore = repo.getBalancesCalls;
+
+      await controller.createSettlement(
+        'tok',
+        fromUserId: 'self-1',
+        toUserId: 'u2',
+        amount: 300,
+        currency: 'TWD',
+        day: '2026-08-02',
+      );
+
+      expect(repo.getBalancesCalls, loadsBefore + 1);
+    });
+
+    test('a failed createSettlement is recorded on mutationError, not status', () async {
+      final repo = FakeSplitRepository();
+      final profileRepo = FakeProfileRepository()..profileToReturn = testProfile(id: 'self-1');
+      final socialRepo = FakeSocialRepositoryForSplit();
+      final controller = _controller(repo, profileRepo, socialRepo);
+      await controller.load('tok');
+      repo.failNext = const NotFriends();
+
+      await controller.createSettlement(
+        'tok',
+        fromUserId: 'self-1',
+        toUserId: 'u2',
+        amount: 300,
+        currency: 'TWD',
+        day: '2026-08-02',
+      );
+
+      expect(controller.status, SplitStatus.loaded);
+      expect(controller.mutationError, isA<NotFriends>());
+    });
+
+    test('deleteSettlement calls the repository and reloads', () async {
+      final repo = FakeSplitRepository();
+      final profileRepo = FakeProfileRepository()..profileToReturn = testProfile(id: 'self-1');
+      final socialRepo = FakeSocialRepositoryForSplit();
+      final controller = _controller(repo, profileRepo, socialRepo);
+      await controller.load('tok');
+      final loadsBefore = repo.getBalancesCalls;
+
+      await controller.deleteSettlement('tok', 's1');
+
+      expect(repo.gotSettlementId, 's1');
+      expect(repo.deleteSettlementCalls, 1);
+      expect(repo.getBalancesCalls, loadsBefore + 1);
+    });
+  });
+
   group('SplitController lifecycle', () {
     test('a load that lands after dispose does not throw "used after being disposed"', () async {
       final repo = FakeSplitRepository();
@@ -207,6 +308,20 @@ void main() {
     });
   });
 }
+
+Settlement _sampleSettlement() => const Settlement(
+  id: 's1',
+  groupId: null,
+  fromUserId: 'self-1',
+  fromDisplayName: 'Self',
+  toUserId: 'u2',
+  toDisplayName: 'Bo',
+  amount: 300,
+  currency: 'TWD',
+  day: '2026-08-02',
+  note: null,
+  createdByUserId: 'self-1',
+);
 
 SplitExpense _sampleExpense() => const SplitExpense(
   id: 'e1',

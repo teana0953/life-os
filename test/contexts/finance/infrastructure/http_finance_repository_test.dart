@@ -406,6 +406,52 @@ void main() {
       );
     });
 
+    test('getSplitSpending GETs {baseUrl}/api/finance/split-spending?month=', () async {
+      Uri? capturedUri;
+      String? capturedAuthHeader;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedAuthHeader = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode({
+            'month': '2026-08',
+            'totals': [
+              {'currency': 'TWD', 'amount': 500},
+            ],
+          }),
+          200,
+        );
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final totals = await repository.getSplitSpending('token-123', '2026-08');
+
+      expect(
+        capturedUri,
+        Uri.parse('https://example.test/api/finance/split-spending?month=2026-08'),
+      );
+      expect(capturedAuthHeader, 'Bearer token-123');
+      expect(totals.single.currency, 'TWD');
+      expect(totals.single.amount, 500);
+    });
+
+    test('getSplitSpending returns an empty list for a month with no split activity', () async {
+      final client = MockClient(
+        (request) async => http.Response(jsonEncode({'month': '2026-08', 'totals': []}), 200),
+      );
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final totals = await repository.getSplitSpending('token-123', '2026-08');
+
+      expect(totals, isEmpty);
+    });
+
     test('throws FinanceNotFound on 404', () async {
       final client = MockClient(
         (request) async => http.Response('Not Found', 404),

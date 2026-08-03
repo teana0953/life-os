@@ -192,3 +192,11 @@ wide enough to be realistic rather than a token fixture.
   with a seven-figure amount
 - **THEN** no layout error is raised and the confirm and cancel actions are
   on screen and tappable
+
+#### Scenario: A refused amount states its reason in full
+
+- **WHEN** an amount is refused locally at any of those widths, locales and
+  text scales
+- **THEN** the reason is laid out in full rather than clipped — "no layout
+  error was raised" is not enough, because a sentence squeezed into a
+  fixed-width field is silently truncated without raising one

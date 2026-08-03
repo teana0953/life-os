@@ -5,7 +5,9 @@ import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_share.dart';
@@ -32,6 +34,9 @@ SplitController _controller() {
     CreateGroup(repo),
     ListFriends(socialRepo),
     GetProfile(profileRepo),
+    ListSettlements(repo),
+    CreateSettlement(repo),
+    DeleteSettlement(repo),
   );
 }
 
@@ -88,6 +93,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -115,6 +127,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -144,6 +163,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -170,6 +196,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -193,6 +226,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -217,6 +257,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -238,6 +285,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -265,6 +319,13 @@ void main() {
             onOpenGroup: (id) => opened = id,
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -303,6 +364,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -339,6 +407,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -368,6 +443,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -393,6 +475,13 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () => createGroupTapped = true,
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
@@ -420,12 +509,354 @@ void main() {
             onOpenGroup: (_) {},
             onCreateGroup: () {},
             onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
           ),
         ),
       );
 
       expect(find.byKey(const Key('split-expense-edit-e-mine')), findsOneWidget);
       expect(find.byKey(const Key('split-expense-edit-e-not-mine')), findsNothing);
+    });
+  });
+
+  group('SplitTab settle-up wiring (task 5) — the signed amount and counterpart travel intact', () {
+    testWidgets('a row I am owed on carries the positive signed amount and the counterpart id', (
+      tester,
+    ) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..balances = const [
+          Balance(
+            userId: 'u2',
+            displayName: 'Bo',
+            balances: [CurrencyBalance(currency: 'TWD', amount: 500)],
+          ),
+        ];
+      String? gotOtherUserId;
+      String? gotOtherDisplayName;
+      int? gotBalanceAmount;
+      String? gotCurrency;
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {
+              gotOtherUserId = otherUserId;
+              gotOtherDisplayName = otherDisplayName;
+              gotBalanceAmount = balanceAmount;
+              gotCurrency = currency;
+            },
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('split-owed-to-me-settle-0')));
+
+      expect(gotOtherUserId, 'u2');
+      expect(gotOtherDisplayName, 'Bo');
+      // Positive, not pre-negated for display — the direction the sheet
+      // needs to tell "they owe me" from "I owe them" (design.md task 5).
+      expect(gotBalanceAmount, 500);
+      expect(gotCurrency, 'TWD');
+    });
+
+    testWidgets(
+      'a row I owe carries the *negative* signed amount — an earlier draft negated it away here',
+      (tester) async {
+        // The regression this guards: `split_tab.dart` used to negate
+        // owed-by-me before building the row, so its value was always
+        // positive by the time anything downstream saw it — which made the
+        // settle sheet unable to tell direction at all.
+        final controller = _controller()
+          ..status = SplitStatus.loaded
+          ..selfUserId = 'self-1'
+          ..balances = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: -450)],
+            ),
+          ];
+        int? gotBalanceAmount;
+
+        await tester.pumpWidget(
+          _wrap(
+            SplitTab(
+              onAddFriend: () {},
+              controller: controller,
+              onRetry: () {},
+              onRecordExpense: () {},
+              onOpenGroup: (_) {},
+              onCreateGroup: () {},
+              onEditExpense: (_) {},
+              onSettleUp: ({
+                required otherUserId,
+                required otherDisplayName,
+                required balanceAmount,
+                required currency,
+              }) {
+                gotBalanceAmount = balanceAmount;
+              },
+              onDeleteSettlement: (_) {},
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('split-owed-by-me-settle-0')));
+
+        expect(gotBalanceAmount, -450);
+      },
+    );
+
+    testWidgets('a balance spanning two currencies offers one settle entry per currency', (
+      tester,
+    ) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..balances = const [
+          Balance(
+            userId: 'u2',
+            displayName: 'Bo',
+            balances: [
+              CurrencyBalance(currency: 'TWD', amount: 500),
+              CurrencyBalance(currency: 'USD', amount: 20),
+            ],
+          ),
+        ];
+      final gotCurrencies = <String>[];
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) => gotCurrencies.add(currency),
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('split-owed-to-me-settle-0')), findsOneWidget);
+      expect(find.byKey(const Key('split-owed-to-me-settle-1')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('split-owed-to-me-settle-0')));
+      await tester.tap(find.byKey(const Key('split-owed-to-me-settle-1')));
+      expect(gotCurrencies.toSet(), {'TWD', 'USD'});
+    });
+  });
+
+  group('SplitTab repayments in the activity list (task 5.1/5.2)', () {
+    Settlement settlement({
+      String id = 's1',
+      String fromUserId = 'other',
+      String? fromDisplayName = 'Bo',
+      String toUserId = 'self-1',
+      String? toDisplayName = 'Self',
+      String createdByUserId = 'other',
+      String day = '2026-08-03',
+    }) => Settlement(
+      id: id,
+      groupId: null,
+      fromUserId: fromUserId,
+      fromDisplayName: fromDisplayName,
+      toUserId: toUserId,
+      toDisplayName: toDisplayName,
+      amount: 300,
+      currency: 'TWD',
+      day: day,
+      note: null,
+      createdByUserId: createdByUserId,
+    );
+
+    testWidgets('a repayment is labelled as one in words, distinct from an expense row', (
+      tester,
+    ) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..settlements = [settlement()];
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.byKey(const Key('split-settlement-row-s1')), findsOneWidget);
+      expect(find.text(loc.splitSettlementRow('Bo', 'Self')), findsOneWidget);
+    });
+
+    testWidgets('delete is offered to the creator', (tester) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..settlements = [settlement(createdByUserId: 'self-1', fromUserId: 'other')];
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('split-settlement-delete-s1')), findsOneWidget);
+    });
+
+    testWidgets('delete is offered to the payer', (tester) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..settlements = [settlement(createdByUserId: 'other', fromUserId: 'self-1')];
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('split-settlement-delete-s1')), findsOneWidget);
+    });
+
+    testWidgets('delete is not offered to a mere payee (neither creator nor payer)', (
+      tester,
+    ) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..settlements = [settlement(createdByUserId: 'other', fromUserId: 'other', toUserId: 'self-1')];
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (_) {},
+          ),
+        ),
+      );
+
+      // The row itself must be on screen, otherwise "no delete here" would
+      // hold simply because the repayment was never rendered.
+      expect(find.byKey(const Key('split-settlement-row-s1')), findsOneWidget);
+      expect(find.byKey(const Key('split-settlement-delete-s1')), findsNothing);
+    });
+
+    testWidgets('tapping delete invokes onDeleteSettlement with the settlement', (tester) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..settlements = [settlement(createdByUserId: 'self-1')];
+      Settlement? deleted;
+
+      await tester.pumpWidget(
+        _wrap(
+          SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            onRetry: () {},
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+            onDeleteSettlement: (s) => deleted = s,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
+      expect(deleted?.id, 's1');
     });
   });
 }

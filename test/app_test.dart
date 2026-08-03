@@ -41,6 +41,7 @@ import 'package:life_os/contexts/finance/application/add_transaction.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/get_split_spending.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
@@ -52,6 +53,7 @@ import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
@@ -90,6 +92,7 @@ import 'package:life_os/contexts/social/domain/social_repository.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_repository.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
@@ -612,6 +615,9 @@ class _FakeFinanceRepository implements FinanceRepository {
     required String from,
     required String to,
   }) async => const [];
+
+  @override
+  Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async => const [];
 }
 
 class _FakeImportRepository implements ImportRepository {
@@ -1176,6 +1182,7 @@ Future<LocaleController> pumpApp(
           DeleteTransaction(repository),
           UpsertBudget(repository),
           DeleteBudget(repository),
+          GetSplitSpending(repository),
         );
       }();
   final resolvedNetWorthController =
@@ -1318,6 +1325,9 @@ Future<LocaleController> pumpApp(
       splitUpdateExpense: UpdateExpense(resolvedSplitRepository),
       splitDeleteExpense: DeleteExpense(resolvedSplitRepository),
       splitGetProfile: GetProfile(FakeProfileRepository(_testProfile)),
+      splitListSettlements: ListSettlements(resolvedSplitRepository),
+      splitCreateSettlement: CreateSettlement(resolvedSplitRepository),
+      splitDeleteSettlement: DeleteSettlement(resolvedSplitRepository),
       pushHealthController:
           pushHealthController ?? testPushHealthController(PushHealth.ok),
       careItemsController: resolvedCareItemsController,
@@ -2956,6 +2966,47 @@ void main() {
         expect(netWorthController.monthly, isNull);
         expect(netWorthController.accounts, isEmpty);
         expect(netWorthController.trend, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'signing out clears the finance controller, so the next user never sees '
+      "the previous user's split-spending figures",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 987654),
+          ];
+        final financeController = testFinanceController(repo);
+        await financeController.load('tok', '2026-07');
+        expect(financeController.splitSpending, isNotEmpty);
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          financeController: financeController,
+        );
+        await tester.pumpAndSettle();
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // App-lifetime singleton (main.dart). `FinanceScaffold` reloads it on
+        // entry, but a reload is not a clear: the next user entering finance
+        // in the *same* calendar month re-enters `load` with `isMonthChange
+        // == false`, and until their own fetches land the previous account's
+        // money is what the overview paints.
+        expect(financeController.selectedMonth, isEmpty);
+        expect(financeController.splitSpending, isEmpty);
+        expect(financeController.summary, isNull);
+        expect(financeController.transactions, isEmpty);
+        expect(financeController.budgets, isEmpty);
       },
     );
 

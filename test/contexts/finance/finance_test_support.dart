@@ -4,6 +4,7 @@ import 'package:life_os/contexts/finance/application/add_transaction.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/get_split_spending.dart';
 import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
@@ -16,6 +17,7 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 
@@ -515,6 +517,38 @@ class FakeFinanceRepository implements FinanceRepository {
           NetWorthTrendPoint(month: month, netWorth: _netWorthFor(month)),
     ];
   }
+
+  // -------------------------------------------------------------- split spending
+
+  /// `month -> totals`, for the overview's split-spending line. Empty for
+  /// any month not seeded here.
+  final Map<String, List<SplitSpending>> splitSpendingByMonth = {};
+
+  /// When set for a month, `getSplitSpending` for that month awaits the
+  /// completer instead of resolving immediately — the split-spending race
+  /// test's slow leg (design D9, task 6.1b).
+  final Map<String, Completer<void>> splitSpendingGates = {};
+
+  /// Makes the next `getSplitSpending` call throw once. Deliberately
+  /// **separate** from [failNext] above: `FinanceController.load` now runs
+  /// `getSplitSpending` concurrently with the main `getFinanceMonth` fetch
+  /// (design D9), so sharing one flag between them would make whichever call
+  /// happens to run first consume it — silently breaking every existing
+  /// test in this repo that sets [failNext] expecting it to fail the *main*
+  /// fetch.
+  Object? splitSpendingFailNext;
+
+  @override
+  Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async {
+    final gate = splitSpendingGates[month];
+    if (gate != null) await gate.future;
+    if (splitSpendingFailNext != null) {
+      final failure = splitSpendingFailNext!;
+      splitSpendingFailNext = null;
+      throw failure;
+    }
+    return splitSpendingByMonth[month] ?? const [];
+  }
 }
 
 NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
@@ -535,4 +569,5 @@ FinanceController testFinanceController(FakeFinanceRepository repo) =>
       DeleteTransaction(repo),
       UpsertBudget(repo),
       DeleteBudget(repo),
+      GetSplitSpending(repo),
     );

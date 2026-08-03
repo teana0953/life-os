@@ -1651,6 +1651,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeRecentTransactions => 'Recent transactions';
 
   @override
+  String get financeSplitSpendingTitle => 'Your split spending';
+
+  @override
+  String get financeSplitSpendingNote =>
+      'Not counted in the expense totals above, and not counted against your budget.';
+
+  @override
+  String get financeSplitSpendingLoadFailed =>
+      'Couldn\'t load your split spending';
+
+  @override
   String get financeCategoryBreakdown => 'By category';
 
   @override
@@ -2198,6 +2209,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This couldn\'t be found. It may have been deleted.';
 
   @override
+  String get splitErrorCannotSettleWithSelf =>
+      'You can\'t record a repayment with yourself.';
+
+  @override
   String get splitErrorGeneric => 'Something went wrong. Try again.';
 
   @override
@@ -2207,7 +2222,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get splitGroupMembersTitle => 'Members';
 
   @override
-  String get splitGroupBalancesTitle => 'Balances';
+  String get splitGroupBalancesTitle => 'Group balances (excludes repayments)';
+
+  @override
+  String get splitGroupBalancesNote =>
+      'Excludes repayments — a repayment recorded between two people never changes these figures.';
 
   @override
   String splitGroupBalanceShouldCollect(String name, String amount) {
@@ -2262,4 +2281,72 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get splitGroupLoadFailedMessage =>
       'Couldn\'t load this group. Check your connection and try again.';
+
+  @override
+  String settleUpTitlePaying(String name) {
+    return 'Pay $name back';
+  }
+
+  @override
+  String settleUpTitleReceiving(String name) {
+    return '$name pays you back';
+  }
+
+  @override
+  String get settleUpConfirmButton => 'Confirm';
+
+  @override
+  String get settleUpAmountRequired => 'Enter an amount';
+
+  @override
+  String get settleUpAmountMustBeWhole =>
+      'This currency doesn\'t use decimals — enter a whole number';
+
+  @override
+  String get settleUpAmountTooLarge => 'This amount is too large';
+
+  @override
+  String settleUpOverpayWarningTheyWillOwe(String name, String amount) {
+    return '$name will end up owing you $amount';
+  }
+
+  @override
+  String settleUpOverpayWarningYouWillOwe(String name, String amount) {
+    return 'You will end up owing $name $amount';
+  }
+
+  @override
+  String get splitSectionRecentActivity => 'Recent activity';
+
+  @override
+  String get splitNoActivityYet => 'No expenses or repayments yet';
+
+  @override
+  String get splitSettleUpTooltip => 'Settle up';
+
+  @override
+  String splitSettlementRow(String from, String to) {
+    return 'Repayment: $from paid $to back';
+  }
+
+  @override
+  String get splitDeleteSettlementTooltip => 'Delete repayment';
+
+  @override
+  String get splitDeleteSettlementConfirmTitle => 'Delete this repayment?';
+
+  @override
+  String splitDeleteSettlementConfirmMessage(String name, String amount) {
+    return 'This removes the $amount repayment with $name. This can\'t be undone.';
+  }
+
+  @override
+  String get splitDeleteSettlementConfirmButton => 'Delete';
+
+  @override
+  String get splitGroupPersonalBalancesTitle => 'Your balance with each member';
+
+  @override
+  String get splitGroupPersonalBalancesNote =>
+      'Spans your shared history everywhere, not only this group.';
 }

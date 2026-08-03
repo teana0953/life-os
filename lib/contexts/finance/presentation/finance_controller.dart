@@ -4,6 +4,7 @@ import '../application/add_transaction.dart';
 import '../application/delete_budget.dart';
 import '../application/delete_transaction.dart';
 import '../application/get_finance_month.dart';
+import '../application/get_split_spending.dart';
 import '../application/update_transaction.dart';
 import '../application/upsert_budget.dart';
 import '../domain/finance_budget.dart';
@@ -13,8 +14,15 @@ import '../domain/finance_month.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 import '../domain/monthly_summary.dart';
+import '../domain/split_spending.dart';
 
 enum FinanceStatus { loading, loaded, needsReauth, error }
+
+/// Loading state for the overview's split-spending line — deliberately
+/// separate from [FinanceStatus] (design D9/D6, task 6.1): a failure here
+/// must not blank the whole overview, and the line has to keep loading
+/// independently of the month's recorded transactions/summary.
+enum SplitSpendingStatus { loading, loaded, error }
 
 /// Reasons loading/writing the finance month can fail, as understood by the
 /// finance screens. [FinanceController] has no [BuildContext] and so cannot
@@ -42,6 +50,7 @@ class FinanceController extends ChangeNotifier {
   final DeleteTransaction _deleteTransaction;
   final UpsertBudget _upsertBudget;
   final DeleteBudget _deleteBudget;
+  final GetSplitSpending _getSplitSpending;
 
   FinanceController(
     this._getFinanceMonth,
@@ -50,6 +59,7 @@ class FinanceController extends ChangeNotifier {
     this._deleteTransaction,
     this._upsertBudget,
     this._deleteBudget,
+    this._getSplitSpending,
   );
 
   /// `YYYY-MM`. Empty until the first [load] call — callers compute the
@@ -64,6 +74,34 @@ class FinanceController extends ChangeNotifier {
   List<FinanceTransaction> transactions = [];
   MonthlySummary? summary;
   List<FinanceBudget> budgets = [];
+
+  /// The overview's split-spending line (design D6/D9, task 6) — loaded and
+  /// tracked independently of [status]/[error] above, so a failure here
+  /// never blanks the rest of the overview.
+  SplitSpendingStatus splitSpendingStatus = SplitSpendingStatus.loading;
+  List<SplitSpending> splitSpending = [];
+
+  /// Drops everything a signed-in user's session put here, so the next user
+  /// to sign in inherits none of it (`app.dart`'s
+  /// `_resetControllersOnSignOut`, mirroring [NetWorthController.reset]).
+  ///
+  /// `FinanceScaffold` reloads this controller on every entry, which is why
+  /// it was left out before — but a reload is not a clear: entering finance
+  /// in the same calendar month re-enters `load` with `isMonthChange ==
+  /// false`, so the previous account's figures stay on the fields until the
+  /// new fetches land. This makes sign-out, not the next load, the point
+  /// they stop existing.
+  void reset() {
+    selectedMonth = '';
+    status = FinanceStatus.loading;
+    error = null;
+    categories = [];
+    transactions = [];
+    summary = null;
+    budgets = [];
+    splitSpendingStatus = SplitSpendingStatus.loading;
+    splitSpending = [];
+  }
 
   /// Loads [month]'s categories, summary, and transactions. Sets
   /// [selectedMonth] to [month] synchronously (so a concurrent call started
@@ -87,12 +125,32 @@ class FinanceController extends ChangeNotifier {
     selectedMonth = month;
     status = FinanceStatus.loading;
     error = null;
+    // Always flips to loading (mirrors `status` above), but the *value* is
+    // only cleared on an actual month change — same "same-month reload keeps
+    // showing the old figure while it quietly refreshes" behaviour as
+    // `summary`/`transactions` below.
+    splitSpendingStatus = SplitSpendingStatus.loading;
+    // Cleared on **every** load, not only on a month change, so the value
+    // and [splitSpendingStatus] can never disagree. `summary`/`transactions`
+    // get to survive a same-month reload because `status == loaded` means
+    // "the main fetch that produced them has landed"; since this leg is now
+    // a separate request (design D9), a `loaded` main fetch says nothing
+    // about whose split figures are held here — and this controller is an
+    // app-lifetime singleton, so "whose" can be a *different account*
+    // (design.md: 不能變成登出後殘留上一個帳號分帳金額的新來源).
+    splitSpending = [];
     if (isMonthChange) {
       summary = null;
       transactions = [];
       budgets = [];
     }
     if (notifyOnStart) notifyListeners();
+
+    // Started concurrently with the main fetch below, not chained after it
+    // and not folded into a shared `Future.wait` (design D9/D6): its own
+    // failure must never turn the whole month into [FinanceStatus.error].
+    // Awaited at the end so callers of [load] see a fully settled state.
+    final splitSpendingFuture = _loadSplitSpending(idToken, month);
 
     try {
       final data = await _getFinanceMonth(idToken, month);
@@ -116,6 +174,27 @@ class FinanceController extends ChangeNotifier {
       if (selectedMonth != month) return;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
+    }
+    notifyListeners();
+    await splitSpendingFuture;
+  }
+
+  /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
+  /// for why this is separate from the main fetch. [selectedMonth] is
+  /// checked against [month] on completion (the same stale-response guard
+  /// [load] applies to `summary`/`transactions`, design D9/finance-ledger-ui
+  /// "Month switching is race-safe"): a slow response for a month the user
+  /// has since switched away from must never overwrite the currently
+  /// selected month's line.
+  Future<void> _loadSplitSpending(String idToken, String month) async {
+    try {
+      final result = await _getSplitSpending(idToken, month);
+      if (selectedMonth != month) return;
+      splitSpending = result;
+      splitSpendingStatus = SplitSpendingStatus.loaded;
+    } catch (_) {
+      if (selectedMonth != month) return;
+      splitSpendingStatus = SplitSpendingStatus.error;
     }
     notifyListeners();
   }

@@ -38,6 +38,22 @@ Map<String, dynamic> _expenseJson() => {
   'updated_at': '2026-08-02T00:00:00.000Z',
 };
 
+Map<String, dynamic> _settlementJson() => {
+  'id': 's1',
+  'group_id': null,
+  'from_user_id': 'u1',
+  'from_display_name': 'Alex',
+  'to_user_id': 'u2',
+  'to_display_name': 'Bo',
+  'amount': 450,
+  'currency': 'TWD',
+  'day': '2026-08-02',
+  'note': 'lunch',
+  'created_by_user_id': 'u1',
+  'created_at': '2026-08-02T00:00:00.000Z',
+  'updated_at': '2026-08-02T00:00:00.000Z',
+};
+
 Map<String, dynamic> _balancesJson() => {
   'balances': [
     {
@@ -350,6 +366,131 @@ void main() {
 
       expect(capturedUri, Uri.parse('https://example.test/api/split/balances'));
       expect(balances.single.displayName, 'Bo');
+    });
+
+    test('createSettlement POSTs full body to /api/split/settlements', () async {
+      Uri? capturedUri;
+      String? capturedMethod;
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedMethod = request.method;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_settlementJson()), 201);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      final settlement = await repository.createSettlement(
+        'token-123',
+        fromUserId: 'u1',
+        toUserId: 'u2',
+        amount: 450,
+        currency: 'TWD',
+        day: '2026-08-02',
+        note: 'lunch',
+      );
+
+      expect(capturedUri, Uri.parse('https://example.test/api/split/settlements'));
+      expect(capturedMethod, 'POST');
+      expect(capturedBody, {
+        'from_user_id': 'u1',
+        'to_user_id': 'u2',
+        'amount': 450,
+        'currency': 'TWD',
+        'day': '2026-08-02',
+        'note': 'lunch',
+      });
+      expect(capturedBody!.containsKey('group_id'), isFalse);
+      expect(settlement.id, 's1');
+      expect(settlement.fromDisplayName, 'Alex');
+      expect(settlement.toDisplayName, 'Bo');
+    });
+
+    test('createSettlement omits note when null', () async {
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_settlementJson()), 201);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      await repository.createSettlement(
+        'token-123',
+        fromUserId: 'u1',
+        toUserId: 'u2',
+        amount: 450,
+        currency: 'TWD',
+        day: '2026-08-02',
+      );
+
+      expect(capturedBody!.containsKey('note'), isFalse);
+    });
+
+    test('listSettlements GETs /api/split/settlements with no query params when unfiltered', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(
+          jsonEncode({
+            'settlements': [_settlementJson()],
+          }),
+          200,
+        );
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      final settlements = await repository.listSettlements('token-123');
+
+      expect(capturedUri, Uri.parse('https://example.test/api/split/settlements'));
+      expect(settlements.single.id, 's1');
+    });
+
+    test('listSettlements GETs /api/split/settlements?with= when filtered by counterparty', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(jsonEncode({'settlements': <Map<String, dynamic>>[]}), 200);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      await repository.listSettlements('token-123', withUserId: 'u2');
+
+      expect(capturedUri!.queryParameters, {'with': 'u2'});
+    });
+
+    test('deleteSettlement DELETEs to /api/split/settlements/:id', () async {
+      Uri? capturedUri;
+      String? capturedMethod;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedMethod = request.method;
+        return http.Response(jsonEncode({'deleted': true}), 200);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      await repository.deleteSettlement('token-123', 's1');
+
+      expect(capturedUri, Uri.parse('https://example.test/api/split/settlements/s1'));
+      expect(capturedMethod, 'DELETE');
+    });
+
+    test('cannot_settle_with_self -> CannotSettleWithSelf (infrastructure mapping only, no UI test)', () async {
+      final client = MockClient(
+        (request) async => http.Response(jsonEncode({'error': 'cannot_settle_with_self'}), 400),
+      );
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      expect(
+        () => repository.createSettlement(
+          'token-123',
+          fromUserId: 'u1',
+          toUserId: 'u1',
+          amount: 450,
+          currency: 'TWD',
+          day: '2026-08-02',
+        ),
+        throwsA(isA<CannotSettleWithSelf>()),
+      );
     });
 
     test('throws SplitReauthenticationRequired on 401', () async {

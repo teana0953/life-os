@@ -1,10 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
@@ -31,6 +34,8 @@ GroupDetailController _controller(
   DeleteExpense(repo),
   ListFriends(socialRepo),
   GetProfile(profileRepo ?? (FakeProfileRepository()..profileToReturn = testProfile())),
+  GetBalances(repo),
+  CreateSettlement(repo),
 );
 
 void main() {
@@ -246,8 +251,60 @@ void main() {
 
       await expectLater(inFlight, completes);
     });
+
+    group('settling a two-person balance (design D8, task 5b.3)', () {
+      test('load also loads personal (two-person) balances, distinct from group balances', () async {
+        final repo = FakeSplitRepository()
+          ..balancesToReturn = const [
+            Balance(
+              userId: 'u2',
+              displayName: 'Bo',
+              balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+            ),
+          ];
+        final controller = loadedController(repo, FakeSocialRepositoryForSplit());
+
+        await controller.load('tok', 'g1');
+
+        expect(controller.personalBalances.single.userId, 'u2');
+        expect(controller.groupBalances.single.userId, 'u2');
+      });
+
+      test('createSettlement always sends group_id null, never this screen\'s own group', () async {
+        final repo = FakeSplitRepository()..settlementToReturn = _sampleSettlement();
+        final controller = loadedController(repo, FakeSocialRepositoryForSplit());
+        await controller.load('tok', 'g1');
+
+        await controller.createSettlement(
+          'tok',
+          groupId: 'g1',
+          fromUserId: 'self-1',
+          toUserId: 'u2',
+          amount: 300,
+          currency: 'TWD',
+          day: '2026-08-02',
+        );
+
+        expect(repo.gotCreateSettlementGroupId, isNull);
+        expect(controller.mutationErrorSeq, 0);
+      });
+    });
   });
 }
+
+Settlement _sampleSettlement() => const Settlement(
+  id: 's1',
+  groupId: null,
+  fromUserId: 'self-1',
+  fromDisplayName: 'Self',
+  toUserId: 'u2',
+  toDisplayName: 'Bo',
+  amount: 300,
+  currency: 'TWD',
+  day: '2026-08-02',
+  note: null,
+  createdByUserId: 'self-1',
+);
 
 SplitExpense _sampleExpense() => const SplitExpense(
   id: 'e1',

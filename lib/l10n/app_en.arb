@@ -2202,6 +2202,18 @@
   "@financeRecentTransactions": {
     "description": "Section heading above the five most recent transactions on the overview tab."
   },
+  "financeSplitSpendingTitle": "Your split spending",
+  "@financeSplitSpendingTitle": {
+    "description": "Label for the overview tab's own line showing what the user personally owed on split expenses that month — shown beside, never folded into, the recorded expense total or the budget card."
+  },
+  "financeSplitSpendingNote": "Not counted in the expense totals above, and not counted against your budget.",
+  "@financeSplitSpendingNote": {
+    "description": "Subtitle under the overview tab's split-spending card, stating that the figure is excluded from both the recorded expense totals and the budget card — the card sits next to both and is otherwise indistinguishable from a totals card."
+  },
+  "financeSplitSpendingLoadFailed": "Couldn't load your split spending",
+  "@financeSplitSpendingLoadFailed": {
+    "description": "Shown in place of the split-spending line when it fails to load; the rest of the overview (recorded totals, budget card) still shows normally."
+  },
   "financeCategoryBreakdown": "By category",
   "@financeCategoryBreakdown": {
     "description": "Section heading above the per-category expense breakdown bars on the overview tab."
@@ -2949,6 +2961,10 @@
   "@splitErrorNotFound": {
     "description": "Message for a 404 not_found response — visibility, never distinguished from 'not yours to see'."
   },
+  "splitErrorCannotSettleWithSelf": "You can't record a repayment with yourself.",
+  "@splitErrorCannotSettleWithSelf": {
+    "description": "Message for a 400 cannot_settle_with_self response — the payer and the payee of a repayment are the same person."
+  },
   "splitErrorGeneric": "Something went wrong. Try again.",
   "@splitErrorGeneric": {
     "description": "Fallback message for a split failure with no more specific mapping."
@@ -2961,9 +2977,13 @@
   "@splitGroupMembersTitle": {
     "description": "Heading for the group detail screen's member list."
   },
-  "splitGroupBalancesTitle": "Balances",
+  "splitGroupBalancesTitle": "Group balances (excludes repayments)",
   "@splitGroupBalancesTitle": {
-    "description": "Heading for the group detail screen's per-member balances."
+    "description": "Heading for the group detail screen's per-member-vs-group balances (design D8). Labelled to say it excludes repayments: this change's repayments are always person-to-person (group_id null), and the group balance only sums group-scoped repayments, so this figure never moves when one is recorded — without the label the group screen would keep showing a debt the split tab shows as settled."
+  },
+  "splitGroupBalancesNote": "Excludes repayments — a repayment recorded between two people never changes these figures.",
+  "@splitGroupBalancesNote": {
+    "description": "Subtitle under the group detail screen's per-member balances, spelling out why they never move when a person-to-person repayment is recorded (design D8)."
   },
   "splitGroupBalanceShouldCollect": "{name} should collect {amount}",
   "@splitGroupBalanceShouldCollect": {
@@ -3045,5 +3065,119 @@
   "splitGroupLoadFailedMessage": "Couldn't load this group. Check your connection and try again.",
   "@splitGroupLoadFailedMessage": {
     "description": "Shown on the group detail screen when loading fails for a reason other than needing reauthentication."
+  },
+  "settleUpTitlePaying": "Pay {name} back",
+  "@settleUpTitlePaying": {
+    "description": "Heading of the settle-up sheet when the caller owes the other person — names them and states the direction so the user need not check which balance row they tapped.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settleUpTitleReceiving": "{name} pays you back",
+  "@settleUpTitleReceiving": {
+    "description": "Heading of the settle-up sheet when the other person owes the caller.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settleUpConfirmButton": "Confirm",
+  "@settleUpConfirmButton": {
+    "description": "Label for the settle-up sheet's submit button."
+  },
+  "settleUpAmountRequired": "Enter an amount",
+  "@settleUpAmountRequired": {
+    "description": "Shown below the settle-up sheet's amount row when the amount is empty, zero, or negative."
+  },
+  "settleUpAmountMustBeWhole": "This currency doesn't use decimals — enter a whole number",
+  "@settleUpAmountMustBeWhole": {
+    "description": "Shown below the settle-up sheet's amount row when a fractional value is entered for a currency with no minor-unit decimals (TWD/JPY/KRW) — refused explicitly rather than silently rounded. Full-width, not inside the 120dp amount field, which would clip it."
+  },
+  "settleUpAmountTooLarge": "This amount is too large",
+  "@settleUpAmountTooLarge": {
+    "description": "Shown below the settle-up sheet's amount row when the amount exceeds the backend's maximum (a signed 32-bit int)."
+  },
+  "settleUpOverpayWarningTheyWillOwe": "{name} will end up owing you {amount}",
+  "@settleUpOverpayWarningTheyWillOwe": {
+    "description": "Warning shown before submitting when the caller is paying the other person and types more than the full outstanding amount — states the consequence (the direction flips) rather than a generic 'amount is large' message.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "settleUpOverpayWarningYouWillOwe": "You will end up owing {name} {amount}",
+  "@settleUpOverpayWarningYouWillOwe": {
+    "description": "Warning shown before submitting when the caller is recording the other person paying and types more than the full outstanding amount — the opposite direction from settleUpOverpayWarningTheyWillOwe, since one fixed sentence would be wrong half the time.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitSectionRecentActivity": "Recent activity",
+  "@splitSectionRecentActivity": {
+    "description": "Section heading above the split tab's combined list of expenses and repayments — replaces the expenses-only heading now that repayments appear alongside expenses in the same list."
+  },
+  "splitNoActivityYet": "No expenses or repayments yet",
+  "@splitNoActivityYet": {
+    "description": "Shown under the recent-activity heading when there are no expenses and no repayments."
+  },
+  "splitSettleUpTooltip": "Settle up",
+  "@splitSettleUpTooltip": {
+    "description": "Tooltip for the settle-up icon button on a two-person balance row, on the split tab and on a group's person-to-person section."
+  },
+  "splitSettlementRow": "Repayment: {from} paid {to} back",
+  "@splitSettlementRow": {
+    "description": "A repayment's label in the activity list. States the word \"repayment\" explicitly in the copy itself, not only via an icon or colour, so it cannot be misread as another expense.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "splitDeleteSettlementTooltip": "Delete repayment",
+  "@splitDeleteSettlementTooltip": {
+    "description": "Tooltip for a repayment row's delete icon button, shown only to the repayment's creator or payer (design D4) — anyone else would get a 404 from the server."
+  },
+  "splitDeleteSettlementConfirmTitle": "Delete this repayment?",
+  "@splitDeleteSettlementConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a repayment."
+  },
+  "splitDeleteSettlementConfirmMessage": "This removes the {amount} repayment with {name}. This can't be undone.",
+  "@splitDeleteSettlementConfirmMessage": {
+    "description": "Body text of the delete-repayment confirmation dialog — names the other person and the amount (design D4) so the user knows exactly what they are removing before confirming.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitDeleteSettlementConfirmButton": "Delete",
+  "@splitDeleteSettlementConfirmButton": {
+    "description": "Confirm button label in the delete-repayment confirmation dialog."
+  },
+  "splitGroupPersonalBalancesTitle": "Your balance with each member",
+  "@splitGroupPersonalBalancesTitle": {
+    "description": "Heading for the group detail screen's person-to-person balances section (design D8) — distinct from the group balances above: filtered from the caller's two-person balances to this group's members, and each row offers settling."
+  },
+  "splitGroupPersonalBalancesNote": "Spans your shared history everywhere, not only this group.",
+  "@splitGroupPersonalBalancesNote": {
+    "description": "Subtitle clarifying that the person-to-person balances section is not scoped to this group alone (design D8 — the label must be honest about that)."
   }
 }

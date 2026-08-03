@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import 'package:intl/intl.dart';
 
@@ -354,6 +357,223 @@ void main() {
         );
       }
     }
+  });
+
+  group('the split-spending line (design D6, task 6)', () {
+    testWidgets('a month with split shares shows its own line, per currency', (tester) async {
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't1',
+            type: FinanceType.expense,
+            amount: 300,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ]
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+
+      await pumpOverview(tester, repo);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+      expect(find.text('450'), findsOneWidget);
+    });
+
+    testWidgets('the recorded expense total is unaffected by split spending', (tester) async {
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't1',
+            type: FinanceType.expense,
+            amount: 300,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ]
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+
+      await pumpOverview(tester, repo);
+
+      // 300 (the expense total) is unchanged — never 750 (300 + 450).
+      expect(find.text('300'), findsWidgets);
+      expect(find.text('750'), findsNothing);
+    });
+
+    testWidgets('the budget card is unaffected by split spending', (tester) async {
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't1',
+            type: FinanceType.expense,
+            amount: 300,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ]
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 100000)]
+        ..seedBudget(amount: 1000);
+
+      await pumpOverview(tester, repo);
+
+      // The budget's spent/percent come from the backend `FinanceBudget`
+      // (built off `byMonth` only, in the fake) — split spending, even a
+      // huge amount, must not push it into a warning/over state.
+      final loc = lookupAppLocalizations(const Locale('en'));
+      // The absence of the over-label alone would also hold if the budget
+      // card rendered nothing at all — pin the row and the consumed figure,
+      // which must be exactly the recorded 300, not 300 + 100000.
+      expect(find.byKey(const Key('budget-row-total')), findsOneWidget);
+      expect(find.text('300 / 1,000'), findsOneWidget);
+      expect(find.text(loc.financeBudgetOverLabel), findsNothing);
+    });
+
+    testWidgets('a month with no split shares omits the line, rather than showing a zero', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't1',
+            type: FinanceType.expense,
+            amount: 300,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ];
+
+      await pumpOverview(tester, repo);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.financeSplitSpendingTitle), findsNothing);
+    });
+
+    testWidgets(
+      'a month with split shares but no recorded transactions still shows the line, '
+      'despite the empty-month call-to-action',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+
+        await pumpOverview(tester, repo);
+
+        // The empty-month CTA is still there (no transactions)...
+        expect(find.byKey(const Key('finance-empty-title')), findsOneWidget);
+        // ...but the split-spending line survives it.
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+        expect(find.text('450'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the line says it is counted in neither the expense total nor the budget',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ]
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)]
+          ..seedBudget(amount: 1000);
+
+        await pumpOverview(tester, repo);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.byKey(const Key('finance-split-spending-note')), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingNote), findsOneWidget);
+
+        // …and it sits below the recorded totals it is excluded from, not
+        // between the budget card and them, where reading top-to-bottom
+        // suggested it was part of one or the other (design D6).
+        final splitTop = tester.getTopLeft(find.text(loc.financeSplitSpendingTitle)).dy;
+        final expenseTotalTop = tester.getTopLeft(find.text(loc.financeExpenseTotal)).dy;
+        final budgetTop = tester.getTopLeft(find.text(loc.financeBudgetCardTitle)).dy;
+        expect(budgetTop, lessThan(expenseTotalTop));
+        expect(expenseTotalTop, lessThan(splitTop));
+      },
+    );
+
+    testWidgets(
+      'a same-month reload never paints the previous load\'s figure while the new one is '
+      'still in flight',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654)];
+        final controller = testFinanceController(repo);
+        await controller.load('tokA', '2026-07');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) async {},
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('987,654'), findsOneWidget);
+
+        // A second account, same calendar month: the main fetch resolves
+        // (and notifies) while the independent split leg is still in
+        // flight. Whatever is on the controller in that window is what the
+        // overview paints — and it must not be the first account's money.
+        repo.splitSpendingByMonth['2026-07'] = const [];
+        repo.splitSpendingGates['2026-07'] = Completer<void>();
+        final reload = controller.load('tokB', '2026-07');
+        await tester.pumpAndSettle();
+
+        expect(find.text('987,654'), findsNothing);
+
+        repo.splitSpendingGates['2026-07']!.complete();
+        await reload;
+        await tester.pumpAndSettle();
+        expect(find.text('987,654'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a split-spending load failure reports its own error; the rest of the overview stays fine',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ]
+          ..splitSpendingFailNext = const FinanceFetchFailure('boom');
+
+        await pumpOverview(tester, repo);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.byKey(const Key('finance-split-spending-error')), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingLoadFailed), findsOneWidget);
+        // The recorded total still shows normally.
+        expect(find.text('300'), findsWidgets);
+      },
+    );
   });
 
   // Regression: the readable floor was computed from the **authored** font

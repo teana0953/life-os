@@ -5,6 +5,7 @@ import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
@@ -48,6 +49,9 @@ SplitController _controller(FakeSplitRepository repo) => SplitController(
   CreateGroup(repo),
   ListFriends(FakeSocialRepositoryForSplit()),
   GetProfile(FakeProfileRepository()),
+  ListSettlements(repo),
+  CreateSettlement(repo),
+  DeleteSettlement(repo),
 );
 
 Future<void> _pumpSheet(

@@ -4,7 +4,9 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../finance/domain/finance_money.dart';
+import '../domain/settlement.dart';
 import '../domain/split_expense.dart';
+import 'settlement_row.dart';
 import 'split_controller.dart';
 import 'split_expense_row.dart';
 
@@ -25,6 +27,22 @@ class SplitTab extends StatelessWidget {
   /// anyone at all, and not reachable from inside this tab otherwise.
   final VoidCallback onAddFriend;
 
+  /// Opens the settle-up sheet for one currency of a two-person balance
+  /// (design D0–D2). [balanceAmount] is the *signed* balance with
+  /// [otherUserId] — positive means they owe the caller, negative the
+  /// caller owes them — carried through unnegated so the sheet can derive
+  /// the from/to direction itself (design D1); a row that had already
+  /// negated it away could not tell the sheet which way the money goes.
+  final void Function({
+    required String otherUserId,
+    required String? otherDisplayName,
+    required int balanceAmount,
+    required String currency,
+  })
+  onSettleUp;
+
+  final void Function(Settlement settlement) onDeleteSettlement;
+
   const SplitTab({
     super.key,
     required this.controller,
@@ -34,6 +52,8 @@ class SplitTab extends StatelessWidget {
     required this.onCreateGroup,
     required this.onEditExpense,
     required this.onAddFriend,
+    required this.onSettleUp,
+    required this.onDeleteSettlement,
   });
 
   @override
@@ -74,15 +94,26 @@ class SplitTab extends StatelessWidget {
           final name = balance.displayName ?? loc.splitUnknownMember;
           for (final cb in balance.balances) {
             if (cb.amount > 0) {
-              owedToMe.add(_BalanceRow(name, cb.currency, cb.amount));
+              owedToMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount));
             } else if (cb.amount < 0) {
-              owedByMe.add(_BalanceRow(name, cb.currency, -cb.amount));
+              owedByMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount));
             }
           }
         }
 
+        // The recent-activity list combines expenses and repayments (design
+        // D5 — repayments must appear alongside expenses, distinguishably),
+        // most recent day first.
+        final activity = <_ActivityEntry>[
+          for (final expense in controller.expenses) _ActivityEntry.expense(expense),
+          for (final settlement in controller.settlements) _ActivityEntry.settlement(settlement),
+        ]..sort((a, b) => b.day.compareTo(a.day));
+
         final isEmpty =
-            controller.balances.isEmpty && controller.groups.isEmpty && controller.expenses.isEmpty;
+            controller.balances.isEmpty &&
+            controller.groups.isEmpty &&
+            controller.expenses.isEmpty &&
+            controller.settlements.isEmpty;
 
         return SafeArea(
           child: Center(
@@ -125,8 +156,9 @@ class SplitTab extends StatelessWidget {
                         keyPrefix: 'split-owed-to-me',
                         rowText: (r) => loc.splitOwedToMeRow(
                           r.name,
-                          formatMinorUnitsForDisplay(r.amount, r.currency),
+                          formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
                         ),
+                        onSettleUp: onSettleUp,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -138,8 +170,9 @@ class SplitTab extends StatelessWidget {
                         keyPrefix: 'split-owed-by-me',
                         rowText: (r) => loc.splitOwedByMeRow(
                           r.name,
-                          formatMinorUnitsForDisplay(r.amount, r.currency),
+                          formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
                         ),
+                        onSettleUp: onSettleUp,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -179,25 +212,35 @@ class SplitTab extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: 20),
-                    Text(loc.splitSectionRecentExpenses, style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      loc.splitSectionRecentActivity,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 8),
-                    if (controller.expenses.isEmpty)
+                    if (activity.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(loc.splitNoExpensesYet, key: const Key('split-no-expenses')),
+                        child: Text(loc.splitNoActivityYet, key: const Key('split-no-activity')),
                       )
                     else
                       LedgeCard(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
                           children: [
-                            for (final expense in controller.expenses)
-                              SplitExpenseRow(
-                                expense: expense,
-                                selfUserId: controller.selfUserId,
-                                keyPrefix: 'split-expense',
-                                onEdit: () => onEditExpense(expense),
-                              ),
+                            for (final entry in activity)
+                              entry.expense != null
+                                  ? SplitExpenseRow(
+                                      expense: entry.expense!,
+                                      selfUserId: controller.selfUserId,
+                                      keyPrefix: 'split-expense',
+                                      onEdit: () => onEditExpense(entry.expense!),
+                                    )
+                                  : SettlementRow(
+                                      settlement: entry.settlement!,
+                                      selfUserId: controller.selfUserId,
+                                      keyPrefix: 'split-settlement',
+                                      onDelete: () => onDeleteSettlement(entry.settlement!),
+                                    ),
                           ],
                         ),
                       ),
@@ -212,22 +255,42 @@ class SplitTab extends StatelessWidget {
   }
 }
 
+/// One counterpart's balance in one currency. [amount] is carried *signed*
+/// (positive = owed to the caller, negative = the caller owes) rather than
+/// pre-negated for display — `split_expense_sheet.dart`'s predecessor
+/// negated `owedByMe` before this row ever saw it, which made the row's own
+/// value always positive and left it unable to tell `SettleUpSheet` which
+/// direction the money goes (design.md task 5).
 class _BalanceRow {
+  final String userId;
   final String name;
   final String currency;
   final int amount;
-  const _BalanceRow(this.name, this.currency, this.amount);
+  const _BalanceRow(this.userId, this.name, this.currency, this.amount);
 }
 
 class _BalanceCard extends StatelessWidget {
   final List<_BalanceRow> rows;
   final String keyPrefix;
   final String Function(_BalanceRow) rowText;
+  final void Function({
+    required String otherUserId,
+    required String? otherDisplayName,
+    required int balanceAmount,
+    required String currency,
+  })
+  onSettleUp;
 
-  const _BalanceCard({required this.rows, required this.keyPrefix, required this.rowText});
+  const _BalanceCard({
+    required this.rows,
+    required this.keyPrefix,
+    required this.rowText,
+    required this.onSettleUp,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return LedgeCard(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
       child: Column(
@@ -235,13 +298,46 @@ class _BalanceCard extends StatelessWidget {
           for (var i = 0; i < rows.length; i++)
             Padding(
               key: Key('$keyPrefix-$i'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Align(alignment: Alignment.centerLeft, child: Text(rowText(rows[i]))),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: Align(alignment: Alignment.centerLeft, child: Text(rowText(rows[i])))),
+                  IconButton(
+                    key: Key('$keyPrefix-settle-$i'),
+                    tooltip: loc.splitSettleUpTooltip,
+                    icon: const Icon(Icons.handshake_outlined),
+                    onPressed: () => onSettleUp(
+                      otherUserId: rows[i].userId,
+                      otherDisplayName: rows[i].name,
+                      balanceAmount: rows[i].amount,
+                      currency: rows[i].currency,
+                    ),
+                  ),
+                ],
+              ),
             ),
         ],
       ),
     );
   }
+}
+
+/// One entry in the split tab's combined recent-activity list — either an
+/// expense or a settlement, never both (design.md task 5.1). A sealed-ish
+/// pair of nullable fields rather than a class hierarchy: the list is built
+/// and sorted in one place ([SplitTab.build]) and this only needs to carry
+/// enough to render the right row and sort by day.
+class _ActivityEntry {
+  final SplitExpense? expense;
+  final Settlement? settlement;
+
+  const _ActivityEntry._(this.expense, this.settlement);
+
+  factory _ActivityEntry.expense(SplitExpense expense) => _ActivityEntry._(expense, null);
+
+  factory _ActivityEntry.settlement(Settlement settlement) => _ActivityEntry._(null, settlement);
+
+  String get day => expense?.day ?? settlement!.day;
 }
 
 class _EmptyState extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../domain/balance.dart';
 import '../domain/group_member.dart';
+import '../domain/settlement.dart';
 import '../domain/split_exceptions.dart';
 import '../domain/split_expense.dart';
 import '../domain/split_group.dart';
@@ -97,6 +98,8 @@ class HttpSplitRepository implements SplitRepository {
           throw InvalidSplitInput(_errorMessage(response) ?? '');
         case 'bad_request':
           throw SplitBadRequest(_errorMessage(response) ?? '');
+        case 'cannot_settle_with_self':
+          throw const CannotSettleWithSelf();
       }
     }
     throw const SplitFetchFailure();
@@ -342,5 +345,69 @@ class HttpSplitRepository implements SplitRepository {
       (json) =>
           (json['balances'] as List).map((e) => Balance.fromJson(e as Map<String, dynamic>)).toList(),
     );
+  }
+
+  @override
+  Future<Settlement> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  }) async {
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/split/settlements'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          if (groupId != null) 'group_id': groupId,
+          'from_user_id': fromUserId,
+          'to_user_id': toUserId,
+          'amount': amount,
+          'currency': currency,
+          'day': day,
+          if (note != null) 'note': note,
+        }),
+      ),
+    );
+    if (response.statusCode != 201) _throwForSplitError(response);
+    return _decode(response, Settlement.fromJson);
+  }
+
+  @override
+  Future<List<Settlement>> listSettlements(
+    String idToken, {
+    String? groupId,
+    String? withUserId,
+  }) async {
+    final queryParameters = {
+      if (groupId != null) 'group_id': groupId,
+      if (withUserId != null) 'with': withUserId,
+    };
+    final uri = queryParameters.isEmpty
+        ? Uri.parse('$baseUrl/api/split/settlements')
+        : Uri.parse('$baseUrl/api/split/settlements').replace(queryParameters: queryParameters);
+    final response = await _send(() => client.get(uri, headers: _headers(idToken)));
+    if (response.statusCode != 200) _throwForSplitError(response);
+    return _decode(
+      response,
+      (json) => (json['settlements'] as List)
+          .map((e) => Settlement.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<void> deleteSettlement(String idToken, String settlementId) async {
+    final response = await _send(
+      () => client.delete(
+        Uri.parse('$baseUrl/api/split/settlements/$settlementId'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForSplitError(response);
   }
 }
