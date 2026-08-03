@@ -93,13 +93,12 @@ its own amount; there is no cross-currency repayment.
   labelled as spanning all their shared history rather than only that group,
   and each such line offers settling
 
-#### Scenario: A group member who is not a friend cannot be settled with yet
+#### Scenario: A group member who is not a friend can still be settled with
 
 - **WHEN** a group member the user is not friends with appears in the
   person-to-person section
-- **THEN** no settle action is offered for them and the reason is stated,
-  because a person-to-person repayment requires friendship — offering an
-  action that can only fail is worse than not offering it
+- **THEN** settling is offered for them like any other member — sharing a
+  group is enough, so a debt that arose through the group is never stranded
 
 #### Scenario: A settled balance disappears
 
