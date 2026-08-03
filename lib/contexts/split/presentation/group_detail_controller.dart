@@ -5,14 +5,17 @@ import '../../social/domain/friend.dart';
 import '../../social/domain/social_exceptions.dart';
 import '../../user/application/get_profile.dart';
 import '../../user/domain/profile_exceptions.dart';
+import '../application/balance_use_cases.dart';
 import '../application/expense_use_cases.dart';
 import '../application/group_use_cases.dart';
+import '../application/settlement_use_cases.dart';
 import '../domain/balance.dart';
 import '../domain/group_member.dart';
 import '../domain/split_exceptions.dart';
 import '../domain/split_expense.dart';
 import '../domain/split_group.dart';
 import '../domain/split_input.dart';
+import 'settlement_writer.dart';
 import 'split_expense_writer.dart';
 
 enum GroupDetailStatus { loading, loaded, error, needsReauth }
@@ -35,7 +38,7 @@ enum GroupDetailError {
 /// (`initState`/`dispose`) — every controller in this context is, per
 /// design.md, to avoid the app-lifetime-singleton leak `NetWorthController`
 /// has to work around with an explicit sign-out reset.
-class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter {
+class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter, SettlementWriter {
   final GetGroup _getGroup;
   final GetGroupBalances _getGroupBalances;
   final ListExpenses _listExpenses;
@@ -46,6 +49,12 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
   final DeleteExpense _deleteExpense;
   final ListFriends _listFriends;
   final GetProfile _getProfile;
+
+  /// The caller's own two-person balances (design D2/D8) — a *different*
+  /// reading from [_getGroupBalances]'s per-member-vs-group figures, used to
+  /// build the group screen's "your balance with each member" section.
+  final GetBalances _getPersonalBalances;
+  final CreateSettlement _createSettlement;
 
   GroupDetailController(
     this._getGroup,
@@ -58,6 +67,8 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
     this._deleteExpense,
     this._listFriends,
     this._getProfile,
+    this._getPersonalBalances,
+    this._createSettlement,
   );
 
   GroupDetailStatus status = GroupDetailStatus.loading;
@@ -78,6 +89,11 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
   /// (design D2 — not the two-person "owed to me" sign convention).
   List<Balance> groupBalances = [];
   List<SplitExpense> expenses = [];
+
+  /// The caller's own two-person balances, filtered by the screen (not
+  /// here) to this group's members (design D8 — "your balance with each
+  /// member", spanning all shared history, not the group balances above).
+  List<Balance> personalBalances = [];
 
   /// The caller's friends, for the add-member picker — narrowed to
   /// non-members by the screen, not here, so this stays a plain mirror of
@@ -130,6 +146,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
         _getGroupBalances(idToken, groupId),
         _listExpenses(idToken, groupId: groupId),
         _listFriends(idToken),
+        _getPersonalBalances(idToken),
       ]);
       final fetched = results[0] as ({SplitGroup group, List<GroupMember> members});
       group = fetched.group;
@@ -137,6 +154,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
       groupBalances = results[1] as List<Balance>;
       expenses = results[2] as List<SplitExpense>;
       friends = results[3] as List<Friend>;
+      personalBalances = results[4] as List<Balance>;
       status = GroupDetailStatus.loaded;
     } on SplitReauthenticationRequired {
       status = GroupDetailStatus.needsReauth;
@@ -216,6 +234,38 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
         await _deleteExpense(idToken, expenseId);
         await load(idToken, group!.id);
       });
+
+  /// Settles a two-person balance with one of this group's members (design
+  /// D8) — reachable from the "your balance with each member" section.
+  /// [groupId] is always sent as `null` regardless of what the caller
+  /// passes, mirroring `SplitController.createSettlement`: settling only
+  /// ever starts from a two-person balance (design D0), never this screen's
+  /// own group-scoped balances. The reload afterwards is scoped to *this*
+  /// screen's group (`group!.id`) purely to refresh what's on screen — it
+  /// does not imply the settlement itself belongs to the group.
+  @override
+  Future<void> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  }) => _mutate(idToken, group!.id, () async {
+    await _createSettlement(
+      idToken,
+      groupId: null,
+      fromUserId: fromUserId,
+      toUserId: toUserId,
+      amount: amount,
+      currency: currency,
+      day: day,
+      note: note,
+    );
+    await load(idToken, group!.id);
+  });
 
   Future<void> _mutate(String idToken, String groupId, Future<void> Function() action) async {
     try {

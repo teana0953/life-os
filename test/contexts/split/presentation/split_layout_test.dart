@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/split_spending.dart';
+import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
+import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_share.dart';
 import 'package:life_os/contexts/split/presentation/group_detail_screen.dart';
+import 'package:life_os/contexts/split/presentation/settle_up_sheet.dart';
+import 'package:life_os/contexts/split/presentation/settlement_writer.dart';
 import 'package:life_os/contexts/split/presentation/split_controller.dart';
 import 'package:life_os/contexts/split/presentation/split_expense_sheet.dart';
 import 'package:life_os/contexts/split/presentation/split_tab.dart';
@@ -99,6 +109,7 @@ SplitController _loadedController({
   List<Balance> balances = const [],
   List<SplitGroup> groups = const [],
   List<SplitExpense> expenses = const [],
+  List<Settlement> settlements = const [],
 }) {
   final repo = FakeSplitRepository();
   return SplitController(
@@ -111,12 +122,16 @@ SplitController _loadedController({
       CreateGroup(repo),
       ListFriends(FakeSocialRepositoryForSplit()),
       GetProfile(FakeProfileRepository()),
+      ListSettlements(repo),
+      CreateSettlement(repo),
+      DeleteSettlement(repo),
     )
     ..status = SplitStatus.loaded
     ..selfUserId = _self
     ..balances = balances
     ..groups = groups
-    ..expenses = expenses;
+    ..expenses = expenses
+    ..settlements = settlements;
 }
 
 Widget _splitTabScreen({required SplitController controller}) => Scaffold(
@@ -128,6 +143,13 @@ Widget _splitTabScreen({required SplitController controller}) => Scaffold(
     onOpenGroup: (_) {},
     onCreateGroup: () {},
     onEditExpense: (_) {},
+    onSettleUp: ({
+      required otherUserId,
+      required otherDisplayName,
+      required balanceAmount,
+      required currency,
+    }) {},
+    onDeleteSettlement: (_) {},
   ),
 );
 
@@ -147,6 +169,8 @@ Widget _groupDetailScreen({
     updateExpense: UpdateExpense(repo),
     deleteExpense: DeleteExpense(repo),
     listFriends: ListFriends(FakeSocialRepositoryForSplit()),
+    getBalances: GetBalances(repo),
+    createSettlement: CreateSettlement(repo),
     getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
     authRepository: _FakeAuthRepository(),
     groupId: 'g1',
@@ -174,6 +198,9 @@ Widget _expenseSheet({
         CreateGroup(repo),
         ListFriends(FakeSocialRepositoryForSplit()),
         GetProfile(FakeProfileRepository()),
+        ListSettlements(repo),
+        CreateSettlement(repo),
+        DeleteSettlement(repo),
       ),
       idToken: 'tok',
       selfUserId: _self,
@@ -206,9 +233,138 @@ Widget _financeScaffold(FakeSplitRepository repo, {Locale locale = const Locale(
         createGroup: CreateGroup(repo),
         listFriends: ListFriends(FakeSocialRepositoryForSplit()),
         getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+        listSettlements: ListSettlements(repo),
+        createSettlement: CreateSettlement(repo),
+        deleteSettlement: DeleteSettlement(repo),
         onOpenGroup: (_, __) async {},
       ),
       clock: () => DateTime(2026, 8, 2),
+    ),
+  );
+}
+
+/// A [SettlementWriter] that never actually submits — for layout guards,
+/// which only care that the sheet lays out cleanly, never tap confirm.
+class _InertSettlementWriter implements SettlementWriter {
+  @override
+  Object? mutationError;
+  @override
+  int mutationErrorSeq = 0;
+
+  @override
+  Future<void> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  }) async {}
+}
+
+Widget _settleUpSheetScreen({Locale locale = const Locale('en')}) => l10nTestApp(
+  locale: locale,
+  home: Scaffold(
+    body: SettleUpSheet(
+      writer: _InertSettlementWriter(),
+      idToken: 'tok',
+      selfUserId: _self,
+      otherUserId: 'u2',
+      otherDisplayName: 'Bo',
+      // Seven-figure amount (task 7.4/design.md's own fixture rule) — 900
+      // sits outside the failure region and could not fail this guard.
+      balanceAmount: _wideAmount,
+      currency: 'TWD',
+      today: '2026-08-02',
+    ),
+  ),
+);
+
+/// The recorded-ledger half of the overview, seeded so the guard below
+/// actually builds it.
+///
+/// The version this replaces seeded split spending *only*, so
+/// `summary.totals`/`summary.byCategory` came back empty, the overview took
+/// its `isEmpty` branch, and `_CurrencyTotalsCard`/`_CategoryBreakdown` — half
+/// the screen the guard names — were never in the tree at all. It could not
+/// fail, and it hid a real overflow in those rows (QA round 2).
+///
+/// What each part of the fixture is for:
+///
+/// * **Two currencies**, so more than one `_CurrencyTotalsCard` is built and
+///   the guard covers the repeated shape rather than a single instance.
+/// * **A seven-figure amount** ([_wideAmount]) on expense, income *and* net,
+///   because those three `_TotalRow`s are what overflowed: below NT$10,000
+///   every one of them lays out cleanly at 320dp/2x whether the row is broken
+///   or not (same failure-region reasoning as [_wideAmount] itself).
+/// * **Three expense categories**, one of them named [_longName], so
+///   `_CategoryBar`'s label-plus-amount row is exercised with a label long
+///   enough to fight the amount for the row — the case that decides whether
+///   the label wraps or the amount is pushed off the edge.
+void _seedOverviewLedger(FakeFinanceRepository repo) {
+  repo.categoriesToReturn = [
+    ...repo.categoriesToReturn,
+    const FinanceCategory(
+      id: 'cat-long',
+      name: _longName,
+      type: FinanceType.expense,
+      icon: 'other',
+      sortOrder: 2,
+      archived: false,
+    ),
+  ];
+  repo.byMonth['2026-08'] = const [
+    FinanceTransaction(
+      id: 't1',
+      type: FinanceType.expense,
+      amount: _wideAmount,
+      currency: 'TWD',
+      categoryId: 'cat-food',
+      date: '2026-08-02',
+    ),
+    FinanceTransaction(
+      id: 't2',
+      type: FinanceType.expense,
+      amount: 456789,
+      currency: 'TWD',
+      categoryId: 'cat-long',
+      date: '2026-08-02',
+    ),
+    FinanceTransaction(
+      id: 't3',
+      type: FinanceType.income,
+      amount: _wideAmount,
+      currency: 'TWD',
+      categoryId: 'cat-salary',
+      date: '2026-08-01',
+    ),
+    FinanceTransaction(
+      id: 't4',
+      type: FinanceType.expense,
+      amount: _wideAmount,
+      currency: 'USD',
+      categoryId: 'cat-transport',
+      date: '2026-08-03',
+    ),
+  ];
+}
+
+Widget _financeOverviewScreen(FakeFinanceRepository repo, {Locale locale = const Locale('en')}) {
+  final controller = testFinanceController(repo);
+  return l10nTestApp(
+    locale: locale,
+    home: Scaffold(
+      body: FutureBuilder<void>(
+        future: controller.load('tok', '2026-08'),
+        builder: (context, snapshot) => FinanceOverviewTab(
+          controller: controller,
+          onSwitchMonth: (_) async {},
+          onAdd: () {},
+          onEditBudgets: () {},
+        ),
+      ),
     ),
   );
 }
@@ -291,6 +447,17 @@ void main() {
                     userId: 'u2',
                     displayName: 'Bo',
                     balances: [CurrencyBalance(currency: 'TWD', amount: 300)],
+                  ),
+                ]
+                // A wide amount here too (design D8's new "your balance with
+                // each member" section, task 5b.5/7.4) — covers the settle
+                // icon sitting next to a seven-figure amount in the same
+                // sweep as the group balances above.
+                ..personalBalancesToReturn = const [
+                  Balance(
+                    userId: 'u2',
+                    displayName: 'Bo',
+                    balances: [CurrencyBalance(currency: 'TWD', amount: _wideAmount)],
                   ),
                 ]
                 ..expensesToReturn = [_expense(groupId: 'g1', amount: _wideAmount)];
@@ -618,5 +785,328 @@ void main() {
       // would catch that.
       expect(find.text(_loc.splitExpensePaidBy('Payer', expected)), findsOneWidget);
     });
+  });
+
+  group('settle-up surfaces: narrow-width layout guard (add-settle-up-ui task 7.4)', () {
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'SettleUpSheet lays out cleanly at ${width.toInt()}dp, textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(_settleUpSheetScreen(locale: locale));
+                await tester.pumpAndSettle();
+              });
+
+              expect(find.byKey(const Key('settle-up-confirm-button')), findsOneWidget);
+              final confirmRect = tester.getRect(find.byKey(const Key('settle-up-confirm-button')));
+              expect(confirmRect.bottom, lessThanOrEqualTo(_phoneHeight));
+            },
+          );
+
+          testWidgets(
+            'the reason a settle-up amount is refused stays readable at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final loc = lookupAppLocalizations(locale);
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(_settleUpSheetScreen(locale: locale));
+                await tester.pumpAndSettle();
+              });
+
+              // TWD has no decimals, so a fractional amount is refused
+              // outright; 2147483648 is one past the backend maximum.
+              for (final (input, message) in [
+                ('450.5', loc.settleUpAmountMustBeWhole),
+                ('2147483648', loc.settleUpAmountTooLarge),
+              ]) {
+                await expectNoLayoutErrors(() async {
+                  await tester.enterText(find.byKey(const Key('settle-up-amount-field')), input);
+                  await tester.pumpAndSettle();
+                });
+
+                // Confirm really is blocked — otherwise the message below is
+                // not the reason for anything.
+                final button = tester.widget<FilledButton>(
+                  find.byKey(const Key('settle-up-confirm-button')),
+                );
+                expect(button.onPressed, isNull);
+
+                // Not "no layout error was raised": these sentences used to
+                // go into the amount field's 120dp `errorText`, whose default
+                // `errorMaxLines: 1` **clips** them — silently, raising
+                // nothing at all, which is why the sweep above was green
+                // while the user faced a dead Confirm with no readable
+                // reason. (Same shape as the nav-bar guard's ellipsis check,
+                // which could never fail either.) Measure the painted
+                // paragraph instead, wherever it is rendered.
+                final finder = find.text(message);
+                expect(finder, findsOneWidget, reason: 'the refusal reason was not painted at all');
+                final paragraph = tester.renderObject<RenderParagraph>(
+                  find.descendant(of: finder, matching: find.byType(RichText)),
+                );
+                expect(
+                  paragraph.didExceedMaxLines,
+                  isFalse,
+                  reason: '"$message" was clipped rather than laid out in full',
+                );
+                final rect = tester.getRect(finder);
+                expect(rect.left, greaterThanOrEqualTo(0));
+                expect(rect.right, lessThanOrEqualTo(width));
+              }
+            },
+          );
+
+          testWidgets(
+            'a repayment row lays out cleanly at ${width.toInt()}dp, textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final controller = _loadedController(
+                settlements: [
+                  Settlement(
+                    id: 's1',
+                    groupId: null,
+                    fromUserId: 'u2',
+                    fromDisplayName: 'Bo',
+                    toUserId: _self,
+                    toDisplayName: 'Self',
+                    amount: _wideAmount,
+                    currency: 'TWD',
+                    day: '2026-08-02',
+                    note: null,
+                    createdByUserId: 'u2',
+                  ),
+                ],
+              );
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  MaterialApp(
+                    locale: locale,
+                    localizationsDelegates: AppLocalizations.localizationsDelegates,
+                    supportedLocales: testSupportedLocales,
+                    home: _splitTabScreen(controller: controller),
+                  ),
+                );
+                await tester.pumpAndSettle();
+                // Below a plain `ListView`'s SliverList cache extent at a
+                // large text scale, the row isn't built into the tree yet —
+                // `scrollUntilVisible` drags incrementally to realize it
+                // (mirrors the group-detail archive-button guard above).
+                await tester.scrollUntilVisible(
+                  find.byKey(const Key('split-settlement-row-s1')),
+                  200,
+                );
+              });
+
+              expect(find.byKey(const Key('split-settlement-row-s1')), findsOneWidget);
+            },
+          );
+
+          testWidgets(
+            'the overview lays out cleanly at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeFinanceRepository()
+                ..splitSpendingByMonth['2026-08'] = [
+                  const SplitSpending(currency: 'TWD', amount: _wideAmount),
+                ];
+              _seedOverviewLedger(repo);
+              final loc = lookupAppLocalizations(locale);
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(_financeOverviewScreen(repo, locale: locale));
+                await tester.pumpAndSettle();
+                // The totals cards, the split-spending card and the category
+                // breakdown sit below the fold at a large text scale, so a
+                // single pump never builds all of them — the sweep has to drag
+                // the whole list past to see every row (same reason as the
+                // repayment-row guard above). Down to the recent-transactions
+                // heading, which is below every card, then back up so the
+                // assertions below have the split-spending card in the tree.
+                await tester.scrollUntilVisible(
+                  find.text(loc.financeRecentTransactions),
+                  200,
+                );
+                await tester.scrollUntilVisible(
+                  find.text(loc.financeSplitSpendingTitle),
+                  -200,
+                );
+              });
+
+              expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+            },
+          );
+        }
+      }
+    }
+
+    // The sweep above cannot see this, and that is the point: a wrapped amount
+    // raises **no** layout error, so `expectNoLayoutErrors` stays green while
+    // `+1,234,567` paints as `+1,234,5` / `67` — two lines, broken
+    // mid-digit-group, reading as two numbers (QA round 3). Same shape as the
+    // refusal-reason and nav-bar-label guards above: "nothing threw" is not a
+    // criterion for anything the renderer degrades silently, so measure the
+    // painted paragraph instead.
+    //
+    // Swept from 320dp, not 360dp. An earlier version of this guard started at
+    // 360 on the premise that "320dp does not fit either shape"; measured, that
+    // was wrong, and skipping 320 is how QA round 4 found the row still broken
+    // at the narrowest width everything else in this file sweeps. The numbers,
+    // textScale 1.0, `bodyLarge`/w700, the amount `-1,234,567`:
+    //
+    //   screen  tile title  amount natural  main (trailing)  shipped shape
+    //   320dp   236.0dp     165.0dp         165.0dp -> 1 ln  165.0dp -> 1 ln
+    //   360dp   276.0dp     165.0dp         165.0dp -> 1 ln  165.0dp -> 1 ln
+    //   375dp   291.0dp     165.0dp         165.0dp -> 1 ln  165.0dp -> 1 ln
+    //   390dp   306.0dp     165.0dp         165.0dp -> 1 ln  165.0dp -> 1 ln
+    //   412dp   328.0dp     165.0dp         165.0dp -> 1 ln  165.0dp -> 1 ln
+    //
+    // The shape between those two — the amount inside a `LabelValueRow`, whose
+    // cap is a fixed 65% of the row — allowed only (236 - 12) * 0.65 = 145.6dp
+    // at 320dp and painted `-1,234,5` / `67`. 390 and 412 are swept even though
+    // they have never failed: the failure region moves with the shape, and the
+    // two rounds that regressed here both did so at a width the then-current
+    // guard had decided could not fail.
+    //
+    // A seven-figure amount is required — anything below NT$100,000 fits at
+    // every width here under every shape tried and could not fail this guard.
+    //
+    // textScale 1.0 only, and that is a measured limit rather than an omission:
+    // at 2.0 the same amount is 325.0dp wide, which exceeds the whole tile title
+    // at every width above (236.0–328.0dp), so no arrangement can keep it on one
+    // line there and an assertion at 2.0 could only be a false one. What 2.0 is
+    // guarded for instead is that the row still *lays out* — the 320/360dp x 2.0
+    // sweep above, which is what the amount-in-`ListTile.trailing` shape used to
+    // fail with "Trailing widget consumes entire tile width".
+    //
+    // Asserted on the *signed* amount, which only `_TransactionRow` paints: the
+    // totals cards and the category breakdown print the same digits unsigned,
+    // so a signed match cannot drift onto some other row and pass there.
+    for (final width in [320.0, 360.0, 375.0, 390.0, 412.0]) {
+      for (final locale in testSupportedLocales) {
+        testWidgets(
+          "the overview's recent-transaction amount stays on one line at "
+          '${width.toInt()}dp, textScale=1.0, locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, 1.0);
+            await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final repo = FakeFinanceRepository();
+            _seedOverviewLedger(repo);
+
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(_financeOverviewScreen(repo, locale: locale));
+              await tester.pumpAndSettle();
+            });
+
+            for (final amount in ['-1,234,567', '+1,234,567']) {
+              final finder = find.text(amount);
+              // The recent-transactions card sits below every other card, so a
+              // single pump never builds it — drag it into the viewport first
+              // (same reason as the repayment-row guard above). Listed in the
+              // order the rows are sorted into (date descending), so each drag
+              // continues downwards rather than scrolling the previous one back
+              // out of the tree.
+              await expectNoLayoutErrors(() async {
+                await tester.scrollUntilVisible(finder, 200);
+              });
+              expect(finder, findsOneWidget, reason: '$amount was not painted at all');
+              expect(
+                paintedTextLineCount(tester, finder),
+                1,
+                reason: '$amount was broken across lines at ${width.toInt()}dp',
+              );
+            }
+          },
+        );
+      }
+    }
+
+    // Swept over the same width x locale x textScale matrix as the other
+    // three settle-up surfaces, and — unlike the version this replaces,
+    // which hand-rebuilt an equivalent `AlertDialog` inside the test body —
+    // driven through the real `FinanceScaffold._confirmDeleteSettlement`, so
+    // a change to the production dialog is something it can actually see.
+    for (final width in [320.0, 360.0]) {
+      for (final locale in testSupportedLocales) {
+        for (final textScale in [1.0, 2.0]) {
+          testWidgets(
+            'the delete-repayment confirmation keeps Cancel and confirm reachable at '
+            '${width.toInt()}dp, textScale=$textScale, locale=$locale',
+            (tester) async {
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeSplitRepository()
+                ..settlementsToReturn = const [
+                  Settlement(
+                    id: 's1',
+                    groupId: null,
+                    fromUserId: _self,
+                    fromDisplayName: 'Self',
+                    toUserId: 'u2',
+                    toDisplayName: _longName,
+                    amount: _wideAmount,
+                    currency: 'TWD',
+                    day: '2026-08-02',
+                    note: null,
+                    createdByUserId: _self,
+                  ),
+                ];
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(_financeScaffold(repo, locale: locale));
+                await tester.pumpAndSettle();
+                await tester.tap(find.byKey(const Key('split-tab')));
+                await tester.pumpAndSettle();
+                // Below a plain `ListView`'s SliverList cache extent at a
+                // large text scale, the row isn't built into the tree yet
+                // (mirrors the repayment-row guard above).
+                await tester.scrollUntilVisible(
+                  find.byKey(const Key('split-settlement-delete-s1')),
+                  200,
+                );
+                // `scrollUntilVisible` stops as soon as the row's Rect
+                // intersects the viewport at all, which can leave the icon's
+                // own centre (what `tap()` targets) still below the fold.
+                await tester.ensureVisible(find.byKey(const Key('split-settlement-delete-s1')));
+                await tester.pumpAndSettle();
+                await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
+                await tester.pumpAndSettle();
+              });
+
+              final cancelRect = tester.getRect(
+                find.byKey(const Key('split-delete-settlement-cancel')),
+              );
+              final confirmRect = tester.getRect(
+                find.byKey(const Key('split-delete-settlement-confirm')),
+              );
+              expect(cancelRect.bottom, lessThanOrEqualTo(_phoneHeight));
+              expect(confirmRect.bottom, lessThanOrEqualTo(_phoneHeight));
+            },
+          );
+        }
+      }
+    }
   });
 }

@@ -3056,6 +3056,24 @@ abstract class AppLocalizations {
   /// **'Recent transactions'**
   String get financeRecentTransactions;
 
+  /// Label for the overview tab's own line showing what the user personally owed on split expenses that month — shown beside, never folded into, the recorded expense total or the budget card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your split spending'**
+  String get financeSplitSpendingTitle;
+
+  /// Subtitle under the overview tab's split-spending card, stating that the figure is excluded from both the recorded expense totals and the budget card — the card sits next to both and is otherwise indistinguishable from a totals card.
+  ///
+  /// In en, this message translates to:
+  /// **'Not counted in the expense totals above, and not counted against your budget.'**
+  String get financeSplitSpendingNote;
+
+  /// Shown in place of the split-spending line when it fails to load; the rest of the overview (recorded totals, budget card) still shows normally.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your split spending'**
+  String get financeSplitSpendingLoadFailed;
+
   /// Section heading above the per-category expense breakdown bars on the overview tab.
   ///
   /// In en, this message translates to:
@@ -4016,6 +4034,12 @@ abstract class AppLocalizations {
   /// **'This couldn\'t be found. It may have been deleted.'**
   String get splitErrorNotFound;
 
+  /// Message for a 400 cannot_settle_with_self response — the payer and the payee of a repayment are the same person.
+  ///
+  /// In en, this message translates to:
+  /// **'You can\'t record a repayment with yourself.'**
+  String get splitErrorCannotSettleWithSelf;
+
   /// Fallback message for a split failure with no more specific mapping.
   ///
   /// In en, this message translates to:
@@ -4034,11 +4058,17 @@ abstract class AppLocalizations {
   /// **'Members'**
   String get splitGroupMembersTitle;
 
-  /// Heading for the group detail screen's per-member balances.
+  /// Heading for the group detail screen's per-member-vs-group balances (design D8). Labelled to say it excludes repayments: this change's repayments are always person-to-person (group_id null), and the group balance only sums group-scoped repayments, so this figure never moves when one is recorded — without the label the group screen would keep showing a debt the split tab shows as settled.
   ///
   /// In en, this message translates to:
-  /// **'Balances'**
+  /// **'Group balances (excludes repayments)'**
   String get splitGroupBalancesTitle;
+
+  /// Subtitle under the group detail screen's per-member balances, spelling out why they never move when a person-to-person repayment is recorded (design D8).
+  ///
+  /// In en, this message translates to:
+  /// **'Excludes repayments — a repayment recorded between two people never changes these figures.'**
+  String get splitGroupBalancesNote;
 
   /// A group balance row for a member who is net owed by the group (design D2 — group balances read differently from the two-person 'owed to me' balance, so this has its own wording).
   ///
@@ -4129,6 +4159,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load this group. Check your connection and try again.'**
   String get splitGroupLoadFailedMessage;
+
+  /// Heading of the settle-up sheet when the caller owes the other person — names them and states the direction so the user need not check which balance row they tapped.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay {name} back'**
+  String settleUpTitlePaying(String name);
+
+  /// Heading of the settle-up sheet when the other person owes the caller.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} pays you back'**
+  String settleUpTitleReceiving(String name);
+
+  /// Label for the settle-up sheet's submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get settleUpConfirmButton;
+
+  /// Shown below the settle-up sheet's amount row when the amount is empty, zero, or negative.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount'**
+  String get settleUpAmountRequired;
+
+  /// Shown below the settle-up sheet's amount row when a fractional value is entered for a currency with no minor-unit decimals (TWD/JPY/KRW) — refused explicitly rather than silently rounded. Full-width, not inside the 120dp amount field, which would clip it.
+  ///
+  /// In en, this message translates to:
+  /// **'This currency doesn\'t use decimals — enter a whole number'**
+  String get settleUpAmountMustBeWhole;
+
+  /// Shown below the settle-up sheet's amount row when the amount exceeds the backend's maximum (a signed 32-bit int).
+  ///
+  /// In en, this message translates to:
+  /// **'This amount is too large'**
+  String get settleUpAmountTooLarge;
+
+  /// Warning shown before submitting when the caller is paying the other person and types more than the full outstanding amount — states the consequence (the direction flips) rather than a generic 'amount is large' message.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will end up owing you {amount}'**
+  String settleUpOverpayWarningTheyWillOwe(String name, String amount);
+
+  /// Warning shown before submitting when the caller is recording the other person paying and types more than the full outstanding amount — the opposite direction from settleUpOverpayWarningTheyWillOwe, since one fixed sentence would be wrong half the time.
+  ///
+  /// In en, this message translates to:
+  /// **'You will end up owing {name} {amount}'**
+  String settleUpOverpayWarningYouWillOwe(String name, String amount);
+
+  /// Section heading above the split tab's combined list of expenses and repayments — replaces the expenses-only heading now that repayments appear alongside expenses in the same list.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get splitSectionRecentActivity;
+
+  /// Shown under the recent-activity heading when there are no expenses and no repayments.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses or repayments yet'**
+  String get splitNoActivityYet;
+
+  /// Tooltip for the settle-up icon button on a two-person balance row, on the split tab and on a group's person-to-person section.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle up'**
+  String get splitSettleUpTooltip;
+
+  /// A repayment's label in the activity list. States the word "repayment" explicitly in the copy itself, not only via an icon or colour, so it cannot be misread as another expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Repayment: {from} paid {to} back'**
+  String splitSettlementRow(String from, String to);
+
+  /// Tooltip for a repayment row's delete icon button, shown only to the repayment's creator or payer (design D4) — anyone else would get a 404 from the server.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete repayment'**
+  String get splitDeleteSettlementTooltip;
+
+  /// Title of the confirmation dialog shown before deleting a repayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this repayment?'**
+  String get splitDeleteSettlementConfirmTitle;
+
+  /// Body text of the delete-repayment confirmation dialog — names the other person and the amount (design D4) so the user knows exactly what they are removing before confirming.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the {amount} repayment with {name}. This can\'t be undone.'**
+  String splitDeleteSettlementConfirmMessage(String name, String amount);
+
+  /// Confirm button label in the delete-repayment confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get splitDeleteSettlementConfirmButton;
+
+  /// Heading for the group detail screen's person-to-person balances section (design D8) — distinct from the group balances above: filtered from the caller's two-person balances to this group's members, and each row offers settling.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance with each member'**
+  String get splitGroupPersonalBalancesTitle;
+
+  /// Subtitle clarifying that the person-to-person balances section is not scoped to this group alone (design D8 — the label must be honest about that).
+  ///
+  /// In en, this message translates to:
+  /// **'Spans your shared history everywhere, not only this group.'**
+  String get splitGroupPersonalBalancesNote;
 }
 
 class _AppLocalizationsDelegate

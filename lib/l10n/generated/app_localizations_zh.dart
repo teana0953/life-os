@@ -1594,6 +1594,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeRecentTransactions => '最近交易';
 
   @override
+  String get financeSplitSpendingTitle => '你的分帳自付額';
+
+  @override
+  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+
+  @override
+  String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
+
+  @override
   String get financeCategoryBreakdown => '分類統計';
 
   @override
@@ -2113,6 +2122,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get splitErrorNotFound => '找不到這筆資料,可能已被刪除。';
 
   @override
+  String get splitErrorCannotSettleWithSelf => '不能記錄跟自己的還款。';
+
+  @override
   String get splitErrorGeneric => '發生錯誤,請再試一次。';
 
   @override
@@ -2122,7 +2134,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get splitGroupMembersTitle => '成員';
 
   @override
-  String get splitGroupBalancesTitle => '餘額';
+  String get splitGroupBalancesTitle => '分帳淨額(不含還款)';
+
+  @override
+  String get splitGroupBalancesNote => '不含還款——雙人結清不會改變這個數字。';
 
   @override
   String splitGroupBalanceShouldCollect(String name, String amount) {
@@ -2175,6 +2190,72 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get splitGroupLoadFailedMessage => '無法載入這個群組,請檢查網路連線後再試一次。';
+
+  @override
+  String settleUpTitlePaying(String name) {
+    return '還給 $name';
+  }
+
+  @override
+  String settleUpTitleReceiving(String name) {
+    return '$name 還你';
+  }
+
+  @override
+  String get settleUpConfirmButton => '確認';
+
+  @override
+  String get settleUpAmountRequired => '請輸入金額';
+
+  @override
+  String get settleUpAmountMustBeWhole => '這個幣別沒有小數,請輸入整數';
+
+  @override
+  String get settleUpAmountTooLarge => '金額太大';
+
+  @override
+  String settleUpOverpayWarningTheyWillOwe(String name, String amount) {
+    return '$name 會變成欠你 $amount';
+  }
+
+  @override
+  String settleUpOverpayWarningYouWillOwe(String name, String amount) {
+    return '你會變成欠 $name $amount';
+  }
+
+  @override
+  String get splitSectionRecentActivity => '近期動態';
+
+  @override
+  String get splitNoActivityYet => '還沒有支出或還款';
+
+  @override
+  String get splitSettleUpTooltip => '結清';
+
+  @override
+  String splitSettlementRow(String from, String to) {
+    return '還款:$from 還給 $to';
+  }
+
+  @override
+  String get splitDeleteSettlementTooltip => '刪除還款';
+
+  @override
+  String get splitDeleteSettlementConfirmTitle => '刪除這筆還款?';
+
+  @override
+  String splitDeleteSettlementConfirmMessage(String name, String amount) {
+    return '這會刪除與 $name 的 $amount 還款紀錄,無法復原。';
+  }
+
+  @override
+  String get splitDeleteSettlementConfirmButton => '刪除';
+
+  @override
+  String get splitGroupPersonalBalancesTitle => '我與各成員的往來';
+
+  @override
+  String get splitGroupPersonalBalancesNote => '涵蓋你們所有的共同紀錄,不只這個群組。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3767,6 +3848,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeRecentTransactions => '最近交易';
 
   @override
+  String get financeSplitSpendingTitle => '你的分帳自付額';
+
+  @override
+  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+
+  @override
+  String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
+
+  @override
   String get financeCategoryBreakdown => '分類統計';
 
   @override
@@ -4286,6 +4376,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get splitErrorNotFound => '找不到這筆資料,可能已被刪除。';
 
   @override
+  String get splitErrorCannotSettleWithSelf => '不能記錄跟自己的還款。';
+
+  @override
   String get splitErrorGeneric => '發生錯誤,請再試一次。';
 
   @override
@@ -4295,7 +4388,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get splitGroupMembersTitle => '成員';
 
   @override
-  String get splitGroupBalancesTitle => '餘額';
+  String get splitGroupBalancesTitle => '分帳淨額(不含還款)';
+
+  @override
+  String get splitGroupBalancesNote => '不含還款——雙人結清不會改變這個數字。';
 
   @override
   String splitGroupBalanceShouldCollect(String name, String amount) {
@@ -4348,4 +4444,70 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get splitGroupLoadFailedMessage => '無法載入這個群組,請檢查網路連線後再試一次。';
+
+  @override
+  String settleUpTitlePaying(String name) {
+    return '還給 $name';
+  }
+
+  @override
+  String settleUpTitleReceiving(String name) {
+    return '$name 還你';
+  }
+
+  @override
+  String get settleUpConfirmButton => '確認';
+
+  @override
+  String get settleUpAmountRequired => '請輸入金額';
+
+  @override
+  String get settleUpAmountMustBeWhole => '這個幣別沒有小數,請輸入整數';
+
+  @override
+  String get settleUpAmountTooLarge => '金額太大';
+
+  @override
+  String settleUpOverpayWarningTheyWillOwe(String name, String amount) {
+    return '$name 會變成欠你 $amount';
+  }
+
+  @override
+  String settleUpOverpayWarningYouWillOwe(String name, String amount) {
+    return '你會變成欠 $name $amount';
+  }
+
+  @override
+  String get splitSectionRecentActivity => '近期動態';
+
+  @override
+  String get splitNoActivityYet => '還沒有支出或還款';
+
+  @override
+  String get splitSettleUpTooltip => '結清';
+
+  @override
+  String splitSettlementRow(String from, String to) {
+    return '還款:$from 還給 $to';
+  }
+
+  @override
+  String get splitDeleteSettlementTooltip => '刪除還款';
+
+  @override
+  String get splitDeleteSettlementConfirmTitle => '刪除這筆還款?';
+
+  @override
+  String splitDeleteSettlementConfirmMessage(String name, String amount) {
+    return '這會刪除與 $name 的 $amount 還款紀錄,無法復原。';
+  }
+
+  @override
+  String get splitDeleteSettlementConfirmButton => '刪除';
+
+  @override
+  String get splitGroupPersonalBalancesTitle => '我與各成員的往來';
+
+  @override
+  String get splitGroupPersonalBalancesNote => '涵蓋你們所有的共同紀錄,不只這個群組。';
 }

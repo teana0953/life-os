@@ -5,6 +5,7 @@ import 'package:life_os/contexts/finance/application/add_transaction.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
+import 'package:life_os/contexts/finance/application/get_split_spending.dart';
 import 'package:life_os/contexts/finance/application/update_transaction.dart';
 import 'package:life_os/contexts/finance/application/upsert_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
@@ -16,6 +17,7 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 
 /// A controllable in-memory fake: `getSummary` (used as the load's "slow"
@@ -33,6 +35,24 @@ class FakeFinanceRepository implements FinanceRepository {
   /// When set for a month, `listBudgets` for that month awaits the completer
   /// instead of resolving immediately (the budgets race test's slow leg).
   final Map<String, Completer<void>> budgetGates = {};
+
+  /// When set for a month, `getSplitSpending` for that month awaits the
+  /// completer instead of resolving immediately — the split-spending race
+  /// test's slow leg (design D9/finance-ledger-ui "Month switching is
+  /// race-safe" applied to the split-spending line, task 6.1b).
+  final Map<String, Completer<void>> splitSpendingGates = {};
+
+  /// `month -> totals` this fake returns from `getSplitSpending`. Empty
+  /// (the default) for any month not seeded here.
+  final Map<String, List<SplitSpending>> splitSpendingByMonth = {};
+
+  /// Makes the next `getSplitSpending` call throw once. Deliberately
+  /// **separate** from [failNext] above: `getSplitSpending` now runs
+  /// concurrently with the main `getFinanceMonth` fetch (design D9), so
+  /// sharing one flag between them would make whichever call happens to run
+  /// first consume it — silently breaking every existing test that sets
+  /// [failNext] expecting it to fail the *main* fetch.
+  Object? splitSpendingFailNext;
 
   final List<_BudgetDef> _budgetDefs = [];
   int _nextBudgetId = 1;
@@ -301,6 +321,18 @@ class FakeFinanceRepository implements FinanceRepository {
     required String from,
     required String to,
   }) => throw UnimplementedError();
+
+  @override
+  Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async {
+    final gate = splitSpendingGates[month];
+    if (gate != null) await gate.future;
+    if (splitSpendingFailNext != null) {
+      final failure = splitSpendingFailNext!;
+      splitSpendingFailNext = null;
+      throw failure;
+    }
+    return splitSpendingByMonth[month] ?? const [];
+  }
 }
 
 /// An overall (`categoryId` `null`) or category budget definition — recurring
@@ -320,6 +352,7 @@ FinanceController _controller(FakeFinanceRepository repo) => FinanceController(
   DeleteTransaction(repo),
   UpsertBudget(repo),
   DeleteBudget(repo),
+  GetSplitSpending(repo),
 );
 
 void main() {
@@ -458,7 +491,12 @@ void main() {
 
         repo.gates['2026-08']!.complete();
         await future;
-        expect(notifyCount, 2);
+        // 3, not 2: the split-spending line now loads independently (design
+        // D9, task 6) and notifies on its own resolution — in addition to
+        // the `notifyOnStart` notify and `load`'s own final notify — since
+        // it must never be silently folded into the main fetch's single
+        // notification.
+        expect(notifyCount, 3);
       },
     );
 
@@ -513,6 +551,136 @@ void main() {
 
         expect(controller.selectedMonth, '2026-08');
         expect(controller.budgets, hasLength(1));
+      },
+    );
+  });
+
+  group('split spending (design D6/D9, task 6)', () {
+    test('a month with split shares loads them', () async {
+      final repo = FakeFinanceRepository()
+        ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+      final controller = _controller(repo);
+
+      await controller.load('tok', '2026-08');
+
+      expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+      expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900)]);
+    });
+
+    test('a month with no split shares loads an empty list, not a zero row', () async {
+      final repo = FakeFinanceRepository();
+      final controller = _controller(repo);
+
+      await controller.load('tok', '2026-08');
+
+      expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+      expect(controller.splitSpending, isEmpty);
+    });
+
+    test(
+      'a split-spending failure does not blank the rest of the month — status stays loaded',
+      () async {
+        final repo = FakeFinanceRepository()..splitSpendingFailNext = const FinanceFetchFailure('boom');
+        final controller = _controller(repo);
+
+        await controller.load('tok', '2026-08');
+
+        // The month's own recorded data loaded fine.
+        expect(controller.status, FinanceStatus.loaded);
+        expect(controller.error, isNull);
+        // Only the split-spending line reports its own failure.
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.error);
+      },
+    );
+
+    test(
+      'a main-fetch failure does not stop the split-spending line from loading successfully',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..failNext = const FinanceFetchFailure('boom')
+          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+        final controller = _controller(repo);
+
+        await controller.load('tok', '2026-08');
+
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900)]);
+      },
+    );
+
+    test('switching months clears the previous month\'s split-spending value', () async {
+      final repo = FakeFinanceRepository()
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+      final controller = _controller(repo);
+      await controller.load('tok', '2026-07');
+      expect(controller.splitSpending, isNotEmpty);
+
+      repo.splitSpendingGates['2026-08'] = Completer<void>();
+      final future = controller.load('tok', '2026-08');
+
+      // Cleared synchronously on the month switch, before the new month's
+      // response has even arrived — the same guard `summary`/`transactions`
+      // get.
+      expect(controller.splitSpending, isEmpty);
+
+      repo.splitSpendingGates['2026-08']!.complete();
+      await future;
+    });
+
+    test(
+      "reloading the SAME month clears the previous load's split-spending value too, so a "
+      "second account never sees the first one's figures",
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654)];
+        final controller = _controller(repo);
+        await controller.load('tokA', '2026-07');
+        expect(controller.splitSpending, isNotEmpty);
+
+        // The second account signs in within the same calendar month, so
+        // `isMonthChange` is false. Its split leg is still in flight while
+        // the (independent) main fetch resolves and flips `status` to
+        // `loaded` — the window in which the overview paints whatever is on
+        // this field.
+        repo.splitSpendingByMonth['2026-07'] = const [];
+        repo.splitSpendingGates['2026-07'] = Completer<void>();
+        final future = controller.load('tokB', '2026-07');
+
+        expect(controller.splitSpending, isEmpty);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loading);
+
+        repo.splitSpendingGates['2026-07']!.complete();
+        await future;
+
+        expect(controller.splitSpending, isEmpty);
+      },
+    );
+
+    test(
+      'a slow response for a month the user has since switched away from is discarded '
+      '(month-switching race guard, task 6.1b)',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 111)]
+          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 222)];
+        final controller = _controller(repo);
+
+        repo.splitSpendingGates['2026-07'] = Completer<void>();
+        final julyFuture = controller.load('tok', '2026-07');
+        final augustFuture = controller.load('tok', '2026-08');
+        await augustFuture;
+
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222)]);
+
+        // The stale July response now lands late — it must not clobber
+        // August's already-shown value.
+        repo.splitSpendingGates['2026-07']!.complete();
+        await julyFuture;
+
+        expect(controller.selectedMonth, '2026-08');
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222)]);
       },
     );
   });

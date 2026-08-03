@@ -79,3 +79,13 @@ class SplitBadRequest implements Exception {
   final String message;
   const SplitBadRequest(this.message);
 }
+
+/// Thrown for `400 cannot_settle_with_self`. Unreachable from today's two
+/// entry points — the settle form's direction is always derived from a
+/// balance with someone else, never the caller themselves — but it still
+/// gets its own sentence in [splitErrorText] (the split-ui spec lists it
+/// among the failures that each produce their own message), pinned by a
+/// mapping test rather than a UI test that could never fail.
+class CannotSettleWithSelf implements Exception {
+  const CannotSettleWithSelf();
+}

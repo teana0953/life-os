@@ -5,6 +5,7 @@ import 'finance_type.dart';
 import 'monthly_summary.dart';
 import 'networth_account.dart';
 import 'networth_snapshot.dart';
+import 'split_spending.dart';
 
 /// Port covering transactions, categories, and the monthly summary — a
 /// single port for the whole finance ledger slice (design.md: YAGNI, no
@@ -93,4 +94,9 @@ abstract class FinanceRepository {
     required String from,
     required String to,
   });
+
+  /// [month] is `YYYY-MM`. The caller's own split-expense spending that
+  /// month, per currency (design D6) — a month with no split shares returns
+  /// an empty list, not a zero row per currency.
+  Future<List<SplitSpending>> getSplitSpending(String idToken, String month);
 }

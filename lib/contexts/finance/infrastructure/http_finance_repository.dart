@@ -11,6 +11,7 @@ import '../domain/finance_type.dart';
 import '../domain/monthly_summary.dart';
 import '../domain/networth_account.dart';
 import '../domain/networth_snapshot.dart';
+import '../domain/split_spending.dart';
 
 /// [FinanceRepository] driven adapter backed by the `/api/finance/*` HTTP
 /// endpoints (contract frozen in design.md).
@@ -380,6 +381,23 @@ class HttpFinanceRepository implements FinanceRepository {
       response,
       (json) => (json['points'] as List)
           .map((e) => NetWorthTrendPoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/split-spending?month=$month'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(
+      response,
+      (json) => (json['totals'] as List)
+          .map((e) => SplitSpending.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

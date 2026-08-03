@@ -8,12 +8,15 @@ import '../../auth/domain/auth_repository.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../social/application/friend_use_cases.dart';
 import '../../user/application/get_profile.dart';
+import '../application/balance_use_cases.dart';
 import '../application/expense_use_cases.dart';
 import '../application/group_use_cases.dart';
+import '../application/settlement_use_cases.dart';
 import '../domain/balance.dart';
 import '../domain/split_expense.dart';
 import '../domain/split_group.dart';
 import 'group_detail_controller.dart';
+import 'settle_up_sheet.dart';
 import 'split_error_text.dart';
 import 'split_expense_row.dart';
 import 'split_expense_sheet.dart';
@@ -37,6 +40,12 @@ class GroupDetailScreen extends StatefulWidget {
   final DeleteExpense deleteExpense;
   final ListFriends listFriends;
 
+  /// The caller's own two-person balances (design D8) — `splitGetBalances`
+  /// in `main.dart`, already a field on `App`; this screen filters it to
+  /// this group's members for the "your balance with each member" section.
+  final GetBalances getBalances;
+  final CreateSettlement createSettlement;
+
   /// Resolves the caller's own user id (design D5c). This screen fetches it
   /// itself rather than taking it from the URL: it is reachable by a
   /// bookmarked/shared/hand-edited link, and every gate here is decided by
@@ -59,6 +68,8 @@ class GroupDetailScreen extends StatefulWidget {
     required this.updateExpense,
     required this.deleteExpense,
     required this.listFriends,
+    required this.getBalances,
+    required this.createSettlement,
     required this.getProfile,
     required this.authRepository,
     required this.groupId,
@@ -87,6 +98,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       widget.deleteExpense,
       widget.listFriends,
       widget.getProfile,
+      widget.getBalances,
+      widget.createSettlement,
     );
     _controller.addListener(_onChanged);
     _load();
@@ -171,6 +184,38 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           Navigator.of(context).pop();
           context.push('/friends');
         },
+      ),
+    );
+  }
+
+  /// Opens the settle-up sheet for one currency of a two-person balance with
+  /// one of this group's members (design D8). `_controller` implements
+  /// `SettlementWriter` and reloads itself on success (mirrors
+  /// `FinanceScaffold._openSettleUpSheet`), so nothing further is needed on
+  /// return.
+  Future<void> _openSettleUpSheet({
+    required String otherUserId,
+    required String? otherDisplayName,
+    required int balanceAmount,
+    required String currency,
+  }) async {
+    final idToken = _idToken;
+    final selfUserId = _controller.selfUserId;
+    if (idToken == null || selfUserId == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => SettleUpSheet(
+        writer: _controller,
+        idToken: idToken,
+        selfUserId: selfUserId,
+        otherUserId: otherUserId,
+        otherDisplayName: otherDisplayName,
+        balanceAmount: balanceAmount,
+        currency: currency,
+        today: dayString(widget.clock()),
       ),
     );
   }
@@ -365,8 +410,29 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(loc.splitGroupBalancesTitle, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  loc.splitGroupBalancesNote,
+                  key: const Key('split-group-balances-note'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 _GroupBalancesCard(balances: _controller.groupBalances),
+                const SizedBox(height: 20),
+                Text(
+                  loc.splitGroupPersonalBalancesTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                Text(
+                  loc.splitGroupPersonalBalancesNote,
+                  key: const Key('split-group-personal-balances-note'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                _PersonalBalancesCard(
+                  balances: _controller.personalBalances,
+                  memberIds: _controller.members.map((m) => m.userId).where((id) => id != selfUserId).toSet(),
+                  onSettleUp: _openSettleUpSheet,
+                ),
                 const SizedBox(height: 20),
                 Text(loc.splitGroupExpensesTitle, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
@@ -411,6 +477,98 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               onPressed: () => _openExpenseSheet(),
               child: const Icon(Icons.add),
             ),
+    );
+  }
+}
+
+/// "Your balance with each member" (design D8) — the caller's own two-person
+/// balances ([balances], from `GetBalances`, the same signed convention as
+/// the split tab), filtered to [memberIds]. **Not** the same figures as
+/// [_GroupBalancesCard] above: those are each member's net against the
+/// whole group and never move when a repayment is recorded, while these are
+/// settle-able (design D8's "no friendship gate" — every row here gets a
+/// settle action regardless of whether the member is a friend, since a
+/// shared group is enough, per backend PR #70).
+class _PersonalBalancesCard extends StatelessWidget {
+  final List<Balance> balances;
+  final Set<String> memberIds;
+  final void Function({
+    required String otherUserId,
+    required String? otherDisplayName,
+    required int balanceAmount,
+    required String currency,
+  })
+  onSettleUp;
+
+  const _PersonalBalancesCard({
+    required this.balances,
+    required this.memberIds,
+    required this.onSettleUp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final rows = <(String userId, String name, String currency, int amount)>[];
+    for (final balance in balances) {
+      if (!memberIds.contains(balance.userId)) continue;
+      final name = balance.displayName ?? loc.splitUnknownMember;
+      for (final cb in balance.balances) {
+        if (cb.amount == 0) continue;
+        rows.add((balance.userId, name, cb.currency, cb.amount));
+      }
+    }
+    if (rows.isEmpty) {
+      return LedgeCard(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(loc.splitAllSettledUp, key: const Key('split-group-personal-no-balances')),
+        ),
+      );
+    }
+    return LedgeCard(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            Padding(
+              key: Key('split-group-personal-balance-$i'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        rows[i].$4 > 0
+                            ? loc.splitOwedToMeRow(
+                                rows[i].$2,
+                                formatMinorUnitsForDisplay(rows[i].$4.abs(), rows[i].$3),
+                              )
+                            : loc.splitOwedByMeRow(
+                                rows[i].$2,
+                                formatMinorUnitsForDisplay(rows[i].$4.abs(), rows[i].$3),
+                              ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('split-group-personal-settle-$i'),
+                    tooltip: loc.splitSettleUpTooltip,
+                    icon: const Icon(Icons.handshake_outlined),
+                    onPressed: () => onSettleUp(
+                      otherUserId: rows[i].$1,
+                      otherDisplayName: rows[i].$2,
+                      balanceAmount: rows[i].$4,
+                      currency: rows[i].$3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

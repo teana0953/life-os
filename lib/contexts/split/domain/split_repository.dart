@@ -1,5 +1,6 @@
 import 'balance.dart';
 import 'group_member.dart';
+import 'settlement.dart';
 import 'split_expense.dart';
 import 'split_group.dart';
 import 'split_input.dart';
@@ -73,4 +74,29 @@ abstract class SplitRepository {
   /// The caller's signed two-person net against everyone they share an
   /// expense with. Positive means that person owes the caller (design D2).
   Future<List<Balance>> getBalances(String idToken);
+
+  /// Records a repayment. [groupId] is `null` for every settlement this UI
+  /// creates — settling only ever starts from a two-person balance (design
+  /// D0), which is the only place a from/to pair is well-defined.
+  Future<Settlement> createSettlement(
+    String idToken, {
+    String? groupId,
+    required String fromUserId,
+    required String toUserId,
+    required int amount,
+    required String currency,
+    required String day,
+    String? note,
+  });
+
+  Future<List<Settlement>> listSettlements(
+    String idToken, {
+    String? groupId,
+    String? withUserId,
+  });
+
+  /// Only the settlement's creator or its payer (`fromUserId`) may delete
+  /// it; anyone else gets a `404` (never `403` — same visibility rule as
+  /// every other split resource).
+  Future<void> deleteSettlement(String idToken, String settlementId);
 }

@@ -5,6 +5,7 @@ import '../../user/application/get_profile.dart';
 import '../application/balance_use_cases.dart';
 import '../application/expense_use_cases.dart';
 import '../application/group_use_cases.dart';
+import '../application/settlement_use_cases.dart';
 
 /// Everything `FinanceScaffold` needs to wire the 分帳 tab, bundled into one
 /// constructor field.
@@ -27,6 +28,9 @@ class SplitTabDependencies {
   final CreateGroup createGroup;
   final ListFriends listFriends;
   final GetProfile getProfile;
+  final ListSettlements listSettlements;
+  final CreateSettlement createSettlement;
+  final DeleteSettlement deleteSettlement;
 
   /// Navigates to a group's detail screen (design.md task 8.1 — a nested
   /// `/finance/groups/:id` route, wired by `app.dart`) and completes once
@@ -57,6 +61,9 @@ class SplitTabDependencies {
     required this.createGroup,
     required this.listFriends,
     required this.getProfile,
+    required this.listSettlements,
+    required this.createSettlement,
+    required this.deleteSettlement,
     required this.onOpenGroup,
     required this.onAddFriend,
   });
