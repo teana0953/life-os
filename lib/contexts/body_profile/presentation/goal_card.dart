@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -50,11 +51,8 @@ class _GoalCardState extends State<GoalCard> {
 
   Future<void> _openEditSheet() async {
     final profile = widget.controller.profile;
-    final result = await showModalBottomSheet<_GoalEdit>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    final result = await showAppSheet<_GoalEdit>(
+      context,
       builder: (_) => _GoalEditSheet(
         initialHeightCm: profile?.heightCm,
         initialTargetWeightKg: profile?.targetWeightKg,

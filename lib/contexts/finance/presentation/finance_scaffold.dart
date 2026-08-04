@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../split/domain/settlement.dart';
 import '../../split/domain/split_expense.dart';
@@ -191,11 +192,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     final idToken = _idToken;
     final selfUserId = _splitController.selfUserId;
     if (idToken == null || selfUserId == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => SplitExpenseSheet(
         writer: _splitController,
         idToken: idToken,
@@ -229,11 +227,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     final idToken = _idToken;
     final selfUserId = _splitController.selfUserId;
     if (idToken == null || selfUserId == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => SettleUpSheet(
         writer: _splitController,
         idToken: idToken,
@@ -331,16 +326,12 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     for (final value in widget.netWorthController.monthly?.accounts ?? const []) {
       if (value.accountId == account.id) currentValue = value.value;
     }
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      // The drag handle sits outside the sheet's scrollable content, so a
-      // pull-down always closes it. Without it a tall sheet (many accounts)
-      // fills the viewport: the scrim is gone and the drag is swallowed by
-      // the content's own scrolling, leaving the browser back button as the
-      // only exit — which on the PWA unwinds the router stack to the home.
-      showDragHandle: true,
+    // The concrete case behind `showAppSheet`'s drag handle: with many
+    // accounts this sheet fills the viewport, and without the handle the
+    // scrim is gone and the drag is swallowed by the content's own
+    // scrolling.
+    await showAppSheet<void>(
+      context,
       builder: (_) => SnapshotInputSheet(
         controller: widget.netWorthController,
         idToken: idToken,
@@ -353,11 +344,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _openAccountManageSheet() async {
     final idToken = _idToken;
     if (idToken == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => AccountManageSheet(controller: widget.netWorthController, idToken: idToken),
     );
   }
@@ -375,11 +363,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _openSheet({FinanceTransaction? editing}) async {
     final idToken = _idToken;
     if (idToken == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => AddTransactionSheet(
         controller: widget.controller,
         idToken: idToken,
@@ -393,11 +378,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _openBudgetSheet() async {
     final idToken = _idToken;
     if (idToken == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => BudgetSheet(controller: widget.controller, idToken: idToken),
     );
   }

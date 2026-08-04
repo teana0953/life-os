@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -108,15 +109,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
   }
 
   Future<void> _openAddDialog() async {
-    // A modal bottom sheet (not an AlertDialog): with `isScrollControlled` and a
-    // bottom `viewInsets` padding, the sheet lifts above the on-screen keyboard
-    // so the duration/note fields stay visible while typing — an AlertDialog
-    // centred behind the keyboard hid them.
-    final result = await showModalBottomSheet<_NewEntry>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    // A modal bottom sheet (not an AlertDialog): with `showAppSheet`'s
+    // scroll-controlled sheet and a bottom `viewInsets` padding, it lifts
+    // above the on-screen keyboard so the duration/note fields stay visible
+    // while typing — an AlertDialog centred behind the keyboard hid them.
+    final result = await showAppSheet<_NewEntry>(
+      context,
       builder: (_) => _AddExerciseSheet(activities: widget.controller.activities),
     );
     if (result == null) return;

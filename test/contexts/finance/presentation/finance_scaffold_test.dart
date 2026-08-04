@@ -20,6 +20,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/sheet_finders.dart';
 import '../../split/support/fake_split_repository.dart';
 import '../../split/support/split_presentation_fakes.dart';
 import '../finance_test_support.dart';
@@ -60,38 +61,6 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signUp(String email, String password) async {}
-}
-
-/// Locates the drag handle Flutter renders for `showModalBottomSheet(
-/// showDragHandle: true)`. The handle itself is the SDK-private `_DragHandle`
-/// widget (`material/bottom_sheet.dart`), so it is matched structurally by what
-/// it uniquely renders: a 48x48 `Semantics` **button** labelled with the
-/// modal-barrier dismiss label, *inside* the sheet. Without `showDragHandle`
-/// the sheet's child is the builder's content alone and nothing matches.
-Finder _dragHandleIn(WidgetTester tester, Finder sheet) {
-  final label = MaterialLocalizations.of(
-    tester.element(sheet),
-  ).modalBarrierDismissLabel;
-  return find.descendant(
-    of: sheet,
-    matching: find.byWidgetPredicate(
-      (widget) =>
-          widget is Semantics &&
-          widget.properties.button == true &&
-          widget.properties.label == label,
-    ),
-  );
-}
-
-/// Asserts the currently open bottom sheet has a working drag handle — the
-/// only close affordance left when a tall sheet fills the viewport.
-void _expectSheetHasDragHandle(WidgetTester tester) {
-  final sheet = find.byType(BottomSheet);
-  expect(sheet, findsOneWidget);
-  final handle = _dragHandleIn(tester, sheet);
-  expect(handle, findsOneWidget);
-  // The handle's interactive area, i.e. the region a pull-down can grab.
-  expect(tester.getSize(handle), const Size(48, 48));
 }
 
 void main() {
@@ -304,7 +273,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('amount-field')), findsOneWidget);
-        _expectSheetHasDragHandle(tester);
+        expectSheetHasDragHandle(tester);
       });
 
       testWidgets('the budget sheet', (tester) async {
@@ -314,7 +283,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('budget-sheet-save')), findsOneWidget);
-        _expectSheetHasDragHandle(tester);
+        expectSheetHasDragHandle(tester);
       });
 
       testWidgets('the snapshot sheet', (tester) async {
@@ -329,7 +298,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('snapshot-field')), findsOneWidget);
-        _expectSheetHasDragHandle(tester);
+        expectSheetHasDragHandle(tester);
       });
 
       testWidgets('the account management sheet', (tester) async {
@@ -341,7 +310,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('account-add-name')), findsOneWidget);
-        _expectSheetHasDragHandle(tester);
+        expectSheetHasDragHandle(tester);
       });
 
       /// Enough accounts that the management sheet's content is taller than the
@@ -396,7 +365,7 @@ void main() {
       ) async {
         final sheet = await openTallAccountSheet(tester);
 
-        await tester.drag(_dragHandleIn(tester, sheet), const Offset(0, 500));
+        await tester.drag(dragHandleIn(tester, sheet), const Offset(0, 500));
         await tester.pumpAndSettle();
 
         expect(find.byType(BottomSheet), findsNothing);
