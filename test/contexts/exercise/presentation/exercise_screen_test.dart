@@ -107,6 +107,7 @@ Future<ExerciseController> _pumpScreen(
         idToken: 'token',
         day: day,
         clock: _clock,
+        onSignInAgain: () {},
       ),
     ),
   );
@@ -240,6 +241,7 @@ void main() {
             idToken: 'token',
             day: '2026-07-18',
             clock: _clock,
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -275,6 +277,7 @@ void main() {
                         idToken: 'token',
                         day: '2026-07-18',
                         clock: _clock,
+                        onSignInAgain: () {},
                       ),
                     ),
                   ),
@@ -396,6 +399,7 @@ void main() {
           idToken: 'token',
           day: '2026-07-18',
           clock: _clock,
+          onSignInAgain: () {},
         ),
       ),
     );

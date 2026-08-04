@@ -150,6 +150,7 @@ Widget _splitTabScreen({required SplitController controller}) => Scaffold(
       required currency,
     }) {},
     onDeleteSettlement: (_) {},
+    onSignInAgain: () {},
   ),
 );
 
@@ -363,6 +364,7 @@ Widget _financeOverviewScreen(FakeFinanceRepository repo, {Locale locale = const
           onSwitchMonth: (_) async {},
           onAdd: () {},
           onEditBudgets: () {},
+          onSignInAgain: () {},
         ),
       ),
     ),

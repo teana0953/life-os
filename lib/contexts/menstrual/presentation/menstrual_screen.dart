@@ -22,11 +22,16 @@ class MenstrualScreen extends StatefulWidget {
   /// open-period ranges. Defaults to [DateTime.now]; tests inject a fixed clock.
   final DateTime Function() clock;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const MenstrualScreen({
     super.key,
     required this.controller,
     required this.idToken,
     this.clock = DateTime.now,
+    required this.onSignInAgain,
   });
 
   @override
@@ -172,6 +177,7 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
       isLoading: busy && controller.overview == null,
       isReauth: controller.status == MenstrualStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       appBar: appBar,
       builder: (context) {
         if (controller.overview == null) {

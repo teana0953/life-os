@@ -101,6 +101,7 @@ Future<VitalsController> _pumpScreen(
         idToken: 'token',
         day: day,
         clock: clock,
+        onSignInAgain: () {},
       ),
     ),
   );
@@ -708,6 +709,7 @@ void main() {
                   idToken: 'token',
                   day: '2026-07-18',
                   clock: _defaultClock,
+                  onSignInAgain: () {},
                 ),
               ),
             );
@@ -845,6 +847,7 @@ void main() {
             idToken: 'token',
             day: '2026-07-18',
             clock: _defaultClock,
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -882,6 +885,7 @@ void main() {
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: autoAddSection,
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -1000,6 +1004,7 @@ void main() {
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: section,
+            onSignInAgain: () {},
           ),
         );
 
@@ -1036,6 +1041,7 @@ void main() {
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: section,
+            onSignInAgain: () {},
           ),
         );
 
@@ -1073,6 +1079,7 @@ void main() {
           day: '2026-07-18',
           clock: _defaultClock,
           autoAddSection: 'glucose',
+          onSignInAgain: () {},
         ),
       );
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -409,6 +411,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
       isLoading: controller.status == CareTodayLoadStatus.loading,
       isReauth: controller.status == CareTodayLoadStatus.reauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: () => unawaited(widget.authRepository.signOut()),
       appBar: appBar,
       builder: (context) {
         if (controller.status == CareTodayLoadStatus.error) {

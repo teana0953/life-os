@@ -18,11 +18,16 @@ class FinanceTransactionsTab extends StatelessWidget {
   final ValueChanged<FinanceTransaction> onEdit;
   final Future<void> Function(String month) onSwitchMonth;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const FinanceTransactionsTab({
     super.key,
     required this.controller,
     required this.onEdit,
     required this.onSwitchMonth,
+    required this.onSignInAgain,
   });
 
   @override
@@ -34,6 +39,7 @@ class FinanceTransactionsTab extends StatelessWidget {
           controller.status == FinanceStatus.loading && controller.summary == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: onSignInAgain,
       builder: (context) {
         if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(

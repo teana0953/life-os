@@ -86,6 +86,7 @@ void main() {
             controller: controller,
             idToken: 'token-123',
             day: '2026-07-18',
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -121,6 +122,7 @@ void main() {
               controller: controller,
               idToken: 'token-123',
               day: '2026-07-18',
+              onSignInAgain: () {},
             ),
           ),
         );
@@ -155,6 +157,7 @@ void main() {
             controller: controller,
             idToken: 'token-123',
             day: '2026-07-18',
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -182,6 +185,7 @@ void main() {
             idToken: 'token-123',
             day: '2026-07-18',
             onSaved: () => savedCalled = true,
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -227,6 +231,7 @@ void main() {
                       controller: controller,
                       idToken: 'token-123',
                       day: '2026-07-18',
+                      onSignInAgain: () {},
                     ),
                   ),
                 );

@@ -25,12 +25,17 @@ class ExerciseScreen extends StatefulWidget {
   /// Defaults to [DateTime.now]; tests inject a fixed clock. Mirrors water.
   final DateTime Function() clock;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const ExerciseScreen({
     super.key,
     required this.controller,
     required this.idToken,
     required this.day,
     this.clock = DateTime.now,
+    required this.onSignInAgain,
   });
 
   @override
@@ -147,6 +152,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
       isLoading: busy && controller.day == null,
       isReauth: controller.status == ExerciseStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       appBar: appBar,
       builder: (context) {
         if (controller.day == null) {

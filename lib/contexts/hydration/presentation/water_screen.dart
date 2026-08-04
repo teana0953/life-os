@@ -23,12 +23,17 @@ class WaterScreen extends StatefulWidget {
   /// [DateTime.now]; tests inject a fixed clock. Mirrors the diet shell.
   final DateTime Function() clock;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const WaterScreen({
     super.key,
     required this.controller,
     required this.idToken,
     required this.day,
     this.clock = DateTime.now,
+    required this.onSignInAgain,
   });
 
   @override
@@ -134,6 +139,7 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
       isLoading: busy && controller.day == null,
       isReauth: controller.status == WaterStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       builder: (context) {
         if (controller.day == null) {
           return Scaffold(

@@ -100,6 +100,7 @@ Future<MenstrualController> _pumpScreen(
         controller: controller,
         idToken: 'tok',
         clock: () => DateTime(2026, 7, 22),
+        onSignInAgain: () {},
       ),
     ),
   );

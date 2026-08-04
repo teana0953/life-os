@@ -43,6 +43,10 @@ class SplitTab extends StatelessWidget {
 
   final void Function(Settlement settlement) onDeleteSettlement;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const SplitTab({
     super.key,
     required this.controller,
@@ -54,6 +58,7 @@ class SplitTab extends StatelessWidget {
     required this.onAddFriend,
     required this.onSettleUp,
     required this.onDeleteSettlement,
+    required this.onSignInAgain,
   });
 
   @override
@@ -64,6 +69,7 @@ class SplitTab extends StatelessWidget {
       isLoading: controller.status == SplitStatus.loading,
       isReauth: controller.status == SplitStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: onSignInAgain,
       builder: (context) {
         if (controller.status == SplitStatus.error) {
           final message = controller.error == SplitError.profileFailed

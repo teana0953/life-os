@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -113,6 +115,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       isLoading: false,
       isReauth: isReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: () => unawaited(widget.authRepository.signOut()),
       appBar: appBar,
       builder: (context) {
         final theme = Theme.of(context);

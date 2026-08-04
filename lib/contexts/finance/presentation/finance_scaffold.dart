@@ -418,11 +418,13 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             onSwitchMonth: _switchMonth,
             onAdd: () => _openSheet(),
             onEditBudgets: _openBudgetSheet,
+            onSignInAgain: () => unawaited(widget.authRepository.signOut()),
           ),
           FinanceTransactionsTab(
             controller: controller,
             onEdit: (txn) => _openSheet(editing: txn),
             onSwitchMonth: _switchMonth,
+            onSignInAgain: () => unawaited(widget.authRepository.signOut()),
           ),
           // Built only once the 淨值 tab has actually been opened: an
           // IndexedStack builds every child, and an unopened tab would
@@ -434,6 +436,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
               onSwitchMonth: _switchNetWorthMonth,
               onEditAccountValue: _openSnapshotSheet,
               onManageAccounts: _openAccountManageSheet,
+              onSignInAgain: () => unawaited(widget.authRepository.signOut()),
             )
           else
             const SizedBox.shrink(),
@@ -461,6 +464,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
                 currency: currency,
               ),
               onDeleteSettlement: _confirmDeleteSettlement,
+              onSignInAgain: () => unawaited(widget.authRepository.signOut()),
             )
           else
             const SizedBox.shrink(),

@@ -32,12 +32,17 @@ class NetWorthTab extends StatelessWidget {
   final void Function(NetWorthAccount account) onEditAccountValue;
   final VoidCallback onManageAccounts;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const NetWorthTab({
     super.key,
     required this.controller,
     required this.onSwitchMonth,
     required this.onEditAccountValue,
     required this.onManageAccounts,
+    required this.onSignInAgain,
   });
 
   /// Opens the month picker and, if a month was chosen, switches to it through
@@ -62,6 +67,7 @@ class NetWorthTab extends StatelessWidget {
           controller.status == FinanceStatus.loading && controller.monthly == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: onSignInAgain,
       builder: (context) {
         if (controller.status == FinanceStatus.error && controller.monthly == null) {
           return Center(

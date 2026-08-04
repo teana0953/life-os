@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -134,6 +136,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
       isLoading: false,
       isReauth: widget.controller.status == ImportStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: () => unawaited(widget.authRepository.signOut()),
       appBar: appBar,
       builder: (context) {
         final theme = Theme.of(context);
