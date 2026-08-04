@@ -27,7 +27,9 @@ Future<TimeOfDay?> pickTime24h(BuildContext context, {required TimeOfDay initial
 
 **D1 helper 放 `lib/shared/date/`,不放 widgets。** 它不是 widget,是一次互動;跟 `day_format.dart` 同一個資料夾,那裡已經是日期/時間格式的既有落點。
 
-**D2 不改任何顯示格式。** 這一期只讓輸入跟輸出一致。「要不要跟著語系顯示 12 小時制」是另一個問題,而且會牽動存進後端的線上格式(vitals 的 `_zeroPad` 註解明講那是後端要求的格式),不在範圍內。
+**D2 不改任何顯示格式(往 12 小時制走)。** 這一期只讓輸入跟輸出一致。「要不要跟著語系顯示 12 小時制」是另一個問題,不在範圍內。
+
+理由是**範圍**,不是技術上做不到:顯示與線上格式其實是可以分開的——`care_today_screen` 就已經把後端字串 parse 回 `DateTime` 再用 `DateFormat` 自己格式化,顯示層換成跟語系走並不會動到 `_zeroPad` 產出的那個嚴格 ASCII `HH:mm`。(先前這裡寫「會牽動存進後端的線上格式」,那句是錯的,已更正。)真正成立的理由有兩個:一是範圍,二是**全 app 每一個使用者看得到的時間目前都是 24 小時制**,所以維持 24 小時制才是一致的那一邊——見下面 `last_loaded_label` 那一段。
 
 **D3 不動 `_zeroPad`。** 兩份重複(`vitals_screen.dart:983`、`care_item_form.dart:53`)看起來也該抽,但它們是**格式化**、不是**互動**,而且動它會碰到給後端的線上格式。記為 follow-up,不在這一期。
 
@@ -39,9 +41,13 @@ Future<TimeOfDay?> pickTime24h(BuildContext context, {required TimeOfDay initial
 - **四個 bug 點各一條**:**明確指定 `Locale('en')`**(不要靠測試環境的預設),打開 picker,斷言 `TimePickerDialog` **確實存在**、且沒有 AM/PM 切換——只斷言「找不到 AM/PM」在 dialog 根本沒開的時候也會過。**每一條都要突變驗證**。
 - 既有的 care 三處測試不得破。
 
-## 一個相關但不修的地方
+## `last_loaded_label` 也改成 24 小時制
 
-`last_loaded_label.dart:26` 也在 vitals 畫面上,而它**跟著語系的 12/24 設定走**。所以「vitals 的顯示本來就是 24 小時制」這句只對讀數的時間成立,不對整個畫面成立。那個標籤顯示的是「上次載入時間」,不是使用者輸入的值,沒有輸入輸出不一致的問題,所以不在這一期——但別讓下一個人以為整個畫面都統一了。
+`last_loaded_label.dart:26` 原本**跟著語系的 12/24 設定走**。一開始把它排除在外,理由是「那是載入時間,不是使用者輸入的值,沒有輸入輸出不一致的問題」。
+
+**這個排除理由後來被推翻了。** 判準不該是「是不是使用者輸入的」,而是**使用者在同一個畫面上看到幾種時間寫法**:這個標籤就長在 vitals 與 diet Today(`health_scaffold`)的最上面,英文語系使用者會同時看到上面「Updated 9:30 PM」與下面讀數 chip「21:30」。這正是這一期要消滅的那種困惑,只是換了個位置。
+
+所以改成 `DateFormat('HH:mm')`,跟 app 裡其他每一處使用者看得到的時間一致(`vitals_screen.dart:905`、`today_screen.dart:408`、`care_today_screen.dart:156`/`:1110`、`friends_screen.dart:536`)。這是**一行**加上註解與一條測試,沒有線上格式或譯文風險。
 
 ## 不做
 

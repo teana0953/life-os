@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -194,8 +195,8 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
   /// manually zero-padded "HH:mm" back through the existing per-list update.
   Future<void> _editBpTime(int index) async {
     final reading = widget.controller.bpReadings[index];
-    final picked = await showTimePicker(
-      context: context,
+    final picked = await pickTime24h(
+      context,
       initialTime: _parseTime(reading.time),
     );
     if (picked == null || !mounted) return;
@@ -207,8 +208,8 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
 
   Future<void> _editGlucoseTime(int index) async {
     final reading = widget.controller.glucoseReadings[index];
-    final picked = await showTimePicker(
-      context: context,
+    final picked = await pickTime24h(
+      context,
       initialTime: _parseTime(reading.time),
     );
     if (picked == null || !mounted) return;
@@ -220,8 +221,8 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
 
   Future<void> _editSpo2Time(int index) async {
     final reading = widget.controller.spo2Readings[index];
-    final picked = await showTimePicker(
-      context: context,
+    final picked = await pickTime24h(
+      context,
       initialTime: _parseTime(reading.time),
     );
     if (picked == null || !mounted) return;

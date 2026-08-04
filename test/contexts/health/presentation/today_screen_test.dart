@@ -276,6 +276,8 @@ TodayController _controllerWith({
   );
 }
 
+DateTime _identityTime(DateTime value) => value;
+
 Future<void> _pumpTodayScreen(
   WidgetTester tester,
   TodayController controller, {
@@ -284,24 +286,44 @@ Future<void> _pumpTodayScreen(
   VoidCallback? onAddSnack,
   void Function(String snackName)? onAddToSnackGroup,
   Future<DateTime?> Function(BuildContext, DateTime, DateTime Function(DateTime))? pickMealTime,
+  // When true, leaves TodayScreen.pickMealTime unset so it runs its own
+  // real default (the actual `showTimePicker`-backed implementation)
+  // instead of a test fake — needed to prove the default itself is 24h
+  // (task 6b: this is the only screen that injects the whole pick
+  // operation, so proving the real default needs a way to ask for it).
+  bool useRealPickMealTime = false,
+  // The real `_defaultPickMealTime` converts the picked wall time with
+  // `.toUtc()`, so a test driving it must render with the true inverse
+  // (`.toLocal()`) or the round trip shifts by the machine's offset — green
+  // under `TZ=UTC`, red at UTC+8, which is exactly the trap this repo has
+  // hit before. Every other test keeps the identity conversion, which is
+  // correct for them because they inject the pick as well.
+  DateTime Function(DateTime) toLocalTime = _identityTime,
 }) async {
   await controller.load('token-123', '2026-07-18');
-  await tester.pumpWidget(
-    l10nTestApp(
-      locale: locale,
-      home: TodayScreen(
-        controller: controller,
-        signOut: SignOut(FakeAuthRepository()),
-        idToken: 'token-123',
-        day: '2026-07-18',
-        onAddToMeal: onAddToMeal,
-        onAddSnack: onAddSnack,
-        onAddToSnackGroup: onAddToSnackGroup,
-        toLocalTime: (dt) => dt,
-        pickMealTime: pickMealTime ?? (_, current, __) async => current,
-      ),
-    ),
-  );
+  final screen = useRealPickMealTime
+      ? TodayScreen(
+          controller: controller,
+          signOut: SignOut(FakeAuthRepository()),
+          idToken: 'token-123',
+          day: '2026-07-18',
+          onAddToMeal: onAddToMeal,
+          onAddSnack: onAddSnack,
+          onAddToSnackGroup: onAddToSnackGroup,
+          toLocalTime: toLocalTime,
+        )
+      : TodayScreen(
+          controller: controller,
+          signOut: SignOut(FakeAuthRepository()),
+          idToken: 'token-123',
+          day: '2026-07-18',
+          onAddToMeal: onAddToMeal,
+          onAddSnack: onAddSnack,
+          onAddToSnackGroup: onAddToSnackGroup,
+          toLocalTime: toLocalTime,
+          pickMealTime: pickMealTime ?? (_, current, __) async => current,
+        );
+  await tester.pumpWidget(l10nTestApp(locale: locale, home: screen));
   await tester.pumpAndSettle();
 }
 
@@ -981,6 +1003,108 @@ void main() {
       expect(mealRepository.patchedTime, newTime);
       expect(find.text('09:00'), findsOneWidget);
     });
+
+    testWidgets(
+      "the screen's own default picker is always 24-hour, whatever the "
+      "locale — the card renders the time with DateFormat('HH:mm'), so a "
+      "12-hour picker would have an English-locale user choose '9:30 PM' "
+      "and then read it back as '21:30'",
+      (tester) async {
+        final dayLog = DayMealsLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+          ],
+          'totals': {
+            'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+            'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+          },
+        });
+        final controller = _controllerWith(dayLog: dayLog);
+        await _pumpTodayScreen(
+          tester,
+          controller,
+          // The real default picker — no injected fake — so this actually
+          // exercises TodayScreen's own `showTimePicker` call, not a stand-in.
+          useRealPickMealTime: true,
+        );
+
+        await tester.tap(find.byKey(const Key('change-meal-time-m1')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimePickerDialog), findsOneWidget);
+        // The day-period (AM/PM) control only exists in the 12-hour layout.
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "picking 21:30 via the screen's own default picker sends 21:30 local "
+      "as a UTC instant to the repository and renders 21:30 back onto the "
+      "meal card — proving the picked value survives _defaultPickMealTime's "
+      "local/UTC combine unmangled, not just that the dialog itself was "
+      "24-hour. The wire assertion is the load-bearing one: the card renders "
+      "through `.toLocal()`, which is a no-op on an already-local DateTime "
+      "and so would silently cancel a dropped `.toUtc()` at every host "
+      "offset.",
+      (tester) async {
+        final dayLog = DayMealsLog.fromJson({
+          'day': '2026-07-18',
+          'meals': [
+            _mealJson(id: 'm1', meal: 'lunch', time: '2026-07-18T12:30:00.000Z'),
+          ],
+          'totals': {
+            'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0, 'fiber_g': 0, 'kcal': 0,
+            'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+          },
+        });
+        final mealRepository = FakeMealRepository();
+        final controller = _controllerWith(
+          dayLog: dayLog,
+          mealRepository: mealRepository,
+        );
+        await _pumpTodayScreen(
+          tester,
+          controller,
+          // The real default picker — no injected fake — so this actually
+          // exercises TodayScreen's own `_defaultPickMealTime`, not a
+          // stand-in.
+          useRealPickMealTime: true,
+          // The inverse of `_defaultPickMealTime`'s `.toUtc()`, so the round
+          // trip holds at any machine offset rather than only under TZ=UTC.
+          toLocalTime: (dt) => dt.toLocal(),
+        );
+
+        await tester.tap(find.byKey(const Key('change-meal-time-m1')));
+        await tester.pumpAndSettle();
+        expect(find.byType(TimePickerDialog), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.keyboard_outlined));
+        await tester.pumpAndSettle();
+
+        final fields = find.descendant(
+          of: find.byType(TimePickerDialog),
+          matching: find.byType(TextField),
+        );
+        // Typing hour 21 is itself part of the proof: a 12-hour input field
+        // would reject it outright.
+        await tester.enterText(fields.at(0), '21');
+        await tester.enterText(fields.at(1), '30');
+        await tester.tap(find.widgetWithText(TextButton, 'OK'));
+        await tester.pumpAndSettle();
+
+        // What actually went on the wire. This is the assertion the display
+        // cannot stand in for: dropping `.toUtc()` in `_defaultPickMealTime`
+        // sends a naive local DateTime to the backend, and `.toLocal()` on it
+        // is a no-op, so the card below would still read 21:30.
+        expect(mealRepository.patchedMealId, 'm1');
+        expect(mealRepository.patchedTime!.isUtc, isTrue);
+        expect(mealRepository.patchedTime, DateTime(2026, 7, 18, 21, 30).toUtc());
+
+        expect(find.text('21:30'), findsOneWidget);
+      },
+    );
 
     testWidgets('cancelling the time picker (returns null) makes no change', (
       tester,

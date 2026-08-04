@@ -30,14 +30,29 @@ void main() {
   });
 
   testWidgets('a value shows the "Updated <clock time>" line', (tester) async {
-    final at = DateTime(2026, 7, 18, 9, 41);
-    await _pump(tester, at);
+    await _pump(tester, DateTime(2026, 7, 18, 9, 41));
 
-    // The clock portion follows the system 12/24-hour setting via
-    // TimeOfDay.format — assert against exactly what the widget builds so the
-    // test doesn't hard-code a 12/24 assumption.
-    final context = tester.element(find.byType(LastLoadedLabel));
-    final time = TimeOfDay.fromDateTime(at).format(context);
-    expect(find.text(_loc.lastUpdatedAt(time)), findsOneWidget);
+    expect(find.text(_loc.lastUpdatedAt('09:41')), findsOneWidget);
   });
+
+  testWidgets(
+    'the clock is 24-hour even under a 12-hour ambient setting — an afternoon '
+    'time reads "21:05", not "9:05 PM", so this label matches the '
+    'always-24-hour reading/meal times it sits above',
+    (tester) async {
+      await _pump(tester, DateTime(2026, 7, 18, 21, 5));
+
+      // Pin the premise: the ambient setting really is the 12-hour one, i.e.
+      // exactly the English-locale phone this label used to follow. (Both
+      // `MediaQuery` wrappers and
+      // `platformDispatcher.alwaysUse24HourFormatTestValue` are inert here —
+      // see pick_time_24h_test.dart — so assert the default instead of
+      // pretending to override it.)
+      final context = tester.element(find.byType(LastLoadedLabel));
+      expect(MediaQuery.of(context).alwaysUse24HourFormat, isFalse);
+
+      expect(find.text(_loc.lastUpdatedAt('21:05')), findsOneWidget);
+      expect(find.textContaining('PM'), findsNothing);
+    },
+  );
 }

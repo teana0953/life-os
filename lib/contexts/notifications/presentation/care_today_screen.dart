@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
@@ -99,19 +100,11 @@ Future<DateTime?> _defaultPickDoneTime(
   DateTime? current,
   DateTime Function(DateTime) toLocalTime,
 ) async {
-  final picked = await showTimePicker(
-    context: context,
+  final picked = await pickTime24h(
+    context,
     initialTime: current == null
         ? _fallbackTimeOfDay
         : TimeOfDay.fromDateTime(toLocalTime(current)),
-    // Always 24h, regardless of locale — mirrors `care_item_form.dart`, and
-    // required here because both the row and the sheet render the time with
-    // `DateFormat('HH:mm')`: a 12-hour picker would have an English-locale
-    // user choose "9:30 PM" and then read it back as "21:30".
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-      child: child!,
-    ),
   );
   if (picked == null) return null;
   return _doneInstantOn(slot.localDate, picked);
@@ -198,7 +191,7 @@ class CareTodayScreen extends StatefulWidget {
   /// instant the sheet currently holds (`null` when it couldn't derive one —
   /// design D4, e.g. a malformed `localDate`), and returning the UTC
   /// [DateTime] to send (or `null` if the user cancels). Defaults to a real
-  /// [showTimePicker] combined with [toLocalTime]; tests inject a fake that
+  /// [pickTime24h] combined with [toLocalTime]; tests inject a fake that
   /// returns a fixed time directly, bypassing the real picker UI.
   final Future<DateTime?> Function(
     BuildContext context,

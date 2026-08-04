@@ -97,6 +97,7 @@ Future<void> _pumpForm(
   WidgetTester tester,
   CareItemsController controller, {
   CareItem? existing,
+  Locale locale = const Locale("en"),
 }) async {
   // The form's content can exceed the default 800x600 test surface, pushing
   // the submit button below the visible area — a taller surface keeps it
@@ -105,6 +106,7 @@ Future<void> _pumpForm(
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nTestApp(
+      locale: locale,
       home: CareItemForm(
         controller: controller,
         idToken: 'token-123',
@@ -125,6 +127,42 @@ Future<void> _addSchedule(WidgetTester tester) async {
 }
 
 void main() {
+  // The form's two pickers were the only ones of the seven routed through
+  // `pickTime24h` with nothing asserting the 24-hour format directly. The
+  // helper's other call sites are covered ten times over, but a change to
+  // *these two* — say a hand-written builder creeping back — would not have
+  // been caught here.
+  group('CareItemForm time pickers are always 24-hour', () {
+    testWidgets('adding a schedule opens a 24-hour picker under a 12-hour locale', (
+      tester,
+    ) async {
+      final controller = _controller();
+      await _pumpForm(tester, controller);
+
+      await tester.tap(find.byKey(const Key('care-item-add-schedule')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      expect(find.text('AM'), findsNothing);
+      expect(find.text('PM'), findsNothing);
+    });
+
+    testWidgets("changing an existing schedule's time opens a 24-hour picker", (
+      tester,
+    ) async {
+      final controller = _controller();
+      await _pumpForm(tester, controller);
+      await _addSchedule(tester);
+
+      await tester.tap(find.byKey(const Key('care-item-schedule-time-0')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      expect(find.text('AM'), findsNothing);
+      expect(find.text('PM'), findsNothing);
+    });
+  });
+
   group('CareItemForm category', () {
     testWidgets(
       'defaults to medication and shows dose/stock fields; hides them for '

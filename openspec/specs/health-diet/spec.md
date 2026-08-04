@@ -27,8 +27,10 @@ target, alongside the used / target numbers. A meal card SHALL be labeled with
 the meal — an emoji plus a localized name for the standard meals, and the snack's
 own name (which a snack meal already carries as its `meal` value) for a snack — and
 the meal's `time`, and SHALL show a total pill summing the meal's consumed
-portions. A meal card SHALL also offer a control to change the meal's time and a
-control to delete the whole meal behind a confirmation.
+portions. A meal card SHALL also offer a control to change the meal's time — presenting a
+24-hour clock regardless of the device locale, matching the 24-hour form the
+card displays the time in — and a control to delete the whole meal behind a
+confirmation.
 For each of the meal's items the card SHALL show the item's consumed portions
 across every food group it contributes to — labeled and color-coded by category,
 omitting groups whose portion is zero — together with the item's consumed amount
@@ -65,6 +67,12 @@ SHALL offer a way to start a new snack, without leaving to re-select the meal.
 #### Scenario: Add a food into a specific meal from Today
 - **WHEN** the user taps the add control on the lunch card
 - **THEN** the full-screen food search opens with the target meal set to lunch, ready to pick a food, without the user re-selecting the meal
+
+#### Scenario: The meal-time control matches the format the card shows
+
+- **WHEN** a user on a 12-hour locale opens a meal card's time control
+- **THEN** it offers a 24-hour clock — otherwise they would pick "9:30 PM"
+  and the card would read back "21:30", with nothing indicating why
 
 ### Requirement: Meals and snacks
 
