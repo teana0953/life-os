@@ -82,6 +82,7 @@ Future<BowelController> _pumpScreen(
         idToken: 'token',
         day: day,
         clock: clock,
+        onSignInAgain: () {},
       ),
     ),
   );
@@ -390,6 +391,7 @@ void main() {
             idToken: 'token',
             day: '2026-07-18',
             clock: _defaultClock,
+            onSignInAgain: () {},
           ),
         ),
       );

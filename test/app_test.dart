@@ -345,8 +345,16 @@ class _FakeMealRepository implements MealRepository {
 }
 
 class _FakeDailyTargetRepository implements DailyTargetRepository {
+  /// When set, every fetch throws it — lets a test drive
+  /// `DailyTargetController` into its needsReauth/error states. Mirrors
+  /// `_FakeMealRepository.fetchError`.
+  final Object? fetchError;
+
+  _FakeDailyTargetRepository({this.fetchError});
+
   @override
   Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    if (fetchError != null) throw fetchError!;
     return DailyTargetWithRemaining.fromJson({
       'day': day,
       'base': {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
@@ -931,12 +939,13 @@ class _FakeSocialRepository implements SocialRepository {
 }) testHealthControllers({
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
+  DailyTargetRepository? dailyTargetRepository,
   /// Threaded into [HealthCalendarController] so a test asserting on the month
   /// it opens on pins it, rather than reading the real `DateTime.now()`.
   DateTime Function() clock = DateTime.now,
 }) {
   mealRepository ??= _FakeMealRepository();
-  final dailyTargetRepository = _FakeDailyTargetRepository();
+  dailyTargetRepository ??= _FakeDailyTargetRepository();
   foodDictionaryRepository ??= _FakeFoodDictionaryRepository();
   final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
@@ -1162,6 +1171,11 @@ Future<LocaleController> pumpApp(
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
 
+  /// Backs the daily-target tracker with this fake instead of the inert
+  /// default — for a test that needs `DailyTargetScreen` to reach an error or
+  /// needsReauth state.
+  DailyTargetRepository? dailyTargetRepository,
+
   /// Pins (and lets a test advance) the "today" the day-keyed routes resolve.
   DateTime Function()? clock,
 }) async {
@@ -1201,6 +1215,7 @@ Future<LocaleController> pumpApp(
   final health = testHealthControllers(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
+    dailyTargetRepository: dailyTargetRepository,
     clock: clock ?? DateTime.now,
   );
   onHealthCalendarController?.call(health.healthCalendar);
@@ -3104,6 +3119,80 @@ void main() {
     );
   });
 
+  group('AsyncStateScaffold reauth exit (add-reauth-exit design.md D3)', () {
+    testWidgets(
+      'tapping sign-in-again from a pushed screen ends on the login screen, '
+      'with the pushed screen gone from the tree',
+      (tester) async {
+        // `DailyTargetScreen` is reached via `context.push` from the diet day
+        // screen (`diet_day_screen.dart`'s `diet-open-target` button) — a
+        // screen pushed on top of the app root, per design.md D3. Its
+        // `DailyTargetController` always throws `DietReauthenticationRequired`
+        // so the pushed screen is already in the reauth state as soon as it's
+        // built (the diet day screen's own mount-time `_load` calls
+        // `dailyTargetController.load` first).
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          dailyTargetRepository: _FakeDailyTargetRepository(
+            fetchError: const DietReauthenticationRequired(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.edit_note));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('hub-tile-diet')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('diet-open-target')));
+        await tester.pumpAndSettle();
+
+        // The pushed target screen is showing the reauth state already.
+        expect(
+          find.byKey(const Key('async-state-reauth-sign-in-button')),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('async-state-reauth-sign-in-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(authRepository.signOutCalled, isTrue);
+        // Ends on the login screen...
+        expect(find.byKey(const Key('email-field')), findsOneWidget);
+        // ...on a stack that was *replaced*, not merely covered. This is the
+        // assertion the D3 conclusion actually rests on: a route below the top
+        // one is already absent from the widget tree in this app, so the
+        // `findsNothing` checks below hold either way and cannot tell
+        // "redirect replaced the match list" from "the pushed screen is still
+        // there, just covered". `canPop` can: it is true while a pushed route
+        // is on the stack and false once the redirect has replaced it.
+        expect(
+          tester
+              .stateList<NavigatorState>(find.byType(Navigator))
+              .map((navigator) => navigator.canPop()),
+          everyElement(isFalse),
+        );
+        // ...and the pushed screen (and everything under it) is gone from the
+        // widget tree, not merely hidden under the login screen.
+        expect(
+          find.byKey(const Key('async-state-reauth-sign-in-button')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('diet-open-target')), findsNothing);
+      },
+    );
+  });
 }
 
 class _SwitchableProfileRepository implements ProfileRepository {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -281,6 +283,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
           !controller.firstLoadSettled,
       isReauth: controller.status == CareHistoryLoadStatus.reauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: () => unawaited(widget.authRepository.signOut()),
       appBar: appBar,
       builder: (context) {
         final reloading = controller.status == CareHistoryLoadStatus.loading;

@@ -29,6 +29,10 @@ class VitalsScreen extends StatefulWidget {
   /// (including `null`) leaves the screen behaving as an ordinary visit.
   final String? autoAddSection;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const VitalsScreen({
     super.key,
     required this.controller,
@@ -36,6 +40,7 @@ class VitalsScreen extends StatefulWidget {
     required this.day,
     this.clock = DateTime.now,
     this.autoAddSection,
+    required this.onSignInAgain,
   });
 
   @override
@@ -269,6 +274,7 @@ class _VitalsScreenState extends State<VitalsScreen> with TrackerDayScreen {
       isLoading: busy && controller.day == null,
       isReauth: controller.status == VitalsStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       appBar: appBar,
       builder: (context) {
         if (controller.day == null) {

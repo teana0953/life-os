@@ -454,6 +454,7 @@ class _AppState extends State<App> {
           idToken: _idToken,
           day: _today,
           clock: widget.clock,
+          onSignInAgain: widget.signOut.call,
         );
       case 'vitals':
         return VitalsScreen(
@@ -462,6 +463,7 @@ class _AppState extends State<App> {
           day: _today,
           clock: widget.clock,
           autoAddSection: query['add'],
+          onSignInAgain: widget.signOut.call,
         );
       case 'bowel':
         return BowelScreen(
@@ -469,6 +471,7 @@ class _AppState extends State<App> {
           idToken: _idToken,
           day: _today,
           clock: widget.clock,
+          onSignInAgain: widget.signOut.call,
         );
       case 'exercise':
         return ExerciseScreen(
@@ -476,12 +479,14 @@ class _AppState extends State<App> {
           idToken: _idToken,
           day: _today,
           clock: widget.clock,
+          onSignInAgain: widget.signOut.call,
         );
       case 'menstrual':
         return MenstrualScreen(
           controller: widget.menstrualController,
           idToken: _idToken,
           clock: widget.clock,
+          onSignInAgain: widget.signOut.call,
         );
       default:
         return const _Redirect(to: '/health');
@@ -759,6 +764,7 @@ class _AppState extends State<App> {
                       day: day,
                       onSaved: () =>
                           widget.healthTodayController.load(_idToken, day),
+                      onSignInAgain: widget.signOut.call,
                     );
                   },
                 ),

@@ -31,12 +31,17 @@ class FinanceOverviewTab extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onEditBudgets;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const FinanceOverviewTab({
     super.key,
     required this.controller,
     required this.onSwitchMonth,
     required this.onAdd,
     required this.onEditBudgets,
+    required this.onSignInAgain,
   });
 
   /// Opens the month picker and, if a month was chosen, switches to it through
@@ -61,6 +66,7 @@ class FinanceOverviewTab extends StatelessWidget {
           controller.status == FinanceStatus.loading && controller.summary == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: onSignInAgain,
       builder: (context) {
         if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(

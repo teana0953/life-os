@@ -100,6 +100,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -134,6 +135,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -170,6 +172,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -203,6 +206,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -233,6 +237,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -264,6 +269,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -292,6 +298,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -326,6 +333,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -371,6 +379,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -414,6 +423,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -450,6 +460,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -482,6 +493,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -516,6 +528,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -566,6 +579,7 @@ void main() {
               gotCurrency = currency;
             },
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -618,6 +632,7 @@ void main() {
                 gotBalanceAmount = balanceAmount;
               },
               onDeleteSettlement: (_) {},
+              onSignInAgain: () {},
             ),
           ),
         );
@@ -663,6 +678,7 @@ void main() {
               required currency,
             }) => gotCurrencies.add(currency),
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -723,6 +739,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -755,6 +772,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -785,6 +803,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -817,6 +836,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (_) {},
+            onSignInAgain: () {},
           ),
         ),
       );
@@ -851,6 +871,7 @@ void main() {
               required currency,
             }) {},
             onDeleteSettlement: (s) => deleted = s,
+            onSignInAgain: () {},
           ),
         ),
       );

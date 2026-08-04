@@ -19,12 +19,17 @@ class DailyTargetScreen extends StatefulWidget {
   /// views that depend on the target (e.g. reload Today's portion progress).
   final VoidCallback? onSaved;
 
+  /// Invoked when the user taps the reauth state's sign-in-again control
+  /// (see [AsyncStateScaffold]).
+  final VoidCallback onSignInAgain;
+
   const DailyTargetScreen({
     super.key,
     required this.controller,
     required this.idToken,
     required this.day,
     this.onSaved,
+    required this.onSignInAgain,
   });
 
   @override
@@ -56,6 +61,7 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
       isLoading: controller.status == DailyTargetStatus.loading,
       isReauth: controller.status == DailyTargetStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       builder: (context) {
         if (controller.target == null) {
           return Scaffold(

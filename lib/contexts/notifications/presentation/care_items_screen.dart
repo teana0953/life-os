@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -193,6 +195,7 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
       isLoading: controller.status == CareItemsStatus.loading,
       isReauth: controller.status == CareItemsStatus.reauth,
       reauthMessage: loc.pleaseSignInAgain,
+      onSignInAgain: () => unawaited(widget.authRepository.signOut()),
       appBar: appBar,
       builder: (context) {
         final theme = Theme.of(context);
