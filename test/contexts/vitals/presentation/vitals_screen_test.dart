@@ -114,6 +114,33 @@ Future<VitalsController> _pumpScreen(
 
 DateTime _defaultClock() => DateTime(2026, 7, 18, 9);
 
+/// Drives an already-open [TimePickerDialog] through its manual
+/// keyboard-entry mode: switches from the dial to the two-field text input
+/// (the [Icons.keyboard_outlined] toggle), types [hour]/[minute] into the
+/// dialog's two `TextField`s, and confirms with OK. Typing an hour like
+/// `'21'` is itself part of the proof this recipe exists for: a 12-hour
+/// input field would reject it outright, so a regression to a 12-hour
+/// picker fails here, not just on the AM/PM-visibility check.
+Future<void> _pickViaKeyboardEntry(
+  WidgetTester tester, {
+  required String hour,
+  required String minute,
+}) async {
+  expect(find.byType(TimePickerDialog), findsOneWidget);
+
+  await tester.tap(find.byIcon(Icons.keyboard_outlined));
+  await tester.pumpAndSettle();
+
+  final fields = find.descendant(
+    of: find.byType(TimePickerDialog),
+    matching: find.byType(TextField),
+  );
+  await tester.enterText(fields.at(0), hour);
+  await tester.enterText(fields.at(1), minute);
+  await tester.tap(find.widgetWithText(TextButton, 'OK'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   final loc = lookupAppLocalizations(const Locale('en'));
 
@@ -351,6 +378,208 @@ void main() {
       expect(find.byType(TimePickerDialog), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      "the BP reading's time control is always 24-hour, whatever the "
+      "locale — the chip shows the stored HH:mm verbatim, so a 12-hour "
+      "picker would have an English-locale user choose '9:30 PM' and then "
+      "read it back as '21:30'",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [
+                BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '21:30'),
+              ],
+              glucoseReadings: [],
+              spo2Readings: [],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-bp-time-0')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimePickerDialog), findsOneWidget);
+        // The day-period (AM/PM) control only exists in the 12-hour layout.
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "the glucose reading's time control is always 24-hour, whatever the "
+      "locale — the chip shows the stored HH:mm verbatim, so a 12-hour "
+      "picker would have an English-locale user choose '9:30 PM' and then "
+      "read it back as '21:30'",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [],
+              glucoseReadings: [
+                GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '21:30'),
+              ],
+              spo2Readings: [],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-glucose-time-0')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimePickerDialog), findsOneWidget);
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "the SpO2 reading's time control is always 24-hour, whatever the "
+      "locale — the chip shows the stored HH:mm verbatim, so a 12-hour "
+      "picker would have an English-locale user choose '9:30 PM' and then "
+      "read it back as '21:30'",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [],
+              glucoseReadings: [],
+              spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '21:30')],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-spo2-time-0')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimePickerDialog), findsOneWidget);
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "picking 21:30 for the BP reading via keyboard entry round-trips "
+      "21:30 onto the chip — not 09:30 — proving the picked value survives "
+      "the trip back to the screen unmangled, not just that the dialog was "
+      "24-hour",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [
+                BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '09:00'),
+              ],
+              glucoseReadings: [],
+              spo2Readings: [],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-bp-time-0')));
+        await tester.pumpAndSettle();
+        await _pickViaKeyboardEntry(tester, hour: '21', minute: '30');
+
+        expect(find.text('21:30'), findsOneWidget);
+        // The seeded value must be gone — a pick that never reached the chip
+        // would leave it on screen.
+        expect(find.text('09:00'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "picking 21:30 for the glucose reading via keyboard entry round-trips "
+      "21:30 onto the chip — not 09:30 — proving the picked value survives "
+      "the trip back to the screen unmangled, not just that the dialog was "
+      "24-hour",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [],
+              glucoseReadings: [
+                GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '09:00'),
+              ],
+              spo2Readings: [],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-glucose-time-0')));
+        await tester.pumpAndSettle();
+        await _pickViaKeyboardEntry(tester, hour: '21', minute: '30');
+
+        expect(find.text('21:30'), findsOneWidget);
+        // The seeded value must be gone — a pick that never reached the chip
+        // would leave it on screen.
+        expect(find.text('09:00'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "picking 9:05 for the SpO2 reading via keyboard entry round-trips "
+      "'09:05' onto the chip — both components zero-padded, proving the "
+      "picked value survives the trip back to the screen unmangled. 9:05 "
+      "rather than 21:30 on purpose: 21:30 is padding-insensitive, so with "
+      "it alone a broken _zeroPad (which writes the backend's strict ASCII "
+      "HH:mm) goes unnoticed by the whole suite",
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          repository: FakeVitalsRepository(
+            stored: const VitalsDay(
+              day: '2026-07-18',
+              weightKg: null,
+              bodyFatPct: null,
+              bpReadings: [],
+              glucoseReadings: [],
+              spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '21:30')],
+            ),
+          ),
+          locale: const Locale('en'),
+        );
+
+        await tester.tap(find.byKey(const Key('vitals-spo2-time-0')));
+        await tester.pumpAndSettle();
+        // Unlike the 21:30 round trips, a 9:05 pick is accepted by a 12-hour
+        // dialog too, so this test needs its own 24-hour check to keep
+        // reddening on a lost `alwaysUse24HourFormat`.
+        expect(find.text('AM'), findsNothing);
+        expect(find.text('PM'), findsNothing);
+        await _pickViaKeyboardEntry(tester, hour: '9', minute: '5');
+
+        expect(find.text('09:05'), findsOneWidget);
+        // The seeded value must be gone — a pick that never reached the chip
+        // would leave it on screen.
+        expect(find.text('21:30'), findsNothing);
+      },
+    );
 
     testWidgets('Save is disabled until there are unsaved edits', (
       tester,

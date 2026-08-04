@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/care_item.dart';
 import 'care_items_controller.dart';
@@ -206,16 +207,7 @@ class _CareItemFormState extends State<CareItemForm> {
   bool get _isMedication => _category == CareCategory.medication;
 
   Future<void> _addSchedule() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      // Always 24h, regardless of locale (mirrors the removed medication
-      // reminder form's time-entry convention).
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
+    final picked = await pickTime24h(context, initialTime: TimeOfDay.now());
     if (picked == null) return;
     final draft = _ScheduleDraft(
       timeOfDay: _zeroPad(picked),
@@ -240,13 +232,9 @@ class _CareItemFormState extends State<CareItemForm> {
 
   Future<void> _changeTime(int index) async {
     final schedule = _schedules[index];
-    final picked = await showTimePicker(
-      context: context,
+    final picked = await pickTime24h(
+      context,
       initialTime: _parseTimeOfDay(schedule.timeOfDay),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
     );
     if (picked != null) setState(() => schedule.timeOfDay = _zeroPad(picked));
   }

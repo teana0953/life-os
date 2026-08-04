@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
@@ -45,8 +46,8 @@ Future<DateTime?> _defaultPickMealTime(
   DateTime Function(DateTime) toLocalTime,
 ) async {
   final local = toLocalTime(currentTime);
-  final picked = await showTimePicker(
-    context: context,
+  final picked = await pickTime24h(
+    context,
     initialTime: TimeOfDay(hour: local.hour, minute: local.minute),
   );
   if (picked == null) return null;
@@ -113,9 +114,9 @@ class TodayScreen extends StatefulWidget {
   final DateTime Function(DateTime) toLocalTime;
 
   /// Picks a new time for a meal, returning the UTC [DateTime] to send (or
-  /// `null` if the user cancels). Defaults to a real [showTimePicker]
-  /// combined with [toLocalTime]; tests inject a fake that returns a fixed
-  /// time directly, bypassing the real picker UI and any device-timezone
+  /// `null` if the user cancels). Defaults to a real [pickTime24h] combined
+  /// with [toLocalTime]; tests inject a fake that returns a fixed time
+  /// directly, bypassing the real picker UI and any device-timezone
   /// dependence.
   final Future<DateTime?> Function(
     BuildContext context,
