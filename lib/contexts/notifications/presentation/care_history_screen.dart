@@ -146,10 +146,14 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     final dateLabel = mediumDateLabelOrDash(context, slot.localDate);
     final chosen = await showModalBottomSheet<CareLogStatus>(
       context: context,
-      // A reachable dismiss affordance beyond the scrim/system-back gesture
-      // — neither is discoverable by a screen-reader or keyboard user
-      // scanning the sheet's own content (mirrors exercise_screen.dart /
-      // goal_card.dart / care_today_screen.dart's own correction sheet).
+      // Not `showAppSheet`, in two respects: this short status picker is
+      // deliberately left un-scroll-controlled (it stays capped at 9/16 of
+      // the screen instead of growing full-height), and it wraps its own
+      // `SafeArea` below rather than taking `useSafeArea`. It does keep the
+      // drag handle, for the reason `showAppSheet`'s doc gives, and here it
+      // is load-bearing: this picker's content is options only, with no
+      // Cancel button, so the handle is the only dismiss affordance inside
+      // the sheet's own semantics.
       showDragHandle: true,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);

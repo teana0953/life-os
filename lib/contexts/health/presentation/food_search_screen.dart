@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/food_item.dart';
@@ -151,9 +152,6 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     if (controller == null) return;
     final loc = AppLocalizations.of(context)!;
     final wasCreate = item == null;
-    // `useSafeArea`/`showDragHandle` match every other modal sheet in this
-    // app (exercise_screen.dart / goal_card.dart / care_today_screen.dart).
-    //
     // Note on dismissal during an in-flight submit: the sheet's `PopScope`
     // blocks the barrier tap and the system back gesture (both route through
     // `Navigator.maybePop`), but NOT the drag handle, whose `onClosing` calls
@@ -161,11 +159,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     // live for accessibility even with `enableDrag: false`. That is fine here:
     // `onSuccess` below is the *screen's* callback and survives the sheet, so
     // a drag-dismissed submit still reports its result.
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (sheetContext) => SharedFoodItemSheet(
         controller: controller,
         idToken: widget.idToken,
@@ -213,6 +208,12 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     final snack = nextSnackName(widget.mealNames, loc.dietSnackBaseName);
     return showModalBottomSheet<String>(
       context: context,
+      // Not `showAppSheet`: none of its three options are set here. Opting
+      // in would change three things — the picker keeps the default 9/16
+      // cap, handles the overflow with its own `SafeArea` +
+      // `SingleChildScrollView` below, and shows no drag handle (unlike
+      // `care_history_screen.dart`'s picker, this one's options are the
+      // whole content and a mis-grab would dismiss it).
       // A modal sheet is capped at 9/16 of the screen, which the title plus
       // four options can exceed on a short screen or at a large text scale —
       // and what gets cut off is the last option, the snack. Scrolling keeps

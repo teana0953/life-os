@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../finance/domain/finance_money.dart';
@@ -164,11 +165,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     final group = _groupWithMembers;
     final selfUserId = _controller.selfUserId;
     if (idToken == null || group == null || selfUserId == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => SplitExpenseSheet(
         writer: _controller,
         idToken: idToken,
@@ -202,11 +200,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     final idToken = _idToken;
     final selfUserId = _controller.selfUserId;
     if (idToken == null || selfUserId == null) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    await showAppSheet<void>(
+      context,
       builder: (_) => SettleUpSheet(
         writer: _controller,
         idToken: idToken,

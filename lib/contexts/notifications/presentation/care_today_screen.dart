@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/date/pick_time_24h.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/mascot.dart';
@@ -293,18 +294,12 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
   /// this call).
   Future<void> _openEditSheet(CareTodaySlot slot) async {
     if (widget.controller.marking) return;
-    final result = await showModalBottomSheet<_EditSheetResult>(
-      context: context,
-      // Without `isScrollControlled` the sheet is capped at 9/16 of the
-      // screen height — 360dp on a 640dp-tall phone, less than this sheet's
-      // natural height, which clipped the submit button clean off the bottom.
-      isScrollControlled: true,
-      useSafeArea: true,
-      // A reachable dismiss affordance beyond the scrim/system-back gesture
-      // — neither is discoverable by a screen-reader or keyboard user
-      // scanning the sheet's own content (mirrors exercise_screen.dart /
-      // goal_card.dart).
-      showDragHandle: true,
+    // The measurement behind `showAppSheet`'s scroll-controlled default, for
+    // this sheet specifically: the 9/16 cap is 360dp on a 640dp-tall phone,
+    // less than this sheet's natural height, and what it clipped was the
+    // submit button.
+    final result = await showAppSheet<_EditSheetResult>(
+      context,
       builder: (sheetContext) => _EditSheet(
         slot: slot,
         toLocalTime: widget.toLocalTime,
@@ -1113,7 +1108,7 @@ class _EditSheetState extends State<_EditSheet> {
       // Lift the sheet above the on-screen keyboard — the project's
       // bottom-sheet convention (see `exercise_screen.dart`,
       // `goal_card.dart`) — *and* above the bottom safe-area inset:
-      // `showModalBottomSheet(useSafeArea: true)` applies `SafeArea(bottom:
+      // `showAppSheet`'s `useSafeArea: true` applies `SafeArea(bottom:
       // false)`, leaving the bottom edge to the sheet, so on a
       // gesture-navigation phone the submit button otherwise sat 16dp from
       // the screen edge, inside the home-indicator strip.
