@@ -26,7 +26,7 @@ Future<NetWorthController> _pumpSheet(
         body: AnimatedBuilder(
           animation: controller,
           builder: (context, _) =>
-              AccountManageSheet(controller: controller, idToken: 'token'),
+              AccountManageSheet(controller: controller, idToken: () async => 'token'),
         ),
       ),
     ),

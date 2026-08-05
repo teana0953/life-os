@@ -35,6 +35,7 @@ import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/auth/id_token_provider.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
@@ -60,6 +61,10 @@ class _FakeMealRepository implements MealRepository {
   /// month change refetched instead of leaving the old month's markers up.
   final List<String> receivedMonths = [];
 
+  /// Every id token [getDayMeals] was called with, in order — the *value that
+  /// was sent*, which is what the token-freshness test asserts on.
+  final List<String> receivedDayTokens = [];
+
   /// Meal group names to report per day, so a test can set up a day that
   /// already has meals (e.g. to check the snapshot handed to the dictionary).
   final Map<String, List<String>> mealNamesByDay;
@@ -69,6 +74,7 @@ class _FakeMealRepository implements MealRepository {
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     receivedDays.add(day);
+    receivedDayTokens.add(idToken);
     return DayMealsLog.fromJson({
       'day': day,
       'meals': [
@@ -150,12 +156,15 @@ class _FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   ) => throw UnimplementedError();
 }
 
+Future<String> _constantToken() async => 'token';
+
 /// The diet day screen wired to the given [meals] repo. Controllers are created
 /// fresh each call unless [reuse] is passed, so a re-mount can share state.
 Widget _dietDay({
   required _FakeMealRepository meals,
   DateTime Function() clock = _clock,
   _Controllers? reuse,
+  IdTokenProvider idToken = _constantToken,
 }) {
   final target = _FakeDailyTargetRepository();
   final dict = _FakeFoodDictionaryRepository();
@@ -181,13 +190,14 @@ Widget _dietDay({
           ListFavorites(dict),
           FavoriteFood(dict),
           UnfavoriteFood(dict),
-        )..load('token'),
+          idToken: () async => 'token',
+        )..load(),
         createMeal: CreateMealController(CreateMeal(meals)),
         getLoggedDays: GetLoggedDays(meals),
       );
   return DietDayScreen(
     authRepository: _FakeAuthRepository(),
-    idToken: 'token',
+    idToken: idToken,
     todayController: c.today,
     dictionaryController: c.dictionary,
     dailyTargetController: c.dailyTarget,
@@ -211,6 +221,32 @@ DateTime _clock() => DateTime(2026, 7, 15, 9);
 AppLocalizations get _en => lookupAppLocalizations(const Locale('en'));
 
 void main() {
+  // `DietDayScreen` held the worst shape of all: `late final String _idToken =
+  // widget.idToken`, which not even a rebuild could replace — and it sits on
+  // the diet-recording flow issue #106 describes. Asserts on the token the
+  // repository RECEIVED, not on the provider having been called.
+  testWidgets(
+    'browsing to another day after a token renewal carries the new token',
+    (tester) async {
+      final meals = _FakeMealRepository();
+      var token = 'token-1';
+      await tester.pumpWidget(
+        l10nTestApp(home: _dietDay(meals: meals, idToken: () async => token)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(meals.receivedDayTokens, ['token-1']);
+
+      // Firebase renewed the token while the diet day stayed open.
+      token = 'token-2';
+
+      await tester.tap(find.byKey(const Key('day-nav-previous')));
+      await tester.pumpAndSettle();
+
+      expect(meals.receivedDayTokens, ['token-1', 'token-2']);
+    },
+  );
+
   testWidgets('loads today on mount', (tester) async {
     final meals = _FakeMealRepository();
     await tester.pumpWidget(l10nRouterTestApp(home: _dietDay(meals: meals)));
@@ -291,7 +327,7 @@ void main() {
                 mealNames: args.mealNames,
                 dictionaryController: screen.dictionaryController,
                 createMealController: screen.createMealController,
-                idToken: 'token',
+                idToken: () async => 'token',
                 day: args.day,
                 signOut: SignOut(_FakeAuthRepository()),
               );

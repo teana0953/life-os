@@ -305,7 +305,7 @@ Future<void> _pumpTodayScreen(
       ? TodayScreen(
           controller: controller,
           signOut: SignOut(FakeAuthRepository()),
-          idToken: 'token-123',
+          idToken: () async => 'token-123',
           day: '2026-07-18',
           onAddToMeal: onAddToMeal,
           onAddSnack: onAddSnack,
@@ -315,7 +315,7 @@ Future<void> _pumpTodayScreen(
       : TodayScreen(
           controller: controller,
           signOut: SignOut(FakeAuthRepository()),
-          idToken: 'token-123',
+          idToken: () async => 'token-123',
           day: '2026-07-18',
           onAddToMeal: onAddToMeal,
           onAddSnack: onAddSnack,

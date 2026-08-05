@@ -107,7 +107,7 @@ Future<_FakeMenstrualController> _pumpCard(
       home: Scaffold(
         body: NextPeriodCard(
           controller: controller,
-          idToken: 'token-1',
+          idToken: () async => 'token-1',
           onOpen: onOpen ?? () {},
           clock: () => clock ?? DateTime(2026, 7, 28),
         ),

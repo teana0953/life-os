@@ -82,7 +82,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           lockedGroup: group,
@@ -104,7 +104,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -123,7 +123,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           editing: _sampleExpense(),
@@ -145,7 +145,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -190,7 +190,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -217,7 +217,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -251,7 +251,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'a-user',
           today: '2026-08-02',
           lockedGroup: group,
@@ -289,7 +289,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -319,7 +319,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -353,7 +353,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -401,7 +401,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           editing: editing,
@@ -425,7 +425,7 @@ void main() {
       sheet: SplitExpenseSheet(
         onAddFriend: () {},
         writer: _controller(FakeSplitRepository()),
-        idToken: 'tok',
+        idToken: () async => 'tok',
         selfUserId: _self,
         today: '2026-08-02',
         friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -509,7 +509,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () => addFriendTaps++,
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
         ),
@@ -542,7 +542,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           groups: const [
@@ -579,7 +579,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           groups: const [
@@ -616,7 +616,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           // Someone to split with, so the amount really is the first thing
@@ -643,7 +643,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -674,7 +674,7 @@ void main() {
         sheet: SplitExpenseSheet(
           onAddFriend: () {},
           writer: _controller(repo),
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],

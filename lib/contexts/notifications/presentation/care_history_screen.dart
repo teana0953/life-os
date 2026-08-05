@@ -11,6 +11,7 @@ import '../../auth/domain/auth_repository.dart';
 import '../domain/care_history.dart';
 import '../domain/care_today.dart';
 import 'care_history_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 String _statusLabel(AppLocalizations loc, CareTodayStatus status) =>
     switch (status) {
@@ -89,23 +90,25 @@ class CareHistoryScreen extends StatefulWidget {
 }
 
 class _CareHistoryScreenState extends State<CareHistoryScreen> {
-  String _idToken = '';
+  /// A fresh id token per request (see [IdTokenProvider]); the shape
+  /// `FriendsScreen._token` uses. Deliberately not cached in a field — a
+  /// token fetched at mount is already expired for a screen left open.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
 
-  /// Whether *this* instance holds a usable `_idToken`. [widget.controller]
-  /// is a main.dart singleton that outlives the screen, so re-entering can
-  /// start with `firstLoadSettled == true` from an earlier instance — which
-  /// makes [AsyncStateScaffold] skip the full-page spinner and render the
-  /// period selector / widen button on the very first frame, before this
-  /// instance's own [_load] has resolved a real `_idToken` (still `''`).
-  /// Gates those controls so a tap in that window can't send an
-  /// unauthenticated GET and drop the user into a spurious 401 reauth exit
-  /// (task 4.7).
+  /// Whether *this* instance has resolved a non-empty token at least once.
+  /// [widget.controller] is a main.dart singleton that outlives the screen, so
+  /// re-entering can start with `firstLoadSettled == true` from an earlier
+  /// instance — which makes [AsyncStateScaffold] skip the full-page spinner and
+  /// render the period selector / widen button on the very first frame, before
+  /// this instance's own [_load] has resolved anything. Gates those controls so
+  /// a tap in that window can't send an unauthenticated GET and drop the user
+  /// into a spurious 401 reauth exit (task 4.7).
   ///
-  /// Derived from `_idToken` rather than tracked as a separate "the await
-  /// finished" flag: `idToken()` resolving to `null` leaves `_idToken` empty
-  /// too, and a request carrying no bearer is exactly what this gate exists
-  /// to prevent — whether the token hasn't arrived yet or never will.
-  bool get _tokenReady => _idToken.isNotEmpty;
+  /// A flag, not a held token: a request carrying no bearer is exactly what
+  /// this gate exists to prevent — whether the token hasn't arrived yet or
+  /// never will — while the token each request actually sends is re-resolved
+  /// by [_idToken] at that moment.
+  bool _tokenReady = false;
 
   /// The composite key ([_slotCompositeKey]) of the slot currently being
   /// edited, so its tile can show an in-flight affordance instead of the
@@ -128,15 +131,16 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   void _onChanged() => setState(() {});
 
   Future<void> _load() async {
-    _idToken = await widget.authRepository.idToken() ?? '';
+    final idToken = await _idToken();
     if (!mounted) return;
-    setState(() {});
-    await _reload();
+    setState(() => _tokenReady = idToken.isNotEmpty);
+    await widget.controller.load(idToken);
   }
 
-  Future<void> _reload() => widget.controller.load(_idToken);
+  Future<void> _reload() async => widget.controller.load(await _idToken());
 
-  void _setSpan(int spanDays) => widget.controller.setSpan(_idToken, spanDays);
+  Future<void> _setSpan(int spanDays) async =>
+      widget.controller.setSpan(await _idToken(), spanDays);
 
   Future<void> _openEditSheet(CareTodaySlot slot) async {
     // Guards against opening a second sheet while an edit is already in
@@ -222,7 +226,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     // later edit clears them on entry — so reading them here could report a
     // *failed* PUT as saved. The returned value is this call's own snapshot.
     final outcome = await widget.controller.edit(
-      _idToken,
+      await _idToken(),
       careScheduleId: slot.careScheduleId,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,

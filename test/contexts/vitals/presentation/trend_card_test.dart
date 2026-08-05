@@ -138,7 +138,7 @@ Future<TrendController> _pump(
         body: SingleChildScrollView(
           child: TrendCard(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             heightCm: heightCm,
           ),
         ),

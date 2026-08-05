@@ -107,6 +107,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInAgain => 'Sign in again';
 
   @override
+  String get trackerStillSaving => 'Still saving — try again in a moment.';
+
+  @override
   String get pleaseSignInAgain => 'Please sign in again.';
 
   @override

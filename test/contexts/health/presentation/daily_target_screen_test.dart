@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
@@ -17,6 +19,11 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
   DailyTargetWithRemaining? afterSetTarget;
   double? receivedBaseStaple;
 
+  /// Every staple target [setTarget] was called with, in order — saving the
+  /// same draft twice leaves the same state, so only the call list can tell
+  /// one save from two.
+  final List<double> setTargetCalls = [];
+
   @override
   Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
     return afterSetTarget ?? targetToReturn!;
@@ -35,6 +42,7 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
     double? bonusFruit,
     double? bonusVeg,
   }) async {
+    setTargetCalls.add(baseStaple);
     receivedBaseStaple = baseStaple;
     return DailyTarget.fromJson({
       'id': 'target-1',
@@ -84,7 +92,7 @@ void main() {
         l10nTestApp(
           home: DailyTargetScreen(
             controller: controller,
-            idToken: 'token-123',
+            idToken: () async => 'token-123',
             day: '2026-07-18',
             onSignInAgain: () {},
           ),
@@ -120,7 +128,7 @@ void main() {
           l10nTestApp(
             home: DailyTargetScreen(
               controller: controller,
-              idToken: 'token-123',
+              idToken: () async => 'token-123',
               day: '2026-07-18',
               onSignInAgain: () {},
             ),
@@ -155,7 +163,7 @@ void main() {
         l10nTestApp(
           home: DailyTargetScreen(
             controller: controller,
-            idToken: 'token-123',
+            idToken: () async => 'token-123',
             day: '2026-07-18',
             onSignInAgain: () {},
           ),
@@ -182,7 +190,7 @@ void main() {
         l10nTestApp(
           home: DailyTargetScreen(
             controller: controller,
-            idToken: 'token-123',
+            idToken: () async => 'token-123',
             day: '2026-07-18',
             onSaved: () => savedCalled = true,
             onSignInAgain: () {},
@@ -195,6 +203,95 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(savedCalled, isTrue);
+    });
+
+    // The ID token is resolved at request time, so between the tap and the
+    // controller's `saving` status there is a whole token round trip during
+    // which nothing in the controller has changed yet. That window has to be
+    // closed by the screen itself, or a second tap starts a second write.
+    group('while the ID token is still resolving', () {
+      /// Pumps a loaded screen whose token provider is held open by [gate].
+      Future<void> pumpGatedToken(
+        WidgetTester tester,
+        FakeDailyTargetRepository repository,
+        Completer<void> gate,
+      ) async {
+        final controller = DailyTargetController(
+          GetDailyTargetWithRemaining(repository),
+          SetDailyTarget(repository),
+        );
+        await controller.load('token-123', '2026-07-18');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: DailyTargetScreen(
+              controller: controller,
+              idToken: () async {
+                await gate.future;
+                return 'token-123';
+              },
+              day: '2026-07-18',
+              onSignInAgain: () {},
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      // Two taps inside one frame: the disable only takes effect on the next
+      // rebuild, so the second tap still reaches the enabled button and only
+      // the re-entrancy check in `_save` can drop it.
+      testWidgets('a same-frame second Save tap writes only once', (
+        tester,
+      ) async {
+        final repository = FakeDailyTargetRepository()
+          ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+        final gate = Completer<void>();
+        await pumpGatedToken(tester, repository, gate);
+
+        await tester.tap(find.byKey(const Key('save-target-button')));
+        await tester.tap(find.byKey(const Key('save-target-button')));
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(repository.setTargetCalls, [12]);
+      });
+
+      // The visible half: the button disables during token resolution, not
+      // only once the controller reaches `saving` — so a later tap can't land
+      // either.
+      testWidgets(
+        'the Save button is disabled and a later tap writes nothing more',
+        (tester) async {
+          final repository = FakeDailyTargetRepository()
+            ..targetToReturn = _target(baseStaple: 12, loggedStaple: 9);
+          final gate = Completer<void>();
+          await pumpGatedToken(tester, repository, gate);
+
+          await tester.tap(find.byKey(const Key('save-target-button')));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.byKey(const Key('save-target-button')),
+                )
+                .onPressed,
+            isNull,
+          );
+
+          await tester.tap(
+            find.byKey(const Key('save-target-button')),
+            warnIfMissed: false,
+          );
+          await tester.pump();
+
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(repository.setTargetCalls, [12]);
+        },
+      );
     });
   });
 
@@ -229,7 +326,7 @@ void main() {
                     locale: locale,
                     home: DailyTargetScreen(
                       controller: controller,
-                      idToken: 'token-123',
+                      idToken: () async => 'token-123',
                       day: '2026-07-18',
                       onSignInAgain: () {},
                     ),

@@ -11,6 +11,12 @@ import 'package:life_os/contexts/split/domain/split_repository.dart';
 /// can be told to throw on the next call.
 class FakeSplitRepository implements SplitRepository {
   String? gotIdToken;
+
+  /// Every id token the group fetch / add-member calls were made with, in
+  /// order — the *value that was sent*, which is what the token-freshness
+  /// test asserts on (that a provider was called proves nothing).
+  final List<String> groupTokens = [];
+  final List<String> addGroupMemberTokens = [];
   String? gotName;
   String? gotGroupId;
   String? gotUserId;
@@ -93,6 +99,7 @@ class FakeSplitRepository implements SplitRepository {
     String groupId,
   ) async {
     gotIdToken = idToken;
+    groupTokens.add(idToken);
     gotGroupId = groupId;
     _maybeThrow();
     return (group: groupsByIdToReturn[groupId] ?? groupToReturn!, members: membersToReturn);
@@ -101,6 +108,7 @@ class FakeSplitRepository implements SplitRepository {
   @override
   Future<GroupMember> addGroupMember(String idToken, String groupId, String userId) async {
     gotIdToken = idToken;
+    addGroupMemberTokens.add(idToken);
     gotGroupId = groupId;
     gotUserId = userId;
     _maybeThrow();

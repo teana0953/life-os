@@ -8,6 +8,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/weight_goal.dart';
 import 'weight_goal_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Formats a weight/BMI figure: whole numbers show without a decimal (51.0 →
 /// "51"), otherwise one decimal place (19.1 → "19.1"). `null` shows nothing —
@@ -26,7 +27,7 @@ String? _fmt(double? value) {
 /// is left to the [HealthScaffold] layer. Colors come from [Theme] only.
 class GoalCard extends StatefulWidget {
   final WeightGoalController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   const GoalCard({super.key, required this.controller, required this.idToken});
 
@@ -60,7 +61,7 @@ class _GoalCardState extends State<GoalCard> {
     );
     if (result == null) return;
     await widget.controller.saveProfile(
-      widget.idToken,
+      await widget.idToken(),
       heightCm: result.heightCm,
       targetWeightKg: result.targetWeightKg,
     );
@@ -107,14 +108,14 @@ class _GoalCardState extends State<GoalCard> {
           message: loc.errorWeightGoalLoadFailed,
           messageKey: const Key('goal-card-error'),
           retryKey: const Key('goal-card-retry'),
-          onRetry: () => controller.load(widget.idToken),
+          onRetry: () async => controller.load(await widget.idToken()),
         ),
       );
     }
 
     final failed = controller.status == WeightGoalStatus.error;
     final reloading = controller.status == WeightGoalStatus.loading;
-    void onRetry() => controller.load(widget.idToken);
+    void onRetry() async => controller.load(await widget.idToken());
     if (goal == null || !goal.isProfileSet) {
       return _UnsetGoalCard(
         onSetGoal: _openEditSheet,

@@ -144,7 +144,7 @@ Future<void> _pumpCard(
       home: Scaffold(
         body: CareTodaySummaryCard(
           controller: controller,
-          idToken: 'token-123',
+          idToken: () async => 'token-123',
           onManage: onManage ?? () {},
           onSetup: onSetup ?? () {},
         ),
@@ -449,7 +449,7 @@ void main() {
             home: Scaffold(
               body: CareTodaySummaryCard(
                 controller: controller,
-                idToken: 'token-123',
+                idToken: () async => 'token-123',
                 onManage: () {},
                 onSetup: () {},
               ),

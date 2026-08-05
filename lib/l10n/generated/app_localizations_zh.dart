@@ -105,6 +105,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get signInAgain => '重新登入';
 
   @override
+  String get trackerStillSaving => '尚在儲存——請稍後再試。';
+
+  @override
   String get pleaseSignInAgain => '請重新登入。';
 
   @override
@@ -2357,6 +2360,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get signInAgain => '重新登入';
+
+  @override
+  String get trackerStillSaving => '尚在儲存——請稍後再試。';
 
   @override
   String get pleaseSignInAgain => '請重新登入。';

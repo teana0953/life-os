@@ -109,7 +109,7 @@ Future<void> _pumpForm(
       locale: locale,
       home: CareItemForm(
         controller: controller,
-        idToken: 'token-123',
+        idToken: () async => 'token-123',
         existing: existing,
         clock: () => DateTime(2026, 7, 22),
       ),
@@ -449,7 +449,7 @@ void main() {
             ),
             home: CareItemForm(
               controller: controller,
-              idToken: 'token-123',
+              idToken: () async => 'token-123',
               existing: _medicationItem,
               clock: () => DateTime(2026, 7, 22),
             ),

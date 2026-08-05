@@ -8,6 +8,7 @@ import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The record/edit bottom sheet (design.md 3.4): a numeric amount field
 /// (empty-zero convention), an expense/income toggle that swaps the
@@ -22,7 +23,7 @@ import 'finance_controller.dart';
 /// and only pops on success.
 class AddTransactionSheet extends StatefulWidget {
   final FinanceController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final List<FinanceCategory> categories;
 
   /// Today's `YYYY-MM-DD`, used as the default date for a new transaction.
@@ -116,29 +117,50 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (amount == null || amount <= 0 || categoryId == null) return;
 
     setState(() => _saving = true);
+    // `_saving` is set before the first await, so every path out of the work
+    // below — including a throw — has to clear it. Without the catch below, a
+    // throw (a failed token renewal reaches the network and throws) left the
+    // submit button `onPressed: null` for good, stranding the typed
+    // transaction with the sheet's only exit being to dismiss and lose it.
+    // `catch` rather than `finally`: on the success path the sheet pops and
+    // `_saving` is deliberately left set.
     final controller = widget.controller;
     final editing = widget.editing;
-    if (editing == null) {
-      await controller.addTransaction(
-        widget.idToken,
-        type: _type,
-        amount: amount,
-        currency: _currency,
-        categoryId: categoryId,
-        date: _date,
-        note: _note,
-      );
-    } else {
-      await controller.updateTransaction(
-        widget.idToken,
-        editing.id,
-        type: _type,
-        amount: amount,
-        currency: _currency,
-        categoryId: categoryId,
-        date: _date,
-        note: _note,
-      );
+    try {
+      if (editing == null) {
+        await controller.addTransaction(
+          await widget.idToken(),
+          type: _type,
+          amount: amount,
+          currency: _currency,
+          categoryId: categoryId,
+          date: _date,
+          note: _note,
+        );
+      } else {
+        await controller.updateTransaction(
+          await widget.idToken(),
+          editing.id,
+          type: _type,
+          amount: amount,
+          currency: _currency,
+          categoryId: categoryId,
+          date: _date,
+          note: _note,
+        );
+      }
+    } catch (_) {
+      // Not rethrown: an escaping async error is invisible to the user and
+      // would leave them staring at an unchanged sheet. Clearing `_saving`
+      // and showing the same save-failed message the error status shows keeps
+      // the typed transaction on screen and retryable.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+      return;
     }
     if (!mounted) return;
     if (controller.status == FinanceStatus.loaded) {
@@ -176,7 +198,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    await widget.controller.deleteTransaction(widget.idToken, editing.id);
+    await widget.controller.deleteTransaction(await widget.idToken(), editing.id);
     if (!mounted) return;
     if (widget.controller.status == FinanceStatus.loaded) {
       Navigator.of(context).pop();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +28,11 @@ class FakeBowelRepository implements BowelRepository {
   int getDayCallCount = 0;
   String? lastGetDay;
 
+  /// Every count [save] was called with, in order — saving the same draft
+  /// twice leaves the same state, so only the call list can tell one save from
+  /// two.
+  final List<int> saveCalls = [];
+
   FakeBowelRepository({BowelDay? stored})
     : stored =
           stored ??
@@ -52,6 +59,7 @@ class FakeBowelRepository implements BowelRepository {
     required bool? isNormal,
     required String note,
   }) async {
+    saveCalls.add(count);
     if (saveError != null) throw saveError!;
     savedCount = count;
     savedIsNormal = isNormal;
@@ -79,7 +87,7 @@ Future<BowelController> _pumpScreen(
       locale: locale,
       home: BowelScreen(
         controller: controller,
-        idToken: 'token',
+        idToken: () async => 'token',
         day: day,
         clock: clock,
         onSignInAgain: () {},
@@ -388,7 +396,7 @@ void main() {
         l10nTestApp(
           home: BowelScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             onSignInAgain: () {},
@@ -432,5 +440,95 @@ void main() {
         );
       },
     );
+
+    // The ID token is resolved at request time, so between the tap and the
+    // controller's `saving` status there is a whole token round trip during
+    // which nothing in the controller has changed yet. That window has to be
+    // closed by the screen itself, or a second tap starts a second write.
+    group('while the ID token is still resolving', () {
+      /// Pumps a loaded screen with one unsaved edit (so Save is enabled) and
+      /// a token provider held open by [gate].
+      Future<void> pumpGatedTokenWithEdit(
+        WidgetTester tester,
+        FakeBowelRepository repository,
+        Completer<void> gate,
+      ) async {
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: BowelScreen(
+              controller: controller,
+              idToken: () async {
+                await gate.future;
+                return 'token';
+              },
+              day: '2026-07-18',
+              clock: _defaultClock,
+              onSignInAgain: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('bowel-count-increment')));
+        await tester.pump();
+      }
+
+      // Two taps inside one frame: the disable only takes effect on the next
+      // rebuild, so the second tap still reaches the enabled button and only
+      // the re-entrancy check in `_save` can drop it.
+      testWidgets('a same-frame second Save tap writes only once', (
+        tester,
+      ) async {
+        final repository = FakeBowelRepository();
+        final gate = Completer<void>();
+        await pumpGatedTokenWithEdit(tester, repository, gate);
+
+        await tester.tap(find.byKey(const Key('bowel-save-button')));
+        await tester.tap(find.byKey(const Key('bowel-save-button')));
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(repository.saveCalls, [1]);
+      });
+
+      // The visible half: the button disables and the busy bar appears during
+      // token resolution, not only once the controller reaches `saving` — so a
+      // later tap can't land either.
+      testWidgets(
+        'the Save button is disabled, the busy bar shows, and a later tap '
+        'writes nothing more',
+        (tester) async {
+          final repository = FakeBowelRepository();
+          final gate = Completer<void>();
+          await pumpGatedTokenWithEdit(tester, repository, gate);
+
+          await tester.tap(find.byKey(const Key('bowel-save-button')));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.byKey(const Key('bowel-save-button')),
+                )
+                .onPressed,
+            isNull,
+          );
+          expect(find.byKey(const Key('bowel-busy')), findsOneWidget);
+
+          await tester.tap(
+            find.byKey(const Key('bowel-save-button')),
+            warnIfMissed: false,
+          );
+          await tester.pump();
+
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(repository.saveCalls, [1]);
+        },
+      );
+    });
   });
 }

@@ -21,6 +21,7 @@ import 'settle_up_sheet.dart';
 import 'split_error_text.dart';
 import 'split_expense_row.dart';
 import 'split_expense_sheet.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// A single group's screen (design.md 7, task 7.1): members, per-currency
 /// group balances (design D2 — "should collect/should pay", never the
@@ -83,7 +84,6 @@ class GroupDetailScreen extends StatefulWidget {
 
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
   late final GroupDetailController _controller;
-  String? _idToken;
 
   @override
   void initState() {
@@ -117,10 +117,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     if (mounted) setState(() {});
   }
 
+  /// A fresh id token per request (see [IdTokenProvider]); the shape
+  /// `FriendsScreen._token` uses. Deliberately not cached in a field: this
+  /// screen can sit open past the token's one-hour life, and every mutation
+  /// below would then go out with a dead one.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
+
   Future<void> _load() async {
-    final token = await widget.authRepository.idToken() ?? '';
+    final token = await _idToken();
     if (!mounted) return;
-    setState(() => _idToken = token);
     await _controller.load(token, widget.groupId);
   }
 
@@ -161,15 +166,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   Future<void> _openExpenseSheet({SplitExpense? editing}) async {
-    final idToken = _idToken;
     final group = _groupWithMembers;
     final selfUserId = _controller.selfUserId;
-    if (idToken == null || group == null || selfUserId == null) return;
+    if (group == null || selfUserId == null) return;
     await showAppSheet<void>(
       context,
       builder: (_) => SplitExpenseSheet(
         writer: _controller,
-        idToken: idToken,
+        idToken: _idToken,
         selfUserId: selfUserId,
         today: dayString(widget.clock()),
         lockedGroup: group,
@@ -197,14 +201,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     required int balanceAmount,
     required String currency,
   }) async {
-    final idToken = _idToken;
     final selfUserId = _controller.selfUserId;
-    if (idToken == null || selfUserId == null) return;
+    if (selfUserId == null) return;
     await showAppSheet<void>(
       context,
       builder: (_) => SettleUpSheet(
         writer: _controller,
-        idToken: idToken,
+        idToken: _idToken,
         selfUserId: selfUserId,
         otherUserId: otherUserId,
         otherDisplayName: otherDisplayName,
@@ -216,8 +219,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   Future<void> _openAddMemberDialog() async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     final memberIds = _controller.members.map((m) => m.userId).toSet();
     final candidates = _controller.friends.where((f) => !memberIds.contains(f.userId)).toList();
     final loc = AppLocalizations.of(context)!;
@@ -250,14 +251,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     );
     if (chosen == null || !mounted) return;
     final seqBefore = _controller.mutationErrorSeq;
-    await _controller.addMember(idToken, widget.groupId, chosen);
+    await _controller.addMember(await _idToken(), widget.groupId, chosen);
     _surfaceMutationError(seqBefore);
   }
 
   Future<void> _confirmArchive() async {
-    final idToken = _idToken;
     final group = _controller.group;
-    if (idToken == null || group == null) return;
+    if (group == null) return;
     final loc = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -281,7 +281,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     );
     if (confirmed != true || !mounted) return;
     final seqBefore = _controller.mutationErrorSeq;
-    await _controller.archive(idToken, widget.groupId);
+    await _controller.archive(await _idToken(), widget.groupId);
     _surfaceMutationError(seqBefore);
   }
 

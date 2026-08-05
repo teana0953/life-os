@@ -88,7 +88,7 @@ Widget _buildSheet({
     home: Scaffold(
       body: SharedFoodItemSheet(
         controller: controller,
-        idToken: 'token-123',
+        idToken: () async => 'token-123',
         item: item,
         onSuccess: onSuccess ?? (_) {},
       ),
@@ -142,7 +142,7 @@ class _SheetHostState extends State<_SheetHost> {
             Expanded(
               child: SharedFoodItemSheet(
                 controller: widget.controller,
-                idToken: 'token-123',
+                idToken: () async => 'token-123',
                 onSuccess: (_) {},
               ),
             ),
@@ -483,7 +483,7 @@ void main() {
             body: SharedFoodItemSheet(
               key: const Key('sheet-1'),
               controller: controller,
-              idToken: 'token-123',
+              idToken: () async => 'token-123',
               onSuccess: (_) {},
             ),
           ),
@@ -506,7 +506,7 @@ void main() {
             body: SharedFoodItemSheet(
               key: const Key('sheet-2'),
               controller: controller,
-              idToken: 'token-123',
+              idToken: () async => 'token-123',
               onSuccess: (_) {},
             ),
           ),

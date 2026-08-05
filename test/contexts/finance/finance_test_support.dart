@@ -110,8 +110,13 @@ class FakeFinanceRepository implements FinanceRepository {
     return List.of(byMonth[month] ?? const []);
   }
 
+  /// Every id token [getSummary] was called with, in order — the *value that
+  /// was sent*, which is what the token-freshness tests assert on.
+  final List<String> summaryTokens = [];
+
   @override
   Future<MonthlySummary> getSummary(String idToken, String month) async {
+    summaryTokens.add(idToken);
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;

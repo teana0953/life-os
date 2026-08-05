@@ -18,8 +18,13 @@ class _FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges =>
       errorStream ? Stream<bool>.error(Exception('boom')) : _controller.stream;
 
+  int idTokenCalls = 0;
+
   @override
-  Future<String?> idToken() async => null;
+  Future<String?> idToken() async {
+    idTokenCalls++;
+    return 'token';
+  }
   @override
   Future<void> signIn(String email, String password) async {}
   @override
@@ -53,6 +58,26 @@ void main() {
       expect(notifier.signedIn, isTrue);
       expect(notifier.error, isFalse);
       expect(notified, greaterThan(0));
+    });
+
+    // D3: this object drives routing, it does not keep credentials. It used to
+    // resolve a token on every auth event and hand that one snapshot to every
+    // route builder — the snapshot that went stale after an hour, since
+    // `authStateChanges` does not fire on token renewal.
+    test('never resolves a token — it holds no credential at all', () async {
+      final repo = _FakeAuthRepository();
+      final notifier = AuthRouterNotifier(repo);
+      addTearDown(notifier.dispose);
+
+      repo.emit(true);
+      await Future<void>.delayed(Duration.zero);
+      repo.emit(false);
+      await Future<void>.delayed(Duration.zero);
+      repo.emit(true);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(notifier.signedIn, isTrue);
+      expect(repo.idTokenCalls, 0);
     });
 
     test('a signed-out event sets signedIn false', () async {

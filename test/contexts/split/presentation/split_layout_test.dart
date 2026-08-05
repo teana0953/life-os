@@ -203,7 +203,7 @@ Widget _expenseSheet({
         CreateSettlement(repo),
         DeleteSettlement(repo),
       ),
-      idToken: 'tok',
+      idToken: () async => 'tok',
       selfUserId: _self,
       today: '2026-08-02',
       friends: friends,
@@ -270,7 +270,7 @@ Widget _settleUpSheetScreen({Locale locale = const Locale('en')}) => l10nTestApp
   home: Scaffold(
     body: SettleUpSheet(
       writer: _InertSettlementWriter(),
-      idToken: 'tok',
+      idToken: () async => 'tok',
       selfUserId: _self,
       otherUserId: 'u2',
       otherDisplayName: 'Bo',

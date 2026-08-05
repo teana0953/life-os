@@ -71,7 +71,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -101,7 +101,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -133,7 +133,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -153,7 +153,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -178,7 +178,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -203,7 +203,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -229,7 +229,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -254,7 +254,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -281,7 +281,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -309,7 +309,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -334,7 +334,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -356,7 +356,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -380,7 +380,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -410,7 +410,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -433,7 +433,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: 'Bo',
@@ -458,7 +458,7 @@ void main() {
         tester,
         sheet: SettleUpSheet(
           writer: writer,
-          idToken: 'tok',
+          idToken: () async => 'tok',
           selfUserId: 'self-1',
           otherUserId: 'other-1',
           otherDisplayName: null,

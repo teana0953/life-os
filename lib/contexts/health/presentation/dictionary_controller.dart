@@ -6,6 +6,7 @@ import '../application/favorite_food.dart';
 import '../application/list_favorites.dart';
 import '../application/search_dictionary.dart';
 import '../application/unfavorite_food.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../domain/diet_exceptions.dart';
 import '../domain/food_item.dart';
 
@@ -24,6 +25,14 @@ class DictionaryController extends ChangeNotifier {
   final ListFavorites _listFavorites;
   final FavoriteFood _favoriteFood;
   final UnfavoriteFood _unfavoriteFood;
+
+  /// Resolves the id token per request. This controller is the one deliberate
+  /// exception to "presentation holds the provider" (design D2): [search] and
+  /// [toggleFavorite] take no token, so they used to reuse the one [load]
+  /// captured — the dictionary flow could not be fixed without moving the
+  /// provider in here.
+  final IdTokenProvider _idToken;
+
   final Duration _searchDebounce;
   Timer? _debounceTimer;
 
@@ -32,24 +41,24 @@ class DictionaryController extends ChangeNotifier {
     this._listFavorites,
     this._favoriteFood,
     this._unfavoriteFood, {
+    required IdTokenProvider idToken,
     Duration searchDebounce = const Duration(milliseconds: 300),
-  }) : _searchDebounce = searchDebounce;
+  }) : _idToken = idToken,
+       _searchDebounce = searchDebounce;
 
   DictionaryStatus status = DictionaryStatus.loading;
   List<FoodItem> favorites = [];
   List<FoodItem> results = [];
   String query = '';
   DictionaryError? error;
-  String? _idToken;
 
-  Future<void> load(String idToken) async {
-    _idToken = idToken;
+  Future<void> load() async {
     status = DictionaryStatus.loading;
     error = null;
     notifyListeners();
 
     try {
-      favorites = await _listFavorites(idToken);
+      favorites = await _listFavorites(await _idToken());
       status = DictionaryStatus.loaded;
     } on DietReauthenticationRequired {
       status = DictionaryStatus.needsReauth;
@@ -83,13 +92,13 @@ class DictionaryController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final idToken = _idToken;
-    if (idToken == null) return;
-
     final completer = Completer<void>();
     _debounceTimer = Timer(_searchDebounce, () async {
       try {
-        results = await _search(idToken, query);
+        // Resolved inside the timer, not before it: the point of the request
+        // is when it goes out, and a debounced search fires after the user
+        // stopped typing.
+        results = await _search(await _idToken(), query);
         status = DictionaryStatus.loaded;
         error = null;
       } on DietReauthenticationRequired {
@@ -108,8 +117,7 @@ class DictionaryController extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(FoodItem item, {required bool isFavorite}) async {
-    final idToken = _idToken;
-    if (idToken == null) return;
+    final idToken = await _idToken();
     try {
       if (isFavorite) {
         await _unfavoriteFood(idToken, item.id);

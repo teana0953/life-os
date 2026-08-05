@@ -73,6 +73,7 @@ import 'shared/pwa/pwa_update_banner.dart';
 import 'shared/pwa/pwa_update_controller.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_controller.dart';
+import 'shared/auth/id_token_provider.dart';
 
 /// The locales the app ships translations for. `zh-Hant` uses
 /// [Locale.fromSubtags] with `scriptCode` (not [Locale.new] with a
@@ -365,11 +366,10 @@ class _AppState extends State<App> {
         // A *quiet* reload: the user is looking at that list, so it must not
         // be replaced by a spinner — nor by an error screen if the reload
         // fails (design.md D9, same rule as the post-mark reload). The token
-        // is fetched fresh, like `CareTodayScreen._load` does, rather than
-        // reusing `_authNotifier.idToken`: that is a snapshot from the last
-        // `authStateChanges` event, which does not fire on token renewal, so
-        // the overnight tap this reload exists for is exactly when it would
-        // be expired.
+        // is fetched fresh here, the same rule every authenticated request in
+        // the app now follows (`IdTokenProvider`): a token resolved any
+        // earlier can be past its one-hour life by the time this runs, and the
+        // overnight tap this reload exists for is exactly that case.
         refresh: () async {
           final token = await widget.authRepository.idToken() ?? '';
           await widget.careTodayController.reloadQuietly(token);
@@ -435,7 +435,24 @@ class _AppState extends State<App> {
     super.dispose();
   }
 
-  String get _idToken => _authNotifier.idToken ?? '';
+  /// The [IdTokenProvider] handed to every authenticated route builder. It
+  /// asks the auth repository on **every** call rather than closing over a
+  /// value: `idToken()` renews a token that is close to expiring, so a screen
+  /// that has been mounted for hours still sends a live one. Signed out
+  /// resolves to `''`, the pre-existing semantics (the request 401s and the
+  /// re-auth exit takes over).
+  ///
+  /// The `catch` is load-bearing and is the same guard `AuthRouterNotifier`
+  /// used to carry before the token moved to the call sites: a renewal that
+  /// has to go to the network **throws** when it fails, and the throw would
+  /// escape here — before the controller is ever entered, so no controller's
+  /// error handling would run and the user's tap would vanish with neither a
+  /// write nor a message. Resolving to `''` instead reproduces the pre-change
+  /// outcome: the request goes out unauthenticated, the backend 401s, and the
+  /// re-auth exit takes over. This is exactly the case this whole change is
+  /// about (a PWA open past the token's hour) combined with a flaky network,
+  /// so it is not hypothetical.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
   String get _today => dayString(widget.clock());
 
   /// Builds a day-keyed tracker screen for the `/health/<name>` route. Nested
@@ -762,8 +779,8 @@ class _AppState extends State<App> {
                       controller: widget.healthDailyTargetController,
                       idToken: _idToken,
                       day: day,
-                      onSaved: () =>
-                          widget.healthTodayController.load(_idToken, day),
+                      onSaved: () async =>
+                          widget.healthTodayController.load(await _idToken(), day),
                       onSignInAgain: widget.signOut.call,
                     );
                   },
@@ -789,8 +806,8 @@ class _AppState extends State<App> {
                         signOut: widget.signOut,
                         isAdmin: widget.homeController.profile?.isAdmin ?? false,
                         sharedFoodItemController: widget.healthSharedFoodItemController,
-                        onNeedProfile: () =>
-                            widget.homeController.ensureLoaded(_idToken),
+                        onNeedProfile: () async =>
+                            widget.homeController.ensureLoaded(await _idToken()),
                       ),
                     );
                   },
@@ -817,8 +834,8 @@ class _AppState extends State<App> {
                           signOut: widget.signOut,
                           isAdmin: widget.homeController.profile?.isAdmin ?? false,
                           sharedFoodItemController: widget.healthSharedFoodItemController,
-                          onNeedProfile: () =>
-                              widget.homeController.ensureLoaded(_idToken),
+                          onNeedProfile: () async =>
+                              widget.homeController.ensureLoaded(await _idToken()),
                         ),
                       );
                     }
@@ -956,7 +973,7 @@ class _UrlDictionaryScreen extends StatefulWidget {
   final CreateMealController createMealController;
   final SharedFoodItemController sharedFoodItemController;
   final HomeController homeController;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
   final SignOut signOut;
 
@@ -1038,13 +1055,17 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     // `go`; the worst case is one harmless extra reload. Post-frame again: the
     // tree is locked while this screen is being unmounted.
     final controller = widget.todayController;
+    // The provider itself, not a token: `dispose` cannot await. Resolving it
+    // inside the post-frame callback below is both possible (that callback
+    // can be async) and correct — the token then comes from the moment the
+    // reload actually goes out.
     final idToken = widget.idToken;
     // The borrowed day if this screen took the controller over, today
     // otherwise. `_ensureDayLoaded` captures `_returnDay` before it can fail,
     // so a takeover whose load then failed still hands the day back.
     final day = _returnDay ?? widget.day;
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => controller.load(idToken, day),
+      (_) async => controller.load(await idToken(), day),
     );
     super.dispose();
   }
@@ -1069,7 +1090,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
   /// records against today. Nothing else would trigger that reload
   /// ([TodayController.load]'s only callers are the health shell's mount and
   /// the diet day's own day switch), so waiting for one would spin forever.
-  void _ensureDayLoaded() {
+  Future<void> _ensureDayLoaded() async {
     if (_requestedLoad) return;
     final controller = widget.todayController;
     final held = controller.dayMealsLog?.day;
@@ -1093,7 +1114,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     }
     if (held == widget.day) return;
     _requestedLoad = true;
-    controller.load(widget.idToken, widget.day);
+    controller.load(await widget.idToken(), widget.day);
   }
 
   @override
@@ -1153,7 +1174,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
                   const SizedBox(height: 16),
                   FilledButton(
                     key: const Key('dictionary-retry-button'),
-                    onPressed: () {
+                    onPressed: () async {
                       // Loads directly rather than via `_ensureDayLoaded`,
                       // which refuses while the status is `error` — the very
                       // state this button exists to leave. Capture the day to
@@ -1162,7 +1183,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
                         _returnDay ??= controller.dayMealsLog?.day;
                       }
                       _requestedLoad = true;
-                      controller.load(widget.idToken, widget.day);
+                      controller.load(await widget.idToken(), widget.day);
                     },
                     child: Text(loc.retry),
                   ),
@@ -1195,7 +1216,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
             signOut: widget.signOut,
             isAdmin: widget.homeController.profile?.isAdmin ?? false,
             sharedFoodItemController: widget.sharedFoodItemController,
-            onNeedProfile: () => widget.homeController.ensureLoaded(widget.idToken),
+            onNeedProfile: () async => widget.homeController.ensureLoaded(await widget.idToken()),
           ),
         );
     }

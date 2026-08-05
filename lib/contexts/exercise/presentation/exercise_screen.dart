@@ -10,6 +10,7 @@ import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/exercise_day.dart';
 import 'exercise_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Exercise section: the viewed day's entries and their total duration, with an
 /// immediate append (an activity picker + whole-minutes duration + optional
@@ -18,7 +19,7 @@ import 'exercise_controller.dart';
 /// does not self-load.
 class ExerciseScreen extends StatefulWidget {
   final ExerciseController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Returns the current time, used to resolve "today" for the header title.
@@ -48,8 +49,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  Future<void> reloadDay(String day) =>
-      widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) async =>
+      widget.controller.load(await widget.idToken(), day);
 
   @override
   void initState() {
@@ -65,17 +66,39 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
 
   void _onControllerChanged() => setState(() {});
 
+  /// True from the moment a mutation starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()` inside [action]:
+  /// the controller only flips to `saving` once the token has resolved, so
+  /// without this flag the controls stay enabled and silent for the whole
+  /// token round trip and a second tap starts a second write.
+  bool _mutating = false;
+
   /// Awaits [action] (a controller mutation) then, if the controller ended in
   /// an error state, surfaces a transient save-failed snackbar. `needsReauth`
   /// routes to the reauth screen via [build] instead, so it is left alone.
-  Future<void> _runMutation(Future<void> Function() action) async {
-    await action();
-    if (!mounted) return;
-    if (widget.controller.status == ExerciseStatus.error) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.exerciseSaveFailed)));
+  /// Re-entrant calls (a second tap while one is in flight) are dropped.
+  ///
+  /// Returns whether [action] actually ran. A dropped call leaves the
+  /// controller untouched — and, crucially, leaves its status on `loaded`, so
+  /// a caller cannot tell from the status alone that nothing happened.
+  /// Callers with post-mutation work (a success message, an undo prompt) MUST
+  /// bail out on `false`, or they report a write that never happened.
+  Future<bool> _runMutation(Future<void> Function() action) async {
+    if (_mutating) return false;
+    setState(() => _mutating = true);
+    try {
+      await action();
+      if (!mounted) return true;
+      if (widget.controller.status == ExerciseStatus.error) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.exerciseSaveFailed)));
+      }
+      return true;
+    } finally {
+      _mutating = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -88,29 +111,54 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
     // Pin the day at delete time so a later Undo re-adds to the day the entry
     // was removed from — not whichever day the user has since browsed to.
     final day = viewedDay;
-    await _runMutation(
-      () => widget.controller.deleteEntry(widget.idToken, day, entry.id),
+    final ran = await _runMutation(
+      () async => widget.controller.deleteEntry(await widget.idToken(), day, entry.id),
     );
+    // A dropped call never issued the delete, and the status is still
+    // `loaded` — without this the screen would claim the entry was removed
+    // and offer an Undo that would re-add a still-present entry.
+    if (!ran) return;
     if (!mounted) return;
     if (widget.controller.status != ExerciseStatus.loaded) return;
+    _showUndoPrompt(entry, day, AppLocalizations.of(context)!.exerciseEntryRemoved);
+  }
+
+  /// Shows the remove-undo prompt for [entry] (pinned to [day]) with [message]
+  /// as its text.
+  ///
+  /// A `SnackBarAction` latches and hides its SnackBar the instant it is
+  /// pressed — before [_runMutation] can refuse — so a refused undo must put
+  /// the prompt *back*, action and all, rather than replace it with a message.
+  /// Replacing it leaves the entry deleted with nothing left to undo it with,
+  /// which is worse than the silent drop it was meant to fix.
+  void _showUndoPrompt(ExerciseEntry entry, String day, String message) {
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(loc.exerciseEntryRemoved),
+        content: Text(message),
         action: SnackBarAction(
           label: loc.exerciseUndo,
-          onPressed: () => _runMutation(
-            () => widget.controller.addEntry(
-              widget.idToken,
-              day,
-              activityId: entry.activityId,
-              durationMinutes: entry.durationMinutes,
-              note: entry.note,
-            ),
-          ),
+          onPressed: () => _undoRemove(entry, day),
         ),
       ),
     );
+  }
+
+  /// Re-adds a removed [entry] to [day]. Refused while another write is in
+  /// flight — and a refusal re-shows the prompt (so "try again in a moment" is
+  /// true of what is on screen: the Undo action is still there to try again on).
+  Future<void> _undoRemove(ExerciseEntry entry, String day) async {
+    final ran = await _runMutation(
+      () async => widget.controller.addEntry(
+        await widget.idToken(),
+        day,
+        activityId: entry.activityId,
+        durationMinutes: entry.durationMinutes,
+        note: entry.note,
+      ),
+    );
+    if (ran || !mounted) return;
+    _showUndoPrompt(entry, day, AppLocalizations.of(context)!.trackerStillSaving);
   }
 
   Future<void> _openAddDialog() async {
@@ -124,8 +172,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
     );
     if (result == null) return;
     await _runMutation(
-      () => widget.controller.addEntry(
-        widget.idToken,
+      () async => widget.controller.addEntry(
+        await widget.idToken(),
         viewedDay,
         activityId: result.activityId,
         durationMinutes: result.durationMinutes,
@@ -140,6 +188,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
     final loc = AppLocalizations.of(context)!;
 
     final busy =
+        _mutating ||
         controller.status == ExerciseStatus.loading ||
         controller.status == ExerciseStatus.saving;
 

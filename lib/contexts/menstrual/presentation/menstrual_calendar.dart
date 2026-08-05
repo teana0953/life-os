@@ -47,7 +47,8 @@ bool isPredictedNextStart(DateTime day, MenstrualStats stats) {
 
 /// A month grid (Sunday-first) that marks each recorded period's days and the
 /// predicted next start with a distinct marker, with previous/next month
-/// navigation. Tapping a day calls [onDayTap]. Colors come from
+/// navigation. Tapping a day calls [onDayTap]; a null [onDayTap] renders the
+/// day cells non-interactive (used while a mutation is in flight). Colors come from
 /// [Theme.of(context)] only. Mirrors the diet shell's calendar rendering, kept
 /// separate so the diet calendar's behavior is untouched.
 class MenstrualCalendar extends StatefulWidget {
@@ -58,7 +59,7 @@ class MenstrualCalendar extends StatefulWidget {
   /// clock.
   final DateTime Function() clock;
 
-  final void Function(DateTime day) onDayTap;
+  final void Function(DateTime day)? onDayTap;
 
   const MenstrualCalendar({
     super.key,
@@ -289,7 +290,7 @@ class _MenstrualDayCell extends StatelessWidget {
   final DateTime today;
   final bool isPeriod;
   final bool isPredicted;
-  final void Function(DateTime day) onTap;
+  final void Function(DateTime day)? onTap;
 
   const _MenstrualDayCell({
     required this.date,
@@ -327,10 +328,11 @@ class _MenstrualDayCell extends StatelessWidget {
 
     return InkWell(
       key: Key('menstrual-day-$dayString'),
-      onTap: () => onTap(date),
+      onTap: onTap == null ? null : () => onTap!(date),
       child: Semantics(
         label: semanticLabel,
         button: true,
+        enabled: onTap != null,
         child: ExcludeSemantics(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),

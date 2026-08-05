@@ -8,6 +8,7 @@ import '../../../shared/widgets/stale_notice.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
 import 'care_today_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 IconData _categoryIcon(CareCategory category) => switch (category) {
   CareCategory.medication => Icons.medication_outlined,
@@ -37,7 +38,7 @@ IconData _categoryIcon(CareCategory category) => switch (category) {
 /// [onManage]) alongside the existing tap-to-open-Today body.
 class CareTodaySummaryCard extends StatefulWidget {
   final CareTodayController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// Opens care reminders management (medication/rehab/radiotherapy care/
   /// custom schedules), from the header entry shown once there's a real
@@ -102,7 +103,7 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
     action,
   ) async {
     await action(
-      widget.idToken,
+      await widget.idToken(),
       careScheduleId: slot.careScheduleId,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
@@ -148,13 +149,13 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
       // to say so, because a missing top card reads as "you have no care
       // today" — no message, no retry, no way to tell.
       if (controller.status == CareTodayLoadStatus.error) {
-        return _ErrorCard(onRetry: () => controller.load(widget.idToken));
+        return _ErrorCard(onRetry: () async => controller.load(await widget.idToken()));
       }
       return const SizedBox.shrink();
     }
     final failed = controller.status == CareTodayLoadStatus.error;
     final reloading = controller.status == CareTodayLoadStatus.loading;
-    void staleRetry() => controller.load(widget.idToken);
+    void staleRetry() async => controller.load(await widget.idToken());
     final slots = controller.slots;
     if (slots.isEmpty) {
       return _SetupPrompt(

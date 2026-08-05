@@ -9,6 +9,7 @@ import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../domain/menstrual_period.dart';
 import 'menstrual_calendar.dart';
 import 'menstrual_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Menstrual (period) tracker: a mini-calendar marking recorded periods and the
 /// predicted next start, a cycle-statistics card, and the most recent period.
@@ -16,7 +17,7 @@ import 'menstrual_controller.dart';
 /// period takes effect immediately (the controller re-reads the overview).
 class MenstrualScreen extends StatefulWidget {
   final MenstrualController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// Returns the current time, used to resolve "today" for the calendar and
   /// open-period ranges. Defaults to [DateTime.now]; tests inject a fixed clock.
@@ -53,17 +54,39 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// True from the moment a mutation starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()` inside [action]:
+  /// the controller only flips to `saving` once the token has resolved, so
+  /// without this flag the controls stay enabled and silent for the whole
+  /// token round trip and a second submission starts a second write.
+  bool _mutating = false;
+
   /// Awaits [action] (a controller mutation) then, if the controller ended in
   /// an error state, surfaces a transient save-failed SnackBar. `needsReauth`
   /// routes to the reauth screen via [build] instead, so it is left alone.
-  Future<void> _runMutation(Future<void> Function() action) async {
-    await action();
-    if (!mounted) return;
-    if (widget.controller.status == MenstrualStatus.error) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.menstrualSaveFailed)));
+  /// Re-entrant calls (a second submission while one is in flight) are dropped.
+  ///
+  /// Returns whether [action] actually ran. A dropped call leaves the
+  /// controller untouched — and, crucially, leaves its status on `loaded`, so
+  /// a caller cannot tell from the status alone that nothing happened.
+  /// Callers with post-mutation work (a success message, an undo prompt) MUST
+  /// bail out on `false`, or they report a write that never happened.
+  Future<bool> _runMutation(Future<void> Function() action) async {
+    if (_mutating) return false;
+    setState(() => _mutating = true);
+    try {
+      await action();
+      if (!mounted) return true;
+      if (widget.controller.status == MenstrualStatus.error) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.menstrualSaveFailed)));
+      }
+      return true;
+    } finally {
+      _mutating = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -71,27 +94,54 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
   /// action that re-adds it (a fresh POST; the backend assigns a new id, which
   /// is acceptable). Mirrors the exercise tracker's delete-with-undo.
   Future<void> _deletePeriod(MenstrualPeriod period) async {
-    await _runMutation(
-      () => widget.controller.deletePeriod(widget.idToken, period.id),
+    final ran = await _runMutation(
+      () async => widget.controller.deletePeriod(await widget.idToken(), period.id),
     );
+    // A dropped call never issued the delete, and the status is still
+    // `loaded` — without this the screen would claim the period was deleted
+    // and offer an Undo that would re-add a still-present period. Reachable:
+    // the undo prompt is a SnackBar, which sits outside `busy` gating, so a
+    // tap on it and a tap on a day cell in the SAME frame start the undo's
+    // write first and then open the dialog whose delete lands mid-flight.
+    if (!ran) return;
     if (!mounted) return;
     if (widget.controller.status != MenstrualStatus.loaded) return;
+    _showUndoPrompt(period, AppLocalizations.of(context)!.menstrualPeriodDeleted);
+  }
+
+  /// Shows the delete-undo prompt for [period] with [message] as its text.
+  ///
+  /// A `SnackBarAction` latches and hides its SnackBar the instant it is
+  /// pressed — before [_runMutation] can refuse — so a refused undo must put
+  /// the prompt *back*, action and all, rather than replace it with a message.
+  /// Replacing it leaves the period deleted with nothing left to undo it with,
+  /// which is worse than the silent drop it was meant to fix.
+  void _showUndoPrompt(MenstrualPeriod period, String message) {
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(loc.menstrualPeriodDeleted),
+        content: Text(message),
         action: SnackBarAction(
           label: loc.menstrualUndo,
-          onPressed: () => _runMutation(
-            () => widget.controller.addPeriod(
-              widget.idToken,
-              startDate: period.startDate,
-              endDate: period.endDate,
-            ),
-          ),
+          onPressed: () => _undoDelete(period),
         ),
       ),
     );
+  }
+
+  /// Re-adds a deleted [period]. Refused while another write is in flight —
+  /// and a refusal re-shows the prompt (so "try again in a moment" is true of
+  /// what is on screen: the Undo action is still there to try again on).
+  Future<void> _undoDelete(MenstrualPeriod period) async {
+    final ran = await _runMutation(
+      () async => widget.controller.addPeriod(
+        await widget.idToken(),
+        startDate: period.startDate,
+        endDate: period.endDate,
+      ),
+    );
+    if (ran || !mounted) return;
+    _showUndoPrompt(period, AppLocalizations.of(context)!.trackerStillSaving);
   }
 
   Future<void> _openDialog({
@@ -115,8 +165,8 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
 
     if (existing == null) {
       await _runMutation(
-        () => widget.controller.addPeriod(
-          widget.idToken,
+        () async => widget.controller.addPeriod(
+          await widget.idToken(),
           startDate: result.start!,
           endDate: result.end,
         ),
@@ -138,8 +188,8 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
     if (startArg == null && endArg == null && !clearEnd) return;
 
     await _runMutation(
-      () => widget.controller.updatePeriod(
-        widget.idToken,
+      () async => widget.controller.updatePeriod(
+        await widget.idToken(),
         existing.id,
         startDate: startArg,
         endDate: endArg,
@@ -168,6 +218,7 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
     final loc = AppLocalizations.of(context)!;
 
     final busy =
+        _mutating ||
         controller.status == MenstrualStatus.loading ||
         controller.status == MenstrualStatus.saving;
 
@@ -213,7 +264,16 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
                         child: MenstrualCalendar(
                           overview: overview,
                           clock: widget.clock,
-                          onDayTap: _onDayTap,
+                          // Gated like every other control, so a tap during a
+                          // write is refused up front (alongside the busy bar)
+                          // rather than opening a dialog whose save is then
+                          // dropped. Two cells tapped in the SAME frame cannot
+                          // stack two dialogs regardless of this gating:
+                          // pushing the first dialog's route runs
+                          // `Navigator._cancelActivePointers`, which cancels
+                          // every other in-flight pointer and absorbs the rest
+                          // of the frame's — so the second tap never fires.
+                          onDayTap: busy ? null : _onDayTap,
                         ),
                       ),
                       const SizedBox(height: 16),

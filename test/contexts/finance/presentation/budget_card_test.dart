@@ -127,7 +127,7 @@ void main() {
                   context: context,
                   isScrollControlled: true,
                   builder: (_) =>
-                      BudgetSheet(controller: controller, idToken: 'tok'),
+                      BudgetSheet(controller: controller, idToken: () async => 'tok'),
                 ),
               ),
             ),

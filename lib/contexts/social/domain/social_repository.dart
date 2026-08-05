@@ -5,7 +5,8 @@ import 'invite_preview.dart';
 /// Port covering friends and invites (contract frozen in design.md, backend
 /// PR #64). Every method takes [idToken] explicitly — the caller (a
 /// screen's `State`) fetches it fresh per request rather than relying on a
-/// cached snapshot (design.md: `app.dart`'s `_idToken` doesn't renew).
+/// cached snapshot, which is now how every authenticated request in the app
+/// works (`IdTokenProvider`).
 abstract class SocialRepository {
   Future<List<Friend>> listFriends(String idToken);
 

@@ -13,6 +13,7 @@ import 'category_progress_bar.dart';
 import 'meal_label.dart';
 import 'portion_pills.dart';
 import 'today_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
@@ -91,7 +92,7 @@ class TodayScreen extends StatefulWidget {
   /// The current user's ID token and the viewed day, needed to call the
   /// controller's mutation methods (edit/delete item, change meal time,
   /// delete meal).
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Called when the user taps a standard meal card's add control, naming
@@ -160,7 +161,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Future<void> _changeMealTime(MealEntry meal) async {
     final newTime = await widget.pickMealTime(context, meal.time, widget.toLocalTime);
     if (newTime == null) return;
-    await widget.controller.changeMealTime(widget.idToken, widget.day, meal.id, newTime);
+    await widget.controller.changeMealTime(await widget.idToken(), widget.day, meal.id, newTime);
   }
 
   Future<void> _confirmDeleteMeal(MealEntry meal, AppLocalizations loc) async {
@@ -185,7 +186,7 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
     );
     if (confirmed == true) {
-      await widget.controller.deleteMeal(widget.idToken, widget.day, meal.id);
+      await widget.controller.deleteMeal(await widget.idToken(), widget.day, meal.id);
     }
   }
 
@@ -379,7 +380,7 @@ class _MealCard extends StatelessWidget {
   final VoidCallback? onAdd;
   final bool isSnack;
   final TodayController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
   final VoidCallback? onChangeTime;
   final VoidCallback? onDeleteMeal;
@@ -537,7 +538,7 @@ class _EditableItemRow extends StatefulWidget {
   final MealItem item;
   final AppLocalizations loc;
   final TodayController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   const _EditableItemRow({
@@ -601,7 +602,7 @@ class _EditableItemRowState extends State<_EditableItemRow> {
     final item = widget.item;
     if (item.isManual) {
       await widget.controller.editItem(
-        widget.idToken,
+        await widget.idToken(),
         widget.day,
         item.id,
         portions: Portions(
@@ -614,15 +615,15 @@ class _EditableItemRowState extends State<_EditableItemRow> {
     } else if (!_canSave) {
       return;
     } else if (_measureMode) {
-      await widget.controller.editItem(widget.idToken, widget.day, item.id, measure: _amount);
+      await widget.controller.editItem(await widget.idToken(), widget.day, item.id, measure: _amount);
     } else {
-      await widget.controller.editItem(widget.idToken, widget.day, item.id, quantity: _amount);
+      await widget.controller.editItem(await widget.idToken(), widget.day, item.id, quantity: _amount);
     }
     if (mounted) setState(() => _expanded = false);
   }
 
-  Future<void> _delete() {
-    return widget.controller.deleteItem(widget.idToken, widget.day, widget.item.id);
+  Future<void> _delete() async {
+    return widget.controller.deleteItem(await widget.idToken(), widget.day, widget.item.id);
   }
 
   Widget _portionField(Key key, TextEditingController controller, String label) {

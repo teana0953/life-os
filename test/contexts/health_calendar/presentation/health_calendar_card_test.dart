@@ -69,7 +69,7 @@ Future<HealthCalendarController> _pump(
           padding: const EdgeInsets.all(20),
           child: HealthCalendarCard(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             weightAchievementRate: weightAchievementRate,
           ),
         ),
@@ -134,7 +134,7 @@ void main() {
         home: Scaffold(
           body: HealthCalendarCard(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             weightAchievementRate: null,
           ),
         ),
@@ -169,7 +169,7 @@ void main() {
         home: Scaffold(
           body: HealthCalendarCard(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             weightAchievementRate: null,
           ),
         ),

@@ -291,6 +291,12 @@ abstract class AppLocalizations {
   /// **'Sign in again'**
   String get signInAgain;
 
+  /// Shown when an action that cannot be disabled (a SnackBar Undo) is tapped while another save is still in flight, so the action was refused rather than performed.
+  ///
+  /// In en, this message translates to:
+  /// **'Still saving — try again in a moment.'**
+  String get trackerStillSaving;
+
   /// Message shown when the backend requires re-authentication (HTTP 401).
   ///
   /// In en, this message translates to:

@@ -383,6 +383,10 @@ class _FakeDailyTargetRepository implements DailyTargetRepository {
 }
 
 class _FakeWaterRepository implements WaterRepository {
+  /// Tokens this fake was called with, in order — lets a test tell "the
+  /// request went out (unauthenticated)" apart from "the action vanished".
+  final List<String> addTokens = [];
+
   @override
   Future<WaterDay> getDay(String idToken, String day) async => WaterDay(
     day: day,
@@ -396,7 +400,10 @@ class _FakeWaterRepository implements WaterRepository {
     String idToken, {
     required String day,
     required int addMl,
-  }) async => 0;
+  }) async {
+    addTokens.add(idToken);
+    return 0;
+  }
 
   @override
   Future<int> setTarget(
@@ -940,14 +947,15 @@ class _FakeSocialRepository implements SocialRepository {
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
   DailyTargetRepository? dailyTargetRepository,
+  WaterRepository? waterRepository,
   /// Threaded into [HealthCalendarController] so a test asserting on the month
   /// it opens on pins it, rather than reading the real `DateTime.now()`.
   DateTime Function() clock = DateTime.now,
 }) {
   mealRepository ??= _FakeMealRepository();
   dailyTargetRepository ??= _FakeDailyTargetRepository();
+  waterRepository ??= _FakeWaterRepository();
   foodDictionaryRepository ??= _FakeFoodDictionaryRepository();
-  final waterRepository = _FakeWaterRepository();
   final bowelRepository = _FakeBowelRepository();
   final vitalsRepository = _FakeVitalsRepository();
   final exerciseRepository = _FakeExerciseRepository();
@@ -967,6 +975,7 @@ class _FakeSocialRepository implements SocialRepository {
       ListFavorites(foodDictionaryRepository),
       FavoriteFood(foodDictionaryRepository),
       UnfavoriteFood(foodDictionaryRepository),
+      idToken: () async => 'token',
     ),
     dailyTarget: DailyTargetController(
       GetDailyTargetWithRemaining(dailyTargetRepository),
@@ -1066,8 +1075,15 @@ class FakeAuthRepository implements AuthRepository {
     _controller.add(false);
   }
 
+  /// When set, `idToken()` throws instead of resolving — the shape
+  /// `getIdToken()` takes when a renewal has to reach the network and fails.
+  bool idTokenThrows = false;
+
   @override
-  Future<String?> idToken() async => _isAuthenticated ? 'fake-token' : null;
+  Future<String?> idToken() async {
+    if (idTokenThrows) throw Exception('token renewal failed');
+    return _isAuthenticated ? 'fake-token' : null;
+  }
 
   @override
   Stream<bool> get authStateChanges async* {
@@ -1174,6 +1190,7 @@ Future<LocaleController> pumpApp(
   /// Backs the daily-target tracker with this fake instead of the inert
   /// default — for a test that needs `DailyTargetScreen` to reach an error or
   /// needsReauth state.
+  WaterRepository? waterRepository,
   DailyTargetRepository? dailyTargetRepository,
 
   /// Pins (and lets a test advance) the "today" the day-keyed routes resolve.
@@ -1216,6 +1233,7 @@ Future<LocaleController> pumpApp(
     mealRepository: mealRepository,
     foodDictionaryRepository: foodDictionaryRepository,
     dailyTargetRepository: dailyTargetRepository,
+    waterRepository: waterRepository,
     clock: clock ?? DateTime.now,
   );
   onHealthCalendarController?.call(health.healthCalendar);
@@ -3115,6 +3133,56 @@ void main() {
 
         expect(find.text('Beach house'), findsOneWidget);
         expect(find.text('Kyoto trip'), findsNothing);
+      },
+    );
+  });
+
+  group('ID token renewal failure (refresh-id-token)', () {
+    testWidgets(
+      'a renewal that throws does not make the tap vanish — the write still '
+      'goes out (unauthenticated) so the existing 401 path takes over',
+      (tester) async {
+        // `getIdToken()` reaches the network once the token nears expiry and
+        // throws when that fails. Without the catch at `_AppState._idToken`
+        // the throw escapes the provider *before* any controller is entered,
+        // so no controller error handling runs and the tap disappears with
+        // neither a write nor a message. This is the pre-change behaviour
+        // `AuthRouterNotifier`'s own try/catch used to prevent.
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final waterRepository = _FakeWaterRepository();
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          waterRepository: waterRepository,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.edit_note));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('hub-tile-water')));
+        await tester.pumpAndSettle();
+
+        waterRepository.addTokens.clear();
+        authRepository.idTokenThrows = true;
+
+        await tester.tap(find.byKey(const Key('water-add-250')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          waterRepository.addTokens,
+          [''],
+          reason: 'the write must still go out, with an empty token, so the '
+              'backend 401 drives the re-auth exit',
+        );
       },
     );
   });

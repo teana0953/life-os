@@ -32,6 +32,7 @@
   "signedIn": "已登入",
   "signOut": "登出",
   "signInAgain": "重新登入",
+  "trackerStillSaving": "尚在儲存——請稍後再試。",
   "pleaseSignInAgain": "請重新登入。",
   "errorProfileLoadFailed": "無法載入你的個人資料，請再試一次。",
   "errorSomethingWentWrong": "發生錯誤，請再試一次。",
