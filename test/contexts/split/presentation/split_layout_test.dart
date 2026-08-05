@@ -10,26 +10,33 @@ import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart'
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
+import 'package:life_os/contexts/split/application/activity_use_cases.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
+import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
 import 'package:life_os/contexts/split/domain/settlement.dart';
+import 'package:life_os/contexts/split/domain/split_activity.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_share.dart';
 import 'package:life_os/contexts/split/presentation/group_detail_screen.dart';
 import 'package:life_os/contexts/split/presentation/settle_up_sheet.dart';
 import 'package:life_os/contexts/split/presentation/settlement_writer.dart';
+import 'package:life_os/contexts/split/presentation/split_activity_controller.dart';
+import 'package:life_os/contexts/split/presentation/split_activity_section.dart';
 import 'package:life_os/contexts/split/presentation/split_controller.dart';
+import 'package:life_os/contexts/split/presentation/split_expense_row.dart';
 import 'package:life_os/contexts/split/presentation/split_expense_sheet.dart';
 import 'package:life_os/contexts/split/presentation/split_tab.dart';
 import 'package:life_os/contexts/split/presentation/split_tab_dependencies.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/widgets/ledge_card.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
@@ -138,6 +145,7 @@ Widget _splitTabScreen({required SplitController controller}) => Scaffold(
   body: SplitTab(
     onAddFriend: () {},
     controller: controller,
+    activityController: testSplitActivityController(),
     onRetry: () {},
     onRecordExpense: () {},
     onOpenGroup: (_) {},
@@ -237,6 +245,7 @@ Widget _financeScaffold(FakeSplitRepository repo, {Locale locale = const Locale(
         listSettlements: ListSettlements(repo),
         createSettlement: CreateSettlement(repo),
         deleteSettlement: DeleteSettlement(repo),
+        listActivity: ListActivity(repo),
         onOpenGroup: (_, __) async {},
       ),
       clock: () => DateTime(2026, 8, 2),
@@ -370,6 +379,87 @@ Widget _financeOverviewScreen(FakeFinanceRepository repo, {Locale locale = const
     ),
   );
 }
+
+/// The change-log entry the guard below measures: an **amount change**, by
+/// somebody with a long display name, on something with a long description.
+///
+/// Each part is load-bearing. The amount change is the only shape that puts
+/// *two* figures and an arrow in one label; the long name and description are
+/// what make the headline fight it for the row. An ordinary "Amy edited
+/// Dinner / 2,000" entry lays out acceptably even under the broken shape at
+/// 1.0 and would not carry this guard.
+///
+/// 18,000 → 12,500 rather than the seven-figure [_wideAmount] the other
+/// sweeps use: at textScale 2.0 a seven-figure amount is wider than the whole
+/// tile at every width in this file (see the overview guard's own note), so
+/// **no** layout could keep it on one line and an assertion on it would be a
+/// false one. These are the figures QA measured the break on.
+SplitActivity _amountChangeEntry({String id = 'a1'}) => SplitActivity(
+  id: id,
+  type: SplitActivityType.expenseUpdated,
+  actorUserId: 'u-amy',
+  actorDisplayName: _longName,
+  groupId: null,
+  groupName: null,
+  subjectId: 'e1',
+  counterpartUserId: null,
+  counterpartDisplayName: null,
+  amount: 12500,
+  previousAmount: 18000,
+  actorIsPayer: null,
+  currency: 'TWD',
+  description: _longName,
+  createdAt: '2026-08-01T10:30:00.000Z',
+);
+
+Widget _changeLogScreen(FakeSplitRepository repo, {required Locale locale}) => l10nTestApp(
+  locale: locale,
+  home: Scaffold(
+    body: SplitActivitySection(
+      controller: SplitActivityController(
+        listActivity: ListActivity(repo),
+        getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+        idToken: () async => 'tok',
+      ),
+      onSignInAgain: () {},
+      // Pinned so the timestamp is the same under TZ=UTC (CI) and UTC+8.
+      toLocalTime: (instant) => instant.toUtc(),
+    ),
+  ),
+);
+
+/// One [SplitExpenseRow] in the same shell the change log puts its own rows
+/// in — the 600dp-capped, 20dp-padded `ListView` of a [LedgeCard] per row.
+///
+/// This is the *baseline* the guard compares against, and it is rebuilt here
+/// rather than reached through the split tab so that both rows are measured
+/// under exactly the same width, padding and card, with the same long
+/// description and the same amount. Anything else would compare two different
+/// geometries and prove nothing about the row.
+Widget _expenseRowInSameShell(Locale locale) => l10nTestApp(
+  locale: locale,
+  home: Scaffold(
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            LedgeCard(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: SplitExpenseRow(
+                expense: _expense(description: _longName, amount: 12500),
+                selfUserId: _self,
+                keyPrefix: 'split-expense',
+                onEdit: () {},
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
 
 void main() {
   group('split screens: narrow-width layout guard (task 9.1)', () {
@@ -1109,6 +1199,149 @@ void main() {
           );
         }
       }
+    }
+  });
+
+  // The change log's own rows, which the sweep at the top of this file never
+  // reaches: it renders `SplitTab`, and `SplitTab` builds the 變更紀錄
+  // section only once its segment is selected — which that sweep never does.
+  // It was updated to *compile* against the new constructor argument and
+  // stayed green while every change-log row on a 320dp phone was shattered.
+  //
+  // And `expectNoLayoutErrors` is not what can catch this even with the
+  // section on screen: nothing throws. QA measured the painted glyph lines of
+  // an amount-change row under the shipped shape at 320dp/2x —
+  // `18,` / `000 ` / `→ ` / `12,` / `500`, a figure broken mid-thousands-group
+  // and readable as a different number — with a 1288dp row (`SplitExpenseRow`
+  // renders the same expense at 128dp) and a headline of one glyph per line
+  // over 15 lines. So both assertions here are measurements: where the amount
+  // was allowed to break, and how tall the row came out next to the row
+  // shape this one is supposed to match.
+  group('the change log at a narrow width', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'an amount-change row keeps each figure whole and stays the height of an '
+        'expense row at 320dp, textScale=2.0, locale=$locale',
+        (tester) async {
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final repo = FakeSplitRepository()
+            ..activityPagesToReturn = [
+              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
+            ];
+
+          await expectNoLayoutErrors(() async {
+            await tester.pumpWidget(_changeLogScreen(repo, locale: locale));
+            // The first page is fetched post-frame, then resolves over two
+            // microtask turns (the reader's id, then the page).
+            await tester.pump();
+            await tester.pump();
+            await tester.pump();
+          });
+
+          final loc = lookupAppLocalizations(locale);
+          final finder = find.text(loc.splitActivityAmountChange('18,000', '12,500'));
+          expect(finder, findsOneWidget, reason: 'the amount change was not painted at all');
+          for (final figure in ['18,000', '12,500']) {
+            expect(
+              paintedLineCountOfPart(tester, finder, figure),
+              1,
+              reason: '$figure was broken across lines and reads as a different number',
+            );
+          }
+
+          final activityHeight = tester
+              .getSize(find.byKey(const Key('split-activity-row-a1')))
+              .height;
+
+          // The same width, the same padding, the same card, the same long
+          // description and the same amount — only the row differs.
+          await tester.pumpWidget(_expenseRowInSameShell(locale));
+          await tester.pumpAndSettle();
+          final expenseHeight = tester
+              .getSize(find.byKey(const Key('split-expense-row-e1')))
+              .height;
+
+          // No taller than the expense row, not merely "within an order of
+          // it". A `* 2` allowance was tried and measured first: the shipped
+          // shape came back 6088dp against the expense row's 3088dp, i.e. it
+          // would have *passed* a doubled bound by 88dp — a guard that cannot
+          // fail on the very defect it was written for. The bound that bites
+          // is the plain one, and the fix clears it with room to spare (1480dp
+          // against 3088dp).
+          //
+          // (The 3088dp baseline is not a comfortable row either — a 64-char
+          // description at 320dp/2x is hard on any layout, and `SplitExpenseRow`
+          // is left exactly as it is here. It is the *reference* shape, so it
+          // is what "the same order" is measured against, not an ideal.)
+          expect(
+            activityHeight,
+            lessThanOrEqualTo(expenseHeight),
+            reason:
+                'the change-log row is ${activityHeight}dp against the expense '
+                "row's ${expenseHeight}dp for the same content",
+          );
+        },
+      );
+
+      testWidgets(
+        'the refresh-failed notice fits beside the retry button at 320dp, '
+        'textScale=2.0, locale=$locale',
+        (tester) async {
+          // The notice is ~250px of copy plus a button in one row. It was
+          // added after the row-shattering finding on this very surface, and
+          // the guard above never constructs it — a passing suite there says
+          // only that the case was not built, not that it was checked.
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final repo = FakeSplitRepository()
+            ..activityPagesToReturn = [
+              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
+              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
+            ];
+
+          await expectNoLayoutErrors(() async {
+            await tester.pumpWidget(_changeLogScreen(repo, locale: locale));
+            await tester.pump();
+            await tester.pump();
+            await tester.pump();
+
+            repo.failNextActivity = const SplitFetchFailure();
+            await tester.fling(
+              find.byKey(const Key('split-activity-list')),
+              const Offset(0, 300),
+              1000,
+            );
+            await tester.pump();
+            for (var i = 0; i < 8; i++) {
+              await tester.pump(const Duration(milliseconds: 300));
+            }
+          });
+
+          // Present, and actually reachable — a notice that renders off the
+          // right edge raises no `FlutterError` and would pass a bare
+          // `findsOneWidget`.
+          final notice = find.byKey(const Key('stale-notice-row'));
+          expect(notice, findsOneWidget, reason: 'the notice was not rendered at all');
+          final rect = tester.getRect(notice);
+          expect(
+            rect.left >= 0 && rect.right <= 320,
+            isTrue,
+            reason: 'the notice spans ${rect.left}..${rect.right} on a 320dp screen',
+          );
+
+          final loc = lookupAppLocalizations(locale);
+          expect(
+            find.descendant(of: notice, matching: find.text(loc.retry)).hitTestable(),
+            findsOneWidget,
+            reason: 'the retry control is present but cannot be tapped',
+          );
+        },
+      );
     }
   });
 }

@@ -1,6 +1,7 @@
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/group_member.dart';
 import 'package:life_os/contexts/split/domain/settlement.dart';
+import 'package:life_os/contexts/split/domain/split_activity.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_input.dart';
@@ -268,5 +269,37 @@ class FakeSplitRepository implements SplitRepository {
     gotSettlementId = settlementId;
     deleteSettlementCalls++;
     _maybeThrow();
+  }
+
+  /// Every `listActivity` call's arguments, in order — the evidence the
+  /// paging tests rest on (that a *page* appeared proves nothing about how
+  /// many requests it took, or whether a cursor was reused).
+  final List<({int limit, String? cursor, String idToken})> activityCalls = [];
+
+  /// Pages handed out in order; the last one repeats once exhausted.
+  List<SplitActivityPage> activityPagesToReturn = const [
+    SplitActivityPage(entries: [], nextCursor: null),
+  ];
+
+  /// Thrown by the *next* `listActivity` call only, then cleared — so a
+  /// failed page can be followed by a successful retry.
+  Object? failNextActivity;
+
+  @override
+  Future<SplitActivityPage> listActivity(
+    String idToken, {
+    required int limit,
+    String? cursor,
+  }) async {
+    gotIdToken = idToken;
+    activityCalls.add((limit: limit, cursor: cursor, idToken: idToken));
+    final failure = failNextActivity;
+    if (failure != null) {
+      failNextActivity = null;
+      throw failure;
+    }
+    _maybeThrow();
+    final index = activityCalls.length - 1;
+    return activityPagesToReturn[index < activityPagesToReturn.length ? index : activityPagesToReturn.length - 1];
   }
 }

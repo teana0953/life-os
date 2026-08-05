@@ -4273,6 +4273,220 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Spans your shared history everywhere, not only this group.'**
   String get splitGroupPersonalBalancesNote;
+
+  /// Label of the split tab's first section switch: the balances/groups/recent-expenses view. Deliberately not 'Overview' — the finance bottom bar's first destination is already called that, and both are visible on this same screen at once.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get splitSectionOverview;
+
+  /// Label of the split tab's second section switch: what has happened, including deletions and edits, as opposed to what currently exists.
+  ///
+  /// In en, this message translates to:
+  /// **'Change log'**
+  String get splitSectionChangeLog;
+
+  /// Empty state title for the split change log.
+  ///
+  /// In en, this message translates to:
+  /// **'No changes yet'**
+  String get splitActivityEmptyTitle;
+
+  /// Empty state body for the split change log, explaining what will fill it.
+  ///
+  /// In en, this message translates to:
+  /// **'When you or someone you split with adds, edits or deletes something, it appears here.'**
+  String get splitActivityEmptyBody;
+
+  /// Shown when the first page of the split change log fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the change log. Check your connection and try again.'**
+  String get splitActivityLoadFailedMessage;
+
+  /// Shown at the bottom of the split change log when loading a further page failed; the entries already loaded stay on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more entries.'**
+  String get splitActivityLoadMoreFailed;
+
+  /// Change-log entry: the reader recorded a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'You added {description}'**
+  String splitActivityExpenseCreatedYou(String description);
+
+  /// Change-log entry: someone else recorded a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} added {description}'**
+  String splitActivityExpenseCreatedOther(String name, String description);
+
+  /// Change-log entry: the reader edited a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'You edited {description}'**
+  String splitActivityExpenseUpdatedYou(String description);
+
+  /// Change-log entry: someone else edited a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} edited {description}'**
+  String splitActivityExpenseUpdatedOther(String name, String description);
+
+  /// Change-log entry: the reader deleted a split expense. The wording must make the deletion audible on its own, since the expense no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'You deleted {description}'**
+  String splitActivityExpenseDeletedYou(String description);
+
+  /// Change-log entry: someone else deleted a split expense.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted {description}'**
+  String splitActivityExpenseDeletedOther(String name, String description);
+
+  /// Change-log entry: the reader recorded a repayment. Who paid whom is a separate line, because the direction is not the same as who recorded it.
+  ///
+  /// In en, this message translates to:
+  /// **'You recorded a repayment'**
+  String get splitActivitySettlementCreatedYou;
+
+  /// Change-log entry: someone else recorded a repayment.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} recorded a repayment'**
+  String splitActivitySettlementCreatedOther(String name);
+
+  /// Change-log entry: the reader deleted a repayment.
+  ///
+  /// In en, this message translates to:
+  /// **'You deleted a repayment'**
+  String get splitActivitySettlementDeletedYou;
+
+  /// Change-log entry: someone else deleted a repayment.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted a repayment'**
+  String splitActivitySettlementDeletedOther(String name);
+
+  /// Change-log entry: the reader created a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'You created the group {group}'**
+  String splitActivityGroupCreatedYou(String group);
+
+  /// Change-log entry: someone else created a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} created the group {group}'**
+  String splitActivityGroupCreatedOther(String name, String group);
+
+  /// Change-log entry: the reader added someone to a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'You added {member} to {group}'**
+  String splitActivityGroupMemberAddedYou(String member, String group);
+
+  /// Change-log entry: someone else added a member to a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} added {member} to {group}'**
+  String splitActivityGroupMemberAddedOther(
+    String name,
+    String member,
+    String group,
+  );
+
+  /// Change-log entry: someone else added the reader to a split group. Without it the reader's own display name is rendered in the third person — the same bug repayment entries were fixed for.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} added you to {group}'**
+  String splitActivityGroupMemberAddedYouWere(String name, String group);
+
+  /// Change-log entry: the reader archived a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'You archived the group {group}'**
+  String splitActivityGroupArchivedYou(String group);
+
+  /// Change-log entry: someone else archived a split group.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} archived the group {group}'**
+  String splitActivityGroupArchivedOther(String name, String group);
+
+  /// Direction line of a change-log repayment entry when the reader is the one who paid. The stored flag is relative to whoever recorded the entry, so this is not simply 'the actor paid'.
+  ///
+  /// In en, this message translates to:
+  /// **'You paid {name}'**
+  String splitActivityRepaymentYouPaid(String name);
+
+  /// Direction line of a change-log repayment entry when the reader is the one who was paid.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} paid you'**
+  String splitActivityRepaymentPaidYou(String name);
+
+  /// Direction line of a change-log repayment entry read by a group member who is neither party.
+  ///
+  /// In en, this message translates to:
+  /// **'{payer} paid {payee}'**
+  String splitActivityRepaymentBetween(String payer, String payee);
+
+  /// Shown in place of a plain amount on a change-log edit entry when the amount actually moved. Not shown when the edit left the amount alone, which is most of them.
+  ///
+  /// In en, this message translates to:
+  /// **'{previous} → {amount}'**
+  String splitActivityAmountChange(String previous, String amount);
+
+  /// The screen-reader wording of splitActivityAmountChange. The painted arrow is either announced as a glyph name or dropped, either way leaving a listener with two amounts and no idea which is the new one.
+  ///
+  /// In en, this message translates to:
+  /// **'from {previous} to {amount}'**
+  String splitActivityAmountChangeSpoken(String previous, String amount);
+
+  /// Change-log entry for an event type this build of the app does not recognise, made by the reader. The backend ships independently, so a newer event type must degrade to a neutral row rather than take the page down.
+  ///
+  /// In en, this message translates to:
+  /// **'You changed something'**
+  String get splitActivityUnknownYou;
+
+  /// As splitActivityUnknownYou, for an unrecognised event type made by someone else.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} changed something'**
+  String splitActivityUnknownOther(String name);
+
+  /// Joins a change-log entry's headline to its second line for screen readers, so the row is read as one sentence rather than as fragments.
+  ///
+  /// In en, this message translates to:
+  /// **'{what}: {detail}'**
+  String splitActivityRowDetail(String what, String detail);
+
+  /// The whole change-log row as one sentence for screen readers: who did what, how much, and when.
+  ///
+  /// In en, this message translates to:
+  /// **'{what}, {amount}, {time}'**
+  String splitActivityRowSemantics(String what, String amount, String time);
+
+  /// Stands in for a change-log entry's description when the record was saved without one.
+  ///
+  /// In en, this message translates to:
+  /// **'an untitled item'**
+  String get splitActivityUnnamedItem;
+
+  /// Stands in for a group's name in a change-log entry when it is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'an untitled group'**
+  String get splitActivityUnnamedGroup;
+
+  /// As splitActivityRowSemantics but for a change-log entry that carries no amount (the group events), so a screen reader is not handed an empty slot.
+  ///
+  /// In en, this message translates to:
+  /// **'{what}, {time}'**
+  String splitActivityRowSemanticsNoAmount(String what, String time);
 }
 
 class _AppLocalizationsDelegate

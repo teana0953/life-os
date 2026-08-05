@@ -1,6 +1,7 @@
 import 'balance.dart';
 import 'group_member.dart';
 import 'settlement.dart';
+import 'split_activity.dart';
 import 'split_expense.dart';
 import 'split_group.dart';
 import 'split_input.dart';
@@ -99,4 +100,16 @@ abstract class SplitRepository {
   /// it; anyone else gets a `404` (never `403` — same visibility rule as
   /// every other split resource).
   Future<void> deleteSettlement(String idToken, String settlementId);
+
+  /// One page of the change log, newest first (backend PR #72). [cursor] is
+  /// the previous page's `next_cursor`, omitted for the first page.
+  ///
+  /// The backend defaults [limit] to 50 and silently clamps anything above
+  /// 100; a non-integer is a `400`. Callers pass a small page deliberately —
+  /// this timeline only grows.
+  Future<SplitActivityPage> listActivity(
+    String idToken, {
+    required int limit,
+    String? cursor,
+  });
 }

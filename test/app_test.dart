@@ -89,6 +89,7 @@ import 'package:life_os/contexts/social/domain/friend_invite.dart';
 import 'package:life_os/contexts/social/domain/invite_preview.dart';
 import 'package:life_os/contexts/social/domain/social_exceptions.dart';
 import 'package:life_os/contexts/social/domain/social_repository.dart';
+import 'package:life_os/contexts/split/application/activity_use_cases.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
@@ -1361,6 +1362,7 @@ Future<LocaleController> pumpApp(
       splitListSettlements: ListSettlements(resolvedSplitRepository),
       splitCreateSettlement: CreateSettlement(resolvedSplitRepository),
       splitDeleteSettlement: DeleteSettlement(resolvedSplitRepository),
+      splitListActivity: ListActivity(resolvedSplitRepository),
       pushHealthController:
           pushHealthController ?? testPushHealthController(PushHealth.ok),
       careItemsController: resolvedCareItemsController,

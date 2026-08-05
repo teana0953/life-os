@@ -2,8 +2,13 @@ import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/social/domain/friend_invite.dart';
 import 'package:life_os/contexts/social/domain/invite_preview.dart';
 import 'package:life_os/contexts/social/domain/social_repository.dart';
+import 'package:life_os/contexts/split/application/activity_use_cases.dart';
+import 'package:life_os/contexts/split/presentation/split_activity_controller.dart';
+import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
+
+import 'fake_split_repository.dart';
 
 /// Shared fakes for split-presentation tests (controllers/widgets need a
 /// caller profile and a friends list, neither of which `SplitRepository`
@@ -65,4 +70,19 @@ UserProfile testProfile({String id = 'self-1'}) => UserProfile(
   displayName: 'Self',
   createdAt: '2026-01-01T00:00:00.000Z',
   isAdmin: false,
+);
+
+/// A change-log controller for tests that are about the overview section and
+/// never open 變更紀錄 — it fetches nothing until that section is selected.
+///
+/// [selfUserId] is the reader the section resolves **for itself** (its own
+/// `/api/me`, never the overview controller's) — hence the profile fake here
+/// rather than a plain string.
+SplitActivityController testSplitActivityController([
+  FakeSplitRepository? repo,
+  String selfUserId = 'self-1',
+]) => SplitActivityController(
+  listActivity: ListActivity(repo ?? FakeSplitRepository()),
+  getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
+  idToken: () async => 'tok',
 );

@@ -94,6 +94,14 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
   @override
   int mutationErrorSeq = 0;
 
+  /// Bumped once per write that actually succeeded (the mirror of
+  /// [mutationErrorSeq]). `FinanceScaffold` watches it to refresh the 變更紀錄
+  /// change log, which is a second, independently fetched view of the very
+  /// same writes — a counter rather than a callback because every write path
+  /// here already funnels through [_mutate], and a per-call-site hook is the
+  /// version that silently misses the next one added.
+  int writeSeq = 0;
+
   bool _disposed = false;
 
   @override
@@ -265,6 +273,8 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
   Future<void> _mutate(String idToken, Future<void> Function() action) async {
     try {
       await action();
+      writeSeq++;
+      _notify();
       return;
     } on SplitReauthenticationRequired {
       status = SplitStatus.needsReauth;
