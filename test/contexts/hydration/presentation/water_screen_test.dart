@@ -29,6 +29,16 @@ class FakeWaterRepository implements WaterRepository {
   String? lastGetDay;
   int getDayCallCount = 0;
 
+  /// Every id token [addWater] was called with, in order — the *value that was
+  /// sent*, which is what the token-freshness test asserts on (that the
+  /// provider was consulted proves nothing).
+  final List<String> addWaterTokens = [];
+
+  /// Every millilitre delta [addWater] was called with, in order — lets a test
+  /// assert a tap wrote exactly once (the running [total] alone cannot
+  /// distinguish one write from two that cancel out).
+  final List<int> addWaterCalls = [];
+
   FakeWaterRepository({this.total = 0, this.target = 2000});
 
   @override
@@ -50,6 +60,8 @@ class FakeWaterRepository implements WaterRepository {
     required String day,
     required int addMl,
   }) async {
+    addWaterTokens.add(idToken);
+    addWaterCalls.add(addMl);
     total = (total + addMl).clamp(0, 1 << 30);
     return total;
   }
@@ -101,7 +113,7 @@ Future<WaterController> _pumpScreen(
       locale: locale,
       home: WaterScreen(
         controller: controller,
-        idToken: 'token',
+        idToken: () async => 'token',
         day: day,
         clock: clock,
         onSignInAgain: () {},
@@ -173,6 +185,45 @@ void main() {
 
       expect(find.text(loc.waterTotalOfTarget(500, 2000)), findsOneWidget);
     });
+
+    // The point of the whole `IdTokenProvider` change: a screen built an hour
+    // ago must not still be sending the token it was built with. Asserts on
+    // the token the repository actually RECEIVED, not on the provider having
+    // been called — a provider closing over a cached token would also be
+    // "called" every time and would still send the stale value.
+    testWidgets(
+      'a second write carries the second token, not the one the screen was built with',
+      (tester) async {
+        final repository = FakeWaterRepository(total: 0, target: 2000);
+        final controller = _controller(repository);
+        var token = 'token-1';
+        await controller.load(token, '2026-07-18');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: WaterScreen(
+              controller: controller,
+              idToken: () async => token,
+              day: '2026-07-18',
+              clock: _defaultClock,
+              onSignInAgain: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('water-add-250')));
+        await tester.pumpAndSettle();
+        expect(repository.addWaterTokens, ['token-1']);
+
+        // Firebase renewed the token while the screen stayed mounted.
+        token = 'token-2';
+
+        await tester.tap(find.byKey(const Key('water-add-250')));
+        await tester.pumpAndSettle();
+
+        expect(repository.addWaterTokens, ['token-1', 'token-2']);
+      },
+    );
 
     testWidgets('quick-adding ＋250 twice raises the total to 500', (tester) async {
       await _pumpScreen(
@@ -291,7 +342,7 @@ void main() {
           l10nTestApp(
             home: WaterScreen(
               controller: controller,
-              idToken: 'token',
+              idToken: () async => 'token',
               day: '2026-07-18',
               clock: _defaultClock,
               onSignInAgain: () {},
@@ -437,7 +488,7 @@ void main() {
         l10nTestApp(
           home: WaterScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             onSignInAgain: () {},
@@ -450,6 +501,92 @@ void main() {
         find.byType(LastLoadedLabel),
       );
       expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
+    });
+
+    // The ID token is resolved at request time, so between the tap and the
+    // controller's `saving` status there is a whole token round trip during
+    // which nothing in the controller has changed yet. That window has to be
+    // closed by the screen itself, or a second tap starts a second write.
+    group('while the ID token is still resolving', () {
+      /// Pumps a loaded screen whose token provider is held open by [gate].
+      Future<void> pumpGatedToken(
+        WidgetTester tester,
+        FakeWaterRepository repository,
+        Completer<void> gate,
+      ) async {
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: WaterScreen(
+              controller: controller,
+              idToken: () async {
+                await gate.future;
+                return 'token';
+              },
+              day: '2026-07-18',
+              clock: _defaultClock,
+              onSignInAgain: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      // Two taps inside one frame: the disable only takes effect on the next
+      // rebuild, so the second tap still reaches the enabled button and only
+      // the re-entrancy check in `_runMutation` can drop it.
+      testWidgets('a same-frame second quick-add tap writes only once', (
+        tester,
+      ) async {
+        final repository = FakeWaterRepository(total: 0, target: 2000);
+        final gate = Completer<void>();
+        await pumpGatedToken(tester, repository, gate);
+
+        await tester.tap(find.byKey(const Key('water-add-250')));
+        await tester.tap(find.byKey(const Key('water-add-250')));
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(repository.addWaterCalls, [250]);
+        expect(repository.total, 250);
+      });
+
+      // The visible half: the control disables and the busy bar appears during
+      // token resolution, not only once the controller reaches `saving` — so a
+      // later tap can't land either.
+      testWidgets(
+        'the quick-add control is disabled, the busy bar shows, and a later '
+        'tap writes nothing',
+        (tester) async {
+          final repository = FakeWaterRepository(total: 0, target: 2000);
+          final gate = Completer<void>();
+          await pumpGatedToken(tester, repository, gate);
+
+          await tester.tap(find.byKey(const Key('water-add-250')));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          expect(
+            tester
+                .widget<FilledButton>(find.byKey(const Key('water-add-250')))
+                .onPressed,
+            isNull,
+          );
+          expect(find.byKey(const Key('water-busy')), findsOneWidget);
+
+          await tester.tap(
+            find.byKey(const Key('water-add-250')),
+            warnIfMissed: false,
+          );
+          await tester.pump();
+
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(repository.addWaterCalls, [250]);
+        },
+      );
     });
   });
 }

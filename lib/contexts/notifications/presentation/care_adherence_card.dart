@@ -9,6 +9,7 @@ import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/care_history.dart';
 import 'care_history_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 // The heatmap is a *luminance ramp*, not five hues. A 25px square carries
 // almost no shape, so hue is the only channel it has left — and a greyscale
@@ -117,7 +118,7 @@ String _dayStateLabel(AppLocalizations loc, CareDayState state) => switch (state
 /// §A).
 class CareAdherenceCard extends StatefulWidget {
   final CareHistoryController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// Opens the care history record list (`/care-history`), wired by the
   /// caller. Seeing "Missed 5" here is the moment a user wants to go correct
@@ -211,8 +212,8 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
           ButtonSegment(value: 90, label: Text(loc.trendRange90)),
         ],
         selected: {controller.spanDays},
-        onSelectionChanged: (selection) =>
-            controller.setSpan(widget.idToken, selection.first),
+        onSelectionChanged: (selection) async =>
+            controller.setSpan(await widget.idToken(), selection.first),
       ),
     ];
 
@@ -223,7 +224,7 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
           message: loc.careErrorForPeriod(controller.spanDays),
           messageKey: const Key('care-adherence-card-error'),
           retryKey: const Key('care-adherence-card-retry'),
-          onRetry: () => controller.load(widget.idToken),
+          onRetry: () async => controller.load(await widget.idToken()),
           header: header,
         ),
       );

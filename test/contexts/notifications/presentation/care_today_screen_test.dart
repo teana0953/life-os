@@ -18,8 +18,21 @@ import '../../../support/l10n_test_app.dart';
 import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  /// What the next [idToken] call resolves to. Mutable so a test can simulate
+  /// Firebase renewing the token while the screen stays open.
+  String token;
+
+  /// When set, [idToken] throws — the shape `getIdToken()` takes when a
+  /// renewal has to reach the network and that fails.
+  bool throws = false;
+
+  _FakeAuthRepository({this.token = 'token-123'});
+
   @override
-  Future<String?> idToken() async => 'token-123';
+  Future<String?> idToken() async {
+    if (throws) throw Exception('token renewal failed');
+    return token;
+  }
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -61,6 +74,12 @@ class _FakeCareTodayRepository implements CareTodayRepository {
   /// successful edit, leaving the screen's initial load intact.
   int getErrorAfterCalls = 0;
   int getCalls = 0;
+
+  /// Every id token [getToday] / [logSlot] were called with, in order — the
+  /// *value that was sent*, which is what the token-freshness test asserts on.
+  final List<String> getTokens = [];
+  final List<String> logTokens = [];
+
   Object? logError;
   Completer<void>? logCompleter;
 
@@ -68,6 +87,7 @@ class _FakeCareTodayRepository implements CareTodayRepository {
 
   @override
   Future<CareToday> getToday(String idToken) async {
+    getTokens.add(idToken);
     getCalls++;
     if (getError != null && getCalls > getErrorAfterCalls) throw getError!;
     return today;
@@ -81,6 +101,7 @@ class _FakeCareTodayRepository implements CareTodayRepository {
     required String timeOfDay,
     required CareLogStatus status,
   }) async {
+    logTokens.add(idToken);
     if (logCompleter != null) await logCompleter!.future;
     if (logError != null) throw logError!;
     today = CareToday(
@@ -214,7 +235,9 @@ Future<void> _pumpScreen(
   pickDoneTime = _unusedPickDoneTime,
   Size surfaceSize = const Size(800, 1600),
   PushHealthController? pushHealthController,
+  _FakeAuthRepository? authRepository,
 }) async {
+  final resolvedAuthRepository = authRepository ?? _FakeAuthRepository();
   // The focus card + Overdue/Later/Done sections can exceed the default
   // 800x600 test surface — a taller surface keeps every section built (a
   // ListView only builds children within its viewport/cache extent).
@@ -225,7 +248,7 @@ Future<void> _pumpScreen(
       home: pickDoneTime == null
           ? CareTodayScreen(
               controller: controller,
-              authRepository: _FakeAuthRepository(),
+              authRepository: resolvedAuthRepository,
               onOpenCareItems: onOpenCareItems ?? () {},
               pushHealthController:
                   pushHealthController ?? testPushHealthController(PushHealth.ok),
@@ -233,7 +256,7 @@ Future<void> _pumpScreen(
             )
           : CareTodayScreen(
               controller: controller,
-              authRepository: _FakeAuthRepository(),
+              authRepository: resolvedAuthRepository,
               onOpenCareItems: onOpenCareItems ?? () {},
               pushHealthController:
                   pushHealthController ?? testPushHealthController(PushHealth.ok),
@@ -320,6 +343,39 @@ void main() {
         findsOneWidget,
       );
     });
+
+    // This screen used to fetch one token in `_load` and cache it in a field,
+    // reusing it for every mark/edit — the same bug as the shells, on a
+    // shorter clock. Asserts on the token the repository RECEIVED.
+    testWidgets(
+      'marking a slot after a token renewal carries the new token',
+      (tester) async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.overdue, timeOfDay: '08:00'),
+            ],
+          ),
+        );
+        final auth = _FakeAuthRepository(token: 'token-1');
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          authRepository: auth,
+        );
+
+        expect(repository.getTokens, ['token-1']);
+
+        // Firebase renewed the token while the checklist stayed open.
+        auth.token = 'token-2';
+
+        await tester.tap(find.byKey(const Key('care-today-focus-done')));
+        await tester.pumpAndSettle();
+
+        expect(repository.logTokens, ['token-2']);
+      },
+    );
 
     testWidgets(
       'an inline Done reloads quietly: the list stays visible during the '
@@ -2230,6 +2286,40 @@ void main() {
 
         expect(find.byKey(const Key('care-today-empty-state')), findsOneWidget);
         expect(find.byKey(const Key('push-off-banner')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a token renewal that throws does not make the tap vanish — the write '
+      'still goes out unauthenticated so the 401 path takes over',
+      (tester) async {
+        // `getIdToken()` reaches the network once the token nears expiry and
+        // throws when that fails. Unguarded, the throw escapes the provider
+        // *before* the controller is entered: no write, no message, the slot
+        // unchanged — the tap simply disappears. `guardedIdToken` resolves to
+        // `''` instead so the request goes out and the backend's 401 drives
+        // the existing re-auth exit.
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        final authRepository = _FakeAuthRepository();
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          authRepository: authRepository,
+        );
+        repository.logTokens.clear();
+
+        authRepository.throws = true;
+        await tester.tap(find.byKey(const Key('care-today-focus-done')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          repository.logTokens,
+          [''],
+          reason: 'the write must still go out, with an empty token',
+        );
       },
     );
 

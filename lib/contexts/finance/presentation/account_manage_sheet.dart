@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../domain/networth_account.dart';
 import 'finance_controller.dart';
 import 'networth_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The net worth account management sheet (design.md 4.4): add an account
 /// (kind + name), rename, reorder within its group, and archive/restore.
@@ -13,7 +14,7 @@ import 'networth_controller.dart';
 /// net worth, which the backend guarantees.
 class AccountManageSheet extends StatefulWidget {
   final NetWorthController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   const AccountManageSheet({
     super.key,
@@ -116,7 +117,7 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     final name = _newNameController.text.trim();
     return _run(() async {
       await widget.controller.createAccount(
-        widget.idToken,
+        await widget.idToken(),
         kind: _newKind,
         name: name,
       );
@@ -133,7 +134,7 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     final name = _nameControllerFor(account).text.trim();
     if (name.isEmpty || name == account.name) return Future.value();
     return _run(
-      () => widget.controller.updateAccount(widget.idToken, account.id, name: name),
+      () async => widget.controller.updateAccount(await widget.idToken(), account.id, name: name),
     );
   }
 
@@ -145,13 +146,13 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     final above = group[index - 1];
     return _run(() async {
       await widget.controller.updateAccount(
-        widget.idToken,
+        await widget.idToken(),
         account.id,
         sortOrder: above.sortOrder,
       );
       if (widget.controller.status != FinanceStatus.loaded) return;
       await widget.controller.updateAccount(
-        widget.idToken,
+        await widget.idToken(),
         above.id,
         sortOrder: account.sortOrder,
       );
@@ -159,8 +160,8 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   }
 
   Future<void> _toggleArchived(NetWorthAccount account) => _run(
-    () => widget.controller.updateAccount(
-      widget.idToken,
+    () async => widget.controller.updateAccount(
+      await widget.idToken(),
       account.id,
       archived: !account.archived,
     ),

@@ -87,7 +87,7 @@ Future<void> _pumpCard(
   await tester.pumpWidget(
     l10nTestApp(
       home: Scaffold(
-        body: GoalCard(controller: controller, idToken: 'token'),
+        body: GoalCard(controller: controller, idToken: () async => 'token'),
       ),
     ),
   );
@@ -394,7 +394,7 @@ void main() {
       await tester.pumpWidget(
         l10nTestApp(
           home: Scaffold(
-            body: GoalCard(controller: controller, idToken: 'token'),
+            body: GoalCard(controller: controller, idToken: () async => 'token'),
           ),
         ),
       );

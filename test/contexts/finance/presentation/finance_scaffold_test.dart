@@ -47,8 +47,14 @@ SplitTabDependencies _splitDeps(
 );
 
 class _FakeAuthRepository implements AuthRepository {
+  /// What the next [idToken] call resolves to. Mutable so a test can simulate
+  /// Firebase renewing the token while the scaffold stays mounted.
+  String token;
+
+  _FakeAuthRepository({this.token = 'tok'});
+
   @override
-  Future<String?> idToken() async => 'tok';
+  Future<String?> idToken() async => token;
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -65,6 +71,41 @@ class _FakeAuthRepository implements AuthRepository {
 
 void main() {
   group('FinanceScaffold', () {
+    // `FinanceScaffold` is one of the long-mounted shells issue #106 is about,
+    // and it used to fetch one token at mount and feed it to fifteen read/write
+    // sites. Asserts on the token the repository RECEIVED, not on the provider
+    // having been called.
+    testWidgets(
+      'a month switch after a token renewal carries the new token',
+      (tester) async {
+        final repo = FakeFinanceRepository();
+        final auth = _FakeAuthRepository(token: 'token-1');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: auth,
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(FakeSplitRepository()),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repo.summaryTokens, ['token-1']);
+
+        // Firebase renewed the token while the scaffold stayed mounted.
+        auth.token = 'token-2';
+
+        await tester.tap(find.byKey(const Key('finance-month-previous')));
+        await tester.pumpAndSettle();
+
+        expect(repo.summaryTokens, ['token-1', 'token-2']);
+      },
+    );
+
     testWidgets('shows both bottom-nav destinations and switches tabs', (
       tester,
     ) async {

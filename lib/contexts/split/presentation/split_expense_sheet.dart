@@ -10,6 +10,7 @@ import '../domain/split_group.dart';
 import '../domain/split_input.dart';
 import 'split_error_text.dart';
 import 'split_expense_writer.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The largest amount the backend accepts (a signed 32-bit int, design.md
 /// task 6.5) — blocked client-side rather than sent and rejected.
@@ -52,7 +53,7 @@ class _Candidate {
 /// every typed field exactly as it was and only pops on success.
 class SplitExpenseSheet extends StatefulWidget {
   final SplitExpenseWriter writer;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// The caller's own user id (design D5c) — used for the default
   /// participant, the "you" candidate label, and the share-stake gate.
@@ -379,7 +380,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
     final editing = widget.editing;
     if (editing == null) {
       await widget.writer.createExpense(
-        widget.idToken,
+        await widget.idToken(),
         groupId: _effectiveGroup?.id,
         payerUserId: payerUserId,
         amount: amount,
@@ -390,7 +391,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
       );
     } else {
       await widget.writer.updateExpense(
-        widget.idToken,
+        await widget.idToken(),
         editing.id,
         groupId: _effectiveGroup?.id,
         payerUserId: payerUserId,
@@ -443,7 +444,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
 
     setState(() => _saving = true);
     final seqBefore = widget.writer.mutationErrorSeq;
-    await widget.writer.deleteExpense(widget.idToken, editing.id);
+    await widget.writer.deleteExpense(await widget.idToken(), editing.id);
     if (!mounted) return;
     if (widget.writer.mutationErrorSeq != seqBefore) {
       setState(() => _saving = false);

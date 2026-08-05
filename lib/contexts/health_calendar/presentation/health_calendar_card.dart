@@ -10,6 +10,7 @@ import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'health_calendar_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The dashboard's C3 card: the current month's record calendar (a dot on every
 /// day with any tracker entry) plus three adherence rings — logging rate and
@@ -18,7 +19,7 @@ import 'health_calendar_controller.dart';
 /// `needsReauth` is left to the [HealthScaffold]. Colors come from [Theme] only.
 class HealthCalendarCard extends StatefulWidget {
   final HealthCalendarController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// The weight-goal achievement rate (0–100), reused for the third ring; null
   /// when the goal isn't set / not yet computable.
@@ -50,10 +51,10 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
 
   void _onControllerChanged() => setState(() {});
 
-  void _changeMonth(int delta) {
+  Future<void> _changeMonth(int delta) async {
     final selected = widget.controller.selectedMonth;
     final target = DateTime(selected.year, selected.month + delta);
-    widget.controller.loadMonth(widget.idToken, target.year, target.month);
+    widget.controller.loadMonth(await widget.idToken(), target.year, target.month);
   }
 
   Future<void> _pickMonth() async {
@@ -65,7 +66,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
     );
     if (picked == null || !mounted) return;
     await widget.controller.loadMonth(
-      widget.idToken,
+      await widget.idToken(),
       picked.year,
       picked.month,
     );
@@ -116,7 +117,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
           messageKey: const Key('health-calendar-error'),
           retryKey: const Key('health-calendar-retry'),
           header: [_monthNav(context)],
-          onRetry: () => controller.load(widget.idToken),
+          onRetry: () async => controller.load(await widget.idToken()),
         ),
       );
     }
@@ -214,7 +215,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
               failed: stale,
               loading: reloading,
               subject: loc.healthCalendarTitle,
-              onRetry: () => controller.load(widget.idToken),
+              onRetry: () async => controller.load(await widget.idToken()),
             ),
         ],
       ),

@@ -7,13 +7,14 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'bowel_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Bowel section: a small form recording the day's bowel-movement count, an
 /// optional normal/abnormal flag, and a note, saved together with an explicit
 /// Save. The shell owns loading — this screen does not self-load.
 class BowelScreen extends StatefulWidget {
   final BowelController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Returns the current time, used to resolve "today" for the header title.
@@ -47,8 +48,8 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  Future<void> reloadDay(String day) =>
-      widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) async =>
+      widget.controller.load(await widget.idToken(), day);
 
   @override
   void initState() {
@@ -73,17 +74,32 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
     setState(() {});
   }
 
+  /// True from the moment a save starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()`: the controller
+  /// only flips to `saving` once the token has resolved, so without this flag
+  /// the Save button stays enabled and silent for the whole token round trip
+  /// and a second tap starts a second write.
+  bool _saving = false;
+
   /// Awaits [save] then, if the controller ended in an error state, surfaces a
   /// transient save-failed snackbar over the still-rendered form. `needsReauth`
-  /// routes via [build] instead, so it is left alone.
+  /// routes via [build] instead, so it is left alone. Re-entrant calls (a
+  /// second tap while one is in flight) are dropped.
   Future<void> _save() async {
-    await widget.controller.save(widget.idToken, viewedDay);
-    if (!mounted) return;
-    if (widget.controller.status == BowelStatus.error) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.bowelSaveFailed)));
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await widget.controller.save(await widget.idToken(), viewedDay);
+      if (!mounted) return;
+      if (widget.controller.status == BowelStatus.error) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.bowelSaveFailed)));
+      }
+    } finally {
+      _saving = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -93,6 +109,7 @@ class _BowelScreenState extends State<BowelScreen> with TrackerDayScreen {
     final loc = AppLocalizations.of(context)!;
 
     final busy =
+        _saving ||
         controller.status == BowelStatus.loading ||
         controller.status == BowelStatus.saving;
 

@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../domain/networth_account.dart';
 import 'finance_controller.dart';
 import 'networth_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Parses a typed market value: a whole number of 0 or more. Returns `null`
 /// for anything else — including a decimal, which is never silently rounded
@@ -28,7 +29,7 @@ int? parseSnapshotValue(String text) {
 /// pretending to write.
 class SnapshotInputSheet extends StatefulWidget {
   final NetWorthController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final NetWorthAccount account;
 
   /// The account's value for the selected month, or `null` when unrecorded.
@@ -78,7 +79,7 @@ class _SnapshotInputSheetState extends State<SnapshotInputSheet> {
 
     setState(() => _saving = true);
     await widget.controller.saveSnapshot(
-      widget.idToken,
+      await widget.idToken(),
       accountId: widget.account.id,
       value: value,
     );

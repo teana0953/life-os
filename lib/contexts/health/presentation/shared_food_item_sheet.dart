@@ -7,6 +7,7 @@ import '../domain/food_item.dart';
 import '../domain/shared_food_item_input.dart';
 import '../domain/shared_food_item_patch.dart';
 import 'shared_food_item_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Empty-zero convention (CLAUDE.md): a value of `0` (or `null`) seeds an
 /// empty field with a `'0'` hint, rather than a literal `'0'`.
@@ -26,7 +27,7 @@ String _seedNullable(double? value) => value == null ? '' : _seed(value);
 /// project's layering).
 class SharedFoodItemSheet extends StatefulWidget {
   final SharedFoodItemController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// `null` = create mode (fields start empty, submits `POST`); non-null =
   /// edit mode (fields start prefilled from this item, and submit sends
@@ -295,7 +296,7 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
     final FoodItem? result;
     if (item == null) {
       result = await widget.controller.create(
-        widget.idToken,
+        await widget.idToken(),
         SharedFoodItemInput(
           name: _name.text.trim(),
           carbG: _parseOrZero(_carb),
@@ -320,7 +321,7 @@ class _SharedFoodItemSheetState extends State<SharedFoodItemSheet> {
           amountText != _seedNullable(item.baseAmount) ||
           unitText != (item.measureUnit ?? '');
       result = await widget.controller.update(
-        widget.idToken,
+        await widget.idToken(),
         item.id,
         SharedFoodItemPatch(
           name: _name.text.trim() == item.name ? null : _name.text.trim(),

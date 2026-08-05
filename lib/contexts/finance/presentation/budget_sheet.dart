@@ -5,6 +5,7 @@ import '../../../shared/widgets/numeric_amount_field.dart';
 import '../domain/finance_money.dart';
 import '../domain/finance_type.dart';
 import 'finance_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// One editable row in [BudgetSheet]: the overall budget ([categoryId]
 /// `null`) or an expense category's budget. [archived] rows come from a
@@ -28,7 +29,7 @@ class _BudgetRowSpec {
 /// only what's still pending.
 class BudgetSheet extends StatefulWidget {
   final FinanceController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   const BudgetSheet({super.key, required this.controller, required this.idToken});
 
@@ -149,7 +150,7 @@ class _BudgetSheetState extends State<BudgetSheet> {
       );
     }
 
-    await widget.controller.saveBudgets(widget.idToken, desired);
+    await widget.controller.saveBudgets(await widget.idToken(), desired);
     if (!mounted) return;
     if (widget.controller.status == FinanceStatus.loaded) {
       Navigator.of(context).pop();

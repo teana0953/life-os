@@ -13,6 +13,7 @@ import 'care_item_form.dart';
 import 'care_items_controller.dart';
 import 'push_health_controller.dart';
 import 'push_off_banner.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 const _categoryOrder = [
   CareCategory.medication,
@@ -111,7 +112,10 @@ class CareItemsScreen extends StatefulWidget {
 }
 
 class _CareItemsScreenState extends State<CareItemsScreen> {
-  String _idToken = '';
+  /// A fresh id token per request (see [IdTokenProvider]); the shape
+  /// `FriendsScreen._token` uses. Deliberately not cached in a field — a
+  /// token fetched at mount is already expired for a screen left open.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
 
   @override
   void initState() {
@@ -131,9 +135,9 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
   void _onChanged() => setState(() {});
 
   Future<void> _load() async {
-    _idToken = await widget.authRepository.idToken() ?? '';
+    final idToken = await _idToken();
     if (!mounted) return;
-    await widget.controller.load(_idToken);
+    await widget.controller.load(idToken);
   }
 
   Future<void> _openForm({CareItem? existing}) {
@@ -171,7 +175,7 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
       ),
     );
     if (confirmed == true) {
-      await widget.controller.delete(_idToken, item.id);
+      await widget.controller.delete(await _idToken(), item.id);
     }
   }
 
@@ -214,7 +218,7 @@ class _CareItemsScreenState extends State<CareItemsScreen> {
                   const SizedBox(height: 16),
                   FilledButton(
                     key: const Key('care-items-retry-button'),
-                    onPressed: () => controller.load(_idToken),
+                    onPressed: () async => controller.load(await _idToken()),
                     child: Text(loc.retry),
                   ),
                 ],

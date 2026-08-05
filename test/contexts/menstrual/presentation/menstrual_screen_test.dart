@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +26,14 @@ class FakeMenstrualRepository implements MenstrualRepository {
   int _nextId = 1;
   Object? failGetOverview;
 
+  /// Every start date [addPeriod] was called with, in order — lets a test
+  /// assert a submission wrote exactly once.
+  final List<DateTime> addCalls = [];
+
+  /// Every period id [deletePeriod] was called with, in order — lets a test
+  /// assert that a dropped submission issued no delete at all.
+  final List<String> deleteCalls = [];
+
   FakeMenstrualRepository({this.stats = const MenstrualStats()});
 
   @override
@@ -42,6 +52,7 @@ class FakeMenstrualRepository implements MenstrualRepository {
     required DateTime startDate,
     DateTime? endDate,
   }) async {
+    addCalls.add(startDate);
     final period = MenstrualPeriod(
       id: 'p${_nextId++}',
       startDate: startDate,
@@ -72,6 +83,7 @@ class FakeMenstrualRepository implements MenstrualRepository {
 
   @override
   Future<bool> deletePeriod(String idToken, String id) async {
+    deleteCalls.add(id);
     periods.removeWhere((p) => p.id == id);
     return true;
   }
@@ -98,7 +110,7 @@ Future<MenstrualController> _pumpScreen(
       locale: locale,
       home: MenstrualScreen(
         controller: controller,
-        idToken: 'tok',
+        idToken: () async => 'tok',
         clock: () => DateTime(2026, 7, 22),
         onSignInAgain: () {},
       ),
@@ -566,6 +578,290 @@ void main() {
         }
       }
     }
+  });
+
+  // The ID token is resolved at request time, so between the dialog's save and
+  // the controller's `saving` status there is a whole token round trip during
+  // which nothing in the controller has changed yet. That window has to be
+  // closed by the screen itself, or a second submission starts a second write.
+  group('MenstrualScreen while the ID token is still resolving', () {
+    /// Pumps a loaded screen whose token provider is held open by [gate].
+    Future<void> pumpGatedToken(
+      WidgetTester tester,
+      FakeMenstrualRepository repo,
+      Completer<void> gate,
+    ) async {
+      // Tall enough that the add button below the calendar is on screen.
+      await tester.binding.setSurfaceSize(const Size(600, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = _controllerFor(repo);
+      await controller.load('tok');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: MenstrualScreen(
+            controller: controller,
+            idToken: () async {
+              await gate.future;
+              return 'tok';
+            },
+            clock: () => DateTime(2026, 7, 22),
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// Taps [dayKey] and saves the resulting add-period dialog, without
+    /// `pumpAndSettle` — the busy bar's progress indicator animates forever
+    /// while a mutation is in flight, so a settle would time out.
+    Future<void> addPeriodVia(WidgetTester tester, String dayKey) async {
+      await tester.tap(find.byKey(Key(dayKey)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const Key('menstrual-save-period')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    /// Taps [a] and [b] in the SAME frame — both handlers run before the
+    /// screen rebuilds, so `busy` is still false for the second one. A plain
+    /// `tap → pump → tap` cannot reach that: by the second tap the first
+    /// handler has run and the controls have already disabled themselves.
+    ///
+    /// Only usable when [a]'s handler does not push a route: pushing one runs
+    /// `Navigator._cancelActivePointers`, which cancels every other in-flight
+    /// pointer and absorbs the rest of the frame's, so [b] would never fire.
+    Future<void> tapBothInOneFrame(
+      WidgetTester tester,
+      Finder a,
+      Finder b,
+    ) async {
+      final first = TestPointer(1);
+      final second = TestPointer(2);
+      await tester.sendEventToBinding(first.down(tester.getCenter(a)));
+      await tester.sendEventToBinding(first.up());
+      await tester.sendEventToBinding(second.down(tester.getCenter(b)));
+      await tester.sendEventToBinding(second.up());
+    }
+
+    // `_deletePeriod`'s `if (!ran) return;` IS reachable: the undo prompt is a
+    // SnackBar, which no `busy` gating covers, so an undo tap and a day-cell
+    // tap in the same frame start the undo's write first and then open a
+    // dialog whose delete lands mid-flight. Without the guard the screen
+    // announces a deletion that never happened, with an Undo that would re-add
+    // a still-present period.
+    testWidgets('a delete refused mid-flight claims no deletion', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repo = FakeMenstrualRepository();
+      await repo.addPeriod(
+        'tok',
+        startDate: DateTime(2026, 7, 1),
+        endDate: DateTime(2026, 7, 3),
+      );
+      await repo.addPeriod(
+        'tok',
+        startDate: DateTime(2026, 7, 10),
+        endDate: DateTime(2026, 7, 14),
+      );
+      repo.addCalls.clear();
+      Completer<void>? gate;
+      final controller = _controllerFor(repo);
+      await controller.load('tok');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: MenstrualScreen(
+            controller: controller,
+            idToken: () async {
+              if (gate != null) await gate.future;
+              return 'tok';
+            },
+            clock: () => DateTime(2026, 7, 22),
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Delete p1 normally; its undo prompt appears.
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-01')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-delete-period')));
+      await tester.pumpAndSettle();
+      expect(repo.deleteCalls, ['p1']);
+      expect(find.text(loc.menstrualUndo), findsOneWidget);
+
+      // Same frame: the undo starts a write (held on the token) and p2's
+      // dialog opens.
+      gate = Completer<void>();
+      await tapBothInOneFrame(
+        tester,
+        find.text(loc.menstrualUndo),
+        find.byKey(const Key('menstrual-day-2026-07-10')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const Key('menstrual-delete-period')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('menstrual-delete-period')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // p2 was never deleted — and nothing on screen says it was.
+      expect(repo.deleteCalls, ['p1']);
+      expect(find.text(loc.menstrualPeriodDeleted), findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(repo.addCalls, [DateTime(2026, 7, 1)]);
+    });
+
+    // A period for a *different* day is a distinct action, not a double
+    // submit — the re-entrancy guard must never swallow it in silence. The
+    // day cells are disabled while a mutation is in flight, so the second
+    // dialog cannot even be opened: the action is refused up front (with the
+    // busy bar showing) instead of vanishing, and it stays available
+    // afterwards.
+    testWidgets(
+      'a different day cannot be submitted mid-flight, and is not lost',
+      (tester) async {
+        final repo = FakeMenstrualRepository();
+        final gate = Completer<void>();
+        await pumpGatedToken(tester, repo, gate);
+
+        await addPeriodVia(tester, 'menstrual-day-2026-07-10');
+
+        // Visibly refused: the cell is non-interactive, and tapping it opens
+        // no dialog (rather than opening one whose save is then dropped).
+        expect(
+          tester
+              .widget<InkWell>(find.byKey(const Key('menstrual-day-2026-07-05')))
+              .onTap,
+          isNull,
+        );
+        expect(find.byKey(const Key('menstrual-busy')), findsOneWidget);
+        await tester.tap(
+          find.byKey(const Key('menstrual-day-2026-07-05')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byKey(const Key('menstrual-save-period')), findsNothing);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(repo.addCalls, [DateTime(2026, 7, 10)]);
+
+        // Refused, not discarded: the same distinct action goes through once
+        // the first write has settled.
+        await addPeriodVia(tester, 'menstrual-day-2026-07-05');
+        await tester.pumpAndSettle();
+        expect(repo.addCalls, [DateTime(2026, 7, 10), DateTime(2026, 7, 5)]);
+      },
+    );
+
+    // The undo action lives on a SnackBar, the one control that cannot be
+    // disabled while another write is in flight — and `SnackBarAction` latches
+    // and hides its bar on press, before the guard can refuse. So a refusal
+    // must put the prompt back, action and all: telling the user to "try again
+    // in a moment" while removing the only thing left to try again on would
+    // leave the period deleted with no way back.
+    testWidgets('a refused undo keeps the undo available to retry', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repo = FakeMenstrualRepository();
+      await repo.addPeriod(
+        'tok',
+        startDate: DateTime(2026, 7, 10),
+        endDate: DateTime(2026, 7, 14),
+      );
+      repo.addCalls.clear();
+      // Ungated until the second write, so the delete (and its undo prompt)
+      // complete normally first.
+      Completer<void>? gate;
+      final controller = _controllerFor(repo);
+      await controller.load('tok');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: MenstrualScreen(
+            controller: controller,
+            idToken: () async {
+              if (gate != null) await gate.future;
+              return 'tok';
+            },
+            clock: () => DateTime(2026, 7, 22),
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Delete the period; the undo prompt appears.
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-10')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menstrual-delete-period')));
+      await tester.pumpAndSettle();
+      expect(repo.deleteCalls, ['p1']);
+      expect(find.text(loc.menstrualUndo), findsOneWidget);
+
+      // Start a second, distinct write and hold it open on the token.
+      gate = Completer<void>();
+      await tester.tap(find.byKey(const Key('menstrual-day-2026-07-05')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const Key('menstrual-save-period')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // The undo prompt is still on screen and still tappable.
+      await tester.tap(find.text(loc.menstrualUndo));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Refused out loud: no re-add was issued, the user is told why — and the
+      // Undo is still on screen, which is what makes "try again" true.
+      expect(repo.addCalls, isEmpty);
+      expect(find.text(loc.trackerStillSaving), findsOneWidget);
+      expect(find.text(loc.menstrualUndo), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(repo.addCalls, [DateTime(2026, 7, 5)]);
+
+      // And it really works the second time: the deleted period comes back.
+      expect(find.text(loc.menstrualUndo), findsOneWidget);
+      await tester.tap(find.text(loc.menstrualUndo));
+      await tester.pumpAndSettle();
+      expect(repo.addCalls, [DateTime(2026, 7, 5), DateTime(2026, 7, 10)]);
+    });
+
+    // The visible half: the add button disables and the busy bar appears
+    // during token resolution, not only once the controller reaches `saving`.
+    testWidgets('the add button is disabled and the busy bar shows', (
+      tester,
+    ) async {
+      final repo = FakeMenstrualRepository();
+      final gate = Completer<void>();
+      await pumpGatedToken(tester, repo, gate);
+
+      await addPeriodVia(tester, 'menstrual-day-2026-07-10');
+
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('menstrual-add-button')))
+            .onPressed,
+        isNull,
+      );
+      expect(find.byKey(const Key('menstrual-busy')), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
   });
 
   // The screen's own overflow guard: the legend Row was centred and

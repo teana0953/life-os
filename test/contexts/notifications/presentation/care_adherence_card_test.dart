@@ -228,7 +228,7 @@ Future<void> _pumpCard(
       home: Scaffold(
         body: CareAdherenceCard(
           controller: controller,
-          idToken: 'token-123',
+          idToken: () async => 'token-123',
           onOpenHistory: onOpenHistory ?? () {},
           onOpenCareItems: onOpenCareItems ?? () {},
         ),
@@ -255,7 +255,7 @@ void main() {
             home: Scaffold(
               body: CareAdherenceCard(
                 controller: controller,
-                idToken: 'token-123',
+                idToken: () async => 'token-123',
                 onOpenHistory: () {},
                 onOpenCareItems: () {},
               ),
@@ -601,7 +601,7 @@ void main() {
             home: Scaffold(
               body: CareAdherenceCard(
                 controller: controller,
-                idToken: 'token-123',
+                idToken: () async => 'token-123',
                 onOpenHistory: () {},
                 onOpenCareItems: () {},
               ),

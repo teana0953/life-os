@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -43,6 +45,11 @@ class FakeVitalsRepository implements VitalsRepository {
   VitalsDay? savedDay;
   int getDayCallCount = 0;
 
+  /// Every weight [save] was called with, in order — saving the same draft
+  /// twice leaves the same state, so only the call list can tell one save from
+  /// two.
+  final List<num?> saveCalls = [];
+
   FakeVitalsRepository({VitalsDay? stored})
     : stored =
           stored ??
@@ -64,6 +71,7 @@ class FakeVitalsRepository implements VitalsRepository {
 
   @override
   Future<VitalsDay> save(String idToken, VitalsDay day) async {
+    saveCalls.add(day.weightKg);
     if (saveError != null) throw saveError!;
     savedDay = day;
     stored = day;
@@ -98,7 +106,7 @@ Future<VitalsController> _pumpScreen(
       locale: locale,
       home: VitalsScreen(
         controller: controller,
-        idToken: 'token',
+        idToken: () async => 'token',
         day: day,
         clock: clock,
         onSignInAgain: () {},
@@ -706,7 +714,7 @@ void main() {
                 locale: locale,
                 home: VitalsScreen(
                   controller: controller,
-                  idToken: 'token',
+                  idToken: () async => 'token',
                   day: '2026-07-18',
                   clock: _defaultClock,
                   onSignInAgain: () {},
@@ -844,7 +852,7 @@ void main() {
         l10nTestApp(
           home: VitalsScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             onSignInAgain: () {},
@@ -881,7 +889,7 @@ void main() {
         l10nTestApp(
           home: VitalsScreen(
             controller: c,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: autoAddSection,
@@ -1000,7 +1008,7 @@ void main() {
         Widget app(String? section) => l10nTestApp(
           home: VitalsScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: section,
@@ -1037,7 +1045,7 @@ void main() {
         Widget app(String? section) => l10nTestApp(
           home: VitalsScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _defaultClock,
             autoAddSection: section,
@@ -1075,7 +1083,7 @@ void main() {
       Widget app() => l10nTestApp(
         home: VitalsScreen(
           controller: controller,
-          idToken: 'token',
+          idToken: () async => 'token',
           day: '2026-07-18',
           clock: _defaultClock,
           autoAddSection: 'glucose',
@@ -1187,5 +1195,96 @@ void main() {
       expect(controller.status, VitalsStatus.needsReauth);
       expect(controller.glucoseReadings, isEmpty);
     });
+  });
+
+  // The ID token is resolved at request time, so between the tap and the
+  // controller's `saving` status there is a whole token round trip during which
+  // nothing in the controller has changed yet. That window has to be closed by
+  // the screen itself, or a second tap starts a second write.
+  group('while the ID token is still resolving', () {
+    /// Pumps a loaded screen with one unsaved edit (so Save is enabled) and a
+    /// token provider held open by [gate].
+    Future<void> pumpGatedTokenWithEdit(
+      WidgetTester tester,
+      FakeVitalsRepository repository,
+      Completer<void> gate,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: VitalsScreen(
+            controller: controller,
+            idToken: () async {
+              await gate.future;
+              return 'token';
+            },
+            day: '2026-07-18',
+            clock: _defaultClock,
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('vitals-weight-field')),
+        '60',
+      );
+      await tester.pump();
+    }
+
+    // Two taps inside one frame: the disable only takes effect on the next
+    // rebuild, so the second tap still reaches the enabled button and only the
+    // re-entrancy check in `_save` can drop it.
+    testWidgets('a same-frame second Save tap writes only once', (tester) async {
+      final repository = FakeVitalsRepository();
+      final gate = Completer<void>();
+      await pumpGatedTokenWithEdit(tester, repository, gate);
+
+      await tester.tap(find.byKey(const Key('vitals-save-button')));
+      await tester.tap(find.byKey(const Key('vitals-save-button')));
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(repository.saveCalls, [60]);
+    });
+
+    // The visible half: the button disables and the busy bar appears during
+    // token resolution, not only once the controller reaches `saving` — so a
+    // later tap can't land either.
+    testWidgets(
+      'the Save button is disabled, the busy bar shows, and a later tap '
+      'writes nothing more',
+      (tester) async {
+        final repository = FakeVitalsRepository();
+        final gate = Completer<void>();
+        await pumpGatedTokenWithEdit(tester, repository, gate);
+
+        await tester.tap(find.byKey(const Key('vitals-save-button')));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          tester
+              .widget<FilledButton>(find.byKey(const Key('vitals-save-button')))
+              .onPressed,
+          isNull,
+        );
+        expect(find.byKey(const Key('vitals-busy')), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const Key('vitals-save-button')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(repository.saveCalls, [60]);
+      },
+    );
   });
 }

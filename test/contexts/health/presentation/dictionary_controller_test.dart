@@ -19,8 +19,16 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
   String? favoritedId;
   String? unfavoritedId;
 
+  /// Every id token [search] was called with, in order — the *value that was
+  /// sent*, which is what the token-freshness test asserts on.
+  final List<String> searchTokens = [];
+
+  /// Every id token [favorite] was called with, in order.
+  final List<String> favoriteTokens = [];
+
   @override
   Future<List<FoodItem>> search(String idToken, String query) async {
+    searchTokens.add(idToken);
     if (searchErrorToThrow != null) throw searchErrorToThrow!;
     return searchResultsToReturn;
   }
@@ -33,6 +41,7 @@ class FakeFoodDictionaryRepository implements FoodDictionaryRepository {
 
   @override
   Future<void> favorite(String idToken, String foodItemId) async {
+    favoriteTokens.add(idToken);
     if (toggleErrorToThrow != null) throw toggleErrorToThrow!;
     favoritedId = foodItemId;
   }
@@ -92,18 +101,70 @@ DictionaryController _controller(
     ListFavorites(repository),
     FavoriteFood(repository),
     UnfavoriteFood(repository),
+    idToken: () async => 'token-123',
     searchDebounce: searchDebounce,
   );
 }
 
 void main() {
+  // This controller is the one deliberate exception to "only presentation
+  // holds the provider" (design D2): `search`/`toggleFavorite` take no token,
+  // so before this change they reused whatever `load` had captured — a
+  // dictionary left open past the token's one-hour life 401'd on every
+  // keystroke. Asserts on the token the repository RECEIVED.
+  group('DictionaryController token freshness', () {
+    test('a second search carries the second token, not the first one', () async {
+      final repository = FakeFoodDictionaryRepository();
+      var token = 'token-1';
+      final controller = DictionaryController(
+        SearchDictionary(repository),
+        ListFavorites(repository),
+        FavoriteFood(repository),
+        UnfavoriteFood(repository),
+        idToken: () async => token,
+      );
+      await controller.load();
+
+      await controller.search('rice');
+      expect(repository.searchTokens, ['token-1']);
+
+      // Firebase renewed the token while the dictionary stayed open.
+      token = 'token-2';
+
+      await controller.search('bread');
+
+      expect(repository.searchTokens, ['token-1', 'token-2']);
+    });
+
+    test('toggling a favorite after a renewal carries the new token', () async {
+      final repository = FakeFoodDictionaryRepository();
+      var token = 'token-1';
+      final controller = DictionaryController(
+        SearchDictionary(repository),
+        ListFavorites(repository),
+        FavoriteFood(repository),
+        UnfavoriteFood(repository),
+        idToken: () async => token,
+      );
+      await controller.load();
+
+      await controller.toggleFavorite(_item('rice-1', 'rice'), isFavorite: false);
+      expect(repository.favoriteTokens, ['token-1']);
+
+      token = 'token-2';
+      await controller.toggleFavorite(_item('rice-2', 'bread'), isFavorite: false);
+
+      expect(repository.favoriteTokens, ['token-1', 'token-2']);
+    });
+  });
+
   group('DictionaryController.load', () {
     test('loads favorites', () async {
       final repository = FakeFoodDictionaryRepository()
         ..favoritesToReturn = [_item('rice-1', '飯/1碗')];
       final controller = _controller(repository);
 
-      await controller.load('token-123');
+      await controller.load();
 
       expect(controller.status, DictionaryStatus.loaded);
       expect(controller.favorites.single.name, '飯/1碗');
@@ -114,7 +175,7 @@ void main() {
         ..loadErrorToThrow = const DietFetchFailure('server error');
       final controller = _controller(repository);
 
-      await controller.load('token-123');
+      await controller.load();
 
       expect(controller.status, DictionaryStatus.error);
     });
@@ -124,7 +185,7 @@ void main() {
         ..loadErrorToThrow = const DietReauthenticationRequired();
       final controller = _controller(repository);
 
-      await controller.load('token-123');
+      await controller.load();
 
       expect(controller.status, DictionaryStatus.needsReauth);
     });
@@ -135,7 +196,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..searchResultsToReturn = [_item('rice-1', '飯/1碗')];
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.search('飯');
       expect(controller.results.single.name, '飯/1碗');
@@ -148,7 +209,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..searchResultsToReturn = [_item('rice-1', '飯/1碗')];
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.search('飯');
       expect(controller.query, '飯');
@@ -164,7 +225,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..searchResultsToReturn = [];
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.search('no-matches');
 
@@ -177,7 +238,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..searchErrorToThrow = const DietFetchFailure('server error');
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.search('飯');
 
@@ -189,7 +250,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..searchErrorToThrow = const DietReauthenticationRequired();
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.search('飯');
 
@@ -203,7 +264,7 @@ void main() {
         repository,
         searchDebounce: const Duration(milliseconds: 20),
       );
-      await controller.load('token-123');
+      await controller.load();
 
       // Rapid keystrokes: none of these should fire a request before the
       // debounce settles, and only the final query should ever be sent.
@@ -223,7 +284,7 @@ void main() {
         repository,
         searchDebounce: const Duration(milliseconds: 20),
       );
-      await controller.load('token-123');
+      await controller.load();
 
       controller.search('飯');
       controller.dispose();
@@ -238,7 +299,7 @@ void main() {
     test('favorites an unfavorited item and refreshes favorites', () async {
       final repository = FakeFoodDictionaryRepository();
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
 
@@ -248,7 +309,7 @@ void main() {
     test('unfavorites a favorited item', () async {
       final repository = FakeFoodDictionaryRepository();
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: true);
 
@@ -265,7 +326,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..toggleErrorToThrow = const DietFetchFailure('server error');
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
       final favoritesBefore = controller.favorites;
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
@@ -279,7 +340,7 @@ void main() {
       final repository = FakeFoodDictionaryRepository()
         ..toggleErrorToThrow = const DietReauthenticationRequired();
       final controller = _controller(repository);
-      await controller.load('token-123');
+      await controller.load();
 
       await controller.toggleFavorite(_item('rice-1', '飯/1碗'), isFavorite: false);
 

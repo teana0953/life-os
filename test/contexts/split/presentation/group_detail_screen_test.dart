@@ -24,8 +24,14 @@ import '../support/split_presentation_fakes.dart';
 final _loc = lookupAppLocalizations(const Locale('en'));
 
 class _FakeAuthRepository implements AuthRepository {
+  /// What the next [idToken] call resolves to. Mutable so a test can simulate
+  /// Firebase renewing the token while the screen stays open.
+  String token;
+
+  _FakeAuthRepository({this.token = 'tok'});
+
   @override
-  Future<String?> idToken() async => 'tok';
+  Future<String?> idToken() async => token;
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -67,6 +73,7 @@ Widget _screen({
   required FakeSplitRepository repo,
   required String selfUserId,
   List<Friend> friends = const [],
+  _FakeAuthRepository? authRepository,
 }) => l10nRouterTestApp(
   home: GroupDetailScreen(
     getGroup: GetGroup(repo),
@@ -83,7 +90,7 @@ Widget _screen({
     // The screen resolves the caller's own id from `/api/me` itself — it is
     // never handed one by whoever navigated there.
     getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
-    authRepository: _FakeAuthRepository(),
+    authRepository: authRepository ?? _FakeAuthRepository(),
     groupId: 'g1',
     clock: () => DateTime(2026, 8, 2),
   ),
@@ -210,6 +217,52 @@ void main() {
 
       expect(find.text(_loc.splitErrorNotFound), findsOneWidget);
     });
+
+    // This screen used to fetch one token in `_load` and cache it in a field,
+    // then feed every mutation and every sheet it opens from that one value —
+    // the same bug as the shells, on a shorter clock. Asserts on the token the
+    // repository RECEIVED.
+    testWidgets(
+      'a mutation after a token renewal carries the new token',
+      (tester) async {
+        final repo = FakeSplitRepository()
+          ..groupToReturn = const SplitGroup(
+            id: 'g1',
+            name: 'Trip',
+            createdByUserId: 'self-1',
+            archivedAt: null,
+          )
+          ..memberToReturn = const GroupMember(
+            groupId: 'g1',
+            userId: 'f1',
+            displayName: 'Friend One',
+            joinedAt: '2026-01-01T00:00:00Z',
+          );
+        final auth = _FakeAuthRepository(token: 'token-1');
+
+        await tester.pumpWidget(
+          _screen(
+            repo: repo,
+            selfUserId: 'self-1',
+            friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+            authRepository: auth,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repo.groupTokens, ['token-1']);
+
+        // Firebase renewed the token while the group stayed open.
+        auth.token = 'token-2';
+
+        await tester.tap(find.byKey(const Key('split-add-member-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-add-member-candidate-f1')));
+        await tester.pumpAndSettle();
+
+        expect(repo.addGroupMemberTokens, ['token-2']);
+      },
+    );
 
     testWidgets('a failed add-member says so — the only path that can produce already_a_member', (
       tester,

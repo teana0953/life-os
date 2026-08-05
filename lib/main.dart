@@ -167,6 +167,9 @@ Future<void> main() async {
     ListFavorites(foodDictionaryRepository),
     FavoriteFood(foodDictionaryRepository),
     UnfavoriteFood(foodDictionaryRepository),
+    // A per-request provider, never a captured token: `search`/`toggleFavorite`
+    // take no token and would otherwise reuse whatever `load` saw (design D2).
+    idToken: () async => await authRepository.idToken() ?? '',
   );
   final healthDailyTargetController = DailyTargetController(
     GetDailyTargetWithRemaining(dailyTargetRepository),

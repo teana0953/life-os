@@ -128,6 +128,10 @@
   "@signInAgain": {
     "description": "Label for the button shown when re-authentication is required."
   },
+  "trackerStillSaving": "Still saving — try again in a moment.",
+  "@trackerStillSaving": {
+    "description": "Shown when an action that cannot be disabled (a SnackBar Undo) is tapped while another save is still in flight, so the action was refused rather than performed."
+  },
   "pleaseSignInAgain": "Please sign in again.",
   "@pleaseSignInAgain": {
     "description": "Message shown when the backend requires re-authentication (HTTP 401)."

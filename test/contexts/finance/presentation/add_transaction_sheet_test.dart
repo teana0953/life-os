@@ -13,6 +13,7 @@ Future<void> pumpSheet(
   required FakeFinanceRepository repo,
   FinanceTransaction? editing,
   String today = '2026-07-15',
+  Future<String> Function()? idToken,
 }) async {
   final controller = testFinanceController(repo);
   // The controller needs categories loaded so the sheet's grid has options.
@@ -28,7 +29,7 @@ Future<void> pumpSheet(
               isScrollControlled: true,
               builder: (_) => AddTransactionSheet(
                 controller: controller,
-                idToken: 'tok',
+                idToken: idToken ?? () async => 'tok',
                 categories: controller.categories,
                 today: today,
                 editing: editing,
@@ -84,6 +85,46 @@ void main() {
           find.byKey(const Key('save-transaction-button')),
         );
         expect(button.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'a token renewal that throws leaves the sheet usable — the Save button '
+      'must not latch off with the typed transaction stranded',
+      (tester) async {
+        // `getIdToken()` reaches the network once the token nears expiry and
+        // throws when that fails. `_save` sets `_saving = true` before the
+        // first await, so an escaping throw used to leave `onPressed: null`
+        // for good: no write, no message, the typed amount still on screen,
+        // and the only way out was to dismiss the sheet and lose it.
+        await pumpSheet(
+          tester,
+          repo: FakeFinanceRepository(),
+          idToken: () async => throw Exception('token renewal failed'),
+        );
+
+        await tester.enterText(find.byKey(const Key('amount-field')), '250');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('finance-category-cat-food')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pumpAndSettle();
+
+        // No escaping async error, and the user is told the save failed
+        // rather than left staring at an unchanged sheet.
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SnackBar), findsOneWidget);
+        // The sheet is still there and the button is usable again, so the
+        // typed transaction is not stranded.
+        expect(find.byKey(const Key('amount-field')), findsOneWidget);
+        final button = tester.widget<FilledButton>(
+          find.byKey(const Key('save-transaction-button')),
+        );
+        expect(
+          button.onPressed,
+          isNotNull,
+          reason: 'a failed save must not latch the submit button off',
+        );
       },
     );
 

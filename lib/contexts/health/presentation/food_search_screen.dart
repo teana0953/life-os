@@ -16,6 +16,7 @@ import 'portion_pills.dart';
 import 'shared_food_item_controller.dart';
 import 'shared_food_item_sheet.dart';
 import 'snack_naming.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The effective quantity previewed for a dictionary tray row: the entered
 /// unit quantity, or (in measure mode) the measure-derived quantity via the
@@ -74,7 +75,7 @@ class FoodSearchScreen extends StatefulWidget {
 
   final DictionaryController dictionaryController;
   final CreateMealController createMealController;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Signs the user out; wired to the needsReauth banner's "sign in again"
@@ -188,7 +189,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
             _searchController.text = result.name;
             widget.dictionaryController.search(result.name);
           } else if (widget.dictionaryController.query.isEmpty) {
-            widget.dictionaryController.load(widget.idToken);
+            widget.dictionaryController.load();
           } else {
             widget.dictionaryController.search(widget.dictionaryController.query);
           }
@@ -251,24 +252,40 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     );
   }
 
+  /// True from the moment a submit starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()`: the controller
+  /// only flips to `submitting` once the token has resolved, so without this
+  /// flag the done button stays enabled and silent for the whole token round
+  /// trip and a second tap creates a second meal.
+  bool _submitting = false;
+
+  /// Submits the tray as one meal. Re-entrant calls (a second tap while one is
+  /// in flight) are dropped.
   Future<void> _submit() async {
-    // Opened as the dictionary, the meal isn't known until now — ask once,
-    // for the whole tray, and save nothing if the user doesn't choose.
-    if (widget.meal == null) {
-      final chosen = await _askForMeal();
-      // The screen (or its ancestor) can be disposed while the sheet is open
-      // — e.g. sign-out flipping the app to the login screen, or the route
-      // being popped — and a choice that comes back after that must not still
-      // be saved.
-      if (!mounted) return;
-      if (chosen == null) return;
-      widget.createMealController.bindMeal(chosen);
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      // Opened as the dictionary, the meal isn't known until now — ask once,
+      // for the whole tray, and save nothing if the user doesn't choose.
+      if (widget.meal == null) {
+        final chosen = await _askForMeal();
+        // The screen (or its ancestor) can be disposed while the sheet is open
+        // — e.g. sign-out flipping the app to the login screen, or the route
+        // being popped — and a choice that comes back after that must not still
+        // be saved.
+        if (!mounted) return;
+        if (chosen == null) return;
+        widget.createMealController.bindMeal(chosen);
+      }
+      final success = await widget.createMealController.submit(
+        await widget.idToken(),
+        widget.day,
+      );
+      if (success && mounted && context.canPop()) context.pop(true);
+    } finally {
+      _submitting = false;
+      if (mounted) setState(() {});
     }
-    final success = await widget.createMealController.submit(
-      widget.idToken,
-      widget.day,
-    );
-    if (success && mounted && context.canPop()) context.pop(true);
   }
 
   Future<void> _openManualEntry() async {
@@ -512,6 +529,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                       key: const Key('food-search-done-button'),
                       onPressed:
                           createMeal.tray.isEmpty ||
+                              _submitting ||
                               createMeal.status ==
                                   CreateMealControllerStatus.submitting
                           ? null

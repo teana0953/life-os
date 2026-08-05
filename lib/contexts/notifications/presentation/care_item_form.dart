@@ -6,6 +6,7 @@ import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/care_item.dart';
 import 'care_items_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 const _categoryChoices = [
   CareCategory.medication,
@@ -110,7 +111,7 @@ class _ScheduleDraft {
 /// the item being edited.
 class CareItemForm extends StatefulWidget {
   final CareItemsController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final CareItem? existing;
 
   /// Returns the current time, used as the default start date for a new
@@ -289,7 +290,7 @@ class _CareItemFormState extends State<CareItemForm> {
     final existing = widget.existing;
     if (existing == null) {
       await widget.controller.create(
-        widget.idToken,
+        await widget.idToken(),
         CareItemDraft(
           category: _category,
           title: title,
@@ -302,7 +303,7 @@ class _CareItemFormState extends State<CareItemForm> {
       );
     } else {
       await widget.controller.update(
-        widget.idToken,
+        await widget.idToken(),
         existing.id,
         CareItemUpdate(
           category: _category,

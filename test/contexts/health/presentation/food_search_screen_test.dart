@@ -138,6 +138,11 @@ class FakeMealRepository implements MealRepository {
   List<CreateMealItem>? receivedItems;
   Object? errorToThrow;
 
+  /// Every meal [createMeal] was called with, in order — a second submit of
+  /// the same tray leaves the same last-received values, so only the call list
+  /// can tell one create from two.
+  final List<String> createMealCalls = [];
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     throw UnimplementedError();
@@ -151,6 +156,7 @@ class FakeMealRepository implements MealRepository {
     DateTime? time,
     required List<CreateMealItem> items,
   }) async {
+    createMealCalls.add(meal);
     if (errorToThrow != null) throw errorToThrow!;
     receivedDay = day;
     receivedMeal = meal;
@@ -218,6 +224,7 @@ DictionaryController _dictionaryController(FakeFoodDictionaryRepository repo) =>
       ListFavorites(repo),
       FavoriteFood(repo),
       UnfavoriteFood(repo),
+      idToken: () async => 'token-123',
     );
 
 SharedFoodItemController _sharedFoodItemController(FakeFoodDictionaryRepository repo) =>
@@ -234,12 +241,13 @@ Future<FakeMealRepository> _pumpScreen(
   bool isAdmin = false,
   SharedFoodItemController? sharedFoodItemController,
   VoidCallback? onNeedProfile,
+  Future<String> Function()? idToken,
 }) async {
   final resolvedDictionaryRepository =
       dictionaryRepository ?? FakeFoodDictionaryRepository();
   final resolvedMealRepository = mealRepository ?? FakeMealRepository();
   final dictionaryController = _dictionaryController(resolvedDictionaryRepository);
-  await dictionaryController.load('token-123');
+  await dictionaryController.load();
   final createMealController = CreateMealController(CreateMeal(resolvedMealRepository))
     ..start(meal);
   final resolvedSharedFoodItemController =
@@ -253,7 +261,7 @@ Future<FakeMealRepository> _pumpScreen(
         mealNames: mealNames,
         dictionaryController: dictionaryController,
         createMealController: createMealController,
-        idToken: 'token-123',
+        idToken: idToken ?? () async => 'token-123',
         day: '2026-07-18',
         signOut: SignOut(authRepository ?? FakeAuthRepository()),
         isAdmin: isAdmin,
@@ -413,7 +421,7 @@ void main() {
       final dictionaryRepository = FakeFoodDictionaryRepository();
       final mealRepository = FakeMealRepository();
       final dictionaryController = _dictionaryController(dictionaryRepository);
-      await dictionaryController.load('token-123');
+      await dictionaryController.load();
       final createMealController = CreateMealController(CreateMeal(mealRepository))
         ..start('lunch');
 
@@ -430,7 +438,7 @@ void main() {
                         meal: 'lunch',
                         dictionaryController: dictionaryController,
                         createMealController: createMealController,
-                        idToken: 'token-123',
+                        idToken: () async => 'token-123',
                         day: '2026-07-18',
                         signOut: SignOut(FakeAuthRepository()),
                       ),
@@ -466,7 +474,7 @@ void main() {
       final dictionaryRepository = FakeFoodDictionaryRepository();
       final mealRepository = FakeMealRepository();
       final dictionaryController = _dictionaryController(dictionaryRepository);
-      await dictionaryController.load('token-123');
+      await dictionaryController.load();
       final createMealController = CreateMealController(CreateMeal(mealRepository))
         ..start('lunch');
 
@@ -484,7 +492,7 @@ void main() {
                           meal: 'lunch',
                           dictionaryController: dictionaryController,
                           createMealController: createMealController,
-                          idToken: 'token-123',
+                          idToken: () async => 'token-123',
                           day: '2026-07-18',
                           signOut: SignOut(FakeAuthRepository()),
                         ),
@@ -808,7 +816,7 @@ void main() {
         final dictionaryController = _dictionaryController(
           FakeFoodDictionaryRepository(),
         );
-        await dictionaryController.load('token-123');
+        await dictionaryController.load();
         final createMealController =
             CreateMealController(CreateMeal(mealRepository))..start(null);
         final showScreen = ValueNotifier(true);
@@ -823,7 +831,7 @@ void main() {
                       meal: null,
                       dictionaryController: dictionaryController,
                       createMealController: createMealController,
-                      idToken: 'token-123',
+                      idToken: () async => 'token-123',
                       day: '2026-07-18',
                       signOut: SignOut(FakeAuthRepository()),
                     )
@@ -863,7 +871,7 @@ void main() {
         final dictionaryController = _dictionaryController(
           FakeFoodDictionaryRepository(),
         );
-        await dictionaryController.load('token-123');
+        await dictionaryController.load();
         final createMealController =
             CreateMealController(CreateMeal(mealRepository))..start(null);
         // Seeded directly so the tray stays short enough that the page itself
@@ -879,7 +887,7 @@ void main() {
               meal: null,
               dictionaryController: dictionaryController,
               createMealController: createMealController,
-              idToken: 'token-123',
+              idToken: () async => 'token-123',
               day: '2026-07-18',
               signOut: SignOut(FakeAuthRepository()),
             ),
@@ -1087,7 +1095,7 @@ void main() {
       final dictionaryController = _dictionaryController(
         FakeFoodDictionaryRepository(favoritesGate: gate),
       );
-      unawaited(dictionaryController.load('token-123'));
+      unawaited(dictionaryController.load());
       final createMealController =
           CreateMealController(CreateMeal(FakeMealRepository()))..start(null);
 
@@ -1097,7 +1105,7 @@ void main() {
             meal: null,
             dictionaryController: dictionaryController,
             createMealController: createMealController,
-            idToken: 'token-123',
+            idToken: () async => 'token-123',
             day: '2026-07-18',
             signOut: SignOut(FakeAuthRepository()),
           ),
@@ -1115,7 +1123,7 @@ void main() {
       final dictionaryController = _dictionaryController(
         FakeFoodDictionaryRepository(),
       );
-      await dictionaryController.load('token-123');
+      await dictionaryController.load();
       final createMealController =
           CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
       await tester.pumpWidget(
@@ -1124,7 +1132,7 @@ void main() {
             meal: 'lunch',
             dictionaryController: dictionaryController,
             createMealController: createMealController,
-            idToken: 'token-123',
+            idToken: () async => 'token-123',
             day: '2026-07-18',
             signOut: SignOut(FakeAuthRepository()),
           ),
@@ -1299,7 +1307,7 @@ void main() {
       final dictionaryController = _dictionaryController(
         FakeFoodDictionaryRepository(),
       );
-      await dictionaryController.load('token-123');
+      await dictionaryController.load();
       final createMealController =
           CreateMealController(CreateMeal(FakeMealRepository()))..start('lunch');
       await tester.pumpWidget(
@@ -1312,7 +1320,7 @@ void main() {
                 meal: 'lunch',
                 dictionaryController: dictionaryController,
                 createMealController: createMealController,
-                idToken: 'token-123',
+                idToken: () async => 'token-123',
                 day: '2026-07-18',
                 signOut: SignOut(FakeAuthRepository()),
               ),
@@ -1722,5 +1730,82 @@ void main() {
 
       expect(callCount, 1);
     });
+  });
+
+  // The ID token is resolved at request time, so between the tap and the
+  // controller's `submitting` status there is a whole token round trip during
+  // which nothing in the controller has changed yet. That window has to be
+  // closed by the screen itself, or a second tap creates a second meal.
+  group('FoodSearchScreen while the ID token is still resolving', () {
+    /// Pumps a screen for a target meal with one item in the tray (so the done
+    /// button is enabled) and a token provider held open by [gate].
+    Future<FakeMealRepository> pumpGatedTokenWithTrayItem(
+      WidgetTester tester,
+      Completer<void> gate,
+    ) async {
+      final mealRepository = await _pumpScreen(
+        tester,
+        meal: 'lunch',
+        idToken: () async {
+          await gate.future;
+          return 'token-123';
+        },
+      );
+      await tester.tap(find.text('飯/1碗'));
+      await tester.pumpAndSettle();
+      return mealRepository;
+    }
+
+    // Two taps inside one frame: the disable only takes effect on the next
+    // rebuild, so the second tap still reaches the enabled button and only the
+    // re-entrancy check in `_submit` can drop it.
+    testWidgets('a same-frame second done tap creates only one meal', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final mealRepository = await pumpGatedTokenWithTrayItem(tester, gate);
+
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+      await tester.tap(find.byKey(const Key('food-search-done-button')));
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(mealRepository.createMealCalls, ['lunch']);
+    });
+
+    // The visible half: the done button disables during token resolution, not
+    // only once the controller reaches `submitting` — so a later tap can't
+    // land either.
+    testWidgets(
+      'the done button is disabled and a later tap creates nothing more',
+      (tester) async {
+        final gate = Completer<void>();
+        final mealRepository = await pumpGatedTokenWithTrayItem(tester, gate);
+
+        await tester.tap(find.byKey(const Key('food-search-done-button')));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('food-search-done-button')),
+              )
+              .onPressed,
+          isNull,
+        );
+
+        await tester.tap(
+          find.byKey(const Key('food-search-done-button')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(mealRepository.createMealCalls, ['lunch']);
+      },
+    );
   });
 }

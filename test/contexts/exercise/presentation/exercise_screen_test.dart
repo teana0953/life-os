@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
@@ -21,6 +23,15 @@ class FakeExerciseRepository implements ExerciseRepository {
   Object? failGetDay;
   int getDayCallCount = 0;
   String? lastGetDay;
+
+  /// Every entry id [deleteEntry] was called with, in order — deleting the
+  /// same id twice leaves the same state, so only the call list can tell one
+  /// delete from two.
+  final List<String> deleteCalls = [];
+
+  /// Every activity id [addEntry] was called with, in order — lets a test
+  /// assert a refused undo issued no re-add at all.
+  final List<String> addCalls = [];
 
   @override
   Future<List<ExerciseActivity>> listActivities(String idToken) async => const [
@@ -59,6 +70,7 @@ class FakeExerciseRepository implements ExerciseRepository {
     required int durationMinutes,
     required String note,
   }) async {
+    addCalls.add(activityId);
     final entry = ExerciseEntry(
       id: 'e${_nextId++}',
       activityId: activityId,
@@ -74,6 +86,7 @@ class FakeExerciseRepository implements ExerciseRepository {
 
   @override
   Future<bool> deleteEntry(String idToken, String entryId) async {
+    deleteCalls.add(entryId);
     for (final entries in _byDay.values) {
       entries.removeWhere((e) => e.id == entryId);
     }
@@ -104,7 +117,7 @@ Future<ExerciseController> _pumpScreen(
     l10nTestApp(
       home: ExerciseScreen(
         controller: controller,
-        idToken: 'token',
+        idToken: () async => 'token',
         day: day,
         clock: _clock,
         onSignInAgain: () {},
@@ -238,7 +251,7 @@ void main() {
         l10nTestApp(
           home: ExerciseScreen(
             controller: controller,
-            idToken: 'token',
+            idToken: () async => 'token',
             day: '2026-07-18',
             clock: _clock,
             onSignInAgain: () {},
@@ -274,7 +287,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => ExerciseScreen(
                         controller: controller,
-                        idToken: 'token',
+                        idToken: () async => 'token',
                         day: '2026-07-18',
                         clock: _clock,
                         onSignInAgain: () {},
@@ -396,7 +409,7 @@ void main() {
       l10nTestApp(
         home: ExerciseScreen(
           controller: controller,
-          idToken: 'token',
+          idToken: () async => 'token',
           day: '2026-07-18',
           clock: _clock,
           onSignInAgain: () {},
@@ -407,5 +420,210 @@ void main() {
 
     final label = tester.widget<LastLoadedLabel>(find.byType(LastLoadedLabel));
     expect(label.lastLoadedAt, DateTime(2026, 7, 18, 9, 41));
+  });
+
+  // The ID token is resolved at request time, so between the tap and the
+  // controller's `saving` status there is a whole token round trip during
+  // which nothing in the controller has changed yet. That window has to be
+  // closed by the screen itself, or a second tap starts a second write.
+  group('while the ID token is still resolving', () {
+    /// Pumps a loaded screen holding one entry, with a token provider held
+    /// open by [gate].
+    Future<void> pumpGatedToken(
+      WidgetTester tester,
+      FakeExerciseRepository repository,
+      Completer<void> gate,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await repository.addEntry(
+        'token',
+        day: '2026-07-18',
+        activityId: 'jogging',
+        durationMinutes: 30,
+        note: '',
+      );
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: ExerciseScreen(
+            controller: controller,
+            idToken: () async {
+              await gate.future;
+              return 'token';
+            },
+            day: '2026-07-18',
+            clock: _clock,
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // Two taps inside one frame: the disable only takes effect on the next
+    // rebuild, so the second tap still reaches the enabled control and only
+    // the re-entrancy check in `_runMutation` can drop it.
+    testWidgets('a same-frame second remove tap deletes only once', (
+      tester,
+    ) async {
+      final repository = FakeExerciseRepository();
+      final gate = Completer<void>();
+      await pumpGatedToken(tester, repository, gate);
+
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['e1']);
+    });
+
+    // A dropped `_runMutation` leaves the controller on `loaded`, so a caller
+    // that only checks the status would announce a removal that never
+    // happened — and offer an Undo that, tapped, would re-add an entry that
+    // was never deleted.
+    testWidgets('a dropped remove shows no success message and no undo', (
+      tester,
+    ) async {
+      final repository = FakeExerciseRepository();
+      final gate = Completer<void>();
+      await pumpGatedToken(tester, repository, gate);
+
+      // Same-frame double tap: the second call is dropped by the guard while
+      // the first is still blocked on the token.
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Nothing has been deleted yet, so nothing may claim it has.
+      expect(repository.deleteCalls, isEmpty);
+      expect(find.text(_loc.exerciseEntryRemoved), findsNothing);
+      expect(find.text(_loc.exerciseUndo), findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(repository.deleteCalls, ['e1']);
+    });
+
+    // The undo action lives on a SnackBar, the one control that cannot be
+    // disabled while another write is in flight — and `SnackBarAction` latches
+    // and hides its bar on press, before the guard can refuse. So a refusal
+    // must put the prompt back, action and all: telling the user to "try again
+    // in a moment" while removing the only thing left to try again on would
+    // leave the entry deleted with no way back.
+    testWidgets('a refused undo keeps the undo available to retry', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = FakeExerciseRepository();
+      await repository.addEntry(
+        'token',
+        day: '2026-07-18',
+        activityId: 'jogging',
+        durationMinutes: 30,
+        note: '',
+      );
+      // Ungated until the second write, so the remove (and its undo prompt)
+      // complete normally first.
+      Completer<void>? gate;
+      final controller = _controller(repository);
+      await controller.load('token', '2026-07-18');
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: ExerciseScreen(
+            controller: controller,
+            idToken: () async {
+              if (gate != null) await gate.future;
+              return 'token';
+            },
+            day: '2026-07-18',
+            clock: _clock,
+            onSignInAgain: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      repository.addCalls.clear();
+
+      await tester.tap(find.byKey(const Key('exercise-remove-0')));
+      await tester.pumpAndSettle();
+      expect(repository.deleteCalls, ['e1']);
+      expect(find.text(_loc.exerciseUndo), findsOneWidget);
+
+      // Start a second, distinct write and hold it open on the token.
+      gate = Completer<void>();
+      await tester.tap(find.byKey(const Key('exercise-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('exercise-activity-squats')));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('exercise-duration-field')),
+        '15',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('exercise-add-confirm')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tap(find.text(_loc.exerciseUndo));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Refused out loud: no re-add was issued, the user is told why — and the
+      // Undo is still on screen, which is what makes "try again" true.
+      expect(repository.addCalls, isEmpty);
+      expect(find.text(_loc.trackerStillSaving), findsOneWidget);
+      expect(find.text(_loc.exerciseUndo), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(repository.addCalls, ['squats']);
+
+      // And it really works the second time: the removed entry comes back.
+      expect(find.text(_loc.exerciseUndo), findsOneWidget);
+      await tester.tap(find.text(_loc.exerciseUndo));
+      await tester.pumpAndSettle();
+      expect(repository.addCalls, ['squats', 'jogging']);
+    });
+
+    // The visible half: the control disables and the busy bar appears during
+    // token resolution, not only once the controller reaches `saving` — so a
+    // later tap can't land either.
+    testWidgets(
+      'the remove control is disabled, the busy bar shows, and a later tap '
+      'deletes nothing more',
+      (tester) async {
+        final repository = FakeExerciseRepository();
+        final gate = Completer<void>();
+        await pumpGatedToken(tester, repository, gate);
+
+        await tester.tap(find.byKey(const Key('exercise-remove-0')));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          tester
+              .widget<IconButton>(find.byKey(const Key('exercise-remove-0')))
+              .onPressed,
+          isNull,
+        );
+        expect(find.byKey(const Key('exercise-busy')), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const Key('exercise-remove-0')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(repository.deleteCalls, ['e1']);
+      },
+    );
   });
 }

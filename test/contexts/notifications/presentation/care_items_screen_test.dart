@@ -13,8 +13,14 @@ import '../../../support/l10n_test_app.dart';
 import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  /// What the next [idToken] call resolves to. Mutable so a test can simulate
+  /// Firebase renewing the token while the screen stays open.
+  String token;
+
+  _FakeAuthRepository({this.token = 'token-123'});
+
   @override
-  Future<String?> idToken() async => 'token-123';
+  Future<String?> idToken() async => token;
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -34,10 +40,16 @@ class _FakeCareItemRepository implements CareItemRepository {
   Object? listError;
   Object? mutateError;
 
+  /// Every id token [list] / [delete] were called with, in order — the *value
+  /// that was sent*, which is what the token-freshness test asserts on.
+  final List<String> listTokens = [];
+  final List<String> deleteTokens = [];
+
   _FakeCareItemRepository({this.items = const []});
 
   @override
   Future<List<CareItem>> list(String idToken) async {
+    listTokens.add(idToken);
     if (listError != null) throw listError!;
     return items;
   }
@@ -82,6 +94,7 @@ class _FakeCareItemRepository implements CareItemRepository {
 
   @override
   Future<void> delete(String idToken, String id) async {
+    deleteTokens.add(idToken);
     if (mutateError != null) throw mutateError!;
     items = items.where((i) => i.id != id).toList();
   }
@@ -157,12 +170,13 @@ Future<void> _pumpScreen(
   WidgetTester tester,
   CareItemsController controller, {
   PushHealthController? pushHealthController,
+  _FakeAuthRepository? authRepository,
 }) async {
   await tester.pumpWidget(
     l10nRouterTestApp(
       home: CareItemsScreen(
         controller: controller,
-        authRepository: _FakeAuthRepository(),
+        authRepository: authRepository ?? _FakeAuthRepository(),
         pushHealthController:
             pushHealthController ?? testPushHealthController(PushHealth.ok),
       ),
@@ -251,6 +265,34 @@ void main() {
 
       expect(find.text('Metformin'), findsOneWidget);
     });
+
+    // This screen used to fetch one token in `_load` and cache it in a field,
+    // reusing it for every delete and for the form it pushes. Asserts on the
+    // token the repository RECEIVED.
+    testWidgets(
+      'deleting after a token renewal carries the new token',
+      (tester) async {
+        final repository = _FakeCareItemRepository(items: [_medicationItem]);
+        final auth = _FakeAuthRepository(token: 'token-1');
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          authRepository: auth,
+        );
+
+        expect(repository.listTokens, ['token-1']);
+
+        // Firebase renewed the token while the list stayed open.
+        auth.token = 'token-2';
+
+        await tester.tap(find.byKey(const Key('care-item-delete-care-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('care-item-delete-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(repository.deleteTokens, ['token-2']);
+      },
+    );
 
     testWidgets('deleting a reminder requires confirmation', (tester) async {
       final repository = _FakeCareItemRepository(items: [_medicationItem]);

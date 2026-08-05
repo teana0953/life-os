@@ -119,6 +119,29 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> signOut() async {}
 }
 
+/// An [AuthRepository] whose token can be changed mid-test, standing in for
+/// Firebase renewing it while the scaffold stays mounted.
+class _RotatingAuthRepository implements AuthRepository {
+  String token;
+
+  _RotatingAuthRepository({this.token = 'token-1'});
+
+  @override
+  Future<String?> idToken() async => token;
+
+  @override
+  Stream<bool> get authStateChanges => const Stream.empty();
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+}
+
 /// An [AuthRepository] whose [idToken] throws the next time it's called once
 /// [arm]ed, then goes back to succeeding — lets a test make `_load`'s token
 /// fetch (the one call inside it that can throw) fail on a specific reload
@@ -164,8 +187,13 @@ class _FakeBodyProfileRepository implements BodyProfileRepository {
   /// retry in flight and look at the card while it runs.
   Completer<void>? gate;
 
+  /// Every id token [getWeightGoal] was called with, in order — the *value
+  /// that was sent*, which is what the token-freshness test asserts on.
+  final List<String> goalTokens = [];
+
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
+    goalTokens.add(idToken);
     calls++;
     if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
     if (gate != null) await gate!.future;
@@ -583,6 +611,7 @@ Widget _buildScaffold({
     ListFavorites(dictionaryRepository),
     FavoriteFood(dictionaryRepository),
     UnfavoriteFood(dictionaryRepository),
+    idToken: () async => 'token',
   );
   final dailyTargetController = DailyTargetController(
     GetDailyTargetWithRemaining(dailyTargetRepository),
@@ -1061,8 +1090,8 @@ void main() {
 
   group('HealthScaffold load failure recovery', () {
     testWidgets(
-      '`_loading` clears even when a load throws, so a later revision bump '
-      'still triggers a reload instead of being silently dropped forever',
+      'a failed token renewal no longer aborts the load — it proceeds '
+      'unauthenticated, and later revision bumps keep working',
       (tester) async {
         final calendarRepository = _FakeHealthCalendarRepository();
         final dataRevision = DataRevision();
@@ -1081,20 +1110,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(calendarRepository.calls, 1);
 
-        // Arm the token fetch to throw on its next call, then bump: the
-        // reload's load throws while fetching the token, before any
-        // controller's `load` runs.
+        // Arm the token fetch to throw on its next call, then bump. This used
+        // to abort the whole reload before any controller's `load` ran (the
+        // token fetch was the one call in `_load` that could throw). Since
+        // `guardedIdToken`, a failed renewal resolves to `''` instead: the
+        // load proceeds and the request goes out unauthenticated, so the
+        // backend's 401 drives the existing re-auth exit rather than the
+        // refresh silently doing nothing.
         authRepository.arm();
         dataRevision.bump();
         await tester.pumpAndSettle();
-        expect(calendarRepository.calls, 1);
+        expect(
+          calendarRepository.calls,
+          2,
+          reason: 'the renewal failure must not swallow the reload',
+        );
 
-        // A further bump must still run a load — if `_loading` were left
-        // stuck `true` by the throw above, this would be silently dropped
-        // and `calls` would stay at 1 for the rest of the session.
+        // And `_loading` is still released, so later bumps keep working.
         dataRevision.bump();
         await tester.pumpAndSettle();
-        expect(calendarRepository.calls, 2);
+        expect(
+          calendarRepository.calls,
+          3,
+          reason: '_loading must not stay stuck after the renewal failure',
+        );
       },
     );
   });
@@ -1507,6 +1546,41 @@ void main() {
     /// The overview tab's RefreshIndicator (index 0 is shown first).
     RefreshIndicator overviewIndicator(WidgetTester tester) =>
         tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
+
+    // `HealthScaffold` is the other long-mounted shell issue #106 is about: it
+    // used to fetch one token at mount and feed every overview/trend load from
+    // it. Asserts on the token the repository RECEIVED, not on the provider
+    // having been called.
+    testWidgets(
+      'a refresh after a token renewal carries the new token',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final auth = _RotatingAuthRepository(token: 'token-1');
+        final bodyProfileRepository = _FakeBodyProfileRepository();
+
+        await tester.pumpWidget(
+          l10nRouterTestApp(
+            home: _buildScaffold(
+              authRepository: auth,
+              bodyProfileRepository: bodyProfileRepository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(bodyProfileRepository.goalTokens, ['token-1']);
+
+        // Firebase renewed the token while the shell stayed mounted.
+        auth.token = 'token-2';
+
+        await overviewIndicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        expect(bodyProfileRepository.goalTokens, ['token-1', 'token-2']);
+      },
+    );
 
     testWidgets(
       'the overview and trends tabs each wrap their list in a RefreshIndicator '

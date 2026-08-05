@@ -7,12 +7,13 @@ import '../../../shared/widgets/ledge_card.dart';
 import 'category_progress_bar.dart';
 import 'daily_target_controller.dart';
 import 'portion_stepper.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Target section: edit the day's per-category base portion targets and
 /// view the remaining portions against what has been logged.
 class DailyTargetScreen extends StatefulWidget {
   final DailyTargetController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Called after the target is saved successfully, so a caller can refresh
@@ -50,6 +51,30 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
   }
 
   void _onControllerChanged() => setState(() {});
+
+  /// True from the moment a save starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()`: the controller
+  /// only flips to `saving` once the token has resolved, so without this flag
+  /// the Save button stays enabled and silent for the whole token round trip
+  /// and a second tap starts a second write.
+  bool _saving = false;
+
+  /// Saves the draft target and, on success, tells the caller. Re-entrant
+  /// calls (a second tap while one is in flight) are dropped.
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await widget.controller.save(
+        await widget.idToken(),
+        widget.day,
+      );
+      if (saved) widget.onSaved?.call();
+    } finally {
+      _saving = false;
+      if (mounted) setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,15 +183,11 @@ class _DailyTargetScreenState extends State<DailyTargetScreen> {
                       const SizedBox(height: 20),
                       FilledButton(
                         key: const Key('save-target-button'),
-                        onPressed: controller.status == DailyTargetStatus.saving
+                        onPressed:
+                            _saving ||
+                                controller.status == DailyTargetStatus.saving
                             ? null
-                            : () async {
-                                final saved = await controller.save(
-                                  widget.idToken,
-                                  widget.day,
-                                );
-                                if (saved) widget.onSaved?.call();
-                              },
+                            : _save,
                         child: Text(loc.dietSaveTargetButton),
                       ),
                     ],

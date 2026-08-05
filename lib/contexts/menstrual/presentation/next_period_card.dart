@@ -8,6 +8,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/next_period_status.dart';
 import 'menstrual_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The overview's next-period card: driven by [MenstrualController], it says
 /// where today sits relative to the next predicted period (or reports the
@@ -22,7 +23,7 @@ import 'menstrual_controller.dart';
 /// counts can be pinned in tests.
 class NextPeriodCard extends StatefulWidget {
   final MenstrualController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final VoidCallback onOpen;
   final DateTime Function() clock;
 
@@ -73,7 +74,7 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
           message: loc.errorMenstrualLoadFailed,
           messageKey: const Key('next-period-error'),
           retryKey: const Key('next-period-retry'),
-          onRetry: () => controller.load(widget.idToken),
+          onRetry: () async => controller.load(await widget.idToken()),
         ),
       );
     }
@@ -189,7 +190,7 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
               failed: controller.status == MenstrualStatus.error,
               loading: controller.status == MenstrualStatus.loading,
               subject: loc.nextPeriodTitle,
-              onRetry: () => controller.load(widget.idToken),
+              onRetry: () async => controller.load(await widget.idToken()),
             ),
         ],
       ),

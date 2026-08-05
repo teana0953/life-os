@@ -32,6 +32,7 @@ import 'create_meal_controller.dart';
 import 'daily_target_controller.dart';
 import 'dictionary_controller.dart';
 import 'today_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 String _todayString(DateTime time) =>
     '${time.year.toString().padLeft(4, '0')}-'
@@ -148,7 +149,12 @@ class HealthScaffold extends StatefulWidget {
 
 class _HealthScaffoldState extends State<HealthScaffold> {
   int _index = 0;
-  String? _idToken;
+
+  /// Whether the entry load has run — the gate for the first-frame spinner in
+  /// [build]. A *flag*, deliberately not the token: this scaffold is one of
+  /// the long-mounted shells issue #106 is about, so the token is re-resolved
+  /// per request by [_idToken] instead of being cached here.
+  bool _bootstrapped = false;
 
   // Coalescing state for reloads triggered by [DataRevision] bumps: a bump
   // arriving while a load is already in flight must not be dropped (the
@@ -226,10 +232,16 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       return completer.future;
     }
     _loading = true;
-    // Clear the flag on failure too: a load that throws (the token fetch is the
-    // one call here that can) would otherwise leave `_loading` set forever and
-    // silently drop every later refresh for the rest of the session. The
-    // controllers surface their own load errors, so nothing is swallowed here.
+    // Clear the flag on failure too: a load that throws would otherwise leave
+    // `_loading` set forever and silently drop every later refresh for the
+    // rest of the session. The controllers surface their own load errors, so
+    // nothing is swallowed here.
+    //
+    // The token fetch used to be the one call here that could throw; it no
+    // longer can (`guardedIdToken` resolves a failed renewal to `''` so the
+    // request goes out and the backend's 401 drives the re-auth exit). This
+    // is therefore belt-and-braces now rather than a live path — kept because
+    // it costs nothing and the next await added here might throw.
     _load().then((_) {}, onError: (_) {}).whenComplete(() {
       _loading = false;
       final pending = _reloadPending;
@@ -249,10 +261,14 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     return completer.future;
   }
 
+  /// A fresh id token per request (see [IdTokenProvider]); the shape
+  /// `FriendsScreen._token` uses.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
+
   Future<void> _load() async {
-    final token = await widget.authRepository.idToken() ?? '';
+    final token = await _idToken();
     if (!mounted) return;
-    setState(() => _idToken = token);
+    setState(() => _bootstrapped = true);
     final day = _todayString(widget.clock());
     // Independent loads run concurrently so the landing (overview) cards and the
     // trackers all populate without waiting on a serial chain.
@@ -261,7 +277,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       widget.trendController.load(token),
       widget.healthCalendarController.load(token),
       widget.todayController.load(token, day),
-      widget.dictionaryController.load(token),
+      widget.dictionaryController.load(),
       widget.dailyTargetController.load(token, day),
       widget.waterController.load(token, day),
       widget.bowelController.load(token, day),
@@ -327,9 +343,8 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final idToken = _idToken;
 
-    if (idToken == null) {
+    if (!_bootstrapped) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(key: Key('health-loading'))),
       );
@@ -369,7 +384,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
             healthCalendarController: widget.healthCalendarController,
             careTodayController: widget.careTodayController,
             menstrualController: widget.menstrualController,
-            idToken: idToken,
+            idToken: _idToken,
             onRefresh: _scheduleLoad,
             lastLoadedAt: _lastOverviewLoadAt,
           ),
@@ -377,7 +392,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
           _TrendBody(
             controller: widget.trendController,
             careAdherenceController: widget.careAdherenceController,
-            idToken: idToken,
+            idToken: _idToken,
             heightCm: widget.weightGoalController.goal?.heightCm,
             onOpenCareHistory: widget.onOpenCareHistory,
             onOpenCareItems: widget.onOpenCareItems,
@@ -428,7 +443,7 @@ class _OverviewBody extends StatelessWidget {
   final HealthCalendarController healthCalendarController;
   final CareTodayController careTodayController;
   final MenstrualController menstrualController;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// Pull-to-refresh handler — the scaffold's batched reload; its future
   /// settles when the reload finishes so the spinner stays until then.
@@ -509,7 +524,7 @@ class _OverviewBody extends StatelessWidget {
 class _TrendBody extends StatelessWidget {
   final TrendController controller;
   final CareHistoryController careAdherenceController;
-  final String idToken;
+  final IdTokenProvider idToken;
   final double? heightCm;
   final VoidCallback onOpenCareHistory;
   final VoidCallback onOpenCareItems;

@@ -28,6 +28,7 @@ import 'finance_transactions_tab.dart';
 import 'networth_controller.dart';
 import 'networth_tab.dart';
 import 'snapshot_input_sheet.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The finance module's home: a persistent bottom-nav scaffold with three
 /// destinations — 總覽 (monthly overview) and 明細 (transaction list), which
@@ -68,7 +69,12 @@ class FinanceScaffold extends StatefulWidget {
 
 class _FinanceScaffoldState extends State<FinanceScaffold> {
   int _index = 0;
-  String? _idToken;
+
+  /// Whether the entry load has run — the gate for the first-frame spinner in
+  /// [build]. A *flag*, deliberately not the token: this scaffold is one of
+  /// the long-mounted shells issue #106 is about, so the token is re-resolved
+  /// per request by [_idToken] instead of being cached here.
+  bool _bootstrapped = false;
 
   /// Whether the 淨值 tab has ever been opened (see the IndexedStack below).
   bool _netWorthOpened = false;
@@ -135,10 +141,14 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
 
   String get _todayDate => dayString(widget.clock());
 
+  /// A fresh id token per request (see [IdTokenProvider]); the shape
+  /// `FriendsScreen._token` uses.
+  Future<String> _idToken() => guardedIdToken(widget.authRepository);
+
   Future<void> _load() async {
-    final token = await widget.authRepository.idToken() ?? '';
+    final token = await _idToken();
     if (!mounted) return;
-    setState(() => _idToken = token);
+    setState(() => _bootstrapped = true);
     final month = widget.controller.selectedMonth.isEmpty
         ? monthOf(_todayDate)
         : widget.controller.selectedMonth;
@@ -151,19 +161,16 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// [_load], the month the user last looked at is kept across a re-entry —
   /// only the data is refetched.
   Future<void> _loadNetWorth() async {
-    final idToken = _idToken;
-    if (idToken == null || _netWorthLoaded) return;
+    if (_netWorthLoaded) return;
     _netWorthLoaded = true;
     final month = widget.netWorthController.selectedMonth.isEmpty
         ? monthOf(_todayDate)
         : widget.netWorthController.selectedMonth;
-    await widget.netWorthController.load(idToken, month);
+    await widget.netWorthController.load(await _idToken(), month);
   }
 
   Future<void> _switchNetWorthMonth(String month) async {
-    final idToken = _idToken;
-    if (idToken == null) return;
-    await widget.netWorthController.load(idToken, month, notifyOnStart: true);
+    await widget.netWorthController.load(await _idToken(), month, notifyOnStart: true);
   }
 
   /// Loads the 分帳 tab the first time it's opened *in this scaffold*,
@@ -173,30 +180,26 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// correctness — it exists only so re-selecting an already-open tab
   /// doesn't re-fetch on every tap.
   Future<void> _loadSplit() async {
-    final idToken = _idToken;
-    if (idToken == null || _splitLoaded) return;
+    if (_splitLoaded) return;
     _splitLoaded = true;
-    await _splitController.load(idToken);
+    await _splitController.load(await _idToken());
   }
 
   /// A genuine retry (the tab's retry button) always re-fetches, bypassing
   /// [_splitLoaded] — a stale-profile or fetch failure must not be stuck
   /// forever behind the "only load once" gate above.
   Future<void> _retrySplit() async {
-    final idToken = _idToken;
-    if (idToken == null) return;
-    await _splitController.load(idToken);
+    await _splitController.load(await _idToken());
   }
 
   Future<void> _openSplitExpenseSheet({SplitExpense? editing}) async {
-    final idToken = _idToken;
     final selfUserId = _splitController.selfUserId;
-    if (idToken == null || selfUserId == null) return;
+    if (selfUserId == null) return;
     await showAppSheet<void>(
       context,
       builder: (_) => SplitExpenseSheet(
         writer: _splitController,
-        idToken: idToken,
+        idToken: _idToken,
         selfUserId: selfUserId,
         today: _todayDate,
         groups: _splitController.groups,
@@ -224,14 +227,13 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     required int balanceAmount,
     required String currency,
   }) async {
-    final idToken = _idToken;
     final selfUserId = _splitController.selfUserId;
-    if (idToken == null || selfUserId == null) return;
+    if (selfUserId == null) return;
     await showAppSheet<void>(
       context,
       builder: (_) => SettleUpSheet(
         writer: _splitController,
-        idToken: idToken,
+        idToken: _idToken,
         selfUserId: selfUserId,
         otherUserId: otherUserId,
         otherDisplayName: otherDisplayName,
@@ -247,9 +249,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// shape but as a standalone dialog since a repayment has no edit sheet to
   /// host it in.
   Future<void> _confirmDeleteSettlement(Settlement settlement) async {
-    final idToken = _idToken;
     final selfUserId = _splitController.selfUserId;
-    if (idToken == null) return;
     final loc = AppLocalizations.of(context)!;
     final otherName = settlement.fromUserId == selfUserId
         ? (settlement.toDisplayName ?? loc.splitUnknownMember)
@@ -277,7 +277,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     );
     if (confirmed != true || !mounted) return;
     final seqBefore = _splitController.mutationErrorSeq;
-    await _splitController.deleteSettlement(idToken, settlement.id);
+    await _splitController.deleteSettlement(await _idToken(), settlement.id);
     if (!mounted || _splitController.mutationErrorSeq == seqBefore) return;
     ScaffoldMessenger.of(
       context,
@@ -285,8 +285,6 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   }
 
   Future<void> _openCreateGroupDialog() async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     final loc = AppLocalizations.of(context)!;
     final name = await showDialog<String>(
       context: context,
@@ -294,7 +292,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     );
     if (name == null || !mounted) return;
     final seqBefore = _splitController.mutationErrorSeq;
-    await _splitController.createGroup(idToken, name);
+    await _splitController.createGroup(await _idToken(), name);
     // Without this the dialog simply closes and the group is not there:
     // `_mutate` records the failure on `mutationErrorSeq` and nothing else
     // reads it. Same shape as `SplitExpenseSheet._save`.
@@ -320,8 +318,6 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   }
 
   Future<void> _openSnapshotSheet(NetWorthAccount account) async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     int? currentValue;
     for (final value in widget.netWorthController.monthly?.accounts ?? const []) {
       if (value.accountId == account.id) currentValue = value.value;
@@ -334,7 +330,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       context,
       builder: (_) => SnapshotInputSheet(
         controller: widget.netWorthController,
-        idToken: idToken,
+        idToken: _idToken,
         account: account,
         currentValue: currentValue,
       ),
@@ -342,32 +338,26 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   }
 
   Future<void> _openAccountManageSheet() async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     await showAppSheet<void>(
       context,
-      builder: (_) => AccountManageSheet(controller: widget.netWorthController, idToken: idToken),
+      builder: (_) => AccountManageSheet(controller: widget.netWorthController, idToken: _idToken),
     );
   }
 
   Future<void> _switchMonth(String month) async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     // notifyOnStart: this is a user-gesture call (the month switcher or a
     // retry tap), not the initial entry load, so it's safe to notify before
     // the fetch resolves — giving the switch immediate loading feedback
     // instead of leaving the old month's content on screen while it loads.
-    await widget.controller.load(idToken, month, notifyOnStart: true);
+    await widget.controller.load(await _idToken(), month, notifyOnStart: true);
   }
 
   Future<void> _openSheet({FinanceTransaction? editing}) async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     await showAppSheet<void>(
       context,
       builder: (_) => AddTransactionSheet(
         controller: widget.controller,
-        idToken: idToken,
+        idToken: _idToken,
         categories: widget.controller.categories,
         today: _todayDate,
         editing: editing,
@@ -376,11 +366,9 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   }
 
   Future<void> _openBudgetSheet() async {
-    final idToken = _idToken;
-    if (idToken == null) return;
     await showAppSheet<void>(
       context,
-      builder: (_) => BudgetSheet(controller: widget.controller, idToken: idToken),
+      builder: (_) => BudgetSheet(controller: widget.controller, idToken: _idToken),
     );
   }
 
@@ -388,9 +376,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final controller = widget.controller;
-    final idToken = _idToken;
 
-    if (idToken == null) {
+    if (!_bootstrapped) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(key: Key('finance-loading'))),
       );

@@ -21,11 +21,17 @@ class _FakeAuthRepository implements AuthRepository {
   /// lets a test hold the token resolution in flight (task 4.7).
   Completer<String?>? idTokenCompleter;
 
+  /// What [idToken] resolves to once it is not held. Mutable so a test can
+  /// simulate Firebase renewing the token while the screen stays open.
+  String token;
+
+  _FakeAuthRepository({this.token = 'token-123'});
+
   @override
   Future<String?> idToken() async {
     final completer = idTokenCompleter;
     if (completer != null) return completer.future;
-    return 'token-123';
+    return token;
   }
 
   @override
@@ -66,6 +72,12 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
   /// a test hold a reload in flight to assert on the mid-reload UI state.
   Completer<void>? getRangeCompleter;
   final List<({String from, String to})> getRangeCalls = [];
+
+  /// Every id token [getRange] / [editSlot] were called with, in order — the
+  /// *value that was sent*, which is what the token-freshness test asserts on.
+  final List<String> getRangeTokens = [];
+  final List<String> editTokens = [];
+
   CareLogStatus? lastEditStatus;
   String? lastEditCareScheduleId;
   int editCallCount = 0;
@@ -79,6 +91,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     String to,
   ) async {
     getRangeCalls.add((from: from, to: to));
+    getRangeTokens.add(idToken);
     final completer = getRangeCompleter;
     if (completer != null) {
       getRangeCompleter = null;
@@ -97,6 +110,7 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
     required CareLogStatus status,
     DateTime? doneTime,
   }) async {
+    editTokens.add(idToken);
     editCallCount++;
     lastEditStatus = status;
     lastEditCareScheduleId = careScheduleId;
@@ -183,15 +197,16 @@ CareHistoryController _controller({
 // pattern of asserting on the pushed route via the matched-location text.
 Future<void> _pumpScreen(
   WidgetTester tester,
-  CareHistoryController controller,
-) async {
+  CareHistoryController controller, {
+  _FakeAuthRepository? authRepository,
+}) async {
   await tester.binding.setSurfaceSize(const Size(800, 1600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     l10nRouterTestApp(
       home: CareHistoryScreen(
         controller: controller,
-        authRepository: _FakeAuthRepository(),
+        authRepository: authRepository ?? _FakeAuthRepository(),
         clock: () => DateTime(2026, 7, 22),
       ),
     ),
@@ -201,6 +216,37 @@ Future<void> _pumpScreen(
 
 void main() {
   group('CareHistoryScreen', () {
+    // This screen used to fetch one token in `_load` and cache it in a field,
+    // reusing it for every period switch and every edit. Asserts on the token
+    // the repository RECEIVED, not on the provider having been called.
+    testWidgets(
+      'a period switch after a token renewal carries the new token',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [_slot(title: 'Today dose', status: CareTodayStatus.done)],
+          ),
+        );
+        final auth = _FakeAuthRepository(token: 'token-1');
+        await _pumpScreen(
+          tester,
+          _controller(repository: repository),
+          authRepository: auth,
+        );
+
+        expect(repository.getRangeTokens, ['token-1']);
+
+        // Firebase renewed the token while the history stayed open.
+        auth.token = 'token-2';
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.trendRange90));
+        await tester.pumpAndSettle();
+
+        expect(repository.getRangeTokens, ['token-1', 'token-2']);
+      },
+    );
+
     testWidgets(
       'list mode groups slots by day, newest first, skipping days with no '
       'slots',

@@ -5,6 +5,7 @@ import '../../finance/domain/finance_money.dart';
 import 'settlement_writer.dart';
 import 'split_error_text.dart';
 import 'split_expense_sheet.dart' show NumericAmountFieldWide;
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The largest amount the backend accepts (a signed 32-bit int) — blocked
 /// client-side rather than sent and rejected (mirrors `split_expense_sheet.dart`).
@@ -24,7 +25,7 @@ enum _AmountError { required, notWhole, tooLarge }
 /// net figure).
 class SettleUpSheet extends StatefulWidget {
   final SettlementWriter writer;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// The caller's own user id (design D5c).
   final String selfUserId;
@@ -165,7 +166,7 @@ class _SettleUpSheetState extends State<SettleUpSheet> {
     final seqBefore = widget.writer.mutationErrorSeq;
     final note = _noteController.text.trim();
     await widget.writer.createSettlement(
-      widget.idToken,
+      await widget.idToken(),
       groupId: null,
       fromUserId: widget.fromUserId,
       toUserId: widget.toUserId,

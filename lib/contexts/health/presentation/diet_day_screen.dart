@@ -17,6 +17,7 @@ import 'food_search_screen.dart';
 import 'snack_naming.dart';
 import 'today_controller.dart';
 import 'today_screen.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 String _dayString(DateTime time) {
   final y = time.year.toString().padLeft(4, '0');
@@ -50,8 +51,8 @@ String _nextSnackNameForDay(AppLocalizations loc, List<String> mealNames) {
 class DietDayScreen extends StatefulWidget {
   final AuthRepository authRepository;
 
-  /// The auth token, resolved by the health scaffold (which pre-loaded today).
-  final String idToken;
+  /// Resolves the auth token at request time (see [IdTokenProvider]).
+  final IdTokenProvider idToken;
   final TodayController todayController;
   final DictionaryController dictionaryController;
   final DailyTargetController dailyTargetController;
@@ -81,7 +82,6 @@ class DietDayScreen extends StatefulWidget {
 }
 
 class _DietDayScreenState extends State<DietDayScreen> {
-  late final String _idToken = widget.idToken;
   late DateTime _viewedDate = _dateOnly(widget.clock());
   late String _day = _dayString(_viewedDate);
 
@@ -95,8 +95,9 @@ class _DietDayScreenState extends State<DietDayScreen> {
   }
 
   Future<void> _reloadCurrentDay() async {
-    await widget.todayController.load(_idToken, _day);
-    await widget.dailyTargetController.load(_idToken, _day);
+    final idToken = await widget.idToken();
+    await widget.todayController.load(idToken, _day);
+    await widget.dailyTargetController.load(idToken, _day);
   }
 
   Future<void> _setViewedDate(DateTime date) async {
@@ -154,7 +155,7 @@ class _DietDayScreenState extends State<DietDayScreen> {
   }
 
   Future<void> _openCalendar() async {
-    final idToken = _idToken;
+    final idToken = widget.idToken;
     final today = _dateOnly(widget.clock());
     final picked = await showDialog<DateTime>(
       context: context,
@@ -227,7 +228,7 @@ class _DietDayScreenState extends State<DietDayScreen> {
                   child: TodayScreen(
                     controller: widget.todayController,
                     signOut: widget.signOut ?? SignOut(widget.authRepository),
-                    idToken: _idToken,
+                    idToken: widget.idToken,
                     day: _day,
                     onAddToMeal: _openFoodSearch,
                     onAddSnack: _openAddSnack,
@@ -252,7 +253,7 @@ class _DietDayScreenState extends State<DietDayScreen> {
 class _DietCalendarDialog extends StatefulWidget {
   final DateTime initialMonth;
   final DateTime today;
-  final String idToken;
+  final IdTokenProvider idToken;
   final GetLoggedDays getLoggedDays;
 
   const _DietCalendarDialog({
@@ -283,7 +284,7 @@ class _DietCalendarDialogState extends State<_DietCalendarDialog> {
     final month = _monthString(_visibleMonth);
     Set<String> days;
     try {
-      days = (await widget.getLoggedDays(widget.idToken, month)).toSet();
+      days = (await widget.getLoggedDays(await widget.idToken(), month)).toSet();
     } catch (_) {
       days = {};
     }

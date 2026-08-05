@@ -31,7 +31,7 @@ Future<NetWorthController> _pumpSheet(
       home: Scaffold(
         body: SnapshotInputSheet(
           controller: controller,
-          idToken: 'token',
+          idToken: () async => 'token',
           account: _cash,
           currentValue: currentValue,
         ),

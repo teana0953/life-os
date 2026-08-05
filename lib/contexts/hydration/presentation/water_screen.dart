@@ -9,13 +9,14 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/tracker_busy_bar.dart';
 import '../../../shared/widgets/tracker_day_nav.dart';
 import 'water_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// Water section: the day's total against its target with a progress bar,
 /// quick-add / custom / correction controls, and a settable daily target.
 /// The shell owns loading — this screen does not self-load.
 class WaterScreen extends StatefulWidget {
   final WaterController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
   final String day;
 
   /// Returns the current time, used to resolve "today" so the heading and
@@ -46,8 +47,8 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
   @override
   DateTime Function() get clock => widget.clock;
   @override
-  Future<void> reloadDay(String day) =>
-      widget.controller.load(widget.idToken, day);
+  Future<void> reloadDay(String day) async =>
+      widget.controller.load(await widget.idToken(), day);
 
   @override
   void initState() {
@@ -63,17 +64,32 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
 
   void _onControllerChanged() => setState(() {});
 
+  /// True from the moment a mutation starts until it settles. Set
+  /// **synchronously**, before the `await widget.idToken()` inside [action]:
+  /// the controller only flips to `saving` once the token has resolved, so
+  /// without this flag the button stays enabled and silent for the whole token
+  /// round trip and a second tap starts a second write.
+  bool _mutating = false;
+
   /// Awaits [action] (a controller mutation) then, if the controller ended in
   /// an error state, surfaces a transient save-failed snackbar. `needsReauth`
   /// routes to the reauth screen via [build] instead, so it is left alone.
+  /// Re-entrant calls (a second tap while one is in flight) are dropped.
   Future<void> _runMutation(Future<void> Function() action) async {
-    await action();
-    if (!mounted) return;
-    if (widget.controller.status == WaterStatus.error) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.waterSaveFailed)));
+    if (_mutating) return;
+    setState(() => _mutating = true);
+    try {
+      await action();
+      if (!mounted) return;
+      if (widget.controller.status == WaterStatus.error) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.waterSaveFailed)));
+      }
+    } finally {
+      _mutating = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -92,7 +108,7 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
     );
     if (amount != null && amount != 0) {
       await _runMutation(
-        () => widget.controller.addWater(widget.idToken, viewedDay, amount),
+        () async => widget.controller.addWater(await widget.idToken(), viewedDay, amount),
       );
     }
   }
@@ -113,7 +129,7 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
     );
     if (target != null) {
       await _runMutation(
-        () => widget.controller.setTarget(widget.idToken, viewedDay, target),
+        () async => widget.controller.setTarget(await widget.idToken(), viewedDay, target),
       );
     }
   }
@@ -124,6 +140,7 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
     final loc = AppLocalizations.of(context)!;
 
     final busy =
+        _mutating ||
         controller.status == WaterStatus.loading ||
         controller.status == WaterStatus.saving;
 
@@ -213,8 +230,8 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                                     onPressed: busy
                                         ? null
                                         : () => _runMutation(
-                                            () => controller.addWater(
-                                              widget.idToken,
+                                            () async => controller.addWater(
+                                              await widget.idToken(),
                                               viewedDay,
                                               250,
                                             ),
@@ -229,8 +246,8 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                                     onPressed: busy
                                         ? null
                                         : () => _runMutation(
-                                            () => controller.addWater(
-                                              widget.idToken,
+                                            () async => controller.addWater(
+                                              await widget.idToken(),
                                               viewedDay,
                                               500,
                                             ),
@@ -257,8 +274,8 @@ class _WaterScreenState extends State<WaterScreen> with TrackerDayScreen {
                                     onPressed: busy
                                         ? null
                                         : () => _runMutation(
-                                            () => controller.correct(
-                                              widget.idToken,
+                                            () async => controller.correct(
+                                              await widget.idToken(),
                                               viewedDay,
                                               -250,
                                             ),

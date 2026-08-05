@@ -9,6 +9,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../domain/vitals_day.dart';
 import '../domain/vitals_series.dart';
 import 'trend_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 
 /// The dashboard's second card: a line chart of one vitals metric over a date
 /// range, with a metric picker and a 7 / 30 / 90-day range selector. The
@@ -18,7 +19,7 @@ import 'trend_controller.dart';
 /// [HealthScaffold] layer. Colors come from [Theme] only.
 class TrendCard extends StatefulWidget {
   final TrendController controller;
-  final String idToken;
+  final IdTokenProvider idToken;
 
   /// The user's height in cm, used to derive the weight metric's normal-range
   /// band (null when unset → no weight band).
@@ -123,7 +124,7 @@ class _TrendCardState extends State<TrendCard> {
           message: loc.trendLoadFailed,
           messageKey: const Key('trend-card-error'),
           retryKey: const Key('trend-card-retry'),
-          onRetry: () => controller.load(widget.idToken),
+          onRetry: () async => controller.load(await widget.idToken()),
         ),
       );
     }
@@ -265,8 +266,8 @@ class _TrendCardState extends State<TrendCard> {
               ButtonSegment(value: 90, label: Text(loc.trendRange90)),
             ],
             selected: {controller.spanDays},
-            onSelectionChanged: (selection) =>
-                controller.setSpan(widget.idToken, selection.first),
+            onSelectionChanged: (selection) async =>
+                controller.setSpan(await widget.idToken(), selection.first),
           ),
           const SizedBox(height: 16),
           SizedBox(
