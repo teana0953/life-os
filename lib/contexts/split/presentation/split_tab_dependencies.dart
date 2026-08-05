@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../social/application/friend_use_cases.dart';
 import '../../user/application/get_profile.dart';
+import '../application/activity_use_cases.dart';
 import '../application/balance_use_cases.dart';
 import '../application/expense_use_cases.dart';
 import '../application/group_use_cases.dart';
@@ -31,6 +32,10 @@ class SplitTabDependencies {
   final ListSettlements listSettlements;
   final CreateSettlement createSettlement;
   final DeleteSettlement deleteSettlement;
+
+  /// One page of the change log (backend PR #72). Read-only, and fetched
+  /// only once that section is opened.
+  final ListActivity listActivity;
 
   /// Navigates to a group's detail screen (design.md task 8.1 — a nested
   /// `/finance/groups/:id` route, wired by `app.dart`) and completes once
@@ -64,6 +69,7 @@ class SplitTabDependencies {
     required this.listSettlements,
     required this.createSettlement,
     required this.deleteSettlement,
+    required this.listActivity,
     required this.onOpenGroup,
     required this.onAddFriend,
   });

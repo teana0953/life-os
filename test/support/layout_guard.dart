@@ -116,6 +116,27 @@ int paintedTextLineCount(WidgetTester tester, Finder finder) {
   return boxes.map((b) => b.top.roundToDouble()).toSet().length;
 }
 
+/// How many lines the substring [part] of the `Text` [finder] matches was
+/// painted across.
+///
+/// The sub-string version of [paintedTextLineCount], for a `Text` that is
+/// *allowed* to wrap but has places it must not wrap **inside** — a
+/// before→after amount ("18,000 → 12,500") may break at the arrow and must
+/// never break inside either figure, because half a thousands group reads as
+/// a different number. A whole-paragraph line count cannot tell those two
+/// apart: it is 2 either way.
+int paintedLineCountOfPart(WidgetTester tester, Finder finder, String part) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final plain = paragraph.text.toPlainText();
+  final start = plain.indexOf(part);
+  if (start < 0) fail('"$part" is not part of the painted text "$plain"');
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: start, extentOffset: start + part.length),
+  );
+  if (boxes.isEmpty) fail('"$part" painted no glyphs to measure');
+  return boxes.map((b) => b.top.roundToDouble()).toSet().length;
+}
+
 /// Runs [body] and asserts it reported no layout error at all.
 ///
 /// Not limited to `RenderFlex` overflows on purpose: a `ListTile` whose

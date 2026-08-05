@@ -33,6 +33,7 @@ import 'contexts/social/application/friend_use_cases.dart';
 import 'contexts/social/application/invite_use_cases.dart';
 import 'contexts/social/presentation/friends_screen.dart';
 import 'contexts/social/presentation/invite_screen.dart';
+import 'contexts/split/application/activity_use_cases.dart';
 import 'contexts/split/application/balance_use_cases.dart';
 import 'contexts/split/application/expense_use_cases.dart';
 import 'contexts/split/application/group_use_cases.dart';
@@ -237,6 +238,7 @@ class App extends StatefulWidget {
   final ListSettlements splitListSettlements;
   final CreateSettlement splitCreateSettlement;
   final DeleteSettlement splitDeleteSettlement;
+  final ListActivity splitListActivity;
 
   /// Drives the shared push-off banner on the health overview, 今日照護, and
   /// care reminders management (all three subscribe to it).
@@ -311,6 +313,7 @@ class App extends StatefulWidget {
     required this.splitListSettlements,
     required this.splitCreateSettlement,
     required this.splitDeleteSettlement,
+    required this.splitListActivity,
     required this.pushHealthController,
     required this.careItemsController,
     required this.careTodayController,
@@ -679,6 +682,7 @@ class _AppState extends State<App> {
               listSettlements: widget.splitListSettlements,
               createSettlement: widget.splitCreateSettlement,
               deleteSettlement: widget.splitDeleteSettlement,
+              listActivity: widget.splitListActivity,
               // Just the group id: the caller's own id (design D5c) is
               // resolved by the group screen itself from `/api/me`. It used
               // to ride in a `?self=` query parameter, which made every

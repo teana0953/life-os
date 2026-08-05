@@ -8,9 +8,11 @@ import 'package:life_os/contexts/split/application/group_use_cases.dart';
 import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/settlement.dart';
+import 'package:life_os/contexts/split/domain/split_activity.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/domain/split_share.dart';
+import 'package:life_os/contexts/split/presentation/split_activity_controller.dart';
 import 'package:life_os/contexts/split/presentation/split_controller.dart';
 import 'package:life_os/contexts/split/presentation/split_tab.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
@@ -64,6 +66,47 @@ SplitExpense _expense({
 
 Widget _wrap(SplitTab tab) => l10nTestApp(home: Scaffold(body: tab));
 
+SplitActivity _activity(String id) => SplitActivity(
+  id: id,
+  type: SplitActivityType.expenseCreated,
+  actorUserId: 'u-amy',
+  actorDisplayName: 'Amy',
+  groupId: null,
+  groupName: null,
+  subjectId: 'e1',
+  counterpartUserId: null,
+  counterpartDisplayName: null,
+  amount: 900,
+  previousAmount: null,
+  actorIsPayer: null,
+  currency: 'TWD',
+  description: 'Dinner',
+  createdAt: '2026-08-01T10:30:00.000Z',
+);
+
+/// A repayment **made to the reader** ('self-1'): Amy is the actor and the
+/// payer, the reader is the counterpart. The row this renders is the one that
+/// can be wrong about *who* without being wrong about the direction.
+SplitActivity _repaymentToReader(String id) => SplitActivity(
+  id: id,
+  type: SplitActivityType.settlementCreated,
+  actorUserId: 'u-amy',
+  actorDisplayName: 'Amy',
+  groupId: null,
+  groupName: null,
+  subjectId: 's1',
+  counterpartUserId: 'self-1',
+  // The reader's own display name — what the row falls back to naming them
+  // when it does not know they are the reader.
+  counterpartDisplayName: 'Me',
+  amount: 900,
+  previousAmount: null,
+  actorIsPayer: true,
+  currency: 'TWD',
+  description: null,
+  createdAt: '2026-08-01T10:30:00.000Z',
+);
+
 void main() {
   group('SplitTab', () {
     testWidgets('splits balances into owed-to-me / owed-by-me, and keeps currencies apart', (
@@ -88,6 +131,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -123,6 +167,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () => tapped = true,
             onOpenGroup: (_) {},
@@ -160,6 +205,7 @@ void main() {
           SplitTab(
             onAddFriend: () => addFriendTaps++,
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -194,6 +240,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -225,6 +272,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () => retried = true,
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -257,6 +305,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -286,6 +335,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -321,6 +371,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (id) => opened = id,
@@ -367,6 +418,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -411,6 +463,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -448,6 +501,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -481,6 +535,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -516,6 +571,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -562,6 +618,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -618,6 +675,7 @@ void main() {
             SplitTab(
               onAddFriend: () {},
               controller: controller,
+              activityController: testSplitActivityController(),
               onRetry: () {},
               onRecordExpense: () {},
               onOpenGroup: (_) {},
@@ -666,6 +724,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -727,6 +786,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -760,6 +820,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -791,6 +852,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -824,6 +886,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -859,6 +922,7 @@ void main() {
           SplitTab(
             onAddFriend: () {},
             controller: controller,
+            activityController: testSplitActivityController(),
             onRetry: () {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
@@ -879,5 +943,120 @@ void main() {
       await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
       expect(deleted?.id, 's1');
     });
+  });
+
+  group('SplitTab — the 變更紀錄 section (add-split-activity-ui)', () {
+    SplitTab tab(SplitController controller, SplitActivityController activity) => SplitTab(
+      onAddFriend: () {},
+      controller: controller,
+      activityController: activity,
+      onRetry: () {},
+      onRecordExpense: () {},
+      onOpenGroup: (_) {},
+      onCreateGroup: () {},
+      onEditExpense: (_) {},
+      onSettleUp: ({
+        required otherUserId,
+        required otherDisplayName,
+        required balanceAmount,
+        required currency,
+      }) {},
+      onDeleteSettlement: (_) {},
+      onSignInAgain: () {},
+    );
+
+    testWidgets('opens on the overview and fetches no change log until asked', (tester) async {
+      final repo = FakeSplitRepository()
+        ..activityPagesToReturn = [
+          SplitActivityPage(entries: [_activity('a1')], nextCursor: null),
+        ];
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1';
+
+      await tester.pumpWidget(_wrap(tab(controller, testSplitActivityController(repo))));
+      await tester.pump();
+
+      expect(find.byKey(const Key('split-section-selector')), findsOneWidget);
+      expect(find.byKey(const Key('split-activity-list')), findsNothing);
+      expect(repo.activityCalls, isEmpty);
+    });
+
+    testWidgets('selecting it loads and shows the change log', (tester) async {
+      final repo = FakeSplitRepository()
+        ..activityPagesToReturn = [
+          SplitActivityPage(entries: [_activity('a1')], nextCursor: null),
+        ];
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1';
+
+      await tester.pumpWidget(_wrap(tab(controller, testSplitActivityController(repo))));
+      await tester.tap(find.text(lookupAppLocalizations(const Locale('en')).splitSectionChangeLog));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repo.activityCalls, hasLength(1));
+      expect(find.byKey(const Key('split-activity-row-a1')), findsOneWidget);
+    });
+
+    testWidgets('a failed overview does not take the change log down with it', (tester) async {
+      // The section switch sits *above* the overview's loading/error
+      // branches: they are two independent sets of data, and putting the
+      // switch inside the overview's error branch would make one failure
+      // hide the other section entirely.
+      final repo = FakeSplitRepository()
+        ..activityPagesToReturn = [
+          SplitActivityPage(entries: [_activity('a1')], nextCursor: null),
+        ];
+      final controller = _controller()
+        ..status = SplitStatus.error
+        ..error = SplitError.fetchFailed;
+
+      await tester.pumpWidget(_wrap(tab(controller, testSplitActivityController(repo))));
+      expect(find.byKey(const Key('split-load-error')), findsOneWidget);
+
+      await tester.tap(find.text(lookupAppLocalizations(const Locale('en')).splitSectionChangeLog));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('split-activity-row-a1')), findsOneWidget);
+      expect(find.byKey(const Key('split-load-error')), findsNothing);
+    });
+
+    // The change log resolves the reader **itself** (its own `/api/me`), so
+    // its "you" does not depend on the overview's profile load. Wiring it to
+    // `SplitController.selfUserId` couples the two sections again exactly
+    // where it is invisible: the direction stays right and only the person is
+    // wrong, so a repayment made *to* the reader reads "Amy paid Me" — their
+    // own display name, in the third person — for as long as the overview has
+    // not loaded, and forever after `SplitError.profileFailed`.
+    for (final (name, overview) in [
+      ('is still loading', SplitStatus.loading),
+      ('failed to resolve the profile', SplitStatus.error),
+    ]) {
+      testWidgets('a repayment to the reader says "you" while the overview $name', (tester) async {
+        final repo = FakeSplitRepository()
+          ..activityPagesToReturn = [
+            SplitActivityPage(entries: [_repaymentToReader('a1')], nextCursor: null),
+          ];
+        // The overview never resolves a reader: `selfUserId` stays null,
+        // which is what the change log used to borrow.
+        final controller = _controller()
+          ..status = overview
+          ..error = overview == SplitStatus.error ? SplitError.profileFailed : null;
+        expect(controller.selfUserId, isNull);
+
+        await tester.pumpWidget(_wrap(tab(controller, testSplitActivityController(repo))));
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.splitSectionChangeLog));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text(loc.splitActivityRepaymentPaidYou('Amy')), findsOneWidget);
+        expect(find.text(loc.splitActivityRepaymentBetween('Amy', 'Me')), findsNothing);
+      });
+    }
   });
 }

@@ -7,13 +7,17 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
+import 'package:life_os/contexts/social/domain/friend.dart';
+import 'package:life_os/contexts/split/application/activity_use_cases.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
 import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/settlement.dart';
+import 'package:life_os/contexts/split/domain/split_activity.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
+import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
 import 'package:life_os/contexts/split/presentation/split_tab_dependencies.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
@@ -29,6 +33,8 @@ SplitTabDependencies _splitDeps(
   FakeSplitRepository repo, {
   Future<void> Function(BuildContext, String)? onOpenGroup,
   void Function(BuildContext)? onAddFriend,
+  List<Friend> friends = const [],
+  GetProfile? getProfile,
 }) => SplitTabDependencies(
   getBalances: GetBalances(repo),
   listGroups: ListGroups(repo),
@@ -37,11 +43,13 @@ SplitTabDependencies _splitDeps(
   updateExpense: UpdateExpense(repo),
   deleteExpense: DeleteExpense(repo),
   createGroup: CreateGroup(repo),
-  listFriends: ListFriends(FakeSocialRepositoryForSplit()),
-  getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+  listFriends: ListFriends(FakeSocialRepositoryForSplit()..friends = friends),
+  getProfile:
+      getProfile ?? GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
   listSettlements: ListSettlements(repo),
   createSettlement: CreateSettlement(repo),
   deleteSettlement: DeleteSettlement(repo),
+  listActivity: ListActivity(repo),
   onOpenGroup: onOpenGroup ?? (_, __) async {},
   onAddFriend: onAddFriend ?? (_) {},
 );
@@ -857,6 +865,170 @@ void main() {
           expect(splitRepo.gotSettlementId, 's1');
         },
       );
+    });
+
+    group('the 變更紀錄 section', () {
+      SplitActivity activity(String id) => SplitActivity(
+        id: id,
+        type: SplitActivityType.expenseCreated,
+        actorUserId: 'self-1',
+        actorDisplayName: 'Self',
+        groupId: null,
+        groupName: null,
+        subjectId: 'e-$id',
+        counterpartUserId: null,
+        counterpartDisplayName: null,
+        amount: 10000,
+        previousAmount: null,
+        actorIsPayer: null,
+        currency: 'TWD',
+        description: id,
+        createdAt: '2026-07-15T10:30:00.000Z',
+      );
+
+      testWidgets('recording an expense from on top of it makes the log show it', (
+        tester,
+      ) async {
+        // The 記一筆 FAB stays on this read-only section by design (task
+        // 3.1c). Before this, recording from here reloaded only the overview
+        // controller: the reader watched the change log — the screen whose
+        // whole promise is that everything that happened is in it — not move,
+        // which reads as "my expense wasn't saved", and the entry that did not
+        // appear is exactly the one explaining the balance that just changed.
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository()
+          ..expenseToReturn = const SplitExpense(
+            id: 'e-new',
+            groupId: null,
+            payerUserId: 'self-1',
+            payerDisplayName: 'Self',
+            createdByUserId: 'self-1',
+            amount: 10000,
+            currency: 'TWD',
+            description: 'Lunch',
+            day: '2026-07-15',
+            splitMode: 'equal',
+            shares: [],
+            createdAt: '2026-07-15T10:30:00.000Z',
+            updatedAt: '2026-07-15T10:30:00.000Z',
+          )
+          ..activityPagesToReturn = [
+            SplitActivityPage(entries: [activity('older')], nextCursor: null),
+            SplitActivityPage(
+              entries: [activity('Lunch'), activity('older')],
+              nextCursor: null,
+            ),
+          ];
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(
+                splitRepo,
+                friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        // Stand on the change log.
+        await tester.tap(find.text(loc.splitSectionChangeLog));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('split-activity-row-older')), findsOneWidget);
+        expect(splitRepo.activityCalls, hasLength(1));
+
+        // Record from here, without leaving the section.
+        await tester.tap(find.byKey(const Key('split-fab')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
+        await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-participant-f1')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('split-save-button')));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<FilledButton>(find.byKey(const Key('split-save-button'))).onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.byKey(const Key('split-save-button')));
+        await tester.pumpAndSettle();
+
+        expect(splitRepo.gotDescription, 'Lunch');
+        expect(splitRepo.activityCalls, hasLength(2));
+        expect(splitRepo.activityCalls.last.cursor, isNull, reason: 'refetched from the top');
+        expect(find.byKey(const Key('split-activity-row-Lunch')), findsOneWidget);
+      });
+
+      testWidgets('its label does not collide with the bottom bar destination', (
+        tester,
+      ) async {
+        // 總覽 / "Overview" is the finance bottom bar's first destination, and
+        // it is on screen at the same time as the section switch. Two
+        // different controls, one word, one screen.
+        final repo = FakeFinanceRepository();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(FakeSplitRepository()),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(loc.financeTabOverview), findsOneWidget);
+        expect(loc.splitSectionOverview, isNot(loc.financeTabOverview));
+      });
+
+      testWidgets('a dead record button is not shown at all', (tester) async {
+        // With no profile there is no "you" to pre-select and no share stake
+        // to check, so `_openSplitExpenseSheet` returns without opening
+        // anything. The FAB used to stay on screen swallowing taps — worst of
+        // all on the change log, which renders its own entries from its own
+        // profile request and so looks perfectly healthy.
+        final repo = FakeFinanceRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(
+                FakeSplitRepository(),
+                getProfile: GetProfile(
+                  FakeProfileRepository()
+                    ..profileToReturn = testProfile()
+                    ..failNext = Exception('profile unavailable'),
+                ),
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('split-load-error')), findsOneWidget);
+        expect(find.byKey(const Key('split-fab')), findsNothing);
+      });
     });
   });
 }

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../domain/balance.dart';
 import '../domain/group_member.dart';
 import '../domain/settlement.dart';
+import '../domain/split_activity.dart';
 import '../domain/split_exceptions.dart';
 import '../domain/split_expense.dart';
 import '../domain/split_group.dart';
@@ -409,5 +410,27 @@ class HttpSplitRepository implements SplitRepository {
       ),
     );
     if (response.statusCode != 200) _throwForSplitError(response);
+  }
+
+  @override
+  Future<SplitActivityPage> listActivity(
+    String idToken, {
+    required int limit,
+    String? cursor,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/split/activity').replace(
+      queryParameters: {'limit': '$limit', if (cursor != null) 'cursor': cursor},
+    );
+    final response = await _send(() => client.get(uri, headers: _headers(idToken)));
+    if (response.statusCode != 200) _throwForSplitError(response);
+    return _decode(
+      response,
+      (json) => SplitActivityPage(
+        entries: (json['activity'] as List)
+            .map((e) => SplitActivity.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        nextCursor: json['next_cursor'] as String?,
+      ),
+    );
   }
 }

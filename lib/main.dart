@@ -84,6 +84,7 @@ import 'contexts/notifications/presentation/reminder_settings_controller.dart';
 import 'contexts/social/application/friend_use_cases.dart';
 import 'contexts/social/application/invite_use_cases.dart';
 import 'contexts/social/infrastructure/http_social_repository.dart';
+import 'contexts/split/application/activity_use_cases.dart';
 import 'contexts/split/application/balance_use_cases.dart';
 import 'contexts/split/application/expense_use_cases.dart';
 import 'contexts/split/application/group_use_cases.dart';
@@ -387,6 +388,7 @@ Future<void> main() async {
   final splitListSettlements = ListSettlements(splitRepository);
   final splitCreateSettlement = CreateSettlement(splitRepository);
   final splitDeleteSettlement = DeleteSettlement(splitRepository);
+  final splitListActivity = ListActivity(splitRepository);
 
   runApp(
     App(
@@ -438,6 +440,7 @@ Future<void> main() async {
       splitListSettlements: splitListSettlements,
       splitCreateSettlement: splitCreateSettlement,
       splitDeleteSettlement: splitDeleteSettlement,
+      splitListActivity: splitListActivity,
       pushHealthController: pushHealthController,
       careItemsController: careItemsController,
       careTodayController: careTodayController,

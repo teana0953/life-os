@@ -10,6 +10,7 @@ import '../../auth/domain/auth_repository.dart';
 import '../../split/domain/settlement.dart';
 import '../../split/domain/split_expense.dart';
 import '../../split/presentation/settle_up_sheet.dart';
+import '../../split/presentation/split_activity_controller.dart';
 import '../../split/presentation/split_controller.dart';
 import '../../split/presentation/split_error_text.dart';
 import '../../split/presentation/split_expense_sheet.dart';
@@ -90,6 +91,11 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// singleton like [FinanceScaffold.netWorthController] (class doc).
   late final SplitController _splitController;
 
+  /// Drives the 分帳 tab's 變更紀錄 section. Per-`State` for the same reason
+  /// as [_splitController]; it resolves its own token per request through
+  /// [_idToken], since it issues requests as the reader scrolls.
+  late final SplitActivityController _splitActivityController;
+
   /// Whether the 分帳 tab has ever been opened (mirrors [_netWorthOpened] —
   /// the same `IndexedStack`-builds-every-child reason).
   bool _splitOpened = false;
@@ -119,7 +125,14 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       widget.split.listSettlements,
       widget.split.createSettlement,
       widget.split.deleteSettlement,
-    )..addListener(_onChanged);
+    )..addListener(_onSplitChanged);
+    _splitActivityController = SplitActivityController(
+      listActivity: widget.split.listActivity,
+      // Its own profile request, not `_splitController.selfUserId` — see
+      // `SplitActivityController.selfUserId`.
+      getProfile: widget.split.getProfile,
+      idToken: _idToken,
+    );
     // Post-frame, not called directly from `initState`: `load`'s first
     // synchronous work (before its own first await) must not run as part of
     // this widget's own build — see FinanceController's no-sync-notify rule.
@@ -130,13 +143,34 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   void dispose() {
     widget.controller.removeListener(_onChanged);
     widget.netWorthController.removeListener(_onChanged);
-    _splitController.removeListener(_onChanged);
+    _splitController.removeListener(_onSplitChanged);
     _splitController.dispose();
+    _splitActivityController.dispose();
     super.dispose();
   }
 
   void _onChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// The last [SplitController.writeSeq] this scaffold has already reacted to.
+  int _splitWriteSeq = 0;
+
+  /// The 分帳 tab changed. Every split write funnels through
+  /// `SplitController._mutate`, which bumps `writeSeq` on success — and every
+  /// one of those writes is also a row of the 變更紀錄 change log, which is
+  /// fetched separately and would otherwise sit there unmoved. That is the
+  /// worst possible screen to go stale on: the 記一筆 FAB is deliberately kept
+  /// on it, so the reader records an expense while looking straight at the
+  /// log that promises to hold everything that happened, and watches nothing
+  /// appear. Keyed off the counter, not called from each write's call site,
+  /// so a write added later cannot forget to do it.
+  void _onSplitChanged() {
+    if (_splitController.writeSeq != _splitWriteSeq) {
+      _splitWriteSeq = _splitController.writeSeq;
+      unawaited(_splitActivityController.refreshIfLoaded());
+    }
+    _onChanged();
   }
 
   String get _todayDate => dayString(widget.clock());
@@ -314,6 +348,10 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _openGroupDetail(String groupId) async {
     await widget.split.onOpenGroup(context, groupId);
     if (!mounted) return;
+    // The change log too: group detail's writes go through its *own*
+    // controller, so `writeSeq` never moves for them and [_onSplitChanged]
+    // never fires.
+    unawaited(_splitActivityController.refreshIfLoaded());
     await _retrySplit();
   }
 
@@ -433,6 +471,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           if (_splitOpened)
             SplitTab(
               controller: _splitController,
+              activityController: _splitActivityController,
               onRetry: () => unawaited(_retrySplit()),
               onRecordExpense: () => _openSplitExpenseSheet(),
               onOpenGroup: _openGroupDetail,
@@ -461,21 +500,34 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       // gets its own FAB (recording a split expense, not a transaction) —
       // the previous `_index == 2` check alone would otherwise leave the
       // *transaction* FAB showing on top of the split tab.
+      //
+      // On 分帳 it is shown only once the caller's own user id is known.
+      // `_openSplitExpenseSheet` cannot build the sheet without it (there is
+      // no "you" to pre-select, and the share gate has nothing to check), and
+      // returned early — so after a `SplitError.profileFailed`, or simply
+      // before the first load lands, the FAB sat there on a page that
+      // otherwise looks healthy and did *nothing at all* when tapped. The
+      // change-log section makes that worse, not better: it renders its own
+      // entries fine from its own profile request, so the whole screen looks
+      // loaded. A button that is absent is honest; one that swallows taps is
+      // not, and the overview's retry is the way back.
       floatingActionButton: _index == 2
           ? null
           : _index == 3
-          ? FloatingActionButton(
-              key: const Key('split-fab'),
-              // Explicit, distinct hero tags: switching tabs cross-fades one
-              // FAB into the other, and for those ~200ms both are in the
-              // tree. On Flutter's default tag any route transition started
-              // in that window (back, opening a group) finds two heroes
-              // sharing a tag and throws.
-              heroTag: 'split-fab',
-              tooltip: loc.splitFabTooltip,
-              onPressed: () => _openSplitExpenseSheet(),
-              child: const Icon(Icons.add),
-            )
+          ? _splitController.selfUserId == null
+                ? null
+                : FloatingActionButton(
+                    key: const Key('split-fab'),
+                    // Explicit, distinct hero tags: switching tabs cross-fades
+                    // one FAB into the other, and for those ~200ms both are in
+                    // the tree. On Flutter's default tag any route transition
+                    // started in that window (back, opening a group) finds two
+                    // heroes sharing a tag and throws.
+                    heroTag: 'split-fab',
+                    tooltip: loc.splitFabTooltip,
+                    onPressed: () => _openSplitExpenseSheet(),
+                    child: const Icon(Icons.add),
+                  )
           : FloatingActionButton(
               key: const Key('finance-fab'),
               heroTag: 'finance-fab',

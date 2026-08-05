@@ -2259,6 +2259,165 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get splitGroupPersonalBalancesNote => '涵蓋你們所有的共同紀錄,不只這個群組。';
+
+  @override
+  String get splitSectionOverview => 'Summary';
+
+  @override
+  String get splitSectionChangeLog => 'Change log';
+
+  @override
+  String get splitActivityEmptyTitle => 'No changes yet';
+
+  @override
+  String get splitActivityEmptyBody =>
+      'When you or someone you split with adds, edits or deletes something, it appears here.';
+
+  @override
+  String get splitActivityLoadFailedMessage =>
+      'Couldn\'t load the change log. Check your connection and try again.';
+
+  @override
+  String get splitActivityLoadMoreFailed => 'Couldn\'t load more entries.';
+
+  @override
+  String splitActivityExpenseCreatedYou(String description) {
+    return 'You added $description';
+  }
+
+  @override
+  String splitActivityExpenseCreatedOther(String name, String description) {
+    return '$name added $description';
+  }
+
+  @override
+  String splitActivityExpenseUpdatedYou(String description) {
+    return 'You edited $description';
+  }
+
+  @override
+  String splitActivityExpenseUpdatedOther(String name, String description) {
+    return '$name edited $description';
+  }
+
+  @override
+  String splitActivityExpenseDeletedYou(String description) {
+    return 'You deleted $description';
+  }
+
+  @override
+  String splitActivityExpenseDeletedOther(String name, String description) {
+    return '$name deleted $description';
+  }
+
+  @override
+  String get splitActivitySettlementCreatedYou => 'You recorded a repayment';
+
+  @override
+  String splitActivitySettlementCreatedOther(String name) {
+    return '$name recorded a repayment';
+  }
+
+  @override
+  String get splitActivitySettlementDeletedYou => 'You deleted a repayment';
+
+  @override
+  String splitActivitySettlementDeletedOther(String name) {
+    return '$name deleted a repayment';
+  }
+
+  @override
+  String splitActivityGroupCreatedYou(String group) {
+    return 'You created the group $group';
+  }
+
+  @override
+  String splitActivityGroupCreatedOther(String name, String group) {
+    return '$name created the group $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedYou(String member, String group) {
+    return 'You added $member to $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedOther(
+    String name,
+    String member,
+    String group,
+  ) {
+    return '$name added $member to $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedYouWere(String name, String group) {
+    return '$name added you to $group';
+  }
+
+  @override
+  String splitActivityGroupArchivedYou(String group) {
+    return 'You archived the group $group';
+  }
+
+  @override
+  String splitActivityGroupArchivedOther(String name, String group) {
+    return '$name archived the group $group';
+  }
+
+  @override
+  String splitActivityRepaymentYouPaid(String name) {
+    return 'You paid $name';
+  }
+
+  @override
+  String splitActivityRepaymentPaidYou(String name) {
+    return '$name paid you';
+  }
+
+  @override
+  String splitActivityRepaymentBetween(String payer, String payee) {
+    return '$payer paid $payee';
+  }
+
+  @override
+  String splitActivityAmountChange(String previous, String amount) {
+    return '$previous → $amount';
+  }
+
+  @override
+  String splitActivityAmountChangeSpoken(String previous, String amount) {
+    return 'from $previous to $amount';
+  }
+
+  @override
+  String get splitActivityUnknownYou => 'You changed something';
+
+  @override
+  String splitActivityUnknownOther(String name) {
+    return '$name changed something';
+  }
+
+  @override
+  String splitActivityRowDetail(String what, String detail) {
+    return '$what: $detail';
+  }
+
+  @override
+  String splitActivityRowSemantics(String what, String amount, String time) {
+    return '$what, $amount, $time';
+  }
+
+  @override
+  String get splitActivityUnnamedItem => 'an untitled item';
+
+  @override
+  String get splitActivityUnnamedGroup => 'an untitled group';
+
+  @override
+  String splitActivityRowSemanticsNoAmount(String what, String time) {
+    return '$what, $time';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -4516,4 +4675,161 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get splitGroupPersonalBalancesNote => '涵蓋你們所有的共同紀錄,不只這個群組。';
+
+  @override
+  String get splitSectionOverview => '摘要';
+
+  @override
+  String get splitSectionChangeLog => '變更紀錄';
+
+  @override
+  String get splitActivityEmptyTitle => '還沒有任何變更';
+
+  @override
+  String get splitActivityEmptyBody => '你或和你分帳的人新增、修改或刪除紀錄之後,就會出現在這裡。';
+
+  @override
+  String get splitActivityLoadFailedMessage => '無法載入變更紀錄,請檢查連線後再試一次。';
+
+  @override
+  String get splitActivityLoadMoreFailed => '無法載入更多紀錄。';
+
+  @override
+  String splitActivityExpenseCreatedYou(String description) {
+    return '你新增了 $description';
+  }
+
+  @override
+  String splitActivityExpenseCreatedOther(String name, String description) {
+    return '$name 新增了 $description';
+  }
+
+  @override
+  String splitActivityExpenseUpdatedYou(String description) {
+    return '你修改了 $description';
+  }
+
+  @override
+  String splitActivityExpenseUpdatedOther(String name, String description) {
+    return '$name 修改了 $description';
+  }
+
+  @override
+  String splitActivityExpenseDeletedYou(String description) {
+    return '你刪除了 $description';
+  }
+
+  @override
+  String splitActivityExpenseDeletedOther(String name, String description) {
+    return '$name 刪除了 $description';
+  }
+
+  @override
+  String get splitActivitySettlementCreatedYou => '你記了一筆還款';
+
+  @override
+  String splitActivitySettlementCreatedOther(String name) {
+    return '$name 記了一筆還款';
+  }
+
+  @override
+  String get splitActivitySettlementDeletedYou => '你刪除了一筆還款';
+
+  @override
+  String splitActivitySettlementDeletedOther(String name) {
+    return '$name 刪除了一筆還款';
+  }
+
+  @override
+  String splitActivityGroupCreatedYou(String group) {
+    return '你建立了群組 $group';
+  }
+
+  @override
+  String splitActivityGroupCreatedOther(String name, String group) {
+    return '$name 建立了群組 $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedYou(String member, String group) {
+    return '你把 $member 加入 $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedOther(
+    String name,
+    String member,
+    String group,
+  ) {
+    return '$name 把 $member 加入 $group';
+  }
+
+  @override
+  String splitActivityGroupMemberAddedYouWere(String name, String group) {
+    return '$name 把你加入 $group';
+  }
+
+  @override
+  String splitActivityGroupArchivedYou(String group) {
+    return '你封存了群組 $group';
+  }
+
+  @override
+  String splitActivityGroupArchivedOther(String name, String group) {
+    return '$name 封存了群組 $group';
+  }
+
+  @override
+  String splitActivityRepaymentYouPaid(String name) {
+    return '你付給 $name';
+  }
+
+  @override
+  String splitActivityRepaymentPaidYou(String name) {
+    return '$name 付給你';
+  }
+
+  @override
+  String splitActivityRepaymentBetween(String payer, String payee) {
+    return '$payer 付給 $payee';
+  }
+
+  @override
+  String splitActivityAmountChange(String previous, String amount) {
+    return '$previous → $amount';
+  }
+
+  @override
+  String splitActivityAmountChangeSpoken(String previous, String amount) {
+    return '從 $previous 變成 $amount';
+  }
+
+  @override
+  String get splitActivityUnknownYou => '你做了一項變更';
+
+  @override
+  String splitActivityUnknownOther(String name) {
+    return '$name 做了一項變更';
+  }
+
+  @override
+  String splitActivityRowDetail(String what, String detail) {
+    return '$what:$detail';
+  }
+
+  @override
+  String splitActivityRowSemantics(String what, String amount, String time) {
+    return '$what,$amount,$time';
+  }
+
+  @override
+  String get splitActivityUnnamedItem => '未命名項目';
+
+  @override
+  String get splitActivityUnnamedGroup => '未命名群組';
+
+  @override
+  String splitActivityRowSemanticsNoAmount(String what, String time) {
+    return '$what,$time';
+  }
 }

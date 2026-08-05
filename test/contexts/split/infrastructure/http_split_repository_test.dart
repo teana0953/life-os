@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:life_os/contexts/split/domain/split_activity.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_input.dart';
 import 'package:life_os/contexts/split/infrastructure/http_split_repository.dart';
@@ -67,6 +68,7 @@ Map<String, dynamic> _balancesJson() => {
 };
 
 void main() {
+  _activityTests();
   group('HttpSplitRepository', () {
     test('listGroups GETs {baseUrl}/api/split/groups with a bearer token', () async {
       Uri? capturedUri;
@@ -667,6 +669,130 @@ void main() {
 
         expect(() => repository.listGroups('token-123'), throwsA(isA<SplitFetchFailure>()));
       });
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Change log (`GET /api/split/activity`) — add-split-activity-ui.
+// ---------------------------------------------------------------------------
+
+Map<String, dynamic> _activityJson() => {
+  'id': 'a1',
+  'type': 'expense_created',
+  'actor_user_id': 'u1',
+  'actor_display_name': 'Alex',
+  'group_id': null,
+  'group_name': null,
+  'subject_id': 'e1',
+  'counterpart_user_id': null,
+  'counterpart_display_name': null,
+  'amount': 900,
+  'previous_amount': null,
+  'actor_is_payer': null,
+  'currency': 'TWD',
+  'description': 'Dinner',
+  'created_at': '2026-08-02T00:00:00.000Z',
+};
+
+void _activityTests() {
+  group('listActivity', () {
+    test('sends limit and cursor, and reads back the page and its cursor', () async {
+      late Uri seen;
+      late String auth;
+      final repo = HttpSplitRepository(
+        baseUrl: 'https://api.test',
+        client: MockClient((request) async {
+          seen = request.url;
+          auth = request.headers['Authorization']!;
+          return http.Response(
+            jsonEncode({
+              'activity': [_activityJson()],
+              'next_cursor': '2026-08-02T00:00:00.000Z|a1',
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await repo.listActivity('tok', limit: 20, cursor: 'c0');
+
+      expect(seen.path, '/api/split/activity');
+      expect(seen.queryParameters['limit'], '20');
+      expect(seen.queryParameters['cursor'], 'c0');
+      expect(auth, 'Bearer tok');
+      expect(page.entries.single.id, 'a1');
+      expect(page.nextCursor, '2026-08-02T00:00:00.000Z|a1');
+    });
+
+    test('omits the cursor on the first page', () async {
+      late Uri seen;
+      final repo = HttpSplitRepository(
+        baseUrl: 'https://api.test',
+        client: MockClient((request) async {
+          seen = request.url;
+          return http.Response(
+            jsonEncode({'activity': <Map<String, dynamic>>[], 'next_cursor': null}),
+            200,
+          );
+        }),
+      );
+
+      final page = await repo.listActivity('tok', limit: 20);
+
+      expect(seen.queryParameters.containsKey('cursor'), isFalse);
+      expect(page.entries, isEmpty);
+      expect(page.nextCursor, isNull);
+    });
+
+    test('an entry of an unknown type costs neither the page nor the cursor', () async {
+      // A newer backend, not a broken one. Before this the single
+      // unrecognised row threw and the reader got a permanent error page
+      // (first page) or permanently unreachable older entries (any further
+      // page), with a retry that could never succeed.
+      final repo = HttpSplitRepository(
+        baseUrl: 'https://api.test',
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'activity': [
+                {..._activityJson(), 'id': 'a0', 'type': 'expense_uncategorised'},
+                _activityJson(),
+              ],
+              'next_cursor': '2026-08-02T00:00:00.000Z|a1',
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final page = await repo.listActivity('tok', limit: 20);
+
+      expect(page.entries.map((e) => e.id), ['a0', 'a1']);
+      expect(page.entries.first.type, SplitActivityType.unknown);
+      expect(page.entries.last.type, SplitActivityType.expenseCreated);
+      // Paging on is the half that a "drop the row" fix could still lose.
+      expect(page.nextCursor, '2026-08-02T00:00:00.000Z|a1');
+    });
+
+    test('a 401 surfaces as reauthentication, other failures as a fetch failure', () async {
+      final unauthorized = HttpSplitRepository(
+        baseUrl: 'https://api.test',
+        client: MockClient((_) async => http.Response('', 401)),
+      );
+      await expectLater(
+        unauthorized.listActivity('tok', limit: 20),
+        throwsA(isA<SplitReauthenticationRequired>()),
+      );
+
+      final broken = HttpSplitRepository(
+        baseUrl: 'https://api.test',
+        client: MockClient((_) async => http.Response('nope', 500)),
+      );
+      await expectLater(
+        broken.listActivity('tok', limit: 20),
+        throwsA(isA<SplitFetchFailure>()),
+      );
     });
   });
 }

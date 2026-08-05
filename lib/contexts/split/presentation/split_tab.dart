@@ -7,16 +7,53 @@ import '../../finance/domain/finance_money.dart';
 import '../domain/settlement.dart';
 import '../domain/split_expense.dart';
 import 'settlement_row.dart';
+import 'split_activity_controller.dart';
+import 'split_activity_section.dart';
 import 'split_controller.dart';
 import 'split_expense_row.dart';
+
+/// Which of the tab's two sections is showing.
+enum SplitSection {
+  /// Balances, groups and the existing 最近活動 list: what currently
+  /// **exists**, ordered by the day the user entered.
+  overview,
+
+  /// The change log: what **happened**, including deletions and edits,
+  /// ordered by when it was recorded. A different question from the
+  /// overview's, which is why both are kept.
+  changeLog,
+}
 
 /// The 分帳 tab: the caller's own per-currency balances split into "owed to
 /// you" / "you owe" (design.md — the tab's very first content, never a
 /// combined figure across currencies, direction always in words), groups,
 /// and recent expenses. Mirrors `NetWorthTab`'s shape: loading/reauth via
 /// [AsyncStateScaffold], the load failure and empty guide handled here.
-class SplitTab extends StatelessWidget {
+///
+/// A second section, 變更紀錄, shows what *happened* instead (see
+/// [SplitSection]). The switch between them is a [SegmentedButton] inside
+/// this tab, deliberately **not** a fifth destination on `FinanceScaffold`'s
+/// bottom bar — that bar is already the app's second navigation level, and a
+/// section of one tab does not belong on it.
+///
+/// **The 記一筆 FAB stays visible on both sections** (`finance_scaffold.dart`
+/// keys it off the *tab* index, which this change leaves alone). It is the
+/// 分帳 tab's action, not the overview section's: recording an expense is
+/// what a reader who just noticed a missing entry in the change log wants to
+/// do next, and nothing else in the tab offers it. Hiding it would also make
+/// it appear and disappear as the reader flips between two sections that are
+/// one tap apart. Its write feeds straight back into the change log — see
+/// [SplitActivityController.refreshIfLoaded] for the wiring that makes the
+/// log move when the reader records from on top of it.
+class SplitTab extends StatefulWidget {
   final SplitController controller;
+
+  /// Drives the 變更紀錄 section. Its first page is fetched when that
+  /// section is first opened — never at app start, and never as part of the
+  /// overview's load: they are two independent sets of data, which is also
+  /// why the section switch sits *above* the overview's loading/error
+  /// branches. A failed overview must not take the change log down with it.
+  final SplitActivityController activityController;
   final VoidCallback onRetry;
   final VoidCallback onRecordExpense;
   final void Function(String groupId) onOpenGroup;
@@ -50,6 +87,7 @@ class SplitTab extends StatelessWidget {
   const SplitTab({
     super.key,
     required this.controller,
+    required this.activityController,
     required this.onRetry,
     required this.onRecordExpense,
     required this.onOpenGroup,
@@ -62,17 +100,79 @@ class SplitTab extends StatelessWidget {
   });
 
   @override
+  State<SplitTab> createState() => _SplitTabState();
+}
+
+class _SplitTabState extends State<SplitTab> {
+  SplitSection _section = SplitSection.overview;
+
+  /// Whether the change log has ever been selected. The two sections live in
+  /// an [IndexedStack], which builds every child, so without this gate the
+  /// change log would fetch its first page while the user is still looking
+  /// at the overview.
+  bool _changeLogOpened = false;
+
+  @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
+    return Column(
+      children: [
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: SegmentedButton<SplitSection>(
+              key: const Key('split-section-selector'),
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: SplitSection.overview,
+                  label: Text(loc.splitSectionOverview),
+                ),
+                ButtonSegment(
+                  value: SplitSection.changeLog,
+                  label: Text(loc.splitSectionChangeLog),
+                ),
+              ],
+              selected: {_section},
+              onSelectionChanged: (selection) => setState(() {
+                _section = selection.first;
+                if (_section == SplitSection.changeLog) _changeLogOpened = true;
+              }),
+            ),
+          ),
+        ),
+        Expanded(
+          child: IndexedStack(
+            index: _section.index,
+            children: [
+              _overview(context),
+              if (_changeLogOpened)
+                SplitActivitySection(
+                  controller: widget.activityController,
+                  onSignInAgain: widget.onSignInAgain,
+                )
+              else
+                const SizedBox.shrink(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _overview(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return AsyncStateScaffold(
-      isLoading: controller.status == SplitStatus.loading,
-      isReauth: controller.status == SplitStatus.needsReauth,
+      isLoading: widget.controller.status == SplitStatus.loading,
+      isReauth: widget.controller.status == SplitStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
-      onSignInAgain: onSignInAgain,
+      onSignInAgain: widget.onSignInAgain,
       builder: (context) {
-        if (controller.status == SplitStatus.error) {
-          final message = controller.error == SplitError.profileFailed
+        if (widget.controller.status == SplitStatus.error) {
+          final message = widget.controller.error == SplitError.profileFailed
               ? loc.splitProfileFailedMessage
               : loc.splitLoadFailedMessage;
           return Center(
@@ -85,7 +185,7 @@ class SplitTab extends StatelessWidget {
                   const SizedBox(height: 16),
                   FilledButton(
                     key: const Key('split-retry'),
-                    onPressed: onRetry,
+                    onPressed: widget.onRetry,
                     child: Text(loc.retry),
                   ),
                 ],
@@ -96,7 +196,7 @@ class SplitTab extends StatelessWidget {
 
         final owedToMe = <_BalanceRow>[];
         final owedByMe = <_BalanceRow>[];
-        for (final balance in controller.balances) {
+        for (final balance in widget.controller.balances) {
           final name = balance.displayName ?? loc.splitUnknownMember;
           for (final cb in balance.balances) {
             if (cb.amount > 0) {
@@ -111,15 +211,15 @@ class SplitTab extends StatelessWidget {
         // D5 — repayments must appear alongside expenses, distinguishably),
         // most recent day first.
         final activity = <_ActivityEntry>[
-          for (final expense in controller.expenses) _ActivityEntry.expense(expense),
-          for (final settlement in controller.settlements) _ActivityEntry.settlement(settlement),
+          for (final expense in widget.controller.expenses) _ActivityEntry.expense(expense),
+          for (final settlement in widget.controller.settlements) _ActivityEntry.settlement(settlement),
         ]..sort((a, b) => b.day.compareTo(a.day));
 
         final isEmpty =
-            controller.balances.isEmpty &&
-            controller.groups.isEmpty &&
-            controller.expenses.isEmpty &&
-            controller.settlements.isEmpty;
+            widget.controller.balances.isEmpty &&
+            widget.controller.groups.isEmpty &&
+            widget.controller.expenses.isEmpty &&
+            widget.controller.settlements.isEmpty;
 
         return SafeArea(
           child: Center(
@@ -130,15 +230,15 @@ class SplitTab extends StatelessWidget {
                 children: [
                   if (isEmpty)
                     _EmptyState(
-                      onCta: onRecordExpense,
-                      onCreateGroup: onCreateGroup,
-                      onAddFriend: onAddFriend,
+                      onCta: widget.onRecordExpense,
+                      onCreateGroup: widget.onCreateGroup,
+                      onAddFriend: widget.onAddFriend,
                       // A first-time user typically has no friends yet, and
                       // then every route out of this empty state leads to a
                       // sheet whose participant list is just them and whose
                       // Save can never be enabled. The prerequisite lives on
                       // another page, so the empty state has to say so.
-                      needsFriends: controller.friends.isEmpty,
+                      needsFriends: widget.controller.friends.isEmpty,
                     )
                   else ...[
                     // Nothing owed either way is a statement, not an absence:
@@ -164,7 +264,7 @@ class SplitTab extends StatelessWidget {
                           r.name,
                           formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
                         ),
-                        onSettleUp: onSettleUp,
+                        onSettleUp: widget.onSettleUp,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -178,7 +278,7 @@ class SplitTab extends StatelessWidget {
                           r.name,
                           formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
                         ),
-                        onSettleUp: onSettleUp,
+                        onSettleUp: widget.onSettleUp,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -192,12 +292,12 @@ class SplitTab extends StatelessWidget {
                         ),
                         TextButton(
                           key: const Key('split-add-group-button'),
-                          onPressed: onCreateGroup,
+                          onPressed: widget.onCreateGroup,
                           child: Text(loc.splitAddGroupButton),
                         ),
                       ],
                     ),
-                    if (controller.groups.isEmpty)
+                    if (widget.controller.groups.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(loc.splitNoGroupsYet, key: const Key('split-no-groups')),
@@ -207,12 +307,12 @@ class SplitTab extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
                           children: [
-                            for (final group in controller.groups)
+                            for (final group in widget.controller.groups)
                               ListTile(
                                 key: Key('split-group-row-${group.id}'),
                                 title: Text(group.name),
                                 trailing: const Icon(Icons.chevron_right),
-                                onTap: () => onOpenGroup(group.id),
+                                onTap: () => widget.onOpenGroup(group.id),
                               ),
                           ],
                         ),
@@ -237,15 +337,15 @@ class SplitTab extends StatelessWidget {
                               entry.expense != null
                                   ? SplitExpenseRow(
                                       expense: entry.expense!,
-                                      selfUserId: controller.selfUserId,
+                                      selfUserId: widget.controller.selfUserId,
                                       keyPrefix: 'split-expense',
-                                      onEdit: () => onEditExpense(entry.expense!),
+                                      onEdit: () => widget.onEditExpense(entry.expense!),
                                     )
                                   : SettlementRow(
                                       settlement: entry.settlement!,
-                                      selfUserId: controller.selfUserId,
+                                      selfUserId: widget.controller.selfUserId,
                                       keyPrefix: 'split-settlement',
-                                      onDelete: () => onDeleteSettlement(entry.settlement!),
+                                      onDelete: () => widget.onDeleteSettlement(entry.settlement!),
                                     ),
                           ],
                         ),

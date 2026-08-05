@@ -3183,5 +3183,313 @@
   "splitGroupPersonalBalancesNote": "Spans your shared history everywhere, not only this group.",
   "@splitGroupPersonalBalancesNote": {
     "description": "Subtitle clarifying that the person-to-person balances section is not scoped to this group alone (design D8 — the label must be honest about that)."
+  },
+  "splitSectionOverview": "Summary",
+  "@splitSectionOverview": {
+    "description": "Label of the split tab's first section switch: the balances/groups/recent-expenses view. Deliberately not 'Overview' — the finance bottom bar's first destination is already called that, and both are visible on this same screen at once."
+  },
+  "splitSectionChangeLog": "Change log",
+  "@splitSectionChangeLog": {
+    "description": "Label of the split tab's second section switch: what has happened, including deletions and edits, as opposed to what currently exists."
+  },
+  "splitActivityEmptyTitle": "No changes yet",
+  "@splitActivityEmptyTitle": {
+    "description": "Empty state title for the split change log."
+  },
+  "splitActivityEmptyBody": "When you or someone you split with adds, edits or deletes something, it appears here.",
+  "@splitActivityEmptyBody": {
+    "description": "Empty state body for the split change log, explaining what will fill it."
+  },
+  "splitActivityLoadFailedMessage": "Couldn't load the change log. Check your connection and try again.",
+  "@splitActivityLoadFailedMessage": {
+    "description": "Shown when the first page of the split change log fails to load."
+  },
+  "splitActivityLoadMoreFailed": "Couldn't load more entries.",
+  "@splitActivityLoadMoreFailed": {
+    "description": "Shown at the bottom of the split change log when loading a further page failed; the entries already loaded stay on screen."
+  },
+  "splitActivityExpenseCreatedYou": "You added {description}",
+  "@splitActivityExpenseCreatedYou": {
+    "description": "Change-log entry: the reader recorded a split expense.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityExpenseCreatedOther": "{name} added {description}",
+  "@splitActivityExpenseCreatedOther": {
+    "description": "Change-log entry: someone else recorded a split expense.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityExpenseUpdatedYou": "You edited {description}",
+  "@splitActivityExpenseUpdatedYou": {
+    "description": "Change-log entry: the reader edited a split expense.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityExpenseUpdatedOther": "{name} edited {description}",
+  "@splitActivityExpenseUpdatedOther": {
+    "description": "Change-log entry: someone else edited a split expense.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityExpenseDeletedYou": "You deleted {description}",
+  "@splitActivityExpenseDeletedYou": {
+    "description": "Change-log entry: the reader deleted a split expense. The wording must make the deletion audible on its own, since the expense no longer exists.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityExpenseDeletedOther": "{name} deleted {description}",
+  "@splitActivityExpenseDeletedOther": {
+    "description": "Change-log entry: someone else deleted a split expense.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivitySettlementCreatedYou": "You recorded a repayment",
+  "@splitActivitySettlementCreatedYou": {
+    "description": "Change-log entry: the reader recorded a repayment. Who paid whom is a separate line, because the direction is not the same as who recorded it."
+  },
+  "splitActivitySettlementCreatedOther": "{name} recorded a repayment",
+  "@splitActivitySettlementCreatedOther": {
+    "description": "Change-log entry: someone else recorded a repayment.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivitySettlementDeletedYou": "You deleted a repayment",
+  "@splitActivitySettlementDeletedYou": {
+    "description": "Change-log entry: the reader deleted a repayment."
+  },
+  "splitActivitySettlementDeletedOther": "{name} deleted a repayment",
+  "@splitActivitySettlementDeletedOther": {
+    "description": "Change-log entry: someone else deleted a repayment.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupCreatedYou": "You created the group {group}",
+  "@splitActivityGroupCreatedYou": {
+    "description": "Change-log entry: the reader created a split group.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupCreatedOther": "{name} created the group {group}",
+  "@splitActivityGroupCreatedOther": {
+    "description": "Change-log entry: someone else created a split group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupMemberAddedYou": "You added {member} to {group}",
+  "@splitActivityGroupMemberAddedYou": {
+    "description": "Change-log entry: the reader added someone to a split group.",
+    "placeholders": {
+      "member": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupMemberAddedOther": "{name} added {member} to {group}",
+  "@splitActivityGroupMemberAddedOther": {
+    "description": "Change-log entry: someone else added a member to a split group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "member": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupMemberAddedYouWere": "{name} added you to {group}",
+  "@splitActivityGroupMemberAddedYouWere": {
+    "description": "Change-log entry: someone else added the reader to a split group. Without it the reader's own display name is rendered in the third person — the same bug repayment entries were fixed for.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupArchivedYou": "You archived the group {group}",
+  "@splitActivityGroupArchivedYou": {
+    "description": "Change-log entry: the reader archived a split group.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityGroupArchivedOther": "{name} archived the group {group}",
+  "@splitActivityGroupArchivedOther": {
+    "description": "Change-log entry: someone else archived a split group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityRepaymentYouPaid": "You paid {name}",
+  "@splitActivityRepaymentYouPaid": {
+    "description": "Direction line of a change-log repayment entry when the reader is the one who paid. The stored flag is relative to whoever recorded the entry, so this is not simply 'the actor paid'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityRepaymentPaidYou": "{name} paid you",
+  "@splitActivityRepaymentPaidYou": {
+    "description": "Direction line of a change-log repayment entry when the reader is the one who was paid.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityRepaymentBetween": "{payer} paid {payee}",
+  "@splitActivityRepaymentBetween": {
+    "description": "Direction line of a change-log repayment entry read by a group member who is neither party.",
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "payee": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityAmountChange": "{previous} → {amount}",
+  "@splitActivityAmountChange": {
+    "description": "Shown in place of a plain amount on a change-log edit entry when the amount actually moved. Not shown when the edit left the amount alone, which is most of them.",
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityAmountChangeSpoken": "from {previous} to {amount}",
+  "@splitActivityAmountChangeSpoken": {
+    "description": "The screen-reader wording of splitActivityAmountChange. The painted arrow is either announced as a glyph name or dropped, either way leaving a listener with two amounts and no idea which is the new one.",
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityUnknownYou": "You changed something",
+  "@splitActivityUnknownYou": {
+    "description": "Change-log entry for an event type this build of the app does not recognise, made by the reader. The backend ships independently, so a newer event type must degrade to a neutral row rather than take the page down."
+  },
+  "splitActivityUnknownOther": "{name} changed something",
+  "@splitActivityUnknownOther": {
+    "description": "As splitActivityUnknownYou, for an unrecognised event type made by someone else.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityRowDetail": "{what}: {detail}",
+  "@splitActivityRowDetail": {
+    "description": "Joins a change-log entry's headline to its second line for screen readers, so the row is read as one sentence rather than as fragments.",
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityRowSemantics": "{what}, {amount}, {time}",
+  "@splitActivityRowSemantics": {
+    "description": "The whole change-log row as one sentence for screen readers: who did what, how much, and when.",
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityUnnamedItem": "an untitled item",
+  "@splitActivityUnnamedItem": {
+    "description": "Stands in for a change-log entry's description when the record was saved without one."
+  },
+  "splitActivityUnnamedGroup": "an untitled group",
+  "@splitActivityUnnamedGroup": {
+    "description": "Stands in for a group's name in a change-log entry when it is unavailable."
+  },
+  "splitActivityRowSemanticsNoAmount": "{what}, {time}",
+  "@splitActivityRowSemanticsNoAmount": {
+    "description": "As splitActivityRowSemantics but for a change-log entry that carries no amount (the group events), so a screen reader is not handed an empty slot.",
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }
