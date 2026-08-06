@@ -1600,7 +1600,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitSpendingTitle => '你的分帳自付額';
 
   @override
-  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+  String get financeSplitSpendingCountedHeading => '已計入';
+
+  @override
+  String get financeSplitSpendingCountedNote =>
+      '已經計入上方的支出總額與預算 —— 這些自付額會自動記成你的交易。';
+
+  @override
+  String get financeSplitSpendingUncountedHeading => '未計入';
+
+  @override
+  String get financeSplitSpendingUncountedNote =>
+      '不計入上方的支出總額,也不計入預算 —— 這些幣別無法記成交易。';
+
+  @override
+  String get financeSplitMirrorBadge => '來自分帳';
 
   @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
@@ -4016,7 +4030,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeSplitSpendingTitle => '你的分帳自付額';
 
   @override
-  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+  String get financeSplitSpendingCountedHeading => '已計入';
+
+  @override
+  String get financeSplitSpendingCountedNote =>
+      '已經計入上方的支出總額與預算 —— 這些自付額會自動記成你的交易。';
+
+  @override
+  String get financeSplitSpendingUncountedHeading => '未計入';
+
+  @override
+  String get financeSplitSpendingUncountedNote =>
+      '不計入上方的支出總額,也不計入預算 —— 這些幣別無法記成交易。';
+
+  @override
+  String get financeSplitMirrorBadge => '來自分帳';
 
   @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';

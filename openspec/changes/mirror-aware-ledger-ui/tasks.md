@@ -4,25 +4,25 @@
 
 ## 1. 分帳卡逐幣別分組(D1)—— 最急
 
-- [ ] 1.1 `SplitSpending` 加 `countedInTransactions`,**必填,不要給 `= false` 預設值** —— 預設 false 正好是「靜默重現今天那句錯話」的方向。
-- [ ] 1.1a **parse 層要有自己的守門**(寫在 `split_spending_test.dart` 或 `http_finance_repository_test.dart:409`)。1.4/1.5 走的是 `FakeFinanceRepository.getSplitSpending`,裡面是**直接建構**的 `SplitSpending`,`fromJson` **從來不會跑**。鍵名拼錯而讀成 `?? false` 的話,**每一個 TWD 都會說「未計入」** —— 正好是這個 change 要刪掉的那句話,而且沒有任何列出的測試會紅。**突變:讀錯鍵名。**
-- [ ] 1.2 卡片分兩組,句子放在**各自那組的金額旁邊**,不是卡片頂端一句話管全部。
-- [ ] 1.3 **舊的 `financeSplitSpendingNote`(「不計入上方的支出總額,也不計入預算」)要刪掉**,不是留著改字 —— 它現在對 TWD 是假的。
-- [ ] 1.4 **突變:兩組都用同一句文案**,一條「同月有 TWD(已計入)與 THB(未計入)」的測試必須紅。**fixture 一定要兩種都有** —— 只有一種的話,一句話蓋全部照樣綠。
-- [ ] 1.4a **`split_layout_test.dart:1016-1047` 的窄螢幕掃描(320dp × textScale 2.0 × 兩個語系)已經涵蓋這張卡,但 fixture 只有一種幣別。** 這個 change 讓卡片長成兩個各帶標題與句子的分組 —— **不改 fixture 的話,正在長大的那個 widget 會在從來沒被掃過的情況下出貨。** 把那個掃描的 fixture 改成同時有已計入與未計入的幣別。
-- [ ] 1.5 只有一組時不顯示另一組的標題。**突變:永遠顯示兩個標題**,一條「全部都是已計入幣別」的測試必須紅。
+- [x] 1.1 `SplitSpending` 加 `countedInTransactions`,**必填,不要給 `= false` 預設值** —— 預設 false 正好是「靜默重現今天那句錯話」的方向。
+- [x] 1.1a **parse 層要有自己的守門**(寫在 `split_spending_test.dart` 或 `http_finance_repository_test.dart:409`)。1.4/1.5 走的是 `FakeFinanceRepository.getSplitSpending`,裡面是**直接建構**的 `SplitSpending`,`fromJson` **從來不會跑**。鍵名拼錯而讀成 `?? false` 的話,**每一個 TWD 都會說「未計入」** —— 正好是這個 change 要刪掉的那句話,而且沒有任何列出的測試會紅。**突變:讀錯鍵名。**
+- [x] 1.2 卡片分兩組,句子放在**各自那組的金額旁邊**,不是卡片頂端一句話管全部。
+- [x] 1.3 **舊的 `financeSplitSpendingNote`(「不計入上方的支出總額,也不計入預算」)要刪掉**,不是留著改字 —— 它現在對 TWD 是假的。
+- [x] 1.4 **突變:兩組都用同一句文案**,一條「同月有 TWD(已計入)與 THB(未計入)」的測試必須紅。**fixture 一定要兩種都有** —— 只有一種的話,一句話蓋全部照樣綠。
+- [x] 1.4a **`split_layout_test.dart:1016-1047` 的窄螢幕掃描(320dp × textScale 2.0 × 兩個語系)已經涵蓋這張卡,但 fixture 只有一種幣別。** 這個 change 讓卡片長成兩個各帶標題與句子的分組 —— **不改 fixture 的話,正在長大的那個 widget 會在從來沒被掃過的情況下出貨。** 把那個掃描的 fixture 改成同時有已計入與未計入的幣別。
+- [x] 1.5 只有一組時不顯示另一組的標題。**突變:永遠顯示兩個標題**,一條「全部都是已計入幣別」的測試必須紅。
 
 ## 2. `FinanceTransaction` 認得鏡像
 
-- [ ] 2.1 加 `splitExpenseId`(`String?`)。`fromJson` 讀 `split_expense_id`。
-- [ ] 2.2 **這條守門要寫在 `test/contexts/finance/infrastructure/http_finance_repository_test.dart`,不是 widget 測試。** 所有 3.x/4.x 的 fixture 都經過 `FakeFinanceRepository.byMonth`,裡面是**直接建構**的 `FinanceTransaction` —— `fromJson` **從來沒被呼叫過**,所以「永遠解析成 null」這個突變在 widget 層一條都不會紅。`http_finance_repository_test.dart:52-91` 的 `getTransactions` 測試**目前只斷言 `amount`** —— 不是我先前寫的「已經在斷言 `category_id`/`note`」。要在 fixture JSON 裡加 `split_expense_id` 並斷言它。
-- [ ] 2.3 **突變:`fromJson` 不讀 `split_expense_id`**,2.2 的 repository 測試必須紅。
-- [ ] 2.4 **`FakeFinanceRepository.updateTransaction` 目前重建那一列時不帶 `splitExpenseId`**(`finance_test_support.dart:216-224`)。**這件事 4.4 看不到** —— 它在 `add_transaction_sheet_test.dart`,根本不畫列表。要嘛把「存檔後標記還在」寫成 transactions tab 的測試,要嘛在 4.4 裡明確斷言。**不要只改 fake 就當作守住了。**
+- [x] 2.1 加 `splitExpenseId`(`String?`)。`fromJson` 讀 `split_expense_id`。
+- [x] 2.2 **這條守門要寫在 `test/contexts/finance/infrastructure/http_finance_repository_test.dart`,不是 widget 測試。** 所有 3.x/4.x 的 fixture 都經過 `FakeFinanceRepository.byMonth`,裡面是**直接建構**的 `FinanceTransaction` —— `fromJson` **從來沒被呼叫過**,所以「永遠解析成 null」這個突變在 widget 層一條都不會紅。`http_finance_repository_test.dart:52-91` 的 `getTransactions` 測試**目前只斷言 `amount`** —— 不是我先前寫的「已經在斷言 `category_id`/`note`」。要在 fixture JSON 裡加 `split_expense_id` 並斷言它。
+- [x] 2.3 **突變:`fromJson` 不讀 `split_expense_id`**,2.2 的 repository 測試必須紅。
+- [x] 2.4 **`FakeFinanceRepository.updateTransaction` 目前重建那一列時不帶 `splitExpenseId`**(`finance_test_support.dart:216-224`)。**這件事 4.4 看不到** —— 它在 `add_transaction_sheet_test.dart`,根本不畫列表。要嘛把「存檔後標記還在」寫成 transactions tab 的測試,要嘛在 4.4 裡明確斷言。**不要只改 fake 就當作守住了。**
 
 ## 3. 明細列標記(D2)
 
-- [ ] 3.1 鏡像的列跟自己記的列在畫面上要分得出來。**總覽的 `_RecentTransactions`(`finance_overview_tab.dart:166`)也是列**,同樣要標記 —— 只標明細的話,同一筆交易在兩個畫面上長得不一樣。
-- [ ] 3.2 **兩個畫面各要一條測試。** 只測明細的話,「只把總覽那顆標記拿掉」這個突變會活下來 —— 而 3.1 說不能發生的正是「同一筆交易在兩個畫面上長得不一樣」。**突變:各自拿掉標記**,對應那條必須紅。**fixture 兩種交易都要有** —— 只有鏡像的話,「全部都標記」跟「標記正確」分不出來。
+- [x] 3.1 鏡像的列跟自己記的列在畫面上要分得出來。**總覽的 `_RecentTransactions`(`finance_overview_tab.dart:166`)也是列**,同樣要標記 —— 只標明細的話,同一筆交易在兩個畫面上長得不一樣。
+- [x] 3.2 **兩個畫面各要一條測試。** 只測明細的話,「只把總覽那顆標記拿掉」這個突變會活下來 —— 而 3.1 說不能發生的正是「同一筆交易在兩個畫面上長得不一樣」。**突變:各自拿掉標記**,對應那條必須紅。**fixture 兩種交易都要有** —— 只有鏡像的話,「全部都標記」跟「標記正確」分不出來。
 
 ## 4. 編輯 sheet:事實 + 兩個欄位(D2、D3)
 

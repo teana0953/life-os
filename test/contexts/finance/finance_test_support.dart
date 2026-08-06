@@ -210,7 +210,17 @@ class FakeFinanceRepository implements FinanceRepository {
       failNext = null;
       throw failure;
     }
+    // `splitExpenseId` is carried over from the stored row, not taken from
+    // the caller: it is not one of the update endpoint's parameters (the
+    // server owns the link), so rebuilding the row without it would have this
+    // fake silently turn a mirror into a self-recorded transaction on every
+    // save — and any guard about a mirror surviving an edit would pass
+    // against a fake that cannot represent one.
+    String? splitExpenseId;
     for (final list in byMonth.values) {
+      for (final t in list) {
+        if (t.id == id) splitExpenseId = t.splitExpenseId;
+      }
       list.removeWhere((t) => t.id == id);
     }
     final txn = FinanceTransaction(
@@ -221,6 +231,7 @@ class FakeFinanceRepository implements FinanceRepository {
       categoryId: categoryId,
       date: date,
       note: note,
+      splitExpenseId: splitExpenseId,
     );
     (byMonth[date.substring(0, 7)] ??= []).add(txn);
     return txn;

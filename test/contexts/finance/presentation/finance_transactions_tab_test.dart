@@ -138,6 +138,75 @@ void main() {
 
       expect(edited?.id, 'seed-1');
     });
+
+    testWidgets('a mirrored row is marked and a self-recorded one is not', (tester) async {
+      final repo = FakeFinanceRepository()..byMonth['2026-07'] = _mixedMonth;
+      final controller = testFinanceController(repo);
+      await controller.load('tok', '2026-07');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: FinanceTransactionsTab(
+              controller: controller,
+              onEdit: (_) {},
+              onSwitchMonth: (m) async {},
+              onSignInAgain: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both rows are seeded, not just the mirrored one: with a mirror-only
+      // fixture "every row is marked" and "the right row is marked" are the
+      // same result.
+      expect(find.byKey(const Key('finance-transaction-mirror-t-mirror')), findsOneWidget);
+      expect(find.byKey(const Key('finance-transaction-mirror-t-own')), findsNothing);
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.financeSplitMirrorBadge), findsOneWidget);
+    });
+
+    testWidgets('saving an edit to a mirrored row keeps its marker', (tester) async {
+      final repo = FakeFinanceRepository()..byMonth['2026-07'] = _mixedMonth;
+      final controller = testFinanceController(repo);
+      await controller.load('tok', '2026-07');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => FinanceTransactionsTab(
+                controller: controller,
+                onEdit: (_) {},
+                onSwitchMonth: (m) async {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Recategorising is the one edit a mirrored row accepts, and the update
+      // path rebuilds the row from what the caller sent — which does not
+      // include the split link. Dropping it there makes the mirror silently
+      // become a row the user recorded themselves: still undeletable by the
+      // server, but no longer marked as such anywhere.
+      await controller.updateTransaction(
+        'tok',
+        't-mirror',
+        type: FinanceType.expense,
+        amount: 450,
+        currency: 'TWD',
+        categoryId: 'cat-transport',
+        date: '2026-07-10',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('finance-transaction-mirror-t-mirror')), findsOneWidget);
+    });
   });
 
   // Narrow screen (task 4). Re-derived after the change: the guide replaced
@@ -192,3 +261,32 @@ void main() {
     }
   });
 }
+
+/// A month holding one row the server mirrored from a split expense and one
+/// the user recorded themselves. Both are needed: against a mirror-only
+/// fixture, "mark everything" passes every assertion the real behaviour does.
+///
+/// A fresh growable list each time, not a `const` one: `FakeFinanceRepository`
+/// edits `byMonth` in place, and a const list makes every write throw an
+/// `UnsupportedError` the controller swallows — which leaves the month exactly
+/// as seeded and quietly turns any after-the-edit assertion into an
+/// assertion about the seed.
+List<FinanceTransaction> get _mixedMonth => [
+  const FinanceTransaction(
+    id: 't-mirror',
+    type: FinanceType.expense,
+    amount: 450,
+    currency: 'TWD',
+    categoryId: 'cat-food',
+    date: '2026-07-10',
+    splitExpenseId: 'se-1',
+  ),
+  const FinanceTransaction(
+    id: 't-own',
+    type: FinanceType.expense,
+    amount: 200,
+    currency: 'TWD',
+    categoryId: 'cat-food',
+    date: '2026-07-10',
+  ),
+];

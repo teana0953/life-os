@@ -11,6 +11,7 @@ import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
+import 'split_mirror_badge.dart';
 
 /// 明細: the selected month's transactions grouped by day (newest day
 /// first). Tapping a row opens the record sheet pre-filled for editing.
@@ -158,13 +159,29 @@ class _TransactionListRow extends StatelessWidget {
     final color = transaction.type == FinanceType.expense
         ? theme.colorScheme.error
         : financeIncomeColor(theme.colorScheme);
+    final note = transaction.note;
+    final hasNote = note != null && note.isNotEmpty;
+    final isMirror = transaction.splitExpenseId != null;
     return ListTile(
       key: Key('finance-transaction-${transaction.id}'),
       leading: Icon(icon),
       title: Text(name),
-      subtitle: transaction.note == null || transaction.note!.isEmpty
+      // The badge goes above the note rather than beside it: the note is the
+      // split's description and can be any length, and a row that pushes the
+      // mark off the end has not marked anything.
+      subtitle: !isMirror && !hasNote
           ? null
-          : Text(transaction.note!),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isMirror)
+                  SplitMirrorBadge(
+                    key: Key('finance-transaction-mirror-${transaction.id}'),
+                  ),
+                if (hasNote) Text(note),
+              ],
+            ),
       trailing: Text(
         formatSignedMinorUnits(transaction.amount, transaction.currency, transaction.type),
         style: theme.textTheme.bodyLarge?.copyWith(color: color, fontWeight: FontWeight.w700),

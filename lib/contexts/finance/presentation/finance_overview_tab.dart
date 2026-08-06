@@ -20,6 +20,7 @@ import '../domain/split_spending.dart';
 import 'budget_card.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
+import 'split_mirror_badge.dart';
 
 /// 總覽: the month switcher, per-currency expense/income/net cards, an
 /// expense-category breakdown, and the five most recent transactions.
@@ -217,10 +218,22 @@ class _CurrencyTotalsCard extends StatelessWidget {
   }
 }
 
-/// The overview's own split-spending line (design D6) — per currency, shown
-/// beside the recorded expense/income/net cards but never folded into them
-/// or into the budget card ([BudgetCard] reads only [FinanceController.budgets],
-/// untouched by this).
+/// The overview's own split-spending line (design D1/D6) — per currency, and
+/// split into two groups by whether the server already mirrored that
+/// currency's shares into the user's transactions.
+///
+/// **Two groups, each carrying its own sentence, is the whole point.** The
+/// card used to say one thing about all of it ("counted in neither the
+/// expense total nor the budget"), which was true while no currency was
+/// mirrored. Now the whitelisted ones are, and no single sentence is true of
+/// both halves: "already counted" is a lie about THB and "not counted" is a
+/// lie about TWD. This card is the only thing on the screen that answers "is
+/// this money already in my total?", so the sentence has to sit beside the
+/// amounts it is about.
+///
+/// A group with nothing in it is omitted entirely, heading and all — an empty
+/// group under a heading reads as "that half is zero", which is a different
+/// and equally wrong claim.
 class _SplitSpendingCard extends StatelessWidget {
   final List<SplitSpending> totals;
 
@@ -230,45 +243,89 @@ class _SplitSpendingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final counted = totals.where((t) => t.countedInTransactions).toList();
+    final uncounted = totals.where((t) => !t.countedInTransactions).toList();
     return LedgeCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(loc.financeSplitSpendingTitle, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          // The card is a `LedgeCard` with a bold per-currency amount, i.e.
-          // visually a totals card — without this sentence nothing on the
-          // screen rules out reading it as part of the expense total or of
-          // the budget's consumed figure, and it is in neither (design D6).
-          Text(
-            loc.financeSplitSpendingNote,
-            key: const Key('finance-split-spending-note'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (counted.isNotEmpty)
+            _SplitSpendingGroup(
+              keyPrefix: 'counted',
+              heading: loc.financeSplitSpendingCountedHeading,
+              note: loc.financeSplitSpendingCountedNote,
+              totals: counted,
             ),
-          ),
-          const SizedBox(height: 8),
-          for (final total in totals)
-            Padding(
-              key: Key('finance-split-spending-${total.currency}'),
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              // `LabelValueRow`, not `_TotalRow`: a seven-figure amount at a
-              // large text scale needs the value-gets-priority-and-wraps
-              // shape that row provides — `_TotalRow`'s plain `Row` overflows
-              // in exactly that case (design.md task 7.4's layout guard).
-              child: LabelValueRow(
-                gap: 12,
-                label: Text(total.currency, style: theme.textTheme.bodyMedium),
-                value: Text(
-                  formatMinorUnitsForDisplay(total.amount, total.currency),
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
+          if (uncounted.isNotEmpty)
+            _SplitSpendingGroup(
+              keyPrefix: 'uncounted',
+              heading: loc.financeSplitSpendingUncountedHeading,
+              note: loc.financeSplitSpendingUncountedNote,
+              totals: uncounted,
             ),
         ],
       ),
+    );
+  }
+}
+
+/// One half of [_SplitSpendingCard]: a heading, the sentence that is true of
+/// this half only, and this half's per-currency amounts.
+class _SplitSpendingGroup extends StatelessWidget {
+  final String keyPrefix;
+  final String heading;
+  final String note;
+  final List<SplitSpending> totals;
+
+  const _SplitSpendingGroup({
+    required this.keyPrefix,
+    required this.heading,
+    required this.note,
+    required this.totals,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          heading,
+          key: Key('finance-split-spending-$keyPrefix-heading'),
+          style: theme.textTheme.labelLarge,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          note,
+          key: Key('finance-split-spending-$keyPrefix-note'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (final total in totals)
+          Padding(
+            key: Key('finance-split-spending-${total.currency}'),
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            // `LabelValueRow`, not `_TotalRow`: a seven-figure amount at a
+            // large text scale needs the value-gets-priority-and-wraps
+            // shape that row provides — `_TotalRow`'s plain `Row` overflows
+            // in exactly that case (design.md task 7.4's layout guard).
+            child: LabelValueRow(
+              gap: 12,
+              label: Text(total.currency, style: theme.textTheme.bodyMedium),
+              value: Text(
+                formatMinorUnitsForDisplay(total.amount, total.currency),
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -453,6 +510,9 @@ class _TransactionRow extends StatelessWidget {
     final color = transaction.type == FinanceType.expense
         ? theme.colorScheme.error
         : financeIncomeColor(theme.colorScheme);
+    final note = transaction.note;
+    final hasNote = note != null && note.isNotEmpty;
+    final isMirror = transaction.splitExpenseId != null;
     return ListTile(
       // The amount rides in the title row rather than in `trailing`, for the
       // same reason the net-worth account rows do (see the comment on
@@ -541,9 +601,22 @@ class _TransactionRow extends StatelessWidget {
           ],
         ),
       ),
-      subtitle: transaction.note == null || transaction.note!.isEmpty
+      // Marked here as well as in 明細, with a key of this list's own: the two
+      // lists show the same transactions, so a mark on only one of them
+      // teaches the reader that the mark means nothing.
+      subtitle: !isMirror && !hasNote
           ? null
-          : Text(transaction.note!),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isMirror)
+                  SplitMirrorBadge(
+                    key: Key('finance-recent-mirror-${transaction.id}'),
+                  ),
+                if (hasNote) Text(note),
+              ],
+            ),
     );
   }
 }

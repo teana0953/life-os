@@ -64,6 +64,17 @@ void main() {
                 'category_id': 'c1',
                 'date': '2026-07-15',
                 'note': null,
+                'split_expense_id': 'se-1',
+              },
+              {
+                'id': 't2',
+                'type': 'expense',
+                'amount': 80,
+                'currency': 'TWD',
+                'category_id': 'c1',
+                'date': '2026-07-16',
+                'note': null,
+                'split_expense_id': null,
               },
             ],
           }),
@@ -87,7 +98,17 @@ void main() {
           'https://example.test/api/finance/transactions?from=2026-07-01&to=2026-07-31',
         ),
       );
-      expect(transactions.single.amount, 120);
+      expect(transactions.first.amount, 120);
+      // The only place `FinanceTransaction.fromJson` actually runs: every
+      // widget-level fixture builds the model directly through its
+      // constructor (`FakeFinanceRepository.byMonth`), so "the parser never
+      // reads `split_expense_id`" is invisible everywhere else — and it is
+      // exactly the mutation that would make every mirrored row look like a
+      // row the user recorded themselves. Both values are pinned: reading
+      // the wrong key yields null for *both*, which an id-only assertion
+      // would catch but a null-only one would not.
+      expect(transactions.first.splitExpenseId, 'se-1');
+      expect(transactions.last.splitExpenseId, isNull);
     });
 
     test('getSummary GETs with a month query param', () async {
@@ -416,7 +437,8 @@ void main() {
           jsonEncode({
             'month': '2026-08',
             'totals': [
-              {'currency': 'TWD', 'amount': 500},
+              {'currency': 'TWD', 'amount': 500, 'counted_in_transactions': true},
+              {'currency': 'THB', 'amount': 700, 'counted_in_transactions': false},
             ],
           }),
           200,
@@ -434,8 +456,12 @@ void main() {
         Uri.parse('https://example.test/api/finance/split-spending?month=2026-08'),
       );
       expect(capturedAuthHeader, 'Bearer token-123');
-      expect(totals.single.currency, 'TWD');
-      expect(totals.single.amount, 500);
+      expect(totals.first.currency, 'TWD');
+      expect(totals.first.amount, 500);
+      // Both directions over the wire, for the same reason as the parser's own
+      // guard: a hard-coded answer agrees with whichever half it picked.
+      expect(totals.first.countedInTransactions, isTrue);
+      expect(totals.last.countedInTransactions, isFalse);
     });
 
     test('getSplitSpending returns an empty list for a month with no split activity', () async {

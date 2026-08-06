@@ -1016,9 +1016,24 @@ void main() {
               await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
               addTearDown(() => tester.binding.setSurfaceSize(null));
 
+              // Both a counted and an uncounted currency, because the
+              // split-spending card is no longer one sentence and one list:
+              // it is two headed groups, each with its own sentence. A
+              // single-currency fixture only ever builds one of them, so the
+              // widget that actually grew would ship through a sweep that
+              // never swept it.
               final repo = FakeFinanceRepository()
                 ..splitSpendingByMonth['2026-08'] = [
-                  const SplitSpending(currency: 'TWD', amount: _wideAmount),
+                  const SplitSpending(
+                    currency: 'TWD',
+                    amount: _wideAmount,
+                    countedInTransactions: true,
+                  ),
+                  const SplitSpending(
+                    currency: 'THB',
+                    amount: _wideAmount,
+                    countedInTransactions: false,
+                  ),
                 ];
               _seedOverviewLedger(repo);
               final loc = lookupAppLocalizations(locale);

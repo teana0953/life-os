@@ -421,6 +421,53 @@ void main() {
     }
   });
 
+  group('mirrored rows in the recent-transactions list', () {
+    testWidgets('a mirrored row is marked and a self-recorded one is not', (tester) async {
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-mirror',
+            type: FinanceType.expense,
+            amount: 450,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-10',
+            splitExpenseId: 'se-1',
+          ),
+          const FinanceTransaction(
+            id: 't-own',
+            type: FinanceType.expense,
+            amount: 200,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-11',
+          ),
+        ];
+
+      await pumpOverview(tester, repo);
+
+      // The recent-transactions list is the last thing on the tab and starts
+      // below the fold, outside the `ListView`'s cache extent — without this
+      // its rows are never built and every assertion below would be about a
+      // list that is not in the tree.
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.scrollUntilVisible(find.text(loc.financeRecentTransactions), 200);
+      await tester.pumpAndSettle();
+
+      // A guard of this list's own, separate from 明細's: both lists show the
+      // same transactions, so marking only one of them teaches the user that
+      // the mark means nothing — and a single shared assertion would let
+      // "drop the mark from the overview" survive.
+      //
+      // Both a mirrored and a self-recorded row are seeded because with only
+      // mirrors, "mark every row" and "mark the right row" are the same
+      // result.
+      expect(find.byKey(const Key('finance-recent-mirror-t-mirror')), findsOneWidget);
+      expect(find.byKey(const Key('finance-recent-mirror-t-own')), findsNothing);
+      expect(find.text(loc.financeSplitMirrorBadge), findsOneWidget);
+    });
+  });
+
   group('the split-spending line (design D6, task 6)', () {
     testWidgets('a month with split shares shows its own line, per currency', (tester) async {
       final repo = FakeFinanceRepository()
@@ -434,7 +481,7 @@ void main() {
             date: '2026-07-05',
           ),
         ]
-        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true)];
 
       await pumpOverview(tester, repo);
 
@@ -455,11 +502,17 @@ void main() {
             date: '2026-07-05',
           ),
         ]
-        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true)];
 
       await pumpOverview(tester, repo);
 
       // 300 (the expense total) is unchanged — never 750 (300 + 450).
+      //
+      // Deliberately NOT inverted now that TWD shares are counted: what this
+      // pins is that the *frontend* does not add `splitSpending` locally, and
+      // that matters more than it used to. The server already folded the 450
+      // into the totals it sends; adding it here again is a double-count, and
+      // the 750 below is what that would look like.
       expect(find.text('300'), findsWidgets);
       expect(find.text('750'), findsNothing);
     });
@@ -476,14 +529,16 @@ void main() {
             date: '2026-07-05',
           ),
         ]
-        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 100000)]
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 100000, countedInTransactions: true)]
         ..seedBudget(amount: 1000);
 
       await pumpOverview(tester, repo);
 
-      // The budget's spent/percent come from the backend `FinanceBudget`
-      // (built off `byMonth` only, in the fake) — split spending, even a
-      // huge amount, must not push it into a warning/over state.
+      // The budget's spent/percent come from the backend `FinanceBudget` and
+      // are shown exactly as sent. Also deliberately not inverted: a counted
+      // currency's share now *does* consume the budget, but it does so on the
+      // server, inside the figure below — the frontend adding
+      // `splitSpending` on top is the double-count this pins against.
       final loc = lookupAppLocalizations(const Locale('en'));
       // The absence of the over-label alone would also hold if the budget
       // card rendered nothing at all — pin the row and the consumed figure,
@@ -519,7 +574,7 @@ void main() {
       'despite the empty-month call-to-action',
       (tester) async {
         final repo = FakeFinanceRepository()
-          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)];
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true)];
 
         await pumpOverview(tester, repo);
 
@@ -533,7 +588,8 @@ void main() {
     );
 
     testWidgets(
-      'the line says it is counted in neither the expense total nor the budget',
+      'a counted and an uncounted currency are stated separately, each beside its own '
+      'amount',
       (tester) async {
         final repo = FakeFinanceRepository()
           ..byMonth['2026-07'] = [
@@ -546,18 +602,56 @@ void main() {
               date: '2026-07-05',
             ),
           ]
-          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 450)]
+          // Both kinds in one month, which is what makes this falsifiable: a
+          // card that keeps saying one thing about everything renders exactly
+          // the same as the right one when only one kind is present.
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true),
+            SplitSpending(currency: 'THB', amount: 700, countedInTransactions: false),
+          ]
           ..seedBudget(amount: 1000);
 
         await pumpOverview(tester, repo);
 
         final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.byKey(const Key('finance-split-spending-note')), findsOneWidget);
-        expect(find.text(loc.financeSplitSpendingNote), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingCountedHeading), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingCountedNote), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingUncountedHeading), findsOneWidget);
+        expect(find.text(loc.financeSplitSpendingUncountedNote), findsOneWidget);
 
-        // …and it sits below the recorded totals it is excluded from, not
-        // between the budget card and them, where reading top-to-bottom
-        // suggested it was part of one or the other (design D6).
+        // Each sentence beside its own amounts, not one sentence at the top
+        // covering both: TWD's row falls between the counted sentence and the
+        // uncounted heading, and THB's below the uncounted sentence. Ordering
+        // is the assertion because "both sentences are somewhere on the card"
+        // is also true of a card that prints them as a preamble to a single
+        // undivided list.
+        final countedNoteY = tester.getTopLeft(
+          find.byKey(const Key('finance-split-spending-counted-note')),
+        ).dy;
+        final twdY = tester.getTopLeft(
+          find.byKey(const Key('finance-split-spending-TWD')),
+        ).dy;
+        final uncountedHeadingY = tester.getTopLeft(
+          find.byKey(const Key('finance-split-spending-uncounted-heading')),
+        ).dy;
+        final thbY = tester.getTopLeft(
+          find.byKey(const Key('finance-split-spending-THB')),
+        ).dy;
+        expect(countedNoteY, lessThan(twdY));
+        expect(twdY, lessThan(uncountedHeadingY));
+        expect(uncountedHeadingY, lessThan(thbY));
+
+        // THB is outside `finance_money.dart`'s zero-decimal set *and* outside
+        // its whitelist, so `decimalDigitsFor` gives it 2 and 700 renders as
+        // `7.00`. That is the pre-existing bug tasks 8.4/8.5 hold as an
+        // explicit non-goal of this change (a zero-decimal code like VND shows
+        // as 1/100) — the expectation is written to today's behaviour so this
+        // test does not silently become the thing that has to change when it
+        // is fixed.
+        expect(find.text('7.00'), findsOneWidget);
+
+        // …and the card still sits below the recorded totals rather than
+        // between the budget card and them (design D6).
         final splitTop = tester.getTopLeft(find.text(loc.financeSplitSpendingTitle)).dy;
         final expenseTotalTop = tester.getTopLeft(find.text(loc.financeExpenseTotal)).dy;
         final budgetTop = tester.getTopLeft(find.text(loc.financeBudgetCardTitle)).dy;
@@ -567,11 +661,31 @@ void main() {
     );
 
     testWidgets(
+      'a month with only counted currencies makes no claim about uncounted ones',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true),
+          ];
+
+        await pumpOverview(tester, repo);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.financeSplitSpendingCountedHeading), findsOneWidget);
+        // Heading *and* sentence: an empty group under a heading reads as
+        // "you owe nothing in an uncounted currency", which is a claim about
+        // money that is not there.
+        expect(find.text(loc.financeSplitSpendingUncountedHeading), findsNothing);
+        expect(find.text(loc.financeSplitSpendingUncountedNote), findsNothing);
+      },
+    );
+
+    testWidgets(
       'a same-month reload never paints the previous load\'s figure while the new one is '
       'still in flight',
       (tester) async {
         final repo = FakeFinanceRepository()
-          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654)];
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654, countedInTransactions: true)];
         final controller = testFinanceController(repo);
         await controller.load('tokA', '2026-07');
 

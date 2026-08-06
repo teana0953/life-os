@@ -3068,11 +3068,35 @@ abstract class AppLocalizations {
   /// **'Your split spending'**
   String get financeSplitSpendingTitle;
 
-  /// Subtitle under the overview tab's split-spending card, stating that the figure is excluded from both the recorded expense totals and the budget card — the card sits next to both and is otherwise indistinguishable from a totals card.
+  /// Heading above the split-spending card's group of currencies whose shares the server already mirrored into the user's transactions. Only shown when that group has something in it — an empty group reads as 'this is zero'.
   ///
   /// In en, this message translates to:
-  /// **'Not counted in the expense totals above, and not counted against your budget.'**
-  String get financeSplitSpendingNote;
+  /// **'Counted in your totals'**
+  String get financeSplitSpendingCountedHeading;
+
+  /// Sentence stated beside the counted group's own amounts on the overview tab's split-spending card. The card is otherwise indistinguishable from a totals card, and whether the money is already counted is the only thing the reader needs from it.
+  ///
+  /// In en, this message translates to:
+  /// **'Already inside the expense totals above and your budget — these shares are recorded as transactions for you.'**
+  String get financeSplitSpendingCountedNote;
+
+  /// Heading above the split-spending card's group of currencies the server cannot mirror into transactions. Only shown when that group has something in it.
+  ///
+  /// In en, this message translates to:
+  /// **'Not counted'**
+  String get financeSplitSpendingUncountedHeading;
+
+  /// Sentence stated beside the uncounted group's own amounts on the overview tab's split-spending card.
+  ///
+  /// In en, this message translates to:
+  /// **'In neither the expense totals above nor your budget — these currencies cannot be recorded as transactions.'**
+  String get financeSplitSpendingUncountedNote;
+
+  /// Marker on a ledger row the server mirrored out of a split expense, so the user can tell it apart from a row they recorded themselves before opening it — a mirrored row cannot be deleted and most of its fields cannot be edited.
+  ///
+  /// In en, this message translates to:
+  /// **'From a split'**
+  String get financeSplitMirrorBadge;
 
   /// Shown in place of the split-spending line when it fails to load; the rest of the overview (recorded totals, budget card) still shows normally.
   ///

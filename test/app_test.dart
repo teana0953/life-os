@@ -3011,7 +3011,7 @@ void main() {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final repo = FakeFinanceRepository()
           ..splitSpendingByMonth['2026-07'] = const [
-            SplitSpending(currency: 'TWD', amount: 987654),
+            SplitSpending(currency: 'TWD', amount: 987654, countedInTransactions: true),
           ];
         final financeController = testFinanceController(repo);
         await financeController.load('tok', '2026-07');
