@@ -153,11 +153,21 @@ and SHALL NOT be left editing a record that no longer exists.
 - **WHEN** the payer deletes the split while the user has its mirrored
   transaction open, and the user then saves
 - **THEN** the user is told the expense is gone and the sheet closes, rather
-  than leaving them editing a record that no longer exists
+  than leaving them editing a record that no longer exists, and the row it
+  came from is gone from the list
+
+#### Scenario: A reload that lands in another month is not a crash
+
+- **WHEN** the payer moves the split's date into a different month and the
+  user then saves
+- **THEN** the user is told the record is no longer in this month and the
+  sheet closes — the same treatment as a deleted one, rather than an error
+  from looking for a row that is not there
 
 #### Scenario: A refused save keeps what the user was typing
 
 - **WHEN** the save is refused because the split moved on, and the user had
   changed the category
-- **THEN** their category choice is still selected after the reload — the
-  server applied none of the write, so nothing they typed is lost to it
+- **THEN** their category choice is still selected and the note they typed is
+  still there after the reload — the server applied none of the write, so
+  nothing they typed is lost to it
