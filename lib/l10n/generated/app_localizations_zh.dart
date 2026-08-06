@@ -1617,6 +1617,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitMirrorBadge => '來自分帳';
 
   @override
+  String financeSplitMirrorSheetTitle(String label) {
+    return '來自分帳 · $label';
+  }
+
+  @override
+  String get financeSplitMirrorGoToSplit => '前往分帳';
+
+  @override
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改;這筆也只能在那裡刪除。';
+
+  @override
+  String get financeSplitChangedReloaded =>
+      '這筆分帳剛剛被改過,已為你載入最新的金額與日期 —— 確認後再存一次。';
+
+  @override
+  String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
+
+  @override
+  String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';
+
+  @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
 
   @override
@@ -2002,6 +2023,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitCategoryNoneOption => '不設分類';
 
   @override
   String get splitGroupNoneOption => '不選群組(一對一)';
@@ -4047,6 +4071,27 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeSplitMirrorBadge => '來自分帳';
 
   @override
+  String financeSplitMirrorSheetTitle(String label) {
+    return '來自分帳 · $label';
+  }
+
+  @override
+  String get financeSplitMirrorGoToSplit => '前往分帳';
+
+  @override
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改;這筆也只能在那裡刪除。';
+
+  @override
+  String get financeSplitChangedReloaded =>
+      '這筆分帳剛剛被改過,已為你載入最新的金額與日期 —— 確認後再存一次。';
+
+  @override
+  String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
+
+  @override
+  String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';
+
+  @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
 
   @override
@@ -4432,6 +4477,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitCategoryNoneOption => '不設分類';
 
   @override
   String get splitGroupNoneOption => '不選群組(一對一)';

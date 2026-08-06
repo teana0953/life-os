@@ -3098,6 +3098,42 @@ abstract class AppLocalizations {
   /// **'From a split'**
   String get financeSplitMirrorBadge;
 
+  /// Title of the edit sheet for a transaction the server mirrored out of a split expense. {label} is the transaction's own note, which starts out as the split's description but belongs to the user afterwards — they can edit it in this same sheet, so this is not 'the split's description'.
+  ///
+  /// In en, this message translates to:
+  /// **'From a split · {label}'**
+  String financeSplitMirrorSheetTitle(String label);
+
+  /// Action on the mirrored-transaction sheet that leaves for the split records, where the locked parts are changed. Without it the sentence telling the user to go there is a dead end they have to walk alone.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to splits'**
+  String get financeSplitMirrorGoToSplit;
+
+  /// Sentence under the mirrored-transaction sheet's two editable fields, explaining where everything else is changed — the sheet shows those as facts rather than as inputs, and has no delete action at all.
+  ///
+  /// In en, this message translates to:
+  /// **'The amount, date, currency and type are changed on the split itself, and this row can only be deleted there.'**
+  String get financeSplitMirrorLockedNote;
+
+  /// Shown when the server refuses the save because the split moved on between the sheet opening and the save (HTTP 409). Deliberately not the generic save-failed copy: retrying the same values would be refused the same way, so the message says the record moved and the sheet shows the current values instead.
+  ///
+  /// In en, this message translates to:
+  /// **'This split was just changed. The current amount and date are shown now — check them and save again.'**
+  String get financeSplitChangedReloaded;
+
+  /// Shown when saving a mirrored transaction returns 404: the split it mirrored was deleted and took this row with it. The sheet closes rather than leaving the user editing a record that no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'The payer deleted this split, so this record is gone.'**
+  String get financeSplitDeletedElsewhere;
+
+  /// Shown when the reload after a refused save cannot find the row in the selected month — the payer moved the split's date into a different month. Treated like a deleted one: the sheet closes rather than showing stale facts.
+  ///
+  /// In en, this message translates to:
+  /// **'This split is no longer in this month.'**
+  String get financeSplitMovedOutOfMonth;
+
   /// Shown in place of the split-spending line when it fails to load; the rest of the overview (recorded totals, budget card) still shows normally.
   ///
   /// In en, this message translates to:
@@ -3829,6 +3865,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Group'**
   String get splitGroupFieldLabel;
+
+  /// The split expense form's category picker option for leaving the category unset — allowed, and what every expense recorded before the picker existed did. Every participant's mirrored transaction then lands in their own fallback category.
+  ///
+  /// In en, this message translates to:
+  /// **'No category'**
+  String get splitCategoryNoneOption;
 
   /// Option in the record-expense sheet's group selector meaning the expense has no group — candidates are then the caller's friends plus themselves.
   ///

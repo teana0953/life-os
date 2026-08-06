@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_money.dart';
@@ -33,12 +34,21 @@ class AddTransactionSheet extends StatefulWidget {
   /// otherwise.
   final FinanceTransaction? editing;
 
+  /// Leaves for the split records. Required and non-null, mirroring
+  /// `SplitExpenseSheet.onAddFriend` for the same reason: it is the only exit
+  /// from the mirrored sheet's locked half, and a caller that forgot to wire
+  /// it would ship a sentence telling the user to go somewhere with no way to
+  /// get there — with every test still green. The caller closes this sheet
+  /// first; the sheet does not know how it was presented.
+  final VoidCallback onGoToSplit;
+
   const AddTransactionSheet({
     super.key,
     required this.controller,
     required this.idToken,
     required this.categories,
     required this.today,
+    required this.onGoToSplit,
     this.editing,
   });
 
@@ -64,6 +74,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       _currency = editing.currency;
       _date = editing.date;
       _categoryId = editing.categoryId;
+      // Seeded even for a mirrored transaction, whose sheet shows no amount
+      // field at all: `_canSave` reads this controller, so leaving it empty
+      // would leave Save permanently dead on the one sheet whose whole point
+      // is saving a recategorisation.
       _amountController.text = formatMinorUnits(editing.amount, editing.currency);
       _noteController.text = editing.note ?? '';
     } else {
@@ -85,6 +99,14 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     _noteController.dispose();
     super.dispose();
   }
+
+  /// Whether the transaction being edited is one the server mirrored out of a
+  /// split expense. Everything the split owns — amount, date, currency and
+  /// **type** — is then a fact rather than a field: the backend refuses a write
+  /// that changes any of them, and the type control would additionally clear
+  /// `_categoryId` on the way (see the toggle below), costing the user the one
+  /// field they opened this sheet to change.
+  bool get _isMirror => widget.editing?.splitExpenseId != null;
 
   List<FinanceCategory> get _categoriesForType =>
       widget.categories.where((c) => c.type == _type).toList();
@@ -169,7 +191,51 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     }
     setState(() => _saving = false);
     final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    // Read before any `pop` below: the messenger is looked up from this
+    // sheet's own context, which is defunct once the route is gone.
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    if (editing != null && controller.error == FinanceError.conflict) {
+      // The split changed between this sheet opening and the save, and the
+      // server applied *none* of the write. `_mutate` has already reloaded the
+      // month, so the current facts are sitting in `controller.transactions` —
+      // re-seed only those. `_categoryId`/`_noteController` are deliberately
+      // left alone: nothing the user typed was consumed by the refused write,
+      // and pulling them back from the reloaded row would silently undo the
+      // choice they are being asked to re-confirm.
+      // `where`/`isEmpty`, not `firstWhere`: the row genuinely may not be in
+      // the reloaded month (see below), and `firstWhere` would answer that
+      // with a `StateError` out of a save handler.
+      final reloaded = controller.transactions.where((t) => t.id == editing.id);
+      final fresh = reloaded.isEmpty ? null : reloaded.first;
+      if (fresh == null) {
+        // The date is one of the facts the payer can change, so the reload of
+        // *this* month can legitimately come back without the row. Same exit
+        // as a deleted split rather than an error from looking for it.
+        messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitMovedOutOfMonth)));
+        navigator.pop();
+        return;
+      }
+      setState(() {
+        _type = fresh.type;
+        _currency = fresh.currency;
+        _date = fresh.date;
+        _amountController.text = formatMinorUnits(fresh.amount, fresh.currency);
+      });
+      messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitChangedReloaded)));
+      return;
+    }
+    if (_isMirror && controller.error == FinanceError.notFound) {
+      // The payer deleted the split and the cascade took this row with it.
+      // Leaving the sheet open would leave the user editing a record that no
+      // longer exists — `_mutate`'s reload has already dropped it from the list
+      // behind them.
+      messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitDeletedElsewhere)));
+      navigator.pop();
+      return;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
   }
 
   Future<void> _delete() async {
@@ -208,6 +274,58 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
   }
 
+  /// The mirrored sheet's top half (design D2): what the split owns, as a
+  /// title plus one line of plain text, and the exit to where those parts are
+  /// actually changed.
+  ///
+  /// Plain text rather than disabled fields, because a form with three of five
+  /// inputs greyed out reads as broken and buries the two that work. The
+  /// *why* is stated on the first line instead of left for the user to infer
+  /// from what won't respond.
+  List<Widget> _mirrorHeader(AppLocalizations loc, ThemeData theme) {
+    final editing = widget.editing!;
+    // Read back out of the state fields, not off `widget.editing`: after a
+    // refused save these hold the *reloaded* facts, and rendering the snapshot
+    // the sheet opened with would show the stale figures under a message
+    // saying they changed.
+    final amount = _amount ?? editing.amount;
+    // The note, not "the split's description": the note starts out as the
+    // description but belongs to the user from then on, and this same sheet
+    // lets them change it. A mirror with no note at all falls back to the
+    // list's own marker rather than showing a dangling separator.
+    final note = editing.note?.trim() ?? '';
+    final title = note.isEmpty
+        ? loc.financeSplitMirrorBadge
+        : loc.financeSplitMirrorSheetTitle(note);
+    final typeLabel = _type == FinanceType.expense
+        ? loc.financeTypeExpense
+        : loc.financeTypeIncome;
+    return [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+          TextButton(
+            key: const Key('finance-go-to-split'),
+            onPressed: widget.onGoToSplit,
+            child: Text(loc.financeSplitMirrorGoToSplit),
+          ),
+        ],
+      ),
+      const SizedBox(height: 4),
+      Text(
+        key: const Key('finance-mirror-facts'),
+        '${formatMinorUnitsForDisplay(amount, _currency)} $_currency'
+        ' · ${mediumDateLabelOrDash(context, _date)}'
+        ' · $typeLabel',
+        style: theme.textTheme.bodyMedium,
+      ),
+      const SizedBox(height: 12),
+      const Divider(height: 1),
+      const SizedBox(height: 12),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -223,41 +341,45 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.editing == null ? loc.financeAddTitle : loc.financeEditTitle,
-                style: theme.textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<FinanceType>(
-                key: const Key('finance-type-toggle'),
-                segments: [
-                  ButtonSegment(
-                    value: FinanceType.expense,
-                    label: Text(loc.financeTypeExpense),
-                  ),
-                  ButtonSegment(
-                    value: FinanceType.income,
-                    label: Text(loc.financeTypeIncome),
-                  ),
-                ],
-                selected: {_type},
-                onSelectionChanged: (selection) {
-                  setState(() {
-                    _type = selection.first;
-                    // The category grid swaps to the new type's categories;
-                    // a category chosen under the old type may not exist in
-                    // the new list, so it must not stay silently selected.
-                    _categoryId = null;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              NumericAmountField(
-                fieldKey: const Key('amount-field'),
-                controller: _amountController,
-                label: loc.financeAmountLabel,
-              ),
-              const SizedBox(height: 16),
+              if (_isMirror)
+                ..._mirrorHeader(loc, theme)
+              else ...[
+                Text(
+                  widget.editing == null ? loc.financeAddTitle : loc.financeEditTitle,
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<FinanceType>(
+                  key: const Key('finance-type-toggle'),
+                  segments: [
+                    ButtonSegment(
+                      value: FinanceType.expense,
+                      label: Text(loc.financeTypeExpense),
+                    ),
+                    ButtonSegment(
+                      value: FinanceType.income,
+                      label: Text(loc.financeTypeIncome),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _type = selection.first;
+                      // The category grid swaps to the new type's categories;
+                      // a category chosen under the old type may not exist in
+                      // the new list, so it must not stay silently selected.
+                      _categoryId = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                NumericAmountField(
+                  fieldKey: const Key('amount-field'),
+                  controller: _amountController,
+                  label: loc.financeAmountLabel,
+                ),
+                const SizedBox(height: 16),
+              ],
               Text(loc.financeCategoryLabel, style: theme.textTheme.labelLarge),
               const SizedBox(height: 8),
               Wrap(
@@ -275,39 +397,51 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      key: const Key('finance-date-field'),
-                      onPressed: _pickDate,
-                      child: Text('${loc.financeDateLabel}: $_date'),
+              if (!_isMirror) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('finance-date-field'),
+                        onPressed: _pickDate,
+                        child: Text('${loc.financeDateLabel}: $_date'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      key: const Key('finance-currency-field'),
-                      initialValue: _currency,
-                      decoration: InputDecoration(labelText: loc.financeCurrencyLabel),
-                      items: [
-                        for (final currency in supportedCurrencies)
-                          DropdownMenuItem(value: currency, child: Text(currency)),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _currency = value);
-                      },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        key: const Key('finance-currency-field'),
+                        initialValue: _currency,
+                        decoration: InputDecoration(labelText: loc.financeCurrencyLabel),
+                        items: [
+                          for (final currency in supportedCurrencies)
+                            DropdownMenuItem(value: currency, child: Text(currency)),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _currency = value);
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
               TextField(
                 key: const Key('finance-note-field'),
                 controller: _noteController,
                 decoration: InputDecoration(labelText: loc.financeNoteLabel),
               ),
+              if (_isMirror) ...[
+                const SizedBox(height: 12),
+                Text(
+                  key: const Key('finance-mirror-locked-note'),
+                  loc.financeSplitMirrorLockedNote,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -317,7 +451,11 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   child: Text(loc.financeSaveButton),
                 ),
               ),
-              if (widget.editing != null) ...[
+              // Absent for a mirror, not disabled: a greyed-out delete still
+              // invites the press, and the press cannot be honoured — the
+              // expense is deleted on the split, which the locked-note above
+              // says and the header's exit reaches.
+              if (widget.editing != null && !_isMirror) ...[
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,

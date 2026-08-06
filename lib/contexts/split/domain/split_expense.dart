@@ -28,6 +28,13 @@ class SplitExpense {
   final String createdAt;
   final String updatedAt;
 
+  /// The finance category the recorder picked, as a **name** — not an id.
+  /// Categories are per-user, so the payer's id would mean nothing to the
+  /// other participants; each participant's mirrored transaction resolves this
+  /// name against their own list. `null` means the mirrors land in the
+  /// fallback category, which is what happened before the picker existed.
+  final String? categoryName;
+
   const SplitExpense({
     required this.id,
     required this.groupId,
@@ -42,6 +49,7 @@ class SplitExpense {
     required this.shares,
     required this.createdAt,
     required this.updatedAt,
+    this.categoryName,
   });
 
   /// Throws [SplitFetchFailure] for a missing/wrong-typed required field
@@ -65,6 +73,7 @@ class SplitExpense {
             .toList(),
         createdAt: json['created_at'] as String,
         updatedAt: json['updated_at'] as String,
+        categoryName: json['category_name'] as String?,
       );
     } catch (_) {
       throw const SplitFetchFailure();

@@ -18,6 +18,9 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
 
+import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
+
+import '../../finance/finance_test_support.dart';
 import '../../../support/l10n_test_app.dart';
 import '../support/fake_split_repository.dart';
 import '../support/split_presentation_fakes.dart';
@@ -75,6 +78,7 @@ Widget _screen({
   required String selfUserId,
   List<Friend> friends = const [],
   _FakeAuthRepository? authRepository,
+  FakeFinanceRepository? financeRepo,
 }) => l10nRouterTestApp(
   home: GroupDetailScreen(
     getGroup: GetGroup(repo),
@@ -86,6 +90,7 @@ Widget _screen({
     updateExpense: UpdateExpense(repo),
     deleteExpense: DeleteExpense(repo),
     listFriends: ListFriends(FakeSocialRepositoryForSplit()..friends = friends),
+    listFinanceCategories: ListFinanceCategories(financeRepo ?? FakeFinanceRepository()),
     getBalances: GetBalances(repo),
     createSettlement: CreateSettlement(repo),
     // The screen resolves the caller's own id from `/api/me` itself — it is

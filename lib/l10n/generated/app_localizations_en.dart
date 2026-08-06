@@ -1674,6 +1674,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeSplitMirrorBadge => 'From a split';
 
   @override
+  String financeSplitMirrorSheetTitle(String label) {
+    return 'From a split · $label';
+  }
+
+  @override
+  String get financeSplitMirrorGoToSplit => 'Go to splits';
+
+  @override
+  String get financeSplitMirrorLockedNote =>
+      'The amount, date, currency and type are changed on the split itself, and this row can only be deleted there.';
+
+  @override
+  String get financeSplitChangedReloaded =>
+      'This split was just changed. The current amount and date are shown now — check them and save again.';
+
+  @override
+  String get financeSplitDeletedElsewhere =>
+      'The payer deleted this split, so this record is gone.';
+
+  @override
+  String get financeSplitMovedOutOfMonth =>
+      'This split is no longer in this month.';
+
+  @override
   String get financeSplitSpendingLoadFailed =>
       'Couldn\'t load your split spending';
 
@@ -2076,6 +2100,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get splitGroupFieldLabel => 'Group';
+
+  @override
+  String get splitCategoryNoneOption => 'No category';
 
   @override
   String get splitGroupNoneOption => 'No group (one-off)';

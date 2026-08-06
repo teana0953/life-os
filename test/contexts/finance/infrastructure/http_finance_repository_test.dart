@@ -427,6 +427,33 @@ void main() {
       );
     });
 
+    test('throws FinanceConflict on 409 — not a generic fetch failure', () async {
+      // The one status the backend returns for "the split changed between you
+      // reading it and writing it back". Left in the generic branch it reached
+      // the user as `Finance request failed (status 409).`, and no caller could
+      // tell it apart from a network error to say anything better.
+      final client = MockClient(
+        (request) async => http.Response('Conflict', 409),
+      );
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      expect(
+        () => repository.updateTransaction(
+          'token-123',
+          't1',
+          type: FinanceType.expense,
+          amount: 900,
+          currency: 'TWD',
+          categoryId: 'c1',
+          date: '2026-07-15',
+        ),
+        throwsA(isA<FinanceConflict>()),
+      );
+    });
+
     test('getSplitSpending GETs {baseUrl}/api/finance/split-spending?month=', () async {
       Uri? capturedUri;
       String? capturedAuthHeader;

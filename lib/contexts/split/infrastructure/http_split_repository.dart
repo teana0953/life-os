@@ -237,6 +237,7 @@ class HttpSplitRepository implements SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => {
     if (groupId != null) 'group_id': groupId,
     'payer_user_id': payerUserId,
@@ -245,6 +246,12 @@ class HttpSplitRepository implements SplitRepository {
     'description': description,
     'day': day,
     'split': split.toJson(),
+    // Always sent, `null` included — unlike `group_id` above, which is
+    // omitted so the server leaves it alone. `PATCH` is a full replace, and
+    // an omitted `category_name` reads as "no category": that would move every
+    // participant's mirror that nobody hand-picked back to the fallback
+    // category, silently, on an edit that only touched the amount.
+    'category_name': categoryName,
   };
 
   @override
@@ -257,6 +264,7 @@ class HttpSplitRepository implements SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) async {
     final response = await _send(
       () => client.post(
@@ -271,6 +279,7 @@ class HttpSplitRepository implements SplitRepository {
             description: description,
             day: day,
             split: split,
+            categoryName: categoryName,
           ),
         ),
       ),
@@ -302,6 +311,7 @@ class HttpSplitRepository implements SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) async {
     final response = await _send(
       () => client.patch(
@@ -316,6 +326,7 @@ class HttpSplitRepository implements SplitRepository {
             description: description,
             day: day,
             split: split,
+            categoryName: categoryName,
           ),
         ),
       ),

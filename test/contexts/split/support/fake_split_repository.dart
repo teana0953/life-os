@@ -29,6 +29,16 @@ class FakeSplitRepository implements SplitRepository {
   String? gotDescription;
   String? gotDay;
   SplitInput? gotSplit;
+
+  /// The `category_name` the last create/update carried. Its own field
+  /// because "was it sent at all" and "was it sent as null" are different
+  /// bugs: an edit that omits it clears the expense's category server-side
+  /// and moves every untouched mirror back to the fallback, silently.
+  String? gotCategoryName;
+
+  /// Whether a create/update reached this fake at all — so a guard can tell
+  /// "sent null" from "never called".
+  bool categoryNameSent = false;
   Object? failNext;
 
   List<SplitGroup> groupsToReturn = const [];
@@ -155,6 +165,7 @@ class FakeSplitRepository implements SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) async {
     gotIdToken = idToken;
     gotGroupId = groupId;
@@ -164,6 +175,8 @@ class FakeSplitRepository implements SplitRepository {
     gotDescription = description;
     gotDay = day;
     gotSplit = split;
+    gotCategoryName = categoryName;
+    categoryNameSent = true;
     _maybeThrow();
     return expenseToReturn!;
   }
@@ -187,6 +200,7 @@ class FakeSplitRepository implements SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) async {
     gotIdToken = idToken;
     gotExpenseId = expenseId;
@@ -197,6 +211,8 @@ class FakeSplitRepository implements SplitRepository {
     gotDescription = description;
     gotDay = day;
     gotSplit = split;
+    gotCategoryName = categoryName;
+    categoryNameSent = true;
     _maybeThrow();
     return expenseToReturn!;
   }

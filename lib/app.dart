@@ -15,6 +15,7 @@ import 'contexts/bowel/presentation/bowel_controller.dart';
 import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
+import 'contexts/finance/application/list_finance_categories.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
 import 'contexts/finance/presentation/networth_controller.dart';
 import 'contexts/finance/presentation/finance_scaffold.dart';
@@ -231,6 +232,14 @@ class App extends StatefulWidget {
   final DeleteExpense splitDeleteExpense;
   final GetProfile splitGetProfile;
 
+  /// The recorder's own finance categories, for the split expense form's
+  /// category picker. Lives here because `/finance/groups/:id` builds
+  /// [GroupDetailScreen] outside `FinanceScaffold` — that screen has no
+  /// `FinanceController` to read the already-loaded list off, and an
+  /// unwired picker there silently clears every participant's category on
+  /// the next edit.
+  final ListFinanceCategories listFinanceCategories;
+
   /// Settlement (repayment) use cases (design.md task 5/5b/6) — shared by
   /// the split tab (`SplitTabDependencies`) and a group's own person-to-
   /// person section (`GroupDetailScreen`), since both settle a two-person
@@ -310,6 +319,7 @@ class App extends StatefulWidget {
     required this.splitUpdateExpense,
     required this.splitDeleteExpense,
     required this.splitGetProfile,
+    required this.listFinanceCategories,
     required this.splitListSettlements,
     required this.splitCreateSettlement,
     required this.splitDeleteSettlement,
@@ -721,6 +731,7 @@ class _AppState extends State<App> {
                   updateExpense: widget.splitUpdateExpense,
                   deleteExpense: widget.splitDeleteExpense,
                   listFriends: widget.listFriends,
+                  listFinanceCategories: widget.listFinanceCategories,
                   getBalances: widget.splitGetBalances,
                   createSettlement: widget.splitCreateSettlement,
                   getProfile: widget.splitGetProfile,

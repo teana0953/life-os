@@ -32,6 +32,7 @@ import 'contexts/finance/application/add_transaction.dart';
 import 'contexts/finance/application/delete_budget.dart';
 import 'contexts/finance/application/delete_transaction.dart';
 import 'contexts/finance/application/get_finance_month.dart';
+import 'contexts/finance/application/list_finance_categories.dart';
 import 'contexts/finance/application/get_split_spending.dart';
 import 'contexts/finance/application/update_transaction.dart';
 import 'contexts/finance/application/networth_use_cases.dart';
@@ -437,6 +438,7 @@ Future<void> main() async {
       splitUpdateExpense: splitUpdateExpense,
       splitDeleteExpense: splitDeleteExpense,
       splitGetProfile: splitGetProfile,
+      listFinanceCategories: ListFinanceCategories(financeRepository),
       splitListSettlements: splitListSettlements,
       splitCreateSettlement: splitCreateSettlement,
       splitDeleteSettlement: splitDeleteSettlement,

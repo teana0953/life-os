@@ -188,6 +188,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _mutate(idToken, groupId!, () async {
     await _createExpense(
       idToken,
@@ -198,6 +199,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
       description: description,
       day: day,
       split: split,
+      categoryName: categoryName,
     );
     await load(idToken, groupId);
   });
@@ -213,6 +215,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _mutate(idToken, groupId ?? group!.id, () async {
     await _updateExpense(
       idToken,
@@ -224,6 +227,7 @@ class GroupDetailController extends ChangeNotifier implements SplitExpenseWriter
       description: description,
       day: day,
       split: split,
+      categoryName: categoryName,
     );
     await load(idToken, groupId ?? group!.id);
   });

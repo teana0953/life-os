@@ -24,6 +24,7 @@ abstract class SplitExpenseWriter {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   });
 
   Future<void> updateExpense(
@@ -36,6 +37,7 @@ abstract class SplitExpenseWriter {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   });
 
   Future<void> deleteExpense(String idToken, String expenseId);

@@ -296,6 +296,10 @@ void main() {
         ),
       );
 
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport.
+      await tester.ensureVisible(find.byKey(const Key('split-mode-toggle')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-mode-toggle')).hitTestable().first);
       // Select the exact segment specifically.
       await tester.tap(find.text(_loc.splitModeExact));
@@ -330,6 +334,10 @@ void main() {
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
       await tester.tap(find.byKey(const Key('split-participant-f1')));
       await tester.pumpAndSettle();
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport — a `tap` there silently misses.
+      await tester.ensureVisible(find.text(_loc.splitModeExact));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('split-exact-field-$_self')), '40');
@@ -363,6 +371,10 @@ void main() {
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
       await tester.tap(find.byKey(const Key('split-participant-f1')));
+      await tester.pumpAndSettle();
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport — a `tap` there silently misses.
+      await tester.ensureVisible(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
       await tester.tap(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();

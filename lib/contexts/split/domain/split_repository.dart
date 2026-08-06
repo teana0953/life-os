@@ -51,6 +51,7 @@ abstract class SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   });
 
   Future<SplitExpense> getExpense(String idToken, String expenseId);
@@ -68,6 +69,7 @@ abstract class SplitRepository {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   });
 
   Future<void> deleteExpense(String idToken, String expenseId);

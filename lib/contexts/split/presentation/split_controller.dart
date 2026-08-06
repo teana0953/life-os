@@ -181,6 +181,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _mutate(idToken, () async {
     await _createExpense(
       idToken,
@@ -191,6 +192,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
       description: description,
       day: day,
       split: split,
+      categoryName: categoryName,
     );
     await load(idToken);
   });
@@ -206,6 +208,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _mutate(idToken, () async {
     await _updateExpense(
       idToken,
@@ -217,6 +220,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
       description: description,
       day: day,
       split: split,
+      categoryName: categoryName,
     );
     await load(idToken);
   });

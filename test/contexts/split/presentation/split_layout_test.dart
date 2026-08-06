@@ -41,6 +41,8 @@ import 'package:life_os/shared/widgets/ledge_card.dart';
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
+import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
+
 import '../../finance/finance_test_support.dart';
 import '../support/fake_split_repository.dart';
 import '../support/split_presentation_fakes.dart';
@@ -178,6 +180,7 @@ Widget _groupDetailScreen({
     updateExpense: UpdateExpense(repo),
     deleteExpense: DeleteExpense(repo),
     listFriends: ListFriends(FakeSocialRepositoryForSplit()),
+    listFinanceCategories: ListFinanceCategories(FakeFinanceRepository()),
     getBalances: GetBalances(repo),
     createSettlement: CreateSettlement(repo),
     getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
