@@ -86,13 +86,18 @@ SHALL be shown as facts rather than as inputs the user cannot use. The type
 control SHALL be among them: switching type clears the category, so leaving
 it live costs the user the one field they came to change and then fails the
 save anyway. The delete
-action SHALL be absent, not disabled, and the sheet SHALL say where the
-locked parts are changed instead. A disabled control still invites the press
+action SHALL be absent, not disabled, and the sheet SHALL both say where the locked
+parts are changed and offer a way to get there — a sentence pointing at a
+place the user then has to find alone is a dead end. A disabled control still invites the press
 that a mirrored row cannot honour.
 
 When the server reports that the split changed between the sheet opening and
 the save, the user SHALL be told the record moved on and offered the current
 values, not told the save failed: retrying the same values would fail again.
+What they had typed and not yet saved SHALL survive that reload — the server
+applied none of the write, so nothing of theirs was consumed by it. When the
+split is gone entirely rather than changed, they SHALL be told that instead,
+and SHALL NOT be left editing a record that no longer exists.
 
 #### Scenario: Editing an existing transaction
 
@@ -136,6 +141,19 @@ values, not told the save failed: retrying the same values would fail again.
 - **THEN** the user is told the record changed **and the sheet shows the
   split's current amount and date**, rather than a save-failed message that a
   retry would repeat while the stale figures stay on screen
+
+#### Scenario: A mirrored transaction offers a way to the split
+
+- **WHEN** the user opens a mirrored transaction and takes the offered exit
+- **THEN** they arrive at the split records, without having to close the
+  sheet and find them
+
+#### Scenario: The split behind a mirrored transaction can vanish
+
+- **WHEN** the payer deletes the split while the user has its mirrored
+  transaction open, and the user then saves
+- **THEN** the user is told the expense is gone and the sheet closes, rather
+  than leaving them editing a record that no longer exists
 
 #### Scenario: A refused save keeps what the user was typing
 

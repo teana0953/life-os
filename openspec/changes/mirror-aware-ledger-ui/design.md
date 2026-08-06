@@ -64,6 +64,10 @@
 
 所以要**兩處都動**:`_mutate` 對這個例外要有重載分支,sheet 要能依 id 從 `controller.transactions` 重新取事實。**只改文案不重載會通過只斷言句子的測試,而使用者眼前仍然是過期的數字。**
 
+**404 是另一回事,要分開處理。** 付款人**刪掉**分帳的話,cascade 會把鏡像也帶走,使用者手上那張 sheet 指向一列不存在的資料。現在它掉進 `financeSaveFailed`,人會留在一個已經不存在的畫面上繼續編輯。要告訴他分帳被刪了、關掉 sheet、刷新。
+
+**重載可能找不到那一列。** 日期是可以被改的事實之一,付款人可以把它改到別的月份 —— 依 id 重讀時 `firstWhere` 會丟 `StateError`。
+
 **未存的編輯保留。** 409 是整筆拒絕(後端:「none of it is applied — not even the category change」),所以使用者選的分類沒有被伺服器吃掉,重載之後應該還在 —— 讓他在新的事實上重按一次儲存,而不是重挑一次分類。
 
 ## D6:split 的表單需要 finance 的分類,而它現在完全拿不到 —— **兩個呼叫點**
@@ -76,6 +80,10 @@
 2. `group_detail_screen.dart:175` —— 從 `/finance/groups/:id` 開,建在 `FinanceScaffold` **外面**(`app.dart:706`),自己一份 15 欄位的 DI
 
 **只接第一個的話,從群組頁做的編輯就是 D7 的原文**:拿不到清單 → 沒送 `category_name` → PATCH 當成沒有分類 → 所有沒被手動改過的鏡像退回「其他」。而且**不會有任何報錯**。
+
+**state 存名字,不存 id。** sheet 既有欄位的形狀就是「從 `editing` 種進 state」(`_currency = editing.currency`),分類照做:`String? _categoryName = editing?.categoryName`。存 id 再到清單裡查名字的寫法,在清單為空時會送出 null —— **正是上面那個靜默資料損失**。存名字的話最差也只是把原值重送回去。
+
+**接線比「接線」兩個字大**:`lib/contexts/finance/application/` 底下沒有獨立的分類 use case(只有 `get_finance_month.dart`,一次打四個請求而且要月份),所以要新的 use case、`App` 的新欄位、`main.dart` 的組合根,以及那個已經 15 個欄位的畫面再多一個參數。
 
 分類**送名字不送 id**:分類是 per-user 的,付款人的 id 對其他參與者沒有意義,而每個參與者的鏡像是拿名字去對自己的分類清單。
 
