@@ -953,6 +953,13 @@ void main() {
         await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
         await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
         await tester.pumpAndSettle();
+        // `ensureVisible` first: the sheet grew a category picker, which pushed
+        // the participant list past the bottom of the 800x600 test viewport —
+        // `tap` there warns about the missed hit test and then silently does
+        // nothing, so the save button stays disabled and the failure surfaces
+        // several lines later as a null `gotDescription`.
+        await tester.ensureVisible(find.byKey(const Key('split-participant-f1')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('split-participant-f1')));
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.byKey(const Key('split-save-button')));

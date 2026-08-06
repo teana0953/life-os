@@ -33,6 +33,7 @@ Map<String, dynamic> _expenseJson() => {
   'currency': 'TWD',
   'description': 'Dinner',
   'day': '2026-08-02',
+  'category_name': 'Dining',
   'split_mode': 'equal',
   'shares': <Map<String, dynamic>>[],
   'created_at': '2026-08-02T00:00:00.000Z',
@@ -265,8 +266,38 @@ void main() {
           'mode': 'equal',
           'participant_user_ids': ['u1', 'u2'],
         },
+        // Sent explicitly rather than omitted: the server reads absent and
+        // null the same way, and an always-present key is the shape the
+        // full-replace PATCH needs anyway.
+        'category_name': null,
       });
       expect(expense.id, 'e1');
+    });
+
+    test('createExpense sends the category as a name, under category_name', () async {
+      // The sheet-to-repository hop is pinned by the fake, which takes a named
+      // Dart argument — the JSON key itself is only ever set here, so without
+      // this the wire could carry anything and every widget test would pass.
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_expenseJson()), 201);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      await repository.createExpense(
+        'token-123',
+        groupId: 'g1',
+        payerUserId: 'u1',
+        amount: 900,
+        currency: 'TWD',
+        description: 'Dinner',
+        day: '2026-08-02',
+        split: const EqualSplitInput(['u1', 'u2']),
+        categoryName: 'Dining',
+      );
+
+      expect(capturedBody!['category_name'], 'Dining');
     });
 
     test('createExpense omits group_id when null (a one-off, group-less expense)', () async {
@@ -308,6 +339,11 @@ void main() {
 
       expect(capturedUri, Uri.parse('https://example.test/api/split/expenses/e1'));
       expect(expense.id, 'e1');
+      // Reading the category back matters as much as sending it: the sheet
+      // reseeds its picker from this, and a category it fails to parse is a
+      // category the next edit silently clears. Widget fixtures build
+      // `SplitExpense` directly, so this is the only place `fromJson` runs.
+      expect(expense.categoryName, 'Dining');
     });
 
     test('updateExpense PATCHes the full body to /api/split/expenses/:id', () async {
@@ -338,6 +374,33 @@ void main() {
       expect(capturedBody!['description'], 'Dinner (edited)');
       expect(capturedBody!.containsKey('group_id'), isFalse);
       expect(expense.id, 'e1');
+    });
+
+    test('updateExpense sends category_name too, since PATCH replaces wholesale', () async {
+      // Both verbs, deliberately: PATCH is a full replace, so a category the
+      // caller does not resend is not "left alone" — it is cleared, and every
+      // participant's un-hand-picked mirror moves back to their fallback
+      // category without a single error anywhere.
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode(_expenseJson()), 200);
+      });
+      final repository = HttpSplitRepository(baseUrl: 'https://example.test', client: client);
+
+      await repository.updateExpense(
+        'token-123',
+        'e1',
+        payerUserId: 'u1',
+        amount: 900,
+        currency: 'TWD',
+        description: 'Dinner',
+        day: '2026-08-02',
+        split: const EqualSplitInput(['u1', 'u2']),
+        categoryName: 'Dining',
+      );
+
+      expect(capturedBody!['category_name'], 'Dining');
     });
 
     test('deleteExpense DELETEs to /api/split/expenses/:id', () async {
