@@ -402,6 +402,41 @@ void main() {
       expect(find.byKey(const Key('split-group-expense-edit-e1')), findsOneWidget);
     });
 
+    testWidgets(
+      'the expense sheet opened from here offers the caller\'s own categories',
+      (tester) async {
+        // The second of the two `SplitExpenseSheet` call sites. It is built
+        // outside `FinanceScaffold` with its own dependency list, so wiring
+        // only the scaffold leaves this picker empty — and an edit made here
+        // then sends no `category_name`, which PATCH reads as "no category"
+        // and quietly moves every participant's un-hand-picked mirror back to
+        // their fallback. Nothing errors; the guard has to be the picker's
+        // own contents.
+        final repo = FakeSplitRepository()
+          ..groupToReturn = const SplitGroup(
+            id: 'g1',
+            name: 'Trip',
+            createdByUserId: 'self-1',
+            archivedAt: null,
+          )
+          ..expensesToReturn = [
+            _expense(id: 'e1', createdByUserId: 'self-1', payerUserId: 'self-1'),
+          ];
+
+        await tester.pumpWidget(_screen(repo: repo, selfUserId: 'self-1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-expense-edit-e1')));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('餐飲'), findsWidgets);
+      },
+    );
+
     testWidgets('edit action is offered only to an expense creator or payer', (tester) async {
       final repo = FakeSplitRepository()
         ..groupToReturn = const SplitGroup(

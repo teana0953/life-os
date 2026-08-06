@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
@@ -706,6 +708,127 @@ void main() {
       final saveButton = tester.widget<FilledButton>(find.byKey(const Key('split-save-button')));
       expect(saveButton.onPressed, isNull);
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('SplitExpenseSheet — the optional finance category', () {
+    const categories = [
+      FinanceCategory(
+        id: 'cat-food',
+        name: '餐飲',
+        type: FinanceType.expense,
+        icon: 'other',
+        sortOrder: 0,
+        archived: false,
+      ),
+      // An income category with the same shape, to prove the picker filters by
+      // type rather than offering everything the user owns.
+      FinanceCategory(
+        id: 'cat-salary',
+        name: '薪資',
+        type: FinanceType.income,
+        icon: 'other',
+        sortOrder: 1,
+        archived: false,
+      ),
+    ];
+
+    SplitExpense editable({String? categoryName = '餐飲'}) => SplitExpense(
+      id: 'e1',
+      groupId: null,
+      payerUserId: _self,
+      payerDisplayName: 'Self',
+      createdByUserId: _self,
+      amount: 900,
+      currency: 'TWD',
+      description: 'Dinner',
+      day: '2026-08-02',
+      splitMode: 'equal',
+      categoryName: categoryName,
+      shares: const [
+        SplitShare(userId: _self, amount: 450, displayName: 'Self'),
+        SplitShare(userId: 'f1', amount: 450, displayName: 'Friend One'),
+      ],
+      createdAt: '2026-08-02T00:00:00Z',
+      updatedAt: '2026-08-02T00:00:00Z',
+    );
+
+    Future<void> pumpEditing(
+      WidgetTester tester,
+      FakeSplitRepository repo, {
+      SplitExpense? expense,
+      List<FinanceCategory> financeCategories = categories,
+    }) => _pumpSheet(
+      tester,
+      sheet: SplitExpenseSheet(
+        onAddFriend: () {},
+        writer: _controller(repo),
+        idToken: () async => 'tok',
+        selfUserId: _self,
+        today: '2026-08-02',
+        editing: expense ?? editable(),
+        friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+        financeCategories: financeCategories,
+      ),
+    );
+
+    Future<void> save(WidgetTester tester) async {
+      await tester.ensureVisible(find.byKey(const Key('split-save-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-save-button')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sends the category as a name, not an id', (tester) async {
+      // A name, because finance categories are per-user: this recorder's id
+      // means nothing to the other participants, whose mirrors resolve the
+      // name against their own list.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo);
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('an edit that touches only the amount keeps the category', (
+      tester,
+    ) async {
+      // PATCH is a full replace: a category this form does not resend is not
+      // left alone, it is cleared — and every participant's un-hand-picked
+      // mirror then moves back to their fallback category, silently.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo);
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '1200');
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+      expect(repo.gotAmount, 1200);
+    });
+
+    testWidgets('resends the category even when the picker has nothing in it', (
+      tester,
+    ) async {
+      // An empty list is a real production state — the categories request can
+      // fail — and it is the only state that tells the two implementations
+      // apart: holding an id and resolving it at submit sends `null` here,
+      // which is the silent data loss above. Holding the name cannot.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, financeCategories: const []);
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('an expense with no category saves fine', (tester) async {
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+      await save(tester);
+
+      expect(repo.gotCategoryName, isNull);
+      // The save really happened — otherwise a null category would be
+      // indistinguishable from the sheet refusing to submit at all.
+      expect(repo.gotDescription, 'Dinner');
     });
   });
 }
