@@ -13,6 +13,7 @@ import 'package:life_os/contexts/exercise/presentation/exercise_controller.dart'
 import 'package:life_os/contexts/exercise/presentation/exercise_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/last_loaded_label.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -150,6 +151,17 @@ void main() {
     await _pumpScreen(tester, repository: FakeExerciseRepository());
 
     expect(find.byKey(const Key('exercise-empty')), findsOneWidget);
+
+    // Tier 2 (unify-empty-states): the shared one-line muted note — not a
+    // page-sized guide dropped inside a card or a section.
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('exercise-empty')),
+        matching: find.byType(EmptyStateNote),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(EmptyStateGuide), findsNothing);
     expect(find.text(_loc.exerciseTotalMinutes(0)), findsOneWidget);
     expect(find.byKey(const Key('exercise-remove-0')), findsNothing);
   });

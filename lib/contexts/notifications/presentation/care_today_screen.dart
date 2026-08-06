@@ -10,6 +10,7 @@ import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/mascot.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
@@ -678,28 +679,16 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    // Tier 1: today's checklist is the screen, and it is empty. `ListView`
+    // child, so the guide's no-scroll contract applies here too.
     return LedgeCard(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        key: const Key('care-today-empty-state'),
-        children: [
-          Icon(
-            Icons.event_available_outlined,
-            size: 48,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          Text(loc.careTodayEmptyTitle, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            loc.careTodayEmptyBody,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
+      child: EmptyStateGuide(
+        stateKey: const Key('care-today-empty-state'),
+        icon: Icons.event_available_outlined,
+        title: loc.careTodayEmptyTitle,
+        body: loc.careTodayEmptyBody,
+        actions: [
           FilledButton(
             key: const Key('care-today-empty-manage-button'),
             onPressed: onAdd,

@@ -10,6 +10,7 @@ import '../domain/vitals_day.dart';
 import '../domain/vitals_series.dart';
 import 'trend_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
+import '../../../shared/widgets/empty_state.dart';
 
 /// The dashboard's second card: a line chart of one vitals metric over a date
 /// range, with a metric picker and a 7 / 30 / 90-day range selector. The
@@ -280,13 +281,13 @@ class _TrendCardState extends State<TrendCard> {
                 children: [
                   Positioned.fill(
                     child: !hasChart
+                        // Tier 2: the empty region is the chart area inside
+                        // the trend card — the card's title and its range
+                        // selector are still there.
                         ? Center(
-                            child: Text(
-                              loc.trendEmpty,
-                              key: const Key('trend-empty'),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                            child: EmptyStateNote(
+                              stateKey: const Key('trend-empty'),
+                              text: loc.trendEmpty,
                             ),
                           )
                         : _TrendChart(

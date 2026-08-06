@@ -15,6 +15,8 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/date/day_format.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/ledge_card.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -776,6 +778,33 @@ void main() {
         );
         expect(find.byKey(const Key('care-adherence-heatmap')), findsNothing);
 
+        // Tier 2 (unify-empty-states), decided by the region: the card's own
+        // header (title, "view history", period selector) is drawn above
+        // this unconditionally, so the empty region is a card interior — not
+        // a screen or a tab — and gets the inline note, not the full guide.
+        expect(
+          find.byType(EmptyStateNote),
+          findsOneWidget,
+          reason: 'the empty region inside the card is tier 2',
+        );
+        expect(
+          find.byType(EmptyStateGuide),
+          findsNothing,
+          reason: 'a page-sized guide would sit under the card\'s own header',
+        );
+        expect(find.byIcon(Icons.event_note_outlined), findsNothing);
+
+        // The centring is real, not just a `TextAlign` on a shrink-wrapped
+        // box: this card's parent column is `crossAxisAlignment.start`, so
+        // the note only spans the card unless something stretches it.
+        final cardWidth = tester.getSize(find.byType(LedgeCard)).width;
+        expect(
+          tester.getSize(find.byKey(const Key('care-adherence-empty-state'))).width,
+          // 20dp of card padding and 2dp of card outline, each side.
+          closeTo(cardWidth - 44, 0.5),
+          reason: 'the note does not span the card, so it is not centred in it',
+        );
+
         // The copy has to match the only action on offer ("go to care
         // management"): a period-scoped "nothing was scheduled in this
         // period" next to a configure-your-items button is the mismatch the
@@ -783,7 +812,8 @@ void main() {
         // its own period picker, so widening isn't the story here either.
         final loc = lookupAppLocalizations(const Locale('en'));
         expect(find.text(loc.careHistoryNoCareItemsTitle), findsOneWidget);
-        expect(find.text(loc.careHistoryNoCareItemsBody), findsOneWidget);
+        // One line, not the guide's title+body pair.
+        expect(find.text(loc.careHistoryNoCareItemsBody), findsNothing);
         expect(find.text(loc.careHistoryEmptyTitle), findsNothing);
         expect(find.text(loc.careHistoryEmptyBody), findsNothing);
       },

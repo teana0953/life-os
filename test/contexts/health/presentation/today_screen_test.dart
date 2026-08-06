@@ -17,6 +17,7 @@ import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/health/presentation/today_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
@@ -1191,6 +1192,18 @@ void main() {
       // The lunch meal is gone; only the empty-card fallback remains.
       expect(find.byKey(const Key('meal-total-lunch')), findsNothing);
       expect(find.text(loc.dietMealEmptyLabel), findsWidgets);
+
+      // Tier 2 (unify-empty-states): the shared one-line muted note. The
+      // only converted site with no key at all — located by its text, as it
+      // always was.
+      expect(
+        find.ancestor(
+          of: find.text(loc.dietMealEmptyLabel).first,
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
     });
   });
 

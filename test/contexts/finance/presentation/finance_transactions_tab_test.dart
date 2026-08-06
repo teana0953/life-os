@@ -3,8 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 void main() {
@@ -28,6 +32,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('finance-transactions-empty')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('finance-transactions-empty')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.receipt_long_outlined),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('groups transactions by day, newest day first', (tester) async {
@@ -117,5 +138,57 @@ void main() {
 
       expect(edited?.id, 'seed-1');
     });
+  });
+
+  // Narrow screen (task 4). Re-derived after the change: the guide replaced
+  // a bare `Text`, but it is still inside a `Center` — a *bounded* box — so
+  // an overflow here really does throw and `expectNoLayoutErrors` is not a
+  // guard that cannot fail. (Deliberately left unwrapped for that reason;
+  // see the note at the call site.) The measurement below covers the other
+  // half: fitting the box is not the same as painting every glyph.
+  group('the empty guide at 320dp, textScale 2.0', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets('shows its title in full, locale=$locale', (tester) async {
+        useTextScaleFactor(tester, 2.0);
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final controller = testFinanceController(FakeFinanceRepository());
+        await controller.load('tok', '2026-07');
+        await expectNoLayoutErrors(() async {
+          await tester.pumpWidget(
+            l10nTestApp(
+              locale: locale,
+              home: Scaffold(
+                body: FinanceTransactionsTab(
+                  controller: controller,
+                  onEdit: (_) {},
+                  onSwitchMonth: (m) async {},
+                  onSignInAgain: () {},
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        });
+
+        final loc = lookupAppLocalizations(locale);
+        final finder = find.text(loc.financeEmptyTitle);
+        expect(finder, findsOneWidget);
+        // Measured, not read off `didExceedMaxLines`: that flag is only ever
+        // true when `maxLines` is set, and the guide's title sets neither
+        // `maxLines` nor `overflow`, so it was an assertion that could not
+        // fail. Every glyph painted is what "not cut off" actually means.
+        expectPaintedInFull(
+          tester,
+          finder,
+          reason: 'the empty-month title was cut off at 320dp × 2.0',
+        );
+        // Inside the surface, not merely laid out somewhere.
+        final rect = tester.getRect(finder);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(640));
+      });
+    }
   });
 }

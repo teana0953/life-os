@@ -7,6 +7,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/label_value_row.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
 import '../domain/finance_month.dart';
@@ -513,6 +514,10 @@ class _TrendSection extends StatelessWidget {
 
 /// The guide shown when the selected month holds no snapshot at all
 /// (design.md — never a blank tab).
+/// Tier 1: the month has no recorded account values, which is the whole of
+/// what this tab shows for that month. Gains the icon and the standard
+/// `titleMedium` heading; the 12dp gap before the action becomes the
+/// standard 16. A `ListView` child, so no scroll of its own.
 class _EmptyState extends StatelessWidget {
   final String ctaLabel;
   final VoidCallback onCta;
@@ -524,16 +529,11 @@ class _EmptyState extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loc.networthEmptyTitle,
-            key: const Key('networth-empty-title'),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 12),
+      child: EmptyStateGuide(
+        stateKey: const Key('networth-empty-title'),
+        icon: Icons.account_balance_outlined,
+        title: loc.networthEmptyTitle,
+        actions: [
           FilledButton(
             key: const Key('networth-empty-cta'),
             onPressed: onCta,

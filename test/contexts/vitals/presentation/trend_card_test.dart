@@ -11,6 +11,7 @@ import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 import 'package:life_os/contexts/vitals/presentation/trend_card.dart';
 import 'package:life_os/contexts/vitals/presentation/trend_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -252,6 +253,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(_en.trendEmpty), findsOneWidget);
+
+    // Tier 2 (unify-empty-states): the empty region is the chart area
+    // inside the card, whose title and range selector are still on screen.
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('trend-empty')),
+        matching: find.byType(EmptyStateNote),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(EmptyStateGuide), findsNothing);
     expect(find.byType(LineChart), findsNothing);
   });
 

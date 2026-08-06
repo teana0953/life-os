@@ -8,6 +8,7 @@ import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
 import 'package:life_os/shared/widgets/month_nav_header.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import 'package:intl/intl.dart';
 
@@ -207,6 +208,23 @@ void main() {
       await _pumpTab(tester, FakeFinanceRepository());
 
       expect(find.byKey(const Key('networth-empty-title')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('networth-empty-title')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.account_balance_outlined),
+        ),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('networth-empty-cta')), findsOneWidget);
     });
 

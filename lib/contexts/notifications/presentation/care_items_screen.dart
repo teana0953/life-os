@@ -7,6 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
 import 'care_item_form.dart';
@@ -363,28 +364,17 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    // Tier 1: the whole screen has nothing on it — the list of care items is
+    // all this screen is. The card around it stays; the guide is a bare
+    // Column and this is a `ListView` child, so nothing here may scroll.
     return LedgeCard(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        key: const Key('care-items-empty-state'),
-        children: [
-          Icon(
-            Icons.health_and_safety_outlined,
-            size: 48,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          Text(loc.careRemindersEmptyTitle, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            loc.careRemindersEmptyBody,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
+      child: EmptyStateGuide(
+        stateKey: const Key('care-items-empty-state'),
+        icon: Icons.health_and_safety_outlined,
+        title: loc.careRemindersEmptyTitle,
+        body: loc.careRemindersEmptyBody,
+        actions: [
           FilledButton(
             key: const Key('care-items-empty-add-button'),
             onPressed: onAdd,

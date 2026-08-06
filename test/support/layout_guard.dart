@@ -137,6 +137,54 @@ int paintedLineCountOfPart(WidgetTester tester, Finder finder, String part) {
   return boxes.map((b) => b.top.roundToDouble()).toSet().length;
 }
 
+/// Asserts every non-whitespace character of the `Text` [finder] matches
+/// actually painted a glyph.
+///
+/// **What this does and does not catch.** It catches the paragraph dropping
+/// characters — a `maxLines` cap, an ellipsis, a height it could not lay out
+/// in. It does **not** catch text painted off-screen, or clipped by an
+/// ancestor `ClipRect`: those glyphs still have selection boxes. It passes
+/// vacuously on an empty or whitespace-only string, and it will false-fail on
+/// decomposed combining marks or ZWJ sequences, where one character
+/// legitimately paints no box of its own. So this is "the paragraph laid out
+/// every character", not the whole of "the label wasn't cut off" — pair it
+/// with a hit test or a rect check when the concern is visibility rather than
+/// layout.
+///
+/// It replaces the
+/// `RenderParagraph.didExceedMaxLines` reading two narrow-screen guards used
+/// to make. That flag is **only ever true when `maxLines` is set**, so on a
+/// `Text` that sets neither `maxLines` nor `overflow` — every text inside
+/// `EmptyStateGuide` — it is structurally `false` and the assertion could not
+/// fail whatever the layout did. A paragraph that dropped characters (a
+/// `maxLines` cap, an ellipsis, a height it could not lay out in) reports no
+/// selection box for them, so measuring the glyphs is falsifiable where
+/// reading the flag was not.
+///
+/// Whitespace is skipped for the same reason [paintedTextLineRights] skips it:
+/// a space consumed by a line break paints nothing and would be reported as a
+/// missing glyph on every wrapped string.
+void expectPaintedInFull(WidgetTester tester, Finder finder, {String? reason}) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final plain = paragraph.text.toPlainText();
+  final missing = <String>[];
+  for (var i = 0; i < plain.length; i++) {
+    if (plain[i].trim().isEmpty) continue;
+    final boxes = paragraph.getBoxesForSelection(
+      TextSelection(baseOffset: i, extentOffset: i + 1),
+    );
+    if (boxes.isEmpty || boxes.every((b) => b.right <= b.left)) {
+      missing.add('#$i "${plain[i]}"');
+    }
+  }
+  if (missing.isEmpty) return;
+  fail(
+    '${reason ?? 'Expected every glyph of "$plain" to be painted'}, but '
+    '${missing.length} of its ${plain.length} characters painted nothing: '
+    '${missing.take(8).join(', ')}',
+  );
+}
+
 /// Runs [body] and asserts it reported no layout error at all.
 ///
 /// Not limited to `RenderFlex` overflows on purpose: a `ListTile` whose

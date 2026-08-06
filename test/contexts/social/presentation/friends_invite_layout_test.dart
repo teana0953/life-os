@@ -350,6 +350,14 @@ void main() {
                 find.byKey(const Key('invite-revoke-inv-1')),
                 200,
               );
+              // `scrollUntilVisible` stops as soon as the row is *built*,
+              // which the cache extent makes true while it is still below
+              // the fold — and the empty-state guide above it is now a full
+              // guide, so that gap is wider than it was.
+              await tester.ensureVisible(
+                find.byKey(const Key('invite-revoke-inv-1')),
+              );
+              await tester.pumpAndSettle();
               await tester.tap(find.byKey(const Key('invite-revoke-inv-1')));
               await tester.pumpAndSettle();
             });

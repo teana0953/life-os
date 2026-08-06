@@ -9,6 +9,7 @@ import '../../../shared/config.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/label_value_row.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../auth/application/sign_out.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../application/friend_use_cases.dart';
@@ -414,7 +415,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ],
                 const SizedBox(height: 24),
                 if (_controller.friends.isEmpty)
-                  _EmptyState(key: const Key('friends-empty-state'))
+                  const _EmptyState(stateKey: Key('friends-empty-state'))
                 else ...[
                   Text(loc.friendsSectionFriends, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 8),
@@ -611,29 +612,26 @@ class _InviteLinkCard extends StatelessWidget {
   }
 }
 
+/// Tier 1: the friends list is what this screen is, and it is empty. Gains
+/// the icon; the body picks up the muted colour it lacked and moves from 8
+/// to the standard 4 below the title. The key still comes from the call
+/// site, and now lands on the guide's own column. No action: the invite
+/// control is already the first thing on the screen, above this.
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({super.key});
+  final Key stateKey;
+
+  const _EmptyState({required this.stateKey});
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loc.friendsEmptyTitle,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            loc.friendsEmptyMessage,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
+      child: EmptyStateGuide(
+        stateKey: stateKey,
+        icon: Icons.group_outlined,
+        title: loc.friendsEmptyTitle,
+        body: loc.friendsEmptyMessage,
       ),
     );
   }

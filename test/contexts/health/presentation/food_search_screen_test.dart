@@ -27,6 +27,7 @@ import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
 import 'package:life_os/contexts/health/presentation/shared_food_item_controller.dart';
 import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -946,6 +947,23 @@ void main() {
 
       expect(find.byKey(const Key('food-search-empty-favorites')), findsOneWidget);
       expect(find.text(loc.dietDictionaryFavoritesEmptyTitle), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('food-search-empty-favorites')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.favorite_border),
+        ),
+        findsOneWidget,
+      );
       // Not the search-found-nothing state: nothing has been searched.
       expect(find.byKey(const Key('food-search-empty-no-results')), findsNothing);
     });
@@ -964,6 +982,23 @@ void main() {
 
       expect(find.byKey(const Key('food-search-empty-no-results')), findsOneWidget);
       expect(find.text(loc.dietDictionaryNoResultsTitle('酪梨')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('food-search-empty-no-results')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.search_off),
+        ),
+        findsOneWidget,
+      );
       // Not the no-favorites state: this is the user's own search coming back
       // empty, and the way out is offered right here.
       expect(find.byKey(const Key('food-search-empty-favorites')), findsNothing);

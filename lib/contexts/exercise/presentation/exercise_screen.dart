@@ -11,6 +11,7 @@ import '../../../shared/widgets/tracker_day_nav.dart';
 import '../domain/exercise_day.dart';
 import 'exercise_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
+import '../../../shared/widgets/empty_state.dart';
 
 /// Exercise section: the viewed day's entries and their total duration, with an
 /// immediate append (an activity picker + whole-minutes duration + optional
@@ -256,18 +257,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> with TrackerDayScreen {
                       ),
                       const SizedBox(height: 16),
                       if (day.entries.isEmpty)
+                        // Tier 2: the empty region is the entry list inside
+                        // the day's card, under a total that is still shown.
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text(
-                            loc.exerciseEmptyLabel,
-                            key: const Key('exercise-empty'),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
+                          child: EmptyStateNote(
+                            stateKey: const Key('exercise-empty'),
+                            text: loc.exerciseEmptyLabel,
                           ),
                         )
                       else

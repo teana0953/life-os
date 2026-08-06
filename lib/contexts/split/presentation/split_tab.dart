@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../finance/domain/finance_money.dart';
 import '../domain/settlement.dart';
 import '../domain/split_expense.dart';
@@ -298,9 +299,15 @@ class _SplitTabState extends State<SplitTab> {
                       ],
                     ),
                     if (widget.controller.groups.isEmpty)
+                      // Tier 2: the Groups *section* of a populated tab is
+                      // empty, not the tab. Gains the muted colour and the
+                      // centring. (Missed by the change's own inventory.)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(loc.splitNoGroupsYet, key: const Key('split-no-groups')),
+                        child: EmptyStateNote(
+                          stateKey: const Key('split-no-groups'),
+                          text: loc.splitNoGroupsYet,
+                        ),
                       )
                     else
                       LedgeCard(
@@ -324,9 +331,14 @@ class _SplitTabState extends State<SplitTab> {
                     ),
                     const SizedBox(height: 8),
                     if (activity.isEmpty)
+                      // Tier 2: the Recent activity section, same reasoning
+                      // as Groups above. (Also missed by the inventory.)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(loc.splitNoActivityYet, key: const Key('split-no-activity')),
+                        child: EmptyStateNote(
+                          stateKey: const Key('split-no-activity'),
+                          text: loc.splitNoActivityYet,
+                        ),
                       )
                     else
                       LedgeCard(
@@ -466,38 +478,57 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    // Tier 1: nothing on the whole tab — no balances, no groups, no
+    // expenses, no settlements. Gains the icon and the standard
+    // `titleMedium` heading; the "no friends yet" line becomes the guide's
+    // muted body, in the same position it already occupied.
+    //
+    // Three actions render at once here, which is why the guide takes a
+    // *list*: a primary/secondary pair cannot express three, and the
+    // alternative — a third shape for this one screen — would give the
+    // standard an exception on its second day. Reading order is unchanged:
+    // "you have no friends yet", then add a friend, record an expense,
+    // create a group. A `ListView` child, so no scroll of its own.
+    //
+    // **One primary, the rest secondary** — the same shape `care_history`
+    // uses. Which one is primary follows the body: while `needsFriends`, the
+    // body says a friend is needed first and "record an expense" opens a
+    // sheet that cannot be saved (only 「你」 to split with), so it must not
+    // sit at the same weight as the action that unblocks it. Once there are
+    // friends the add-friend action is gone and recording *is* the first
+    // move, so it takes the primary weight back.
+    //
+    // The 12dp break that used to group add-friend with its reason is not
+    // restored: the emphasis now carries that grouping, and re-introducing a
+    // per-action gap would mean widening the shared widget's API for one
+    // call site.
+    final recordIsPrimary = !needsFriends;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loc.splitEmptyTitle,
-            key: const Key('split-empty-title'),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          if (needsFriends) ...[
-            const SizedBox(height: 8),
-            Text(
-              loc.splitNoFriendsYet,
-              key: const Key('split-empty-needs-friends'),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
+      child: EmptyStateGuide(
+        stateKey: const Key('split-empty-title'),
+        icon: Icons.call_split,
+        title: loc.splitEmptyTitle,
+        body: needsFriends ? loc.splitNoFriendsYet : null,
+        actions: [
+          if (needsFriends)
             FilledButton(
               key: const Key('split-empty-add-friend'),
               onPressed: onAddFriend,
               child: Text(loc.splitAddFriendAction),
             ),
-          ],
-          const SizedBox(height: 12),
-          FilledButton(
-            key: const Key('split-empty-cta'),
-            onPressed: onCta,
-            child: Text(loc.splitEmptyCta),
-          ),
-          const SizedBox(height: 8),
+          if (recordIsPrimary)
+            FilledButton(
+              key: const Key('split-empty-cta'),
+              onPressed: onCta,
+              child: Text(loc.splitEmptyCta),
+            )
+          else
+            OutlinedButton(
+              key: const Key('split-empty-cta'),
+              onPressed: onCta,
+              child: Text(loc.splitEmptyCta),
+            ),
           // The other natural first move for a trip is "create the group" —
           // offered here too, because the Groups section (and its own New
           // group action) is not rendered at all while the tab is empty.
