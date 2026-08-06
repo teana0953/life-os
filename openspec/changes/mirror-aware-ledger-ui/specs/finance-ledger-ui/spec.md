@@ -28,8 +28,9 @@ This scenario is kept under its former name so the inversion is explicit: a
 counted currency's share now DOES consume the budget.
 
 - **WHEN** the user has TWD split shares in the month
-- **THEN** the budget card's consumed amount includes them, matching the
-  server's own overspend decision
+- **THEN** the budget card shows exactly the figure the server reported, with
+  nothing added locally — the shares are already inside it, and adding them
+  again is the double-count the old wording existed to prevent
 
 #### Scenario: A month without splits omits the line
 
@@ -81,7 +82,10 @@ the month's data on success.
 A transaction the server mirrored from a split expense SHALL be marked as
 such in the list, and its sheet SHALL offer only what the server accepts: its
 category and note SHALL be editable, and its amount, date, currency and type
-SHALL be shown as facts rather than as inputs the user cannot use. The delete
+SHALL be shown as facts rather than as inputs the user cannot use. The type
+control SHALL be among them: switching type clears the category, so leaving
+it live costs the user the one field they came to change and then fails the
+save anyway. The delete
 action SHALL be absent, not disabled, and the sheet SHALL say where the
 locked parts are changed instead. A disabled control still invites the press
 that a mirrored row cannot honour.
@@ -115,8 +119,10 @@ values, not told the save failed: retrying the same values would fail again.
 #### Scenario: A mirrored transaction's facts are not inputs
 
 - **WHEN** the user opens a mirrored transaction
-- **THEN** its amount, date and currency are shown as text, and the only
-  fields that accept input are its category and note
+- **THEN** its amount, date, currency and type are shown as text, and the only
+  fields that accept input are its category and note — the type control above
+  all, since switching type clears the category, which is the one field the
+  user opened the sheet to change
 
 #### Scenario: Recategorising a mirrored transaction works
 
@@ -127,5 +133,13 @@ values, not told the save failed: retrying the same values would fail again.
 
 - **WHEN** the payer edits the split while the user has the mirrored
   transaction open, and the user then saves
-- **THEN** the user is told the record changed and shown the current values,
-  rather than a save-failed message that a retry would repeat
+- **THEN** the user is told the record changed **and the sheet shows the
+  split's current amount and date**, rather than a save-failed message that a
+  retry would repeat while the stale figures stay on screen
+
+#### Scenario: A refused save keeps what the user was typing
+
+- **WHEN** the save is refused because the split moved on, and the user had
+  changed the category
+- **THEN** their category choice is still selected after the reload — the
+  server applied none of the write, so nothing they typed is lost to it

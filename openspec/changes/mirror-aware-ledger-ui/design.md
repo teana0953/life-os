@@ -55,11 +55,27 @@
 
 所以要:告訴使用者記錄變了、把現在的值拿回來、讓他在新的基礎上重做決定。**不要**沿用 `financeSaveFailed`,那句話會把人推向一個保證失敗的動作。
 
-現在 409 掉進 `FinanceFetchFailure('Finance request failed (status $statusCode).')` —— 一句英文加狀態碼給中文使用者。要有自己的例外型別。
+現在 409 掉進 `FinanceFetchFailure('Finance request failed (status $statusCode).')` —— 一句英文加狀態碼給中文使用者。要有自己的例外型別。(後端全域只有一處回 409,所以 `_throwForStatus` 直接對應是安全的。)
 
-## D6:split 的表單需要 finance 的分類,而它現在完全拿不到
+**「把現在的值拿回來」沒有現成機制,而且要動的程式碼明文拒絕這件事:**
 
-`grep -rn "FinanceCategory" lib/contexts/split/` **零筆**。這是這個 change 唯一的接線工作。
+- `finance_controller.dart:331-351` 的 `_mutate` **失敗時從不重載**,註解寫明是刻意的(「失敗時保留先前載入的資料不動」)
+- `AddTransactionSheet` 在 `initState` 把 `widget.editing` 快照下來(`:61-68`),之後沒有東西重讀
+
+所以要**兩處都動**:`_mutate` 對這個例外要有重載分支,sheet 要能依 id 從 `controller.transactions` 重新取事實。**只改文案不重載會通過只斷言句子的測試,而使用者眼前仍然是過期的數字。**
+
+**未存的編輯保留。** 409 是整筆拒絕(後端:「none of it is applied — not even the category change」),所以使用者選的分類沒有被伺服器吃掉,重載之後應該還在 —— 讓他在新的事實上重按一次儲存,而不是重挑一次分類。
+
+## D6:split 的表單需要 finance 的分類,而它現在完全拿不到 —— **兩個呼叫點**
+
+`grep -rn "FinanceCategory" lib/contexts/split/` **零筆**。
+
+**`SplitExpenseSheet` 有兩個呼叫點,第一版只點名了一個:**
+
+1. `finance_scaffold.dart:229` —— 分帳 tab
+2. `group_detail_screen.dart:175` —— 從 `/finance/groups/:id` 開,建在 `FinanceScaffold` **外面**(`app.dart:706`),自己一份 15 欄位的 DI
+
+**只接第一個的話,從群組頁做的編輯就是 D7 的原文**:拿不到清單 → 沒送 `category_name` → PATCH 當成沒有分類 → 所有沒被手動改過的鏡像退回「其他」。而且**不會有任何報錯**。
 
 分類**送名字不送 id**:分類是 per-user 的,付款人的 id 對其他參與者沒有意義,而每個參與者的鏡像是拿名字去對自己的分類清單。
 
@@ -68,3 +84,8 @@
 編輯分帳時若沒把 `category_name` 一起送回去,後端會當成「沒有分類」,而**所有沒被使用者手動改過的鏡像會退回「其他」** —— 一次只改金額的編輯,會靜默改掉別人帳本裡的分類。
 
 表單開啟時要把現有的分類讀進 state,送出時一起送。**這跟 sheet 裡其他欄位的處理一致**(`_currency`、`_day` 都是這樣),照著做即可,但要有測試釘住 —— 這種「少送一個欄位」的錯不會有任何報錯。
+
+## D8:兩件明確的非目標
+
+- **`decimalDigitsFor`(`finance_money.dart:26-27`)對白名單外的幣別一律回 2。** 這個 change 把未計入的幣別獨立成一組、變得更顯眼,而 VND 這種零小數的碼會顯示成 1/100。後端 D10 已經記過,**這裡不修**,但寫進 PR。
+- 後端還送 `category_source`。**這個 change 用不到**,不是漏掉。
