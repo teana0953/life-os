@@ -5,6 +5,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../social/application/friend_use_cases.dart';
@@ -432,9 +433,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 Text(loc.splitGroupExpensesTitle, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 if (_controller.expenses.isEmpty)
+                  // Tier 2: the Expenses section of a group page that still
+                  // shows its members and balances above. Gains the muted
+                  // colour and the centring.
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(loc.splitGroupNoExpensesYet, key: const Key('split-group-no-expenses')),
+                    child: EmptyStateNote(
+                      stateKey: const Key('split-group-no-expenses'),
+                      text: loc.splitGroupNoExpensesYet,
+                    ),
                   )
                 else
                   LedgeCard(

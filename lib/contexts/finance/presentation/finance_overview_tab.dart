@@ -7,6 +7,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/label_value_row.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
 import '../domain/finance_category.dart';
@@ -549,6 +550,11 @@ class _TransactionRow extends StatelessWidget {
 
 /// Empty-month guide with a call-to-action that opens the record sheet
 /// (design.md — never a blank page).
+///
+/// Tier 1: the month's transactions are what this tab is for, and the tab
+/// has none. It gains the icon and the standard `titleMedium` heading it
+/// never had; the key stays on the heading, which is the node the tests
+/// locate. A `ListView` child, so no scroll of its own.
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAdd;
 
@@ -559,16 +565,11 @@ class _EmptyState extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loc.financeEmptyTitle,
-            key: const Key('finance-empty-title'),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 16),
+      child: EmptyStateGuide(
+        stateKey: const Key('finance-empty-title'),
+        icon: Icons.receipt_long_outlined,
+        title: loc.financeEmptyTitle,
+        actions: [
           FilledButton(
             key: const Key('finance-empty-cta'),
             onPressed: onAdd,

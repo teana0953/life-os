@@ -6,6 +6,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import 'split_activity_controller.dart';
 import 'split_activity_row.dart';
@@ -284,20 +285,18 @@ class _EmptyGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    // Tier 1: the change log is the whole screen and it has nothing in it.
+    // Gains the icon; the heading steps down from `titleLarge` to the
+    // standard `titleMedium` and the body picks up the muted colour it
+    // lacked. No action — there is nothing to do here but use the app.
+    // Rendered as the list's sole item, so no scroll of its own.
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loc.splitActivityEmptyTitle,
-            key: const Key('split-activity-empty'),
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(loc.splitActivityEmptyBody, textAlign: TextAlign.center),
-        ],
+      child: EmptyStateGuide(
+        stateKey: const Key('split-activity-empty'),
+        icon: Icons.history,
+        title: loc.splitActivityEmptyTitle,
+        body: loc.splitActivityEmptyBody,
       ),
     );
   }

@@ -7,6 +7,8 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/ledge_card.dart';
 
 import 'package:intl/intl.dart';
 
@@ -48,7 +50,60 @@ void main() {
       await pumpOverview(tester, FakeFinanceRepository());
 
       expect(find.byKey(const Key('finance-empty-title')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('finance-empty-title')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.receipt_long_outlined),
+        ),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('finance-empty-cta')), findsOneWidget);
+    });
+
+    testWidgets('the month guide and the budget note are different tiers '
+        'because only one of the two regions is named by a header', (
+      tester,
+    ) async {
+      await pumpOverview(tester, FakeFinanceRepository());
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      // Both regions are empty for the same reason (a brand-new account) and
+      // they render 16dp apart, which is what makes the two tiers look
+      // inconsistent here. The discriminator is design D1b, not looks:
+      //
+      // Tier 2 — the budget rows. The card's own header stays on screen and
+      // names the region, so one muted line finishes the sentence.
+      expect(find.text(loc.financeBudgetCardTitle), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('budget-card')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+
+      // Tier 1 — the month's transactions. Nothing left on the tab names
+      // that region: the month header names the *month*, the budget card
+      // names *budgets*. So the guide has to introduce the region itself,
+      // and it is not inside any titled card or section.
+      final guide = find.byType(EmptyStateGuide);
+      expect(guide, findsOneWidget);
+      expect(
+        find.ancestor(of: guide, matching: find.byType(LedgeCard)),
+        findsNothing,
+        reason: 'the month guide sits inside a titled card — under D1b that '
+            'card names the region and the guide should be a note',
+      );
     });
 
     testWidgets('tapping the empty-state CTA opens the record sheet', (

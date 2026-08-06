@@ -8,6 +8,7 @@ import 'package:life_os/contexts/notifications/presentation/care_items_screen.da
 import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/push_health.dart';
@@ -194,6 +195,23 @@ void main() {
       await _pumpScreen(tester, controller);
 
       expect(find.byKey(const Key('care-items-empty-state')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('care-items-empty-state')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.health_and_safety_outlined),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('lists reminders grouped by category with a schedule summary', (

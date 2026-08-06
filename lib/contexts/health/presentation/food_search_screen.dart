@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_sheet.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/food_item.dart';
@@ -298,6 +299,26 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     }
   }
 
+  /// The shared tier-1 empty state, with the scroll and padding this
+  /// particular results area needs wrapped around it — the padding
+  /// [_ResultsMessage] used to carry, kept identical.
+  Widget _emptyGuide({
+    required Key stateKey,
+    required IconData icon,
+    required String title,
+    String? body,
+    List<Widget> actions = const <Widget>[],
+  }) => SingleChildScrollView(
+    padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+    child: EmptyStateGuide(
+      stateKey: stateKey,
+      icon: icon,
+      title: title,
+      body: body,
+      actions: actions,
+    ),
+  );
+
   /// What fills the page below the search field. It always says what it is
   /// showing rather than going blank, because in dictionary mode the list is
   /// the whole page: a failure (with its recovery exit), the load still in
@@ -343,26 +364,33 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     }
 
     if (results.isEmpty) {
+      // Tier 1 (the full guide): the results area *is* the page below the
+      // search field in dictionary mode — there is no other content around
+      // it for a one-line note to sit inside. The scroll stays here rather
+      // than in [EmptyStateGuide] because this particular box is bounded
+      // (see the widget's own note); most of the guide's other call sites
+      // are `ListView` children, where a second viewport would assert.
       if (showingFavorites) {
-        return _ResultsMessage(
+        return _emptyGuide(
           stateKey: const Key('food-search-empty-favorites'),
           icon: Icons.favorite_border,
           title: loc.dietDictionaryFavoritesEmptyTitle,
           body: loc.dietDictionaryFavoritesEmptyBody,
         );
       }
-      return _ResultsMessage(
+      return _emptyGuide(
         stateKey: const Key('food-search-empty-no-results'),
         icon: Icons.search_off,
         title: loc.dietDictionaryNoResultsTitle(dictionary.query),
         body: loc.dietDictionaryNoResultsBody,
-        action: offerManualEntry
-            ? FilledButton(
-                key: const Key('food-search-empty-manual-entry-button'),
-                onPressed: _openManualEntry,
-                child: Text(loc.dietManualEntryLink),
-              )
-            : null,
+        actions: [
+          if (offerManualEntry)
+            FilledButton(
+              key: const Key('food-search-empty-manual-entry-button'),
+              onPressed: _openManualEntry,
+              child: Text(loc.dietManualEntryLink),
+            ),
+        ],
       );
     }
 
@@ -555,15 +583,22 @@ class _ResultsMessage extends StatelessWidget {
   final Key stateKey;
   final IconData icon;
   final String title;
-  final String? body;
+
+  /// The error state's tint. This is why this class stayed private rather
+  /// than moving into `EmptyStateGuide`: it is not an empty-state parameter
+  /// at all — it exists for the dictionary *failure* below, and generalising
+  /// it would have pulled the re-auth and load-error states into a shared
+  /// empty-state widget whose re-auth job already belongs to
+  /// `AsyncStateScaffold`. Two shared widgets owning re-auth is a worse end
+  /// state than one private class here.
   final Color? titleColor;
+
   final Widget? action;
 
   const _ResultsMessage({
     required this.stateKey,
     required this.icon,
     required this.title,
-    this.body,
     this.titleColor,
     this.action,
   });
@@ -584,16 +619,6 @@ class _ResultsMessage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.titleMedium?.copyWith(color: titleColor),
           ),
-          if (body != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              body!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
           if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),

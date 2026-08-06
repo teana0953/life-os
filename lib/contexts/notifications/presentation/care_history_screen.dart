@@ -7,6 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../domain/care_history.dart';
 import '../domain/care_today.dart';
@@ -416,48 +417,42 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final atLongest = spanDays >= 90;
-    return Padding(
+    // Tier 1: the record list is the screen, and every day in the period is
+    // empty. Two actions below 90 days — the case that made the shared guide
+    // take a *list* of actions rather than one slot.
+    //
+    // Its box is bounded (`Expanded` > `Center` > `ConstrainedBox` at the
+    // call site) so, unlike the `ListView`-child guides, an overflow here
+    // does throw — hence the scroll view, and hence the narrow-screen guard
+    // in this screen's tests.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: LedgeCard(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          key: const Key('care-history-empty-state'),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.event_note_outlined,
-              size: 48,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              atLongest ? loc.careHistoryNoCareItemsTitle : loc.careHistoryEmptyTitle,
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              atLongest ? loc.careHistoryNoCareItemsBody : loc.careHistoryEmptyBody,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!atLongest) ...[
+        child: EmptyStateGuide(
+          stateKey: const Key('care-history-empty-state'),
+          icon: Icons.event_note_outlined,
+          title: atLongest
+              ? loc.careHistoryNoCareItemsTitle
+              : loc.careHistoryEmptyTitle,
+          body: atLongest
+              ? loc.careHistoryNoCareItemsBody
+              : loc.careHistoryEmptyBody,
+          actions: [
+            if (!atLongest)
               FilledButton(
                 key: const Key('care-history-widen-button'),
                 onPressed: onWiden,
                 child: Text(loc.careHistoryWidenPeriodButton),
               ),
-              const SizedBox(height: 8),
+            if (!atLongest)
               OutlinedButton(
                 key: const Key('care-history-empty-manage-button'),
                 onPressed: onOpenCareItems,
                 child: Text(loc.careHistoryEmptyManageButton),
-              ),
-            ] else
+              )
+            else
               FilledButton(
                 key: const Key('care-history-empty-manage-button'),
                 onPressed: onOpenCareItems,

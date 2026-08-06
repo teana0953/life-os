@@ -6,6 +6,7 @@ import 'package:life_os/contexts/finance/presentation/budget_sheet.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../finance_test_support.dart';
@@ -105,6 +106,17 @@ void main() {
       await pumpCard(tester, repo: FakeFinanceRepository());
 
       expect(find.byKey(const Key('budget-empty-title')), findsOneWidget);
+
+      // Tier 2 (unify-empty-states): the shared one-line muted note — not a
+      // page-sized guide dropped inside a card or a section.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('budget-empty-title')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
       expect(find.byKey(const Key('budget-empty-cta')), findsOneWidget);
       expect(find.text(loc.financeBudgetEmptyTitle), findsOneWidget);
     });

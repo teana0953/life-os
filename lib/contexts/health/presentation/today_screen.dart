@@ -14,6 +14,7 @@ import 'meal_label.dart';
 import 'portion_pills.dart';
 import 'today_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
+import '../../../shared/widgets/empty_state.dart';
 
 DateTime _defaultToLocal(DateTime dt) => dt.toLocal();
 
@@ -517,12 +518,10 @@ class _MealCard extends StatelessWidget {
                 day: day,
               )
           else if (meal == null)
-            Text(
-              loc.dietMealEmptyLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            // Tier 2: one meal card's item list is empty while the rest of
+            // the day is on screen. No key: located by its text (the only
+            // converted site without one).
+            EmptyStateNote(text: loc.dietMealEmptyLabel),
         ],
       ),
     );

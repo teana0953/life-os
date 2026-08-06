@@ -4,6 +4,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../domain/finance_budget.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_money.dart';
@@ -56,12 +57,21 @@ class BudgetCard extends StatelessWidget {
             ],
           ),
           if (budgets.isEmpty) ...[
-            Text(
-              loc.financeBudgetEmptyTitle,
-              key: const Key('budget-empty-title'),
-              style: theme.textTheme.bodyMedium,
+            // Tier 2: what is empty is the budget *rows* inside this card,
+            // on a tab that is otherwise full — a full guide here would
+            // plant a page-sized thing in the middle of the overview. The
+            // note gains the muted colour and the centring it lacked.
+            //
+            // The CTA stays, as the card's own action beside the note rather
+            // than part of it: the two tiers describe how emptiness is
+            // explained, not whether a card may carry a button. Without it
+            // the only way to set a first budget would be the pencil icon
+            // in the header.
+            EmptyStateNote(
+              stateKey: const Key('budget-empty-title'),
+              text: loc.financeBudgetEmptyTitle,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             FilledButton(
               key: const Key('budget-empty-cta'),
               onPressed: onEdit,

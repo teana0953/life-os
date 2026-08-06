@@ -13,8 +13,11 @@ import 'package:life_os/contexts/notifications/presentation/care_history_screen.
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   /// When set, [idToken] awaits this instead of resolving immediately —
@@ -195,6 +198,29 @@ CareHistoryController _controller({
 // menu's context.push('/care-today')/context.push('/care-items') resolve —
 // mirrors care_items_screen_test.dart's / care_today_screen_test.dart's
 // pattern of asserting on the pushed route via the matched-location text.
+/// Like [_pumpScreen] but at a real narrow phone viewport instead of the
+/// 800×1600 test surface, for the narrow-screen guards below.
+Future<void> _pumpNarrow(
+  WidgetTester tester,
+  CareHistoryController controller,
+  Locale locale,
+) async {
+  useTextScaleFactor(tester, 2.0);
+  await tester.binding.setSurfaceSize(const Size(320, 640));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    l10nRouterTestApp(
+      locale: locale,
+      home: CareHistoryScreen(
+        controller: controller,
+        authRepository: _FakeAuthRepository(),
+        clock: () => DateTime(2026, 7, 22),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> _pumpScreen(
   WidgetTester tester,
   CareHistoryController controller, {
@@ -998,6 +1024,23 @@ void main() {
       await _pumpScreen(tester, controller);
 
       expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('care-history-empty-state')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.event_note_outlined),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a load reauth failure shows the full-screen reauth exit', (
@@ -1634,5 +1677,73 @@ void main() {
         );
       },
     );
+  });
+
+  // Narrow screen (task 4). **Re-derived after the change, not before it**:
+  // this guide used to sit directly in `Expanded > Center > ConstrainedBox`,
+  // a *bounded* box, so an overflow threw and `expectNoLayoutErrors` guarded
+  // it. It now sits inside a `SingleChildScrollView`, so nothing throws here
+  // any more and that guard would pass no matter how badly the guide fitted.
+  // What is left to check has to be measured.
+  group('the empty guide at 320dp, textScale 2.0', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'shows its title, body and both actions in full and reachable, '
+        'locale=$locale',
+        (tester) async {
+          await _pumpNarrow(
+            tester,
+            _controller(
+              repository: _FakeCareHistoryRepository(days: _sevenDayRange()),
+            ),
+            locale,
+          );
+
+          final loc = lookupAppLocalizations(locale);
+          expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+
+          // Not clipped: every glyph of both lines was painted. Measured, not
+          // read off `didExceedMaxLines` — that flag is only ever true when
+          // `maxLines` is set, and the guide's texts set neither `maxLines`
+          // nor `overflow`, so reading it here was an assertion that could
+          // not fail.
+          for (final text in [loc.careHistoryEmptyTitle, loc.careHistoryEmptyBody]) {
+            final finder = find.text(text);
+            expect(finder, findsOneWidget, reason: '"$text" is missing');
+            expectPaintedInFull(
+              tester,
+              finder,
+              reason: '"$text" was cut off at 320dp × 2.0',
+            );
+          }
+
+          // Reachable: below 90 days the guide offers *two* actions — the
+          // case that made the shared guide take a list — and at this text
+          // scale the second one starts below the fold.
+          for (final key in [
+            'care-history-widen-button',
+            'care-history-empty-manage-button',
+          ]) {
+            await tester.scrollUntilVisible(find.byKey(Key(key)), 100);
+            await tester.ensureVisible(find.byKey(Key(key)));
+            await tester.pumpAndSettle();
+            expect(
+              find.byKey(Key(key)).hitTestable(),
+              findsOneWidget,
+              reason: '$key could not be hit-tested at 320dp × 2.0',
+            );
+            // ...and its label is whole. The test's name says "in full", and
+            // until this was added that half was true only of the title and
+            // body — a button reachable but with its label clipped would have
+            // passed.
+            expectPaintedInFull(
+              tester,
+              find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
+              reason: "$key's label was cut off at 320dp × 2.0",
+            );
+          }
+        },
+      );
+    }
   });
 }

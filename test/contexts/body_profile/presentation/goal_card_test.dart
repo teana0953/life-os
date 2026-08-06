@@ -12,6 +12,7 @@ import 'package:life_os/contexts/body_profile/presentation/goal_card.dart';
 import 'package:life_os/contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 
@@ -179,6 +180,17 @@ void main() {
       await _pumpCard(tester, controller);
 
       expect(find.byKey(const Key('goal-unset-prompt')), findsOneWidget);
+
+      // Tier 2 (unify-empty-states): the shared one-line muted note — not a
+      // page-sized guide dropped inside a card or a section.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('goal-unset-prompt')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
       expect(find.byKey(const Key('goal-set-button')), findsOneWidget);
       expect(find.byKey(const Key('goal-bmi')), findsNothing);
     });

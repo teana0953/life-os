@@ -9,6 +9,7 @@ import 'package:life_os/contexts/split/presentation/split_activity_controller.da
 import 'package:life_os/contexts/split/presentation/split_activity_section.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../support/fake_split_repository.dart';
@@ -183,6 +184,23 @@ void main() {
       await tester.pumpWidget(_section(_controller(repo)));
       await tester.pump();
       expect(find.byKey(const Key('split-activity-empty')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('split-activity-empty')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.history),
+        ),
+        findsOneWidget,
+      );
 
       await tester.fling(find.byKey(const Key('split-activity-list')), const Offset(0, 300), 1000);
       await tester.pump();

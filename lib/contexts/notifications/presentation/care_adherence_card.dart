@@ -7,6 +7,7 @@ import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../domain/care_history.dart';
 import 'care_history_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
@@ -466,31 +467,41 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    // Tier 2, decided by the region and nothing else (tasks 0.2): this is not
+    // the card's whole box. The card's own header — a `titleLarge` title, the
+    // "view history" button and the 7/30/90 selector — is drawn
+    // *unconditionally* above this, and the card itself is one of two in the
+    // trends tab's `ListView`, with `TrendCard` directly above. So what is
+    // empty is a region inside a populated card, which is the same situation
+    // `trend_card`, `goal_card` and `budget_card` were each ruled tier 2 for.
+    // (It was first filed as tier 1 because of the shape it already had — an
+    // icon and two lines — which is exactly the reasoning 0.2 forbids.)
+    //
+    // The CTA stays, as a sibling of the note rather than part of it, per
+    // 1.1: `budget_card` and `goal_card` are the repo's answer for a card
+    // interior that still needs an action. The dropped second line was the
+    // guide's body; tier 2 is one line, and "go to care management" says the
+    // rest.
+    //
+    // Own `Column` with `crossAxisAlignment.stretch`, unlike those two, whose
+    // parent column already stretches: this card's parent column is
+    // `crossAxisAlignment.start` (it left-aligns the header), and under it a
+    // `Text` shrink-wraps to its glyphs — leaving `EmptyStateNote`'s
+    // `TextAlign.center` with nothing to centre within, and the button
+    // left-hugging.
+    //
+    // The copy is "no care items yet", not "nothing was scheduled in this
+    // period": the only action offered here is "go to care management", and
+    // a period-scoped complaint followed by a configure-your-items button is
+    // the very mismatch the care history screen's own empty state fixed.
+    // This card has its own period picker, so widening isn't the story here.
     return Column(
-      key: const Key('care-adherence-empty-state'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.event_note_outlined,
-          size: 40,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(height: 12),
-        // The "no care items yet" wording, not "nothing was scheduled in
-        // this period": the only action offered here is "go to care
-        // management", and a period-scoped complaint followed by a
-        // configure-your-items button is the very mismatch the care history
-        // screen's own empty state already fixed. This card has its own
-        // period picker, so widening isn't the story here either.
-        Text(loc.careHistoryNoCareItemsTitle, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(
-          loc.careHistoryNoCareItemsBody,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        EmptyStateNote(
+          stateKey: const Key('care-adherence-empty-state'),
+          text: loc.careHistoryNoCareItemsTitle,
         ),
         const SizedBox(height: 16),
         FilledButton(

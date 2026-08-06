@@ -16,6 +16,7 @@ import 'package:life_os/contexts/split/domain/split_share.dart';
 import 'package:life_os/contexts/split/presentation/group_detail_screen.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../support/fake_split_repository.dart';
@@ -335,6 +336,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('split-group-no-balances')), findsOneWidget);
+
+      // Tier 2 (unify-empty-states): the Expenses section of a group page
+      // that still shows its members and balances. No test covered this
+      // site before this change.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('split-group-no-expenses')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
     });
 
     testWidgets('a group expense row names who paid and the viewer own share', (tester) async {

@@ -10,6 +10,7 @@ import '../domain/menstrual_period.dart';
 import 'menstrual_calendar.dart';
 import 'menstrual_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
+import '../../../shared/widgets/empty_state.dart';
 
 /// Menstrual (period) tracker: a mini-calendar marking recorded periods and the
 /// predicted next start, a cycle-statistics card, and the most recent period.
@@ -280,16 +281,12 @@ class _MenstrualScreenState extends State<MenstrualScreen> {
                       _StatsCard(overview: overview),
                       if (overview.periods.isEmpty) ...[
                         const SizedBox(height: 16),
-                        Text(
-                          loc.menstrualEmptyHint,
-                          key: const Key('menstrual-empty-hint'),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
+                        // Tier 2: a note under the statistics card, which
+                        // is on screen either way — the screen is not empty,
+                        // its history is.
+                        EmptyStateNote(
+                          stateKey: const Key('menstrual-empty-hint'),
+                          text: loc.menstrualEmptyHint,
                         ),
                       ],
                       const SizedBox(height: 16),

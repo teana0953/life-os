@@ -17,6 +17,7 @@ import 'package:life_os/contexts/split/presentation/split_controller.dart';
 import 'package:life_os/contexts/split/presentation/split_tab.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../support/fake_split_repository.dart';
@@ -154,6 +155,26 @@ void main() {
       expect(find.text(loc.splitSectionOwedByMe), findsOneWidget);
       expect(find.textContaining('Bo owes you'), findsOneWidget);
       expect(find.textContaining('You owe Bo'), findsOneWidget);
+
+      // Tier 2 (unify-empty-states): balances are on screen, so the tab is
+      // not empty — its Groups *section* is, and says so in one muted line
+      // rather than a page-sized guide. This site had no test at all before.
+      //
+      // The header is what earns the note its tier (design D1b): the "Groups"
+      // heading and its New group action are rendered *outside* the
+      // isEmpty branch, so the region is still named and still fillable with
+      // the note gone. Move the heading inside the non-empty branch and the
+      // section would need a full guide instead — hence this assertion.
+      expect(find.text(loc.splitSectionGroups), findsOneWidget);
+      expect(find.byKey(const Key('split-add-group-button')), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('split-no-groups')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
     });
 
     testWidgets('empty state shows the record CTA, not a blank tab', (tester) async {
@@ -186,6 +207,23 @@ void main() {
       );
 
       expect(find.byKey(const Key('split-empty-title')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('split-empty-title')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.call_split),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const Key('split-empty-cta')));
       expect(tapped, isTrue);
     });
@@ -227,6 +265,27 @@ void main() {
       expect(find.text(loc.splitNoFriendsYet), findsOneWidget);
       await tester.tap(find.byKey(const Key('split-empty-add-friend')));
       expect(addFriendTaps, 1);
+
+      // …and it is the *primary* action while it is the only one that leads
+      // anywhere: the record CTA opens a sheet whose Save is unreachable
+      // without a second person, so it drops to secondary weight rather than
+      // competing with the action that unblocks it.
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byType(FilledButton),
+        ),
+        findsOneWidget,
+        reason: 'the guide offers more than one equal-weight primary action',
+      );
+      expect(
+        tester.widget(find.byKey(const Key('split-empty-add-friend'))),
+        isA<FilledButton>(),
+      );
+      expect(
+        tester.widget(find.byKey(const Key('split-empty-cta'))),
+        isA<OutlinedButton>(),
+      );
     });
 
     testWidgets('the empty tab says nothing about friends to a user who has some', (tester) async {
@@ -259,6 +318,21 @@ void main() {
       );
 
       expect(find.byKey(const Key('split-empty-add-friend')), findsNothing);
+
+      // With friends, recording *is* the first move — so the CTA takes the
+      // primary weight back, and it is still the only primary.
+      expect(
+        tester.widget(find.byKey(const Key('split-empty-cta'))),
+        isA<FilledButton>(),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byType(FilledButton),
+        ),
+        findsOneWidget,
+        reason: 'the guide offers more than one equal-weight primary action',
+      );
     });
 
     testWidgets('error state shows a retry action', (tester) async {
@@ -520,6 +594,20 @@ void main() {
       );
 
       expect(find.byKey(const Key('split-all-settled')), findsOneWidget);
+
+      // Tier 2 (unify-empty-states): with balances on screen the tab is not
+      // empty — its Groups and Recent-activity *sections* are, and each says
+      // so in one muted line rather than a page-sized guide. Neither site
+      // had any test before this change.
+      // (This scenario has a group, so only the activity section is empty.)
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('split-no-activity')),
+          matching: find.byType(EmptyStateNote),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(EmptyStateGuide), findsNothing);
     });
 
     testWidgets('the empty tab also offers creating a group, not only recording an expense', (

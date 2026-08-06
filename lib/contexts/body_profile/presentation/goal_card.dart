@@ -5,6 +5,7 @@ import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/card_loading.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/weight_goal.dart';
 import 'weight_goal_controller.dart';
@@ -428,12 +429,14 @@ class _UnsetGoalCard extends StatelessWidget {
               children: [
                 Text(loc.goalCardTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
-                Text(
-                  loc.goalUnsetPrompt,
-                  key: const Key('goal-unset-prompt'),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                // Tier 2, same call as `budget_card`: the empty region is
+                // the goal card's interior on an otherwise populated
+                // overview, and the button beside the note is the card's own
+                // action rather than part of the explanation. Already this
+                // shape bar the centring.
+                EmptyStateNote(
+                  stateKey: const Key('goal-unset-prompt'),
+                  text: loc.goalUnsetPrompt,
                 ),
                 const SizedBox(height: 16),
                 FilledButton(

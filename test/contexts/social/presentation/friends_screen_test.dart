@@ -17,6 +17,7 @@ import 'package:life_os/contexts/social/presentation/friends_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/config.dart';
 import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/widgets/empty_state.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   bool signedOut = false;
@@ -203,6 +204,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('friends-empty-state')), findsOneWidget);
+
+      // Tier 1 (unify-empty-states): the shared full guide, keyed on its own
+      // column, carrying the icon that says *which* kind of empty this is.
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('friends-empty-state')),
+          matching: find.byType(EmptyStateGuide),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(EmptyStateGuide),
+          matching: find.byIcon(Icons.group_outlined),
+        ),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('friends-invite-button')), findsOneWidget);
     });
 
@@ -328,6 +346,16 @@ void main() {
         expect(
           find.text('$_fixedOrigin/#/invite?token=secret-token'),
           findsOneWidget,
+        );
+        // With no friends yet, the empty-state guide above the outstanding
+        // list is a full guide (icon + title + body), so the invite row is
+        // past the end of the lazily-built window rather than absent.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('invite-row-inv-1')),
+          200,
+          // The page's own ListView: the link card carries a second,
+          // horizontal Scrollable, and the default finder matches both.
+          scrollable: find.byType(Scrollable).first,
         );
         expect(find.byKey(const Key('invite-row-inv-1')), findsOneWidget);
       },
@@ -601,7 +629,16 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('friends-remove-confirm')));
         await tester.pumpAndSettle();
-        // The link card is on screen, so the invite row sits below the fold.
+        // The link card and (with no friends) the empty-state guide are on
+        // screen, so the invite row sits past the end of the lazily-built
+        // window — scrolled to first, then brought fully into view.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('invite-revoke-inv-1')),
+          200,
+          // The page's own ListView: the link card carries a second,
+          // horizontal Scrollable, and the default finder matches both.
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.ensureVisible(find.byKey(const Key('invite-revoke-inv-1')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('invite-revoke-inv-1')));
@@ -830,7 +867,16 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('friends-invite-link-text')), findsOneWidget);
 
-        // The link card is on screen, so the invite row sits below the fold.
+        // The link card and (with no friends) the empty-state guide are on
+        // screen, so the invite row sits past the end of the lazily-built
+        // window — scrolled to first, then brought fully into view.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('invite-revoke-inv-1')),
+          200,
+          // The page's own ListView: the link card carries a second,
+          // horizontal Scrollable, and the default finder matches both.
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.ensureVisible(find.byKey(const Key('invite-revoke-inv-1')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('invite-revoke-inv-1')));
