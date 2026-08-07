@@ -8,6 +8,7 @@ import '../domain/finance_exceptions.dart';
 import '../domain/finance_repository.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
+import '../domain/installment_plan.dart';
 import '../domain/monthly_summary.dart';
 import '../domain/networth_account.dart';
 import '../domain/networth_snapshot.dart';
@@ -425,5 +426,79 @@ class HttpFinanceRepository implements FinanceRepository {
           .map((e) => SplitSpending.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  // ------------------------------------------------------------ installments
+
+  @override
+  Future<InstallmentPlan> createInstallmentPlan(
+    String idToken, {
+    required InstallmentMode mode,
+    required int amount,
+    required int periods,
+    required String currency,
+    required String categoryId,
+    required String startDay,
+    String? note,
+  }) async {
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/finance/installment-plans'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          'mode': installmentModeToJson(mode),
+          'amount': amount,
+          'periods': periods,
+          'currency': currency,
+          'category_id': categoryId,
+          'start_day': startDay,
+          if (note != null) 'note': note,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, InstallmentPlan.fromJson);
+  }
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) async {
+    final response = await _send(
+      () => client.get(
+        Uri.parse('$baseUrl/api/finance/installment-plans/$id'),
+        headers: _headers(idToken),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, InstallmentPlan.fromJson);
+  }
+
+  @override
+  Future<InstallmentPlan> updateInstallmentPlan(
+    String idToken,
+    String id, {
+    required int amount,
+    required int periods,
+  }) async {
+    final response = await _send(
+      () => client.put(
+        Uri.parse('$baseUrl/api/finance/installment-plans/$id'),
+        headers: _headers(idToken),
+        body: jsonEncode({'amount': amount, 'periods': periods}),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+    return _decode(response, InstallmentPlan.fromJson);
+  }
+
+  @override
+  Future<void> settleInstallmentPlan(String idToken, String id, {int? amount}) async {
+    final response = await _send(
+      () => client.post(
+        Uri.parse('$baseUrl/api/finance/installment-plans/$id/settle'),
+        headers: _headers(idToken),
+        body: jsonEncode({if (amount != null) 'amount': amount}),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
   }
 }

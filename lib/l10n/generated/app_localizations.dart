@@ -2924,6 +2924,18 @@ abstract class AppLocalizations {
   /// **'Record a transaction'**
   String get financeFabTooltip;
 
+  /// Tooltip on the secondary FAB that opens the recurring-charge (instalment plan) form.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up a recurring charge'**
+  String get financeInstallmentFabTooltip;
+
+  /// Confirmation shown after an instalment plan is settled in one go.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan settled'**
+  String get financeInstallmentSettled;
+
   /// Heading shown at the top of the record sheet when creating a new transaction.
   ///
   /// In en, this message translates to:
@@ -3223,6 +3235,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Net worth'**
   String get financeTabNetWorth;
+
+  /// Marker on a transaction that is one period of an instalment plan, shown once the plan itself (its total period count) has been fetched — the record/edit sheet and both transaction lists.
+  ///
+  /// In en, this message translates to:
+  /// **'Period {no} of {total}'**
+  String financeInstallmentPeriodOfTotal(int no, int total);
+
+  /// Same marker as financeInstallmentPeriodOfTotal, for a plan the viewer does not own (the plan fetch answered 404, so the total period count is unknown) — the period number still rides on the transaction itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Period {no}'**
+  String financeInstallmentPeriodOnly(int no);
+
+  /// Exit from the record/edit sheet to the instalment plan an editable period belongs to. Shown only when the viewer owns that plan (tasks 2.1/2.2).
+  ///
+  /// In en, this message translates to:
+  /// **'Manage plan'**
+  String get financeInstallmentGoToPlan;
+
+  /// Title of the standalone instalment-plan create sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'New instalment plan'**
+  String get financeInstallmentCreateTitle;
+
+  /// Mode choice on the instalment-plan create sheet: the user is entering the whole sum, split evenly across the periods.
+  ///
+  /// In en, this message translates to:
+  /// **'Total amount'**
+  String get financeInstallmentModeTotal;
+
+  /// Mode choice on the instalment-plan create sheet: the user is entering the fixed charge for each period (e.g. a mortgage payment), not the whole sum.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount per period'**
+  String get financeInstallmentModePerInstallment;
+
+  /// Amount field label in total mode — asks how much altogether, not the per-period figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Total amount'**
+  String get financeInstallmentTotalAmountLabel;
+
+  /// Amount field label in per-instalment mode — asks how much each period, not the whole sum. A different label from financeInstallmentTotalAmountLabel is not decoration: the same field means a different number in each mode, and a user who mistakes one for the other gets a plan 12x or 1/12 off with no error anywhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount per period'**
+  String get financeInstallmentPerAmountLabel;
+
+  /// Field label for how many periods the instalment plan runs — required; open-ended subscriptions are not supported yet (see financeInstallmentNoEndDateWarning).
+  ///
+  /// In en, this message translates to:
+  /// **'Number of periods'**
+  String get financeInstallmentPeriodsLabel;
+
+  /// Live preview under the amount/periods fields in total mode: the total divided by the period count, so a typo reads as an obviously wrong per-period figure before saving.
+  ///
+  /// In en, this message translates to:
+  /// **'= {perPeriod} per period'**
+  String financeInstallmentPreviewPerPeriod(String perPeriod);
+
+  /// Live preview under the amount/periods fields in per-instalment mode: the per-period amount multiplied by the period count, so a typo reads as an obviously wrong total before saving.
+  ///
+  /// In en, this message translates to:
+  /// **'= {total} total'**
+  String financeInstallmentPreviewTotal(String total);
+
+  /// Notice on the instalment-plan create sheet: every plan needs a fixed period count, so an open-ended subscription cannot be modelled yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions with no end date aren\'t supported yet — enter a number of periods.'**
+  String get financeInstallmentNoEndDateWarning;
+
+  /// Submit button on the instalment-plan create sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Create plan'**
+  String get financeInstallmentSaveButton;
+
+  /// Title of the instalment plan's own page.
+  ///
+  /// In en, this message translates to:
+  /// **'Instalment plan'**
+  String get financeInstallmentPlanTitle;
+
+  /// Action on the plan page that pays the plan off early.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle'**
+  String get financeInstallmentSettleButton;
+
+  /// Amount field shown only for a per-instalment plan's settle action — the system cannot compute this payoff (it may include future interest), so the bank's own figure is required.
+  ///
+  /// In en, this message translates to:
+  /// **'Payoff amount (from your bank)'**
+  String get financeInstallmentSettleAmountLabel;
+
+  /// Confirms the settle action.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get financeInstallmentSettleConfirm;
+
+  /// Explains why a total-mode plan's settle action asks for no amount: the system computes it from what's left.
+  ///
+  /// In en, this message translates to:
+  /// **'The remaining periods add up to the payoff automatically — no amount to enter.'**
+  String get financeInstallmentSettleTotalNote;
+
+  /// Explains why a per-instalment plan's settle action asks for an amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the amount your bank quoted — it may include interest the app has no way to compute.'**
+  String get financeInstallmentSettlePerNote;
+
+  /// Generic fallback marker for an instalment-period row when the plan behind it hasn't been resolved (rare — the list rows normally know the period count and use financeInstallmentPeriodOfTotal instead).
+  ///
+  /// In en, this message translates to:
+  /// **'Instalment'**
+  String get financeInstallmentBadge;
 
   /// Label above the headline net worth figure.
   ///

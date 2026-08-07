@@ -1,0 +1,89 @@
+version: 1
+name: installments-ui
+budget: 600k
+defaults:
+  tier: standard
+
+inputs: [goal]
+
+nodes:
+  reproduce:
+    kind: task
+    role: implementer
+    tier: heavy
+    prompt: |
+      {{ inputs.goal }}
+
+      提案與任務清單在 `openspec/changes/installments-ui/`,**先整份讀完**。
+      後端已經上了,契約的正本是
+      `../life-os-backend/src/adapters/http/routes/finance.ts` 的
+      `installmentPlanToJson` 與 `transactionToJson` —— **不要猜欄位名,去讀**。
+
+      這一輪只寫**會紅**的測試,不要寫實作。fixture 都要真的踩到失效區:
+
+      1. **兩者皆非 null**(tasks 1.3):一筆交易同時有 `split_expense_id` 與
+         `plan_id`。後端目前產不出這種資料,**fixture 手動建**。這條要先寫,
+         它決定其餘的形狀。
+      2. **計畫層級動作以「是不是我的」為條件**(tasks 2.3):別人的 plan 不提供
+         管理與清償,但分類仍可編輯。
+      3. **兩種模式送出的 amount 意義不同**(3.3):每期固定模式送的是每期金額,
+         不是總額。
+      4. **清償兩個方向**(5.3/5.4):每期固定模式會要求輸入金額、總額模式不問。
+         **兩條都要**,少一個就擋不住「一律問」或「一律不問」。
+      5. **兩個列表各一條標記測試**(4.2),fixture 要同時有分期與普通交易 ——
+         只有分期的話「全部都標」跟「標對」分不出來。
+      6. **parse 層守門**(0.4):widget fixture 都是直接建構模型,`fromJson`
+         不會跑到,守門要寫在 repository 測試裡。
+
+      跑 `flutter test` 確認每條都紅、而且紅在斷言不是編譯錯,把「紅在哪、
+      訊息是什麼」寫進輸出。
+
+  fix:
+    kind: task
+    role: implementer
+    after: [reproduce]
+    prompt: |
+      讓 {{ nodes.reproduce.output }} 的測試轉綠,照 tasks.md 逐條做。
+
+      **第 1 節(兩者皆非 null)是形狀決定** —— 分支寫成明確優先序並在註解裡
+      寫明理由,不要照抄現有 `_isMirror` 的二選一。
+
+      版面:建立表單與計畫頁要進 `split_layout_test.dart` 的 320dp × textScale
+      2.0 × 兩語系掃描;**加了東西讓畫面變高之後,數一次既有測試的 missed tap**
+      (`grep -c "would not hit test"`)。
+
+      l10n 三個 ARB 都要加,然後 `flutter gen-l10n`。
+
+      **不要動後端。**
+
+  gate:
+    kind: script
+    after: [fix]
+    run: "flutter analyze && flutter test"
+
+  code-review:
+    kind: check
+    role: code-reviewer
+    after: [fix]
+
+  uiux-review:
+    kind: check
+    role: uiux-reviewer
+    after: [fix]
+
+  refix:
+    kind: task
+    role: implementer
+    tier: light
+    after: [gate, code-review, uiux-review]
+    when: any-fail
+    goto: [gate, code-review, uiux-review]
+    max_iterations: 3
+
+  ship:
+    kind: gate
+    after: [gate, code-review, uiux-review]
+    when: all-pass
+    show: |
+      code: {{ nodes.code-review.output }}
+      uiux: {{ nodes.uiux-review.output }}

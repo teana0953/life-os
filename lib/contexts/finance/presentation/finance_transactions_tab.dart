@@ -114,6 +114,10 @@ class FinanceTransactionsTab extends StatelessWidget {
                               transaction: txn,
                               category: _categoryFor(txn.categoryId),
                               mirrorKeyPrefix: 'finance-transaction-mirror',
+                              installmentKeyPrefix: 'finance-transaction-installment',
+                              plan: txn.planId == null
+                                  ? null
+                                  : controller.installmentPlans[txn.planId],
                               onTap: () => onEdit(txn),
                             ),
                         ],

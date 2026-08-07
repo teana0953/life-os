@@ -15,6 +15,7 @@ import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
+import '../domain/installment_plan.dart';
 import '../domain/monthly_summary.dart';
 import '../domain/split_spending.dart';
 import 'budget_card.dart';
@@ -167,6 +168,7 @@ class FinanceOverviewTab extends StatelessWidget {
                     _RecentTransactions(
                       transactions: controller.transactions,
                       categories: controller.categories,
+                      plans: controller.installmentPlans,
                     ),
                   ],
                 ],
@@ -464,8 +466,13 @@ class _CategoryBar extends StatelessWidget {
 class _RecentTransactions extends StatelessWidget {
   final List<FinanceTransaction> transactions;
   final List<FinanceCategory> categories;
+  final Map<String, InstallmentPlan> plans;
 
-  const _RecentTransactions({required this.transactions, required this.categories});
+  const _RecentTransactions({
+    required this.transactions,
+    required this.categories,
+    required this.plans,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -480,6 +487,8 @@ class _RecentTransactions extends StatelessWidget {
               transaction: txn,
               category: _categoryFor(txn.categoryId),
               mirrorKeyPrefix: 'finance-recent-mirror',
+              installmentKeyPrefix: 'finance-recent-installment',
+              plan: txn.planId == null ? null : plans[txn.planId],
             ),
         ],
       ),

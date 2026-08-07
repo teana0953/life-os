@@ -23,9 +23,13 @@ import '../domain/networth_account.dart';
 import 'account_manage_sheet.dart';
 import 'add_transaction_sheet.dart';
 import 'budget_sheet.dart';
+import '../domain/finance_repository.dart';
+import '../domain/installment_plan.dart';
 import 'finance_controller.dart';
 import 'finance_overview_tab.dart';
 import 'finance_transactions_tab.dart';
+import 'installment_plan_screen.dart';
+import 'installment_plan_sheet.dart';
 import 'networth_controller.dart';
 import 'networth_tab.dart';
 import 'snapshot_input_sheet.dart';
@@ -48,6 +52,11 @@ class FinanceScaffold extends StatefulWidget {
   final AuthRepository authRepository;
   final FinanceController controller;
   final NetWorthController netWorthController;
+
+  /// Only for the instalment-plan screens, which talk to the plan endpoints
+  /// directly rather than through [controller] — the controller's job is the
+  /// month, and a plan is not month-shaped.
+  final FinanceRepository financeRepository;
   final SplitTabDependencies split;
 
   /// Returns the current time, used to resolve "today" (the initial month
@@ -60,6 +69,7 @@ class FinanceScaffold extends StatefulWidget {
     required this.authRepository,
     required this.controller,
     required this.netWorthController,
+    required this.financeRepository,
     required this.split,
     this.clock = DateTime.now,
   });
@@ -431,8 +441,44 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           Navigator.of(context).pop();
           _goToSplitTab();
         },
+        // Same reason as `onGoToSplit`: pop the sheet before pushing the plan
+        // screen, or the sheet is left stranded under it.
+        onGoToPlan: (plan) {
+          Navigator.of(context).pop();
+          _openPlanScreen(plan);
+        },
       ),
     );
+  }
+
+  Future<void> _openPlanScreen(InstallmentPlan plan) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => InstallmentPlanScreen(
+          plan: plan,
+          repository: widget.financeRepository,
+          idToken: _idToken,
+        ),
+      ),
+    );
+    // A settle rewrites the month's transactions, so the ledger behind this
+    // screen is stale the moment it returns.
+    if (!mounted) return;
+    await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
+  }
+
+  Future<void> _openInstallmentPlanSheet() async {
+    await showAppSheet<void>(
+      context,
+      builder: (_) => InstallmentPlanSheet(
+        repository: widget.financeRepository,
+        idToken: _idToken,
+        categories: widget.controller.categories,
+        today: _todayDate,
+      ),
+    );
+    if (!mounted) return;
+    await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
   }
 
   Future<void> _openBudgetSheet() async {
@@ -560,12 +606,31 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
                     onPressed: () => _openSplitExpenseSheet(),
                     child: const Icon(Icons.add),
                   )
-          : FloatingActionButton(
-              key: const Key('finance-fab'),
-              heroTag: 'finance-fab',
-              tooltip: loc.financeFabTooltip,
-              onPressed: () => _openSheet(),
-              child: const Icon(Icons.add),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // A second, smaller button rather than a menu on the main FAB:
+                // recording one charge is the overwhelmingly common action and
+                // must stay a single tap. Setting up a recurring one is rare,
+                // deliberate, and takes a form either way, so paying one extra
+                // tap for it costs nothing and keeps the common path untouched.
+                FloatingActionButton.small(
+                  key: const Key('finance-installment-fab'),
+                  heroTag: 'finance-installment-fab',
+                  tooltip: loc.financeInstallmentFabTooltip,
+                  onPressed: () => _openInstallmentPlanSheet(),
+                  child: const Icon(Icons.event_repeat),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  key: const Key('finance-fab'),
+                  heroTag: 'finance-fab',
+                  tooltip: loc.financeFabTooltip,
+                  onPressed: () => _openSheet(),
+                  child: const Icon(Icons.add),
+                ),
+              ],
             ),
       // A taller bar at large text scales, rather than the Material
       // default's fixed 80dp: `NavigationBar` builds each label as a bare

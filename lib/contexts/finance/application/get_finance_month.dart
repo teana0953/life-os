@@ -1,8 +1,10 @@
 import '../domain/finance_budget.dart';
 import '../domain/finance_category.dart';
+import '../domain/finance_exceptions.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_repository.dart';
 import '../domain/finance_transaction.dart';
+import '../domain/installment_plan.dart';
 import '../domain/monthly_summary.dart';
 
 /// Everything a finance month view needs in one bundle.
@@ -12,11 +14,19 @@ class FinanceMonthData {
   final List<FinanceTransaction> transactions;
   final List<FinanceBudget> budgets;
 
+  /// The instalment plans behind every non-null `planId` in [transactions],
+  /// keyed by plan id. A plan the caller does not own answers 404 ([FinanceNotFound])
+  /// and is simply absent here — the only ownership signal the API gives a
+  /// client, and what the sheet/list rows key their plan-level actions on
+  /// (tasks 2.1/2.2).
+  final Map<String, InstallmentPlan> installmentPlans;
+
   const FinanceMonthData({
     required this.categories,
     required this.summary,
     required this.transactions,
     required this.budgets,
+    required this.installmentPlans,
   });
 }
 
@@ -40,11 +50,44 @@ class GetFinanceMonth {
       ),
       _repository.listBudgets(idToken, month),
     ]);
+    final transactions = results[2] as List<FinanceTransaction>;
+    final planIds = {
+      for (final txn in transactions)
+        if (txn.planId != null) txn.planId!,
+    };
+    // Concurrent, and every failure is absorbed — the same isolation
+    // `FinanceController._loadSplitSpending` documents for its own figure.
+    //
+    // Sequentially would add a round trip per distinct plan to every month
+    // load, on top of the batch above rather than inside it.
+    //
+    // And catching only `FinanceNotFound` would mean one flaky call to a
+    // secondary endpoint blanks the whole month: the controller's `load` has a
+    // catch-all, so transactions, budgets and the summary — all already
+    // fetched successfully — would be thrown away and the user shown an error
+    // screen over a ledger that was fine. A plan that cannot be read is a
+    // period rendered without its "of M", not a month that failed to load.
+    final installmentPlans = <String, InstallmentPlan>{};
+    await Future.wait(
+      planIds.map((planId) async {
+        try {
+          installmentPlans[planId] = await _repository.getInstallmentPlan(
+            idToken,
+            planId,
+          );
+        } catch (_) {
+          // A 404 is the ownership signal (tasks 2.1/2.2 — the API has no
+          // other); anything else is a plan we could not read this time.
+          // Neither is worth failing the month over.
+        }
+      }),
+    );
     return FinanceMonthData(
       categories: results[0] as List<FinanceCategory>,
       summary: results[1] as MonthlySummary,
-      transactions: results[2] as List<FinanceTransaction>,
+      transactions: transactions,
       budgets: results[3] as List<FinanceBudget>,
+      installmentPlans: installmentPlans,
     );
   }
 }

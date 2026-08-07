@@ -111,6 +111,91 @@ void main() {
       expect(transactions.last.splitExpenseId, isNull);
     });
 
+    test('getTransactions parses plan_id/installment_no — including alongside '
+        'split_expense_id', () async {
+      // Same reason the split_expense_id assertion above exists (tasks 0.4):
+      // every widget fixture builds `FinanceTransaction` through its
+      // constructor, so this is the only place the parser's key names run at
+      // all — "the parser never reads `plan_id`" is green everywhere else,
+      // and it is exactly the mutation that makes every instalment row look
+      // like an ordinary one.
+      //
+      // The third row carries BOTH `split_expense_id` and `plan_id`. The
+      // backend cannot produce that shape yet — 分帳分期 is the known next
+      // step — so it is built by hand here precisely because any
+      // exclusivity assumption at the parse layer would pass every fixture
+      // the current backend can emit (proposal: 為後續的分帳分期讓路).
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'transactions': [
+              {
+                'id': 't1',
+                'type': 'expense',
+                'amount': 5000,
+                'currency': 'TWD',
+                'category_id': 'c1',
+                'date': '2026-07-15',
+                'note': null,
+                'split_expense_id': null,
+                'category_source': 'user',
+                'plan_id': 'plan-1',
+                'installment_no': 3,
+              },
+              {
+                'id': 't2',
+                'type': 'expense',
+                'amount': 80,
+                'currency': 'TWD',
+                'category_id': 'c1',
+                'date': '2026-07-16',
+                'note': null,
+                'split_expense_id': null,
+                'category_source': 'user',
+                'plan_id': null,
+                'installment_no': null,
+              },
+              {
+                'id': 't3',
+                'type': 'expense',
+                'amount': 5000,
+                'currency': 'TWD',
+                'category_id': 'c1',
+                'date': '2026-07-17',
+                'note': null,
+                'split_expense_id': 'se-9',
+                'category_source': 'user',
+                'plan_id': 'plan-1',
+                'installment_no': 4,
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      final repository = HttpFinanceRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      final transactions = await repository.getTransactions(
+        'token-123',
+        from: '2026-07-01',
+        to: '2026-07-31',
+      );
+
+      // Both values pinned on the on-plan row: reading a wrong key yields
+      // null for both, which the null-only assertions below cannot catch.
+      expect(transactions[0].planId, 'plan-1');
+      expect(transactions[0].installmentNo, 3);
+      expect(transactions[1].planId, isNull);
+      expect(transactions[1].installmentNo, isNull);
+      // The both-non-null row: neither marker may eat the other.
+      expect(transactions[2].splitExpenseId, 'se-9');
+      expect(transactions[2].planId, 'plan-1');
+      expect(transactions[2].installmentNo, 4);
+    });
+
     test('getSummary GETs with a month query param', () async {
       Uri? capturedUri;
       final client = MockClient((request) async {

@@ -1528,6 +1528,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeFabTooltip => '記一筆';
 
   @override
+  String get financeInstallmentFabTooltip => '新增定期扣款';
+
+  @override
+  String get financeInstallmentSettled => '已清償';
+
+  @override
   String get financeAddTitle => '記一筆';
 
   @override
@@ -1679,6 +1685,75 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get financeTabNetWorth => '淨值';
+
+  @override
+  String financeInstallmentPeriodOfTotal(int no, int total) {
+    return '第 $no 期 / 共 $total 期';
+  }
+
+  @override
+  String financeInstallmentPeriodOnly(int no) {
+    return '第 $no 期';
+  }
+
+  @override
+  String get financeInstallmentGoToPlan => '管理計畫';
+
+  @override
+  String get financeInstallmentCreateTitle => '新增定期扣款';
+
+  @override
+  String get financeInstallmentModeTotal => '總額';
+
+  @override
+  String get financeInstallmentModePerInstallment => '每期金額';
+
+  @override
+  String get financeInstallmentTotalAmountLabel => '總金額';
+
+  @override
+  String get financeInstallmentPerAmountLabel => '每期金額';
+
+  @override
+  String get financeInstallmentPeriodsLabel => '期數';
+
+  @override
+  String financeInstallmentPreviewPerPeriod(String perPeriod) {
+    return '= 每期 $perPeriod';
+  }
+
+  @override
+  String financeInstallmentPreviewTotal(String total) {
+    return '= 總共 $total';
+  }
+
+  @override
+  String get financeInstallmentNoEndDateWarning => '還不支援沒有期限的訂閱 —— 請填入期數。';
+
+  @override
+  String get financeInstallmentSaveButton => '建立計畫';
+
+  @override
+  String get financeInstallmentPlanTitle => '定期扣款計畫';
+
+  @override
+  String get financeInstallmentSettleButton => '結清';
+
+  @override
+  String get financeInstallmentSettleAmountLabel => '清償金額(以銀行為準)';
+
+  @override
+  String get financeInstallmentSettleConfirm => '確認';
+
+  @override
+  String get financeInstallmentSettleTotalNote => '剩餘期數會自動加總為清償金額 —— 不需輸入。';
+
+  @override
+  String get financeInstallmentSettlePerNote =>
+      '請輸入銀行提供的金額 —— 可能含未來利息,App 無法算出。';
+
+  @override
+  String get financeInstallmentBadge => '分期';
 
   @override
   String get networthNetWorthLabel => '淨值';
@@ -3986,6 +4061,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeFabTooltip => '記一筆';
 
   @override
+  String get financeInstallmentFabTooltip => '新增定期扣款';
+
+  @override
+  String get financeInstallmentSettled => '已清償';
+
+  @override
   String get financeAddTitle => '記一筆';
 
   @override
@@ -4137,6 +4218,75 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeTabNetWorth => '淨值';
+
+  @override
+  String financeInstallmentPeriodOfTotal(int no, int total) {
+    return '第 $no 期 / 共 $total 期';
+  }
+
+  @override
+  String financeInstallmentPeriodOnly(int no) {
+    return '第 $no 期';
+  }
+
+  @override
+  String get financeInstallmentGoToPlan => '管理計畫';
+
+  @override
+  String get financeInstallmentCreateTitle => '新增定期扣款';
+
+  @override
+  String get financeInstallmentModeTotal => '總額';
+
+  @override
+  String get financeInstallmentModePerInstallment => '每期金額';
+
+  @override
+  String get financeInstallmentTotalAmountLabel => '總金額';
+
+  @override
+  String get financeInstallmentPerAmountLabel => '每期金額';
+
+  @override
+  String get financeInstallmentPeriodsLabel => '期數';
+
+  @override
+  String financeInstallmentPreviewPerPeriod(String perPeriod) {
+    return '= 每期 $perPeriod';
+  }
+
+  @override
+  String financeInstallmentPreviewTotal(String total) {
+    return '= 總共 $total';
+  }
+
+  @override
+  String get financeInstallmentNoEndDateWarning => '還不支援沒有期限的訂閱 —— 請填入期數。';
+
+  @override
+  String get financeInstallmentSaveButton => '建立計畫';
+
+  @override
+  String get financeInstallmentPlanTitle => '定期扣款計畫';
+
+  @override
+  String get financeInstallmentSettleButton => '結清';
+
+  @override
+  String get financeInstallmentSettleAmountLabel => '清償金額(以銀行為準)';
+
+  @override
+  String get financeInstallmentSettleConfirm => '確認';
+
+  @override
+  String get financeInstallmentSettleTotalNote => '剩餘期數會自動加總為清償金額 —— 不需輸入。';
+
+  @override
+  String get financeInstallmentSettlePerNote =>
+      '請輸入銀行提供的金額 —— 可能含未來利息,App 無法算出。';
+
+  @override
+  String get financeInstallmentBadge => '分期';
 
   @override
   String get networthNetWorthLabel => '淨值';
