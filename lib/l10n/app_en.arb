@@ -2409,6 +2409,10 @@
   "@networthMoveUpTooltip": {
     "description": "Tooltip for the button that moves a net worth account earlier in its group."
   },
+  "networthMoveDownTooltip": "Move down",
+  "@networthMoveDownTooltip": {
+    "description": "Tooltip for the button that moves a net worth account later in its group."
+  },
   "networthValueLabel": "Value (TWD)",
   "@networthValueLabel": {
     "description": "Label for the monthly market-value field in the snapshot sheet."

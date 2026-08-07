@@ -1817,6 +1817,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networthMoveUpTooltip => 'Move up';
 
   @override
+  String get networthMoveDownTooltip => 'Move down';
+
+  @override
   String get networthValueLabel => 'Value (TWD)';
 
   @override

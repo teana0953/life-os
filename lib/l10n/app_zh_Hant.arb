@@ -543,6 +543,7 @@
   "networthRestoreButton": "復原",
   "networthArchivedLabel": "已封存",
   "networthMoveUpTooltip": "上移",
+  "networthMoveDownTooltip": "下移",
   "networthValueLabel": "市值 (TWD)",
   "networthNotRecorded": "未記錄",
   "networthInvalidValue": "請輸入 0 或以上的整數",

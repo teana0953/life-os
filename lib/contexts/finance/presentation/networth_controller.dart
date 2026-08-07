@@ -139,8 +139,9 @@ class NetWorthController extends ChangeNotifier {
     String idToken, {
     required NetWorthKind kind,
     required String name,
+    int? sortOrder,
   }) => _mutate(idToken, () async {
-    await _createAccount(idToken, kind: kind, name: name);
+    await _createAccount(idToken, kind: kind, name: name, sortOrder: sortOrder);
   });
 
   Future<void> updateAccount(

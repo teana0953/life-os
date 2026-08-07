@@ -6,6 +6,7 @@ import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 const _locale = Locale('en');
@@ -13,9 +14,15 @@ final _loc = lookupAppLocalizations(_locale);
 
 Future<NetWorthController> _pumpSheet(
   WidgetTester tester,
-  FakeFinanceRepository repo,
-) async {
-  await tester.binding.setSurfaceSize(const Size(600, 1600));
+  FakeFinanceRepository repo, {
+  // 600dp is a desk-width surface no phone has. It is the default because most
+  // of these tests are about behaviour, not layout — but the row this sheet
+  // draws now carries a name field plus up to four controls, so anything that
+  // widens it has to be checked at a real phone width too. See the 320dp guard
+  // at the end of this file.
+  Size surface = const Size(600, 1600),
+}) async {
+  await tester.binding.setSurfaceSize(surface);
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final controller = testNetWorthController(repo);
@@ -248,6 +255,179 @@ void main() {
 
       expect(controller.accounts.firstWhere((a) => a.id == 'a2').sortOrder, 0);
       expect(controller.accounts.firstWhere((a) => a.id == 'a1').sortOrder, 1);
+    });
+
+    // Issue #130: every user-created account arrives with sortOrder 0 (the
+    // create call never sends one and the backend defaults to 0), so ties are
+    // the *normal* state, not an edge case. These three tests pin each
+    // reported symptom against tied-sortOrder fixtures.
+
+    NetWorthAccount tiedAsset(String id, String name) => NetWorthAccount(
+      id: id,
+      kind: NetWorthKind.asset,
+      name: name,
+      sortOrder: 0,
+      archived: false,
+    );
+
+    // The on-screen top-to-bottom order of the given account rows.
+    List<String> displayedOrder(WidgetTester tester, List<String> ids) {
+      final byDy = [
+        for (final id in ids)
+          (id: id, dy: tester.getTopLeft(find.byKey(Key('account-name-$id'))).dy),
+      ]..sort((a, b) => a.dy.compareTo(b.dy));
+      return [for (final row in byDy) row.id];
+    }
+
+    testWidgets('moving up an account tied at sortOrder 0 actually reorders', (
+      tester,
+    ) async {
+      // Both rows tied at 0 — the state every pair of user-created accounts
+      // is in. Swapping the two sortOrders (0 <-> 0) is a no-op.
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      await _pumpSheet(tester, repo);
+
+      expect(displayedOrder(tester, ['a1', 'a2']), ['a1', 'a2']);
+
+      await tester.tap(find.byKey(const Key('account-move-up-a2')));
+      await tester.pumpAndSettle();
+
+      // Symptom (2)/(1): pressing "up" must visibly move the row up.
+      expect(
+        displayedOrder(tester, ['a1', 'a2']),
+        ['a2', 'a1'],
+        reason: '按向上後,原本在下面的 a2 必須顯示在 a1 上面',
+      );
+    });
+
+    testWidgets('repeated move-up walks a tied account all the way to the top', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          tiedAsset('a1', 'First'),
+          tiedAsset('a2', 'Second'),
+          tiedAsset('a3', 'Third'),
+        ];
+      await _pumpSheet(tester, repo);
+
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a1', 'a2', 'a3']);
+
+      // Symptom (1): the bottom account, moved up once per gap, must reach
+      // the very top of its group.
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pumpAndSettle();
+
+      expect(
+        displayedOrder(tester, ['a1', 'a2', 'a3']),
+        ['a3', 'a1', 'a2'],
+        reason: '連按兩次向上後,a3 必須排在最上面',
+      );
+    });
+
+    testWidgets('the same accounts reloaded in a different arrival order '
+        'display in the same order', (tester) async {
+      // The backend guarantees no row order for tied sortOrders, so "the same
+      // data" can legitimately arrive in a different sequence on any reload.
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      final controller = await _pumpSheet(tester, repo);
+
+      final firstLoad = displayedOrder(tester, ['a1', 'a2']);
+
+      repo.accounts = [tiedAsset('a2', 'Second'), tiedAsset('a1', 'First')];
+      await controller.load('token', '2026-07');
+      await tester.pumpAndSettle();
+
+      // Symptom (2): display order must be a function of the data, not of
+      // the order the rows happened to arrive in.
+      expect(
+        displayedOrder(tester, ['a1', 'a2']),
+        firstLoad,
+        reason: '同樣的兩筆科目重新載入後,顯示順序必須跟第一次載入一致',
+      );
+    });
+
+
+    testWidgets('the down button moves a row down, and the last row cannot', (
+      tester,
+    ) async {
+      // Every other new test taps move-up only, so the whole down half — the
+      // feature this change adds — rode on "the shared _reorder is already
+      // covered". It is not: swapping `isFirstInGroup` and `isLastInGroup`, or
+      // wiring the down icon to `_moveUp`, would leave all of them green.
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          tiedAsset('a1', 'First'),
+          tiedAsset('a2', 'Second'),
+          tiedAsset('a3', 'Third'),
+        ];
+      await _pumpSheet(tester, repo);
+
+      await tester.tap(find.byKey(const Key('account-move-down-a1')));
+      await tester.pumpAndSettle();
+
+      expect(
+        displayedOrder(tester, ['a1', 'a2', 'a3']),
+        ['a2', 'a1', 'a3'],
+        reason: '按向下後,a1 必須落到 a2 下面 — 而不是往上,也不是不動',
+      );
+
+      // The ends, each disabled on its own side. Asserted together because a
+      // swapped pair of flags satisfies either one alone.
+      final order = displayedOrder(tester, ['a1', 'a2', 'a3']);
+      final firstUp = tester.widget<IconButton>(
+        find.byKey(Key('account-move-up-${order.first}')),
+      );
+      final lastDown = tester.widget<IconButton>(
+        find.byKey(Key('account-move-down-${order.last}')),
+      );
+      expect(firstUp.onPressed, isNull, reason: '第一列不能再往上');
+      expect(lastDown.onPressed, isNull, reason: '最後一列不能再往下');
+      // And the other end of each is live, so "disable everything" fails too.
+      expect(
+        tester.widget<IconButton>(
+          find.byKey(Key('account-move-down-${order.first}')),
+        ).onPressed,
+        isNotNull,
+      );
+      expect(
+        tester.widget<IconButton>(
+          find.byKey(Key('account-move-up-${order.last}')),
+        ).onPressed,
+        isNotNull,
+      );
+    });
+
+    testWidgets('the account row lays out on a 320dp phone at textScale 2.0', (
+      tester,
+    ) async {
+      // The row now holds a name field plus up to four controls (save, up,
+      // down, archive) and every other test in this file runs at 600dp — a
+      // width no phone has. This project has repeatedly shipped rows that only
+      // break below 360dp, and an overflow raises a real error, so the guard
+      // is cheap: render the widest state (a dirty name, so the save icon is
+      // present too) at the narrowest supported width.
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      useTextScaleFactor(tester, 2.0);
+
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      await _pumpSheet(tester, repo, surface: const Size(320, 800));
+
+      // Dirty the name so the save icon joins the row — the widest it gets.
+      await tester.enterText(
+        find.byKey(const Key('account-name-a1')),
+        'A considerably longer account name',
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
     });
   });
 }
