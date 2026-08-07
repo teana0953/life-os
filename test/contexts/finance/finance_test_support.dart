@@ -450,6 +450,36 @@ class FakeFinanceRepository implements FinanceRepository {
   }
 
   @override
+  Future<void> reorderNetWorthAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  ) async {
+    networthCalls.add('reorder:${netWorthKindToJson(kind)}:${orderedIds.join(",")}');
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    // Mirrors the server: the whole group lands or none of it does, so a
+    // caller cannot observe a half-renumbered group through this fake either.
+    final byId = {for (final a in accounts) a.id: a};
+    final next = [...accounts];
+    for (var i = 0; i < orderedIds.length; i++) {
+      final current = byId[orderedIds[i]];
+      if (current == null) throw const FinanceValidationFailure();
+      next[next.indexWhere((a) => a.id == current.id)] = NetWorthAccount(
+        id: current.id,
+        kind: current.kind,
+        name: current.name,
+        sortOrder: i,
+        archived: current.archived,
+      );
+    }
+    accounts = next;
+  }
+
+  @override
   Future<NetWorthSnapshot> upsertNetWorthSnapshot(
     String idToken, {
     required String accountId,
@@ -572,6 +602,7 @@ NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
       ListNetWorthAccounts(repo),
       CreateNetWorthAccount(repo),
       UpdateNetWorthAccount(repo),
+      ReorderNetWorthAccounts(repo),
       UpsertSnapshot(repo),
       GetMonthlyNetWorth(repo),
       GetNetWorthTrend(repo),

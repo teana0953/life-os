@@ -182,16 +182,17 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     final reordered = List.of(group)
       ..removeAt(from)
       ..insert(to, account);
-    return _run(() async {
-      for (var i = 0; i < reordered.length; i++) {
-        await widget.controller.updateAccount(
-          await widget.idToken(),
-          reordered[i].id,
-          sortOrder: i,
-        );
-        if (widget.controller.status != FinanceStatus.loaded) return;
-      }
-    });
+    // One call, not one per account: the server rewrites the whole group in a
+    // single atomic write (life-os-backend#80). The per-account loop this
+    // replaces left a half-renumbered group behind whenever it failed midway,
+    // and the client had no way to roll that back.
+    return _run(
+      () async => widget.controller.reorderAccounts(
+        await widget.idToken(),
+        account.kind,
+        [for (final a in reordered) a.id],
+      ),
+    );
   }
 
   Future<void> _toggleArchived(NetWorthAccount account) => _run(

@@ -140,6 +140,40 @@ void main() {
       expect(account.archived, isTrue);
     });
 
+    test('reorderNetWorthAccounts PUTs kind and ids to /accounts/order', () async {
+      // The URL matters as much as the body: the server registers
+      // `/accounts/order` before `/accounts/:id`, so a path typo here does not
+      // 404 — it lands on the single-account update with id "order".
+      Uri? capturedUri;
+      String? capturedMethod;
+      Map<String, dynamic>? capturedBody;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        capturedMethod = request.method;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'reordered': true}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      await _repo(client).reorderNetWorthAccounts('token-123', NetWorthKind.liability, [
+        'a2',
+        'a1',
+      ]);
+
+      expect(
+        capturedUri,
+        Uri.parse('https://example.test/api/finance/networth/accounts/order'),
+      );
+      expect(capturedMethod, 'PUT');
+      expect(capturedBody, {
+        'kind': 'liability',
+        'ids': ['a2', 'a1'],
+      });
+    });
+
     test('upsertNetWorthSnapshot PUTs account_id/month/value', () async {
       Uri? capturedUri;
       Map<String, dynamic>? capturedBody;

@@ -248,6 +248,7 @@ Future<void> main() async {
     ListNetWorthAccounts(financeRepository),
     CreateNetWorthAccount(financeRepository),
     UpdateNetWorthAccount(financeRepository),
+    ReorderNetWorthAccounts(financeRepository),
     UpsertSnapshot(financeRepository),
     GetMonthlyNetWorth(financeRepository),
     GetNetWorthTrend(financeRepository),

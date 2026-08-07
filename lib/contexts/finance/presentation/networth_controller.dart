@@ -27,6 +27,7 @@ class NetWorthController extends ChangeNotifier {
   final ListNetWorthAccounts _listAccounts;
   final CreateNetWorthAccount _createAccount;
   final UpdateNetWorthAccount _updateAccount;
+  final ReorderNetWorthAccounts _reorderAccounts;
   final UpsertSnapshot _upsertSnapshot;
   final GetMonthlyNetWorth _getMonthlyNetWorth;
   final GetNetWorthTrend _getTrend;
@@ -35,6 +36,7 @@ class NetWorthController extends ChangeNotifier {
     this._listAccounts,
     this._createAccount,
     this._updateAccount,
+    this._reorderAccounts,
     this._upsertSnapshot,
     this._getMonthlyNetWorth,
     this._getTrend,
@@ -158,6 +160,16 @@ class NetWorthController extends ChangeNotifier {
       sortOrder: sortOrder,
       archived: archived,
     );
+  });
+
+  /// Rewrites a whole kind group's order in one server-side atomic write.
+  /// [orderedIds] must be exactly that group's ids, archived included.
+  Future<void> reorderAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  ) => _mutate(idToken, () async {
+    await _reorderAccounts(idToken, kind, orderedIds);
   });
 
   /// Runs a write [action] then reloads the selected month, mapping typed
