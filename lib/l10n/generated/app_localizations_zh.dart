@@ -2142,7 +2142,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get splitScheduleSectionTitle => '分期還款';
 
   @override
-  String get splitScheduleExactOnly => '分期還款需要「指定金額」模式。';
+  String get splitScheduleExactOnly => '要讓某一個人按月還,拆法要選「自訂」。';
 
   @override
   String get splitScheduleClearedOnEqual => '已切換成均分,分期還款設定已清除。';
@@ -2180,6 +2180,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String splitBalanceSchedule(int next, int total, String amount) {
     return '第 $next/$total 期 · 每期 $amount';
   }
+
+  @override
+  String get splitScheduleSwitchToExact => '改用自訂';
 
   @override
   String splitExactShareLabel(String name) {
@@ -4718,7 +4721,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get splitScheduleSectionTitle => '分期還款';
 
   @override
-  String get splitScheduleExactOnly => '分期還款需要「指定金額」模式。';
+  String get splitScheduleExactOnly => '要讓某一個人按月還,拆法要選「自訂」。';
 
   @override
   String get splitScheduleClearedOnEqual => '已切換成均分,分期還款設定已清除。';
@@ -4756,6 +4759,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String splitBalanceSchedule(int next, int total, String amount) {
     return '第 $next/$total 期 · 每期 $amount';
   }
+
+  @override
+  String get splitScheduleSwitchToExact => '改用自訂';
 
   @override
   String splitExactShareLabel(String name) {

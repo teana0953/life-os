@@ -1098,6 +1098,25 @@ void _scheduleTests() {
       expect(tester.widget<FilledButton>(find.byKey(const Key('split-save-button'))).onPressed, isNull);
     });
 
+    testWidgets('the equal-mode note names the control on screen, and gets you there', (tester) async {
+      // The copy used to say "exact-amount mode" while the toggle says
+      // "Exact" — a name the user could not find anywhere on the form. And
+      // being told which mode is needed with no way to reach it is a dead end
+      // dressed as help.
+      final repo = FakeSplitRepository();
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo));
+
+      final note = tester.widget<Text>(find.byKey(const Key('split-schedule-exact-only'))).data!;
+      expect(note, contains(_loc.splitModeExact));
+
+      await tapVisible(tester, find.byKey(const Key('split-schedule-switch-to-exact')));
+
+      // The mode really changed: the exact fields are the proof, not the
+      // button's own disappearance.
+      expect(find.byKey(const Key('split-exact-field-$_self')), findsOneWidget);
+      expect(find.byKey(const Key('split-schedule-person')), findsOneWidget);
+    });
+
     testWidgets('switching to an equal split clears the schedule and says so', (tester) async {
       final repo = FakeSplitRepository();
       await _pumpSheet(tester, sheet: sheetWith(repo: repo));

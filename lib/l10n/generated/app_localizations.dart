@@ -4085,7 +4085,7 @@ abstract class AppLocalizations {
   /// Shown in equal-split mode, where the server accepts no schedule.
   ///
   /// In en, this message translates to:
-  /// **'Schedules need the exact-amount mode.'**
+  /// **'To have one person repay monthly, the split has to be Exact.'**
   String get splitScheduleExactOnly;
 
   /// Shown once after switching from exact to equal with a schedule set.
@@ -4141,6 +4141,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Period {next} of {total} · {amount} each'**
   String splitBalanceSchedule(int next, int total, String amount);
+
+  /// Action that switches the split to exact mode from the repayment-schedule section, so the section is a way in rather than a dead end.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Exact'**
+  String get splitScheduleSwitchToExact;
 
   /// Field label for one participant's amount entry in exact-split mode.
   ///

@@ -2226,7 +2226,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get splitScheduleSectionTitle => 'Repayment schedule';
 
   @override
-  String get splitScheduleExactOnly => 'Schedules need the exact-amount mode.';
+  String get splitScheduleExactOnly =>
+      'To have one person repay monthly, the split has to be Exact.';
 
   @override
   String get splitScheduleClearedOnEqual =>
@@ -2265,6 +2266,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String splitBalanceSchedule(int next, int total, String amount) {
     return 'Period $next of $total · $amount each';
   }
+
+  @override
+  String get splitScheduleSwitchToExact => 'Use Exact';
 
   @override
   String splitExactShareLabel(String name) {
