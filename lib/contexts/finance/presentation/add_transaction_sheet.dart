@@ -78,7 +78,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // field at all: `_canSave` reads this controller, so leaving it empty
       // would leave Save permanently dead on the one sheet whose whole point
       // is saving a recategorisation.
-      _amountController.text = formatMinorUnits(editing.amount, editing.currency);
+      _amountController.text = formatMinorUnits(
+        editing.amount,
+        editing.currency,
+      );
       _noteController.text = editing.note ?? '';
     } else {
       _type = FinanceType.expense;
@@ -111,11 +114,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   List<FinanceCategory> get _categoriesForType =>
       widget.categories.where((c) => c.type == _type).toList();
 
-  int? get _amount => parseAmountToMinorUnits(_amountController.text, _currency);
+  int? get _amount =>
+      parseAmountToMinorUnits(_amountController.text, _currency);
 
   bool get _canSave => (_amount ?? 0) > 0 && _categoryId != null && !_saving;
 
-  String? get _note => _noteController.text.trim().isEmpty ? null : _noteController.text.trim();
+  String? get _note =>
+      _noteController.text.trim().isEmpty ? null : _noteController.text.trim();
 
   Future<void> _pickDate() async {
     final initial = DateTime.tryParse(_date) ?? DateTime.now();
@@ -127,7 +132,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _date = '${picked.year.toString().padLeft(4, '0')}-'
+      _date =
+          '${picked.year.toString().padLeft(4, '0')}-'
           '${picked.month.toString().padLeft(2, '0')}-'
           '${picked.day.toString().padLeft(2, '0')}';
     });
@@ -213,7 +219,9 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         // The date is one of the facts the payer can change, so the reload of
         // *this* month can legitimately come back without the row. Same exit
         // as a deleted split rather than an error from looking for it.
-        messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitMovedOutOfMonth)));
+        messenger.showSnackBar(
+          SnackBar(content: Text(loc.financeSplitMovedOutOfMonth)),
+        );
         navigator.pop();
         return;
       }
@@ -223,7 +231,9 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         _date = fresh.date;
         _amountController.text = formatMinorUnits(fresh.amount, fresh.currency);
       });
-      messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitChangedReloaded)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(loc.financeSplitChangedReloaded)),
+      );
       return;
     }
     if (_isMirror && controller.error == FinanceError.notFound) {
@@ -231,7 +241,9 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // Leaving the sheet open would leave the user editing a record that no
       // longer exists — `_mutate`'s reload has already dropped it from the list
       // behind them.
-      messenger.showSnackBar(SnackBar(content: Text(loc.financeSplitDeletedElsewhere)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(loc.financeSplitDeletedElsewhere)),
+      );
       navigator.pop();
       return;
     }
@@ -264,14 +276,19 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    await widget.controller.deleteTransaction(await widget.idToken(), editing.id);
+    await widget.controller.deleteTransaction(
+      await widget.idToken(),
+      editing.id,
+    );
     if (!mounted) return;
     if (widget.controller.status == FinanceStatus.loaded) {
       Navigator.of(context).pop();
       return;
     }
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
   }
 
   /// The mirrored sheet's top half (design D2): what the split owns, as a
@@ -301,21 +318,25 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         ? loc.financeTypeExpense
         : loc.financeTypeIncome;
     return [
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      // `Wrap`, not a `Row`. A `Row` gives a bare `TextButton` unbounded
+      // main-axis constraints, so at 320dp / textScale 2.0 the English label
+      // outgrows what `Expanded` left it and the row overflows by ~73px
+      // (zh_Hant fits, which is why that is easy to ship). But making the
+      // button `Flexible` instead trades that for a worse bug: the two flex
+      // children then split the row and "Go to splits" wraps to two lines on
+      // **every** English phone at ordinary text size — and a wrap raises no
+      // layout error at all, so `expectNoLayoutErrors` cannot see it. `Wrap`
+      // lets the button keep its natural width and drop to its own line only
+      // when it genuinely cannot fit.
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.start,
         children: [
-          Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-          // `Flexible`, not a bare child: a non-flex child of a `Row` is laid
-          // out with unbounded main-axis constraints, so at 320dp with
-          // textScale 2.0 the English label outgrows what `Expanded` left it
-          // and the row overflows by ~73px. zh_Hant fits, which is exactly why
-          // this is easy to ship.
-          Flexible(
-            child: TextButton(
-              key: const Key('finance-go-to-split'),
-              onPressed: widget.onGoToSplit,
-              child: Text(loc.financeSplitMirrorGoToSplit),
-            ),
+          Text(title, style: theme.textTheme.titleLarge),
+          TextButton(
+            key: const Key('finance-go-to-split'),
+            onPressed: widget.onGoToSplit,
+            child: Text(loc.financeSplitMirrorGoToSplit),
           ),
         ],
       ),
@@ -352,7 +373,9 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                 ..._mirrorHeader(loc, theme)
               else ...[
                 Text(
-                  widget.editing == null ? loc.financeAddTitle : loc.financeEditTitle,
+                  widget.editing == null
+                      ? loc.financeAddTitle
+                      : loc.financeEditTitle,
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
@@ -399,7 +422,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       avatar: Icon(financeCategoryIcon(category), size: 18),
                       label: Text(category.name),
                       selected: _categoryId == category.id,
-                      onSelected: (_) => setState(() => _categoryId = category.id),
+                      onSelected: (_) =>
+                          setState(() => _categoryId = category.id),
                     ),
                 ],
               ),
@@ -419,10 +443,15 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       child: DropdownButtonFormField<String>(
                         key: const Key('finance-currency-field'),
                         initialValue: _currency,
-                        decoration: InputDecoration(labelText: loc.financeCurrencyLabel),
+                        decoration: InputDecoration(
+                          labelText: loc.financeCurrencyLabel,
+                        ),
                         items: [
                           for (final currency in supportedCurrencies)
-                            DropdownMenuItem(value: currency, child: Text(currency)),
+                            DropdownMenuItem(
+                              value: currency,
+                              child: Text(currency),
+                            ),
                         ],
                         onChanged: (value) {
                           if (value == null) return;

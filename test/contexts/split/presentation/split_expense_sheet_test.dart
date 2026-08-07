@@ -697,7 +697,11 @@ void main() {
       final amountField = tester.widget<TextField>(find.byKey(const Key('split-amount-field')));
       expect(amountField.controller!.text, '100');
       expect(find.text('Lunch with Friend'), findsOneWidget);
-      expect(find.text('餐飲'), findsWidgets);
+      // `gotCategoryName`, not `find.text('餐飲')`: the dropdown's own
+      // `FormField` holds the picked value for display whether or not the
+      // sheet recorded it, so the visible assertion stays green even when the
+      // category would go out as null. The fake records it before it throws.
+      expect(repo.gotCategoryName, '餐飲');
     });
 
     testWidgets('submitting is disabled while a save is in flight', (tester) async {
@@ -741,8 +745,7 @@ void main() {
         sortOrder: 0,
         archived: false,
       ),
-      // An income category with the same shape, to prove the picker filters by
-      // type rather than offering everything the user owns.
+      // Archived: the picker must stop offering it, matching `budget_sheet`.
       FinanceCategory(
         id: 'cat-old',
         name: '舊分類',
@@ -751,6 +754,8 @@ void main() {
         sortOrder: 2,
         archived: true,
       ),
+      // An income category with the same shape, to prove the picker filters by
+      // type rather than offering everything the user owns.
       FinanceCategory(
         id: 'cat-salary',
         name: '薪資',
