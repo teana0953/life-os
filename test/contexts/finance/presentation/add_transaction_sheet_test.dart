@@ -8,6 +8,8 @@ import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 /// A mirrored row and the self-recorded one it has to be told apart from.
@@ -344,6 +346,60 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(wentToSplit, 1);
+
+      // The second one, beside the sentence that tells you to go. Without it
+      // the explanation and the way to act on it are at opposite ends of the
+      // sheet — ~240dp apart at textScale 1.0, and the header one is scrolled
+      // off entirely at 2.0.
+      await tester.ensureVisible(
+        find.byKey(const Key('finance-go-to-split-footer')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('finance-go-to-split-footer')));
+      await tester.pumpAndSettle();
+
+      expect(wentToSplit, 2);
+    });
+
+    testWidgets('a long note does not push the sheet\'s inputs off screen', (
+      tester,
+    ) async {
+      // The note is free text with no length limit and the title renders it at
+      // `titleLarge`; uncapped, a 55-character one was a 728dp headline at
+      // 320dp / textScale 2.0, with the category picker the user came for
+      // below the fold.
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      // textScale 2.0 is where it bites: at 1.0 the same note is ~196dp, just
+      // inside any plausible height threshold, so a test that skipped this
+      // would pass with the cap removed.
+      useTextScaleFactor(tester, 2.0);
+
+      await pumpSheet(
+        tester,
+        repo: seeded(),
+        editing: const FinanceTransaction(
+          id: 'mirror-1',
+          type: FinanceType.expense,
+          amount: 900,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-15',
+          note: 'A dinner with a very long description that someone typed out',
+          splitExpenseId: 'exp-1',
+        ),
+      );
+
+      // The line count, not the height: `maxLines: 2` is exactly what this
+      // pins, and a height threshold has to be guessed against a font.
+      expect(
+        paintedTextLineCount(
+          tester,
+          find.byKey(const Key('finance-mirror-title')),
+        ),
+        2,
+      );
     });
 
     testWidgets(

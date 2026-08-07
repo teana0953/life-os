@@ -353,7 +353,19 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleLarge),
+          // Capped: the note is the user's own free text with no length limit,
+          // and at `titleLarge` a 55-character one is a 728dp headline at
+          // 320dp / textScale 2.0 — the whole viewport, with the category
+          // picker they opened the sheet to use pushed off the bottom. The
+          // note is editable in its own field just below, so nothing is lost
+          // by ellipsising it here.
+          Text(
+            title,
+            key: const Key('finance-mirror-title'),
+            style: theme.textTheme.titleLarge,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           TextButton(
             key: const Key('finance-go-to-split'),
             onPressed: widget.onGoToSplit,
@@ -496,6 +508,18 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   loc.financeSplitMirrorLockedNote,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                // The same exit again, beside the sentence that says you need
+                // it. The one in the header is ~240dp away at textScale 1.0
+                // and scrolled off entirely at 2.0, so whoever reads the
+                // explanation would have to scroll back up to act on it.
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton(
+                    key: const Key('finance-go-to-split-footer'),
+                    onPressed: widget.onGoToSplit,
+                    child: Text(loc.financeSplitMirrorGoToSplit),
                   ),
                 ),
               ],
