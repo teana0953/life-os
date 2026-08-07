@@ -133,6 +133,22 @@ applied none of the write, so nothing of theirs was consumed by it. When the
 split is gone entirely rather than changed, they SHALL be told that instead,
 and SHALL NOT be left editing a record that no longer exists.
 
+A transaction the server wrote as one period of an instalment plan SHALL show
+which period it is, of how many, and SHALL offer a way to the plan it belongs
+to. Its amount stays editable — the bank amending a past charge is the reason
+that door exists — but the sheet SHALL make clear that editing one period does
+not re-spread the rest.
+
+**A transaction can be both a split mirror and an instalment period.** The two
+markers are independent nullable columns with nothing forbidding their
+coexistence, and a split paid in instalments is exactly that case. The sheet
+SHALL therefore resolve them by a stated precedence rather than assuming one
+excludes the other, and the plan-level actions (managing the plan, settling
+it) SHALL be offered on the basis of whether the plan is the viewer's own —
+not on the basis of the row being an instalment. A share holder looking at a
+period of somebody else's plan can change their own category and note and
+nothing more.
+
 #### Scenario: Editing an existing transaction
 
 - **WHEN** the user taps a transaction, changes its amount, and saves
@@ -205,6 +221,24 @@ and SHALL NOT be left editing a record that no longer exists.
 - **THEN** their category choice is still selected and the note they typed is
   still there after the reload — the server applied none of the write, so
   nothing they typed is lost to it
+
+#### Scenario: An instalment period says which one it is
+
+- **WHEN** the user opens the third period of a twelve-period plan
+- **THEN** the sheet says it is period 3 of 12 and offers a way to the plan
+
+#### Scenario: A row that is both a mirror and an instalment period
+
+- **WHEN** a transaction carries both a split expense and an instalment plan
+- **THEN** the sheet resolves them by the stated precedence rather than
+  showing one and silently dropping the other, and the user can still edit
+  their own category and note
+
+#### Scenario: Plan actions follow whose plan it is
+
+- **WHEN** the plan a period belongs to is not the viewer's own
+- **THEN** managing and settling it are not offered, while the category and
+  note stay editable
 
 ### Requirement: Month switching is race-safe
 
