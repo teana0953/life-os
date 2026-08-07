@@ -341,10 +341,14 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
   /// request that came back empty). `DropdownButtonFormField` asserts when its
   /// value matches no item, so without this an edit would crash rather than
   /// show the value it is about to resend.
+  /// Archived categories are left out, matching `budget_sheet.dart` — archiving
+  /// means "stop offering me this". The expense being edited keeps its own name
+  /// below even if it has since been archived, so an edit never silently drops
+  /// a category the recorder cannot re-pick.
   List<String> get _categoryNameOptions {
     final names = [
       for (final c in widget.financeCategories)
-        if (c.type == FinanceType.expense) c.name,
+        if (c.type == FinanceType.expense && !c.archived) c.name,
     ];
     final current = _categoryName;
     if (current != null && !names.contains(current)) names.insert(0, current);

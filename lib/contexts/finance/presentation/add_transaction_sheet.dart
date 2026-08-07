@@ -305,10 +305,17 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-          TextButton(
-            key: const Key('finance-go-to-split'),
-            onPressed: widget.onGoToSplit,
-            child: Text(loc.financeSplitMirrorGoToSplit),
+          // `Flexible`, not a bare child: a non-flex child of a `Row` is laid
+          // out with unbounded main-axis constraints, so at 320dp with
+          // textScale 2.0 the English label outgrows what `Expanded` left it
+          // and the row overflows by ~73px. zh_Hant fits, which is exactly why
+          // this is easy to ship.
+          Flexible(
+            child: TextButton(
+              key: const Key('finance-go-to-split'),
+              onPressed: widget.onGoToSplit,
+              child: Text(loc.financeSplitMirrorGoToSplit),
+            ),
           ),
         ],
       ),

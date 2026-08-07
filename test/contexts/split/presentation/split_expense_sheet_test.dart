@@ -661,11 +661,30 @@ void main() {
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+          financeCategories: const [
+            FinanceCategory(
+              id: 'cat-food',
+              name: '餐飲',
+              type: FinanceType.expense,
+              icon: 'other',
+              sortOrder: 0,
+              archived: false,
+            ),
+          ],
         ),
       );
 
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch with Friend');
+      // The category is a field the user filled in too — "every field" in this
+      // test's name predates it, and a picker that resets on failure would
+      // still have passed.
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('餐飲').last);
+      await tester.pumpAndSettle();
       // A split needs a second person (the backend's own rule) — without one
       // Save stays disabled and no request is ever sent.
       await tester.tap(find.byKey(const Key('split-participant-f1')));
@@ -678,6 +697,7 @@ void main() {
       final amountField = tester.widget<TextField>(find.byKey(const Key('split-amount-field')));
       expect(amountField.controller!.text, '100');
       expect(find.text('Lunch with Friend'), findsOneWidget);
+      expect(find.text('餐飲'), findsWidgets);
     });
 
     testWidgets('submitting is disabled while a save is in flight', (tester) async {
@@ -723,6 +743,14 @@ void main() {
       ),
       // An income category with the same shape, to prove the picker filters by
       // type rather than offering everything the user owns.
+      FinanceCategory(
+        id: 'cat-old',
+        name: '舊分類',
+        type: FinanceType.expense,
+        icon: 'other',
+        sortOrder: 2,
+        archived: true,
+      ),
       FinanceCategory(
         id: 'cat-salary',
         name: '薪資',
@@ -790,6 +818,51 @@ void main() {
       expect(repo.gotCategoryName, '餐飲');
     });
 
+    testWidgets('picking a category from the list is what gets sent', (
+      tester,
+    ) async {
+      // The headline behaviour of the whole feature, and until this test the
+      // only thing covered was *resending* a category the expense already had
+      // — which `initState` does on its own. Replacing the picker's
+      // `onChanged` body with `setState(() {})` left every other test green.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('餐飲').last);
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('the picker offers expense categories only, never income ones', (
+      tester,
+    ) async {
+      // The income category in the fixture above was seeded to prove this and
+      // then never looked at: deleting the `type == expense` filter from
+      // `_categoryNameOptions` left all 685 finance+split tests green. Picking
+      // an income name would send a name the server resolves as an expense
+      // category, find nothing, and drop every participant's mirror into their
+      // fallback.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('餐飲'), findsWidgets);
+      expect(find.text('薪資'), findsNothing);
+      // Archiving means "stop offering me this" — same rule the budget sheet
+      // already follows.
+      expect(find.text('舊分類'), findsNothing);
+    });
+
     testWidgets('an edit that touches only the amount keeps the category', (
       tester,
     ) async {
@@ -826,9 +899,10 @@ void main() {
       await save(tester);
 
       expect(repo.gotCategoryName, isNull);
-      // The save really happened — otherwise a null category would be
-      // indistinguishable from the sheet refusing to submit at all.
-      expect(repo.gotDescription, 'Dinner');
+      // `categoryNameSent`, not just a non-null side effect: it is what tells
+      // "sent null on purpose" from "the key never left the sheet", and those
+      // are the same `gotCategoryName` either way.
+      expect(repo.categoryNameSent, isTrue);
     });
   });
 }

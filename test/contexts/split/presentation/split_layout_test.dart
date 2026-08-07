@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
+import 'package:life_os/contexts/finance/presentation/add_transaction_sheet.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
@@ -592,7 +593,14 @@ void main() {
               // its own row shape, so it gets its own layout pass.
               final loc = lookupAppLocalizations(locale);
               await expectNoLayoutErrors(() async {
-                await tester.tap(find.text(loc.splitModeExact));
+                // `ensureVisible` first: the sheet grew a category picker, which pushed
+      // the mode toggle below a 320dp / textScale 2.0 viewport. A `tap` that
+      // misses only prints a warning — and inside `expectNoLayoutErrors` a
+      // no-op collects no errors and therefore passes, so the exact-split rows
+      // this block exists to sweep would never be laid out at all.
+      await tester.ensureVisible(find.text(loc.splitModeExact));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(loc.splitModeExact));
                 await tester.pumpAndSettle();
               });
             },
@@ -1062,6 +1070,59 @@ void main() {
               });
 
               expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+            },
+          );
+
+          testWidgets(
+            'the mirrored transaction sheet lays out cleanly at '
+            '${width.toInt()}dp, textScale=$textScale, locale=$locale',
+            (tester) async {
+              // The finance sweeps above seed `_seedOverviewLedger`, which
+              // carries no `splitExpenseId` anywhere — so the sheet that this
+              // change reshaped the most was swept by nothing at all. Its
+              // header is an `Expanded` title beside a text button, the shape
+              // that overflows first, and it overflows in English well before
+              // zh_Hant.
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeFinanceRepository()
+                ..byMonth['2026-08'] = [
+                  const FinanceTransaction(
+                    id: 't-mirror',
+                    type: FinanceType.expense,
+                    amount: _wideAmount,
+                    currency: 'TWD',
+                    categoryId: 'cat-food',
+                    date: '2026-08-02',
+                    note: 'A long enough note to push the title into two lines',
+                    splitExpenseId: 'e1',
+                  ),
+                ];
+              final controller = testFinanceController(repo);
+              await controller.load('tok', '2026-08');
+
+              await expectNoLayoutErrors(() async {
+                await tester.pumpWidget(
+                  l10nTestApp(
+                    locale: locale,
+                    home: Scaffold(
+                      body: AddTransactionSheet(
+                        controller: controller,
+                        idToken: () async => 'tok',
+                        categories: controller.categories,
+                        today: '2026-08-02',
+                        editing: controller.transactions.single,
+                        onGoToSplit: () {},
+                      ),
+                    ),
+                  ),
+                );
+                await tester.pumpAndSettle();
+              });
+
+              expect(find.byKey(const Key('finance-mirror-facts')), findsOneWidget);
             },
           );
         }
