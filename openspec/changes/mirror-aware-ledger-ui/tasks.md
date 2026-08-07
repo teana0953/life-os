@@ -26,69 +26,69 @@
 
 ## 4. 編輯 sheet:事實 + 兩個欄位(D2、D3)
 
-- [ ] 4.1 鏡像開啟時:金額/日期/幣別/類型以**文字**呈現,分類與備註是真的輸入。
-- [ ] 4.1a **`_canSave`(`add_transaction_sheet.dart:94`)讀的是 `_amountController.text`。** 拿掉金額欄位卻沒把 controller 填好,儲存鈕會永遠死著。4.4 抓得到,但先知道。
-- [ ] 4.1b 標題用 `note`,而 `note` 建立之後就歸使用者所有(後端 D18),sheet 自己也讓他改。**使用者改過備註之後,標題就不再是分帳的描述** —— 這是可接受的,但別把標題寫成「分帳的描述」。
-- [ ] 4.2a **「前往分帳」這個出口要真的做出來,或從 design/proposal 裡刪掉。** D2 的圖與 D3 都寫了它,但規格 delta 只要求「說明去哪裡改」(一句話),**沒有任何 task 建它、沒有守門**。它不是免費的:`AddTransactionSheet` 只有一個呼叫點(`finance_scaffold.dart:396`),而分帳 tab 是 `FinanceScaffold` 自己的 tab index,所以要從 scaffold 穿一個 callback 進來。**決定:做。** 沒有出口的話那句說明是死路 —— 使用者得自己關掉、自己找到分帳 tab。
-- [ ] 4.2b **那個 callback 要跟 `SplitExpenseSheet.onAddFriend` 一樣宣告成必填非 null**,不要做成 nullable —— 那個既有的參數旁邊就寫著理由(「忘了接的呼叫點會把死路出貨,而且所有測試照樣綠」)。只有一個呼叫點時,必填嚴格比較安全。
-- [ ] 4.2c **突變:讓那個按鈕什麼都不做**,一條「鏡像 sheet 上按下前往分帳會切到分帳 tab」的測試必須紅(`finance_scaffold_test.dart`,`_index` 與 `_openSheet` 都在那裡)。
-- [ ] 4.2 **刪除鈕拿掉,不是 disabled**(D3)。**突變:改成 disabled 的按鈕**,一條「鏡像的 sheet 上找不到刪除控制項」的測試必須紅 —— 斷言要用 `findsNothing`,不能只斷言 `onPressed == null`。
-- [ ] 4.3 **突變:把金額改回可編輯的 `TextField`**,必須紅。斷言「找不到金額輸入框」而不是「有一個唯讀的 Text」—— 後者在兩種寫法下都成立。
-- [ ] 4.3a **`type` 也要鎖,而且它比金額更嚴重。** 後端 `update-transaction.ts:36` 把 `type` 算進「改寫分帳事實」→ 400。而 `add_transaction_sheet.dart:244-252` 在切換 type 時**把 `_categoryId` 清成 null** —— 使用者點一下就抹掉了他唯一來改的那個欄位,然後儲存還會失敗。**突變:留著 type 切換**,必須紅。
-- [ ] 4.4 分類與備註**仍然可編輯並且存得起來**。**突變:把它們也鎖住**,必須紅。**這條一定要有** —— 少了它,「整張 sheet 唯讀」這個過度修正會活下來,而分類正是使用者唯一需要改的東西。
-- [ ] 4.5 自己記的交易 sheet **完全不變**(刪除鈕還在、所有欄位可編輯)。**突變:對所有交易都套用鎖定**,必須紅。
+- [x] 4.1 鏡像開啟時:金額/日期/幣別/類型以**文字**呈現,分類與備註是真的輸入。
+- [x] 4.1a **`_canSave`(`add_transaction_sheet.dart:94`)讀的是 `_amountController.text`。** 拿掉金額欄位卻沒把 controller 填好,儲存鈕會永遠死著。4.4 抓得到,但先知道。
+- [x] 4.1b 標題用 `note`,而 `note` 建立之後就歸使用者所有(後端 D18),sheet 自己也讓他改。**使用者改過備註之後,標題就不再是分帳的描述** —— 這是可接受的,但別把標題寫成「分帳的描述」。
+- [x] 4.2a **「前往分帳」這個出口要真的做出來,或從 design/proposal 裡刪掉。** D2 的圖與 D3 都寫了它,但規格 delta 只要求「說明去哪裡改」(一句話),**沒有任何 task 建它、沒有守門**。它不是免費的:`AddTransactionSheet` 只有一個呼叫點(`finance_scaffold.dart:396`),而分帳 tab 是 `FinanceScaffold` 自己的 tab index,所以要從 scaffold 穿一個 callback 進來。**決定:做。** 沒有出口的話那句說明是死路 —— 使用者得自己關掉、自己找到分帳 tab。
+- [x] 4.2b **那個 callback 要跟 `SplitExpenseSheet.onAddFriend` 一樣宣告成必填非 null**,不要做成 nullable —— 那個既有的參數旁邊就寫著理由(「忘了接的呼叫點會把死路出貨,而且所有測試照樣綠」)。只有一個呼叫點時,必填嚴格比較安全。
+- [x] 4.2c **突變:讓那個按鈕什麼都不做**,一條「鏡像 sheet 上按下前往分帳會切到分帳 tab」的測試必須紅(`finance_scaffold_test.dart`,`_index` 與 `_openSheet` 都在那裡)。
+- [x] 4.2 **刪除鈕拿掉,不是 disabled**(D3)。**突變:改成 disabled 的按鈕**,一條「鏡像的 sheet 上找不到刪除控制項」的測試必須紅 —— 斷言要用 `findsNothing`,不能只斷言 `onPressed == null`。
+- [x] 4.3 **突變:把金額改回可編輯的 `TextField`**,必須紅。斷言「找不到金額輸入框」而不是「有一個唯讀的 Text」—— 後者在兩種寫法下都成立。
+- [x] 4.3a **`type` 也要鎖,而且它比金額更嚴重。** 後端 `update-transaction.ts:36` 把 `type` 算進「改寫分帳事實」→ 400。而 `add_transaction_sheet.dart:244-252` 在切換 type 時**把 `_categoryId` 清成 null** —— 使用者點一下就抹掉了他唯一來改的那個欄位,然後儲存還會失敗。**突變:留著 type 切換**,必須紅。
+- [x] 4.4 分類與備註**仍然可編輯並且存得起來**。**突變:把它們也鎖住**,必須紅。**這條一定要有** —— 少了它,「整張 sheet 唯讀」這個過度修正會活下來,而分類正是使用者唯一需要改的東西。
+- [x] 4.5 自己記的交易 sheet **完全不變**(刪除鈕還在、所有欄位可編輯)。**突變:對所有交易都套用鎖定**,必須紅。
 
 ## 5. 409 是重新載入(D5)
 
-- [ ] 5.1 新例外對應 409,不要掉進 `FinanceFetchFailure`。
-- [ ] 5.2 訊息講「這筆分帳剛剛被改過」並**把現在的值拿回來**。
-- [ ] 5.2a **「拿回來」目前沒有任何機制,而且要動的那段程式碼明文拒絕這件事。** `finance_controller.dart:331-351` 的 `_mutate` **失敗時從不重載**(註解寫明是刻意的),而 `AddTransactionSheet` 在 `initState` 就把 `widget.editing` 快照下來(`:61-68`),之後沒有任何東西重讀。所以要兩件事:(a) `_mutate` 對這個新例外要有重載分支;(b) sheet 要能依 id 從 `controller.transactions` 重新取事實。
-- [ ] 5.2b **突變:只改文案、不重載**,必須紅 —— 一條「409 之後 sheet 上顯示的金額是新的那個」的測試。**少了它,一個顯示正確句子卻繼續秀著過期 900 的實作會通過 5.3。**
-- [ ] 5.2c **已決定:未存的分類/備註編輯要保留**(D5、規格皆已寫)。409 是整筆拒絕,伺服器沒吃掉使用者選的東西,重載之後應該還在 —— 讓他在新的事實上重按一次儲存,而不是重挑一次分類。
-- [ ] 5.2d **5.2b 的實作會威脅這件事。** 依 id 重讀那一列的直覺寫法會把 `categoryId`/`note` 一起拉回來,**蓋掉使用者還沒存的選擇** —— 那樣會通過 5.2b 卻違反規格。**要一條測試同時斷言三件事**:409 之後金額顯示新的值,**而且**使用者剛剛挑的分類還選著,**而且**他打的備註還在。只斷言分類的話,「小心保住 `_categoryId` 卻重載 `_noteController`」的實作會活下來。
-- [ ] 5.2e **實作陷阱**:`_mutate` 新的重載分支會讓 `status` 停在 `loaded`,而 `add_transaction_sheet.dart:166` 一看到 `loaded` 就把 sheet pop 掉。重載**之後**要再設回錯誤狀態 —— 照 `finance_controller.dart:287-321` 的 `saveBudgets` 形狀。5.2b 抓得到,但先知道省一輪。
-- [ ] 5.3 **突變:讓 409 沿用既有的儲存失敗訊息**,必須紅。斷言**看得到的文案**,不是例外型別 —— 型別對不代表使用者看到對的東西。
-- [ ] 5.4 400(改了鎖住的欄位)仍然走既有的驗證失敗路徑。**突變要寫成「400 也當成 409」** —— 反過來寫(「409 當成 400」)紅的是 5.3 那條 409 文案測試,不會增加任何覆蓋。
-- [ ] 5.5a 這條的「刷新」那半也要斷言 —— `_mutate` 現在的 `FinanceNotFound` 分支**不會重載**,所以要斷言那列幽靈交易真的從列表上消失了,不能只斷言看到訊息。
-- [ ] 5.5 **404 現在會因為別人的動作而發生**:付款人刪掉分帳 → cascade 把鏡像也刪了 → 使用者手上那張 sheet 指向一列不存在的資料。現在它掉進 `financeSaveFailed`,使用者會留在一個已經不存在的畫面上編輯。**要有自己的處理**(告訴他分帳被刪了、關掉 sheet、刷新),以及一條測試。
-- [ ] 5.6 **409 重載之後那一列可能不在這個月了** —— 日期是可以被改的事實之一,付款人可以把它改到別的月份。依 id 重讀時 `firstWhere` 找不到會丟 `StateError`。**決定:走跟 5.5 一樣的路** —— 告訴使用者這筆已經不在這個月了、關掉 sheet。**不要只斷言「沒有丟例外」**,那在「靜默什麼都不做」的實作下也成立。
+- [x] 5.1 新例外對應 409,不要掉進 `FinanceFetchFailure`。
+- [x] 5.2 訊息講「這筆分帳剛剛被改過」並**把現在的值拿回來**。
+- [x] 5.2a **「拿回來」目前沒有任何機制,而且要動的那段程式碼明文拒絕這件事。** `finance_controller.dart:331-351` 的 `_mutate` **失敗時從不重載**(註解寫明是刻意的),而 `AddTransactionSheet` 在 `initState` 就把 `widget.editing` 快照下來(`:61-68`),之後沒有任何東西重讀。所以要兩件事:(a) `_mutate` 對這個新例外要有重載分支;(b) sheet 要能依 id 從 `controller.transactions` 重新取事實。
+- [x] 5.2b **突變:只改文案、不重載**,必須紅 —— 一條「409 之後 sheet 上顯示的金額是新的那個」的測試。**少了它,一個顯示正確句子卻繼續秀著過期 900 的實作會通過 5.3。**
+- [x] 5.2c **已決定:未存的分類/備註編輯要保留**(D5、規格皆已寫)。409 是整筆拒絕,伺服器沒吃掉使用者選的東西,重載之後應該還在 —— 讓他在新的事實上重按一次儲存,而不是重挑一次分類。
+- [x] 5.2d **5.2b 的實作會威脅這件事。** 依 id 重讀那一列的直覺寫法會把 `categoryId`/`note` 一起拉回來,**蓋掉使用者還沒存的選擇** —— 那樣會通過 5.2b 卻違反規格。**要一條測試同時斷言三件事**:409 之後金額顯示新的值,**而且**使用者剛剛挑的分類還選著,**而且**他打的備註還在。只斷言分類的話,「小心保住 `_categoryId` 卻重載 `_noteController`」的實作會活下來。
+- [x] 5.2e **實作陷阱**:`_mutate` 新的重載分支會讓 `status` 停在 `loaded`,而 `add_transaction_sheet.dart:166` 一看到 `loaded` 就把 sheet pop 掉。重載**之後**要再設回錯誤狀態 —— 照 `finance_controller.dart:287-321` 的 `saveBudgets` 形狀。5.2b 抓得到,但先知道省一輪。
+- [x] 5.3 **突變:讓 409 沿用既有的儲存失敗訊息**,必須紅。斷言**看得到的文案**,不是例外型別 —— 型別對不代表使用者看到對的東西。
+- [x] 5.4 400(改了鎖住的欄位)仍然走既有的驗證失敗路徑。**突變要寫成「400 也當成 409」** —— 反過來寫(「409 當成 400」)紅的是 5.3 那條 409 文案測試,不會增加任何覆蓋。
+- [x] 5.5a 這條的「刷新」那半也要斷言 —— `_mutate` 現在的 `FinanceNotFound` 分支**不會重載**,所以要斷言那列幽靈交易真的從列表上消失了,不能只斷言看到訊息。
+- [x] 5.5 **404 現在會因為別人的動作而發生**:付款人刪掉分帳 → cascade 把鏡像也刪了 → 使用者手上那張 sheet 指向一列不存在的資料。現在它掉進 `financeSaveFailed`,使用者會留在一個已經不存在的畫面上編輯。**要有自己的處理**(告訴他分帳被刪了、關掉 sheet、刷新),以及一條測試。
+- [x] 5.6 **409 重載之後那一列可能不在這個月了** —— 日期是可以被改的事實之一,付款人可以把它改到別的月份。依 id 重讀時 `firstWhere` 找不到會丟 `StateError`。**決定:走跟 5.5 一樣的路** —— 告訴使用者這筆已經不在這個月了、關掉 sheet。**不要只斷言「沒有丟例外」**,那在「靜默什麼都不做」的實作下也成立。
 
 ## 6. 分帳表單的分類(D6、D7)
 
-- [ ] 6.1 `SplitExpense` 加 `categoryName`;建立/編輯都送。
-- [ ] 6.2 接線:split 的表單拿得到使用者自己的 expense 分類(`grep -rn "FinanceCategory" lib/contexts/split/` 目前零筆)。
-- [ ] 6.1a **`categoryName` 要穿過的地方**(先列出來,不要邊做邊發現):`SplitExpenseWriter`、`CreateExpense`/`UpdateExpense`、`SplitRepository` port、`HttpSplitRepository._expenseBody`、`SplitController`、`GroupDetailController`、`FakeSplitRepository`(**要加一個 `gotCategoryName` 欄位,否則 6.3 的守門沒有東西可讀**)、`split_presentation_fakes.dart`。
-- [ ] 6.2a **`SplitExpenseSheet` 有兩個呼叫點,兩個都要接。** 第二個是 `group_detail_screen.dart:175`,從 `/finance/groups/:id` 開,建在 `FinanceScaffold` **外面**(`app.dart:706`),自己一份 15 欄位的 DI,**零 finance 存取**。只接 `finance_scaffold.dart:229` 那一個的話,**從群組頁做的編輯就是 D7 的原文**:沒有清單 → 沒送 → PATCH 清掉 → 所有沒被手動改過的鏡像靜默退回「其他」。
-- [ ] 6.2b **不要用「從群組頁編輯 → 分類不變」當守門,它不可能失敗。** sheet 既有的欄位都是「從 `editing` 種進 state」(`split_expense_sheet.dart:126-134`:`_currency = editing.currency`),分類照做就是 `String? _categoryName = editing?.categoryName` —— 那樣的話**沒接線的呼叫點照樣會把原本的分類重送回去**,選單是空的但值還在,加不加接線都綠。
-- [ ] 6.2c **要釘的是「沒接線時選單裡是空的」。** 從 `GroupDetailScreen` 根起的測試(`test/contexts/split/presentation/group_detail_screen_test.dart` 的 harness 支援)開啟 sheet,斷言**分類選單裡有使用者自己的分類**。**突變:只接 `FinanceScaffold` 那一個** → 選單空 → 紅。
-- [ ] 6.2d **順帶把 state 的形狀釘死:存名字,不是存 id 再去清單查。** 存 id 的寫法在清單為空時會送出 null,是靜默資料損失;存名字則最差也只是原值重送。
-- [ ] 6.2e **這條要靠「6.4 在分類清單為空的情況下也跑一次」來釘。** 6.2c 逼兩個呼叫點都接線之後,存 id 跟存名字在一般情況下**分不出來**;清單為空時才分得出來(存 id 會送 null),而清單為空在正式環境是**真的會發生**的(分類請求失敗)。一條測試同時釘住 6.2d 與 6.4。
-- [ ] 6.3 送**名字**不送 id。**突變:送 id**,一條斷言送出 payload 的測試必須紅。
-- [ ] 6.3a **JSON 的鍵名要另外釘。** 6.3 只釘到 sheet → repository 那一段(`FakeSplitRepository` 收的是具名 Dart 參數),而 `category_name` 這個鍵是在 `http_split_repository.dart:232-248` 的 `_expenseBody` 設的,**沒有任何列出的測試會走到那裡**。create 與 update 兩個動詞都要。
-- [ ] 6.3b `SplitExpense.fromJson` 同樣的問題(`split_expense.dart:48-71`):widget fixture 直接建構,解析壞掉不會有任何測試紅。守門寫在 `http_split_repository` 的測試裡。
-- [ ] 6.4 **編輯時要重送現有的分類**(D7)。**突變:編輯時不送 `category_name`**,一條「只改金額 → 分類不變」的測試必須紅。**這種錯不會有任何報錯**,而且會靜默改掉別人帳本裡的分類。
-- [ ] 6.5 不選分類是允許的。**突變:變成必填**,必須紅。
+- [x] 6.1 `SplitExpense` 加 `categoryName`;建立/編輯都送。
+- [x] 6.2 接線:split 的表單拿得到使用者自己的 expense 分類(`grep -rn "FinanceCategory" lib/contexts/split/` 目前零筆)。
+- [x] 6.1a **`categoryName` 要穿過的地方**(先列出來,不要邊做邊發現):`SplitExpenseWriter`、`CreateExpense`/`UpdateExpense`、`SplitRepository` port、`HttpSplitRepository._expenseBody`、`SplitController`、`GroupDetailController`、`FakeSplitRepository`(**要加一個 `gotCategoryName` 欄位,否則 6.3 的守門沒有東西可讀**)、`split_presentation_fakes.dart`。
+- [x] 6.2a **`SplitExpenseSheet` 有兩個呼叫點,兩個都要接。** 第二個是 `group_detail_screen.dart:175`,從 `/finance/groups/:id` 開,建在 `FinanceScaffold` **外面**(`app.dart:706`),自己一份 15 欄位的 DI,**零 finance 存取**。只接 `finance_scaffold.dart:229` 那一個的話,**從群組頁做的編輯就是 D7 的原文**:沒有清單 → 沒送 → PATCH 清掉 → 所有沒被手動改過的鏡像靜默退回「其他」。
+- [x] 6.2b **不要用「從群組頁編輯 → 分類不變」當守門,它不可能失敗。** sheet 既有的欄位都是「從 `editing` 種進 state」(`split_expense_sheet.dart:126-134`:`_currency = editing.currency`),分類照做就是 `String? _categoryName = editing?.categoryName` —— 那樣的話**沒接線的呼叫點照樣會把原本的分類重送回去**,選單是空的但值還在,加不加接線都綠。
+- [x] 6.2c **要釘的是「沒接線時選單裡是空的」。** 從 `GroupDetailScreen` 根起的測試(`test/contexts/split/presentation/group_detail_screen_test.dart` 的 harness 支援)開啟 sheet,斷言**分類選單裡有使用者自己的分類**。**突變:只接 `FinanceScaffold` 那一個** → 選單空 → 紅。
+- [x] 6.2d **順帶把 state 的形狀釘死:存名字,不是存 id 再去清單查。** 存 id 的寫法在清單為空時會送出 null,是靜默資料損失;存名字則最差也只是原值重送。
+- [x] 6.2e **這條要靠「6.4 在分類清單為空的情況下也跑一次」來釘。** 6.2c 逼兩個呼叫點都接線之後,存 id 跟存名字在一般情況下**分不出來**;清單為空時才分得出來(存 id 會送 null),而清單為空在正式環境是**真的會發生**的(分類請求失敗)。一條測試同時釘住 6.2d 與 6.4。
+- [x] 6.3 送**名字**不送 id。**突變:送 id**,一條斷言送出 payload 的測試必須紅。
+- [x] 6.3a **JSON 的鍵名要另外釘。** 6.3 只釘到 sheet → repository 那一段(`FakeSplitRepository` 收的是具名 Dart 參數),而 `category_name` 這個鍵是在 `http_split_repository.dart:232-248` 的 `_expenseBody` 設的,**沒有任何列出的測試會走到那裡**。create 與 update 兩個動詞都要。
+- [x] 6.3b `SplitExpense.fromJson` 同樣的問題(`split_expense.dart:48-71`):widget fixture 直接建構,解析壞掉不會有任何測試紅。守門寫在 `http_split_repository` 的測試裡。
+- [x] 6.4 **編輯時要重送現有的分類**(D7)。**突變:編輯時不送 `category_name`**,一條「只改金額 → 分類不變」的測試必須紅。**這種錯不會有任何報錯**,而且會靜默改掉別人帳本裡的分類。
+- [x] 6.5 不選分類是允許的。**突變:變成必填**,必須紅。
 
 ## 7. 規格與界線
 
-- [ ] 7.1 D4 的兩個界線(標題不顯示「跟誰」、「前往分帳」只到分帳 tab)**寫進 PR**,不要讓人以為漏做。
-- [ ] 7.1a 後端還送一個 `category_source`(`routes/finance.ts:119`)。**這個 change 用不到,明說**,不要讓它看起來像漏掉的。
-- [ ] 7.2 **不要**為「深連結到單筆分帳」開路 —— 沒有路由、交易也不帶 group id,半做會留下一個看起來能用的死鏈。
+- [x] 7.1 D4 的兩個界線(標題不顯示「跟誰」、「前往分帳」只到分帳 tab)**寫進 PR**,不要讓人以為漏做。
+- [x] 7.1a 後端還送一個 `category_source`(`routes/finance.ts:119`)。**這個 change 用不到,明說**,不要讓它看起來像漏掉的。
+- [x] 7.2 **不要**為「深連結到單筆分帳」開路 —— 沒有路由、交易也不帶 group id,半做會留下一個看起來能用的死鏈。
 
 ## 8. 驗證
 
-- [ ] 8.1 `flutter analyze`、`flutter test` 全綠。**不要同時跑兩個 test 程序。**
-- [ ] 8.2 碰到日期的改動要 `TZ=UTC flutter test` 複驗(本機 UTC+8 / CI UTC)。
-- [ ] 8.3 既有測試若因為「分帳現在計入總額」而失敗,**逐條判斷是合法的預期變化還是真的弄壞了**。已知會動到的:
+- [x] 8.1 `flutter analyze`、`flutter test` 全綠。**不要同時跑兩個 test 程序。**
+- [x] 8.2 碰到日期的改動要 `TZ=UTC flutter test` 複驗(本機 UTC+8 / CI UTC)。
+- [x] 8.3 既有測試若因為「分帳現在計入總額」而失敗,**逐條判斷是合法的預期變化還是真的弄壞了**。已知會動到的:
   - `finance_overview_tab_test.dart:555-556`(舊文案的 key 與文字)會因為 1.3 而壞 —— 預期內。
   - `finance_overview_tab_test.dart:446`、`:467` **不會反轉,也不該反轉**。它們證明的是「前端不在本地把 `splitSpending` 加上去」,而那件事現在**更重要**了(加了就是重複計算)。**只改註解,不要動斷言。**
   - 三個 ARB 檔加上產生的 l10n。
   - **`countedInTransactions` 設成必填會打到每一個 `const SplitSpending(...)` 字面值**:`finance_overview_tab_test.dart` ×6、`get_split_spending_test.dart` ×2、**`finance_controller_test.dart` ×10**、`app_test.dart:3014`、`split_layout_test.dart:1021`,以及 `http_finance_repository_test.dart:409` 的 `getSplitSpending` JSON fixture(欄位變必填之後它會開始丟)。(`split_spending_test.dart` **沒有**字面值,它是 fromJson 測試 —— 我先前列錯了。)
   - **`SplitSpending` 沒有 `operator ==`**,現有的 `expect(controller.splitSpending, [const SplitSpending(...)])` 是靠 const 正規化才過的。加必填欄位只有在 fixture 與期望值**都維持 const 且引數逐字相同**時才安全,否則會炸出一個很難讀的失敗訊息。
-- [ ] 8.5 **1.4 的 THB fixture 會照 `decimalDigitsFor` 的既有錯誤渲染**(白名單外一律 2 位,見 8.4 的非目標)。測試裡的期望文字要寫成 ÷100 的那個形式,**並在註解說明原因**,否則看起來像測試寫錯。
-- [ ] 8.4 **明確的非目標:`decimalDigitsFor`(`finance_money.dart:26-27`)對白名單外的幣別一律回 2。** 這個 change 把未計入的幣別放到自己一組、變得更顯眼,而 VND 這種零小數的碼會顯示成 1/100。**後端 D10 已經記過這件事,這裡不修**,但要寫進 PR,不要讓它看起來像沒發現。
+- [x] 8.5 **1.4 的 THB fixture 會照 `decimalDigitsFor` 的既有錯誤渲染**(白名單外一律 2 位,見 8.4 的非目標)。測試裡的期望文字要寫成 ÷100 的那個形式,**並在註解說明原因**,否則看起來像測試寫錯。
+- [x] 8.4 **明確的非目標:`decimalDigitsFor`(`finance_money.dart:26-27`)對白名單外的幣別一律回 2。** 這個 change 把未計入的幣別放到自己一組、變得更顯眼,而 VND 這種零小數的碼會顯示成 1/100。**後端 D10 已經記過這件事,這裡不修**,但要寫進 PR,不要讓它看起來像沒發現。
 
 ## 9. 兩條規格說了但沒人守的
 
-- [ ] 9.1 「a counted currency's share is included in the expense total **exactly once**」:seed 一筆鏡像交易加一筆已計入的 `SplitSpending`,斷言支出總額**沒有被加兩次**。既有的 `finance_overview_tab_test.dart:446` 只證明「前端沒有在本地加上去」,是比較弱的那一半。
-- [ ] 9.2 `split-ui` 的「分類是從記錄者自己的清單來的」目前只在 `GroupDetailScreen` 那個根被守(6.2c),`FinanceScaffold` 那個呼叫點沒有對等的斷言。補一條,兩邊對稱。
+- [x] 9.1 「a counted currency's share is included in the expense total **exactly once**」:seed 一筆鏡像交易加一筆已計入的 `SplitSpending`,斷言支出總額**沒有被加兩次**。既有的 `finance_overview_tab_test.dart:446` 只證明「前端沒有在本地加上去」,是比較弱的那一半。
+- [x] 9.2 `split-ui` 的「分類是從記錄者自己的清單來的」目前只在 `GroupDetailScreen` 那個根被守(6.2c),`FinanceScaffold` 那個呼叫點沒有對等的斷言。補一條,兩邊對稱。

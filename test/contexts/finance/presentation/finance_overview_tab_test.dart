@@ -517,6 +517,34 @@ void main() {
       expect(find.text('750'), findsNothing);
     });
 
+    testWidgets('a counted share reaches the expense total exactly once', (tester) async {
+      // The stronger shape of the test above. There the transaction is one the
+      // user recorded, so "don't add `splitSpending`" is the whole story. Here
+      // the transaction *is* the mirror the server wrote for that same share —
+      // the realistic month — so the 450 is present in both figures the tab
+      // holds, and counting it twice is a mistake nothing else would catch.
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-mirror',
+            type: FinanceType.expense,
+            amount: 450,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+            splitExpenseId: 'e1',
+          ),
+        ]
+        ..splitSpendingByMonth['2026-07'] = const [
+          SplitSpending(currency: 'TWD', amount: 450, countedInTransactions: true),
+        ];
+
+      await pumpOverview(tester, repo);
+
+      expect(find.text('450'), findsWidgets);
+      expect(find.text('900'), findsNothing);
+    });
+
     testWidgets('the budget card is unaffected by split spending', (tester) async {
       final repo = FakeFinanceRepository()
         ..byMonth['2026-07'] = [

@@ -556,6 +556,16 @@ void main() {
 
         expect(find.byKey(const Key('split-amount-field')), findsOneWidget);
         expect(find.byKey(const Key('split-save-button')), findsOneWidget);
+
+        // The other of the two `SplitExpenseSheet` call sites. The group-detail
+        // one has its own version of this; both are asserted because wiring
+        // one and not the other is invisible until an edit made from the
+        // unwired screen clears everybody's category.
+        await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+        expect(find.text('餐飲'), findsWidgets);
       });
 
       testWidgets('the friendless empty state leaves for the friends page, closing the sheet', (
