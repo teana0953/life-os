@@ -6,6 +6,7 @@ import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/split/application/expense_use_cases.dart';
 import 'package:life_os/contexts/split/application/group_use_cases.dart';
 import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
+import 'package:life_os/contexts/finance/domain/finance_money.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/settlement.dart';
 import 'package:life_os/contexts/split/domain/split_activity.dart';
@@ -108,7 +109,85 @@ SplitActivity _repaymentToReader(String id) => SplitActivity(
   createdAt: '2026-08-01T10:30:00.000Z',
 );
 
+SplitTab _tab(SplitController controller) => SplitTab(
+  onAddFriend: () {},
+  controller: controller,
+  activityController: testSplitActivityController(),
+  onRetry: () {},
+  onRecordExpense: () {},
+  onOpenGroup: (_) {},
+  onCreateGroup: () {},
+  onEditExpense: (_) {},
+  onSettleUp: ({
+    required otherUserId,
+    required otherDisplayName,
+    required balanceAmount,
+    required currency,
+  }) {},
+  onDeleteSettlement: (_) {},
+  onSignInAgain: () {},
+);
+
 void main() {
+  group('SplitTab — repayment schedules', () {
+    testWidgets('two schedules with one person stay two lines', (tester) async {
+      // The server returns them per expense precisely because merging them
+      // produced a row belonging to neither (backend #84). Reading only the
+      // first, or summing the periods, would put that bug back on this side
+      // of the wire.
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..balances = const [
+          Balance(
+            userId: 'u2',
+            displayName: 'Bo',
+            balances: [
+              CurrencyBalance(
+                currency: 'TWD',
+                amount: 11400,
+                schedules: [
+                  BalanceSchedule(expenseId: 'e1', nextPeriod: 3, totalPeriods: 12, periodAmount: 500),
+                  BalanceSchedule(expenseId: 'e2', nextPeriod: 1, totalPeriods: 6, periodAmount: 900),
+                ],
+              ),
+            ],
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(_tab(controller)));
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('split-owed-to-me-schedule-0-0'))).data,
+        loc.splitBalanceSchedule(3, 12, formatMinorUnitsForDisplay(500, 'TWD')),
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('split-owed-to-me-schedule-0-1'))).data,
+        loc.splitBalanceSchedule(1, 6, formatMinorUnitsForDisplay(900, 'TWD')),
+      );
+      // The balance itself is the whole debt, not the periods already due.
+      expect(find.textContaining(formatMinorUnitsForDisplay(11400, 'TWD')), findsOneWidget);
+    });
+
+    testWidgets('a balance with no schedule shows no schedule line', (tester) async {
+      final controller = _controller()
+        ..status = SplitStatus.loaded
+        ..selfUserId = 'self-1'
+        ..balances = const [
+          Balance(
+            userId: 'u2',
+            displayName: 'Bo',
+            balances: [CurrencyBalance(currency: 'TWD', amount: 500)],
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(_tab(controller)));
+
+      expect(find.byKey(const Key('split-owed-to-me-schedule-0-0')), findsNothing);
+    });
+  });
+
   group('SplitTab', () {
     testWidgets('splits balances into owed-to-me / owed-by-me, and keeps currencies apart', (
       tester,

@@ -254,6 +254,61 @@ void main() {
       expect(find.byKey(const Key('save-transaction-button')), findsNothing);
     });
 
+    testWidgets('a split repayment period says which period it is, with no plan to go to', (tester) async {
+      // The shape that has no plan at all: a friend repaying the caller in
+      // monthly instalments. `plan_id` is null and `installment_no` is not,
+      // and the previous rule (`planId != null`) marked none of these — twelve
+      // identical rows of 500 with nothing to tell them apart.
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-split-period',
+            type: FinanceType.expense,
+            amount: 500,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-15',
+            splitExpenseId: 'split-1',
+            installmentNo: 3,
+          ),
+        ];
+      final controller = testFinanceController(repo);
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FinanceScaffold(
+            authRepository: _FakeAuthRepository(),
+            controller: controller,
+            netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
+            split: _splitDeps(FakeSplitRepository()),
+            clock: () => DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(find.text(loc.financeTabTransactions));
+      await tester.pumpAndSettle();
+
+      // In the list, alongside the split mark — both, not one instead of the
+      // other.
+      expect(find.byKey(const Key('finance-transaction-installment-t-split-period')), findsOneWidget);
+      expect(find.byKey(const Key('finance-transaction-mirror-t-split-period')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('finance-transaction-t-split-period')));
+      await tester.pumpAndSettle();
+
+      // "Period 3", never "period 3 of 12": there is no plan, so there is no
+      // total, and inventing one would be a figure the server never gave.
+      expect(
+        tester.widget<Text>(find.byKey(const Key('finance-installment-info'))).data,
+        loc.financeInstallmentPeriodOnly(3),
+      );
+      expect(find.byKey(const Key('finance-go-to-plan')), findsNothing);
+    });
+
     testWidgets('go-to-plan really lands on the plan screen', (tester) async {
       // The button existed, correctly gated, wired to a callback nobody
       // passed — a dead end that every sheet test passed straight through

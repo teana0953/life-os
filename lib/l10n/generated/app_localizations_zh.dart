@@ -2139,6 +2139,49 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get splitScheduleSectionTitle => '分期還款';
+
+  @override
+  String get splitScheduleExactOnly => '分期還款需要「指定金額」模式。';
+
+  @override
+  String get splitScheduleClearedOnEqual => '已切換成均分,分期還款設定已清除。';
+
+  @override
+  String get splitScheduleNobody => '不分期';
+
+  @override
+  String get splitSchedulePersonLabel => '誰按月還';
+
+  @override
+  String get splitSchedulePeriodsLabel => '期數';
+
+  @override
+  String splitSchedulePerPeriod(String amount) {
+    return '每期 $amount';
+  }
+
+  @override
+  String splitScheduleAdjusted(String from, String to, String name) {
+    return '分攤額 $from → $to,差額由 $name 承擔';
+  }
+
+  @override
+  String splitScheduleImpossible(String amount, int periods) {
+    return '$amount 分 $periods 期除不盡,而且沒有其他人可以承擔差額';
+  }
+
+  @override
+  String splitScheduleSuggestions(String periods) {
+    return '可行的期數:$periods';
+  }
+
+  @override
+  String splitBalanceSchedule(int next, int total, String amount) {
+    return '第 $next/$total 期 · 每期 $amount';
+  }
+
+  @override
   String splitExactShareLabel(String name) {
     return '$name 的份額';
   }
@@ -4669,6 +4712,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String splitEqualShareRow(String name, String amount) {
     return '$name: $amount';
+  }
+
+  @override
+  String get splitScheduleSectionTitle => '分期還款';
+
+  @override
+  String get splitScheduleExactOnly => '分期還款需要「指定金額」模式。';
+
+  @override
+  String get splitScheduleClearedOnEqual => '已切換成均分,分期還款設定已清除。';
+
+  @override
+  String get splitScheduleNobody => '不分期';
+
+  @override
+  String get splitSchedulePersonLabel => '誰按月還';
+
+  @override
+  String get splitSchedulePeriodsLabel => '期數';
+
+  @override
+  String splitSchedulePerPeriod(String amount) {
+    return '每期 $amount';
+  }
+
+  @override
+  String splitScheduleAdjusted(String from, String to, String name) {
+    return '分攤額 $from → $to,差額由 $name 承擔';
+  }
+
+  @override
+  String splitScheduleImpossible(String amount, int periods) {
+    return '$amount 分 $periods 期除不盡,而且沒有其他人可以承擔差額';
+  }
+
+  @override
+  String splitScheduleSuggestions(String periods) {
+    return '可行的期數:$periods';
+  }
+
+  @override
+  String splitBalanceSchedule(int next, int total, String amount) {
+    return '第 $next/$total 期 · 每期 $amount';
   }
 
   @override

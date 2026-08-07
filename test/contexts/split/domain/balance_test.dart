@@ -3,6 +3,39 @@ import 'package:life_os/contexts/split/domain/balance.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 
 void main() {
+  group('CurrencyBalance.fromJson — schedules', () {
+    test('reads the list, key by key', () {
+      // The widget fixtures all construct the model directly, so nothing else
+      // in the suite ever runs this parse — a misread key would surface only
+      // against the real server.
+      final cb = CurrencyBalance.fromJson({
+        'currency': 'TWD',
+        'amount': 11400,
+        'schedules': [
+          {'expense_id': 'e1', 'next_period': 3, 'total_periods': 12, 'period_amount': 500},
+          {'expense_id': 'e2', 'next_period': 1, 'total_periods': 6, 'period_amount': 900},
+        ],
+      });
+
+      // Two entries, not one merged figure, and each field from its own key:
+      // reading `next_period` where `total_periods` belongs would still give
+      // a plausible-looking row.
+      expect(cb.schedules, hasLength(2));
+      expect(cb.schedules[0].expenseId, 'e1');
+      expect(cb.schedules[0].nextPeriod, 3);
+      expect(cb.schedules[0].totalPeriods, 12);
+      expect(cb.schedules[0].periodAmount, 500);
+      expect(cb.schedules[1].totalPeriods, 6);
+      expect(cb.schedules[1].periodAmount, 900);
+    });
+
+    test('an absent key is no schedules, not a failure', () {
+      // The server omits it entirely for an unscheduled balance.
+      final cb = CurrencyBalance.fromJson({'currency': 'TWD', 'amount': 500});
+      expect(cb.schedules, isEmpty);
+    });
+  });
+
   group('Balance.fromJson', () {
     test('parses a valid payload with multiple currencies, never summed', () {
       final balance = Balance.fromJson({

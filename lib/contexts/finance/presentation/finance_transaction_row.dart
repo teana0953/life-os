@@ -74,7 +74,11 @@ class FinanceTransactionRow extends StatelessWidget {
     final note = transaction.note;
     final hasNote = note != null && note.isNotEmpty;
     final isMirror = transaction.splitExpenseId != null;
-    final isInstallment = transaction.planId != null;
+    // Keyed on the period number, not on the plan: a split repayment period
+    // has no plan at all — it is a friend repaying a person, not a bank — so
+    // a rule reading `planId` marks none of them, and twelve identical rows
+    // of 500 stay indistinguishable. Plan-level offers still read `plan`.
+    final isInstallment = transaction.installmentNo != null;
     return ListTile(
       onTap: onTap,
       // The amount rides in the title row rather than in `trailing`, for the

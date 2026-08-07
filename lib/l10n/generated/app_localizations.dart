@@ -4076,6 +4076,72 @@ abstract class AppLocalizations {
   /// **'{name}: {amount}'**
   String splitEqualShareRow(String name, String amount);
 
+  /// Section heading for putting one participant's share on a monthly repayment schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Repayment schedule'**
+  String get splitScheduleSectionTitle;
+
+  /// Shown in equal-split mode, where the server accepts no schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedules need the exact-amount mode.'**
+  String get splitScheduleExactOnly;
+
+  /// Shown once after switching from exact to equal with a schedule set.
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to an equal split, so the repayment schedule was cleared.'**
+  String get splitScheduleClearedOnEqual;
+
+  /// The 'nobody is repaying in instalments' option in the repayment-person selector.
+  ///
+  /// In en, this message translates to:
+  /// **'No schedule'**
+  String get splitScheduleNobody;
+
+  /// Label for the selector choosing which participant repays in instalments.
+  ///
+  /// In en, this message translates to:
+  /// **'Who repays monthly'**
+  String get splitSchedulePersonLabel;
+
+  /// Label for the period-count field of a repayment schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Months'**
+  String get splitSchedulePeriodsLabel;
+
+  /// The derived per-period amount of a repayment schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} per month'**
+  String splitSchedulePerPeriod(String amount);
+
+  /// Shown when the share had to change so the periods divide exactly. Both figures are shown deliberately.
+  ///
+  /// In en, this message translates to:
+  /// **'Share adjusted {from} → {to}; {name} takes the difference'**
+  String splitScheduleAdjusted(String from, String to, String name);
+
+  /// Shown when no participant can absorb the rounding.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} does not divide into {periods} months, and nobody else can take the difference'**
+  String splitScheduleImpossible(String amount, int periods);
+
+  /// Alternative period counts offered when the chosen one cannot work.
+  ///
+  /// In en, this message translates to:
+  /// **'Months that would divide exactly: {periods}'**
+  String splitScheduleSuggestions(String periods);
+
+  /// One repayment schedule behind a balance row: which period is next, of how many, and what that period is worth.
+  ///
+  /// In en, this message translates to:
+  /// **'Period {next} of {total} · {amount} each'**
+  String splitBalanceSchedule(int next, int total, String amount);
+
   /// Field label for one participant's amount entry in exact-split mode.
   ///
   /// In en, this message translates to:
