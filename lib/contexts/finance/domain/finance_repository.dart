@@ -76,6 +76,19 @@ abstract class FinanceRepository {
     bool? archived,
   });
 
+  /// Rewrites the whole `kind` group's order in one server-side atomic write:
+  /// [orderedIds] must be exactly that group's ids, archived included, and the
+  /// server assigns `sort_order` 0..n-1 in that order.
+  ///
+  /// One call rather than one per account on purpose — a per-account loop
+  /// leaves a half-renumbered group behind when it fails midway, and there is
+  /// nothing the client can do to roll that back (life-os-backend#80).
+  Future<void> reorderNetWorthAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  );
+
   /// Upserts one (account, [month] `YYYY-MM`) snapshot; [value] is a
   /// non-negative TWD integer.
   Future<NetWorthSnapshot> upsertNetWorthSnapshot(

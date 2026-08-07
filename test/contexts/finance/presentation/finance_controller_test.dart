@@ -304,6 +304,13 @@ class FakeFinanceRepository implements FinanceRepository {
   }) => throw UnimplementedError();
 
   @override
+  Future<void> reorderNetWorthAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<NetWorthSnapshot> upsertNetWorthSnapshot(
     String idToken, {
     required String accountId,

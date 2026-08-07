@@ -608,6 +608,13 @@ class _FakeFinanceRepository implements FinanceRepository {
   }) async => throw UnimplementedError();
 
   @override
+  Future<void> reorderNetWorthAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<NetWorthSnapshot> upsertNetWorthSnapshot(
     String idToken, {
     required String accountId,
@@ -1227,6 +1234,7 @@ Future<LocaleController> pumpApp(
           ListNetWorthAccounts(repository),
           CreateNetWorthAccount(repository),
           UpdateNetWorthAccount(repository),
+          ReorderNetWorthAccounts(repository),
           UpsertSnapshot(repository),
           GetMonthlyNetWorth(repository),
           GetNetWorthTrend(repository),

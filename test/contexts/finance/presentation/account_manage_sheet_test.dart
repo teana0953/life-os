@@ -402,6 +402,41 @@ void main() {
       );
     });
 
+    testWidgets('reordering is one atomic call, not one write per account', (
+      tester,
+    ) async {
+      // The point of the batch endpoint. Every other reorder test passes with
+      // the per-account loop this replaced, because the fake ends up in the
+      // same state either way — only the call log tells them apart, and a loop
+      // is what leaves a half-renumbered group behind when it fails midway.
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          tiedAsset('a1', 'First'),
+          tiedAsset('a2', 'Second'),
+          tiedAsset('a3', 'Third'),
+        ];
+      await _pumpSheet(tester, repo);
+      repo.networthCalls.clear();
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pumpAndSettle();
+
+      expect(
+        repo.networthCalls.where((c) => c.startsWith('reorder:')).length,
+        1,
+        reason: '整組重編必須是一次呼叫',
+      );
+      expect(
+        repo.networthCalls.where((c) => c.startsWith('update:')).length,
+        0,
+        reason: '不能再逐筆送 updateAccount',
+      );
+      // The one call carries the whole group in its new order, archived
+      // included — a call that sent only the two swapped ids would satisfy the
+      // count above.
+      expect(repo.networthCalls.single, 'reorder:asset:a1,a3,a2');
+    });
+
     testWidgets('the account row lays out on a 320dp phone at textScale 2.0', (
       tester,
     ) async {

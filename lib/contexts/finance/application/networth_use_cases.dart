@@ -54,6 +54,15 @@ class UpdateNetWorthAccount {
 }
 
 /// Use case: upsert one account-month market-value snapshot.
+class ReorderNetWorthAccounts {
+  final FinanceRepository _repository;
+
+  const ReorderNetWorthAccounts(this._repository);
+
+  Future<void> call(String idToken, NetWorthKind kind, List<String> orderedIds) =>
+      _repository.reorderNetWorthAccounts(idToken, kind, orderedIds);
+}
+
 class UpsertSnapshot {
   final FinanceRepository _repository;
 

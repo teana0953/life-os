@@ -337,6 +337,25 @@ class HttpFinanceRepository implements FinanceRepository {
   }
 
   @override
+  Future<void> reorderNetWorthAccounts(
+    String idToken,
+    NetWorthKind kind,
+    List<String> orderedIds,
+  ) async {
+    final response = await _send(
+      () => client.put(
+        Uri.parse('$baseUrl/api/finance/networth/accounts/order'),
+        headers: _headers(idToken),
+        body: jsonEncode({
+          'kind': netWorthKindToJson(kind),
+          'ids': orderedIds,
+        }),
+      ),
+    );
+    if (response.statusCode != 200) _throwForStatus(response.statusCode);
+  }
+
+  @override
   Future<NetWorthSnapshot> upsertNetWorthSnapshot(
     String idToken, {
     required String accountId,
