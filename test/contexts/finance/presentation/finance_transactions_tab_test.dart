@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
@@ -167,6 +168,40 @@ void main() {
       expect(find.text(loc.financeSplitMirrorBadge), findsOneWidget);
     });
 
+    testWidgets('an instalment row is marked and an ordinary one is not', (tester) async {
+      // Both rows are seeded, not just the instalment (tasks 4.2): against
+      // an instalment-only fixture, "mark every row" and "mark the right
+      // row" are the same result.
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = _installmentMixedMonth
+        ..plansById['plan-1'] = _seededPlan;
+      final controller = testFinanceController(repo);
+      await controller.load('tok', '2026-07');
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: Scaffold(
+            body: FinanceTransactionsTab(
+              controller: controller,
+              onEdit: (_) {},
+              onSwitchMonth: (m) async {},
+              onSignInAgain: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('finance-transaction-installment-t-inst')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('finance-transaction-installment-t-own')),
+        findsNothing,
+      );
+    });
+
     testWidgets('saving an edit to a mirrored row keeps its marker', (tester) async {
       final repo = FakeFinanceRepository()..byMonth['2026-07'] = _mixedMonth;
       final controller = testFinanceController(repo);
@@ -271,6 +306,41 @@ void main() {
 /// `UnsupportedError` the controller swallows — which leaves the month exactly
 /// as seeded and quietly turns any after-the-edit assertion into an
 /// assertion about the seed.
+/// A month holding one instalment period and one ordinary row — the same
+/// tell-them-apart shape as [_mixedMonth], for the instalment mark. The
+/// plan behind `t-inst` is [_seededPlan] so the row can render the period
+/// count once the implementation fetches it.
+List<FinanceTransaction> get _installmentMixedMonth => [
+  const FinanceTransaction(
+    id: 't-inst',
+    type: FinanceType.expense,
+    amount: 5000,
+    currency: 'TWD',
+    categoryId: 'cat-food',
+    date: '2026-07-10',
+    planId: 'plan-1',
+    installmentNo: 3,
+  ),
+  const FinanceTransaction(
+    id: 't-own',
+    type: FinanceType.expense,
+    amount: 200,
+    currency: 'TWD',
+    categoryId: 'cat-food',
+    date: '2026-07-10',
+  ),
+];
+
+const _seededPlan = InstallmentPlan(
+  id: 'plan-1',
+  mode: InstallmentMode.total,
+  periods: 12,
+  startDay: '2026-05-10',
+  amount: 60000,
+  currency: 'TWD',
+  categoryId: 'cat-food',
+);
+
 List<FinanceTransaction> get _mixedMonth => [
   const FinanceTransaction(
     id: 't-mirror',

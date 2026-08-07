@@ -2,6 +2,7 @@ import 'finance_budget.dart';
 import 'finance_category.dart';
 import 'finance_transaction.dart';
 import 'finance_type.dart';
+import 'installment_plan.dart';
 import 'monthly_summary.dart';
 import 'networth_account.dart';
 import 'networth_snapshot.dart';
@@ -112,4 +113,40 @@ abstract class FinanceRepository {
   /// month, per currency (design D6) — a month with no split shares returns
   /// an empty list, not a zero row per currency.
   Future<List<SplitSpending>> getSplitSpending(String idToken, String month);
+
+  /// `POST /api/finance/installment-plans`. [amount] follows [mode]'s
+  /// meaning: the whole sum for [InstallmentMode.total], the fixed
+  /// per-period charge for [InstallmentMode.perInstallment]. [startDay] is
+  /// `YYYY-MM-DD` (backend `start_day`).
+  Future<InstallmentPlan> createInstallmentPlan(
+    String idToken, {
+    required InstallmentMode mode,
+    required int amount,
+    required int periods,
+    required String currency,
+    required String categoryId,
+    required String startDay,
+    String? note,
+  });
+
+  /// `GET /api/finance/installment-plans/:id`. A plan that is not the
+  /// caller's own answers 404 ([FinanceNotFound]) — that is the only
+  /// ownership signal the API gives a client, and plan-level actions
+  /// (manage, settle) hang on it.
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id);
+
+  /// `PUT /api/finance/installment-plans/:id`: rewrite the instalments
+  /// still to come.
+  Future<InstallmentPlan> updateInstallmentPlan(
+    String idToken,
+    String id, {
+    required int amount,
+    required int periods,
+  });
+
+  /// `POST /api/finance/installment-plans/:id/settle`. [amount] is the
+  /// bank's payoff figure, **required for a per-instalment plan and ignored
+  /// (send none) for a total one** — the server computes the latter from
+  /// what remains.
+  Future<void> settleInstallmentPlan(String idToken, String id, {int? amount});
 }

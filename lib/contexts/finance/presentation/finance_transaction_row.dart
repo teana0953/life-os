@@ -5,7 +5,9 @@ import '../domain/finance_category.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_money.dart';
 import '../domain/finance_type.dart';
+import '../domain/installment_plan.dart';
 import 'finance_category_icons.dart';
+import 'installment_badge.dart';
 import 'split_mirror_badge.dart';
 
 /// One transaction, as both the 明細 list and the 總覽 recent list draw it.
@@ -39,6 +41,16 @@ class FinanceTransactionRow extends StatelessWidget {
   /// Key prefix for the split badge, so each list's guard is its own and
   /// "drop the mark from one screen" cannot survive the other's test.
   final String mirrorKeyPrefix;
+
+  /// Key prefix for the instalment badge — the identical reason as
+  /// [mirrorKeyPrefix] (tasks 4.2/4.4).
+  final String installmentKeyPrefix;
+
+  /// The plan behind [transaction], when it is one instalment period and the
+  /// viewer owns that plan (`null` otherwise, including when [transaction]
+  /// is not an instalment period at all).
+  final InstallmentPlan? plan;
+
   final VoidCallback? onTap;
 
   const FinanceTransactionRow({
@@ -46,6 +58,8 @@ class FinanceTransactionRow extends StatelessWidget {
     required this.transaction,
     required this.category,
     required this.mirrorKeyPrefix,
+    required this.installmentKeyPrefix,
+    this.plan,
     this.onTap,
   });
 
@@ -60,6 +74,7 @@ class FinanceTransactionRow extends StatelessWidget {
     final note = transaction.note;
     final hasNote = note != null && note.isNotEmpty;
     final isMirror = transaction.splitExpenseId != null;
+    final isInstallment = transaction.planId != null;
     return ListTile(
       onTap: onTap,
       // The amount rides in the title row rather than in `trailing`, for the
@@ -152,7 +167,7 @@ class FinanceTransactionRow extends StatelessWidget {
       // Both lists that show transactions use this row, each passing its own
       // key prefix: they show the same transactions, so a mark on only one of
       // them teaches the reader that the mark means nothing.
-      subtitle: !isMirror && !hasNote
+      subtitle: !isMirror && !isInstallment && !hasNote
           ? null
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,6 +176,12 @@ class FinanceTransactionRow extends StatelessWidget {
                 if (isMirror)
                   SplitMirrorBadge(
                     key: Key('$mirrorKeyPrefix-${transaction.id}'),
+                  ),
+                if (isInstallment)
+                  InstallmentBadge(
+                    key: Key('$installmentKeyPrefix-${transaction.id}'),
+                    periodNo: transaction.installmentNo,
+                    plan: plan,
                   ),
                 if (hasNote) Text(note),
               ],

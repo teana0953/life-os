@@ -8,8 +8,11 @@ import 'package:life_os/contexts/finance/presentation/add_transaction_sheet.dart
 import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
+import 'package:life_os/contexts/finance/presentation/installment_plan_screen.dart';
+import 'package:life_os/contexts/finance/presentation/installment_plan_sheet.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/activity_use_cases.dart';
@@ -1468,6 +1471,119 @@ void main() {
             },
           );
         }
+      }
+    }
+  });
+
+  // The two new instalment-plan surfaces (installments-ui task 7.1): the
+  // create sheet carries two modes + amount + periods + a preview + the
+  // no-open-ended-subscription warning on top of category/note/start-day,
+  // and the plan page's settle dialog conditionally adds an amount field —
+  // both are exactly the kind of "one more field" shape this file exists to
+  // catch before it overflows on a real phone.
+  group('instalment plan surfaces: narrow-width layout guard (installments-ui task 7.1)', () {
+    for (final locale in testSupportedLocales) {
+      for (final textScale in [1.0, 2.0]) {
+        testWidgets(
+          'InstallmentPlanSheet lays out cleanly at 320dp, textScale=$textScale, '
+          'locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final repo = FakeFinanceRepository();
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: Scaffold(
+                    body: InstallmentPlanSheet(
+                      repository: repo,
+                      idToken: () async => 'tok',
+                      categories: repo.categoriesToReturn,
+                      today: '2026-07-15',
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+            });
+
+            expect(
+              find.byKey(const Key('installment-save-button')),
+              findsOneWidget,
+            );
+
+            // The preview line (task 3.2) is exactly the extra content most
+            // likely to push the save button off screen — filled in here so
+            // the sweep actually renders it, not just the empty form.
+            await expectNoLayoutErrors(() async {
+              await tester.enterText(
+                find.byKey(const Key('installment-amount-field')),
+                '32148',
+              );
+              await tester.enterText(
+                find.byKey(const Key('installment-periods-field')),
+                '240',
+              );
+              await tester.pump();
+            });
+          },
+        );
+
+        testWidgets(
+          'InstallmentPlanScreen and its per-instalment settle dialog lay out '
+          'cleanly at 320dp, textScale=$textScale, locale=$locale',
+          (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            const plan = InstallmentPlan(
+              id: 'plan-sweep',
+              mode: InstallmentMode.perInstallment,
+              periods: 240,
+              startDay: '2026-01-10',
+              amount: 32148,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              note: '房貸',
+            );
+            final repo = FakeFinanceRepository()..plansById['plan-sweep'] = plan;
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: InstallmentPlanScreen(
+                    plan: plan,
+                    repository: repo,
+                    idToken: () async => 'tok',
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+            });
+
+            expect(
+              find.byKey(const Key('installment-settle-button')),
+              findsOneWidget,
+            );
+
+            // The per-instalment settle dialog is the taller of the two
+            // shapes (task 5.2/5.3): it adds an amount field the total-mode
+            // one never shows.
+            await expectNoLayoutErrors(() async {
+              await tester.tap(find.byKey(const Key('installment-settle-button')));
+              await tester.pumpAndSettle();
+            });
+
+            expect(
+              find.byKey(const Key('installment-settle-amount-field')),
+              findsOneWidget,
+            );
+          },
+        );
       }
     }
   });

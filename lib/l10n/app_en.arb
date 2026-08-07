@@ -2317,6 +2317,99 @@
   "@financeTabNetWorth": {
     "description": "Bottom-nav destination label for the finance shell's net worth tab."
   },
+  "financeInstallmentPeriodOfTotal": "Period {no} of {total}",
+  "@financeInstallmentPeriodOfTotal": {
+    "description": "Marker on a transaction that is one period of an instalment plan, shown once the plan itself (its total period count) has been fetched — the record/edit sheet and both transaction lists.",
+    "placeholders": {
+      "no": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "financeInstallmentPeriodOnly": "Period {no}",
+  "@financeInstallmentPeriodOnly": {
+    "description": "Same marker as financeInstallmentPeriodOfTotal, for a plan the viewer does not own (the plan fetch answered 404, so the total period count is unknown) — the period number still rides on the transaction itself.",
+    "placeholders": {
+      "no": { "type": "int" }
+    }
+  },
+  "financeInstallmentGoToPlan": "Manage plan",
+  "@financeInstallmentGoToPlan": {
+    "description": "Exit from the record/edit sheet to the instalment plan an editable period belongs to. Shown only when the viewer owns that plan (tasks 2.1/2.2)."
+  },
+  "financeInstallmentCreateTitle": "New instalment plan",
+  "@financeInstallmentCreateTitle": {
+    "description": "Title of the standalone instalment-plan create sheet."
+  },
+  "financeInstallmentModeTotal": "Total amount",
+  "@financeInstallmentModeTotal": {
+    "description": "Mode choice on the instalment-plan create sheet: the user is entering the whole sum, split evenly across the periods."
+  },
+  "financeInstallmentModePerInstallment": "Amount per period",
+  "@financeInstallmentModePerInstallment": {
+    "description": "Mode choice on the instalment-plan create sheet: the user is entering the fixed charge for each period (e.g. a mortgage payment), not the whole sum."
+  },
+  "financeInstallmentTotalAmountLabel": "Total amount",
+  "@financeInstallmentTotalAmountLabel": {
+    "description": "Amount field label in total mode — asks how much altogether, not the per-period figure."
+  },
+  "financeInstallmentPerAmountLabel": "Amount per period",
+  "@financeInstallmentPerAmountLabel": {
+    "description": "Amount field label in per-instalment mode — asks how much each period, not the whole sum. A different label from financeInstallmentTotalAmountLabel is not decoration: the same field means a different number in each mode, and a user who mistakes one for the other gets a plan 12x or 1/12 off with no error anywhere."
+  },
+  "financeInstallmentPeriodsLabel": "Number of periods",
+  "@financeInstallmentPeriodsLabel": {
+    "description": "Field label for how many periods the instalment plan runs — required; open-ended subscriptions are not supported yet (see financeInstallmentNoEndDateWarning)."
+  },
+  "financeInstallmentPreviewPerPeriod": "= {perPeriod} per period",
+  "@financeInstallmentPreviewPerPeriod": {
+    "description": "Live preview under the amount/periods fields in total mode: the total divided by the period count, so a typo reads as an obviously wrong per-period figure before saving.",
+    "placeholders": {
+      "perPeriod": { "type": "String" }
+    }
+  },
+  "financeInstallmentPreviewTotal": "= {total} total",
+  "@financeInstallmentPreviewTotal": {
+    "description": "Live preview under the amount/periods fields in per-instalment mode: the per-period amount multiplied by the period count, so a typo reads as an obviously wrong total before saving.",
+    "placeholders": {
+      "total": { "type": "String" }
+    }
+  },
+  "financeInstallmentNoEndDateWarning": "Subscriptions with no end date aren't supported yet — enter a number of periods.",
+  "@financeInstallmentNoEndDateWarning": {
+    "description": "Notice on the instalment-plan create sheet: every plan needs a fixed period count, so an open-ended subscription cannot be modelled yet."
+  },
+  "financeInstallmentSaveButton": "Create plan",
+  "@financeInstallmentSaveButton": {
+    "description": "Submit button on the instalment-plan create sheet."
+  },
+  "financeInstallmentPlanTitle": "Instalment plan",
+  "@financeInstallmentPlanTitle": {
+    "description": "Title of the instalment plan's own page."
+  },
+  "financeInstallmentSettleButton": "Settle",
+  "@financeInstallmentSettleButton": {
+    "description": "Action on the plan page that pays the plan off early."
+  },
+  "financeInstallmentSettleAmountLabel": "Payoff amount (from your bank)",
+  "@financeInstallmentSettleAmountLabel": {
+    "description": "Amount field shown only for a per-instalment plan's settle action — the system cannot compute this payoff (it may include future interest), so the bank's own figure is required."
+  },
+  "financeInstallmentSettleConfirm": "Confirm",
+  "@financeInstallmentSettleConfirm": {
+    "description": "Confirms the settle action."
+  },
+  "financeInstallmentSettleTotalNote": "The remaining periods add up to the payoff automatically — no amount to enter.",
+  "@financeInstallmentSettleTotalNote": {
+    "description": "Explains why a total-mode plan's settle action asks for no amount: the system computes it from what's left."
+  },
+  "financeInstallmentSettlePerNote": "Enter the amount your bank quoted — it may include interest the app has no way to compute.",
+  "@financeInstallmentSettlePerNote": {
+    "description": "Explains why a per-instalment plan's settle action asks for an amount."
+  },
+  "financeInstallmentBadge": "Instalment",
+  "@financeInstallmentBadge": {
+    "description": "Generic fallback marker for an instalment-period row when the plan behind it hasn't been resolved (rare — the list rows normally know the period count and use financeInstallmentPeriodOfTotal instead)."
+  },
   "networthNetWorthLabel": "Net worth",
   "@networthNetWorthLabel": {
     "description": "Label above the headline net worth figure."

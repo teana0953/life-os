@@ -14,6 +14,7 @@ import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
@@ -215,11 +216,20 @@ class FakeFinanceRepository implements FinanceRepository {
     // server owns the link), so rebuilding the row without it would have this
     // fake silently turn a mirror into a self-recorded transaction on every
     // save — and any guard about a mirror surviving an edit would pass
-    // against a fake that cannot represent one.
+    // against a fake that cannot represent one. `planId`/`installmentNo` are
+    // carried for the identical reason: the server owns the plan link, and a
+    // fake that drops it on save turns every instalment-marker-survives-edit
+    // guard into a test of nothing.
     String? splitExpenseId;
+    String? planId;
+    int? installmentNo;
     for (final list in byMonth.values) {
       for (final t in list) {
-        if (t.id == id) splitExpenseId = t.splitExpenseId;
+        if (t.id == id) {
+          splitExpenseId = t.splitExpenseId;
+          planId = t.planId;
+          installmentNo = t.installmentNo;
+        }
       }
       list.removeWhere((t) => t.id == id);
     }
@@ -232,6 +242,8 @@ class FakeFinanceRepository implements FinanceRepository {
       date: date,
       note: note,
       splitExpenseId: splitExpenseId,
+      planId: planId,
+      installmentNo: installmentNo,
     );
     (byMonth[date.substring(0, 7)] ??= []).add(txn);
     return txn;
@@ -583,6 +595,136 @@ class FakeFinanceRepository implements FinanceRepository {
   /// test in this repo that sets [failNext] expecting it to fail the *main*
   /// fetch.
   Object? splitSpendingFailNext;
+
+  // ------------------------------------------------------------ installments
+
+  /// Plans the viewer owns. `getInstallmentPlan` for an id not in here
+  /// throws [FinanceNotFound] — the backend's answer for somebody else's
+  /// plan, and the only ownership signal a client gets. Widget fixtures for
+  /// "a period of somebody else's plan" therefore simply do not seed it.
+  final Map<String, InstallmentPlan> plansById = {};
+
+  /// Every `createInstallmentPlan` call, verbatim. What `mode`/`amount`
+  /// were actually sent is the point (tasks 3.3): in per-instalment mode
+  /// `amount` must be the per-period figure, not the total.
+  final List<
+    ({
+      InstallmentMode mode,
+      int amount,
+      int periods,
+      String currency,
+      String categoryId,
+      String startDay,
+      String? note,
+    })
+  >
+  installmentPlanCreates = [];
+
+  /// Every `updateInstallmentPlan` call, verbatim.
+  final List<({String planId, int amount, int periods})>
+  installmentPlanUpdates = [];
+
+  /// Every `settleInstallmentPlan` call, verbatim. `amount` null = the
+  /// caller sent none (the total-mode contract); non-null = the bank's
+  /// payoff figure (the per-instalment contract) — tasks 5.3/5.4.
+  final List<({String planId, int? amount})> installmentSettleCalls = [];
+
+  int _nextPlanId = 1;
+
+  @override
+  Future<InstallmentPlan> createInstallmentPlan(
+    String idToken, {
+    required InstallmentMode mode,
+    required int amount,
+    required int periods,
+    required String currency,
+    required String categoryId,
+    required String startDay,
+    String? note,
+  }) async {
+    installmentPlanCreates.add((
+      mode: mode,
+      amount: amount,
+      periods: periods,
+      currency: currency,
+      categoryId: categoryId,
+      startDay: startDay,
+      note: note,
+    ));
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final plan = InstallmentPlan(
+      id: 'plan${_nextPlanId++}',
+      mode: mode,
+      periods: periods,
+      startDay: startDay,
+      amount: amount,
+      currency: currency,
+      categoryId: categoryId,
+      note: note,
+    );
+    plansById[plan.id] = plan;
+    return plan;
+  }
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) async {
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final plan = plansById[id];
+    if (plan == null) throw const FinanceNotFound();
+    return plan;
+  }
+
+  @override
+  Future<InstallmentPlan> updateInstallmentPlan(
+    String idToken,
+    String id, {
+    required int amount,
+    required int periods,
+  }) async {
+    installmentPlanUpdates.add((planId: id, amount: amount, periods: periods));
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    final current = plansById[id];
+    if (current == null) throw const FinanceNotFound();
+    final updated = InstallmentPlan(
+      id: current.id,
+      mode: current.mode,
+      periods: periods,
+      startDay: current.startDay,
+      amount: amount,
+      currency: current.currency,
+      categoryId: current.categoryId,
+      note: current.note,
+    );
+    plansById[id] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> settleInstallmentPlan(
+    String idToken,
+    String id, {
+    int? amount,
+  }) async {
+    installmentSettleCalls.add((planId: id, amount: amount));
+    if (failNext != null) {
+      final failure = failNext!;
+      failNext = null;
+      throw failure;
+    }
+    if (!plansById.containsKey(id)) throw const FinanceNotFound();
+  }
 
   @override
   Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async {

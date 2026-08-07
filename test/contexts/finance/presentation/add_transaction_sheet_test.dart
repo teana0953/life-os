@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/presentation/add_transaction_sheet.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -35,6 +36,64 @@ const _selfRecorded = FinanceTransaction(
   categoryId: 'cat-food',
   date: '2026-07-10',
   note: 'lunch',
+);
+
+/// The viewer's own instalment plan, and one of its periods — the ordinary
+/// instalment shape the backend produces today.
+const _ownPlan = InstallmentPlan(
+  id: 'plan-9',
+  mode: InstallmentMode.total,
+  periods: 12,
+  startDay: '2026-05-15',
+  amount: 60000,
+  currency: 'TWD',
+  categoryId: 'cat-food',
+);
+
+const _ownInstallmentPeriod = FinanceTransaction(
+  id: 'inst-1',
+  type: FinanceType.expense,
+  amount: 5000,
+  currency: 'TWD',
+  categoryId: 'cat-food',
+  date: '2026-07-15',
+  planId: 'plan-9',
+  installmentNo: 3,
+);
+
+/// A row that is BOTH a split mirror and an instalment period. The backend
+/// cannot produce this shape yet — 分帳分期 is the known next step — which is
+/// exactly why the fixture is built by hand now (tasks 1.3): the two markers
+/// are independent nullable columns, and a sheet branched as an exclusive
+/// two-way (`_isMirror` first, return) would silently drop one of them with
+/// every backend-producible fixture still green.
+const _mirrorAndInstallment = FinanceTransaction(
+  id: 'both-1',
+  type: FinanceType.expense,
+  amount: 5000,
+  currency: 'TWD',
+  categoryId: 'cat-food',
+  date: '2026-07-15',
+  note: '分期晚餐',
+  splitExpenseId: 'exp-1',
+  planId: 'plan-9',
+  installmentNo: 2,
+);
+
+/// A period of somebody ELSE's plan, as a share holder will see it after
+/// 分帳分期: the plan id is set, but fetching it answers 404 (the fixture
+/// simply never seeds `plansById['plan-other']`) — the only ownership
+/// signal the API gives a client.
+const _othersPlanPeriod = FinanceTransaction(
+  id: 'their-1',
+  type: FinanceType.expense,
+  amount: 1500,
+  currency: 'TWD',
+  categoryId: 'cat-food',
+  date: '2026-07-12',
+  splitExpenseId: 'exp-2',
+  planId: 'plan-other',
+  installmentNo: 5,
 );
 
 AppLocalizations get _en => lookupAppLocalizations(const Locale('en'));
@@ -414,6 +473,106 @@ void main() {
         expect(find.byKey(const Key('finance-delete-button')), findsOneWidget);
         expect(find.byKey(const Key('finance-mirror-facts')), findsNothing);
         expect(find.byKey(const Key('finance-go-to-split')), findsNothing);
+      },
+    );
+  });
+
+  group('AddTransactionSheet — instalment periods', () {
+    testWidgets(
+      'an instalment period says which period of how many and offers a way '
+      'to the plan; its amount stays editable',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_ownInstallmentPeriod, _selfRecorded]
+          ..plansById['plan-9'] = _ownPlan;
+        await pumpSheet(tester, repo: repo, editing: _ownInstallmentPeriod);
+
+        // 「第 3 期 / 共 12 期」— the period number rides on the transaction,
+        // the period count on the plan, so showing both proves the sheet
+        // actually consulted the plan.
+        expect(
+          find.byKey(const Key('finance-installment-info')),
+          findsOneWidget,
+        );
+        final info = tester.widget<Text>(
+          find.byKey(const Key('finance-installment-info')),
+        );
+        expect(info.data, contains('3'));
+        expect(info.data, contains('12'));
+        // The way to the plan it belongs to.
+        expect(find.byKey(const Key('finance-go-to-plan')), findsOneWidget);
+        // The amount stays editable — the bank amending a past charge is the
+        // reason that door exists (spec: instalment period scenario).
+        expect(find.byKey(const Key('amount-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a row that is both a split mirror and an instalment period shows both '
+      'markers — category and note stay editable (tasks 1.3)',
+      (tester) async {
+        // Both non-null, by hand: the backend cannot produce this row yet,
+        // and that is the point — a branch copied from `_isMirror`'s
+        // exclusive two-way would show one marker and silently drop the
+        // other, with every backend-producible fixture green.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_mirrorAndInstallment, _selfRecorded]
+          ..plansById['plan-9'] = _ownPlan;
+        await pumpSheet(tester, repo: repo, editing: _mirrorAndInstallment);
+
+        // Marker one: the instalment info, with the plan consulted.
+        expect(
+          find.byKey(const Key('finance-installment-info')),
+          findsOneWidget,
+        );
+        final info = tester.widget<Text>(
+          find.byKey(const Key('finance-installment-info')),
+        );
+        expect(info.data, contains('2'));
+        expect(info.data, contains('12'));
+        // Marker two: the mirror header — the split still owns the facts,
+        // so they are text, not inputs (mirror precedence for the locked
+        // fields).
+        expect(find.byKey(const Key('finance-mirror-facts')), findsOneWidget);
+        expect(find.byKey(const Key('amount-field')), findsNothing);
+        expect(find.byKey(const Key('finance-delete-button')), findsNothing);
+        // The user's own half is still theirs: category and note editable.
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.onSelected, isNotNull);
+        expect(find.byKey(const Key('finance-note-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "a period of somebody else's plan offers no plan management or "
+      'settlement — category and note stay editable (tasks 2.3)',
+      (tester) async {
+        // `plansById['plan-other']` is deliberately never seeded: fetching
+        // it answers 404, which is how a client learns a plan is not the
+        // viewer's own.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_othersPlanPeriod, _selfRecorded];
+        await pumpSheet(tester, repo: repo, editing: _othersPlanPeriod);
+
+        // The period marker still shows — the share holder does see the
+        // period number.
+        expect(
+          find.byKey(const Key('finance-installment-info')),
+          findsOneWidget,
+        );
+        // But the plan-level actions hang on "is this plan mine", NOT on
+        // "is this row an instalment" (tasks 2.1/2.2). A branch mutated to
+        // "show them because it is an instalment" fails here.
+        expect(find.byKey(const Key('finance-go-to-plan')), findsNothing);
+        expect(find.byKey(const Key('finance-settle-plan')), findsNothing);
+        // What remains theirs: category and note.
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.onSelected, isNotNull);
+        expect(find.byKey(const Key('finance-note-field')), findsOneWidget);
       },
     );
   });

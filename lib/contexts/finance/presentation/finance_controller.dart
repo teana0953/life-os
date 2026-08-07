@@ -13,6 +13,7 @@ import '../domain/finance_exceptions.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
+import '../domain/installment_plan.dart';
 import '../domain/monthly_summary.dart';
 import '../domain/split_spending.dart';
 
@@ -75,6 +76,11 @@ class FinanceController extends ChangeNotifier {
   MonthlySummary? summary;
   List<FinanceBudget> budgets = [];
 
+  /// The instalment plans behind this month's `transactions` (see
+  /// [FinanceMonthData.installmentPlans]) — a plan absent here is either not
+  /// referenced this month or not the caller's own.
+  Map<String, InstallmentPlan> installmentPlans = {};
+
   /// The overview's split-spending line (design D6/D9, task 6) — loaded and
   /// tracked independently of [status]/[error] above, so a failure here
   /// never blanks the rest of the overview.
@@ -99,6 +105,7 @@ class FinanceController extends ChangeNotifier {
     transactions = [];
     summary = null;
     budgets = [];
+    installmentPlans = {};
     splitSpendingStatus = SplitSpendingStatus.loading;
     splitSpending = [];
   }
@@ -143,6 +150,7 @@ class FinanceController extends ChangeNotifier {
       summary = null;
       transactions = [];
       budgets = [];
+      installmentPlans = {};
     }
     if (notifyOnStart) notifyListeners();
 
@@ -162,6 +170,7 @@ class FinanceController extends ChangeNotifier {
       summary = data.summary;
       transactions = data.transactions;
       budgets = data.budgets;
+      installmentPlans = data.installmentPlans;
       status = FinanceStatus.loaded;
     } on FinanceReauthenticationRequired {
       if (selectedMonth != month) return;

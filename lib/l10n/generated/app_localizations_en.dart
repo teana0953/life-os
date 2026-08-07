@@ -1747,6 +1747,78 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeTabNetWorth => 'Net worth';
 
   @override
+  String financeInstallmentPeriodOfTotal(int no, int total) {
+    return 'Period $no of $total';
+  }
+
+  @override
+  String financeInstallmentPeriodOnly(int no) {
+    return 'Period $no';
+  }
+
+  @override
+  String get financeInstallmentGoToPlan => 'Manage plan';
+
+  @override
+  String get financeInstallmentCreateTitle => 'New instalment plan';
+
+  @override
+  String get financeInstallmentModeTotal => 'Total amount';
+
+  @override
+  String get financeInstallmentModePerInstallment => 'Amount per period';
+
+  @override
+  String get financeInstallmentTotalAmountLabel => 'Total amount';
+
+  @override
+  String get financeInstallmentPerAmountLabel => 'Amount per period';
+
+  @override
+  String get financeInstallmentPeriodsLabel => 'Number of periods';
+
+  @override
+  String financeInstallmentPreviewPerPeriod(String perPeriod) {
+    return '= $perPeriod per period';
+  }
+
+  @override
+  String financeInstallmentPreviewTotal(String total) {
+    return '= $total total';
+  }
+
+  @override
+  String get financeInstallmentNoEndDateWarning =>
+      'Subscriptions with no end date aren\'t supported yet — enter a number of periods.';
+
+  @override
+  String get financeInstallmentSaveButton => 'Create plan';
+
+  @override
+  String get financeInstallmentPlanTitle => 'Instalment plan';
+
+  @override
+  String get financeInstallmentSettleButton => 'Settle';
+
+  @override
+  String get financeInstallmentSettleAmountLabel =>
+      'Payoff amount (from your bank)';
+
+  @override
+  String get financeInstallmentSettleConfirm => 'Confirm';
+
+  @override
+  String get financeInstallmentSettleTotalNote =>
+      'The remaining periods add up to the payoff automatically — no amount to enter.';
+
+  @override
+  String get financeInstallmentSettlePerNote =>
+      'Enter the amount your bank quoted — it may include interest the app has no way to compute.';
+
+  @override
+  String get financeInstallmentBadge => 'Instalment';
+
+  @override
   String get networthNetWorthLabel => 'Net worth';
 
   @override

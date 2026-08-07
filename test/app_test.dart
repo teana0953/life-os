@@ -49,6 +49,7 @@ import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
@@ -643,6 +644,34 @@ class _FakeFinanceRepository implements FinanceRepository {
 
   @override
   Future<List<SplitSpending>> getSplitSpending(String idToken, String month) async => const [];
+
+  @override
+  Future<InstallmentPlan> createInstallmentPlan(
+    String idToken, {
+    required InstallmentMode mode,
+    required int amount,
+    required int periods,
+    required String currency,
+    required String categoryId,
+    required String startDay,
+    String? note,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) =>
+      throw UnimplementedError();
+
+  @override
+  Future<InstallmentPlan> updateInstallmentPlan(
+    String idToken,
+    String id, {
+    required int amount,
+    required int periods,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> settleInstallmentPlan(String idToken, String id, {int? amount}) =>
+      throw UnimplementedError();
 }
 
 class _FakeImportRepository implements ImportRepository {

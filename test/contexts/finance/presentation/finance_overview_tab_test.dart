@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -465,6 +466,57 @@ void main() {
       expect(find.byKey(const Key('finance-recent-mirror-t-mirror')), findsOneWidget);
       expect(find.byKey(const Key('finance-recent-mirror-t-own')), findsNothing);
       expect(find.text(loc.financeSplitMirrorBadge), findsOneWidget);
+    });
+
+    testWidgets('an instalment row in the recent list is marked and an ordinary one is not', (tester) async {
+      // The overview's own guard, separate from 明細's (tasks 4.2/4.4): the
+      // two lists show the same transactions, so a mark on only one of them
+      // teaches the reader that the mark means nothing — and a single shared
+      // assertion would let "drop the mark from the overview" survive. Both
+      // an instalment and an ordinary row are seeded because with only
+      // instalments, "mark every row" and "mark the right row" are the same
+      // result.
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-inst',
+            type: FinanceType.expense,
+            amount: 5000,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-10',
+            planId: 'plan-1',
+            installmentNo: 3,
+          ),
+          const FinanceTransaction(
+            id: 't-own',
+            type: FinanceType.expense,
+            amount: 200,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-11',
+          ),
+        ]
+        ..plansById['plan-1'] = const InstallmentPlan(
+          id: 'plan-1',
+          mode: InstallmentMode.total,
+          periods: 12,
+          startDay: '2026-05-10',
+          amount: 60000,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+        );
+
+      await pumpOverview(tester, repo);
+
+      // The recent list starts below the fold — without the scroll its rows
+      // are never built (see the mirrored-row test above).
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.scrollUntilVisible(find.text(loc.financeRecentTransactions), 200);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('finance-recent-installment-t-inst')), findsOneWidget);
+      expect(find.byKey(const Key('finance-recent-installment-t-own')), findsNothing);
     });
   });
 

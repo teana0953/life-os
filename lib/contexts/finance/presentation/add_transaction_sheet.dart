@@ -7,6 +7,7 @@ import '../domain/finance_category.dart';
 import '../domain/finance_money.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
+import '../domain/installment_plan.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
@@ -42,6 +43,12 @@ class AddTransactionSheet extends StatefulWidget {
   /// first; the sheet does not know how it was presented.
   final VoidCallback onGoToSplit;
 
+  /// Leaves for the instalment plan this row belongs to (tasks 2.1) — shown
+  /// only when the plan is the viewer's own (task 2.1's ownership gate).
+  /// Optional: a caller that has not wired plan navigation yet still gets a
+  /// correctly-gated `finance-go-to-plan` control, just an inert one.
+  final void Function(InstallmentPlan plan)? onGoToPlan;
+
   const AddTransactionSheet({
     super.key,
     required this.controller,
@@ -49,6 +56,7 @@ class AddTransactionSheet extends StatefulWidget {
     required this.categories,
     required this.today,
     required this.onGoToSplit,
+    this.onGoToPlan,
     this.editing,
   });
 
@@ -110,6 +118,23 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   /// `_categoryId` on the way (see the toggle below), costing the user the one
   /// field they opened this sheet to change.
   bool get _isMirror => widget.editing?.splitExpenseId != null;
+
+  /// The plan behind the row being edited, `null` off a plan. **Independent
+  /// of [_isMirror]** (tasks 1.1/1.2): `splitExpenseId` and `planId` are two
+  /// separate nullable columns the backend never treats as exclusive, and
+  /// 分帳分期 is expected to produce rows carrying both — so this reads
+  /// straight off [FinanceTransaction.planId] rather than being gated behind
+  /// `!_isMirror` the way a copy of the old two-way branch would have it.
+  String? get _planId => widget.editing?.planId;
+
+  /// The plan itself, if the viewer owns it. [FinanceController.load]
+  /// already attempted to fetch every `planId` this month's transactions
+  /// reference and kept only the ones that answered — a plan absent here
+  /// answered 404, the API's only ownership signal (tasks 2.1/2.2), so
+  /// plan-level actions (the "go to plan" exit) hang on this being non-null,
+  /// never on `_planId != null` alone.
+  InstallmentPlan? get _plan =>
+      _planId == null ? null : widget.controller.installmentPlans[_planId];
 
   List<FinanceCategory> get _categoriesForType =>
       widget.categories.where((c) => c.type == _type).toList();
@@ -387,6 +412,44 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     ];
   }
 
+  /// The instalment marker (tasks 1.3/2.3): "period N of M" plus the exit to
+  /// the plan, **additive** to whichever header rendered above — it renders
+  /// whenever [_planId] is set, regardless of [_isMirror], so a row that is
+  /// both a mirror and an instalment period shows both.
+  ///
+  /// [_plan] governs only the "go to plan" exit (task 2.1/2.2's ownership
+  /// gate), never whether the period marker itself shows: a share holder
+  /// looking at somebody else's period still sees which period it is, just
+  /// with no way to manage or settle that plan.
+  List<Widget> _installmentInfo(AppLocalizations loc, ThemeData theme) {
+    final periodNo = widget.editing!.installmentNo ?? 0;
+    final plan = _plan;
+    final text = plan == null
+        ? loc.financeInstallmentPeriodOnly(periodNo)
+        : loc.financeInstallmentPeriodOfTotal(periodNo, plan.periods);
+    return [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              key: const Key('finance-installment-info'),
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          if (plan != null)
+            TextButton(
+              key: const Key('finance-go-to-plan'),
+              onPressed: () => widget.onGoToPlan?.call(plan),
+              child: Text(loc.financeInstallmentGoToPlan),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -443,6 +506,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
+              if (_planId != null) ..._installmentInfo(loc, theme),
               Text(loc.financeCategoryLabel, style: theme.textTheme.labelLarge),
               const SizedBox(height: 8),
               Wrap(

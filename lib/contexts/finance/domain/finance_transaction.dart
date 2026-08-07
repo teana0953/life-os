@@ -23,6 +23,17 @@ class FinanceTransaction {
   /// offering actions the server will reject with a 400.
   final String? splitExpenseId;
 
+  /// Set when the server wrote this row as one period of an instalment plan
+  /// (`plan_id`), `null` otherwise. **Independent of [splitExpenseId]** —
+  /// the two are separate nullable columns with nothing forbidding their
+  /// coexistence, and 分帳分期 (the known next step) will produce rows
+  /// carrying both. No branch may treat them as exclusive.
+  final String? planId;
+
+  /// 1-based period number within the plan (`installment_no`); `null` off a
+  /// plan.
+  final int? installmentNo;
+
   const FinanceTransaction({
     required this.id,
     required this.type,
@@ -32,6 +43,8 @@ class FinanceTransaction {
     required this.date,
     this.note,
     this.splitExpenseId,
+    this.planId,
+    this.installmentNo,
   });
 
   factory FinanceTransaction.fromJson(Map<String, dynamic> json) {
@@ -44,6 +57,8 @@ class FinanceTransaction {
       date: json['date'] as String,
       note: json['note'] as String?,
       splitExpenseId: json['split_expense_id'] as String?,
+      planId: json['plan_id'] as String?,
+      installmentNo: (json['installment_no'] as num?)?.toInt(),
     );
   }
 }
