@@ -89,9 +89,17 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   bool _isNameMissing(NetWorthAccount account) =>
       _nameControllerFor(account).text.trim().isEmpty;
 
+  /// Sorted by (sortOrder, id) — sortOrder alone is not a stable key because
+  /// every user-created account arrives at sortOrder 0 (issue #130), so ties
+  /// are the normal state, not an edge case. id is the tiebreaker so the
+  /// display order is a pure function of the data, independent of whatever
+  /// order the backend happened to return tied rows in.
   List<NetWorthAccount> _group(NetWorthKind kind) =>
-      widget.controller.accounts.where((a) => a.kind == kind).toList()
-        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      widget.controller.accounts.where((a) => a.kind == kind).toList()..sort(
+        (a, b) => a.sortOrder != b.sortOrder
+            ? a.sortOrder.compareTo(b.sortOrder)
+            : a.id.compareTo(b.id),
+      );
 
   /// Runs a write and surfaces a failure as a snackbar, leaving the sheet
   /// open — the controller has already reloaded either way.
@@ -115,11 +123,19 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
 
   Future<void> _add() {
     final name = _newNameController.text.trim();
+    // A fresh account joins the end of its group, never sortOrder 0's tie —
+    // otherwise the pile-up of ties this feature exists to fix would just
+    // keep growing with every new account.
+    final group = _group(_newKind);
+    final nextSortOrder = group.isEmpty
+        ? 0
+        : group.map((a) => a.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
     return _run(() async {
       await widget.controller.createAccount(
         await widget.idToken(),
         kind: _newKind,
         name: name,
+        sortOrder: nextSortOrder,
       );
       if (widget.controller.status == FinanceStatus.loaded) {
         _newNameController.clear();
@@ -138,24 +154,39 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     );
   }
 
-  /// Swaps [account]'s sort order with the account above it in its group.
-  Future<void> _moveUp(NetWorthAccount account) {
+  Future<void> _moveUp(NetWorthAccount account) => _reorder(account, -1);
+
+  Future<void> _moveDown(NetWorthAccount account) => _reorder(account, 1);
+
+  /// Moves [account] one slot ([delta] `-1`/`+1`) within its group, then
+  /// renumbers the *whole* group to 0..n-1 in its new order.
+  ///
+  /// Swapping just the two moved sortOrders is not enough: every
+  /// user-created account arrives tied at sortOrder 0 (issue #130), and
+  /// swapping two equal values is a no-op. Renumbering the whole group is
+  /// what actually breaks the tie.
+  ///
+  /// Writes are sequential, one per account, and stop at the first failure
+  /// rather than racing ahead — a failed write must surface as a failure
+  /// (via [_run]'s status check), never get silently overtaken by a later
+  /// write's success.
+  Future<void> _reorder(NetWorthAccount account, int delta) {
     final group = _group(account.kind);
-    final index = group.indexWhere((a) => a.id == account.id);
-    if (index <= 0) return Future.value();
-    final above = group[index - 1];
+    final from = group.indexWhere((a) => a.id == account.id);
+    final to = from + delta;
+    if (to < 0 || to >= group.length) return Future.value();
+    final reordered = List.of(group)
+      ..removeAt(from)
+      ..insert(to, account);
     return _run(() async {
-      await widget.controller.updateAccount(
-        await widget.idToken(),
-        account.id,
-        sortOrder: above.sortOrder,
-      );
-      if (widget.controller.status != FinanceStatus.loaded) return;
-      await widget.controller.updateAccount(
-        await widget.idToken(),
-        above.id,
-        sortOrder: account.sortOrder,
-      );
+      for (var i = 0; i < reordered.length; i++) {
+        await widget.controller.updateAccount(
+          await widget.idToken(),
+          reordered[i].id,
+          sortOrder: i,
+        );
+        if (widget.controller.status != FinanceStatus.loaded) return;
+      }
     });
   }
 
@@ -243,7 +274,7 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     );
   }
 
-  Widget _accountRow(NetWorthAccount account, bool isFirstInGroup) {
+  Widget _accountRow(NetWorthAccount account, bool isFirstInGroup, bool isLastInGroup) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     return Padding(
@@ -292,6 +323,12 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
             icon: const Icon(Icons.arrow_upward),
             onPressed: _busy || isFirstInGroup ? null : () => _moveUp(account),
           ),
+          IconButton(
+            key: Key('account-move-down-${account.id}'),
+            tooltip: loc.networthMoveDownTooltip,
+            icon: const Icon(Icons.arrow_downward),
+            onPressed: _busy || isLastInGroup ? null : () => _moveDown(account),
+          ),
           TextButton(
             key: Key('account-archive-${account.id}'),
             onPressed: _busy ? null : () => _toggleArchived(account),
@@ -308,7 +345,8 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
 class _GroupSection extends StatelessWidget {
   final String title;
   final List<NetWorthAccount> accounts;
-  final Widget Function(NetWorthAccount account, bool isFirstInGroup) builder;
+  final Widget Function(NetWorthAccount account, bool isFirstInGroup, bool isLastInGroup)
+  builder;
 
   const _GroupSection({
     required this.title,
@@ -322,7 +360,8 @@ class _GroupSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleMedium),
-        for (var i = 0; i < accounts.length; i++) builder(accounts[i], i == 0),
+        for (var i = 0; i < accounts.length; i++)
+          builder(accounts[i], i == 0, i == accounts.length - 1),
       ],
     );
   }

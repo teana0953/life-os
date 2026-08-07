@@ -1750,6 +1750,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networthMoveUpTooltip => '上移';
 
   @override
+  String get networthMoveDownTooltip => '下移';
+
+  @override
   String get networthValueLabel => '市值 (TWD)';
 
   @override
@@ -4203,6 +4206,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get networthMoveUpTooltip => '上移';
+
+  @override
+  String get networthMoveDownTooltip => '下移';
 
   @override
   String get networthValueLabel => '市值 (TWD)';

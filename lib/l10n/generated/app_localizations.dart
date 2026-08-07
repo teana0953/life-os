@@ -3362,6 +3362,12 @@ abstract class AppLocalizations {
   /// **'Move up'**
   String get networthMoveUpTooltip;
 
+  /// Tooltip for the button that moves a net worth account later in its group.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get networthMoveDownTooltip;
+
   /// Label for the monthly market-value field in the snapshot sheet.
   ///
   /// In en, this message translates to:

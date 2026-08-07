@@ -249,5 +249,99 @@ void main() {
       expect(controller.accounts.firstWhere((a) => a.id == 'a2').sortOrder, 0);
       expect(controller.accounts.firstWhere((a) => a.id == 'a1').sortOrder, 1);
     });
+
+    // Issue #130: every user-created account arrives with sortOrder 0 (the
+    // create call never sends one and the backend defaults to 0), so ties are
+    // the *normal* state, not an edge case. These three tests pin each
+    // reported symptom against tied-sortOrder fixtures.
+
+    NetWorthAccount tiedAsset(String id, String name) => NetWorthAccount(
+      id: id,
+      kind: NetWorthKind.asset,
+      name: name,
+      sortOrder: 0,
+      archived: false,
+    );
+
+    // The on-screen top-to-bottom order of the given account rows.
+    List<String> displayedOrder(WidgetTester tester, List<String> ids) {
+      final byDy = [
+        for (final id in ids)
+          (id: id, dy: tester.getTopLeft(find.byKey(Key('account-name-$id'))).dy),
+      ]..sort((a, b) => a.dy.compareTo(b.dy));
+      return [for (final row in byDy) row.id];
+    }
+
+    testWidgets('moving up an account tied at sortOrder 0 actually reorders', (
+      tester,
+    ) async {
+      // Both rows tied at 0 — the state every pair of user-created accounts
+      // is in. Swapping the two sortOrders (0 <-> 0) is a no-op.
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      await _pumpSheet(tester, repo);
+
+      expect(displayedOrder(tester, ['a1', 'a2']), ['a1', 'a2']);
+
+      await tester.tap(find.byKey(const Key('account-move-up-a2')));
+      await tester.pumpAndSettle();
+
+      // Symptom (2)/(1): pressing "up" must visibly move the row up.
+      expect(
+        displayedOrder(tester, ['a1', 'a2']),
+        ['a2', 'a1'],
+        reason: '按向上後,原本在下面的 a2 必須顯示在 a1 上面',
+      );
+    });
+
+    testWidgets('repeated move-up walks a tied account all the way to the top', (
+      tester,
+    ) async {
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          tiedAsset('a1', 'First'),
+          tiedAsset('a2', 'Second'),
+          tiedAsset('a3', 'Third'),
+        ];
+      await _pumpSheet(tester, repo);
+
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a1', 'a2', 'a3']);
+
+      // Symptom (1): the bottom account, moved up once per gap, must reach
+      // the very top of its group.
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pumpAndSettle();
+
+      expect(
+        displayedOrder(tester, ['a1', 'a2', 'a3']),
+        ['a3', 'a1', 'a2'],
+        reason: '連按兩次向上後,a3 必須排在最上面',
+      );
+    });
+
+    testWidgets('the same accounts reloaded in a different arrival order '
+        'display in the same order', (tester) async {
+      // The backend guarantees no row order for tied sortOrders, so "the same
+      // data" can legitimately arrive in a different sequence on any reload.
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      final controller = await _pumpSheet(tester, repo);
+
+      final firstLoad = displayedOrder(tester, ['a1', 'a2']);
+
+      repo.accounts = [tiedAsset('a2', 'Second'), tiedAsset('a1', 'First')];
+      await controller.load('token', '2026-07');
+      await tester.pumpAndSettle();
+
+      // Symptom (2): display order must be a function of the data, not of
+      // the order the rows happened to arrive in.
+      expect(
+        displayedOrder(tester, ['a1', 'a2']),
+        firstLoad,
+        reason: '同樣的兩筆科目重新載入後,顯示順序必須跟第一次載入一致',
+      );
+    });
   });
 }
