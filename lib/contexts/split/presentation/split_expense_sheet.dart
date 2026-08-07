@@ -86,6 +86,13 @@ class SplitExpenseSheet extends StatefulWidget {
   /// category picker. Empty is a real production state (the categories request
   /// can fail), not just a test convenience — which is why `_categoryName`
   /// below holds a name rather than an id.
+  /// Required, not defaulted — for the same reason [onAddFriend] is, and with
+  /// a worse failure mode. A call site that forgot to wire it would render an
+  /// empty picker, and an *edit* made there sends no `category_name` at all,
+  /// which the server's full-replace PATCH reads as "no category" and quietly
+  /// moves every participant's un-hand-picked mirror back to their fallback.
+  /// Nothing errors, on any layer. An empty list is still a real runtime state
+  /// (the categories request can fail) — it just has to be passed on purpose.
   final List<FinanceCategory> financeCategories;
 
   /// Leaves for the friends page. Required, not optional: it is the only
@@ -107,7 +114,7 @@ class SplitExpenseSheet extends StatefulWidget {
     this.lockedGroup,
     this.friends = const [],
     this.editing,
-    this.financeCategories = const [],
+    required this.financeCategories,
   });
 
   @override

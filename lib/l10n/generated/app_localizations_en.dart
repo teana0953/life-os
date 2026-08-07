@@ -1694,6 +1694,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The payer deleted this split, so this record is gone.';
 
   @override
+  String get financeTransactionGoneElsewhere =>
+      'This record is gone — it may have been deleted on another device.';
+
+  @override
   String get financeSplitMovedOutOfMonth =>
       'This split is no longer in this month.';
 

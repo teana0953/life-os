@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../domain/finance_category.dart';
-import '../domain/finance_money.dart';
 import '../domain/finance_transaction.dart';
-import '../domain/finance_type.dart';
-import 'finance_category_icons.dart';
 import 'finance_controller.dart';
-import 'split_mirror_badge.dart';
+import 'finance_transaction_row.dart';
 
 /// 明細: the selected month's transactions grouped by day (newest day
 /// first). Tapping a row opens the record sheet pre-filled for editing.
@@ -113,9 +109,11 @@ class FinanceTransactionsTab extends StatelessWidget {
                       child: Column(
                         children: [
                           for (final txn in byDay[day]!)
-                            _TransactionListRow(
+                            FinanceTransactionRow(
+                              key: Key('finance-transaction-${txn.id}'),
                               transaction: txn,
                               category: _categoryFor(txn.categoryId),
+                              mirrorKeyPrefix: 'finance-transaction-mirror',
                               onTap: () => onEdit(txn),
                             ),
                         ],
@@ -137,56 +135,5 @@ class FinanceTransactionsTab extends StatelessWidget {
       if (category.id == id) return category;
     }
     return null;
-  }
-}
-
-class _TransactionListRow extends StatelessWidget {
-  final FinanceTransaction transaction;
-  final FinanceCategory? category;
-  final VoidCallback onTap;
-
-  const _TransactionListRow({
-    required this.transaction,
-    required this.category,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final icon = category == null ? Icons.category : financeCategoryIcon(category!);
-    final name = category?.name ?? transaction.categoryId;
-    final color = transaction.type == FinanceType.expense
-        ? theme.colorScheme.error
-        : financeIncomeColor(theme.colorScheme);
-    final note = transaction.note;
-    final hasNote = note != null && note.isNotEmpty;
-    final isMirror = transaction.splitExpenseId != null;
-    return ListTile(
-      key: Key('finance-transaction-${transaction.id}'),
-      leading: Icon(icon),
-      title: Text(name),
-      // The badge goes above the note rather than beside it: the note is the
-      // split's description and can be any length, and a row that pushes the
-      // mark off the end has not marked anything.
-      subtitle: !isMirror && !hasNote
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isMirror)
-                  SplitMirrorBadge(
-                    key: Key('finance-transaction-mirror-${transaction.id}'),
-                  ),
-                if (hasNote) Text(note),
-              ],
-            ),
-      trailing: Text(
-        formatSignedMinorUnits(transaction.amount, transaction.currency, transaction.type),
-        style: theme.textTheme.bodyLarge?.copyWith(color: color, fontWeight: FontWeight.w700),
-      ),
-      onTap: onTap,
-    );
   }
 }

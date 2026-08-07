@@ -3128,6 +3128,12 @@ abstract class AppLocalizations {
   /// **'The payer deleted this split, so this record is gone.'**
   String get financeSplitDeletedElsewhere;
 
+  /// Shown when a save is refused because the transaction no longer exists, on a row the user recorded themselves.
+  ///
+  /// In en, this message translates to:
+  /// **'This record is gone — it may have been deleted on another device.'**
+  String get financeTransactionGoneElsewhere;
+
   /// Shown when the reload after a refused save cannot find the row in the selected month — the payer moved the split's date into a different month. Treated like a deleted one: the sheet closes rather than showing stale facts.
   ///
   /// In en, this message translates to:

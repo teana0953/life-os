@@ -451,6 +451,35 @@ void main() {
     );
 
     testWidgets(
+      'a 404 on a row the user recorded also closes the sheet, with its own '
+      'message',
+      (tester) async {
+        // `_mutate` reloads on every not-found, not just a mirror's. Gating the
+        // explanation on `_isMirror` would have moved the dead end this branch
+        // exists to close onto self-recorded rows instead: the list refreshes
+        // behind the sheet, the row is gone, and the user is told only "save
+        // failed" while still editing it.
+        final repo = seeded();
+        final controller = await pumpSheet(
+          tester,
+          repo: repo,
+          editing: _selfRecorded,
+        );
+
+        repo.failNext = const FinanceNotFound();
+        repo.byMonth['2026-07'] = [];
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('save-transaction-button')), findsNothing);
+        expect(find.text(_en.financeTransactionGoneElsewhere), findsOneWidget);
+        // Not the split copy: nobody else deleted this one.
+        expect(find.text(_en.financeSplitDeletedElsewhere), findsNothing);
+        expect(controller.transactions, isEmpty);
+      },
+    );
+
+    testWidgets(
       'a reload that lands in another month closes the sheet with its own '
       'message',
       (tester) async {

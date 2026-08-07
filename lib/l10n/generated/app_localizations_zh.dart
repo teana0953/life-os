@@ -1635,6 +1635,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
 
   @override
+  String get financeTransactionGoneElsewhere => '這筆紀錄已經不在了,可能在別的裝置上被刪掉。';
+
+  @override
   String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';
 
   @override
@@ -4087,6 +4090,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
+
+  @override
+  String get financeTransactionGoneElsewhere => '這筆紀錄已經不在了,可能在別的裝置上被刪掉。';
 
   @override
   String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';

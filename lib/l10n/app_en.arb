@@ -2250,6 +2250,10 @@
     "description": "Shown when the server refuses the save because the split moved on between the sheet opening and the save (HTTP 409). Deliberately not the generic save-failed copy: retrying the same values would be refused the same way, so the message says the record moved and the sheet shows the current values instead."
   },
   "financeSplitDeletedElsewhere": "The payer deleted this split, so this record is gone.",
+  "financeTransactionGoneElsewhere": "This record is gone — it may have been deleted on another device.",
+  "@financeTransactionGoneElsewhere": {
+    "description": "Shown when a save is refused because the transaction no longer exists, on a row the user recorded themselves."
+  },
   "@financeSplitDeletedElsewhere": {
     "description": "Shown when saving a mirrored transaction returns 404: the split it mirrored was deleted and took this row with it. The sheet closes rather than leaving the user editing a record that no longer exists."
   },

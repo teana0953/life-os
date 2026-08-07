@@ -236,13 +236,22 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       );
       return;
     }
-    if (_isMirror && controller.error == FinanceError.notFound) {
-      // The payer deleted the split and the cascade took this row with it.
-      // Leaving the sheet open would leave the user editing a record that no
-      // longer exists — `_mutate`'s reload has already dropped it from the list
-      // behind them.
+    if (controller.error == FinanceError.notFound) {
+      // For a mirror: the payer deleted the split and the cascade took this row
+      // with it. For a row the user recorded themselves: it was deleted on
+      // another device. Either way `_mutate`'s reload has already dropped it
+      // from the list behind them, so leaving the sheet open would leave them
+      // editing a record that no longer exists — the dead end this branch
+      // exists to prevent. Gating it on `_isMirror` would have relocated that
+      // dead end to non-mirrors rather than closing it.
       messenger.showSnackBar(
-        SnackBar(content: Text(loc.financeSplitDeletedElsewhere)),
+        SnackBar(
+          content: Text(
+            _isMirror
+                ? loc.financeSplitDeletedElsewhere
+                : loc.financeTransactionGoneElsewhere,
+          ),
+        ),
       );
       navigator.pop();
       return;

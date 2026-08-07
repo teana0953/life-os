@@ -5,6 +5,7 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/presentation/add_transaction_sheet.dart';
+import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
@@ -220,6 +221,7 @@ Widget _expenseSheet({
       ),
       idToken: () async => 'tok',
       selfUserId: _self,
+      financeCategories: const [],
       today: '2026-08-02',
       friends: friends,
       editing: editing,
@@ -1165,6 +1167,63 @@ void main() {
 
             expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
           });
+
+          testWidgets(
+            'a mirrored 明細 row stays a row at ${width.toInt()}dp, '
+            'textScale=$textScale, locale=$locale',
+            (tester) async {
+              // Not an overflow guard — a height one. With the amount in
+              // `ListTile.trailing` the trailing slot took 130dp of 320dp at
+              // textScale 2.0 and left the title column 50dp, so the split
+              // badge rendered one letter per line and the row grew to 512dp:
+              // more than half the viewport, for one transaction. Nothing
+              // overflowed, so no sweep could see it.
+              useTextScaleFactor(tester, textScale);
+              await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              final repo = FakeFinanceRepository()
+                ..byMonth['2026-08'] = [
+                  const FinanceTransaction(
+                    id: 't-mirror',
+                    type: FinanceType.expense,
+                    amount: _wideAmount,
+                    currency: 'TWD',
+                    categoryId: 'cat-food',
+                    date: '2026-08-02',
+                    splitExpenseId: 'e1',
+                  ),
+                ];
+              final controller = testFinanceController(repo);
+              await controller.load('tok', '2026-08');
+
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: Scaffold(
+                    body: FinanceTransactionsTab(
+                      controller: controller,
+                      onSwitchMonth: (_) async {},
+                      onEdit: (_) {},
+                      onSignInAgain: () {},
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+
+              final row = tester.getSize(
+                find.byKey(const Key('finance-transaction-t-mirror')),
+              );
+              expect(
+                row.height,
+                lessThan(_phoneHeight / 2),
+                reason:
+                    'one transaction took ${row.height}dp of a $_phoneHeight dp '
+                    'screen at ${width.toInt()}dp / $textScale / $locale',
+              );
+            },
+          );
 
           testWidgets('the mirrored transaction sheet lays out cleanly at '
               '${width.toInt()}dp, textScale=$textScale, locale=$locale', (

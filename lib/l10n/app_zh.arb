@@ -504,6 +504,7 @@
   "financeSplitMirrorLockedNote": "金額、日期、幣別與類型要到分帳頁改;這筆也只能在那裡刪除。",
   "financeSplitChangedReloaded": "這筆分帳剛剛被改過,已為你載入最新的金額與日期 —— 確認後再存一次。",
   "financeSplitDeletedElsewhere": "付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。",
+  "financeTransactionGoneElsewhere": "這筆紀錄已經不在了,可能在別的裝置上被刪掉。",
   "financeSplitMovedOutOfMonth": "這筆分帳已經不在這個月了。",
   "financeSplitSpendingLoadFailed": "分帳自付額載入失敗",
   "financeCategoryBreakdown": "分類統計",
