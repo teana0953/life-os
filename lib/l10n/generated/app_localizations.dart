@@ -3077,19 +3077,19 @@ abstract class AppLocalizations {
   /// Sentence stated beside the counted group's own amounts on the overview tab's split-spending card. The card is otherwise indistinguishable from a totals card, and whether the money is already counted is the only thing the reader needs from it.
   ///
   /// In en, this message translates to:
-  /// **'Already inside the expense totals above and your budget — these shares are recorded as transactions for you.'**
+  /// **'Already in the totals above, and in any budget.'**
   String get financeSplitSpendingCountedNote;
 
   /// Heading above the split-spending card's group of currencies the server cannot mirror into transactions. Only shown when that group has something in it.
   ///
   /// In en, this message translates to:
-  /// **'Not counted'**
+  /// **'Not counted in your totals'**
   String get financeSplitSpendingUncountedHeading;
 
   /// Sentence stated beside the uncounted group's own amounts on the overview tab's split-spending card.
   ///
   /// In en, this message translates to:
-  /// **'In neither the expense totals above nor your budget — these currencies cannot be recorded as transactions.'**
+  /// **'Not in the totals above — this currency cannot be a transaction.'**
   String get financeSplitSpendingUncountedNote;
 
   /// Marker on a ledger row the server mirrored out of a split expense, so the user can tell it apart from a row they recorded themselves before opening it — a mirrored row cannot be deleted and most of its fields cannot be edited.

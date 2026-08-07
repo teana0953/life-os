@@ -1661,14 +1661,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeSplitSpendingCountedNote =>
-      'Already inside the expense totals above and your budget — these shares are recorded as transactions for you.';
+      'Already in the totals above, and in any budget.';
 
   @override
-  String get financeSplitSpendingUncountedHeading => 'Not counted';
+  String get financeSplitSpendingUncountedHeading =>
+      'Not counted in your totals';
 
   @override
   String get financeSplitSpendingUncountedNote =>
-      'In neither the expense totals above nor your budget — these currencies cannot be recorded as transactions.';
+      'Not in the totals above — this currency cannot be a transaction.';
 
   @override
   String get financeSplitMirrorBadge => 'From a split';

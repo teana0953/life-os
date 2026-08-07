@@ -541,6 +541,9 @@ void main() {
 
       await pumpOverview(tester, repo);
 
+      // The expense total is exactly 450 — `findsNothing` on '900' alone
+      // falsifies only that one wrong answer, and any other arithmetic slip
+      // would pass it.
       expect(find.text('450'), findsWidgets);
       expect(find.text('900'), findsNothing);
     });

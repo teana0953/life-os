@@ -2214,15 +2214,15 @@
   "@financeSplitSpendingCountedHeading": {
     "description": "Heading above the split-spending card's group of currencies whose shares the server already mirrored into the user's transactions. Only shown when that group has something in it — an empty group reads as 'this is zero'."
   },
-  "financeSplitSpendingCountedNote": "Already inside the expense totals above and your budget — these shares are recorded as transactions for you.",
+  "financeSplitSpendingCountedNote": "Already in the totals above, and in any budget.",
   "@financeSplitSpendingCountedNote": {
     "description": "Sentence stated beside the counted group's own amounts on the overview tab's split-spending card. The card is otherwise indistinguishable from a totals card, and whether the money is already counted is the only thing the reader needs from it."
   },
-  "financeSplitSpendingUncountedHeading": "Not counted",
+  "financeSplitSpendingUncountedHeading": "Not counted in your totals",
   "@financeSplitSpendingUncountedHeading": {
     "description": "Heading above the split-spending card's group of currencies the server cannot mirror into transactions. Only shown when that group has something in it."
   },
-  "financeSplitSpendingUncountedNote": "In neither the expense totals above nor your budget — these currencies cannot be recorded as transactions.",
+  "financeSplitSpendingUncountedNote": "Not in the totals above — this currency cannot be a transaction.",
   "@financeSplitSpendingUncountedNote": {
     "description": "Sentence stated beside the uncounted group's own amounts on the overview tab's split-spending card."
   },

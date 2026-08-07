@@ -202,7 +202,16 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
-    if (editing != null && controller.error == FinanceError.conflict) {
+    if (editing != null &&
+        _isMirror &&
+        controller.error == FinanceError.conflict) {
+      // `_isMirror`, not `editing != null`: 409 is the split-moved-underneath
+      // answer and the backend returns it from exactly one place, so a
+      // non-mirror cannot get here today. If one ever did, the re-seed below
+      // would overwrite the amount, date, currency and type the user had just
+      // typed on an ordinary edit — the opposite of the "a refusal consumes
+      // nothing you typed" property this branch exists to hold.
+      //
       // The split changed between this sheet opening and the save, and the
       // server applied *none* of the write. `_mutate` has already reloaded the
       // month, so the current facts are sitting in `controller.transactions` —
@@ -310,10 +319,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   /// from what won't respond.
   List<Widget> _mirrorHeader(AppLocalizations loc, ThemeData theme) {
     final editing = widget.editing!;
-    // Read back out of the state fields, not off `widget.editing`: after a
-    // refused save these hold the *reloaded* facts, and rendering the snapshot
-    // the sheet opened with would show the stale figures under a message
-    // saying they changed.
+    // The *facts* are read out of the state fields, not off `widget.editing`:
+    // after a refused save these hold the reloaded values, and rendering the
+    // snapshot the sheet opened with would show stale figures under a message
+    // saying they changed. The title below is the exception and deliberately
+    // so — it reads `editing.note`, which is the holder's own text and must
+    // survive the reload, so after a 409 the amount updates while the title
+    // keeps the description the sheet opened with.
     final amount = _amount ?? editing.amount;
     // The note, not "the split's description": the note starts out as the
     // description but belongs to the user from then on, and this same sheet

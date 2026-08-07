@@ -293,10 +293,18 @@ class _SplitSpendingGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 12),
+        // The heading has to out-weigh the amounts below it, not sit under
+        // them: the amounts are `bodyLarge` bold, so a plain `labelLarge`
+        // heading reads as the noise between two lists rather than as the cut
+        // that separates them — and that cut is the one thing this card exists
+        // to make.
         Text(
           heading,
           key: Key('finance-split-spending-$keyPrefix-heading'),
-          style: theme.textTheme.labelLarge,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 2),
         Text(

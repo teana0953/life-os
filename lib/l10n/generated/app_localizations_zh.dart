@@ -1603,15 +1603,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitSpendingCountedHeading => '已計入';
 
   @override
-  String get financeSplitSpendingCountedNote =>
-      '已經計入上方的支出總額與預算 —— 這些自付額會自動記成你的交易。';
+  String get financeSplitSpendingCountedNote => '已計入上方的支出總額,有設預算的話也算進去了。';
 
   @override
   String get financeSplitSpendingUncountedHeading => '未計入';
 
   @override
-  String get financeSplitSpendingUncountedNote =>
-      '不計入上方的支出總額,也不計入預算 —— 這些幣別無法記成交易。';
+  String get financeSplitSpendingUncountedNote => '不計入上方的支出總額,這個幣別無法記成交易。';
 
   @override
   String get financeSplitMirrorBadge => '來自分帳';
@@ -1625,7 +1623,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitMirrorGoToSplit => '前往分帳';
 
   @override
-  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改;這筆也只能在那裡刪除。';
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改,這筆也只能在那裡刪除。';
 
   @override
   String get financeSplitChangedReloaded =>
@@ -4060,15 +4058,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeSplitSpendingCountedHeading => '已計入';
 
   @override
-  String get financeSplitSpendingCountedNote =>
-      '已經計入上方的支出總額與預算 —— 這些自付額會自動記成你的交易。';
+  String get financeSplitSpendingCountedNote => '已計入上方的支出總額,有設預算的話也算進去了。';
 
   @override
   String get financeSplitSpendingUncountedHeading => '未計入';
 
   @override
-  String get financeSplitSpendingUncountedNote =>
-      '不計入上方的支出總額,也不計入預算 —— 這些幣別無法記成交易。';
+  String get financeSplitSpendingUncountedNote => '不計入上方的支出總額,這個幣別無法記成交易。';
 
   @override
   String get financeSplitMirrorBadge => '來自分帳';
@@ -4082,7 +4078,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeSplitMirrorGoToSplit => '前往分帳';
 
   @override
-  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改;這筆也只能在那裡刪除。';
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改,這筆也只能在那裡刪除。';
 
   @override
   String get financeSplitChangedReloaded =>
