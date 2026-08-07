@@ -444,14 +444,32 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
       const SizedBox(height: 16),
       Text(loc.splitScheduleSectionTitle, style: theme.textTheme.titleSmall),
       const SizedBox(height: 4),
-      if (_mode == _SplitMode.equal)
+      if (_mode == _SplitMode.equal) ...[
         // Stated, not hidden: a control that quietly stops working when the
         // mode changes teaches the user it did something it did not.
+        //
+        // And named by what is on screen — the copy said "exact-amount mode"
+        // while the control says "Exact", so the user was sent looking for
+        // something that does not exist. The button is the other half: being
+        // told which mode is needed, with no way to get there from here, is a
+        // dead end dressed as help.
         Text(
           key: const Key('split-schedule-exact-only'),
           _scheduleClearedOnEqual ? loc.splitScheduleClearedOnEqual : loc.splitScheduleExactOnly,
           style: theme.textTheme.bodySmall,
-        )
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const Key('split-schedule-switch-to-exact'),
+            onPressed: () => setState(() {
+              _mode = _SplitMode.exact;
+              _scheduleClearedOnEqual = false;
+            }),
+            child: Text(loc.splitScheduleSwitchToExact),
+          ),
+        ),
+      ]
       else ...[
         DropdownButtonFormField<String?>(
           key: const Key('split-schedule-person'),
@@ -878,6 +896,13 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
               // stake case keeps its sentence — and its key — but now only
               // when the stake really is what's blocking Save.
               if (saveBlock != null && amountError == null) ...[
+                // A rule about the whole form, so it sits with the button it
+                // blocks and behind a divider: pressed up against the
+                // schedule inputs it read as the schedule's own error, and
+                // "enter an amount above 0" is about the amount field far
+                // above.
+                const SizedBox(height: 16),
+                const Divider(height: 1),
                 const SizedBox(height: 12),
                 Text(
                   _saveBlockText(loc, saveBlock),

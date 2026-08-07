@@ -2969,7 +2969,7 @@
   "@splitScheduleSectionTitle": {
     "description": "Section heading for putting one participant's share on a monthly repayment schedule."
   },
-  "splitScheduleExactOnly": "Schedules need the exact-amount mode.",
+  "splitScheduleExactOnly": "To have one person repay monthly, the split has to be Exact.",
   "@splitScheduleExactOnly": {
     "description": "Shown in equal-split mode, where the server accepts no schedule."
   },
@@ -3048,6 +3048,10 @@
         "type": "String"
       }
     }
+  },
+  "splitScheduleSwitchToExact": "Use Exact",
+  "@splitScheduleSwitchToExact": {
+    "description": "Action that switches the split to exact mode from the repayment-schedule section, so the section is a way in rather than a dead end."
   },
   "splitExactShareLabel": "{name}'s share",
   "@splitExactShareLabel": {
