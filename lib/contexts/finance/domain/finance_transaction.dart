@@ -15,6 +15,14 @@ class FinanceTransaction {
   final String date;
   final String? note;
 
+  /// Set when the server mirrored this row out of a split expense the user
+  /// took a share of, `null` when the user recorded it themselves. The
+  /// backend refuses writes that rewrite a mirror's split facts (amount,
+  /// date, currency, type) and refuses to delete one at all, so this is not
+  /// decoration — it is what the list and the edit sheet have to read to stop
+  /// offering actions the server will reject with a 400.
+  final String? splitExpenseId;
+
   const FinanceTransaction({
     required this.id,
     required this.type,
@@ -23,6 +31,7 @@ class FinanceTransaction {
     required this.categoryId,
     required this.date,
     this.note,
+    this.splitExpenseId,
   });
 
   factory FinanceTransaction.fromJson(Map<String, dynamic> json) {
@@ -34,6 +43,7 @@ class FinanceTransaction {
       categoryId: json['category_id'] as String,
       date: json['date'] as String,
       note: json['note'] as String?,
+      splitExpenseId: json['split_expense_id'] as String?,
     );
   }
 }

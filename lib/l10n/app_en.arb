@@ -2210,9 +2210,56 @@
   "@financeSplitSpendingTitle": {
     "description": "Label for the overview tab's own line showing what the user personally owed on split expenses that month — shown beside, never folded into, the recorded expense total or the budget card."
   },
-  "financeSplitSpendingNote": "Not counted in the expense totals above, and not counted against your budget.",
-  "@financeSplitSpendingNote": {
-    "description": "Subtitle under the overview tab's split-spending card, stating that the figure is excluded from both the recorded expense totals and the budget card — the card sits next to both and is otherwise indistinguishable from a totals card."
+  "financeSplitSpendingCountedHeading": "Counted in your totals",
+  "@financeSplitSpendingCountedHeading": {
+    "description": "Heading above the split-spending card's group of currencies whose shares the server already mirrored into the user's transactions. Only shown when that group has something in it — an empty group reads as 'this is zero'."
+  },
+  "financeSplitSpendingCountedNote": "Already in the totals above, and in any budget.",
+  "@financeSplitSpendingCountedNote": {
+    "description": "Sentence stated beside the counted group's own amounts on the overview tab's split-spending card. The card is otherwise indistinguishable from a totals card, and whether the money is already counted is the only thing the reader needs from it."
+  },
+  "financeSplitSpendingUncountedHeading": "Not counted in your totals",
+  "@financeSplitSpendingUncountedHeading": {
+    "description": "Heading above the split-spending card's group of currencies the server cannot mirror into transactions. Only shown when that group has something in it."
+  },
+  "financeSplitSpendingUncountedNote": "Not in the totals above — this currency cannot be a transaction.",
+  "@financeSplitSpendingUncountedNote": {
+    "description": "Sentence stated beside the uncounted group's own amounts on the overview tab's split-spending card."
+  },
+  "financeSplitMirrorBadge": "From a split",
+  "@financeSplitMirrorBadge": {
+    "description": "Marker on a ledger row the server mirrored out of a split expense, so the user can tell it apart from a row they recorded themselves before opening it — a mirrored row cannot be deleted and most of its fields cannot be edited."
+  },
+  "financeSplitMirrorSheetTitle": "From a split · {label}",
+  "@financeSplitMirrorSheetTitle": {
+    "description": "Title of the edit sheet for a transaction the server mirrored out of a split expense. {label} is the transaction's own note, which starts out as the split's description but belongs to the user afterwards — they can edit it in this same sheet, so this is not 'the split's description'.",
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "financeSplitMirrorGoToSplit": "Go to splits",
+  "@financeSplitMirrorGoToSplit": {
+    "description": "Action on the mirrored-transaction sheet that leaves for the split records, where the locked parts are changed. Without it the sentence telling the user to go there is a dead end they have to walk alone."
+  },
+  "financeSplitMirrorLockedNote": "The amount, date, currency and type are changed on the split itself, and this row can only be deleted there.",
+  "@financeSplitMirrorLockedNote": {
+    "description": "Sentence under the mirrored-transaction sheet's two editable fields, explaining where everything else is changed — the sheet shows those as facts rather than as inputs, and has no delete action at all."
+  },
+  "financeSplitChangedReloaded": "This split was just changed. The current amount and date are shown now — check them and save again.",
+  "@financeSplitChangedReloaded": {
+    "description": "Shown when the server refuses the save because the split moved on between the sheet opening and the save (HTTP 409). Deliberately not the generic save-failed copy: retrying the same values would be refused the same way, so the message says the record moved and the sheet shows the current values instead."
+  },
+  "financeSplitDeletedElsewhere": "The payer deleted this split, so this record is gone.",
+  "financeTransactionGoneElsewhere": "This record is gone — it may have been deleted on another device.",
+  "@financeTransactionGoneElsewhere": {
+    "description": "Shown when a save is refused because the transaction no longer exists, on a row the user recorded themselves."
+  },
+  "@financeSplitDeletedElsewhere": {
+    "description": "Shown when saving a mirrored transaction returns 404: the split it mirrored was deleted and took this row with it. The sheet closes rather than leaving the user editing a record that no longer exists."
+  },
+  "financeSplitMovedOutOfMonth": "This split is no longer in this month.",
+  "@financeSplitMovedOutOfMonth": {
+    "description": "Shown when the reload after a refused save cannot find the row in the selected month — the payer moved the split's date into a different month. Treated like a deleted one: the sheet closes rather than showing stale facts."
   },
   "financeSplitSpendingLoadFailed": "Couldn't load your split spending",
   "@financeSplitSpendingLoadFailed": {
@@ -2760,6 +2807,10 @@
   "splitGroupFieldLabel": "Group",
   "@splitGroupFieldLabel": {
     "description": "Label of the record-expense sheet's group selector, shown only when creating a group-less-or-grouped expense (hidden entirely while editing, since group_id is immutable server-side)."
+  },
+  "splitCategoryNoneOption": "No category",
+  "@splitCategoryNoneOption": {
+    "description": "The split expense form's category picker option for leaving the category unset — allowed, and what every expense recorded before the picker existed did. Every participant's mirrored transaction then lands in their own fallback category."
   },
   "splitGroupNoneOption": "No group (one-off)",
   "@splitGroupNoneOption": {

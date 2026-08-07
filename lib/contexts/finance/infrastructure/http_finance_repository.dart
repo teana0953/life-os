@@ -43,10 +43,16 @@ class HttpFinanceRepository implements FinanceRepository {
   }
 
   /// Maps a non-2xx response to a typed exception: 400 -> validation, 404 ->
-  /// not found, everything else -> generic fetch failure.
+  /// not found, 409 -> the split moved on under the caller, everything else ->
+  /// generic fetch failure.
+  ///
+  /// The 409 mapping is unconditional because the backend returns that status
+  /// from exactly one place (`routes/finance.ts`: a transaction write that lost
+  /// the race against a split edit).
   Never _throwForStatus(int statusCode) {
     if (statusCode == 400) throw const FinanceValidationFailure();
     if (statusCode == 404) throw const FinanceNotFound();
+    if (statusCode == 409) throw const FinanceConflict();
     throw FinanceFetchFailure(
       'Finance request failed (status $statusCode).',
     );

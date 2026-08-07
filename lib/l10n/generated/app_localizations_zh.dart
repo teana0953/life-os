@@ -1600,7 +1600,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeSplitSpendingTitle => '你的分帳自付額';
 
   @override
-  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+  String get financeSplitSpendingCountedHeading => '已計入';
+
+  @override
+  String get financeSplitSpendingCountedNote => '已計入上方的支出總額,有設預算的話也算進去了。';
+
+  @override
+  String get financeSplitSpendingUncountedHeading => '未計入';
+
+  @override
+  String get financeSplitSpendingUncountedNote => '不計入上方的支出總額,這個幣別無法記成交易。';
+
+  @override
+  String get financeSplitMirrorBadge => '來自分帳';
+
+  @override
+  String financeSplitMirrorSheetTitle(String label) {
+    return '來自分帳 · $label';
+  }
+
+  @override
+  String get financeSplitMirrorGoToSplit => '前往分帳';
+
+  @override
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改,這筆也只能在那裡刪除。';
+
+  @override
+  String get financeSplitChangedReloaded =>
+      '這筆分帳剛剛被改過,已為你載入最新的金額與日期 —— 確認後再存一次。';
+
+  @override
+  String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
+
+  @override
+  String get financeTransactionGoneElsewhere => '這筆紀錄已經不在了,可能在別的裝置上被刪掉。';
+
+  @override
+  String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';
 
   @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
@@ -1988,6 +2024,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitCategoryNoneOption => '不設分類';
 
   @override
   String get splitGroupNoneOption => '不選群組(一對一)';
@@ -4016,7 +4055,43 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get financeSplitSpendingTitle => '你的分帳自付額';
 
   @override
-  String get financeSplitSpendingNote => '不計入上方的支出總額,也不計入預算。';
+  String get financeSplitSpendingCountedHeading => '已計入';
+
+  @override
+  String get financeSplitSpendingCountedNote => '已計入上方的支出總額,有設預算的話也算進去了。';
+
+  @override
+  String get financeSplitSpendingUncountedHeading => '未計入';
+
+  @override
+  String get financeSplitSpendingUncountedNote => '不計入上方的支出總額,這個幣別無法記成交易。';
+
+  @override
+  String get financeSplitMirrorBadge => '來自分帳';
+
+  @override
+  String financeSplitMirrorSheetTitle(String label) {
+    return '來自分帳 · $label';
+  }
+
+  @override
+  String get financeSplitMirrorGoToSplit => '前往分帳';
+
+  @override
+  String get financeSplitMirrorLockedNote => '金額、日期、幣別與類型要到分帳頁改,這筆也只能在那裡刪除。';
+
+  @override
+  String get financeSplitChangedReloaded =>
+      '這筆分帳剛剛被改過,已為你載入最新的金額與日期 —— 確認後再存一次。';
+
+  @override
+  String get financeSplitDeletedElsewhere => '付款人已經把這筆分帳刪掉了,這筆紀錄也跟著消失。';
+
+  @override
+  String get financeTransactionGoneElsewhere => '這筆紀錄已經不在了,可能在別的裝置上被刪掉。';
+
+  @override
+  String get financeSplitMovedOutOfMonth => '這筆分帳已經不在這個月了。';
 
   @override
   String get financeSplitSpendingLoadFailed => '分帳自付額載入失敗';
@@ -4404,6 +4479,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get splitGroupFieldLabel => '群組';
+
+  @override
+  String get splitCategoryNoneOption => '不設分類';
 
   @override
   String get splitGroupNoneOption => '不選群組(一對一)';

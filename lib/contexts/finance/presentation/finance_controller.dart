@@ -27,7 +27,7 @@ enum SplitSpendingStatus { loading, loaded, error }
 /// Reasons loading/writing the finance month can fail, as understood by the
 /// finance screens. [FinanceController] has no [BuildContext] and so cannot
 /// hold a localized message directly — the screen maps this to text.
-enum FinanceError { fetchFailed, unknown, validation, notFound }
+enum FinanceError { fetchFailed, unknown, validation, notFound, conflict }
 
 /// Drives the finance shell: the selected month's categories, summary, and
 /// transactions, plus add/update/delete mutations. Month-keyed like
@@ -328,6 +328,15 @@ class FinanceController extends ChangeNotifier {
   /// transient failure (snackbar, content preserved) by checking [status]
   /// after awaiting. On success, [action] itself calls [load], which already
   /// notifies — so this does not double-notify on the happy path.
+  ///
+  /// **Two failures are the exception to "never reload on failure"** (design
+  /// D5): a `409` means someone else changed the split under the caller, and a
+  /// `404` on a mirrored row means the split — and with it the row — is gone.
+  /// In both, what is on screen is now wrong about the *server's own* facts,
+  /// not just about this write, so both reload and only then set the error
+  /// status, mirroring [saveBudgets]. Setting it after matters: [load] leaves
+  /// [status] `loaded`, and the record sheet pops itself on `loaded` — it would
+  /// close on what it should be reporting.
   Future<void> _mutate(String idToken, Future<void> Function() action) async {
     try {
       await action();
@@ -337,9 +346,18 @@ class FinanceController extends ChangeNotifier {
     } on FinanceValidationFailure {
       status = FinanceStatus.error;
       error = FinanceError.validation;
+    } on FinanceConflict {
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.conflict;
+      }
     } on FinanceNotFound {
-      status = FinanceStatus.error;
-      error = FinanceError.notFound;
+      await load(idToken, selectedMonth);
+      if (status == FinanceStatus.loaded) {
+        status = FinanceStatus.error;
+        error = FinanceError.notFound;
+      }
     } on FinanceFetchFailure {
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;

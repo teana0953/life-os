@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
@@ -84,6 +86,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           lockedGroup: group,
           friends: const [Friend(userId: 'f-not-in-group', displayName: 'Not in group')],
@@ -106,6 +109,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -125,6 +129,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           editing: _sampleExpense(),
         ),
@@ -147,6 +152,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -192,6 +198,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -219,6 +226,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -253,6 +261,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: 'a-user',
+          financeCategories: const [],
           today: '2026-08-02',
           lockedGroup: group,
         ),
@@ -291,11 +300,16 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
       );
 
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport.
+      await tester.ensureVisible(find.byKey(const Key('split-mode-toggle')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-mode-toggle')).hitTestable().first);
       // Select the exact segment specifically.
       await tester.tap(find.text(_loc.splitModeExact));
@@ -321,6 +335,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -329,6 +344,10 @@ void main() {
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
       await tester.tap(find.byKey(const Key('split-participant-f1')));
+      await tester.pumpAndSettle();
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport — a `tap` there silently misses.
+      await tester.ensureVisible(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
       await tester.tap(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
@@ -355,6 +374,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -363,6 +383,10 @@ void main() {
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
       await tester.tap(find.byKey(const Key('split-participant-f1')));
+      await tester.pumpAndSettle();
+      // The category picker added a field above the mode toggle, pushing it
+      // past the 600dp test viewport — a `tap` there silently misses.
+      await tester.ensureVisible(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
       await tester.tap(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
@@ -403,6 +427,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           editing: editing,
         ),
@@ -427,6 +452,7 @@ void main() {
         writer: _controller(FakeSplitRepository()),
         idToken: () async => 'tok',
         selfUserId: _self,
+        financeCategories: const [],
         today: '2026-08-02',
         friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
       ),
@@ -511,6 +537,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
         ),
       );
@@ -544,6 +571,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           groups: const [
             SplitGroup(
@@ -581,6 +609,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           groups: const [
             SplitGroup(
@@ -618,6 +647,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           // Someone to split with, so the amount really is the first thing
           // blocking Save.
@@ -647,11 +677,30 @@ void main() {
           selfUserId: _self,
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+          financeCategories: const [
+            FinanceCategory(
+              id: 'cat-food',
+              name: '餐飲',
+              type: FinanceType.expense,
+              icon: 'other',
+              sortOrder: 0,
+              archived: false,
+            ),
+          ],
         ),
       );
 
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch with Friend');
+      // The category is a field the user filled in too — "every field" in this
+      // test's name predates it, and a picker that resets on failure would
+      // still have passed.
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('餐飲').last);
+      await tester.pumpAndSettle();
       // A split needs a second person (the backend's own rule) — without one
       // Save stays disabled and no request is ever sent.
       await tester.tap(find.byKey(const Key('split-participant-f1')));
@@ -664,6 +713,11 @@ void main() {
       final amountField = tester.widget<TextField>(find.byKey(const Key('split-amount-field')));
       expect(amountField.controller!.text, '100');
       expect(find.text('Lunch with Friend'), findsOneWidget);
+      // `gotCategoryName`, not `find.text('餐飲')`: the dropdown's own
+      // `FormField` holds the picked value for display whether or not the
+      // sheet recorded it, so the visible assertion stays green even when the
+      // category would go out as null. The fake records it before it throws.
+      expect(repo.gotCategoryName, '餐飲');
     });
 
     testWidgets('submitting is disabled while a save is in flight', (tester) async {
@@ -676,6 +730,7 @@ void main() {
           writer: _controller(repo),
           idToken: () async => 'tok',
           selfUserId: _self,
+          financeCategories: const [],
           today: '2026-08-02',
           friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
         ),
@@ -694,6 +749,182 @@ void main() {
       final saveButton = tester.widget<FilledButton>(find.byKey(const Key('split-save-button')));
       expect(saveButton.onPressed, isNull);
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('SplitExpenseSheet — the optional finance category', () {
+    const categories = [
+      FinanceCategory(
+        id: 'cat-food',
+        name: '餐飲',
+        type: FinanceType.expense,
+        icon: 'other',
+        sortOrder: 0,
+        archived: false,
+      ),
+      // Archived: the picker must stop offering it, matching `budget_sheet`.
+      FinanceCategory(
+        id: 'cat-old',
+        name: '舊分類',
+        type: FinanceType.expense,
+        icon: 'other',
+        sortOrder: 2,
+        archived: true,
+      ),
+      // An income category with the same shape, to prove the picker filters by
+      // type rather than offering everything the user owns.
+      FinanceCategory(
+        id: 'cat-salary',
+        name: '薪資',
+        type: FinanceType.income,
+        icon: 'other',
+        sortOrder: 1,
+        archived: false,
+      ),
+    ];
+
+    SplitExpense editable({String? categoryName = '餐飲'}) => SplitExpense(
+      id: 'e1',
+      groupId: null,
+      payerUserId: _self,
+      payerDisplayName: 'Self',
+      createdByUserId: _self,
+      amount: 900,
+      currency: 'TWD',
+      description: 'Dinner',
+      day: '2026-08-02',
+      splitMode: 'equal',
+      categoryName: categoryName,
+      shares: const [
+        SplitShare(userId: _self, amount: 450, displayName: 'Self'),
+        SplitShare(userId: 'f1', amount: 450, displayName: 'Friend One'),
+      ],
+      createdAt: '2026-08-02T00:00:00Z',
+      updatedAt: '2026-08-02T00:00:00Z',
+    );
+
+    Future<void> pumpEditing(
+      WidgetTester tester,
+      FakeSplitRepository repo, {
+      SplitExpense? expense,
+      List<FinanceCategory> financeCategories = categories,
+    }) => _pumpSheet(
+      tester,
+      sheet: SplitExpenseSheet(
+        onAddFriend: () {},
+        writer: _controller(repo),
+        idToken: () async => 'tok',
+        selfUserId: _self,
+        today: '2026-08-02',
+        editing: expense ?? editable(),
+        friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+        financeCategories: financeCategories,
+      ),
+    );
+
+    Future<void> save(WidgetTester tester) async {
+      await tester.ensureVisible(find.byKey(const Key('split-save-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-save-button')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sends the category as a name, not an id', (tester) async {
+      // A name, because finance categories are per-user: this recorder's id
+      // means nothing to the other participants, whose mirrors resolve the
+      // name against their own list.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo);
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('picking a category from the list is what gets sent', (
+      tester,
+    ) async {
+      // The headline behaviour of the whole feature, and until this test the
+      // only thing covered was *resending* a category the expense already had
+      // — which `initState` does on its own. Replacing the picker's
+      // `onChanged` body with `setState(() {})` left every other test green.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('餐飲').last);
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('the picker offers expense categories only, never income ones', (
+      tester,
+    ) async {
+      // The income category in the fixture above was seeded to prove this and
+      // then never looked at: deleting the `type == expense` filter from
+      // `_categoryNameOptions` left all 685 finance+split tests green. Picking
+      // an income name would send a name the server resolves as an expense
+      // category, find nothing, and drop every participant's mirror into their
+      // fallback.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+
+      await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-category-field')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('餐飲'), findsWidgets);
+      expect(find.text('薪資'), findsNothing);
+      // Archiving means "stop offering me this" — same rule the budget sheet
+      // already follows.
+      expect(find.text('舊分類'), findsNothing);
+    });
+
+    testWidgets('an edit that touches only the amount keeps the category', (
+      tester,
+    ) async {
+      // PATCH is a full replace: a category this form does not resend is not
+      // left alone, it is cleared — and every participant's un-hand-picked
+      // mirror then moves back to their fallback category, silently.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo);
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '1200');
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+      expect(repo.gotAmount, 1200);
+    });
+
+    testWidgets('resends the category even when the picker has nothing in it', (
+      tester,
+    ) async {
+      // An empty list is a real production state — the categories request can
+      // fail — and it is the only state that tells the two implementations
+      // apart: holding an id and resolving it at submit sends `null` here,
+      // which is the silent data loss above. Holding the name cannot.
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, financeCategories: const []);
+      await save(tester);
+
+      expect(repo.gotCategoryName, '餐飲');
+    });
+
+    testWidgets('an expense with no category saves fine', (tester) async {
+      final repo = FakeSplitRepository();
+      await pumpEditing(tester, repo, expense: editable(categoryName: null));
+      await save(tester);
+
+      expect(repo.gotCategoryName, isNull);
+      // `categoryNameSent`, not just a non-null side effect: it is what tells
+      // "sent null on purpose" from "the key never left the sheet", and those
+      // are the same `gotCategoryName` either way.
+      expect(repo.categoryNameSent, isTrue);
     });
   });
 }

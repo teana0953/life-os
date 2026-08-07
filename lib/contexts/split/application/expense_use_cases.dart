@@ -27,6 +27,7 @@ class CreateExpense {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _repository.createExpense(
     idToken,
     groupId: groupId,
@@ -36,6 +37,7 @@ class CreateExpense {
     description: description,
     day: day,
     split: split,
+    categoryName: categoryName,
   );
 }
 
@@ -66,6 +68,7 @@ class UpdateExpense {
     required String description,
     required String day,
     required SplitInput split,
+    String? categoryName,
   }) => _repository.updateExpense(
     idToken,
     expenseId,
@@ -76,6 +79,7 @@ class UpdateExpense {
     description: description,
     day: day,
     split: split,
+    categoryName: categoryName,
   );
 }
 

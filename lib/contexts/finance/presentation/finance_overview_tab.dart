@@ -20,6 +20,7 @@ import '../domain/split_spending.dart';
 import 'budget_card.dart';
 import 'finance_category_icons.dart';
 import 'finance_controller.dart';
+import 'finance_transaction_row.dart';
 
 /// 總覽: the month switcher, per-currency expense/income/net cards, an
 /// expense-category breakdown, and the five most recent transactions.
@@ -217,10 +218,22 @@ class _CurrencyTotalsCard extends StatelessWidget {
   }
 }
 
-/// The overview's own split-spending line (design D6) — per currency, shown
-/// beside the recorded expense/income/net cards but never folded into them
-/// or into the budget card ([BudgetCard] reads only [FinanceController.budgets],
-/// untouched by this).
+/// The overview's own split-spending line (design D1/D6) — per currency, and
+/// split into two groups by whether the server already mirrored that
+/// currency's shares into the user's transactions.
+///
+/// **Two groups, each carrying its own sentence, is the whole point.** The
+/// card used to say one thing about all of it ("counted in neither the
+/// expense total nor the budget"), which was true while no currency was
+/// mirrored. Now the whitelisted ones are, and no single sentence is true of
+/// both halves: "already counted" is a lie about THB and "not counted" is a
+/// lie about TWD. This card is the only thing on the screen that answers "is
+/// this money already in my total?", so the sentence has to sit beside the
+/// amounts it is about.
+///
+/// A group with nothing in it is omitted entirely, heading and all — an empty
+/// group under a heading reads as "that half is zero", which is a different
+/// and equally wrong claim.
 class _SplitSpendingCard extends StatelessWidget {
   final List<SplitSpending> totals;
 
@@ -230,45 +243,97 @@ class _SplitSpendingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final counted = totals.where((t) => t.countedInTransactions).toList();
+    final uncounted = totals.where((t) => !t.countedInTransactions).toList();
     return LedgeCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(loc.financeSplitSpendingTitle, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          // The card is a `LedgeCard` with a bold per-currency amount, i.e.
-          // visually a totals card — without this sentence nothing on the
-          // screen rules out reading it as part of the expense total or of
-          // the budget's consumed figure, and it is in neither (design D6).
-          Text(
-            loc.financeSplitSpendingNote,
-            key: const Key('finance-split-spending-note'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (counted.isNotEmpty)
+            _SplitSpendingGroup(
+              keyPrefix: 'counted',
+              heading: loc.financeSplitSpendingCountedHeading,
+              note: loc.financeSplitSpendingCountedNote,
+              totals: counted,
             ),
-          ),
-          const SizedBox(height: 8),
-          for (final total in totals)
-            Padding(
-              key: Key('finance-split-spending-${total.currency}'),
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              // `LabelValueRow`, not `_TotalRow`: a seven-figure amount at a
-              // large text scale needs the value-gets-priority-and-wraps
-              // shape that row provides — `_TotalRow`'s plain `Row` overflows
-              // in exactly that case (design.md task 7.4's layout guard).
-              child: LabelValueRow(
-                gap: 12,
-                label: Text(total.currency, style: theme.textTheme.bodyMedium),
-                value: Text(
-                  formatMinorUnitsForDisplay(total.amount, total.currency),
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
+          if (uncounted.isNotEmpty)
+            _SplitSpendingGroup(
+              keyPrefix: 'uncounted',
+              heading: loc.financeSplitSpendingUncountedHeading,
+              note: loc.financeSplitSpendingUncountedNote,
+              totals: uncounted,
             ),
         ],
       ),
+    );
+  }
+}
+
+/// One half of [_SplitSpendingCard]: a heading, the sentence that is true of
+/// this half only, and this half's per-currency amounts.
+class _SplitSpendingGroup extends StatelessWidget {
+  final String keyPrefix;
+  final String heading;
+  final String note;
+  final List<SplitSpending> totals;
+
+  const _SplitSpendingGroup({
+    required this.keyPrefix,
+    required this.heading,
+    required this.note,
+    required this.totals,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        // The heading has to out-weigh the amounts below it, not sit under
+        // them: the amounts are `bodyLarge` bold, so a plain `labelLarge`
+        // heading reads as the noise between two lists rather than as the cut
+        // that separates them — and that cut is the one thing this card exists
+        // to make.
+        Text(
+          heading,
+          key: Key('finance-split-spending-$keyPrefix-heading'),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          note,
+          key: Key('finance-split-spending-$keyPrefix-note'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (final total in totals)
+          Padding(
+            key: Key('finance-split-spending-${total.currency}'),
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            // `LabelValueRow`, not `_TotalRow`: a seven-figure amount at a
+            // large text scale needs the value-gets-priority-and-wraps
+            // shape that row provides — `_TotalRow`'s plain `Row` overflows
+            // in exactly that case (design.md task 7.4's layout guard).
+            child: LabelValueRow(
+              gap: 12,
+              label: Text(total.currency, style: theme.textTheme.bodyMedium),
+              value: Text(
+                formatMinorUnitsForDisplay(total.amount, total.currency),
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -411,7 +476,11 @@ class _RecentTransactions extends StatelessWidget {
       child: Column(
         children: [
           for (final txn in recent)
-            _TransactionRow(transaction: txn, category: _categoryFor(txn.categoryId)),
+            FinanceTransactionRow(
+              transaction: txn,
+              category: _categoryFor(txn.categoryId),
+              mirrorKeyPrefix: 'finance-recent-mirror',
+            ),
         ],
       ),
     );
@@ -422,129 +491,6 @@ class _RecentTransactions extends StatelessWidget {
       if (category.id == id) return category;
     }
     return null;
-  }
-}
-
-/// Minimum space between the transaction row's icon-plus-name half and its
-/// amount. See the comment on the row's `title` for the arithmetic this feeds.
-const double _amountGap = 12;
-
-/// The width [_TransactionRow] keeps back from the amount for the
-/// icon-plus-name half, so neither half's box can collapse to 0dp.
-///
-/// Absolute rather than a fraction of the row, which is the whole reason this
-/// row does not use `LabelValueRow` — see the comment on the row's `title`.
-/// 48dp = the 24dp icon, the 12dp that follows it, and 12dp of name. It is a
-/// floor on the *box*, not a promise the name is comfortable: at 320dp the name
-/// still wraps one CJK glyph per line, exactly as it does on `main`.
-const double _amountLabelFloor = 48;
-
-class _TransactionRow extends StatelessWidget {
-  final FinanceTransaction transaction;
-  final FinanceCategory? category;
-
-  const _TransactionRow({required this.transaction, required this.category});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final icon = category == null ? Icons.category : financeCategoryIcon(category!);
-    final name = category?.name ?? transaction.categoryId;
-    final color = transaction.type == FinanceType.expense
-        ? theme.colorScheme.error
-        : financeIncomeColor(theme.colorScheme);
-    return ListTile(
-      // The amount rides in the title row rather than in `trailing`, for the
-      // same reason the net-worth account rows do (see the comment on
-      // `networth_tab.dart`'s `ListTile`): a `ListTile`'s trailing slot is laid
-      // out unconstrained, so at a 2x text scale the amount consumed the whole
-      // tile and the tile refused to lay out at all — "Trailing widget consumes
-      // the entire tile width", an assertion rather than a RenderFlex overflow,
-      // followed by a cascade of unlaid-out ancestors. Inside the row the
-      // category name wraps instead.
-      //
-      // The category icon rides *inside the label* rather than in the tile's
-      // `leading` slot, so the amount is measured against the whole tile width
-      // instead of what a 40dp leading slot leaves of it.
-      //
-      // This is `LabelValueRow`'s shape — `Expanded` label, non-flex value that
-      // takes its natural width, value capped so the label cannot be squeezed
-      // to 0dp — but **not** `LabelValueRow` itself, and the reason is measured,
-      // not stylistic. That row caps the value at a fixed 65% of the row, and
-      // 65% is not enough here at 320dp:
-      //
-      //   320dp screen -> 280dp card -> 276dp inside the border -> 236dp of
-      //   `ListTile` title. A seven-figure signed amount at `bodyLarge`/w700,
-      //   textScale 1.0, is 165.0dp wide. `LabelValueRow` would allow it
-      //   (236 - 12) * 0.65 = 145.6dp, so `-1,234,567` painted as `-1,234,5` /
-      //   `67` — two lines, broken mid-digit-group, reading as two numbers, and
-      //   raising no layout error at all.
-      //
-      // The cap this row needs at 320dp is 165/(236 - gap) >= 0.72 of the row,
-      // and no gutter buys the difference: even flush against the card border
-      // (276dp) the 65% cap gives 174.2dp only with a 0dp inset, and with the
-      // usual 16dp it gives 153.4dp. So the fraction is the wrong shape of
-      // limit — the amount's requirement is an absolute width, and a fraction
-      // cannot guarantee an absolute one. `label_value_row.dart` is shared with
-      // the net-worth and totals rows whose geometry was settled over several
-      // rounds, so the cap is re-expressed here for this row only rather than
-      // re-derived there.
-      //
-      // Hence [_amountLabelFloor]: the amount may take everything except a
-      // floor reserved for the icon-plus-name half. At 320dp that leaves the
-      // amount 236 - 12 - 48 = 176dp against the 165.0dp it needs (11dp of
-      // headroom) and the label 48dp — where `main`, which laid the amount out
-      // unconstrained in `trailing`, left the name a 15.0dp box and broke `餐飲`
-      // one glyph per line. So this is no worse than `main` on the label side
-      // and equal to it on the amount.
-      //
-      // The row still has exactly one flex child, which is what makes "what the
-      // value is refused is what the label is given" hold — see
-      // `label_value_row.dart`'s doc comment for why that matters.
-      title: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon),
-                  const SizedBox(width: 12),
-                  Flexible(child: Text(name)),
-                ],
-              ),
-            ),
-            const SizedBox(width: _amountGap),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: (constraints.maxWidth - _amountGap - _amountLabelFloor)
-                    .clamp(0.0, double.infinity),
-              ),
-              child: Text(
-                formatSignedMinorUnits(
-                  transaction.amount,
-                  transaction.currency,
-                  transaction.type,
-                ),
-                // Only holds the continuation lines against the right edge once
-                // the amount is forced to wrap (textScale 2.0, where 165.0dp
-                // becomes 330dp and no cap can fit it on one line). While it
-                // fits, the box is the glyphs and this is invisible.
-                textAlign: TextAlign.end,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      subtitle: transaction.note == null || transaction.note!.isEmpty
-          ? null
-          : Text(transaction.note!),
-    );
   }
 }
 

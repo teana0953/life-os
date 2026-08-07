@@ -558,13 +558,13 @@ void main() {
   group('split spending (design D6/D9, task 6)', () {
     test('a month with split shares loads them', () async {
       final repo = FakeFinanceRepository()
-        ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+        ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900, countedInTransactions: true)];
       final controller = _controller(repo);
 
       await controller.load('tok', '2026-08');
 
       expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
-      expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900)]);
+      expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900, countedInTransactions: true)]);
     });
 
     test('a month with no split shares loads an empty list, not a zero row', () async {
@@ -598,20 +598,20 @@ void main() {
       () async {
         final repo = FakeFinanceRepository()
           ..failNext = const FinanceFetchFailure('boom')
-          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 900, countedInTransactions: true)];
         final controller = _controller(repo);
 
         await controller.load('tok', '2026-08');
 
         expect(controller.status, FinanceStatus.error);
         expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
-        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900)]);
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 900, countedInTransactions: true)]);
       },
     );
 
     test('switching months clears the previous month\'s split-spending value', () async {
       final repo = FakeFinanceRepository()
-        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 900)];
+        ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 900, countedInTransactions: true)];
       final controller = _controller(repo);
       await controller.load('tok', '2026-07');
       expect(controller.splitSpending, isNotEmpty);
@@ -633,7 +633,7 @@ void main() {
       "second account never sees the first one's figures",
       () async {
         final repo = FakeFinanceRepository()
-          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654)];
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 987654, countedInTransactions: true)];
         final controller = _controller(repo);
         await controller.load('tokA', '2026-07');
         expect(controller.splitSpending, isNotEmpty);
@@ -662,8 +662,8 @@ void main() {
       '(month-switching race guard, task 6.1b)',
       () async {
         final repo = FakeFinanceRepository()
-          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 111)]
-          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 222)];
+          ..splitSpendingByMonth['2026-07'] = const [SplitSpending(currency: 'TWD', amount: 111, countedInTransactions: true)]
+          ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true)];
         final controller = _controller(repo);
 
         repo.splitSpendingGates['2026-07'] = Completer<void>();
@@ -672,7 +672,7 @@ void main() {
         await augustFuture;
 
         expect(controller.selectedMonth, '2026-08');
-        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222)]);
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true)]);
 
         // The stale July response now lands late — it must not clobber
         // August's already-shown value.
@@ -680,7 +680,7 @@ void main() {
         await julyFuture;
 
         expect(controller.selectedMonth, '2026-08');
-        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222)]);
+        expect(controller.splitSpending, [const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true)]);
       },
     );
   });

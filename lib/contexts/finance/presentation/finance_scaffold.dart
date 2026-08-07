@@ -68,6 +68,11 @@ class FinanceScaffold extends StatefulWidget {
   State<FinanceScaffold> createState() => _FinanceScaffoldState();
 }
 
+/// The 分帳 destination's index in the nav bar below — named because two
+/// places select it now: the bar itself, and the mirrored-transaction sheet's
+/// exit.
+const _splitTabIndex = 3;
+
 class _FinanceScaffoldState extends State<FinanceScaffold> {
   int _index = 0;
 
@@ -239,6 +244,10 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
         groups: _splitController.groups,
         friends: _splitController.friends,
         editing: editing,
+        // Already loaded for the ledger tabs' own category grid — this
+        // scaffold is the one call site that has them without a second
+        // request.
+        financeCategories: widget.controller.categories,
         // Close the sheet before leaving for the friends page: the sheet is
         // an imperative modal route this scaffold pushed, and a router
         // navigation underneath it would leave it stranded on top of the
@@ -390,6 +399,21 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await widget.controller.load(await _idToken(), month, notifyOnStart: true);
   }
 
+  /// Selects the 分帳 destination, with the same side effects tapping it in
+  /// the nav bar has (the lazy build gate and the first-open load) — the only
+  /// destination this scaffold switches to from anywhere but that bar.
+  ///
+  /// Deliberately only the tab, not the individual expense: there is no route
+  /// for a single split, and a mirrored transaction carries no group id
+  /// either. A half-built deep link would look like one and land nowhere.
+  void _goToSplitTab() {
+    setState(() {
+      _index = _splitTabIndex;
+      _splitOpened = true;
+    });
+    unawaited(_loadSplit());
+  }
+
   Future<void> _openSheet({FinanceTransaction? editing}) async {
     await showAppSheet<void>(
       context,
@@ -399,6 +423,14 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
         categories: widget.controller.categories,
         today: _todayDate,
         editing: editing,
+        // Close the sheet before switching tabs, same as the split sheet's
+        // `onAddFriend` above: the sheet is a modal route this scaffold
+        // pushed, and swapping the tab underneath it would leave it stranded
+        // on top of the split tab.
+        onGoToSplit: () {
+          Navigator.of(context).pop();
+          _goToSplitTab();
+        },
       ),
     );
   }
@@ -560,10 +592,10 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           setState(() {
             _index = value;
             if (value == 2) _netWorthOpened = true;
-            if (value == 3) _splitOpened = true;
+            if (value == _splitTabIndex) _splitOpened = true;
           });
           if (value == 2) unawaited(_loadNetWorth());
-          if (value == 3) unawaited(_loadSplit());
+          if (value == _splitTabIndex) unawaited(_loadSplit());
         },
         destinations: [
           NavigationDestination(

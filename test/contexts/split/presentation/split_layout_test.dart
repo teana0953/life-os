@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
+import 'package:life_os/contexts/finance/presentation/add_transaction_sheet.dart';
+import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
@@ -41,6 +43,8 @@ import 'package:life_os/shared/widgets/ledge_card.dart';
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
+import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
+
 import '../../finance/finance_test_support.dart';
 import '../support/fake_split_repository.dart';
 import '../support/split_presentation_fakes.dart';
@@ -151,12 +155,13 @@ Widget _splitTabScreen({required SplitController controller}) => Scaffold(
     onOpenGroup: (_) {},
     onCreateGroup: () {},
     onEditExpense: (_) {},
-    onSettleUp: ({
-      required otherUserId,
-      required otherDisplayName,
-      required balanceAmount,
-      required currency,
-    }) {},
+    onSettleUp:
+        ({
+          required otherUserId,
+          required otherDisplayName,
+          required balanceAmount,
+          required currency,
+        }) {},
     onDeleteSettlement: (_) {},
     onSignInAgain: () {},
   ),
@@ -178,9 +183,12 @@ Widget _groupDetailScreen({
     updateExpense: UpdateExpense(repo),
     deleteExpense: DeleteExpense(repo),
     listFriends: ListFriends(FakeSocialRepositoryForSplit()),
+    listFinanceCategories: ListFinanceCategories(FakeFinanceRepository()),
     getBalances: GetBalances(repo),
     createSettlement: CreateSettlement(repo),
-    getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId)),
+    getProfile: GetProfile(
+      FakeProfileRepository()..profileToReturn = testProfile(id: selfUserId),
+    ),
     authRepository: _FakeAuthRepository(),
     groupId: 'g1',
     clock: () => DateTime(2026, 8, 2),
@@ -213,6 +221,7 @@ Widget _expenseSheet({
       ),
       idToken: () async => 'tok',
       selfUserId: _self,
+      financeCategories: const [],
       today: '2026-08-02',
       friends: friends,
       editing: editing,
@@ -223,7 +232,10 @@ Widget _expenseSheet({
 /// [FinanceScaffold] wired with an inert split fake — used for the
 /// four-destination nav-bar guard (task 9.2), which cares about the shell
 /// itself, not any tab's data.
-Widget _financeScaffold(FakeSplitRepository repo, {Locale locale = const Locale('en')}) {
+Widget _financeScaffold(
+  FakeSplitRepository repo, {
+  Locale locale = const Locale('en'),
+}) {
   final financeRepo = FakeFinanceRepository();
   return l10nTestApp(
     locale: locale,
@@ -241,7 +253,9 @@ Widget _financeScaffold(FakeSplitRepository repo, {Locale locale = const Locale(
         deleteExpense: DeleteExpense(repo),
         createGroup: CreateGroup(repo),
         listFriends: ListFriends(FakeSocialRepositoryForSplit()),
-        getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
+        getProfile: GetProfile(
+          FakeProfileRepository()..profileToReturn = testProfile(),
+        ),
         listSettlements: ListSettlements(repo),
         createSettlement: CreateSettlement(repo),
         deleteSettlement: DeleteSettlement(repo),
@@ -274,23 +288,24 @@ class _InertSettlementWriter implements SettlementWriter {
   }) async {}
 }
 
-Widget _settleUpSheetScreen({Locale locale = const Locale('en')}) => l10nTestApp(
-  locale: locale,
-  home: Scaffold(
-    body: SettleUpSheet(
-      writer: _InertSettlementWriter(),
-      idToken: () async => 'tok',
-      selfUserId: _self,
-      otherUserId: 'u2',
-      otherDisplayName: 'Bo',
-      // Seven-figure amount (task 7.4/design.md's own fixture rule) — 900
-      // sits outside the failure region and could not fail this guard.
-      balanceAmount: _wideAmount,
-      currency: 'TWD',
-      today: '2026-08-02',
-    ),
-  ),
-);
+Widget _settleUpSheetScreen({Locale locale = const Locale('en')}) =>
+    l10nTestApp(
+      locale: locale,
+      home: Scaffold(
+        body: SettleUpSheet(
+          writer: _InertSettlementWriter(),
+          idToken: () async => 'tok',
+          selfUserId: _self,
+          otherUserId: 'u2',
+          otherDisplayName: 'Bo',
+          // Seven-figure amount (task 7.4/design.md's own fixture rule) — 900
+          // sits outside the failure region and could not fail this guard.
+          balanceAmount: _wideAmount,
+          currency: 'TWD',
+          today: '2026-08-02',
+        ),
+      ),
+    );
 
 /// The recorded-ledger half of the overview, seeded so the guard below
 /// actually builds it.
@@ -361,7 +376,10 @@ void _seedOverviewLedger(FakeFinanceRepository repo) {
   ];
 }
 
-Widget _financeOverviewScreen(FakeFinanceRepository repo, {Locale locale = const Locale('en')}) {
+Widget _financeOverviewScreen(
+  FakeFinanceRepository repo, {
+  Locale locale = const Locale('en'),
+}) {
   final controller = testFinanceController(repo);
   return l10nTestApp(
     locale: locale,
@@ -412,21 +430,24 @@ SplitActivity _amountChangeEntry({String id = 'a1'}) => SplitActivity(
   createdAt: '2026-08-01T10:30:00.000Z',
 );
 
-Widget _changeLogScreen(FakeSplitRepository repo, {required Locale locale}) => l10nTestApp(
-  locale: locale,
-  home: Scaffold(
-    body: SplitActivitySection(
-      controller: SplitActivityController(
-        listActivity: ListActivity(repo),
-        getProfile: GetProfile(FakeProfileRepository()..profileToReturn = testProfile()),
-        idToken: () async => 'tok',
+Widget _changeLogScreen(FakeSplitRepository repo, {required Locale locale}) =>
+    l10nTestApp(
+      locale: locale,
+      home: Scaffold(
+        body: SplitActivitySection(
+          controller: SplitActivityController(
+            listActivity: ListActivity(repo),
+            getProfile: GetProfile(
+              FakeProfileRepository()..profileToReturn = testProfile(),
+            ),
+            idToken: () async => 'tok',
+          ),
+          onSignInAgain: () {},
+          // Pinned so the timestamp is the same under TZ=UTC (CI) and UTC+8.
+          toLocalTime: (instant) => instant.toUtc(),
+        ),
       ),
-      onSignInAgain: () {},
-      // Pinned so the timestamp is the same under TZ=UTC (CI) and UTC+8.
-      toLocalTime: (instant) => instant.toUtc(),
-    ),
-  ),
-);
+    );
 
 /// One [SplitExpenseRow] in the same shell the change log puts its own rows
 /// in — the 600dp-capped, 20dp-padded `ListView` of a [LedgeCard] per row.
@@ -485,7 +506,12 @@ void main() {
                   ),
                 ],
                 groups: const [
-                  SplitGroup(id: 'g1', name: 'Trip', createdByUserId: _self, archivedAt: null),
+                  SplitGroup(
+                    id: 'g1',
+                    name: 'Trip',
+                    createdByUserId: _self,
+                    archivedAt: null,
+                  ),
                 ],
                 expenses: [_expense(amount: _wideAmount)],
               );
@@ -494,7 +520,8 @@ void main() {
                 await tester.pumpWidget(
                   MaterialApp(
                     locale: locale,
-                    localizationsDelegates: AppLocalizations.localizationsDelegates,
+                    localizationsDelegates:
+                        AppLocalizations.localizationsDelegates,
                     supportedLocales: testSupportedLocales,
                     home: _splitTabScreen(controller: controller),
                   ),
@@ -502,7 +529,10 @@ void main() {
                 await tester.pumpAndSettle();
               });
 
-              expect(find.byKey(const Key('split-owed-to-me-0')), findsOneWidget);
+              expect(
+                find.byKey(const Key('split-owed-to-me-0')),
+                findsOneWidget,
+              );
             },
           );
 
@@ -549,17 +579,26 @@ void main() {
                   Balance(
                     userId: 'u2',
                     displayName: 'Bo',
-                    balances: [CurrencyBalance(currency: 'TWD', amount: _wideAmount)],
+                    balances: [
+                      CurrencyBalance(currency: 'TWD', amount: _wideAmount),
+                    ],
                   ),
                 ]
-                ..expensesToReturn = [_expense(groupId: 'g1', amount: _wideAmount)];
+                ..expensesToReturn = [
+                  _expense(groupId: 'g1', amount: _wideAmount),
+                ];
 
               await expectNoLayoutErrors(() async {
-                await tester.pumpWidget(_groupDetailScreen(repo: repo, locale: locale));
+                await tester.pumpWidget(
+                  _groupDetailScreen(repo: repo, locale: locale),
+                );
                 await tester.pumpAndSettle();
               });
 
-              expect(find.byKey(const Key('split-member-row-u2')), findsOneWidget);
+              expect(
+                find.byKey(const Key('split-member-row-u2')),
+                findsOneWidget,
+              );
             },
           );
 
@@ -583,12 +622,22 @@ void main() {
                 await tester.pumpAndSettle();
               });
 
-              expect(find.byKey(const Key('split-save-button')), findsOneWidget);
+              expect(
+                find.byKey(const Key('split-save-button')),
+                findsOneWidget,
+              );
 
               // The exact-split mode adds a per-participant amount field —
               // its own row shape, so it gets its own layout pass.
               final loc = lookupAppLocalizations(locale);
               await expectNoLayoutErrors(() async {
+                // `ensureVisible` first: the sheet grew a category picker, which pushed
+                // the mode toggle below a 320dp / textScale 2.0 viewport. A `tap` that
+                // misses only prints a warning — and inside `expectNoLayoutErrors` a
+                // no-op collects no errors and therefore passes, so the exact-split rows
+                // this block exists to sweep would never be laid out at all.
+                await tester.ensureVisible(find.text(loc.splitModeExact));
+                await tester.pumpAndSettle();
                 await tester.tap(find.text(loc.splitModeExact));
                 await tester.pumpAndSettle();
               });
@@ -598,22 +647,23 @@ void main() {
       }
     }
 
-    testWidgets('FinanceScaffold (all four destinations) lays out cleanly at 320dp, textScale=2.0', (
-      tester,
-    ) async {
-      useTextScaleFactor(tester, 2.0);
-      await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'FinanceScaffold (all four destinations) lays out cleanly at 320dp, textScale=2.0',
+      (tester) async {
+        useTextScaleFactor(tester, 2.0);
+        await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await expectNoLayoutErrors(() async {
-        await tester.pumpWidget(_financeScaffold(FakeSplitRepository()));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('split-tab')));
-        await tester.pumpAndSettle();
-      });
+        await expectNoLayoutErrors(() async {
+          await tester.pumpWidget(_financeScaffold(FakeSplitRepository()));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('split-tab')));
+          await tester.pumpAndSettle();
+        });
 
-      expect(find.byKey(const Key('split-fab')), findsOneWidget);
-    });
+        expect(find.byKey(const Key('split-fab')), findsOneWidget);
+      },
+    );
   });
 
   group('the fourth nav-bar destination (task 9.2)', () {
@@ -636,7 +686,9 @@ void main() {
           addTearDown(() => tester.binding.setSurfaceSize(null));
 
           await expectNoLayoutErrors(
-            () => tester.pumpWidget(_financeScaffold(FakeSplitRepository(), locale: locale)),
+            () => tester.pumpWidget(
+              _financeScaffold(FakeSplitRepository(), locale: locale),
+            ),
           );
           await tester.pumpAndSettle();
 
@@ -654,11 +706,15 @@ void main() {
 
           final rects = <Rect>[];
           for (final label in labels) {
-            final finder = find.descendant(of: navBar, matching: find.text(label));
+            final finder = find.descendant(
+              of: navBar,
+              matching: find.text(label),
+            );
             expect(
               finder,
               findsOneWidget,
-              reason: 'destination label "$label" was not found as its own painted text',
+              reason:
+                  'destination label "$label" was not found as its own painted text',
             );
             rects.add(tester.getRect(finder));
           }
@@ -703,17 +759,27 @@ void main() {
     // precisely where the labels themselves have outgrown the default, and
     // clamping the bar there would clip the user's chosen text size rather
     // than honour it.
-    for (final (scale, expectedHeight) in [(1.0, 80.0), (1.14, 80.0), (2.0, 140.0)]) {
-      testWidgets('the nav bar is $expectedHeight dp tall at textScale=$scale', (tester) async {
-        useTextScaleFactor(tester, scale);
-        await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final (scale, expectedHeight) in [
+      (1.0, 80.0),
+      (1.14, 80.0),
+      (2.0, 140.0),
+    ]) {
+      testWidgets(
+        'the nav bar is $expectedHeight dp tall at textScale=$scale',
+        (tester) async {
+          useTextScaleFactor(tester, scale);
+          await tester.binding.setSurfaceSize(const Size(320, _phoneHeight));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
 
-        await tester.pumpWidget(_financeScaffold(FakeSplitRepository()));
-        await tester.pumpAndSettle();
+          await tester.pumpWidget(_financeScaffold(FakeSplitRepository()));
+          await tester.pumpAndSettle();
 
-        expect(tester.getSize(find.byType(NavigationBar)).height, expectedHeight);
-      });
+          expect(
+            tester.getSize(find.byType(NavigationBar)).height,
+            expectedHeight,
+          );
+        },
+      );
     }
   });
 
@@ -752,20 +818,29 @@ void main() {
             // can't reach it. `scrollUntilVisible` drags incrementally,
             // which is what actually realizes it — mirroring the friends
             // page's own revoke-dialog guard.
-            await tester.scrollUntilVisible(find.byKey(const Key('split-archive-button')), 200);
+            await tester.scrollUntilVisible(
+              find.byKey(const Key('split-archive-button')),
+              200,
+            );
             // `scrollUntilVisible` stops as soon as the element's Rect
             // intersects the viewport at all — that can leave it clipped
             // right at the edge, where its geometric center (what `tap()`
             // targets) isn't actually hit-testable. `ensureVisible` nudges
             // it fully into view.
-            await tester.ensureVisible(find.byKey(const Key('split-archive-button')));
+            await tester.ensureVisible(
+              find.byKey(const Key('split-archive-button')),
+            );
             await tester.pumpAndSettle();
             await tester.tap(find.byKey(const Key('split-archive-button')));
             await tester.pumpAndSettle();
           });
 
-          final cancelRect = tester.getRect(find.byKey(const Key('split-archive-cancel')));
-          final confirmRect = tester.getRect(find.byKey(const Key('split-archive-confirm')));
+          final cancelRect = tester.getRect(
+            find.byKey(const Key('split-archive-cancel')),
+          );
+          final confirmRect = tester.getRect(
+            find.byKey(const Key('split-archive-confirm')),
+          );
           expect(cancelRect.bottom, lessThanOrEqualTo(_phoneHeight));
           expect(confirmRect.bottom, lessThanOrEqualTo(_phoneHeight));
 
@@ -786,7 +861,9 @@ void main() {
           final editing = _expense(id: 'e1', description: _longName);
 
           await expectNoLayoutErrors(() async {
-            await tester.pumpWidget(_expenseSheet(repo: repo, editing: editing));
+            await tester.pumpWidget(
+              _expenseSheet(repo: repo, editing: editing),
+            );
             await tester.pumpAndSettle();
             // The delete button is the sheet's last row — at textScale 2.0
             // on a narrow screen it can sit below the fold. Unlike the
@@ -795,14 +872,20 @@ void main() {
             // element already exists and a direct `ensureVisible` (rather
             // than `scrollUntilVisible`'s incremental drag loop, which threw
             // spuriously here) is enough to bring it on screen.
-            await tester.ensureVisible(find.byKey(const Key('split-delete-button')));
+            await tester.ensureVisible(
+              find.byKey(const Key('split-delete-button')),
+            );
             await tester.pumpAndSettle();
             await tester.tap(find.byKey(const Key('split-delete-button')));
             await tester.pumpAndSettle();
           });
 
-          final cancelRect = tester.getRect(find.byKey(const Key('split-delete-cancel')));
-          final confirmRect = tester.getRect(find.byKey(const Key('split-delete-confirm')));
+          final cancelRect = tester.getRect(
+            find.byKey(const Key('split-delete-cancel')),
+          );
+          final confirmRect = tester.getRect(
+            find.byKey(const Key('split-delete-confirm')),
+          );
           expect(cancelRect.bottom, lessThanOrEqualTo(_phoneHeight));
           expect(confirmRect.bottom, lessThanOrEqualTo(_phoneHeight));
         },
@@ -859,24 +942,32 @@ void main() {
     // under — this machine's local time and a `TZ=UTC flutter test` rerun
     // (design.md's own re-verification step) between them cover both a
     // positive and a zero UTC offset.
-    testWidgets('a split expense recorded on a given day shows that exact day, unshifted', (
-      tester,
-    ) async {
-      final controller = _loadedController(expenses: [_expense(id: 'e1', day: '2026-01-01')]);
+    testWidgets(
+      'a split expense recorded on a given day shows that exact day, unshifted',
+      (tester) async {
+        final controller = _loadedController(
+          expenses: [_expense(id: 'e1', day: '2026-01-01')],
+        );
 
-      await tester.pumpWidget(l10nTestApp(home: _splitTabScreen(controller: controller)));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          l10nTestApp(home: _splitTabScreen(controller: controller)),
+        );
+        await tester.pumpAndSettle();
 
-      final expected = mediumDateLabel(
-        tester.element(find.byKey(const Key('split-expense-row-e1'))),
-        DateTime(2026, 1, 1),
-      );
-      // A wrong-by-one-day parse (e.g. `parseInstant('2026-01-01').toLocal()`
-      // under a negative offset) would paint Dec 31 2025 instead — comparing
-      // against the exact expected label, not just "found *a* date", is what
-      // would catch that.
-      expect(find.text(_loc.splitExpensePaidBy('Payer', expected)), findsOneWidget);
-    });
+        final expected = mediumDateLabel(
+          tester.element(find.byKey(const Key('split-expense-row-e1'))),
+          DateTime(2026, 1, 1),
+        );
+        // A wrong-by-one-day parse (e.g. `parseInstant('2026-01-01').toLocal()`
+        // under a negative offset) would paint Dec 31 2025 instead — comparing
+        // against the exact expected label, not just "found *a* date", is what
+        // would catch that.
+        expect(
+          find.text(_loc.splitExpensePaidBy('Payer', expected)),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('settle-up surfaces: narrow-width layout guard (add-settle-up-ui task 7.4)', () {
@@ -895,8 +986,13 @@ void main() {
                 await tester.pumpAndSettle();
               });
 
-              expect(find.byKey(const Key('settle-up-confirm-button')), findsOneWidget);
-              final confirmRect = tester.getRect(find.byKey(const Key('settle-up-confirm-button')));
+              expect(
+                find.byKey(const Key('settle-up-confirm-button')),
+                findsOneWidget,
+              );
+              final confirmRect = tester.getRect(
+                find.byKey(const Key('settle-up-confirm-button')),
+              );
               expect(confirmRect.bottom, lessThanOrEqualTo(_phoneHeight));
             },
           );
@@ -923,7 +1019,10 @@ void main() {
                 ('2147483648', loc.settleUpAmountTooLarge),
               ]) {
                 await expectNoLayoutErrors(() async {
-                  await tester.enterText(find.byKey(const Key('settle-up-amount-field')), input);
+                  await tester.enterText(
+                    find.byKey(const Key('settle-up-amount-field')),
+                    input,
+                  );
                   await tester.pumpAndSettle();
                 });
 
@@ -943,7 +1042,11 @@ void main() {
                 // which could never fail either.) Measure the painted
                 // paragraph instead, wherever it is rendered.
                 final finder = find.text(message);
-                expect(finder, findsOneWidget, reason: 'the refusal reason was not painted at all');
+                expect(
+                  finder,
+                  findsOneWidget,
+                  reason: 'the refusal reason was not painted at all',
+                );
                 final paragraph = tester.renderObject<RenderParagraph>(
                   find.descendant(of: finder, matching: find.byType(RichText)),
                 );
@@ -988,7 +1091,8 @@ void main() {
                 await tester.pumpWidget(
                   MaterialApp(
                     locale: locale,
-                    localizationsDelegates: AppLocalizations.localizationsDelegates,
+                    localizationsDelegates:
+                        AppLocalizations.localizationsDelegates,
                     supportedLocales: testSupportedLocales,
                     home: _splitTabScreen(controller: controller),
                   ),
@@ -1004,48 +1108,204 @@ void main() {
                 );
               });
 
-              expect(find.byKey(const Key('split-settlement-row-s1')), findsOneWidget);
+              expect(
+                find.byKey(const Key('split-settlement-row-s1')),
+                findsOneWidget,
+              );
             },
           );
 
+          testWidgets('the overview lays out cleanly at ${width.toInt()}dp, '
+              'textScale=$textScale, locale=$locale', (tester) async {
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            // Both a counted and an uncounted currency, because the
+            // split-spending card is no longer one sentence and one list:
+            // it is two headed groups, each with its own sentence. A
+            // single-currency fixture only ever builds one of them, so the
+            // widget that actually grew would ship through a sweep that
+            // never swept it.
+            final repo = FakeFinanceRepository()
+              ..splitSpendingByMonth['2026-08'] = [
+                const SplitSpending(
+                  currency: 'TWD',
+                  amount: _wideAmount,
+                  countedInTransactions: true,
+                ),
+                const SplitSpending(
+                  currency: 'THB',
+                  amount: _wideAmount,
+                  countedInTransactions: false,
+                ),
+              ];
+            _seedOverviewLedger(repo);
+            final loc = lookupAppLocalizations(locale);
+
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                _financeOverviewScreen(repo, locale: locale),
+              );
+              await tester.pumpAndSettle();
+              // The totals cards, the split-spending card and the category
+              // breakdown sit below the fold at a large text scale, so a
+              // single pump never builds all of them — the sweep has to drag
+              // the whole list past to see every row (same reason as the
+              // repayment-row guard above). Down to the recent-transactions
+              // heading, which is below every card, then back up so the
+              // assertions below have the split-spending card in the tree.
+              await tester.scrollUntilVisible(
+                find.text(loc.financeRecentTransactions),
+                200,
+              );
+              await tester.scrollUntilVisible(
+                find.text(loc.financeSplitSpendingTitle),
+                -200,
+              );
+            });
+
+            expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+          });
+
           testWidgets(
-            'the overview lays out cleanly at ${width.toInt()}dp, '
+            'a mirrored 明細 row stays a row at ${width.toInt()}dp, '
             'textScale=$textScale, locale=$locale',
             (tester) async {
+              // Not an overflow guard — a height one. With the amount in
+              // `ListTile.trailing` the trailing slot took 130dp of 320dp at
+              // textScale 2.0 and left the title column 50dp, so the split
+              // badge rendered one letter per line and the row grew to 512dp:
+              // more than half the viewport, for one transaction. Nothing
+              // overflowed, so no sweep could see it.
               useTextScaleFactor(tester, textScale);
               await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
               addTearDown(() => tester.binding.setSurfaceSize(null));
 
               final repo = FakeFinanceRepository()
-                ..splitSpendingByMonth['2026-08'] = [
-                  const SplitSpending(currency: 'TWD', amount: _wideAmount),
+                ..byMonth['2026-08'] = [
+                  const FinanceTransaction(
+                    id: 't-mirror',
+                    type: FinanceType.expense,
+                    amount: _wideAmount,
+                    currency: 'TWD',
+                    categoryId: 'cat-food',
+                    date: '2026-08-02',
+                    splitExpenseId: 'e1',
+                  ),
                 ];
-              _seedOverviewLedger(repo);
-              final loc = lookupAppLocalizations(locale);
+              final controller = testFinanceController(repo);
+              await controller.load('tok', '2026-08');
 
-              await expectNoLayoutErrors(() async {
-                await tester.pumpWidget(_financeOverviewScreen(repo, locale: locale));
-                await tester.pumpAndSettle();
-                // The totals cards, the split-spending card and the category
-                // breakdown sit below the fold at a large text scale, so a
-                // single pump never builds all of them — the sweep has to drag
-                // the whole list past to see every row (same reason as the
-                // repayment-row guard above). Down to the recent-transactions
-                // heading, which is below every card, then back up so the
-                // assertions below have the split-spending card in the tree.
-                await tester.scrollUntilVisible(
-                  find.text(loc.financeRecentTransactions),
-                  200,
-                );
-                await tester.scrollUntilVisible(
-                  find.text(loc.financeSplitSpendingTitle),
-                  -200,
-                );
-              });
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: Scaffold(
+                    body: FinanceTransactionsTab(
+                      controller: controller,
+                      onSwitchMonth: (_) async {},
+                      onEdit: (_) {},
+                      onSignInAgain: () {},
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
 
-              expect(find.text(loc.financeSplitSpendingTitle), findsOneWidget);
+              final row = tester.getSize(
+                find.byKey(const Key('finance-transaction-t-mirror')),
+              );
+              expect(
+                row.height,
+                lessThan(_phoneHeight / 2),
+                reason:
+                    'one transaction took ${row.height}dp of a $_phoneHeight dp '
+                    'screen at ${width.toInt()}dp / $textScale / $locale',
+              );
             },
           );
+
+          testWidgets('the mirrored transaction sheet lays out cleanly at '
+              '${width.toInt()}dp, textScale=$textScale, locale=$locale', (
+            tester,
+          ) async {
+            // The finance sweeps above seed `_seedOverviewLedger`, which
+            // carries no `splitExpenseId` anywhere — so the sheet that this
+            // change reshaped the most was swept by nothing at all. Its
+            // header is an `Expanded` title beside a text button, the shape
+            // that overflows first, and it overflows in English well before
+            // zh_Hant.
+            useTextScaleFactor(tester, textScale);
+            await tester.binding.setSurfaceSize(Size(width, _phoneHeight));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+
+            final repo = FakeFinanceRepository()
+              ..byMonth['2026-08'] = [
+                const FinanceTransaction(
+                  id: 't-mirror',
+                  type: FinanceType.expense,
+                  // Not `_wideAmount`'s usual job: a mirror hides the amount
+                  // field, and the facts line is a free-standing wrapping
+                  // `Text` that cannot overflow. This sweep's teeth are the
+                  // header — the amount is here only so the facts line is
+                  // realistic.
+                  amount: _wideAmount,
+                  currency: 'TWD',
+                  categoryId: 'cat-food',
+                  date: '2026-08-02',
+                  note: 'A long enough note to push the title into two lines',
+                  splitExpenseId: 'e1',
+                ),
+              ];
+            final controller = testFinanceController(repo);
+            await controller.load('tok', '2026-08');
+
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: Scaffold(
+                    body: AddTransactionSheet(
+                      controller: controller,
+                      idToken: () async => 'tok',
+                      categories: controller.categories,
+                      today: '2026-08-02',
+                      editing: controller.transactions.single,
+                      onGoToSplit: () {},
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+            });
+
+            expect(
+              find.byKey(const Key('finance-mirror-facts')),
+              findsOneWidget,
+            );
+
+            // `expectNoLayoutErrors` structurally cannot see this: a label
+            // that wraps raises no error, it just gets taller. The first fix
+            // for the ×2.0 overflow above made this button two lines on
+            // every English phone at ordinary text size, and the whole sweep
+            // stayed green. At textScale 1.0 the sheet's only action must
+            // still be one line.
+            if (textScale == 1.0) {
+              expect(
+                paintedTextLineCount(
+                  tester,
+                  find.descendant(
+                    of: find.byKey(const Key('finance-go-to-split')),
+                    matching: find.byType(Text),
+                  ),
+                ),
+                1,
+                reason:
+                    'the go-to-split label wrapped at ${width.toInt()}dp / '
+                    '$locale, where it used to fit on one line',
+              );
+            }
+          });
         }
       }
     }
@@ -1106,7 +1366,9 @@ void main() {
             _seedOverviewLedger(repo);
 
             await expectNoLayoutErrors(() async {
-              await tester.pumpWidget(_financeOverviewScreen(repo, locale: locale));
+              await tester.pumpWidget(
+                _financeOverviewScreen(repo, locale: locale),
+              );
               await tester.pumpAndSettle();
             });
 
@@ -1121,7 +1383,11 @@ void main() {
               await expectNoLayoutErrors(() async {
                 await tester.scrollUntilVisible(finder, 200);
               });
-              expect(finder, findsOneWidget, reason: '$amount was not painted at all');
+              expect(
+                finder,
+                findsOneWidget,
+                reason: '$amount was not painted at all',
+              );
               expect(
                 paintedTextLineCount(tester, finder),
                 1,
@@ -1181,9 +1447,13 @@ void main() {
                 // `scrollUntilVisible` stops as soon as the row's Rect
                 // intersects the viewport at all, which can leave the icon's
                 // own centre (what `tap()` targets) still below the fold.
-                await tester.ensureVisible(find.byKey(const Key('split-settlement-delete-s1')));
+                await tester.ensureVisible(
+                  find.byKey(const Key('split-settlement-delete-s1')),
+                );
                 await tester.pumpAndSettle();
-                await tester.tap(find.byKey(const Key('split-settlement-delete-s1')));
+                await tester.tap(
+                  find.byKey(const Key('split-settlement-delete-s1')),
+                );
                 await tester.pumpAndSettle();
               });
 
@@ -1229,7 +1499,10 @@ void main() {
 
           final repo = FakeSplitRepository()
             ..activityPagesToReturn = [
-              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
+              SplitActivityPage(
+                entries: [_amountChangeEntry()],
+                nextCursor: null,
+              ),
             ];
 
           await expectNoLayoutErrors(() async {
@@ -1242,13 +1515,20 @@ void main() {
           });
 
           final loc = lookupAppLocalizations(locale);
-          final finder = find.text(loc.splitActivityAmountChange('18,000', '12,500'));
-          expect(finder, findsOneWidget, reason: 'the amount change was not painted at all');
+          final finder = find.text(
+            loc.splitActivityAmountChange('18,000', '12,500'),
+          );
+          expect(
+            finder,
+            findsOneWidget,
+            reason: 'the amount change was not painted at all',
+          );
           for (final figure in ['18,000', '12,500']) {
             expect(
               paintedLineCountOfPart(tester, finder, figure),
               1,
-              reason: '$figure was broken across lines and reads as a different number',
+              reason:
+                  '$figure was broken across lines and reads as a different number',
             );
           }
 
@@ -1300,8 +1580,14 @@ void main() {
 
           final repo = FakeSplitRepository()
             ..activityPagesToReturn = [
-              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
-              SplitActivityPage(entries: [_amountChangeEntry()], nextCursor: null),
+              SplitActivityPage(
+                entries: [_amountChangeEntry()],
+                nextCursor: null,
+              ),
+              SplitActivityPage(
+                entries: [_amountChangeEntry()],
+                nextCursor: null,
+              ),
             ];
 
           await expectNoLayoutErrors(() async {
@@ -1326,17 +1612,24 @@ void main() {
           // right edge raises no `FlutterError` and would pass a bare
           // `findsOneWidget`.
           final notice = find.byKey(const Key('stale-notice-row'));
-          expect(notice, findsOneWidget, reason: 'the notice was not rendered at all');
+          expect(
+            notice,
+            findsOneWidget,
+            reason: 'the notice was not rendered at all',
+          );
           final rect = tester.getRect(notice);
           expect(
             rect.left >= 0 && rect.right <= 320,
             isTrue,
-            reason: 'the notice spans ${rect.left}..${rect.right} on a 320dp screen',
+            reason:
+                'the notice spans ${rect.left}..${rect.right} on a 320dp screen',
           );
 
           final loc = lookupAppLocalizations(locale);
           expect(
-            find.descendant(of: notice, matching: find.text(loc.retry)).hitTestable(),
+            find
+                .descendant(of: notice, matching: find.text(loc.retry))
+                .hitTestable(),
             findsOneWidget,
             reason: 'the retry control is present but cannot be tapped',
           );

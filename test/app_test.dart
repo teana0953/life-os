@@ -161,6 +161,8 @@ import 'package:life_os/shared/theme/app_colors.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
+
 import 'contexts/finance/finance_test_support.dart';
 import 'contexts/split/support/fake_split_repository.dart';
 import 'support/l10n_test_app.dart';
@@ -1359,6 +1361,7 @@ Future<LocaleController> pumpApp(
       splitUpdateExpense: UpdateExpense(resolvedSplitRepository),
       splitDeleteExpense: DeleteExpense(resolvedSplitRepository),
       splitGetProfile: GetProfile(FakeProfileRepository(_testProfile)),
+      listFinanceCategories: ListFinanceCategories(_FakeFinanceRepository()),
       splitListSettlements: ListSettlements(resolvedSplitRepository),
       splitCreateSettlement: CreateSettlement(resolvedSplitRepository),
       splitDeleteSettlement: DeleteSettlement(resolvedSplitRepository),
@@ -3011,7 +3014,7 @@ void main() {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final repo = FakeFinanceRepository()
           ..splitSpendingByMonth['2026-07'] = const [
-            SplitSpending(currency: 'TWD', amount: 987654),
+            SplitSpending(currency: 'TWD', amount: 987654, countedInTransactions: true),
           ];
         final financeController = testFinanceController(repo);
         await financeController.load('tok', '2026-07');

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +9,8 @@ import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../auth/domain/auth_repository.dart';
+import '../../finance/application/list_finance_categories.dart';
+import '../../finance/domain/finance_category.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../social/application/friend_use_cases.dart';
 import '../../user/application/get_profile.dart';
@@ -43,6 +47,13 @@ class GroupDetailScreen extends StatefulWidget {
   final DeleteExpense deleteExpense;
   final ListFriends listFriends;
 
+  /// The recorder's own finance categories, for the expense sheet's category
+  /// picker. This screen is built outside `FinanceScaffold` (`app.dart`) with
+  /// its own dependency list, so without this the sheet opened from here would
+  /// have an empty picker — and an edit made from here would send no
+  /// `category_name`, which is a full replace clearing it for everyone.
+  final ListFinanceCategories listFinanceCategories;
+
   /// The caller's own two-person balances (design D8) — `splitGetBalances`
   /// in `main.dart`, already a field on `App`; this screen filters it to
   /// this group's members for the "your balance with each member" section.
@@ -71,6 +82,7 @@ class GroupDetailScreen extends StatefulWidget {
     required this.updateExpense,
     required this.deleteExpense,
     required this.listFriends,
+    required this.listFinanceCategories,
     required this.getBalances,
     required this.createSettlement,
     required this.getProfile,
@@ -85,6 +97,13 @@ class GroupDetailScreen extends StatefulWidget {
 
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
   late final GroupDetailController _controller;
+
+  /// Loaded alongside the group, best-effort: a failure leaves this empty,
+  /// which the sheet already treats as "offer no options" rather than as a
+  /// reason to send a cleared category. Not on [GroupDetailController] — it is
+  /// a finance read this screen passes straight through, with no split state
+  /// depending on it.
+  List<FinanceCategory> _financeCategories = const [];
 
   @override
   void initState() {
@@ -127,7 +146,22 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   Future<void> _load() async {
     final token = await _idToken();
     if (!mounted) return;
+    unawaited(_loadFinanceCategories(token));
     await _controller.load(token, widget.groupId);
+  }
+
+  Future<void> _loadFinanceCategories(String token) async {
+    List<FinanceCategory> categories;
+    try {
+      categories = await widget.listFinanceCategories(token);
+    } catch (_) {
+      // Swallowed on purpose: the category picker is optional, and failing
+      // the whole group screen over it would be a worse answer than an empty
+      // picker.
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _financeCategories = categories);
   }
 
   void _back() {
@@ -179,6 +213,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         today: dayString(widget.clock()),
         lockedGroup: group,
         editing: editing,
+        financeCategories: _financeCategories,
         // Never reached from here — the sheet's no-one-to-split-with block
         // only fires without a group, and this one is always locked to one
         // — but the exit is wired rather than stubbed so it stays correct

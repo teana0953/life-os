@@ -8,11 +8,11 @@ import '../finance_test_support.dart';
 void main() {
   test('GetSplitSpending delegates to the repository', () async {
     final repository = FakeFinanceRepository()
-      ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 500)];
+      ..splitSpendingByMonth['2026-08'] = const [SplitSpending(currency: 'TWD', amount: 500, countedInTransactions: true)];
 
     final totals = await GetSplitSpending(repository)('token-1', '2026-08');
 
-    expect(totals, [const SplitSpending(currency: 'TWD', amount: 500)]);
+    expect(totals, [const SplitSpending(currency: 'TWD', amount: 500, countedInTransactions: true)]);
   });
 
   test('an empty month returns an empty list rather than a zero row', () async {

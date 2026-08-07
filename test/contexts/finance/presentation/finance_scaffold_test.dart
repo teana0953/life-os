@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
@@ -554,6 +556,16 @@ void main() {
 
         expect(find.byKey(const Key('split-amount-field')), findsOneWidget);
         expect(find.byKey(const Key('split-save-button')), findsOneWidget);
+
+        // The other of the two `SplitExpenseSheet` call sites. The group-detail
+        // one has its own version of this; both are asserted because wiring
+        // one and not the other is invisible until an edit made from the
+        // unwired screen clears everybody's category.
+        await tester.ensureVisible(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-category-field')));
+        await tester.pumpAndSettle();
+        expect(find.text('餐飲'), findsWidgets);
       });
 
       testWidgets('the friendless empty state leaves for the friends page, closing the sheet', (
@@ -951,6 +963,13 @@ void main() {
         await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
         await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
         await tester.pumpAndSettle();
+        // `ensureVisible` first: the sheet grew a category picker, which pushed
+        // the participant list past the bottom of the 800x600 test viewport —
+        // `tap` there warns about the missed hit test and then silently does
+        // nothing, so the save button stays disabled and the failure surfaces
+        // several lines later as a null `gotDescription`.
+        await tester.ensureVisible(find.byKey(const Key('split-participant-f1')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('split-participant-f1')));
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.byKey(const Key('split-save-button')));
@@ -1030,5 +1049,60 @@ void main() {
         expect(find.byKey(const Key('split-fab')), findsNothing);
       });
     });
+
+    testWidgets(
+      "a mirrored transaction's 'go to splits' exit really lands on the 分帳 "
+      'tab',
+      (tester) async {
+        // The sheet only says where the locked parts are changed; the exit has
+        // to actually get there, and it is wired from *this* widget (the split
+        // tab is this scaffold's own index, not a route).
+        final repo = FakeFinanceRepository()
+          // Growable: the fake mutates this list in place on every write.
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 'mirror-1',
+              type: FinanceType.expense,
+              amount: 900,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-15',
+              note: '晚餐',
+              splitExpenseId: 'exp-1',
+            ),
+          ];
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              split: _splitDeps(FakeSplitRepository()),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.list_alt_outlined));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-transaction-mirror-1')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('finance-go-to-split')));
+        await tester.pumpAndSettle();
+
+        // The sheet is gone and the 分帳 tab is the selected destination —
+        // asserted on what the user can see there, not only on the index, so
+        // "switched but never loaded" cannot pass.
+        expect(find.byKey(const Key('finance-go-to-split')), findsNothing);
+        expect(
+          tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+          3,
+        );
+        expect(find.byKey(const Key('split-fab')), findsOneWidget);
+      },
+    );
   });
 }

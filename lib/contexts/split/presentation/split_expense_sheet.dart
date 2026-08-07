@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../finance/domain/finance_category.dart';
+import '../../finance/domain/finance_type.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../social/domain/friend.dart';
 import '../domain/equal_split.dart';
@@ -80,6 +82,19 @@ class SplitExpenseSheet extends StatefulWidget {
   /// `null` to record a new expense; the expense being edited otherwise.
   final SplitExpense? editing;
 
+  /// The recorder's own **expense** finance categories, for the optional
+  /// category picker. Empty is a real production state (the categories request
+  /// can fail), not just a test convenience — which is why `_categoryName`
+  /// below holds a name rather than an id.
+  /// Required, not defaulted — for the same reason [onAddFriend] is, and with
+  /// a worse failure mode. A call site that forgot to wire it would render an
+  /// empty picker, and an *edit* made there sends no `category_name` at all,
+  /// which the server's full-replace PATCH reads as "no category" and quietly
+  /// moves every participant's un-hand-picked mirror back to their fallback.
+  /// Nothing errors, on any layer. An empty list is still a real runtime state
+  /// (the categories request can fail) — it just has to be passed on purpose.
+  final List<FinanceCategory> financeCategories;
+
   /// Leaves for the friends page. Required, not optional: it is the only
   /// exit from the one blocked state the user cannot resolve inside this
   /// sheet (no group, no friends — the participant list is just them), and
@@ -99,6 +114,7 @@ class SplitExpenseSheet extends StatefulWidget {
     this.lockedGroup,
     this.friends = const [],
     this.editing,
+    required this.financeCategories,
   });
 
   @override
@@ -112,6 +128,14 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
   _SplitMode _mode = _SplitMode.equal;
   late String _currency;
   late String _day;
+  /// The picked category's **name**, seeded from the expense being edited —
+  /// the same shape as `_currency`/`_day` above, and deliberately not an id
+  /// resolved against [widget.financeCategories] on submit: with an empty list
+  /// (a failed categories request) that resolution sends `null`, which is a
+  /// full replace clearing the category and moving every untouched mirror back
+  /// to the fallback. Holding the name means the worst case is resending the
+  /// value it opened with.
+  String? _categoryName;
   bool _saving = false;
 
   final _amountController = TextEditingController();
@@ -131,6 +155,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
       _mode = editing.splitMode == 'exact' ? _SplitMode.exact : _SplitMode.equal;
       _currency = editing.currency;
       _day = editing.day;
+      _categoryName = editing.categoryName;
       _amountController.text = formatMinorUnits(editing.amount, editing.currency);
       _descriptionController.text = editing.description;
       for (final share in editing.shares) {
@@ -317,6 +342,26 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
 
   bool get _canSave => !_saving && _saveBlock == null;
 
+  /// The names offered by the category picker: the recorder's own expense
+  /// categories, plus whatever the expense being edited already carries if the
+  /// list does not hold it (a renamed or archived category, or a categories
+  /// request that came back empty). `DropdownButtonFormField` asserts when its
+  /// value matches no item, so without this an edit would crash rather than
+  /// show the value it is about to resend.
+  /// Archived categories are left out, matching `budget_sheet.dart` — archiving
+  /// means "stop offering me this". The expense being edited keeps its own name
+  /// below even if it has since been archived, so an edit never silently drops
+  /// a category the recorder cannot re-pick.
+  List<String> get _categoryNameOptions {
+    final names = [
+      for (final c in widget.financeCategories)
+        if (c.type == FinanceType.expense && !c.archived) c.name,
+    ];
+    final current = _categoryName;
+    if (current != null && !names.contains(current)) names.insert(0, current);
+    return names;
+  }
+
   /// The exact-split running total, in the sense that actually happened.
   String _exactDifferenceText(AppLocalizations loc) {
     final difference = (_amount ?? 0) - _exactSum;
@@ -388,6 +433,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
         description: _descriptionController.text.trim(),
         day: _day,
         split: split,
+        categoryName: _categoryName,
       );
     } else {
       await widget.writer.updateExpense(
@@ -400,6 +446,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
         description: _descriptionController.text.trim(),
         day: _day,
         split: split,
+        categoryName: _categoryName,
       );
     }
     if (!mounted) return;
@@ -565,6 +612,23 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
                 controller: _descriptionController,
                 decoration: InputDecoration(labelText: loc.splitDescriptionLabel),
                 onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String?>(
+                key: const Key('split-category-field'),
+                // `initialValue`, and the item list carries the current name
+                // even when it is not in the recorder's list any more, so an
+                // editing session never silently drops the category it opened
+                // with.
+                initialValue: _categoryName,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: loc.financeCategoryLabel),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(loc.splitCategoryNoneOption)),
+                  for (final name in _categoryNameOptions)
+                    DropdownMenuItem(value: name, child: Text(name)),
+                ],
+                onChanged: (value) => setState(() => _categoryName = value),
               ),
               const SizedBox(height: 16),
               OutlinedButton(
