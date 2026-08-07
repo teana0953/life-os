@@ -6,6 +6,7 @@ import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 const _locale = Locale('en');
@@ -13,9 +14,15 @@ final _loc = lookupAppLocalizations(_locale);
 
 Future<NetWorthController> _pumpSheet(
   WidgetTester tester,
-  FakeFinanceRepository repo,
-) async {
-  await tester.binding.setSurfaceSize(const Size(600, 1600));
+  FakeFinanceRepository repo, {
+  // 600dp is a desk-width surface no phone has. It is the default because most
+  // of these tests are about behaviour, not layout — but the row this sheet
+  // draws now carries a name field plus up to four controls, so anything that
+  // widens it has to be checked at a real phone width too. See the 320dp guard
+  // at the end of this file.
+  Size surface = const Size(600, 1600),
+}) async {
+  await tester.binding.setSurfaceSize(surface);
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final controller = testNetWorthController(repo);
@@ -342,6 +349,85 @@ void main() {
         firstLoad,
         reason: '同樣的兩筆科目重新載入後,顯示順序必須跟第一次載入一致',
       );
+    });
+
+
+    testWidgets('the down button moves a row down, and the last row cannot', (
+      tester,
+    ) async {
+      // Every other new test taps move-up only, so the whole down half — the
+      // feature this change adds — rode on "the shared _reorder is already
+      // covered". It is not: swapping `isFirstInGroup` and `isLastInGroup`, or
+      // wiring the down icon to `_moveUp`, would leave all of them green.
+      final repo = FakeFinanceRepository()
+        ..accounts = [
+          tiedAsset('a1', 'First'),
+          tiedAsset('a2', 'Second'),
+          tiedAsset('a3', 'Third'),
+        ];
+      await _pumpSheet(tester, repo);
+
+      await tester.tap(find.byKey(const Key('account-move-down-a1')));
+      await tester.pumpAndSettle();
+
+      expect(
+        displayedOrder(tester, ['a1', 'a2', 'a3']),
+        ['a2', 'a1', 'a3'],
+        reason: '按向下後,a1 必須落到 a2 下面 — 而不是往上,也不是不動',
+      );
+
+      // The ends, each disabled on its own side. Asserted together because a
+      // swapped pair of flags satisfies either one alone.
+      final order = displayedOrder(tester, ['a1', 'a2', 'a3']);
+      final firstUp = tester.widget<IconButton>(
+        find.byKey(Key('account-move-up-${order.first}')),
+      );
+      final lastDown = tester.widget<IconButton>(
+        find.byKey(Key('account-move-down-${order.last}')),
+      );
+      expect(firstUp.onPressed, isNull, reason: '第一列不能再往上');
+      expect(lastDown.onPressed, isNull, reason: '最後一列不能再往下');
+      // And the other end of each is live, so "disable everything" fails too.
+      expect(
+        tester.widget<IconButton>(
+          find.byKey(Key('account-move-down-${order.first}')),
+        ).onPressed,
+        isNotNull,
+      );
+      expect(
+        tester.widget<IconButton>(
+          find.byKey(Key('account-move-up-${order.last}')),
+        ).onPressed,
+        isNotNull,
+      );
+    });
+
+    testWidgets('the account row lays out on a 320dp phone at textScale 2.0', (
+      tester,
+    ) async {
+      // The row now holds a name field plus up to four controls (save, up,
+      // down, archive) and every other test in this file runs at 600dp — a
+      // width no phone has. This project has repeatedly shipped rows that only
+      // break below 360dp, and an overflow raises a real error, so the guard
+      // is cheap: render the widest state (a dirty name, so the save icon is
+      // present too) at the narrowest supported width.
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      useTextScaleFactor(tester, 2.0);
+
+      final repo = FakeFinanceRepository()
+        ..accounts = [tiedAsset('a1', 'First'), tiedAsset('a2', 'Second')];
+      await _pumpSheet(tester, repo, surface: const Size(320, 800));
+
+      // Dirty the name so the save icon joins the row — the widest it gets.
+      await tester.enterText(
+        find.byKey(const Key('account-name-a1')),
+        'A considerably longer account name',
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
     });
   });
 }

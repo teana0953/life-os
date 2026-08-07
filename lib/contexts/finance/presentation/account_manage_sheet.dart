@@ -150,7 +150,11 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     final name = _nameControllerFor(account).text.trim();
     if (name.isEmpty || name == account.name) return Future.value();
     return _run(
-      () async => widget.controller.updateAccount(await widget.idToken(), account.id, name: name),
+      () async => widget.controller.updateAccount(
+        await widget.idToken(),
+        account.id,
+        name: name,
+      ),
     );
   }
 
@@ -211,9 +215,17 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(loc.networthManageAccounts, style: theme.textTheme.titleLarge),
+              Text(
+                loc.networthManageAccounts,
+                style: theme.textTheme.titleLarge,
+              ),
               const SizedBox(height: 16),
-              Row(
+              // `Wrap`: two chips whose labels grow with the text scale do not
+              // fit a 320dp line at 2.0 (213px over). Pre-existing — this
+              // sheet had no narrow-screen guard until now.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ChoiceChip(
                     key: const Key('account-add-kind-asset'),
@@ -223,29 +235,35 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
                         ? null
                         : (_) => setState(() => _newKind = NetWorthKind.asset),
                   ),
-                  const SizedBox(width: 8),
                   ChoiceChip(
                     key: const Key('account-add-kind-liability'),
                     label: Text(loc.networthKindLiability),
                     selected: _newKind == NetWorthKind.liability,
                     onSelected: _busy
                         ? null
-                        : (_) => setState(() => _newKind = NetWorthKind.liability),
+                        : (_) =>
+                              setState(() => _newKind = NetWorthKind.liability),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
+              // The add button's label grows with the text scale too, and an
+              // `Expanded` field beside it still leaves the button its natural
+              // width — 61px over at 320dp / 2.0. Stacked instead.
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
+                  SizedBox(
                     child: TextField(
                       key: const Key('account-add-name'),
                       controller: _newNameController,
                       enabled: !_busy,
-                      decoration: InputDecoration(labelText: loc.networthAccountNameLabel),
+                      decoration: InputDecoration(
+                        labelText: loc.networthAccountNameLabel,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 8),
                   FilledButton(
                     key: const Key('account-add-submit'),
                     onPressed: _busy || _newNameController.text.trim().isEmpty
@@ -274,67 +292,92 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     );
   }
 
-  Widget _accountRow(NetWorthAccount account, bool isFirstInGroup, bool isLastInGroup) {
+  Widget _accountRow(
+    NetWorthAccount account,
+    bool isFirstInGroup,
+    bool isLastInGroup,
+  ) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      // A column, not a row: the name field plus save/up/down/archive is more
+      // than 320dp holds even at textScale 1.0 (13px over), and 213px over at
+      // 2.0 — this sheet is mobile-first, so the controls get their own line
+      // rather than the name being squeezed toward zero. A single layout at
+      // every width, not a LayoutBuilder branch, so there is one thing to test.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  key: Key('account-name-${account.id}'),
-                  controller: _nameControllerFor(account),
-                  enabled: !_busy,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    errorText: _isDirty(account) && _isNameMissing(account)
-                        ? loc.networthAccountNameRequired
-                        : null,
-                  ),
-                  onSubmitted: (_) => _rename(account),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: Key('account-name-${account.id}'),
+                controller: _nameControllerFor(account),
+                enabled: !_busy,
+                decoration: InputDecoration(
+                  isDense: true,
+                  errorText: _isDirty(account) && _isNameMissing(account)
+                      ? loc.networthAccountNameRequired
+                      : null,
                 ),
-                if (account.archived)
-                  Text(
-                    loc.networthArchivedLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                onSubmitted: (_) => _rename(account),
+              ),
+              if (account.archived)
+                Text(
+                  loc.networthArchivedLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-          // Only shown while the typed name differs from the stored one, so a
-          // pending edit is visible as pending — the rename is never lost by
-          // tapping elsewhere or closing the sheet believing it was saved.
-          if (_isDirty(account) && !_isNameMissing(account))
-            IconButton(
-              key: Key('account-name-save-${account.id}'),
-              tooltip: loc.networthSaveNameTooltip,
-              icon: const Icon(Icons.check),
-              onPressed: _busy ? null : () => _rename(account),
-            ),
-          IconButton(
-            key: Key('account-move-up-${account.id}'),
-            tooltip: loc.networthMoveUpTooltip,
-            icon: const Icon(Icons.arrow_upward),
-            onPressed: _busy || isFirstInGroup ? null : () => _moveUp(account),
-          ),
-          IconButton(
-            key: Key('account-move-down-${account.id}'),
-            tooltip: loc.networthMoveDownTooltip,
-            icon: const Icon(Icons.arrow_downward),
-            onPressed: _busy || isLastInGroup ? null : () => _moveDown(account),
-          ),
-          TextButton(
-            key: Key('account-archive-${account.id}'),
-            onPressed: _busy ? null : () => _toggleArchived(account),
-            child: Text(
-              account.archived ? loc.networthRestoreButton : loc.networthArchiveButton,
-            ),
+          // `Wrap`, not a `Row`: at textScale 2.0 the archive button's *text*
+          // is what blows the line, and a `Row` has no answer to that but to
+          // overflow. `Wrap` lets the controls drop to another line at the
+          // sizes where they genuinely do not fit, and reads as one line
+          // everywhere else.
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // Only shown while the typed name differs from the stored one, so a
+              // pending edit is visible as pending — the rename is never lost by
+              // tapping elsewhere or closing the sheet believing it was saved.
+              if (_isDirty(account) && !_isNameMissing(account))
+                IconButton(
+                  key: Key('account-name-save-${account.id}'),
+                  tooltip: loc.networthSaveNameTooltip,
+                  icon: const Icon(Icons.check),
+                  onPressed: _busy ? null : () => _rename(account),
+                ),
+              IconButton(
+                key: Key('account-move-up-${account.id}'),
+                tooltip: loc.networthMoveUpTooltip,
+                icon: const Icon(Icons.arrow_upward),
+                onPressed: _busy || isFirstInGroup
+                    ? null
+                    : () => _moveUp(account),
+              ),
+              IconButton(
+                key: Key('account-move-down-${account.id}'),
+                tooltip: loc.networthMoveDownTooltip,
+                icon: const Icon(Icons.arrow_downward),
+                onPressed: _busy || isLastInGroup
+                    ? null
+                    : () => _moveDown(account),
+              ),
+              TextButton(
+                key: Key('account-archive-${account.id}'),
+                onPressed: _busy ? null : () => _toggleArchived(account),
+                child: Text(
+                  account.archived
+                      ? loc.networthRestoreButton
+                      : loc.networthArchiveButton,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -345,7 +388,11 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
 class _GroupSection extends StatelessWidget {
   final String title;
   final List<NetWorthAccount> accounts;
-  final Widget Function(NetWorthAccount account, bool isFirstInGroup, bool isLastInGroup)
+  final Widget Function(
+    NetWorthAccount account,
+    bool isFirstInGroup,
+    bool isLastInGroup,
+  )
   builder;
 
   const _GroupSection({
