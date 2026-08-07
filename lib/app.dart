@@ -16,6 +16,7 @@ import 'contexts/bowel/presentation/bowel_screen.dart';
 import 'contexts/exercise/presentation/exercise_controller.dart';
 import 'contexts/exercise/presentation/exercise_screen.dart';
 import 'contexts/finance/application/list_finance_categories.dart';
+import 'contexts/finance/domain/finance_repository.dart';
 import 'contexts/finance/presentation/finance_controller.dart';
 import 'contexts/finance/presentation/networth_controller.dart';
 import 'contexts/finance/presentation/finance_scaffold.dart';
@@ -175,6 +176,10 @@ AuthRedirect resolveAuthRedirect({
 /// [AuthRepository.authStateChanges].
 class App extends StatefulWidget {
   final AuthRepository authRepository;
+
+  /// Only for the instalment-plan screens (see `FinanceScaffold`): a plan is
+  /// not month-shaped, so it does not go through `financeController`.
+  final FinanceRepository financeRepository;
   final LoginController loginController;
   final HomeController homeController;
   final LocaleController localeController;
@@ -275,6 +280,7 @@ class App extends StatefulWidget {
   const App({
     super.key,
     required this.authRepository,
+    required this.financeRepository,
     required this.loginController,
     required this.homeController,
     required this.localeController,
@@ -679,6 +685,7 @@ class _AppState extends State<App> {
             authRepository: widget.authRepository,
             controller: widget.financeController,
             netWorthController: widget.netWorthController,
+            financeRepository: widget.financeRepository,
             split: SplitTabDependencies(
               getBalances: widget.splitGetBalances,
               listGroups: widget.splitListGroups,

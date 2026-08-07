@@ -246,6 +246,7 @@ Widget _financeScaffold(
       authRepository: _FakeAuthRepository(),
       controller: testFinanceController(financeRepo),
       netWorthController: testNetWorthController(financeRepo),
+      financeRepository: financeRepo,
       split: SplitTabDependencies(
         onAddFriend: (_) {},
         getBalances: GetBalances(repo),
@@ -1273,6 +1274,7 @@ void main() {
                       idToken: () async => 'tok',
                       categories: controller.categories,
                       today: '2026-08-02',
+                      onGoToPlan: (_) {},
                       editing: controller.transactions.single,
                       onGoToSplit: () {},
                     ),

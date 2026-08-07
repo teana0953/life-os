@@ -1352,6 +1352,7 @@ Future<LocaleController> pumpApp(
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
+      financeRepository: _FakeFinanceRepository(),
       loginController: loginController,
       homeController: homeController,
       localeController: resolvedLocaleController,

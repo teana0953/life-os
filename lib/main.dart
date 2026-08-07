@@ -395,6 +395,7 @@ Future<void> main() async {
   runApp(
     App(
       authRepository: authRepository,
+      financeRepository: financeRepository,
       loginController: loginController,
       homeController: homeController,
       localeController: localeController,

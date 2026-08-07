@@ -2111,6 +2111,10 @@
     "description": "Bottom-nav destination label for the finance shell's transaction-list tab."
   },
   "financeFabTooltip": "Record a transaction",
+  "financeInstallmentFabTooltip": "Set up a recurring charge",
+  "@financeInstallmentFabTooltip": {
+    "description": "Tooltip on the secondary FAB that opens the recurring-charge (instalment plan) form."
+  },
   "@financeFabTooltip": {
     "description": "Tooltip/accessible label for the finance shell's floating action button that opens the record sheet."
   },

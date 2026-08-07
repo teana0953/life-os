@@ -107,6 +107,7 @@ Future<FinanceController> pumpSheet(
   String today = '2026-07-15',
   Future<String> Function()? idToken,
   VoidCallback? onGoToSplit,
+  void Function(InstallmentPlan)? onGoToPlan,
   FinanceController? withController,
 }) async {
   final controller = withController ?? testFinanceController(repo);
@@ -128,6 +129,7 @@ Future<FinanceController> pumpSheet(
                 today: today,
                 editing: editing,
                 onGoToSplit: onGoToSplit ?? () {},
+                onGoToPlan: onGoToPlan ?? (_) {},
               ),
             ),
             child: const Text('open'),

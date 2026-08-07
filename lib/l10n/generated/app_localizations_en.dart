@@ -1584,6 +1584,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeFabTooltip => 'Record a transaction';
 
   @override
+  String get financeInstallmentFabTooltip => 'Set up a recurring charge';
+
+  @override
   String get financeAddTitle => 'Record a transaction';
 
   @override

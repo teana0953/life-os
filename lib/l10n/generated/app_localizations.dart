@@ -2924,6 +2924,12 @@ abstract class AppLocalizations {
   /// **'Record a transaction'**
   String get financeFabTooltip;
 
+  /// Tooltip on the secondary FAB that opens the recurring-charge (instalment plan) form.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up a recurring charge'**
+  String get financeInstallmentFabTooltip;
+
   /// Heading shown at the top of the record sheet when creating a new transaction.
   ///
   /// In en, this message translates to:

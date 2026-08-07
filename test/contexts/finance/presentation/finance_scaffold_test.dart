@@ -7,6 +7,7 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
@@ -97,6 +98,7 @@ void main() {
               authRepository: auth,
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(FakeSplitRepository()),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -128,6 +130,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
@@ -153,6 +156,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
@@ -165,6 +169,93 @@ void main() {
 
       expect(find.byKey(const Key('amount-field')), findsOneWidget);
       expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+    });
+
+    testWidgets('the second FAB opens the recurring-charge form', (tester) async {
+      // Without this the whole feature is unreachable: the sheet and the plan
+      // screen both existed, fully tested in isolation, with zero call sites
+      // in the app. Every one of their own tests stayed green.
+      final repo = FakeFinanceRepository();
+      final controller = testFinanceController(repo);
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FinanceScaffold(
+            authRepository: _FakeAuthRepository(),
+            controller: controller,
+            netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
+            split: _splitDeps(FakeSplitRepository()),
+            clock: () => DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('finance-installment-fab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('installment-mode-total')), findsOneWidget);
+      // Not the ordinary record sheet — the two FABs sit together and wiring
+      // both to `_openSheet()` would leave this passing on the wrong form.
+      expect(find.byKey(const Key('save-transaction-button')), findsNothing);
+    });
+
+    testWidgets('go-to-plan really lands on the plan screen', (tester) async {
+      // The button existed, correctly gated, wired to a callback nobody
+      // passed — a dead end that every sheet test passed straight through
+      // because they supply their own callback. This is the only place that
+      // can tell "the control is there" from "the control does something".
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-inst',
+            type: FinanceType.expense,
+            amount: 5000,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-15',
+            planId: 'plan-9',
+            installmentNo: 3,
+          ),
+        ]
+        ..plansById['plan-9'] = const InstallmentPlan(
+          id: 'plan-9',
+          mode: InstallmentMode.total,
+          periods: 12,
+          startDay: '2026-05-15',
+          amount: 60000,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+        );
+      final controller = testFinanceController(repo);
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FinanceScaffold(
+            authRepository: _FakeAuthRepository(),
+            controller: controller,
+            netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
+            split: _splitDeps(FakeSplitRepository()),
+            clock: () => DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      await tester.tap(find.text(loc.financeTabTransactions));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('finance-transaction-t-inst')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('finance-go-to-plan')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('installment-settle-button')), findsOneWidget);
+      // The sheet was popped first, not left stranded under the pushed screen.
+      expect(find.byKey(const Key('finance-go-to-plan')), findsNothing);
     });
 
     testWidgets('the 淨值 tab loads its own month, independent of the ledger', (
@@ -180,6 +271,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: controller,
             netWorthController: netWorthController,
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
@@ -218,6 +310,7 @@ void main() {
           authRepository: _FakeAuthRepository(),
           controller: testFinanceController(repo),
           netWorthController: netWorthController,
+          financeRepository: repo,
           split: _splitDeps(FakeSplitRepository()),
           clock: () => DateTime(2026, 7, 15),
         ),
@@ -257,6 +350,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: testFinanceController(repo),
             netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
@@ -283,6 +377,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: testFinanceController(repo),
             netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           ),
@@ -309,6 +404,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(FakeSplitRepository()),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -467,6 +563,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(splitRepo),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -497,6 +594,7 @@ void main() {
             authRepository: _FakeAuthRepository(),
             controller: testFinanceController(repo),
             netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
             split: _splitDeps(FakeSplitRepository()),
             clock: () => DateTime(2026, 7, 15),
           );
@@ -542,6 +640,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(splitRepo),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -585,6 +684,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(splitRepo, onAddFriend: (_) => addFriendCalls++),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -626,6 +726,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(
                 splitRepo,
                 onOpenGroup: (context, groupId) async {
@@ -656,6 +757,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(splitRepo),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -699,6 +801,7 @@ void main() {
                 authRepository: _FakeAuthRepository(),
                 controller: testFinanceController(repo),
                 netWorthController: testNetWorthController(repo),
+                financeRepository: repo,
                 split: _splitDeps(
                   splitRepo,
                   onOpenGroup: (context, groupId) => returned.future,
@@ -775,6 +878,7 @@ void main() {
                   authRepository: _FakeAuthRepository(),
                   controller: testFinanceController(repo),
                   netWorthController: testNetWorthController(repo),
+                  financeRepository: repo,
                   split: _splitDeps(splitRepo),
                   clock: () => DateTime(2026, 7, 15),
                 ),
@@ -847,6 +951,7 @@ void main() {
                 authRepository: _FakeAuthRepository(),
                 controller: testFinanceController(repo),
                 netWorthController: testNetWorthController(repo),
+                financeRepository: repo,
                 split: _splitDeps(splitRepo),
                 clock: () => DateTime(2026, 7, 15),
               ),
@@ -939,6 +1044,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(
                 splitRepo,
                 friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
@@ -1002,6 +1108,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(FakeSplitRepository()),
               clock: () => DateTime(2026, 7, 15),
             ),
@@ -1029,6 +1136,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(
                 FakeSplitRepository(),
                 getProfile: GetProfile(
@@ -1078,6 +1186,7 @@ void main() {
               authRepository: _FakeAuthRepository(),
               controller: testFinanceController(repo),
               netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
               split: _splitDeps(FakeSplitRepository()),
               clock: () => DateTime(2026, 7, 15),
             ),

@@ -47,7 +47,10 @@ class AddTransactionSheet extends StatefulWidget {
   /// only when the plan is the viewer's own (task 2.1's ownership gate).
   /// Optional: a caller that has not wired plan navigation yet still gets a
   /// correctly-gated `finance-go-to-plan` control, just an inert one.
-  final void Function(InstallmentPlan plan)? onGoToPlan;
+  /// Required, not optional, for the same reason [onGoToSplit] is: a caller
+  /// that forgot to wire it would ship a button that does nothing, with every
+  /// test still green.
+  final void Function(InstallmentPlan plan) onGoToPlan;
 
   const AddTransactionSheet({
     super.key,
@@ -56,7 +59,7 @@ class AddTransactionSheet extends StatefulWidget {
     required this.categories,
     required this.today,
     required this.onGoToSplit,
-    this.onGoToPlan,
+    required this.onGoToPlan,
     this.editing,
   });
 
@@ -441,7 +444,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
           if (plan != null)
             TextButton(
               key: const Key('finance-go-to-plan'),
-              onPressed: () => widget.onGoToPlan?.call(plan),
+              onPressed: () => widget.onGoToPlan(plan),
               child: Text(loc.financeInstallmentGoToPlan),
             ),
         ],
