@@ -760,3 +760,41 @@ FinanceController testFinanceController(FakeFinanceRepository repo) =>
       DeleteBudget(repo),
       GetSplitSpending(repo),
     );
+
+/// Two thin subclasses rather than wrappers: `FinanceRepository` has a wide
+/// surface and forwarding it by hand (or via `noSuchMethod`, which the fake
+/// does not implement) is a lot of ceremony to override one method.
+
+/// Makes every `getInstallmentPlan` throw [failure] — the only way to reach
+/// `GetFinanceMonth`'s plan-fetch failure path, since the fake's own
+/// `failNext` fires once and is consumed by whichever call gets there first.
+class FinanceRepositoryFailingPlans extends FakeFinanceRepository {
+  final Object failure;
+
+  FinanceRepositoryFailingPlans(this.failure);
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) async {
+    throw failure;
+  }
+}
+
+/// Counts `getInstallmentPlan` calls and the maximum number in flight at once,
+/// which is what tells a concurrent fetch from a serial loop — a serial loop
+/// never exceeds one.
+class FinanceRepositoryCountingPlans extends FakeFinanceRepository {
+  int calls = 0;
+  int inFlight = 0;
+  int maxInFlight = 0;
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) async {
+    calls++;
+    inFlight++;
+    if (inFlight > maxInFlight) maxInFlight = inFlight;
+    // A real await, so a serial loop drains this one before starting the next.
+    await Future<void>.delayed(Duration.zero);
+    inFlight--;
+    throw const FinanceNotFound();
+  }
+}

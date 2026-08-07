@@ -471,6 +471,7 @@
   "financeTabTransactions": "明細",
   "financeFabTooltip": "記一筆",
   "financeInstallmentFabTooltip": "新增定期扣款",
+  "financeInstallmentSettled": "已清償",
   "financeAddTitle": "記一筆",
   "financeEditTitle": "編輯交易",
   "financeAmountLabel": "金額",

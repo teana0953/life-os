@@ -6,9 +6,16 @@ import '../domain/finance_money.dart';
 import '../domain/finance_repository.dart';
 import '../domain/installment_plan.dart';
 
-/// The plan page (installments-ui tasks 5.x): see the whole plan, edit
-/// amount/periods for the instalments still to come, and settle it in one
-/// go. Settling **must look at [InstallmentPlan.mode] first**: the system
+/// The plan page (installments-ui tasks 5.x): see the whole plan and settle it
+/// in one go.
+///
+/// **Editing the amount or period count is not here yet** — the endpoint
+/// exists (`FinanceRepository.updateInstallmentPlan`) and is covered at the
+/// repository layer, but nothing on this screen calls it. Said plainly
+/// because the earlier version of this comment claimed the edit existed,
+/// which is worse than the gap: a reader trusts the doc over the widget.
+///
+/// Settling **must look at [InstallmentPlan.mode] first**: the system
 /// can compute the payoff only for [InstallmentMode.total]; a
 /// per-instalment payoff comes from the bank (remaining × per-period would
 /// wrongly include future interest), so that mode asks the user.
@@ -98,6 +105,10 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
         ? parseAmountToMinorUnits(_settleAmountController.text, widget.plan.currency)
         : null;
 
+    // Captured before the awaits below: after `pop` this widget's context is
+    // defunct, and the messenger has to outlive it.
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     setState(() => _settling = true);
     try {
       await widget.repository.settleInstallmentPlan(
@@ -115,6 +126,13 @@ class _InstallmentPlanScreenState extends State<InstallmentPlanScreen> {
     }
     if (!mounted) return;
     setState(() => _settling = false);
+    // Pop, don't stay: `widget.plan` is injected once and never refetched, so
+    // staying would re-render the identical amount/periods with the settle
+    // button still offered — no signal that anything happened, over numbers
+    // that are now wrong. The scaffold reloads the month on return, which is
+    // where the change is actually visible.
+    messenger.showSnackBar(SnackBar(content: Text(loc.financeInstallmentSettled)));
+    navigator.pop();
   }
 
   @override

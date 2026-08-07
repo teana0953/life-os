@@ -2930,6 +2930,12 @@ abstract class AppLocalizations {
   /// **'Set up a recurring charge'**
   String get financeInstallmentFabTooltip;
 
+  /// Confirmation shown after an instalment plan is settled in one go.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan settled'**
+  String get financeInstallmentSettled;
+
   /// Heading shown at the top of the record sheet when creating a new transaction.
   ///
   /// In en, this message translates to:

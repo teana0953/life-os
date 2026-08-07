@@ -55,18 +55,33 @@ class GetFinanceMonth {
       for (final txn in transactions)
         if (txn.planId != null) txn.planId!,
     };
+    // Concurrent, and every failure is absorbed — the same isolation
+    // `FinanceController._loadSplitSpending` documents for its own figure.
+    //
+    // Sequentially would add a round trip per distinct plan to every month
+    // load, on top of the batch above rather than inside it.
+    //
+    // And catching only `FinanceNotFound` would mean one flaky call to a
+    // secondary endpoint blanks the whole month: the controller's `load` has a
+    // catch-all, so transactions, budgets and the summary — all already
+    // fetched successfully — would be thrown away and the user shown an error
+    // screen over a ledger that was fine. A plan that cannot be read is a
+    // period rendered without its "of M", not a month that failed to load.
     final installmentPlans = <String, InstallmentPlan>{};
-    for (final planId in planIds) {
-      try {
-        installmentPlans[planId] = await _repository.getInstallmentPlan(
-          idToken,
-          planId,
-        );
-      } on FinanceNotFound {
-        // Not the caller's own plan — no ownership signal beyond "absent
-        // here" (tasks 2.1/2.2).
-      }
-    }
+    await Future.wait(
+      planIds.map((planId) async {
+        try {
+          installmentPlans[planId] = await _repository.getInstallmentPlan(
+            idToken,
+            planId,
+          );
+        } catch (_) {
+          // A 404 is the ownership signal (tasks 2.1/2.2 — the API has no
+          // other); anything else is a plan we could not read this time.
+          // Neither is worth failing the month over.
+        }
+      }),
+    );
     return FinanceMonthData(
       categories: results[0] as List<FinanceCategory>,
       summary: results[1] as MonthlySummary,

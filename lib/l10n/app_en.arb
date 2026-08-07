@@ -2112,6 +2112,10 @@
   },
   "financeFabTooltip": "Record a transaction",
   "financeInstallmentFabTooltip": "Set up a recurring charge",
+  "financeInstallmentSettled": "Plan settled",
+  "@financeInstallmentSettled": {
+    "description": "Confirmation shown after an instalment plan is settled in one go."
+  },
   "@financeInstallmentFabTooltip": {
     "description": "Tooltip on the secondary FAB that opens the recurring-charge (instalment plan) form."
   },

@@ -1531,6 +1531,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeInstallmentFabTooltip => '新增定期扣款';
 
   @override
+  String get financeInstallmentSettled => '已清償';
+
+  @override
   String get financeAddTitle => '記一筆';
 
   @override
@@ -4059,6 +4062,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeInstallmentFabTooltip => '新增定期扣款';
+
+  @override
+  String get financeInstallmentSettled => '已清償';
 
   @override
   String get financeAddTitle => '記一筆';

@@ -568,7 +568,11 @@ void main() {
         // "is this row an instalment" (tasks 2.1/2.2). A branch mutated to
         // "show them because it is an instalment" fails here.
         expect(find.byKey(const Key('finance-go-to-plan')), findsNothing);
-        expect(find.byKey(const Key('finance-settle-plan')), findsNothing);
+        // (There is deliberately no `finance-settle-plan` assertion here: no
+        // widget anywhere carries that key — settling lives on the plan
+        // screen, keyed `installment-settle-button` — so asserting its
+        // absence would hold under every implementation, including a wrong
+        // one. An earlier version of this test did exactly that.)
         // What remains theirs: category and note.
         final chip = tester.widget<ChoiceChip>(
           find.byKey(const Key('finance-category-cat-transport')),

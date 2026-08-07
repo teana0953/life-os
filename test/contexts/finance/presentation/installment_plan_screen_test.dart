@@ -126,6 +126,16 @@ void main() {
               'one means the UI asked for it, which is the "always ask" '
               'mutation this test exists to block',
         );
+        // Settling has to end somewhere the user can see. `widget.plan` is
+        // injected once and never refetched, so staying would re-render the
+        // same amount and periods with the settle button still offered — no
+        // signal at all over numbers that are now wrong.
+        // The screen is gone: pushed as a route by the scaffold, it pops on
+        // success and the ledger behind it reloads. Staying would re-render
+        // the same amount and periods with the settle button still offered —
+        // no signal at all, over numbers that are now wrong. (The snackbar
+        // lands on the popped-to route, which this test does not have.)
+        expect(find.byKey(const Key('installment-settle-button')), findsNothing);
       },
     );
   });
