@@ -5,6 +5,7 @@ import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../finance/domain/finance_money.dart';
+import '../domain/balance.dart';
 import '../domain/settlement.dart';
 import '../domain/split_expense.dart';
 import 'settlement_row.dart';
@@ -201,9 +202,9 @@ class _SplitTabState extends State<SplitTab> {
           final name = balance.displayName ?? loc.splitUnknownMember;
           for (final cb in balance.balances) {
             if (cb.amount > 0) {
-              owedToMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount));
+              owedToMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount, schedules: cb.schedules));
             } else if (cb.amount < 0) {
-              owedByMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount));
+              owedByMe.add(_BalanceRow(balance.userId, name, cb.currency, cb.amount, schedules: cb.schedules));
             }
           }
         }
@@ -384,7 +385,15 @@ class _BalanceRow {
   final String name;
   final String currency;
   final int amount;
-  const _BalanceRow(this.userId, this.name, this.currency, this.amount);
+
+  /// Every repayment schedule behind this balance, one entry per split
+  /// expense. Kept as a list all the way to the screen: the same person can
+  /// be repaying two expenses in the same currency, and one combined line
+  /// would report a period count and an amount that belong to different
+  /// schedules (the bug backend #84 removed).
+  final List<BalanceSchedule> schedules;
+
+  const _BalanceRow(this.userId, this.name, this.currency, this.amount, {this.schedules = const []});
 }
 
 class _BalanceCard extends StatelessWidget {
@@ -419,7 +428,30 @@ class _BalanceCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
                 children: [
-                  Expanded(child: Align(alignment: Alignment.centerLeft, child: Text(rowText(rows[i])))),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(rowText(rows[i])),
+                        // The amount above is the whole debt and stays that
+                        // way: a schedule says when the money moves, not
+                        // whether it is owed. These lines say where each
+                        // schedule has got to, one per expense — never folded
+                        // together.
+                        for (var s = 0; s < rows[i].schedules.length; s++)
+                          Text(
+                            key: Key('$keyPrefix-schedule-$i-$s'),
+                            loc.splitBalanceSchedule(
+                              rows[i].schedules[s].nextPeriod,
+                              rows[i].schedules[s].totalPeriods,
+                              formatMinorUnitsForDisplay(rows[i].schedules[s].periodAmount, rows[i].currency),
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                      ],
+                    ),
+                  ),
                   IconButton(
                     key: Key('$keyPrefix-settle-$i'),
                     tooltip: loc.splitSettleUpTooltip,

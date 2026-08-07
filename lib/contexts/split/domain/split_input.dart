@@ -1,3 +1,5 @@
+import 'split_share.dart';
+
 /// The `split` field of a create/update-expense request: either an equal
 /// split among participants, or an exact list of per-user shares. Mirrors
 /// the backend's frozen `split` contract (design.md):
@@ -37,7 +39,19 @@ class ExactShareInput {
   final String userId;
   final int amount;
 
-  const ExactShareInput({required this.userId, required this.amount});
+  /// Optional monthly repayment schedule. The server takes it only on an
+  /// exact split and only when `periods * per_period_amount` equals [amount]
+  /// exactly — there is no remainder to spread, so the form has to make the
+  /// two agree before it gets here.
+  final ShareSchedule? schedule;
 
-  Map<String, dynamic> toJson() => {'user_id': userId, 'amount': amount};
+  const ExactShareInput({required this.userId, required this.amount, this.schedule});
+
+  /// The key is omitted entirely when there is no schedule, matching what the
+  /// server sends back: `null` would be a value, and this is an absence.
+  Map<String, dynamic> toJson() => {
+    'user_id': userId,
+    'amount': amount,
+    if (schedule != null) 'schedule': schedule!.toJson(),
+  };
 }

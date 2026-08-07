@@ -2223,6 +2223,50 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get splitScheduleSectionTitle => 'Repayment schedule';
+
+  @override
+  String get splitScheduleExactOnly => 'Schedules need the exact-amount mode.';
+
+  @override
+  String get splitScheduleClearedOnEqual =>
+      'Switched to an equal split, so the repayment schedule was cleared.';
+
+  @override
+  String get splitScheduleNobody => 'No schedule';
+
+  @override
+  String get splitSchedulePersonLabel => 'Who repays monthly';
+
+  @override
+  String get splitSchedulePeriodsLabel => 'Months';
+
+  @override
+  String splitSchedulePerPeriod(String amount) {
+    return '$amount per month';
+  }
+
+  @override
+  String splitScheduleAdjusted(String from, String to, String name) {
+    return 'Share adjusted $from → $to; $name takes the difference';
+  }
+
+  @override
+  String splitScheduleImpossible(String amount, int periods) {
+    return '$amount does not divide into $periods months, and nobody else can take the difference';
+  }
+
+  @override
+  String splitScheduleSuggestions(String periods) {
+    return 'Months that would divide exactly: $periods';
+  }
+
+  @override
+  String splitBalanceSchedule(int next, int total, String amount) {
+    return 'Period $next of $total · $amount each';
+  }
+
+  @override
   String splitExactShareLabel(String name) {
     return '$name\'s share';
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_money.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
@@ -12,6 +13,7 @@ import 'package:life_os/contexts/split/domain/group_member.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
 import 'package:life_os/contexts/split/domain/split_expense.dart';
 import 'package:life_os/contexts/split/domain/split_group.dart';
+import 'package:life_os/contexts/split/domain/split_input.dart';
 import 'package:life_os/contexts/split/domain/split_share.dart';
 import 'package:life_os/contexts/split/presentation/split_controller.dart';
 import 'package:life_os/contexts/split/presentation/split_expense_sheet.dart';
@@ -64,7 +66,19 @@ Future<void> _pumpSheet(
   await tester.pumpAndSettle();
 }
 
+/// Scroll first, then tap. The sheet is taller than the test surface now that
+/// it carries a schedule section, and `tap` on an off-screen target only
+/// prints a warning — the failure then lands somewhere unrelated.
+Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  _scheduleTests();
+
   group('SplitExpenseSheet — candidates', () {
     testWidgets('a locked group narrows candidates to its own members', (tester) async {
       final repo = FakeSplitRepository();
@@ -706,8 +720,7 @@ void main() {
       await tester.tap(find.byKey(const Key('split-participant-f1')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('split-save-button')));
-      await tester.tap(find.byKey(const Key('split-save-button')));
-      await tester.pumpAndSettle();
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
 
       expect(find.text(_loc.splitErrorNotFriends), findsOneWidget);
       final amountField = tester.widget<TextField>(find.byKey(const Key('split-amount-field')));
@@ -825,8 +838,7 @@ void main() {
     Future<void> save(WidgetTester tester) async {
       await tester.ensureVisible(find.byKey(const Key('split-save-button')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('split-save-button')));
-      await tester.pumpAndSettle();
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
     }
 
     testWidgets('sends the category as a name, not an id', (tester) async {
@@ -925,6 +937,190 @@ void main() {
       // "sent null on purpose" from "the key never left the sheet", and those
       // are the same `gotCategoryName` either way.
       expect(repo.categoryNameSent, isTrue);
+    });
+  });
+}
+
+/// Repayment schedules (split-installments-ui). The server takes one only on
+/// an exact split, and only when the periods multiply back to the share
+/// exactly — so most of what these guard is the form making that true before
+/// the request goes out, and saying what it changed to get there.
+void _scheduleTests() {
+  SplitExpenseSheet sheetWith({
+    SplitExpense? editing,
+    required FakeSplitRepository repo,
+  }) => SplitExpenseSheet(
+    onAddFriend: () {},
+    writer: _controller(repo),
+    idToken: () async => 'tok',
+    selfUserId: _self,
+    financeCategories: const [],
+    today: '2026-08-02',
+    editing: editing,
+    friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+  );
+
+  Future<void> switchToExact(WidgetTester tester) async {
+    await tapVisible(tester, find.text(_loc.splitModeExact));
+  }
+
+  Future<void> chooseSchedulePerson(WidgetTester tester, String name) async {
+    await tapVisible(tester, find.byKey(const Key('split-schedule-person')));
+    await tester.tap(find.text(name).last);
+    await tester.pumpAndSettle();
+  }
+
+  group('SplitExpenseSheet — repayment schedule', () {
+    testWidgets('a divisible share sends the schedule the user asked for', (tester) async {
+      final repo = FakeSplitRepository();
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo));
+
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '7000');
+      await tester.enterText(find.byKey(const Key('split-description-field')), 'Annual fee');
+      await tapVisible(tester, find.byKey(const Key('split-participant-f1')));
+      await switchToExact(tester);
+      await tester.enterText(find.byKey(const Key('split-exact-field-$_self')), '1000');
+      await tester.enterText(find.byKey(const Key('split-exact-field-f1')), '6000');
+      await chooseSchedulePerson(tester, 'Friend One');
+      await tester.enterText(find.byKey(const Key('split-schedule-periods')), '12');
+      await tester.pumpAndSettle();
+
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
+
+      final split = repo.gotSplit as ExactSplitInput;
+      final friend = split.shares.firstWhere((s) => s.userId == 'f1');
+      expect(friend.amount, 6000);
+      expect(friend.schedule, const ShareSchedule(periods: 12, perPeriodAmount: 500));
+      // The unscheduled share carries no schedule key at all.
+      expect(split.shares.firstWhere((s) => s.userId == _self).schedule, isNull);
+    });
+
+    testWidgets('an indivisible share is adjusted, and both figures are shown', (tester) async {
+      final repo = FakeSplitRepository();
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo));
+
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '7100');
+      await tester.enterText(find.byKey(const Key('split-description-field')), 'Annual fee');
+      await tapVisible(tester, find.byKey(const Key('split-participant-f1')));
+      await switchToExact(tester);
+      await tester.enterText(find.byKey(const Key('split-exact-field-$_self')), '1000');
+      await tester.enterText(find.byKey(const Key('split-exact-field-f1')), '6100');
+      await chooseSchedulePerson(tester, 'Friend One');
+      await tester.enterText(find.byKey(const Key('split-schedule-periods')), '12');
+      await tester.pumpAndSettle();
+
+      // 6,100 over 12 is 508 with 4 left over. Both the old and the new share
+      // have to be on screen: a figure silently different from what the user
+      // typed is the whole failure this guards.
+      final shown = tester.widget<Text>(find.byKey(const Key('split-schedule-adjusted'))).data!;
+      expect(shown, contains(formatMinorUnitsForDisplay(6100, 'TWD')));
+      expect(shown, contains(formatMinorUnitsForDisplay(6096, 'TWD')));
+
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
+
+      final split = repo.gotSplit as ExactSplitInput;
+      expect(split.shares.firstWhere((s) => s.userId == 'f1').amount, 6096);
+      expect(split.shares.firstWhere((s) => s.userId == _self).amount, 1004);
+      // The expense total never moved.
+      expect(split.shares.fold<int>(0, (sum, s) => sum + s.amount), 7100);
+    });
+
+    testWidgets('an existing schedule is loaded and re-sent by an unrelated edit', (tester) async {
+      // The reason the read shape carries the schedule at all: the save sends
+      // the whole share list, so a schedule this sheet never saw is one it
+      // deletes — and deleting it charges the holder the whole amount again
+      // on top of the periods already in their ledger.
+      final repo = FakeSplitRepository();
+      final editing = SplitExpense(
+        id: 'e1',
+        groupId: null,
+        payerUserId: _self,
+        payerDisplayName: 'Self',
+        createdByUserId: _self,
+        amount: 7000,
+        currency: 'TWD',
+        description: 'Annual fee',
+        day: '2026-08-02',
+        splitMode: 'exact',
+        shares: const [
+          SplitShare(userId: _self, displayName: 'Self', amount: 1000),
+          SplitShare(
+            userId: 'f1',
+            displayName: 'Friend One',
+            amount: 6000,
+            schedule: ShareSchedule(periods: 12, perPeriodAmount: 500),
+          ),
+        ],
+        createdAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
+      );
+
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo, editing: editing));
+
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('split-schedule-periods'))).controller!.text,
+        '12',
+      );
+
+      await tester.enterText(find.byKey(const Key('split-description-field')), 'Annual fee 2027');
+      await tester.pumpAndSettle();
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
+
+      final split = repo.gotSplit as ExactSplitInput;
+      expect(
+        split.shares.firstWhere((s) => s.userId == 'f1').schedule,
+        const ShareSchedule(periods: 12, perPeriodAmount: 500),
+      );
+    });
+
+    testWidgets('a share too small to divide blocks the save and names what would work', (tester) async {
+      final repo = FakeSplitRepository();
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo));
+
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '20');
+      await tester.enterText(find.byKey(const Key('split-description-field')), 'Annual fee');
+      await tapVisible(tester, find.byKey(const Key('split-participant-f1')));
+      await switchToExact(tester);
+      // 10 over 12 months is nothing a month, and a schedule of zeroes is not
+      // one the server takes — there is no share to move the difference to,
+      // because the difference is the whole thing.
+      await tester.enterText(find.byKey(const Key('split-exact-field-$_self')), '10');
+      await tester.enterText(find.byKey(const Key('split-exact-field-f1')), '10');
+      await chooseSchedulePerson(tester, 'Friend One');
+      await tester.enterText(find.byKey(const Key('split-schedule-periods')), '12');
+      await tester.pumpAndSettle();
+
+      final blocked = tester.widget<Text>(find.byKey(const Key('split-save-blocked'))).data!;
+      expect(blocked, contains('does not divide'));
+      // The suggestions are the point of the message: being told no with no
+      // workable number is a dead end.
+      expect(blocked, contains(_loc.splitScheduleSuggestions('2, 5, 10')));
+      expect(tester.widget<FilledButton>(find.byKey(const Key('split-save-button'))).onPressed, isNull);
+    });
+
+    testWidgets('switching to an equal split clears the schedule and says so', (tester) async {
+      final repo = FakeSplitRepository();
+      await _pumpSheet(tester, sheet: sheetWith(repo: repo));
+
+      await tester.enterText(find.byKey(const Key('split-amount-field')), '7000');
+      await tester.enterText(find.byKey(const Key('split-description-field')), 'Annual fee');
+      await tapVisible(tester, find.byKey(const Key('split-participant-f1')));
+      await switchToExact(tester);
+      await tester.enterText(find.byKey(const Key('split-exact-field-$_self')), '1000');
+      await tester.enterText(find.byKey(const Key('split-exact-field-f1')), '6000');
+      await chooseSchedulePerson(tester, 'Friend One');
+      await tester.enterText(find.byKey(const Key('split-schedule-periods')), '12');
+      await tester.pumpAndSettle();
+
+      await tapVisible(tester, find.text(_loc.splitModeEqual));
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('split-schedule-exact-only'))).data,
+        _loc.splitScheduleClearedOnEqual,
+      );
+
+      await tapVisible(tester, find.byKey(const Key('split-save-button')));
+      expect(repo.gotSplit, isA<EqualSplitInput>());
     });
   });
 }

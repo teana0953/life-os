@@ -2965,6 +2965,90 @@
       }
     }
   },
+  "splitScheduleSectionTitle": "Repayment schedule",
+  "@splitScheduleSectionTitle": {
+    "description": "Section heading for putting one participant's share on a monthly repayment schedule."
+  },
+  "splitScheduleExactOnly": "Schedules need the exact-amount mode.",
+  "@splitScheduleExactOnly": {
+    "description": "Shown in equal-split mode, where the server accepts no schedule."
+  },
+  "splitScheduleClearedOnEqual": "Switched to an equal split, so the repayment schedule was cleared.",
+  "@splitScheduleClearedOnEqual": {
+    "description": "Shown once after switching from exact to equal with a schedule set."
+  },
+  "splitScheduleNobody": "No schedule",
+  "@splitScheduleNobody": {
+    "description": "The 'nobody is repaying in instalments' option in the repayment-person selector."
+  },
+  "splitSchedulePersonLabel": "Who repays monthly",
+  "@splitSchedulePersonLabel": {
+    "description": "Label for the selector choosing which participant repays in instalments."
+  },
+  "splitSchedulePeriodsLabel": "Months",
+  "@splitSchedulePeriodsLabel": {
+    "description": "Label for the period-count field of a repayment schedule."
+  },
+  "splitSchedulePerPeriod": "{amount} per month",
+  "@splitSchedulePerPeriod": {
+    "description": "The derived per-period amount of a repayment schedule.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "splitScheduleAdjusted": "Share adjusted {from} \u2192 {to}; {name} takes the difference",
+  "@splitScheduleAdjusted": {
+    "description": "Shown when the share had to change so the periods divide exactly. Both figures are shown deliberately.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitScheduleImpossible": "{amount} does not divide into {periods} months, and nobody else can take the difference",
+  "@splitScheduleImpossible": {
+    "description": "Shown when no participant can absorb the rounding.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "periods": {
+        "type": "int"
+      }
+    }
+  },
+  "splitScheduleSuggestions": "Months that would divide exactly: {periods}",
+  "@splitScheduleSuggestions": {
+    "description": "Alternative period counts offered when the chosen one cannot work.",
+    "placeholders": {
+      "periods": {
+        "type": "String"
+      }
+    }
+  },
+  "splitBalanceSchedule": "Period {next} of {total} · {amount} each",
+  "@splitBalanceSchedule": {
+    "description": "One repayment schedule behind a balance row: which period is next, of how many, and what that period is worth.",
+    "placeholders": {
+      "next": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "splitExactShareLabel": "{name}'s share",
   "@splitExactShareLabel": {
     "description": "Field label for one participant's amount entry in exact-split mode.",

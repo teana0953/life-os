@@ -417,8 +417,14 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
   /// The instalment marker (tasks 1.3/2.3): "period N of M" plus the exit to
   /// the plan, **additive** to whichever header rendered above — it renders
-  /// whenever [_planId] is set, regardless of [_isMirror], so a row that is
-  /// both a mirror and an instalment period shows both.
+  /// whenever the row carries a period number, regardless of [_isMirror], so
+  /// a row that is both a mirror and an instalment period shows both.
+  ///
+  /// The condition is the period number, not [_planId]: a split repayment
+  /// period has no plan, and keying on the plan showed nothing for every one
+  /// of them. Where there is no plan there is also no total, so the copy is
+  /// "period N" — inventing "of 12" from anywhere else would be a figure the
+  /// server never gave.
   ///
   /// [_plan] governs only the "go to plan" exit (task 2.1/2.2's ownership
   /// gate), never whether the period marker itself shows: a share holder
@@ -509,7 +515,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              if (_planId != null) ..._installmentInfo(loc, theme),
+              if (widget.editing?.installmentNo != null) ..._installmentInfo(loc, theme),
               Text(loc.financeCategoryLabel, style: theme.textTheme.labelLarge),
               const SizedBox(height: 8),
               Wrap(

@@ -504,7 +504,18 @@ void main() {
                     userId: 'u2',
                     displayName: 'Bo',
                     balances: [
-                      CurrencyBalance(currency: 'TWD', amount: 500),
+                      // Carrying two schedules, because that is the tallest a
+                      // balance row gets: three stacked lines beside the
+                      // settle-up button, and the widest copy is the schedule
+                      // line, not the balance itself.
+                      CurrencyBalance(
+                        currency: 'TWD',
+                        amount: 500,
+                        schedules: [
+                          BalanceSchedule(expenseId: 'e1', nextPeriod: 3, totalPeriods: 12, periodAmount: 500),
+                          BalanceSchedule(expenseId: 'e2', nextPeriod: 11, totalPeriods: 360, periodAmount: 123456),
+                        ],
+                      ),
                       CurrencyBalance(currency: 'USD', amount: -200),
                     ],
                   ),

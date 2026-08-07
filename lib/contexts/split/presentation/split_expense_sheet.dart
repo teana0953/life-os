@@ -9,6 +9,7 @@ import '../domain/equal_split.dart';
 import '../domain/group_member.dart';
 import '../domain/split_expense.dart';
 import '../domain/split_group.dart';
+import '../domain/share_schedule_fit.dart';
 import '../domain/split_input.dart';
 import 'split_error_text.dart';
 import 'split_expense_writer.dart';
@@ -34,6 +35,7 @@ enum _SaveBlock {
   tooFewPeople,
   amountBelowParticipants,
   exactMustSum,
+  scheduleImpossible,
 }
 
 /// One selectable payer/participant: a user id and the name to show for it.
@@ -142,6 +144,18 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
   final _descriptionController = TextEditingController();
   final Map<String, TextEditingController> _exactControllers = {};
 
+  /// Who is repaying monthly, or null when nobody is. One schedule per
+  /// expense: the server allows several, but the sheet does not — a second
+  /// scheduled share is a second amount the rounding can move, and two
+  /// adjustments chasing each other is not something a form can explain.
+  String? _scheduleUserId;
+  final _periodsController = TextEditingController();
+
+  /// Set when switching to an equal split discarded a schedule, so the sheet
+  /// can say it happened. A schedule left in place under a mode that cannot
+  /// carry it is one the save drops without a word.
+  bool _scheduleClearedOnEqual = false;
+
   bool get _groupSelectorVisible => widget.lockedGroup == null && widget.editing == null;
 
   @override
@@ -168,6 +182,16 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
           text: formatMinorUnits(share.amount, editing.currency),
         )..addListener(_onChanged);
       }
+      // Seeded from what the server sent, which is the whole reason the read
+      // shape carries it (backend #85): the save sends the entire share list,
+      // so a schedule this sheet never saw is one it silently deletes — and
+      // deleting it charges the holder the whole amount again on top of the
+      // periods already in their ledger.
+      final scheduled = editing.shares.where((share) => share.schedule != null);
+      if (scheduled.isNotEmpty) {
+        _scheduleUserId = scheduled.first.userId;
+        _periodsController.text = '${scheduled.first.schedule!.periods}';
+      }
     } else {
       _groupId = widget.lockedGroup?.id;
       _payerUserId = widget.selfUserId;
@@ -185,6 +209,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
     _amountController.removeListener(_onChanged);
     _amountController.dispose();
     _descriptionController.dispose();
+    _periodsController.dispose();
     for (final c in _exactControllers.values) {
       c.dispose();
     }
@@ -337,6 +362,10 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
       return _SaveBlock.amountBelowParticipants;
     }
     if (_mode == _SplitMode.exact && _exactSum != _amount) return _SaveBlock.exactMustSum;
+    // After the sum check on purpose: with the shares not yet adding up to
+    // the amount, every schedule is arithmetically impossible, and saying so
+    // would bury the one thing the user actually has to fix.
+    if (_scheduleFit is ScheduleFitImpossible) return _SaveBlock.scheduleImpossible;
     return null;
   }
 
@@ -385,16 +414,140 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
     _SaveBlock.tooFewPeople => loc.splitTooFewPeople,
     _SaveBlock.amountBelowParticipants => loc.splitAmountBelowParticipants(_participantIds.length),
     _SaveBlock.exactMustSum => loc.splitExactMustSumToAmount,
+    _SaveBlock.scheduleImpossible => _scheduleImpossibleText(loc),
   };
+
+  String _scheduleImpossibleText(AppLocalizations loc) {
+    final fit = _scheduleFit;
+    final periods = int.tryParse(_periodsController.text.trim()) ?? 0;
+    final amount = _exactAmountFor(_scheduleUserId ?? '') ?? 0;
+    final base = loc.splitScheduleImpossible(formatMinorUnitsForDisplay(amount, _currency), periods);
+    final workable = fit is ScheduleFitImpossible ? fit.workablePeriods : const <int>[];
+    if (workable.isEmpty) return base;
+    return '$base\n${loc.splitScheduleSuggestions(workable.join(', '))}';
+  }
+
+  String _nameFor(String userId, List<_Candidate> candidates) =>
+      candidates.firstWhere((c) => c.userId == userId, orElse: () => candidates.first).name;
+
+  /// Who repays monthly, how many months, and what the rounding did. One
+  /// schedule, chosen from the participants — per-participant controls would
+  /// put two more fields on every row, and the 320dp form has no room for
+  /// them.
+  List<Widget> _scheduleSection(AppLocalizations loc, ThemeData theme, List<_Candidate> candidates) {
+    final fit = _scheduleFit;
+    final adjustment = fit is ScheduleFitApplied ? fit.adjustment : null;
+    final perPeriod = fit is ScheduleFitApplied
+        ? fit.shares.firstWhere((share) => share.userId == _scheduleUserId).schedule?.perPeriodAmount
+        : null;
+    return [
+      const SizedBox(height: 16),
+      Text(loc.splitScheduleSectionTitle, style: theme.textTheme.titleSmall),
+      const SizedBox(height: 4),
+      if (_mode == _SplitMode.equal)
+        // Stated, not hidden: a control that quietly stops working when the
+        // mode changes teaches the user it did something it did not.
+        Text(
+          key: const Key('split-schedule-exact-only'),
+          _scheduleClearedOnEqual ? loc.splitScheduleClearedOnEqual : loc.splitScheduleExactOnly,
+          style: theme.textTheme.bodySmall,
+        )
+      else ...[
+        DropdownButtonFormField<String?>(
+          key: const Key('split-schedule-person'),
+          initialValue: _scheduleUserId,
+          decoration: InputDecoration(labelText: loc.splitSchedulePersonLabel),
+          // `isExpanded` plus ellipsis on every item: a dropdown sizes itself
+          // to its widest item, so one long display name pushed the whole
+          // control past a 320dp viewport at double text scale.
+          isExpanded: true,
+          items: [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Text(loc.splitScheduleNobody, overflow: TextOverflow.ellipsis),
+            ),
+            for (final c in candidates)
+              if (_participantIds.contains(c.userId))
+                DropdownMenuItem<String?>(
+                  value: c.userId,
+                  child: Text(c.name, overflow: TextOverflow.ellipsis),
+                ),
+          ],
+          onChanged: (value) => setState(() => _scheduleUserId = value),
+        ),
+        if (_scheduleUserId != null) ...[
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('split-schedule-periods'),
+            controller: _periodsController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: loc.splitSchedulePeriodsLabel),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (perPeriod != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              key: const Key('split-schedule-per-period'),
+              loc.splitSchedulePerPeriod(formatMinorUnitsForDisplay(perPeriod, _currency)),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (adjustment != null) ...[
+            const SizedBox(height: 4),
+            // Both figures, never just the result: a share silently different
+            // from what the user typed is the whole failure this guards.
+            Text(
+              key: const Key('split-schedule-adjusted'),
+              loc.splitScheduleAdjusted(
+                formatMinorUnitsForDisplay(adjustment.from, _currency),
+                formatMinorUnitsForDisplay(adjustment.to, _currency),
+                _nameFor(adjustment.absorbedBy, candidates),
+              ),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ],
+    ];
+  }
+
+  /// The exact shares as typed, before any schedule rounding.
+  List<ExactShareInput> get _typedShares => [
+    for (final id in _participantIds) ExactShareInput(userId: id, amount: _exactAmountFor(id) ?? 0),
+  ];
+
+  /// The chosen schedule fitted to the typed shares, or null when there is no
+  /// schedule to fit (nobody chosen, equal mode, or no usable period count).
+  /// Recomputed on every build rather than stored: the shares it depends on
+  /// are text fields, and a stored copy would be one edit behind whatever is
+  /// on screen.
+  ScheduleFitResult? get _scheduleFit {
+    final userId = _scheduleUserId;
+    if (_mode != _SplitMode.exact || userId == null) return null;
+    if (!_participantIds.contains(userId)) return null;
+    final periods = int.tryParse(_periodsController.text.trim());
+    if (periods == null || periods < 2) return null;
+    final payerUserId = _payerUserId;
+    if (payerUserId == null) return null;
+    return fitShareToSchedule(
+      shares: _typedShares,
+      scheduledUserId: userId,
+      periods: periods,
+      payerUserId: payerUserId,
+    );
+  }
 
   SplitInput _buildSplit() {
     if (_mode == _SplitMode.equal) {
       return EqualSplitInput(_participantIds.toList());
     }
-    return ExactSplitInput([
-      for (final id in _participantIds)
-        ExactShareInput(userId: id, amount: _exactAmountFor(id) ?? 0),
-    ]);
+    // The fitted shares, not the typed ones: the rounding moved money between
+    // two participants, and sending the typed figures would send a schedule
+    // whose periods do not multiply back to its share — a 400 naming numbers
+    // the user can see are right on screen.
+    final fit = _scheduleFit;
+    if (fit is ScheduleFitApplied) return ExactSplitInput(fit.shares);
+    return ExactSplitInput(_typedShares);
   }
 
   Future<void> _pickDay() async {
@@ -664,7 +817,13 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
                   ButtonSegment(value: _SplitMode.exact, label: Text(loc.splitModeExact)),
                 ],
                 selected: {_mode},
-                onSelectionChanged: (selection) => setState(() => _mode = selection.first),
+                onSelectionChanged: (selection) => setState(() {
+                  _mode = selection.first;
+                  // Cleared, and said out loud below. Left in place it would
+                  // survive on screen while the save dropped it.
+                  _scheduleClearedOnEqual = _mode == _SplitMode.equal && _scheduleUserId != null;
+                  if (_mode == _SplitMode.equal) _scheduleUserId = null;
+                }),
               ),
               const SizedBox(height: 12),
               if (_mode == _SplitMode.equal) ...[
@@ -707,6 +866,7 @@ class _SplitExpenseSheetState extends State<SplitExpenseSheet> {
                   style: theme.textTheme.bodySmall,
                 ),
               ],
+              ..._scheduleSection(loc, theme, candidates),
               // One line, driven by the one ordered `_saveBlock`. A separate
               // `if (!_hasStake)` branch used to preempt it, which made the
               // sheet state a reason that was not the blocker at all: with
