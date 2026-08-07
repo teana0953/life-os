@@ -463,6 +463,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     );
     // A settle rewrites the month's transactions, so the ledger behind this
     // screen is stale the moment it returns.
+    if (!mounted) return;
     await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
   }
 
@@ -476,6 +477,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
         today: _todayDate,
       ),
     );
+    if (!mounted) return;
     await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
   }
 

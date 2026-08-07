@@ -30,6 +30,7 @@ import '../../../support/l10n_test_app.dart';
 import '../../../support/sheet_finders.dart';
 import '../../split/support/fake_split_repository.dart';
 import '../../split/support/split_presentation_fakes.dart';
+import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
 SplitTabDependencies _splitDeps(
@@ -169,6 +170,58 @@ void main() {
 
       expect(find.byKey(const Key('amount-field')), findsOneWidget);
       expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+    });
+
+    testWidgets('both FABs stay reachable at 320dp, textScale 2.0', (
+      tester,
+    ) async {
+      // The two sit stacked in a Column above the navigation bar, and the
+      // narrow-screen sweep only renders the two new screens standalone — it
+      // never renders this stack. A FAB pushed off the top, under the bar, or
+      // off-screen raises no layout error; it just cannot be pressed, and
+      // `tap` on a missed hit test only prints a warning.
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      useTextScaleFactor(tester, 2.0);
+
+      final repo = FakeFinanceRepository();
+      final controller = testFinanceController(repo);
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FinanceScaffold(
+            authRepository: _FakeAuthRepository(),
+            controller: controller,
+            netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
+            split: _splitDeps(FakeSplitRepository()),
+            clock: () => DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Hit-testing the centre, not comparing rects: a widget laid out past
+      // the viewport still reports its logical rect, so `getRect` alone
+      // passes on a FAB that is nowhere near the screen. What matters is
+      // whether a tap at that point reaches it.
+      for (final key in ['finance-fab', 'finance-installment-fab']) {
+        final finder = find.byKey(Key(key));
+        final centre = tester.getCenter(finder);
+        final hits = tester.hitTestOnBinding(centre).path.any(
+          (entry) => entry.target == tester.renderObject(finder),
+        );
+        expect(
+          hits,
+          isTrue,
+          reason: '$key 在 320dp / textScale 2.0 下按不到(中心點 $centre)',
+        );
+      }
+
+      await tester.tap(find.byKey(const Key('finance-installment-fab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('installment-mode-total')), findsOneWidget);
     });
 
     testWidgets('the second FAB opens the recurring-charge form', (tester) async {
