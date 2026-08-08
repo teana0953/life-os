@@ -2054,6 +2054,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsFriendsRowLabel => '好友';
 
   @override
+  String get settingsAssistantSaveFailed =>
+      '無法在這個裝置上儲存金鑰。無痕模式或清除過網站資料都可能擋住寫入 —— 再試一次,或改用一般視窗。';
+
+  @override
+  String get settingsAssistantSectionTitle => 'AI 助手';
+
+  @override
+  String get settingsAssistantGetKeyLink => '到 Google AI Studio 建立金鑰';
+
+  @override
+  String get settingsAssistantGetKeyFailed => '無法開啟瀏覽器。網址是 aistudio.google.com';
+
+  @override
+  String get settingsAssistantIntro =>
+      '貼上 Gemini API 金鑰就能使用 AI 助手。可以免費申請,不需要信用卡。';
+
+  @override
+  String get settingsAssistantKeyFieldLabel => 'Gemini API 金鑰';
+
+  @override
+  String get settingsAssistantKeyFieldHint => '貼上你的 Gemini API 金鑰';
+
+  @override
+  String get settingsAssistantSaveKeyButton => '儲存金鑰';
+
+  @override
+  String get settingsAssistantClearKeyButton => '清除金鑰';
+
+  @override
+  String settingsAssistantKeySet(String last4) {
+    return '已設定(****$last4)';
+  }
+
+  @override
+  String get settingsAssistantTrainingNotice =>
+      '使用 Gemini 免費額度時,送出的內容可能被 Google 用於改進模型;請勿在對話中貼入敏感個資。';
+
+  @override
+  String get settingsAssistantDeviceNotice =>
+      '金鑰只儲存在這個裝置。重新安裝 App 或清除瀏覽器資料會一併清掉,需要重新貼上。';
+
+  @override
   String get financeTabSplit => '分帳';
 
   @override
@@ -4710,6 +4752,48 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsFriendsRowLabel => '好友';
+
+  @override
+  String get settingsAssistantSaveFailed =>
+      '無法在這個裝置上儲存金鑰。無痕模式或清除過網站資料都可能擋住寫入 —— 再試一次,或改用一般視窗。';
+
+  @override
+  String get settingsAssistantSectionTitle => 'AI 助手';
+
+  @override
+  String get settingsAssistantGetKeyLink => '到 Google AI Studio 建立金鑰';
+
+  @override
+  String get settingsAssistantGetKeyFailed => '無法開啟瀏覽器。網址是 aistudio.google.com';
+
+  @override
+  String get settingsAssistantIntro =>
+      '貼上 Gemini API 金鑰就能使用 AI 助手。可以免費申請,不需要信用卡。';
+
+  @override
+  String get settingsAssistantKeyFieldLabel => 'Gemini API 金鑰';
+
+  @override
+  String get settingsAssistantKeyFieldHint => '貼上你的 Gemini API 金鑰';
+
+  @override
+  String get settingsAssistantSaveKeyButton => '儲存金鑰';
+
+  @override
+  String get settingsAssistantClearKeyButton => '清除金鑰';
+
+  @override
+  String settingsAssistantKeySet(String last4) {
+    return '已設定(****$last4)';
+  }
+
+  @override
+  String get settingsAssistantTrainingNotice =>
+      '使用 Gemini 免費額度時,送出的內容可能被 Google 用於改進模型;請勿在對話中貼入敏感個資。';
+
+  @override
+  String get settingsAssistantDeviceNotice =>
+      '金鑰只儲存在這個裝置。重新安裝 App 或清除瀏覽器資料會一併清掉,需要重新貼上。';
 
   @override
   String get financeTabSplit => '分帳';

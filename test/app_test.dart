@@ -153,6 +153,7 @@ import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/assistant/gemini_key_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/date/day_format.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
@@ -1248,6 +1249,10 @@ Future<LocaleController> pumpApp(
       localeController ?? await testLocaleController();
   final resolvedThemeController =
       themeController ?? await testThemeController();
+  final resolvedGeminiKeyController = await () async {
+    SharedPreferences.setMockInitialValues({});
+    return GeminiKeyController(await SharedPreferences.getInstance());
+  }();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
   final resolvedFinanceController =
@@ -1367,6 +1372,7 @@ Future<LocaleController> pumpApp(
       homeController: homeController,
       localeController: resolvedLocaleController,
       themeController: resolvedThemeController,
+      geminiKeyController: resolvedGeminiKeyController,
       signOut: resolvedSignOut,
       signUp: resolvedSignUp,
       healthTodayController: health.today,
@@ -1509,12 +1515,12 @@ void main() {
           initiallyAuthenticated: true,
         );
         final profileRepository = FakeProfileRepository(_testProfile);
-        // The settings list (theme + language + friends + sign-out) exceeds
-        // the default 800x600 test viewport, so widen it — otherwise the
-        // sign-out button sits far enough below the fold that even
-        // `ensureVisible`'s finder (skipOffstage: true by default) can't
-        // locate it to scroll it into view.
-        await tester.binding.setSurfaceSize(const Size(800, 1000));
+        // The settings list (theme + language + friends + assistant +
+        // sign-out) exceeds the default 800x600 test viewport, so widen it —
+        // otherwise the sign-out button sits far enough below the fold that
+        // even `ensureVisible`'s finder (skipOffstage: true by default)
+        // can't locate it to scroll it into view.
+        await tester.binding.setSurfaceSize(const Size(800, 1600));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await pumpApp(
           tester,

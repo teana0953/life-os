@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/assistant/gemini_key_controller.dart';
 import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/theme_controller.dart';
@@ -16,18 +18,30 @@ const _zhHantLocale = Locale.fromSubtags(
 /// Settings page: theme, language, and sign-out. Presentation-only —
 /// orchestrates the shared [ThemeController]/[LocaleController] and the
 /// auth context's [SignOut] use case; holds no business logic of its own.
+/// Where a Gemini key is created. A top-level function so it can be the
+/// default argument above — a closure cannot be const.
+Future<bool> launchGeminiKeyConsole() =>
+    launchUrl(Uri.parse('https://aistudio.google.com/apikey'), mode: LaunchMode.externalApplication);
+
 class SettingsScreen extends StatefulWidget {
   final ThemeController themeController;
   final LocaleController localeController;
+  final GeminiKeyController geminiKeyController;
   final SignOut signOut;
   final PwaInstall pwaInstall;
+
+  /// Opens the Gemini key console, returning whether it opened. Defaults to
+  /// the real launcher; a test passes its own so no browser is involved.
+  final Future<bool> Function() openKeyConsole;
 
   const SettingsScreen({
     super.key,
     required this.themeController,
     required this.localeController,
+    required this.geminiKeyController,
     required this.signOut,
     required this.pwaInstall,
+    this.openKeyConsole = launchGeminiKeyConsole,
   });
 
   @override
@@ -40,12 +54,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     widget.themeController.addListener(_onControllerChanged);
     widget.localeController.addListener(_onControllerChanged);
+    widget.geminiKeyController.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
     widget.themeController.removeListener(_onControllerChanged);
     widget.localeController.removeListener(_onControllerChanged);
+    widget.geminiKeyController.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -175,6 +191,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                _AssistantKeySection(
+                  controller: widget.geminiKeyController,
+                  openKeyConsole: widget.openKeyConsole,
+                ),
                 ..._buildInstallSection(context, loc),
                 const SizedBox(height: 20),
                 OutlinedButton(
@@ -220,6 +241,166 @@ class _SettingsSection extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// The "AI assistant" section: paste/store a Gemini API key on this device.
+///
+/// The full key exists in memory only while it sits in the input field; once
+/// saved, the UI only ever shows the last four characters (via
+/// [GeminiKeyController.last4]) and the field is cleared. Both states carry
+/// the same two always-visible notices: the key lives in device-local storage
+/// (a PWA reinstall or cleared browser data removes it), and free-tier Gemini
+/// content may be used by Google for model training.
+class _AssistantKeySection extends StatefulWidget {
+  final GeminiKeyController controller;
+
+  /// Opens the key console, returning whether it opened. Injected so a test
+  /// can assert the link is wired to something and does not have to launch a
+  /// browser — a button that exists and does nothing is the shape this repo
+  /// has shipped before.
+  final Future<bool> Function() openKeyConsole;
+
+  const _AssistantKeySection({required this.controller, required this.openKeyConsole});
+
+  @override
+  State<_AssistantKeySection> createState() => _AssistantKeySectionState();
+}
+
+class _AssistantKeySectionState extends State<_AssistantKeySection> {
+  final _keyFieldController = TextEditingController();
+
+  @override
+  void dispose() {
+    _keyFieldController.dispose();
+    super.dispose();
+  }
+
+  /// Opens the console where the key is created. A failure is reported with
+  /// the address in it — a dead button that says nothing leaves the user with
+  /// no way forward at all.
+  Future<void> _openKeyConsole() async {
+    final loc = AppLocalizations.of(context)!;
+    final opened = await widget.openKeyConsole();
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        key: const Key('assistant-get-key-failed'),
+        content: Text(loc.settingsAssistantGetKeyFailed),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    try {
+      await widget.controller.setKey(_keyFieldController.text);
+    } catch (_) {
+      // The write failed — on a PWA that means private browsing, a blocked
+      // quota, or cleared site data. Say so and **keep what they typed**: a
+      // silent failure here shows "已設定 ✓" over nothing, and they find out
+      // on the next reload.
+      if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          key: const Key('assistant-key-save-failed'),
+          content: Text(loc.settingsAssistantSaveFailed),
+        ),
+      );
+      return;
+    }
+    // Drop the only in-memory copy of the full key the UI holds: if the user
+    // later clears the stored key, the field must come back empty, not
+    // pre-filled with the secret.
+    _keyFieldController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return _SettingsSection(
+      title: loc.settingsAssistantSectionTitle,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.controller.hasKey) ...[
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        key: const Key('assistant-key-set-label'),
+                        loc.settingsAssistantKeySet(widget.controller.last4!),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  key: const Key('assistant-key-clear-button'),
+                  onPressed: widget.controller.clear,
+                  child: Text(loc.settingsAssistantClearKeyButton),
+                ),
+              ] else ...[
+                Text(loc.settingsAssistantIntro, key: const Key('assistant-key-intro')),
+                // Its own tappable element, not an address buried in a
+                // sentence: getting the key means leaving the app, and
+                // retyping a URL by hand is where a bring-your-own-key
+                // feature loses people — keyboard and screen-reader users
+                // most of all.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    key: const Key('assistant-get-key-link'),
+                    onPressed: _openKeyConsole,
+                    child: Text(loc.settingsAssistantGetKeyLink),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('assistant-key-field'),
+                  controller: _keyFieldController,
+                  // A secret: dots on screen, and keep it out of the
+                  // keyboard's learning/suggestion dictionary.
+                  obscureText: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: loc.settingsAssistantKeyFieldLabel,
+                    hintText: loc.settingsAssistantKeyFieldHint,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _keyFieldController,
+                  builder: (context, value, _) => FilledButton(
+                    key: const Key('assistant-key-save-button'),
+                    onPressed: value.text.trim().isEmpty ? null : _save,
+                    child: Text(loc.settingsAssistantSaveKeyButton),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                loc.settingsAssistantDeviceNotice,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                loc.settingsAssistantTrainingNotice,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

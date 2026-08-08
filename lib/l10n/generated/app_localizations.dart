@@ -3920,6 +3920,78 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get settingsFriendsRowLabel;
 
+  /// Shown when writing the Gemini key to device storage fails. The typed key is kept so the user can retry without pasting again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the key on this device. Private browsing or cleared site data can block it — try again, or use a normal window.'**
+  String get settingsAssistantSaveFailed;
+
+  /// Heading for the AI assistant section of the settings page, where the user manages their Gemini API key.
+  ///
+  /// In en, this message translates to:
+  /// **'AI assistant'**
+  String get settingsAssistantSectionTitle;
+
+  /// Tappable link to aistudio.google.com, where the user creates the key. Its own element rather than text inside a paragraph — the address is the one thing the user has to take somewhere else, and a link that cannot be tapped is where a bring-your-own-key feature loses people.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a key in Google AI Studio'**
+  String get settingsAssistantGetKeyLink;
+
+  /// Shown when launching the URL fails, and it names the address so the user is not left with a dead button.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the browser. The address is aistudio.google.com'**
+  String get settingsAssistantGetKeyFailed;
+
+  /// Intro shown in the assistant settings section when no key is stored yet, telling the user where to obtain a Gemini API key.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a Gemini API key to enable the AI assistant. You can create one for free — no card needed.'**
+  String get settingsAssistantIntro;
+
+  /// Label of the obscured text field where the user pastes their Gemini API key.
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini API key'**
+  String get settingsAssistantKeyFieldLabel;
+
+  /// Hint text inside the empty Gemini API key field.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your Gemini API key'**
+  String get settingsAssistantKeyFieldHint;
+
+  /// Button that saves the pasted Gemini API key to the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Save key'**
+  String get settingsAssistantSaveKeyButton;
+
+  /// Button that removes the stored Gemini API key from the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear key'**
+  String get settingsAssistantClearKeyButton;
+
+  /// Status line shown when a Gemini API key is stored; last4 is the final four characters of the key, the only fragment ever displayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Key set (****{last4})'**
+  String settingsAssistantKeySet(String last4);
+
+  /// Always-visible disclosure in the assistant settings section that free-tier Gemini content may be used for model training.
+  ///
+  /// In en, this message translates to:
+  /// **'On the Gemini free tier, Google may use what you send to improve its models. Don\'t paste sensitive personal information into conversations.'**
+  String get settingsAssistantTrainingNotice;
+
+  /// Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive a PWA reinstall or cleared browser data.
+  ///
+  /// In en, this message translates to:
+  /// **'The key is stored only on this device. Reinstalling the app or clearing browser data removes it, and you\'ll need to paste it again.'**
+  String get settingsAssistantDeviceNotice;
+
   /// Label of the finance shell's fourth bottom-nav destination and app bar title, for the split-expenses tab.
   ///
   /// In en, this message translates to:

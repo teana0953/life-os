@@ -66,6 +66,7 @@ import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
+import 'shared/assistant/gemini_key_controller.dart';
 import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/routing/app_locations.dart';
@@ -186,6 +187,7 @@ class App extends StatefulWidget {
   final HomeController homeController;
   final LocaleController localeController;
   final ThemeController themeController;
+  final GeminiKeyController geminiKeyController;
   final SignOut signOut;
   final SignUp signUp;
   final SendPasswordReset sendPasswordReset;
@@ -288,6 +290,7 @@ class App extends StatefulWidget {
     required this.homeController,
     required this.localeController,
     required this.themeController,
+    required this.geminiKeyController,
     required this.signOut,
     required this.signUp,
     required this.sendPasswordReset,
@@ -608,6 +611,7 @@ class _AppState extends State<App> {
           builder: (context, state) => SettingsScreen(
             themeController: widget.themeController,
             localeController: widget.localeController,
+            geminiKeyController: widget.geminiKeyController,
             signOut: widget.signOut,
             pwaInstall: const PwaInstallImpl(),
           ),

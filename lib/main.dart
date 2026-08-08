@@ -118,6 +118,7 @@ import 'contexts/vitals/infrastructure/http_vitals_repository.dart';
 import 'contexts/vitals/presentation/trend_controller.dart';
 import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'firebase_options.dart';
+import 'shared/assistant/gemini_key_controller.dart';
 import 'shared/config.dart';
 import 'shared/data_revision.dart';
 import 'shared/i18n/locale_controller.dart';
@@ -143,6 +144,7 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final localeController = LocaleController(prefs);
   final themeController = ThemeController(prefs);
+  final geminiKeyController = GeminiKeyController(prefs);
 
   final httpClient = http.Client();
   final foodDictionaryRepository = HttpFoodDictionaryRepository(
@@ -401,6 +403,7 @@ Future<void> main() async {
       homeController: homeController,
       localeController: localeController,
       themeController: themeController,
+      geminiKeyController: geminiKeyController,
       signOut: signOut,
       signUp: signUp,
       sendPasswordReset: SendPasswordReset(authRepository),

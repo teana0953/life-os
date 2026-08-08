@@ -1,0 +1,112 @@
+version: 1
+name: assistant-key-ui
+budget: 500k
+defaults:
+  tier: standard
+
+inputs: [goal]
+
+nodes:
+  plan:
+    kind: task
+    role: planner
+    tier: heavy
+    prompt: |
+      {{ inputs.goal }}
+
+      **這一輪只規劃,不寫程式。** 產出:要改/新增哪些檔案、每個檔案做什麼、
+      每一條守門要怎麼寫才會紅。
+
+      這一刀碰的是**使用者的秘密**,所以計畫要明確回答:
+
+      - 金鑰存在哪(`shared_preferences` 的哪個鍵)、**為什麼鍵名要叫 gemini 而不是泛稱**
+      - 存進去之後 UI **只顯示後四碼**,完整值不再回顯 —— 這條要怎麼測
+      - 「清除」是**真的從 prefs 移除**,不是把欄位清空 —— 這條要怎麼測
+      - 金鑰**不進任何 log**,而 Flutter 這邊什麼路徑會意外印出它
+      - **重裝 PWA 會清掉裝置儲存**,這件事要不要、以及怎麼在畫面上講
+        (這個 repo 有過推播權限被重裝清掉的實機事故)
+      - **免費額度的內容可能被拿去訓練** —— 設定頁一定要寫,不能只寫「貼上金鑰」
+      - 沒有金鑰時,助手入口的狀態長怎樣(**不要隱藏,也不要只是灰掉**)
+
+      三個 ARB 的 key parity 有自動測試守著(`test/l10n/arb_parity_test.dart`),
+      新增文案要照它的規則。
+
+  approve-plan:
+    kind: gate
+    after: [plan]
+    show: "{{ nodes.plan.output }}"
+
+  implement:
+    kind: task
+    role: implementer
+    tier: heavy
+    after: [approve-plan]
+    prompt: |
+      照核可的計畫實作。鐵則:
+      - 完整金鑰**只在剛輸入時存在於記憶體**,存完之後 UI 一律只顯示後四碼
+      - 不要把金鑰放進任何 log、錯誤訊息、或會被序列化的 state
+      - 每寫一條守門就想「什麼突變會讓它紅」,想不出來就是壞守門
+      - 窄螢幕:設定頁多一整個 section,320dp / textScale 2.0 要驗
+
+  test:
+    kind: script
+    after: [implement]
+    run: "flutter analyze && flutter test"
+
+  code-review:
+    kind: check
+    role: code-reviewer
+    after: [implement]
+    prompt: |
+      只看這一刀的 diff。重點:
+      - 完整金鑰有沒有任何路徑會回顯到畫面、log、或序列化的狀態
+      - 「清除」是不是真的移除,還是只清了欄位
+      - 沒有金鑰時的狀態是不是可達、可讀、可行動
+
+  uiux-review:
+    kind: check
+    role: uiux-reviewer
+    after: [implement]
+    prompt: |
+      這一刀的使用者要**去別的網站辦一把金鑰再貼回來**,那是這類功能最常見的死因。
+      看:取得金鑰的路徑講清楚了嗎、免費額度會被拿去訓練這件事講了嗎、
+      重裝會掉這件事講了嗎、沒有金鑰時使用者知道下一步是什麼嗎。
+
+  guard-audit:
+    kind: check
+    role: code-reviewer
+    tier: heavy
+    after: [implement]
+    prompt: |
+      只找**不會失敗的守門**。逐條說明要怎麼突變才會紅;想不出來的那條就是壞守門。
+
+      這個 repo 反覆出現的形態,逐一對照:
+      - fixture 是 null / 空 / 跟鄰居撞號 → 讀錯鍵、接錯欄位照樣過
+      - **斷言的東西不在危險側**(上一輪的 canary 就是這樣死的:
+        分類器拿不到金鑰,`not.toContain(KEY)` 就恆綠)
+      - 同一個 tester pump 兩次,Flutter 重用 State
+      - `pump(duration)` 讓計時器先發,守的那條路沒被走到
+      - 「不包含 X」型的斷言,對之後新增的東西永遠是綠的
+
+  fix:
+    kind: task
+    role: fixer
+    after: [test, code-review, uiux-review, guard-audit]
+    when: any-fail
+    goto: [test, code-review, uiux-review, guard-audit]
+    max_iterations: 2
+    prompt: "依三份 review 的發現修正。每補一條守門就說明能讓它紅的突變。"
+
+  ship:
+    kind: gate
+    after: [test, code-review, uiux-review, guard-audit]
+    when: all-pass
+    show: |
+      code review:
+      {{ nodes.code-review.output }}
+
+      UI/UX:
+      {{ nodes.uiux-review.output }}
+
+      守門稽核:
+      {{ nodes.guard-audit.output }}
