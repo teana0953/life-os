@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/shared/assistant/gemini_key_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 // Deliberately implausible: nothing else in the test environment can contain
 // this string by coincidence, so "does not appear" assertions mean something.
@@ -86,7 +87,7 @@ void main() {
       expect(notified, 2);
     });
 
-    test('toString does not leak the key', () async {
+    test('toString reports hasKey but never the key itself', () async {
       final prefs = await _emptyPrefs();
       final controller = GeminiKeyController(prefs);
       await controller.setKey(_fakeKey);
@@ -94,8 +95,65 @@ void main() {
       // Guard the danger side first: the key really is inside the object …
       expect(controller.key, _fakeKey);
       // … and still doesn't surface through the one implicit serialization
-      // path every log/error interpolation goes through.
+      // path every log/error interpolation goes through. This is only a real
+      // guard because GeminiKeyController overrides toString() at all — the
+      // default Object.toString() never touches fields, so asserting
+      // "doesn't contain the key" against it could never go red. Mutation:
+      // change the override to interpolate `key` (or `_key`) instead of
+      // `hasKey` → this line turns red.
       expect(controller.toString(), isNot(contains(_fakeKey)));
+      expect(controller.toString(), contains('hasKey: true'));
     });
   });
+
+  group('a write that fails', () {
+    // Private browsing, a blocked quota, cleared site data — all real on a
+    // PWA, and this repo has watched PWA storage disappear before. The whole
+    // point of writing before notifying is that this case cannot paint a
+    // success the storage never accepted.
+    setUp(() {
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+    });
+
+    // No tearDown restoring the store: `SharedPreferences.setMockInitialValues`
+    // installs a fresh one at the top of every other test, so a failing store
+    // left behind cannot leak into them.
+
+    test('leaves the controller without a key, instead of claiming one', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+      final controller = GeminiKeyController(prefs);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await expectLater(controller.setKey(_fakeKey), throwsA(isA<Exception>()));
+
+      // Both halves matter. `hasKey` false is the state the UI renders from;
+      // zero notifications is what keeps a listener from repainting the
+      // success card before the failure surfaces.
+      expect(controller.hasKey, isFalse);
+      expect(notifications, 0);
+    });
+  });
+}
+
+/// Fails every write, succeeds at nothing else either — the controller only
+/// reads at construction, which happens before this is installed.
+class _FailingStore extends SharedPreferencesStorePlatform {
+  @override
+  bool get isMock => true;
+
+  @override
+  Future<bool> clear() async => throw Exception('storage blocked');
+
+  @override
+  Future<Map<String, Object>> getAll() async => <String, Object>{};
+
+  @override
+  Future<bool> remove(String key) async => throw Exception('storage blocked');
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async => throw Exception('storage blocked');
+
 }

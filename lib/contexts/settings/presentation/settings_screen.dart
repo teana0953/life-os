@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -17,12 +18,21 @@ const _zhHantLocale = Locale.fromSubtags(
 /// Settings page: theme, language, and sign-out. Presentation-only —
 /// orchestrates the shared [ThemeController]/[LocaleController] and the
 /// auth context's [SignOut] use case; holds no business logic of its own.
+/// Where a Gemini key is created. A top-level function so it can be the
+/// default argument above — a closure cannot be const.
+Future<bool> launchGeminiKeyConsole() =>
+    launchUrl(Uri.parse('https://aistudio.google.com/apikey'), mode: LaunchMode.externalApplication);
+
 class SettingsScreen extends StatefulWidget {
   final ThemeController themeController;
   final LocaleController localeController;
   final GeminiKeyController geminiKeyController;
   final SignOut signOut;
   final PwaInstall pwaInstall;
+
+  /// Opens the Gemini key console, returning whether it opened. Defaults to
+  /// the real launcher; a test passes its own so no browser is involved.
+  final Future<bool> Function() openKeyConsole;
 
   const SettingsScreen({
     super.key,
@@ -31,6 +41,7 @@ class SettingsScreen extends StatefulWidget {
     required this.geminiKeyController,
     required this.signOut,
     required this.pwaInstall,
+    this.openKeyConsole = launchGeminiKeyConsole,
   });
 
   @override
@@ -181,7 +192,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                _AssistantKeySection(controller: widget.geminiKeyController),
+                _AssistantKeySection(
+                  controller: widget.geminiKeyController,
+                  openKeyConsole: widget.openKeyConsole,
+                ),
                 ..._buildInstallSection(context, loc),
                 const SizedBox(height: 20),
                 OutlinedButton(
@@ -242,7 +256,13 @@ class _SettingsSection extends StatelessWidget {
 class _AssistantKeySection extends StatefulWidget {
   final GeminiKeyController controller;
 
-  const _AssistantKeySection({required this.controller});
+  /// Opens the key console, returning whether it opened. Injected so a test
+  /// can assert the link is wired to something and does not have to launch a
+  /// browser — a button that exists and does nothing is the shape this repo
+  /// has shipped before.
+  final Future<bool> Function() openKeyConsole;
+
+  const _AssistantKeySection({required this.controller, required this.openKeyConsole});
 
   @override
   State<_AssistantKeySection> createState() => _AssistantKeySectionState();
@@ -257,8 +277,39 @@ class _AssistantKeySectionState extends State<_AssistantKeySection> {
     super.dispose();
   }
 
+  /// Opens the console where the key is created. A failure is reported with
+  /// the address in it — a dead button that says nothing leaves the user with
+  /// no way forward at all.
+  Future<void> _openKeyConsole() async {
+    final loc = AppLocalizations.of(context)!;
+    final opened = await widget.openKeyConsole();
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        key: const Key('assistant-get-key-failed'),
+        content: Text(loc.settingsAssistantGetKeyFailed),
+      ),
+    );
+  }
+
   Future<void> _save() async {
-    await widget.controller.setKey(_keyFieldController.text);
+    try {
+      await widget.controller.setKey(_keyFieldController.text);
+    } catch (_) {
+      // The write failed — on a PWA that means private browsing, a blocked
+      // quota, or cleared site data. Say so and **keep what they typed**: a
+      // silent failure here shows "已設定 ✓" over nothing, and they find out
+      // on the next reload.
+      if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          key: const Key('assistant-key-save-failed'),
+          content: Text(loc.settingsAssistantSaveFailed),
+        ),
+      );
+      return;
+    }
     // Drop the only in-memory copy of the full key the UI holds: if the user
     // later clears the stored key, the field must come back empty, not
     // pre-filled with the secret.
@@ -298,7 +349,20 @@ class _AssistantKeySectionState extends State<_AssistantKeySection> {
                   child: Text(loc.settingsAssistantClearKeyButton),
                 ),
               ] else ...[
-                Text(loc.settingsAssistantIntro),
+                Text(loc.settingsAssistantIntro, key: const Key('assistant-key-intro')),
+                // Its own tappable element, not an address buried in a
+                // sentence: getting the key means leaving the app, and
+                // retyping a URL by hand is where a bring-your-own-key
+                // feature loses people — keyboard and screen-reader users
+                // most of all.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    key: const Key('assistant-get-key-link'),
+                    onPressed: _openKeyConsole,
+                    child: Text(loc.settingsAssistantGetKeyLink),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   key: const Key('assistant-key-field'),

@@ -3920,16 +3920,34 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get settingsFriendsRowLabel;
 
+  /// Shown when writing the Gemini key to device storage fails. The typed key is kept so the user can retry without pasting again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the key on this device. Private browsing or cleared site data can block it — try again, or use a normal window.'**
+  String get settingsAssistantSaveFailed;
+
   /// Heading for the AI assistant section of the settings page, where the user manages their Gemini API key.
   ///
   /// In en, this message translates to:
   /// **'AI assistant'**
   String get settingsAssistantSectionTitle;
 
+  /// Tappable link to aistudio.google.com, where the user creates the key. Its own element rather than text inside a paragraph — the address is the one thing the user has to take somewhere else, and a link that cannot be tapped is where a bring-your-own-key feature loses people.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a key in Google AI Studio'**
+  String get settingsAssistantGetKeyLink;
+
+  /// Shown when launching the URL fails, and it names the address so the user is not left with a dead button.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the browser. The address is aistudio.google.com'**
+  String get settingsAssistantGetKeyFailed;
+
   /// Intro shown in the assistant settings section when no key is stored yet, telling the user where to obtain a Gemini API key.
   ///
   /// In en, this message translates to:
-  /// **'Paste a Gemini API key to enable the AI assistant. You can create one for free in Google AI Studio (aistudio.google.com).'**
+  /// **'Paste a Gemini API key to enable the AI assistant. You can create one for free — no card needed.'**
   String get settingsAssistantIntro;
 
   /// Label of the obscured text field where the user pastes their Gemini API key.

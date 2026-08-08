@@ -88,6 +88,9 @@ _pumpSettingsScreen(
   /// `{'gemini_api_key': ...}` to start the assistant section in its
   /// key-already-stored state.
   Map<String, Object> initialPrefs = const {},
+  /// Records whether the key-console link was actually invoked. A link that
+  /// renders but is wired to nothing is the shape this repo has shipped.
+  Future<bool> Function()? openKeyConsole,
   Size size = const Size(800, 1400),
   double textScale = 1.0,
 }) async {
@@ -109,6 +112,7 @@ _pumpSettingsScreen(
     themeController: themeController,
     localeController: localeController,
     geminiKeyController: geminiKeyController,
+    openKeyConsole: openKeyConsole ?? () async => true,
     signOut: SignOut(authRepository),
     pwaInstall: pwaInstall ?? _FakePwaInstall(isStandalone: true),
   );
@@ -585,6 +589,38 @@ void main() {
       expect(find.text(zh.languageSectionTitle), findsOneWidget);
       expect(find.text(zh.settingsAssistantSectionTitle), findsOneWidget);
       expect(find.text(zh.signOut), findsOneWidget);
+    });
+  });
+
+  group('the key-console link', () {
+    testWidgets('is wired to something, not just rendered', (tester) async {
+      // The one thing the user has to do outside this app. A link that exists
+      // and does nothing is worse than no link: they tap it, nothing happens,
+      // and they have no address to fall back on.
+      var opened = 0;
+      await _pumpSettingsScreen(tester, openKeyConsole: () async {
+        opened++;
+        return true;
+      });
+
+      await tester.tap(find.byKey(const Key('assistant-get-key-link')));
+      await tester.pumpAndSettle();
+
+      expect(opened, 1);
+      expect(find.byKey(const Key('assistant-get-key-failed')), findsNothing);
+    });
+
+    testWidgets('names the address when the browser will not open', (tester) async {
+      // A dead button that says nothing leaves no way forward at all.
+      await _pumpSettingsScreen(tester, openKeyConsole: () async => false);
+
+      await tester.tap(find.byKey(const Key('assistant-get-key-link')));
+      await tester.pumpAndSettle();
+
+      final snack = tester.widget<Text>(
+        find.descendant(of: find.byKey(const Key('assistant-get-key-failed')), matching: find.byType(Text)),
+      );
+      expect(snack.data, contains('aistudio.google.com'));
     });
   });
 }

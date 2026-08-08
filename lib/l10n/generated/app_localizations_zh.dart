@@ -2054,11 +2054,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsFriendsRowLabel => '好友';
 
   @override
+  String get settingsAssistantSaveFailed =>
+      '無法在這個裝置上儲存金鑰。無痕模式或清除過網站資料都可能擋住寫入 —— 再試一次,或改用一般視窗。';
+
+  @override
   String get settingsAssistantSectionTitle => 'AI 助手';
 
   @override
+  String get settingsAssistantGetKeyLink => '到 Google AI Studio 建立金鑰';
+
+  @override
+  String get settingsAssistantGetKeyFailed => '無法開啟瀏覽器。網址是 aistudio.google.com';
+
+  @override
   String get settingsAssistantIntro =>
-      '貼上 Gemini API 金鑰以啟用 AI 助手。可在 Google AI Studio(aistudio.google.com)免費建立。';
+      '貼上 Gemini API 金鑰就能使用 AI 助手。可以免費申請,不需要信用卡。';
 
   @override
   String get settingsAssistantKeyFieldLabel => 'Gemini API 金鑰';
@@ -4744,11 +4754,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsFriendsRowLabel => '好友';
 
   @override
+  String get settingsAssistantSaveFailed =>
+      '無法在這個裝置上儲存金鑰。無痕模式或清除過網站資料都可能擋住寫入 —— 再試一次,或改用一般視窗。';
+
+  @override
   String get settingsAssistantSectionTitle => 'AI 助手';
 
   @override
+  String get settingsAssistantGetKeyLink => '到 Google AI Studio 建立金鑰';
+
+  @override
+  String get settingsAssistantGetKeyFailed => '無法開啟瀏覽器。網址是 aistudio.google.com';
+
+  @override
   String get settingsAssistantIntro =>
-      '貼上 Gemini API 金鑰以啟用 AI 助手。可在 Google AI Studio(aistudio.google.com)免費建立。';
+      '貼上 Gemini API 金鑰就能使用 AI 助手。可以免費申請,不需要信用卡。';
 
   @override
   String get settingsAssistantKeyFieldLabel => 'Gemini API 金鑰';

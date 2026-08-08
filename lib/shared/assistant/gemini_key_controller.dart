@@ -16,7 +16,10 @@ const _geminiKeyPrefsKey = 'gemini_api_key';
 ///
 /// The full key is a secret: UI code must only ever render [hasKey] and
 /// [last4]. It must never appear in logs, error messages, or serialized
-/// state — hence no [toString] override carrying it.
+/// state — including [toString], which is overridden below to prove it: the
+/// default `Object.toString()` never touches fields at all, so a test
+/// asserting "toString doesn't contain the key" against the default
+/// implementation can never fail and proves nothing.
 class GeminiKeyController extends ChangeNotifier {
   final SharedPreferences _prefs;
 
@@ -49,16 +52,31 @@ class GeminiKeyController extends ChangeNotifier {
       // around) a secret and must not ride along in error messages.
       throw ArgumentError('Gemini API key must not be empty');
     }
+    // The write comes first, and its failure propagates. Notifying before it
+    // resolves would paint "已設定 ✓" over a key that never reached storage —
+    // and on a PWA that is not hypothetical: private browsing, a blocked
+    // storage quota, or cleared site data all make this write fail. The user
+    // would only find out on the next reload, which is this repo's most
+    // familiar failure shape.
+    await _prefs.setString(_geminiKeyPrefsKey, trimmed);
     _key = trimmed;
     notifyListeners();
-    await _prefs.setString(_geminiKeyPrefsKey, trimmed);
   }
 
   /// Removes the stored key entirely — `remove`, not `setString('')`, so no
   /// empty husk of the entry survives in prefs.
   Future<void> clear() async {
+    // Same ordering, same reason: a clear that appears to work while the key
+    // is still on disk is worse than one that visibly failed.
+    await _prefs.remove(_geminiKeyPrefsKey);
     _key = null;
     notifyListeners();
-    await _prefs.remove(_geminiKeyPrefsKey);
   }
+
+  /// Deliberately reports only [hasKey] — the safe half of this object's
+  /// state — so any accidental future edit that interpolates [_key] or [key]
+  /// in here is the one line standing between the secret and every log line
+  /// this object's default representation would otherwise flow through.
+  @override
+  String toString() => 'GeminiKeyController(hasKey: $hasKey)';
 }

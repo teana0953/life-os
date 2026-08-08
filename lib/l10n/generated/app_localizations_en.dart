@@ -2136,11 +2136,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsFriendsRowLabel => 'Friends';
 
   @override
+  String get settingsAssistantSaveFailed =>
+      'Could not save the key on this device. Private browsing or cleared site data can block it — try again, or use a normal window.';
+
+  @override
   String get settingsAssistantSectionTitle => 'AI assistant';
 
   @override
+  String get settingsAssistantGetKeyLink => 'Create a key in Google AI Studio';
+
+  @override
+  String get settingsAssistantGetKeyFailed =>
+      'Could not open the browser. The address is aistudio.google.com';
+
+  @override
   String get settingsAssistantIntro =>
-      'Paste a Gemini API key to enable the AI assistant. You can create one for free in Google AI Studio (aistudio.google.com).';
+      'Paste a Gemini API key to enable the AI assistant. You can create one for free — no card needed.';
 
   @override
   String get settingsAssistantKeyFieldLabel => 'Gemini API key';
