@@ -7,6 +7,9 @@ import 'package:life_os/shared/routing/auth_router_notifier.dart';
 /// A minimal fake exposing a controllable `authStateChanges` stream; the other
 /// [AuthRepository] members are unused by the notifier.
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   final StreamController<bool> _controller = StreamController<bool>.broadcast();
   final bool errorStream;
 

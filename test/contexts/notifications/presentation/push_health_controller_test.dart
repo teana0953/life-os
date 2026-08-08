@@ -12,6 +12,9 @@ import 'package:life_os/contexts/notifications/presentation/push_health_controll
 import 'package:life_os/contexts/notifications/presentation/reminder_settings_controller.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   String? token = 'token-123';
   Object? tokenError;
   final StreamController<bool> authState = StreamController<bool>.broadcast();

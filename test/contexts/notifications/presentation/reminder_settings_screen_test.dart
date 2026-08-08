@@ -16,6 +16,9 @@ import '../../../support/l10n_test_app.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<String?> idToken() async => 'token-123';
 
   @override

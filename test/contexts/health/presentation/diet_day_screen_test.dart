@@ -43,6 +43,9 @@ import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<void> signIn(String email, String password) async {}
   @override
   Future<void> signUp(String email, String password) async {}

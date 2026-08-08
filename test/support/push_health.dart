@@ -10,6 +10,9 @@ import 'package:life_os/contexts/notifications/presentation/reminder_settings_co
 
 class _InertAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<String?> idToken() async => null;
 
   @override

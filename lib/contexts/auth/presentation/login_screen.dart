@@ -180,6 +180,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 8),
                               TextButton(
+                                key: const Key('forgot-password-link'),
+                                onPressed: isLoading
+                                    ? null
+                                    // Carries the address already on screen:
+                                    // someone who just failed to sign in has
+                                    // typed it, and asking again is asking
+                                    // them to get it right twice.
+                                    : () => context.push(
+                                        passwordResetLocation,
+                                        extra: _emailController.text,
+                                      ),
+                                child: Text(loc.forgotPasswordLink),
+                              ),
+                              TextButton(
                                 key: const Key('register-link'),
                                 onPressed: isLoading
                                     ? null

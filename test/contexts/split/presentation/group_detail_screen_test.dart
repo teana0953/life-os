@@ -28,6 +28,9 @@ import '../support/split_presentation_fakes.dart';
 final _loc = lookupAppLocalizations(const Locale('en'));
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   /// What the next [idToken] call resolves to. Mutable so a test can simulate
   /// Firebase renewing the token while the screen stays open.
   String token;

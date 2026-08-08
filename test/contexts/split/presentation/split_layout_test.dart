@@ -79,6 +79,9 @@ const _wideAmount = 1234567;
 
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<String?> idToken() async => 'tok';
 
   @override

@@ -15,6 +15,9 @@ import 'package:life_os/contexts/social/presentation/invite_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   bool signedOut = false;
 
   @override

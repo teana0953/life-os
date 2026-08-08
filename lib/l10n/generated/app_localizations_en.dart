@@ -15,6 +15,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInSubtitle => 'Sign in to Life OS';
 
   @override
+  String get passwordResetTitle => 'Reset your password';
+
+  @override
+  String get passwordResetSubtitle =>
+      'We\'ll email you a link to set a new one.';
+
+  @override
+  String get passwordResetButton => 'Send reset link';
+
+  @override
+  String get passwordResetSending => 'Sending';
+
+  @override
+  String get forgotPasswordLink => 'Forgot your password?';
+
+  @override
+  String get passwordResetSentTitle => 'Check your inbox';
+
+  @override
+  String get passwordResetSentBody =>
+      'If that address has an account, a reset link is on its way. It can land in spam — look for a message from noreply.';
+
+  @override
+  String get passwordResetBackToSignIn => 'Back to sign in';
+
+  @override
+  String get errorTooManyResetRequests =>
+      'Too many attempts. Wait a few minutes and try again.';
+
+  @override
   String get emailLabel => 'Email';
 
   @override

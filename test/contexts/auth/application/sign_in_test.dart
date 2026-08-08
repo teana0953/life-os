@@ -3,6 +3,9 @@ import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   Object? signInErrorToThrow;
   String? receivedEmail;
   String? receivedPassword;

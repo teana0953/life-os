@@ -8,6 +8,42 @@
   "@signInSubtitle": {
     "description": "Subtitle shown under the sign-in heading."
   },
+  "passwordResetTitle": "Reset your password",
+  "@passwordResetTitle": {
+    "description": "Title of the password-reset screen."
+  },
+  "passwordResetSubtitle": "We'll email you a link to set a new one.",
+  "@passwordResetSubtitle": {
+    "description": "Subtitle of the password-reset screen."
+  },
+  "passwordResetButton": "Send reset link",
+  "@passwordResetButton": {
+    "description": "Submit button on the password-reset screen."
+  },
+  "passwordResetSending": "Sending",
+  "@passwordResetSending": {
+    "description": "Announced while the reset request is in flight."
+  },
+  "forgotPasswordLink": "Forgot your password?",
+  "@forgotPasswordLink": {
+    "description": "Link on the sign-in screen that opens the password-reset screen."
+  },
+  "passwordResetSentTitle": "Check your inbox",
+  "@passwordResetSentTitle": {
+    "description": "Heading shown after a reset request is accepted."
+  },
+  "passwordResetSentBody": "If that address has an account, a reset link is on its way. It can land in spam \u2014 look for a message from noreply.",
+  "@passwordResetSentBody": {
+    "description": "Confirmation after a reset request. Deliberately the same whether or not the address has an account: saying which would let anyone test whether an address uses this app."
+  },
+  "passwordResetBackToSignIn": "Back to sign in",
+  "@passwordResetBackToSignIn": {
+    "description": "Returns from the password-reset screen."
+  },
+  "errorTooManyResetRequests": "Too many attempts. Wait a few minutes and try again.",
+  "@errorTooManyResetRequests": {
+    "description": "Shown when the auth service throttles repeated reset requests."
+  },
   "emailLabel": "Email",
   "@emailLabel": {
     "description": "Label for the email text field on the sign-in screen."
