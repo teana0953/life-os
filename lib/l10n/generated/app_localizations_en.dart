@@ -2648,6 +2648,48 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get splitActivityChangedNothing => 'This edit changed nothing';
+
+  @override
+  String get splitActivityChangedFieldCurrency => 'currency';
+
+  @override
+  String get splitActivityChangedFieldDescription => 'description';
+
+  @override
+  String get splitActivityChangedFieldDay => 'date';
+
+  @override
+  String get splitActivityChangedFieldPayer => 'who paid';
+
+  @override
+  String get splitActivityChangedFieldShares => 'the split';
+
+  @override
+  String get splitActivityChangedFieldOther => 'something else';
+
+  @override
+  String splitActivityChangedFields(String fields) {
+    return 'Changed $fields';
+  }
+
+  @override
+  String splitActivityParticipantsAdded(String names) {
+    return 'Added to the split: $names';
+  }
+
+  @override
+  String splitActivityParticipantsRemoved(String names) {
+    return 'Removed from the split: $names';
+  }
+
+  @override
+  String get splitActivityNameSeparator => ', ';
+
+  @override
+  String get splitActivityDetailSeparator => '. ';
+
+  @override
   String splitActivityAmountChange(String previous, String amount) {
     return '$previous → $amount';
   }

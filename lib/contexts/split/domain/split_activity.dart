@@ -73,6 +73,25 @@ class SplitActivity {
   /// "$2000 → $2000"; the test is `previousAmount != amount`.
   final int? previousAmount;
 
+  /// What an `expense_updated` edit touched, from the backend's fixed
+  /// vocabulary (`amount`, `currency`, `description`, `day`, `payer`,
+  /// `shares`). `null` on every other type — and on **any** entry written
+  /// before the backend recorded this at all, which is why the parse treats a
+  /// missing key as null rather than as a broken response.
+  ///
+  /// An **empty** list is a real answer: the update endpoint replaces the
+  /// whole record, so a client re-sending identical values is ordinary, and
+  /// "this edit changed nothing" is a different statement from "this is not
+  /// an edit". Collapsing the two loses the only thing that tells them apart.
+  final List<String>? changedFields;
+
+  /// Who joined and who left the split, as the names they had at the time —
+  /// names, not ids, because the entry has to stay readable after the expense
+  /// it describes is gone. Being dropped from a split moves what you owe, and
+  /// this is the only place the timeline says it happened.
+  final List<String>? addedDisplayNames;
+  final List<String>? removedDisplayNames;
+
   /// A repayment's direction **relative to the actor**: `true` = the actor
   /// paid the counterpart. `null` on every non-settlement type. Turning this
   /// into "who paid whom" for a given reader is
@@ -98,6 +117,9 @@ class SplitActivity {
     required this.counterpartDisplayName,
     required this.amount,
     required this.previousAmount,
+    this.changedFields,
+    this.addedDisplayNames,
+    this.removedDisplayNames,
     required this.actorIsPayer,
     required this.currency,
     required this.description,
@@ -127,6 +149,9 @@ class SplitActivity {
         counterpartDisplayName: json['counterpart_display_name'] as String?,
         amount: json['amount'] as int?,
         previousAmount: json['previous_amount'] as int?,
+        changedFields: _stringList(json['changed_fields']),
+        addedDisplayNames: _stringList(json['added_display_names']),
+        removedDisplayNames: _stringList(json['removed_display_names']),
         actorIsPayer: json['actor_is_payer'] as bool?,
         currency: json['currency'] as String?,
         description: json['description'] as String?,
@@ -137,6 +162,12 @@ class SplitActivity {
     }
   }
 }
+
+/// A wire array of strings, or null when the key is absent or null. An empty
+/// array stays an empty list: it is the answer "this edit changed nothing",
+/// not the absence of an answer.
+List<String>? _stringList(dynamic value) =>
+    value == null ? null : [for (final item in value as List<dynamic>) item as String];
 
 /// One page of the change log.
 ///

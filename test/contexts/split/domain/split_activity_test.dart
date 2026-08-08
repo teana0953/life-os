@@ -28,6 +28,39 @@ Map<String, dynamic> _json({
 };
 
 void main() {
+  group('SplitActivity.fromJson — an edit\'s detail', () {
+    test('reads all three lists, key by key', () {
+      final activity = SplitActivity.fromJson({
+        ..._json(type: 'expense_updated', previousAmount: 1500),
+        'changed_fields': ['shares', 'day'],
+        'added_display_names': ['Cid'],
+        'removed_display_names': ['Ben'],
+      });
+
+      // Each from its own key: reading `added` where `removed` belongs still
+      // renders a plausible row, and says the opposite of what happened.
+      expect(activity.changedFields, ['shares', 'day']);
+      expect(activity.addedDisplayNames, ['Cid']);
+      expect(activity.removedDisplayNames, ['Ben']);
+    });
+
+    test('an empty list stays empty, and an absent key stays null', () {
+      // The two shapes the backend keeps apart (#87): "this edit changed
+      // nothing" versus "this is not an edit / an older backend". Collapsing
+      // either into the other loses the only thing telling them apart.
+      final empty = SplitActivity.fromJson({..._json(), 'changed_fields': <String>[]});
+      expect(empty.changedFields, isEmpty);
+      expect(empty.changedFields, isNotNull);
+
+      expect(SplitActivity.fromJson(_json()).changedFields, isNull);
+    });
+
+    test('a null value is null, not a crash', () {
+      final activity = SplitActivity.fromJson({..._json(), 'changed_fields': null});
+      expect(activity.changedFields, isNull);
+    });
+  });
+
   group('SplitActivity.fromJson', () {
     test('reads every field of the backend contract', () {
       final activity = SplitActivity.fromJson(
