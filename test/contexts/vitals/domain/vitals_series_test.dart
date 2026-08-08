@@ -15,6 +15,9 @@ void main() {
           'body_fat': [
             {'day': '2026-07-01', 'value': 20},
           ],
+          'waist': [
+            {'day': '2026-07-01', 'value': 78.5},
+          ],
           'systolic': [
             {'day': '2026-07-02', 'value': 120},
           ],
@@ -40,6 +43,7 @@ void main() {
       expect(range.series.weight.first.value, 65.5);
       // The snake_case keys body_fat / spo2 map to bodyFat / spo2.
       expect(range.series.bodyFat.single.value, 20);
+      expect(range.series.waist.single.value, 78.5);
       expect(range.series.systolic.single.value, 120);
       expect(range.series.diastolic.single.value, 80);
       expect(range.series.pulse.single.value, 70);
@@ -84,6 +88,10 @@ void main() {
       final series = VitalsSeries(
         weight: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 65)],
         bodyFat: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 20)],
+        // A value of its own, not an empty list: this test's whole job is
+        // catching a metric wired to the wrong series, and an empty one
+        // cannot be told apart from a right answer.
+        waist: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 78.5)],
         systolic: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 120)],
         diastolic: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 80)],
         pulse: [SeriesPoint(day: DateTime(2026, 7, 1), time: '', value: 70)],
@@ -93,6 +101,7 @@ void main() {
 
       expect(seriesFor(series, VitalsMetric.weight).single.value, 65);
       expect(seriesFor(series, VitalsMetric.bodyFat).single.value, 20);
+      expect(seriesFor(series, VitalsMetric.waist).single.value, 78.5);
       expect(seriesFor(series, VitalsMetric.systolic).single.value, 120);
       expect(seriesFor(series, VitalsMetric.diastolic).single.value, 80);
       expect(seriesFor(series, VitalsMetric.pulse).single.value, 70);
@@ -102,6 +111,13 @@ void main() {
   });
 
   group('metricsForView', () {
+    test('the waist view plots waist, not the neighbouring scalar', () {
+      // Every single-metric view is one line in a `switch`, and the two body
+      // scalars sit next to each other in it: a view pointing at the wrong
+      // one still draws a plausible chart with the right axis label.
+      expect(metricsForView(TrendView.waist), const [VitalsMetric.waist]);
+    });
+
     test('single-metric views map to one metric', () {
       expect(metricsForView(TrendView.weight), [VitalsMetric.weight]);
       expect(metricsForView(TrendView.bodyFat), [VitalsMetric.bodyFat]);
@@ -130,6 +146,15 @@ void main() {
       expect(normalRangeFor(VitalsMetric.glucose)!.max, 140);
       expect(normalRangeFor(VitalsMetric.spo2)!.min, 95);
       expect(normalRangeFor(VitalsMetric.spo2)!.max, 100);
+    });
+
+    test('waist has no range even when a height is known', () {
+      // `heightCm` is supplied deliberately: without it this assertion is
+      // satisfied by the same "no height, no range" path that weight takes,
+      // and it would keep passing if waist were ever given a range of its
+      // own. The clinical thresholds are sex-specific and this app records no
+      // sex, so there is no line that is right for everybody.
+      expect(normalRangeFor(VitalsMetric.waist, heightCm: 170), isNull);
     });
 
     test('weight derives a healthy-BMI range from height (165 cm)', () {

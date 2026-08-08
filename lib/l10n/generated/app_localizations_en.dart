@@ -519,6 +519,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vitalsHistoryTitle => 'Vitals log';
 
   @override
+  String get vitalsWaistLabel => 'Waist (cm)';
+
+  @override
+  String get trendMetricWaist => 'Waist';
+
+  @override
+  String get trendUnitCm => 'cm';
+
+  @override
   String get vitalsWeightLabel => 'Weight (kg)';
 
   @override

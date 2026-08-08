@@ -1041,6 +1041,24 @@ abstract class AppLocalizations {
   /// **'Vitals log'**
   String get vitalsHistoryTitle;
 
+  /// Label for the waist-circumference field on the vitals screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Waist (cm)'**
+  String get vitalsWaistLabel;
+
+  /// Trend tab and series label for waist circumference.
+  ///
+  /// In en, this message translates to:
+  /// **'Waist'**
+  String get trendMetricWaist;
+
+  /// Unit shown on the waist trend.
+  ///
+  /// In en, this message translates to:
+  /// **'cm'**
+  String get trendUnitCm;
+
   /// Label for the optional weight field (kilograms) on the vitals screen; empty means not recorded.
   ///
   /// In en, this message translates to:

@@ -63,6 +63,7 @@ class VitalsController extends ChangeNotifier {
   // Editable draft, populated on load/save and mutated by the screen.
   num? weightKg;
   num? bodyFatPct;
+  num? waistCm;
   List<BpReading> bpReadings = [];
   List<GlucoseReading> glucoseReadings = [];
   List<Spo2Reading> spo2Readings = [];
@@ -75,6 +76,7 @@ class VitalsController extends ChangeNotifier {
       day != null &&
       (weightKg != day!.weightKg ||
           bodyFatPct != day!.bodyFatPct ||
+          waistCm != day!.waistCm ||
           !listEquals(bpReadings, day!.bpReadings) ||
           !listEquals(glucoseReadings, day!.glucoseReadings) ||
           !listEquals(spo2Readings, day!.spo2Readings));
@@ -107,6 +109,11 @@ class VitalsController extends ChangeNotifier {
 
   void setBodyFat(num? value) {
     bodyFatPct = value;
+    notifyListeners();
+  }
+
+  void setWaist(num? value) {
+    waistCm = value;
     notifyListeners();
   }
 
@@ -180,6 +187,7 @@ class VitalsController extends ChangeNotifier {
             day: day,
             weightKg: weightKg,
             bodyFatPct: bodyFatPct,
+            waistCm: waistCm,
             bpReadings: bpReadings
                 .where((r) => !_isEmptyBp(r))
                 .map((r) => r.time.isEmpty ? r.copyWith(time: _nowHHmm()) : r)
@@ -221,6 +229,7 @@ class VitalsController extends ChangeNotifier {
     day = record;
     weightKg = record.weightKg;
     bodyFatPct = record.bodyFatPct;
+    waistCm = record.waistCm;
     bpReadings = [...record.bpReadings];
     glucoseReadings = [...record.glucoseReadings];
     spo2Readings = [...record.spo2Readings];

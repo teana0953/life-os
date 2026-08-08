@@ -24,6 +24,7 @@ class _FakeVitalsRepository implements VitalsRepository {
       series: VitalsSeries(
         weight: [SeriesPoint(day: from, time: '', value: 65)],
         bodyFat: const [],
+        waist: const [],
         systolic: const [],
         diastolic: const [],
         pulse: const [],
