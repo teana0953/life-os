@@ -508,13 +508,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vitalsHistoryTitle => '數值紀錄';
 
   @override
-  String get vitalsWaistLabel => 'Waist (cm)';
+  String get vitalsWaistLabel => '腰圍 (cm)';
 
   @override
-  String get trendMetricWaist => 'Waist';
+  String get trendMetricWaist => '腰圍';
 
   @override
-  String get trendUnitCm => 'cm';
+  String get trendUnitCm => '公分';
 
   @override
   String get vitalsWeightLabel => '體重(公斤)';
