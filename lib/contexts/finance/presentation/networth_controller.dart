@@ -164,13 +164,49 @@ class NetWorthController extends ChangeNotifier {
 
   /// Rewrites a whole kind group's order in one server-side atomic write.
   /// [orderedIds] must be exactly that group's ids, archived included.
-  Future<void> reorderAccounts(
+  ///
+  /// Deliberately **not** through [_mutate]: that reloads the month, which is
+  /// three parallel requests (accounts, monthly, trend) for a change that
+  /// alters nothing but a display order the client already holds in full.
+  /// That reload was most of the wait issue #136 is about. On success the
+  /// group is renumbered locally to match exactly what the server was told;
+  /// on failure nothing local moves, so the caller can put its own optimistic
+  /// order back.
+  ///
+  /// Returns whether the write landed. A caller showing the new order before
+  /// the answer arrives needs to know, and [status] alone cannot say: it stays
+  /// `loaded` here, because a failed reorder must not blank the figures on
+  /// screen.
+  Future<bool> reorderAccounts(
     String idToken,
     NetWorthKind kind,
     List<String> orderedIds,
-  ) => _mutate(idToken, () async {
-    await _reorderAccounts(idToken, kind, orderedIds);
-  });
+  ) async {
+    try {
+      await _reorderAccounts(idToken, kind, orderedIds);
+    } on FinanceReauthenticationRequired {
+      status = FinanceStatus.needsReauth;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      return false;
+    }
+    final position = {for (var i = 0; i < orderedIds.length; i++) orderedIds[i]: i};
+    accounts = [
+      for (final account in accounts)
+        position.containsKey(account.id)
+            ? NetWorthAccount(
+                id: account.id,
+                kind: account.kind,
+                name: account.name,
+                sortOrder: position[account.id]!,
+                archived: account.archived,
+              )
+            : account,
+    ];
+    notifyListeners();
+    return true;
+  }
 
   /// Runs a write [action] then reloads the selected month, mapping typed
   /// failures onto [status]/[error] — on failure the already-loaded figures

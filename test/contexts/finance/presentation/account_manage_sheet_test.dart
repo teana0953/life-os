@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/presentation/account_manage_sheet.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
@@ -59,7 +62,27 @@ const _twoAssets = [
   ),
 ];
 
+/// The on-screen top-to-bottom order of the given account rows.
+List<String> displayedOrder(WidgetTester tester, List<String> ids) {
+  final byDy = [
+    for (final id in ids)
+      (id: id, dy: tester.getTopLeft(find.byKey(Key('account-name-$id'))).dy),
+  ]..sort((a, b) => a.dy.compareTo(b.dy));
+  return [for (final row in byDy) row.id];
+}
+
+/// Past the sheet's reorder debounce, then let the write settle. A plain
+/// `pumpAndSettle` does not do it: the debounce is a `Timer`, not an
+/// animation, so no frame is scheduled for it and settling returns at once
+/// with the write never sent.
+Future<void> letTheWriteGo(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  _reorderResponsivenessTests();
+
   group('AccountManageSheet', () {
     testWidgets('adds an account with the chosen kind and name', (tester) async {
       final repo = FakeFinanceRepository();
@@ -251,7 +274,7 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('account-move-up-a2')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
 
       expect(controller.accounts.firstWhere((a) => a.id == 'a2').sortOrder, 0);
       expect(controller.accounts.firstWhere((a) => a.id == 'a1').sortOrder, 1);
@@ -270,15 +293,6 @@ void main() {
       archived: false,
     );
 
-    // The on-screen top-to-bottom order of the given account rows.
-    List<String> displayedOrder(WidgetTester tester, List<String> ids) {
-      final byDy = [
-        for (final id in ids)
-          (id: id, dy: tester.getTopLeft(find.byKey(Key('account-name-$id'))).dy),
-      ]..sort((a, b) => a.dy.compareTo(b.dy));
-      return [for (final row in byDy) row.id];
-    }
-
     testWidgets('moving up an account tied at sortOrder 0 actually reorders', (
       tester,
     ) async {
@@ -291,7 +305,7 @@ void main() {
       expect(displayedOrder(tester, ['a1', 'a2']), ['a1', 'a2']);
 
       await tester.tap(find.byKey(const Key('account-move-up-a2')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
 
       // Symptom (2)/(1): pressing "up" must visibly move the row up.
       expect(
@@ -317,9 +331,9 @@ void main() {
       // Symptom (1): the bottom account, moved up once per gap, must reach
       // the very top of its group.
       await tester.tap(find.byKey(const Key('account-move-up-a3')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
       await tester.tap(find.byKey(const Key('account-move-up-a3')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
 
       expect(
         displayedOrder(tester, ['a1', 'a2', 'a3']),
@@ -368,7 +382,7 @@ void main() {
       await _pumpSheet(tester, repo);
 
       await tester.tap(find.byKey(const Key('account-move-down-a1')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
 
       expect(
         displayedOrder(tester, ['a1', 'a2', 'a3']),
@@ -419,7 +433,7 @@ void main() {
       repo.networthCalls.clear();
 
       await tester.tap(find.byKey(const Key('account-move-up-a3')));
-      await tester.pumpAndSettle();
+      await letTheWriteGo(tester);
 
       expect(
         repo.networthCalls.where((c) => c.startsWith('reorder:')).length,
@@ -463,6 +477,172 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+/// Reordering, from the user's side of the wait (issue #136: "每次調整順序都
+/// 要等一陣子,如果要把某個項目調離原本距離很遠的話會很慢").
+///
+/// Each tap used to be a write **plus** a full month reload — three parallel
+/// requests for something that only changes a display order — with the whole
+/// sheet disabled meanwhile. Walking an account past five others meant five
+/// of those, one at a time.
+void _reorderResponsivenessTests() {
+  NetWorthAccount tied(String id, String name) => NetWorthAccount(
+    id: id,
+    kind: NetWorthKind.asset,
+    name: name,
+    sortOrder: 0,
+    archived: false,
+  );
+
+  FakeFinanceRepository threeTied() => FakeFinanceRepository()
+    ..accounts = [tied('a1', 'First'), tied('a2', 'Second'), tied('a3', 'Third')];
+
+  group('AccountManageSheet — reordering does not make the user wait', () {
+    testWidgets('the row moves before any request finishes', (tester) async {
+      final repo = threeTied();
+      final gate = Completer<void>();
+      repo.reorderGate = gate.future;
+      await _pumpSheet(tester, repo);
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pump();
+
+      // Still in flight, and the list has already moved. `pump` without
+      // settle is the whole point: `pumpAndSettle` would wait out exactly the
+      // latency being measured.
+      expect(gate.isCompleted, isFalse);
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a1', 'a3', 'a2']);
+
+      gate.complete();
+      await letTheWriteGo(tester);
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a1', 'a3', 'a2']);
+    });
+
+    testWidgets('the buttons stay live, so a burst of taps is possible at all', (tester) async {
+      final repo = threeTied();
+      final gate = Completer<void>();
+      repo.reorderGate = gate.future;
+      await _pumpSheet(tester, repo);
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pump();
+
+      // Disabled-while-busy is what made a far move N sequential waits: the
+      // second tap could not even be registered until the first round trip
+      // came back.
+      expect(
+        tester.widget<IconButton>(find.byKey(const Key('account-move-up-a3'))).onPressed,
+        isNotNull,
+      );
+
+      gate.complete();
+      await letTheWriteGo(tester);
+    });
+
+    testWidgets('a burst of taps is one request carrying the final order', (tester) async {
+      final repo = threeTied();
+      await _pumpSheet(tester, repo);
+      repo.networthCalls.clear();
+
+      // Walking a3 to the top: two taps in a row, as fast as a person can
+      // press them.
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await letTheWriteGo(tester);
+
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a3', 'a1', 'a2']);
+      final reorders = repo.networthCalls.where((c) => c.startsWith('reorder:')).toList();
+      // One call, and it carries where the account ended up — not the
+      // intermediate order the first tap produced.
+      expect(reorders, ['reorder:asset:a3,a1,a2']);
+    });
+
+    testWidgets('reordering does not refetch the month', (tester) async {
+      // The reload was three parallel requests (accounts, monthly, trend) for
+      // a change to a display order the client already knows in full.
+      final repo = threeTied();
+      await _pumpSheet(tester, repo);
+      final trendsBefore = repo.trendCalls.length;
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await letTheWriteGo(tester);
+
+      expect(repo.trendCalls.length, trendsBefore);
+    });
+
+    testWidgets('closing the sheet right after a tap still sends the write', (tester) async {
+      // The debounce cannot become a way to lose the change: a user who taps
+      // and immediately dismisses the sheet meant it.
+      final repo = threeTied();
+      final controller = testNetWorthController(repo);
+      await controller.load('token', '2026-07');
+      var showSheet = true;
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: StatefulBuilder(
+            builder: (context, setState) => Scaffold(
+              body: Column(
+                children: [
+                  TextButton(
+                    key: const Key('close-sheet'),
+                    onPressed: () => setState(() => showSheet = false),
+                    child: const Text('close'),
+                  ),
+                  if (showSheet)
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: controller,
+                        builder: (context, _) => AccountManageSheet(
+                          controller: controller,
+                          idToken: () async => 'token',
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      repo.networthCalls.clear();
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('close-sheet')));
+      // A zero-duration frame first, so the sheet is really gone before the
+      // clock moves. `pump(500ms)` advances time *then* builds, which fires
+      // the debounce while the sheet is still mounted — the write goes out
+      // through the ordinary path and the dispose flush is never exercised.
+      // Written the obvious way, this test passed with that flush deleted.
+      await tester.pump();
+      expect(find.byKey(const Key('account-move-up-a3')), findsNothing);
+      await letTheWriteGo(tester);
+
+      expect(
+        repo.networthCalls.where((c) => c.startsWith('reorder:')).toList(),
+        ['reorder:asset:a1,a3,a2'],
+      );
+    });
+
+    testWidgets('a failed write puts the order back and says so', (tester) async {
+      // Optimism has to be reversible. Left alone, the screen would keep
+      // showing an order the server never accepted, and the next reload would
+      // silently undo it in front of the user.
+      final repo = threeTied();
+      await _pumpSheet(tester, repo);
+      // Armed after the initial load, which would otherwise spend it.
+      repo.failNext = const FinanceFetchFailure('boom');
+
+      await tester.tap(find.byKey(const Key('account-move-up-a3')));
+      await letTheWriteGo(tester);
+
+      expect(displayedOrder(tester, ['a1', 'a2', 'a3']), ['a1', 'a2', 'a3']);
+      expect(find.text(_loc.financeSaveFailed), findsOneWidget);
     });
   });
 }
