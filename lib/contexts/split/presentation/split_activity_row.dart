@@ -40,6 +40,7 @@ class SplitActivityRow extends StatelessWidget {
 
     final headline = _headline(loc);
     final direction = _directionLine(loc);
+    final changeLines = _changeLines(loc);
     final amountLabel = _amountLabel(loc);
     // The spoken form differs from the painted one for exactly one shape: an
     // edit's before→after pair. "2,000 → 1,500" is read out as the two
@@ -51,9 +52,13 @@ class SplitActivityRow extends StatelessWidget {
     // One sentence, not four fragments: a screen reader otherwise reads the
     // headline, the direction, the number and the timestamp as unrelated
     // nodes and the row stops being a statement about anything.
-    final what = direction == null
+    // Every line the row paints goes into the one spoken sentence, the
+    // change lines included: a screen-reader user hearing "Amy edited Dinner"
+    // and nothing else is back where this issue started.
+    final detail = [if (direction != null) direction, ...changeLines];
+    final what = detail.isEmpty
         ? headline
-        : loc.splitActivityRowDetail(headline, direction);
+        : loc.splitActivityRowDetail(headline, detail.join(loc.splitActivityDetailSeparator));
     final semanticLabel = spokenAmountLabel == null
         ? loc.splitActivityRowSemanticsNoAmount(what, timeLabel)
         : loc.splitActivityRowSemantics(what, spokenAmountLabel, timeLabel);
@@ -65,7 +70,7 @@ class SplitActivityRow extends StatelessWidget {
       label: semanticLabel,
       child: ListTile(
         key: Key('split-activity-row-${entry.id}'),
-        isThreeLine: direction != null || amountLabel != null,
+        isThreeLine: direction != null || amountLabel != null || changeLines.isNotEmpty,
         leading: Icon(_icon),
         // The headline gets the whole row, and the amount is **stacked under
         // it** rather than sharing the row with it. `SplitExpenseRow` puts
@@ -97,6 +102,8 @@ class SplitActivityRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (direction != null) Text(direction),
+            for (var i = 0; i < changeLines.length; i++)
+              Text(key: Key('split-activity-change-${entry.id}-$i'), changeLines[i]),
             if (amountLabel != null)
               Text(
                 amountLabel,
@@ -206,6 +213,51 @@ class SplitActivityRow extends StatelessWidget {
       ),
     };
   }
+
+  /// What an edit touched, as up to three lines: who left the split, who
+  /// joined it, and which plain fields moved.
+  ///
+  /// Ordered with the removal first because it is the consequential one — the
+  /// person dropped from a split had their balance change and was told
+  /// nothing until this line existed (issue #74).
+  ///
+  /// `amount` is deliberately **not** in the field list: the before→after
+  /// pair below already is its rendering, and naming it as well would say the
+  /// same thing twice. `currency` stays, because a currency change with an
+  /// unchanged number draws no arrow at all.
+  List<String> _changeLines(AppLocalizations loc) {
+    final changed = entry.changedFields;
+    if (changed == null) return const [];
+    final removed = entry.removedDisplayNames ?? const [];
+    final added = entry.addedDisplayNames ?? const [];
+    // An empty list is an answer, not an absence: saving a record unchanged
+    // is ordinary, and a silent row is what this whole change was about.
+    if (changed.isEmpty) return [loc.splitActivityChangedNothing];
+
+    final fields = [
+      for (final field in changed)
+        if (field != 'amount') _fieldName(loc, field),
+    ];
+    return [
+      if (removed.isNotEmpty) loc.splitActivityParticipantsRemoved(removed.join(loc.splitActivityNameSeparator)),
+      if (added.isNotEmpty) loc.splitActivityParticipantsAdded(added.join(loc.splitActivityNameSeparator)),
+      if (fields.isNotEmpty) loc.splitActivityChangedFields(fields.join(loc.splitActivityNameSeparator)),
+    ];
+  }
+
+  /// A wire field name in the reader's language. An unrecognised one is
+  /// reported as "something else" rather than dropped: the backend ships
+  /// independently of this app, and a change the reader is never told about
+  /// is the failure this row exists to end — the same reasoning as
+  /// [SplitActivityType.unknown].
+  String _fieldName(AppLocalizations loc, String field) => switch (field) {
+    'currency' => loc.splitActivityChangedFieldCurrency,
+    'description' => loc.splitActivityChangedFieldDescription,
+    'day' => loc.splitActivityChangedFieldDay,
+    'payer' => loc.splitActivityChangedFieldPayer,
+    'shares' => loc.splitActivityChangedFieldShares,
+    _ => loc.splitActivityChangedFieldOther,
+  };
 
   /// The amount, or before→after when an edit actually moved it. With
   /// [spoken] the pair is worded ("from X to Y") instead of drawn with an

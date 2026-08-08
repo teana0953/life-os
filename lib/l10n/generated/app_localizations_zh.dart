@@ -2544,6 +2544,48 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get splitActivityChangedNothing => 'This edit changed nothing';
+
+  @override
+  String get splitActivityChangedFieldCurrency => 'currency';
+
+  @override
+  String get splitActivityChangedFieldDescription => 'description';
+
+  @override
+  String get splitActivityChangedFieldDay => 'date';
+
+  @override
+  String get splitActivityChangedFieldPayer => 'who paid';
+
+  @override
+  String get splitActivityChangedFieldShares => 'the split';
+
+  @override
+  String get splitActivityChangedFieldOther => 'something else';
+
+  @override
+  String splitActivityChangedFields(String fields) {
+    return 'Changed $fields';
+  }
+
+  @override
+  String splitActivityParticipantsAdded(String names) {
+    return 'Added to the split: $names';
+  }
+
+  @override
+  String splitActivityParticipantsRemoved(String names) {
+    return 'Removed from the split: $names';
+  }
+
+  @override
+  String get splitActivityNameSeparator => ', ';
+
+  @override
+  String get splitActivityDetailSeparator => '. ';
+
+  @override
   String splitActivityAmountChange(String previous, String amount) {
     return '$previous → $amount';
   }
@@ -5119,6 +5161,48 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String splitActivityRepaymentBetween(String payer, String payee) {
     return '$payer 付給 $payee';
   }
+
+  @override
+  String get splitActivityChangedNothing => '這次修改沒有變更';
+
+  @override
+  String get splitActivityChangedFieldCurrency => '幣別';
+
+  @override
+  String get splitActivityChangedFieldDescription => '說明';
+
+  @override
+  String get splitActivityChangedFieldDay => '日期';
+
+  @override
+  String get splitActivityChangedFieldPayer => '付款人';
+
+  @override
+  String get splitActivityChangedFieldShares => '分攤';
+
+  @override
+  String get splitActivityChangedFieldOther => '其他項目';
+
+  @override
+  String splitActivityChangedFields(String fields) {
+    return '改了$fields';
+  }
+
+  @override
+  String splitActivityParticipantsAdded(String names) {
+    return '加入分攤:$names';
+  }
+
+  @override
+  String splitActivityParticipantsRemoved(String names) {
+    return '移出分攤:$names';
+  }
+
+  @override
+  String get splitActivityNameSeparator => '、';
+
+  @override
+  String get splitActivityDetailSeparator => ',';
 
   @override
   String splitActivityAmountChange(String previous, String amount) {

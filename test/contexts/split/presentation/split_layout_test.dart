@@ -428,6 +428,13 @@ SplitActivity _amountChangeEntry({String id = 'a1'}) => SplitActivity(
   counterpartDisplayName: null,
   amount: 12500,
   previousAmount: 18000,
+  // The tallest shape an edit row has: the amount pair *and* three change
+  // lines, with the names as long as any other fixture here. A guard whose
+  // fixture is not the worst case stops guarding the moment the worst case
+  // ships.
+  changedFields: const ['amount', 'shares', 'day'],
+  addedDisplayNames: const [_longName],
+  removedDisplayNames: const [_longName],
   actorIsPayer: null,
   currency: 'TWD',
   description: _longName,

@@ -3652,6 +3652,69 @@
       }
     }
   },
+  "splitActivityChangedNothing": "This edit changed nothing",
+  "@splitActivityChangedNothing": {
+    "description": "Shown on an edit entry whose change list is empty \u2014 the update endpoint replaces the whole record, so re-saving identical values is ordinary."
+  },
+  "splitActivityChangedFieldCurrency": "currency",
+  "@splitActivityChangedFieldCurrency": {
+    "description": "One entry in an edit's list of what changed."
+  },
+  "splitActivityChangedFieldDescription": "description",
+  "@splitActivityChangedFieldDescription": {
+    "description": "One entry in an edit's list of what changed."
+  },
+  "splitActivityChangedFieldDay": "date",
+  "@splitActivityChangedFieldDay": {
+    "description": "One entry in an edit's list of what changed."
+  },
+  "splitActivityChangedFieldPayer": "who paid",
+  "@splitActivityChangedFieldPayer": {
+    "description": "One entry in an edit's list of what changed."
+  },
+  "splitActivityChangedFieldShares": "the split",
+  "@splitActivityChangedFieldShares": {
+    "description": "One entry in an edit's list of what changed. Covers both who is in the split and how much each owes."
+  },
+  "splitActivityChangedFieldOther": "something else",
+  "@splitActivityChangedFieldOther": {
+    "description": "Stands in for a change this build does not have a name for, so a newer backend's field is reported rather than silently dropped."
+  },
+  "splitActivityChangedFields": "Changed {fields}",
+  "@splitActivityChangedFields": {
+    "description": "An edit's list of what it touched.",
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityParticipantsAdded": "Added to the split: {names}",
+  "@splitActivityParticipantsAdded": {
+    "description": "Who joined a split in this edit.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityParticipantsRemoved": "Removed from the split: {names}",
+  "@splitActivityParticipantsRemoved": {
+    "description": "Who left a split in this edit. The most consequential line on the row \u2014 their balance moved.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "splitActivityNameSeparator": ", ",
+  "@splitActivityNameSeparator": {
+    "description": "Joins names or field names inside one change line. A separate string because the comma differs by script."
+  },
+  "splitActivityDetailSeparator": ". ",
+  "@splitActivityDetailSeparator": {
+    "description": "Joins the row's detail lines into the single sentence a screen reader announces."
+  },
   "splitActivityAmountChange": "{previous} → {amount}",
   "@splitActivityAmountChange": {
     "description": "Shown in place of a plain amount on a change-log edit entry when the amount actually moved. Not shown when the edit left the amount alone, which is most of them.",

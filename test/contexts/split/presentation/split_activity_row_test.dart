@@ -20,6 +20,9 @@ SplitActivity _entry({
   int? previousAmount,
   bool? actorIsPayer,
   String? description = 'Dinner',
+  List<String>? changedFields,
+  List<String>? addedDisplayNames,
+  List<String>? removedDisplayNames,
 }) => SplitActivity(
   id: 'a1',
   type: type,
@@ -32,6 +35,9 @@ SplitActivity _entry({
   counterpartDisplayName: counterpartDisplayName,
   amount: amount,
   previousAmount: previousAmount,
+  changedFields: changedFields,
+  addedDisplayNames: addedDisplayNames,
+  removedDisplayNames: removedDisplayNames,
   actorIsPayer: actorIsPayer,
   currency: 'TWD',
   description: description,
@@ -53,6 +59,8 @@ Widget _row(SplitActivity entry, {String? selfUserId = _self}) => l10nTestApp(
 final _loc = lookupAppLocalizations(const Locale('en'));
 
 void main() {
+  _editDetailTests();
+
   group('SplitActivityRow — the subject of each event type', () {
     // Each type gets its own wording; none may fall through to a generic
     // "someone changed something", which is the whole point of a change log.
@@ -405,6 +413,158 @@ void main() {
           '${mediumDateLabelOrDash(context, '2026-08-01')} 10:30',
         ),
       );
+    });
+  });
+}
+
+/// What an edit says it did (issue #74, backend #87).
+///
+/// Before the backend recorded this, an edit that moved only the split
+/// rendered as "Amy edited Dinner" with both amounts equal — a line that
+/// reads as nothing having happened while what changed was what somebody
+/// owes. These guard the rendering of the answer, and the two shapes that
+/// look alike and are not: an edit that changed nothing, and an entry that
+/// carries no answer at all.
+void _editDetailTests() {
+  List<String> changeLines(WidgetTester tester) {
+    final texts = <String>[];
+    for (var i = 0; ; i++) {
+      final finder = find.byKey(Key('split-activity-change-a1-$i'));
+      if (finder.evaluate().isEmpty) return texts;
+      texts.add(tester.widget<Text>(finder).data!);
+    }
+  }
+
+  group('SplitActivityRow — what an edit changed', () {
+    testWidgets('names who was dropped from the split, first', (tester) async {
+      // First because it is the consequential one: that person's balance
+      // moved and nothing else on the timeline says so.
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            previousAmount: 2000,
+            changedFields: ['shares'],
+            addedDisplayNames: ['Cid'],
+            removedDisplayNames: ['Ben'],
+          ),
+        ),
+      );
+
+      expect(changeLines(tester), [
+        _loc.splitActivityParticipantsRemoved('Ben'),
+        _loc.splitActivityParticipantsAdded('Cid'),
+        _loc.splitActivityChangedFields(_loc.splitActivityChangedFieldShares),
+      ]);
+    });
+
+    testWidgets('does not name the amount twice', (tester) async {
+      // The before→after pair is the amount's rendering; listing it again as
+      // a changed field says the same thing twice.
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            amount: 2000,
+            previousAmount: 1500,
+            changedFields: ['amount', 'day'],
+            addedDisplayNames: const [],
+            removedDisplayNames: const [],
+          ),
+        ),
+      );
+
+      expect(changeLines(tester), [
+        _loc.splitActivityChangedFields(_loc.splitActivityChangedFieldDay),
+      ]);
+      expect(
+        find.text(_loc.splitActivityAmountChange('1,500', '2,000')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a currency change is still named, since no arrow is drawn for it', (tester) async {
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            amount: 2000,
+            previousAmount: 2000,
+            changedFields: ['currency'],
+          ),
+        ),
+      );
+
+      expect(changeLines(tester), [
+        _loc.splitActivityChangedFields(_loc.splitActivityChangedFieldCurrency),
+      ]);
+    });
+
+    testWidgets('an edit that changed nothing says so', (tester) async {
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            previousAmount: 2000,
+            changedFields: const [],
+            addedDisplayNames: const [],
+            removedDisplayNames: const [],
+          ),
+        ),
+      );
+
+      expect(changeLines(tester), [_loc.splitActivityChangedNothing]);
+    });
+
+    testWidgets('an entry with no answer at all stays silent', (tester) async {
+      // Not the same row as the one above. A backend that predates this
+      // field, or any non-edit type, sends nothing — and inventing "changed
+      // nothing" there would be a claim the server never made.
+      await tester.pumpWidget(
+        _row(_entry(type: SplitActivityType.expenseUpdated, previousAmount: 2000)),
+      );
+
+      expect(changeLines(tester), isEmpty);
+    });
+
+    testWidgets('a field this build has no name for is reported, not dropped', (tester) async {
+      // The backend ships independently. A change the reader is never told
+      // about is exactly what this row exists to end.
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            previousAmount: 2000,
+            changedFields: ['category'],
+          ),
+        ),
+      );
+
+      expect(changeLines(tester), [
+        _loc.splitActivityChangedFields(_loc.splitActivityChangedFieldOther),
+      ]);
+    });
+
+    testWidgets('every change line is in the spoken sentence', (tester) async {
+      // A screen-reader user hearing "Amy edited Dinner" and nothing else is
+      // back where the issue started.
+      await tester.pumpWidget(
+        _row(
+          _entry(
+            type: SplitActivityType.expenseUpdated,
+            previousAmount: 2000,
+            changedFields: ['shares'],
+            removedDisplayNames: ['Ben'],
+          ),
+        ),
+      );
+
+      final label = tester
+          .widget<Semantics>(find.byKey(const Key('split-activity-semantics-a1')))
+          .properties
+          .label!;
+      expect(label, contains(_loc.splitActivityParticipantsRemoved('Ben')));
+      expect(label, contains(_loc.splitActivityChangedFieldShares));
     });
   });
 }

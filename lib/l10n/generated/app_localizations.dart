@@ -4716,6 +4716,78 @@ abstract class AppLocalizations {
   /// **'{payer} paid {payee}'**
   String splitActivityRepaymentBetween(String payer, String payee);
 
+  /// Shown on an edit entry whose change list is empty — the update endpoint replaces the whole record, so re-saving identical values is ordinary.
+  ///
+  /// In en, this message translates to:
+  /// **'This edit changed nothing'**
+  String get splitActivityChangedNothing;
+
+  /// One entry in an edit's list of what changed.
+  ///
+  /// In en, this message translates to:
+  /// **'currency'**
+  String get splitActivityChangedFieldCurrency;
+
+  /// One entry in an edit's list of what changed.
+  ///
+  /// In en, this message translates to:
+  /// **'description'**
+  String get splitActivityChangedFieldDescription;
+
+  /// One entry in an edit's list of what changed.
+  ///
+  /// In en, this message translates to:
+  /// **'date'**
+  String get splitActivityChangedFieldDay;
+
+  /// One entry in an edit's list of what changed.
+  ///
+  /// In en, this message translates to:
+  /// **'who paid'**
+  String get splitActivityChangedFieldPayer;
+
+  /// One entry in an edit's list of what changed. Covers both who is in the split and how much each owes.
+  ///
+  /// In en, this message translates to:
+  /// **'the split'**
+  String get splitActivityChangedFieldShares;
+
+  /// Stands in for a change this build does not have a name for, so a newer backend's field is reported rather than silently dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'something else'**
+  String get splitActivityChangedFieldOther;
+
+  /// An edit's list of what it touched.
+  ///
+  /// In en, this message translates to:
+  /// **'Changed {fields}'**
+  String splitActivityChangedFields(String fields);
+
+  /// Who joined a split in this edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to the split: {names}'**
+  String splitActivityParticipantsAdded(String names);
+
+  /// Who left a split in this edit. The most consequential line on the row — their balance moved.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from the split: {names}'**
+  String splitActivityParticipantsRemoved(String names);
+
+  /// Joins names or field names inside one change line. A separate string because the comma differs by script.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get splitActivityNameSeparator;
+
+  /// Joins the row's detail lines into the single sentence a screen reader announces.
+  ///
+  /// In en, this message translates to:
+  /// **'. '**
+  String get splitActivityDetailSeparator;
+
   /// Shown in place of a plain amount on a change-log edit entry when the amount actually moved. Not shown when the edit left the amount alone, which is most of them.
   ///
   /// In en, this message translates to:
