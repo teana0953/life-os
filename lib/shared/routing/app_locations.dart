@@ -12,9 +12,10 @@ const splashLocation = '/splash';
 const authErrorLocation = '/auth-error';
 const loginLocation = '/login';
 const registerLocation = '/register';
+const passwordResetLocation = '/reset-password';
 
 bool isTransientLocation(String loc) =>
     loc == splashLocation || loc == authErrorLocation;
 
 bool isAuthGateLocation(String loc) =>
-    loc == loginLocation || loc == registerLocation;
+    loc == loginLocation || loc == registerLocation || loc == passwordResetLocation;

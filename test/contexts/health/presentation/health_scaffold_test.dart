@@ -104,6 +104,9 @@ import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<String?> idToken() async => 'token-123';
 
   @override
@@ -122,6 +125,9 @@ class _FakeAuthRepository implements AuthRepository {
 /// An [AuthRepository] whose token can be changed mid-test, standing in for
 /// Firebase renewing it while the scaffold stays mounted.
 class _RotatingAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   String token;
 
   _RotatingAuthRepository({this.token = 'token-1'});
@@ -148,6 +154,9 @@ class _RotatingAuthRepository implements AuthRepository {
 /// without depending on how many token fetches happen before it (e.g. if
 /// `_load` ever grows another one).
 class _ThrowingAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   bool _armed = false;
 
   /// Arms the next [idToken] call to throw.

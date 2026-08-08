@@ -38,6 +38,15 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw AuthFailure(authFailureCodeFor(e.code));
+    }
+  }
+
+  @override
   Future<void> signOut() {
     return _auth.signOut();
   }

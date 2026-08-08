@@ -19,6 +19,9 @@ import '../../../support/l10n_test_app.dart';
 import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   /// What the next [idToken] call resolves to. Mutable so a test can simulate
   /// Firebase renewing the token while the screen stays open.
   String token;

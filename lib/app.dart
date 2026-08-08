@@ -4,10 +4,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'contexts/auth/application/sign_out.dart';
+import 'contexts/auth/application/send_password_reset.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
+import 'contexts/auth/presentation/password_reset_screen.dart';
 import 'contexts/auth/presentation/register_screen.dart';
 import 'contexts/body_profile/presentation/weight_goal_controller.dart';
 import 'contexts/health_calendar/presentation/health_calendar_controller.dart';
@@ -186,6 +188,7 @@ class App extends StatefulWidget {
   final ThemeController themeController;
   final SignOut signOut;
   final SignUp signUp;
+  final SendPasswordReset sendPasswordReset;
   final TodayController healthTodayController;
   final DictionaryController healthDictionaryController;
   final DailyTargetController healthDailyTargetController;
@@ -287,6 +290,7 @@ class App extends StatefulWidget {
     required this.themeController,
     required this.signOut,
     required this.signUp,
+    required this.sendPasswordReset,
     required this.healthTodayController,
     required this.healthDictionaryController,
     required this.healthDailyTargetController,
@@ -573,6 +577,16 @@ class _AppState extends State<App> {
             controller: widget.loginController,
             localeController: widget.localeController,
             signUp: widget.signUp,
+          ),
+        ),
+        GoRoute(
+          path: passwordResetLocation,
+          builder: (context, state) => PasswordResetScreen(
+            sendPasswordReset: widget.sendPasswordReset,
+            localeController: widget.localeController,
+            // `extra` is whatever the sign-in screen had typed; a direct
+            // visit (a bookmark, a shared link) has none and starts empty.
+            initialEmail: state.extra is String ? state.extra as String : '',
           ),
         ),
         GoRoute(

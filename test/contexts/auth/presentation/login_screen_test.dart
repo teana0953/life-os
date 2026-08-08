@@ -2,17 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/auth/presentation/login_screen.dart';
+import 'package:life_os/shared/routing/app_locations.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   static const validEmail = 'user@example.com';
   static const validPassword = 'correct-password';
 
@@ -45,6 +50,9 @@ class FakeAuthRepository implements AuthRepository {
 /// (e.g. a network error) that is not a known [AuthFailure].
 class UnknownErrorAuthRepository implements AuthRepository {
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<void> signIn(String email, String password) async {
     throw Exception('SocketException: Connection refused at 10.0.0.5:443');
   }
@@ -64,6 +72,9 @@ class UnknownErrorAuthRepository implements AuthRepository {
 
 /// Never completes sign-in, letting a test observe the loading state.
 class HangingAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   final Completer<void> signInCompleter = Completer<void>();
 
   @override
@@ -298,6 +309,54 @@ void main() {
 
         expect(find.text(zhHant.welcomeBack), findsOneWidget);
         expect(find.text(en.welcomeBack), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the forgot-password link goes to the reset screen, carrying the typed address',
+      (tester) async {
+        // Someone who has just failed to sign in has the address on screen.
+        // Making them type it again is asking them to get it right twice, and
+        // a typo here produces no error at all — the reset screen cannot say
+        // "no such account" without becoming an enumeration oracle.
+        final repository = FakeAuthRepository();
+        final controller = LoginController(SignIn(repository));
+        final localeController = await testLocaleController();
+        // A router of this test's own, because the shared stub renders the
+        // matched location and nothing else — it cannot see `extra`, which is
+        // the entire thing being asserted here.
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) => LoginScreen(
+                controller: controller,
+                localeController: localeController,
+                signUp: SignUp(repository),
+              ),
+            ),
+            GoRoute(
+              path: passwordResetLocation,
+              builder: (context, state) => Scaffold(body: Text('carried:${state.extra}')),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byKey(const Key('email-field')), 'typed@example.com');
+        await tester.tap(find.byKey(const Key('forgot-password-link')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('carried:typed@example.com'), findsOneWidget);
       },
     );
 

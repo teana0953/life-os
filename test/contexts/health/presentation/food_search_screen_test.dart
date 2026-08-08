@@ -203,6 +203,9 @@ class FakeMealRepository implements MealRepository {
 }
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   bool signOutCalled = false;
 
   @override

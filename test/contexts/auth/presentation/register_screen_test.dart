@@ -10,6 +10,9 @@ import 'package:life_os/l10n/generated/app_localizations.dart';
 import '../../../support/l10n_test_app.dart';
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   static const validEmail = 'new-user@example.com';
 
   bool signUpCalled = false;

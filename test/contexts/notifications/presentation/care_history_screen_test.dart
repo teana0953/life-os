@@ -20,6 +20,9 @@ import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   /// When set, [idToken] awaits this instead of resolving immediately —
   /// lets a test hold the token resolution in flight (task 4.7).
   Completer<String?>? idTokenCompleter;

@@ -33,6 +33,9 @@ class _FakePwaInstall implements PwaInstall {
 }
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   bool signOutCalled = false;
 
   @override

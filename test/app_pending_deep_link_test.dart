@@ -89,6 +89,9 @@ class _RepeatingFakeStore implements PendingDeepLinkStore {
 /// token captured at the last auth event is stale within the hour — exactly
 /// the "tapped the next morning" case the reload exists for.
 class _RotatingTokenAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   String token = 'stale-token';
 
   @override

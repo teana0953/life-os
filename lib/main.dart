@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'contexts/auth/application/sign_in.dart';
 import 'contexts/auth/application/sign_out.dart';
+import 'contexts/auth/application/send_password_reset.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/infrastructure/firebase_auth_repository.dart';
 import 'contexts/auth/presentation/login_controller.dart';
@@ -402,6 +403,7 @@ Future<void> main() async {
       themeController: themeController,
       signOut: signOut,
       signUp: signUp,
+      sendPasswordReset: SendPasswordReset(authRepository),
       healthTodayController: healthTodayController,
       healthDictionaryController: healthDictionaryController,
       healthDailyTargetController: healthDailyTargetController,

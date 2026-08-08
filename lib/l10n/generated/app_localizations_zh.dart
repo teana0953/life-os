@@ -15,6 +15,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get signInSubtitle => '登入 Life OS';
 
   @override
+  String get passwordResetTitle => 'Reset your password';
+
+  @override
+  String get passwordResetSubtitle =>
+      'We\'ll email you a link to set a new one.';
+
+  @override
+  String get passwordResetButton => 'Send reset link';
+
+  @override
+  String get passwordResetSending => 'Sending';
+
+  @override
+  String get forgotPasswordLink => 'Forgot your password?';
+
+  @override
+  String get passwordResetSentTitle => 'Check your inbox';
+
+  @override
+  String get passwordResetSentBody =>
+      'If that address has an account, a reset link is on its way. It can land in spam — look for a message from noreply.';
+
+  @override
+  String get passwordResetBackToSignIn => 'Back to sign in';
+
+  @override
+  String get errorTooManyResetRequests =>
+      'Too many attempts. Wait a few minutes and try again.';
+
+  @override
   String get emailLabel => '電子郵件';
 
   @override
@@ -2634,6 +2664,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get signInSubtitle => '登入 Life OS';
+
+  @override
+  String get passwordResetTitle => '重設密碼';
+
+  @override
+  String get passwordResetSubtitle => '我們會寄一封重設連結給你。';
+
+  @override
+  String get passwordResetButton => '寄出重設連結';
+
+  @override
+  String get passwordResetSending => '寄送中';
+
+  @override
+  String get forgotPasswordLink => '忘記密碼?';
+
+  @override
+  String get passwordResetSentTitle => '去收信箱';
+
+  @override
+  String get passwordResetSentBody =>
+      '如果這個信箱有帳號,重設連結已經寄出。信件可能被歸到垃圾郵件,寄件人是 noreply。';
+
+  @override
+  String get passwordResetBackToSignIn => '回到登入';
+
+  @override
+  String get errorTooManyResetRequests => '嘗試太多次了,等幾分鐘再試。';
 
   @override
   String get emailLabel => '電子郵件';

@@ -20,6 +20,9 @@ import 'package:life_os/shared/date/day_format.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   bool signedOut = false;
   int idTokenCalls = 0;
 

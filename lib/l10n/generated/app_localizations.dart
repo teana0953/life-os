@@ -111,6 +111,60 @@ abstract class AppLocalizations {
   /// **'Sign in to Life OS'**
   String get signInSubtitle;
 
+  /// Title of the password-reset screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset your password'**
+  String get passwordResetTitle;
+
+  /// Subtitle of the password-reset screen.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll email you a link to set a new one.'**
+  String get passwordResetSubtitle;
+
+  /// Submit button on the password-reset screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Send reset link'**
+  String get passwordResetButton;
+
+  /// Announced while the reset request is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending'**
+  String get passwordResetSending;
+
+  /// Link on the sign-in screen that opens the password-reset screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get forgotPasswordLink;
+
+  /// Heading shown after a reset request is accepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your inbox'**
+  String get passwordResetSentTitle;
+
+  /// Confirmation after a reset request. Deliberately the same whether or not the address has an account: saying which would let anyone test whether an address uses this app.
+  ///
+  /// In en, this message translates to:
+  /// **'If that address has an account, a reset link is on its way. It can land in spam — look for a message from noreply.'**
+  String get passwordResetSentBody;
+
+  /// Returns from the password-reset screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to sign in'**
+  String get passwordResetBackToSignIn;
+
+  /// Shown when the auth service throttles repeated reset requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a few minutes and try again.'**
+  String get errorTooManyResetRequests;
+
   /// Label for the email text field on the sign-in screen.
   ///
   /// In en, this message translates to:

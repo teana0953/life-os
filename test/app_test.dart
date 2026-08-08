@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:life_os/app.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
+import 'package:life_os/contexts/auth/application/send_password_reset.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/application/sign_up.dart';
 import 'package:life_os/contexts/auth/domain/auth_exceptions.dart';
@@ -1082,6 +1083,9 @@ class _FakeHealthCalendarRepository implements HealthCalendarRepository {
 }
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   static const validEmail = 'user@example.com';
   static const validPassword = 'correct-password';
 
@@ -1132,6 +1136,9 @@ class FakeAuthRepository implements AuthRepository {
 }
 
 class ErroringAuthRepository implements AuthRepository {
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   @override
   Future<void> signIn(String email, String password) async {}
 
@@ -1352,6 +1359,7 @@ Future<LocaleController> pumpApp(
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
+      sendPasswordReset: SendPasswordReset(authRepository),
       financeRepository: _FakeFinanceRepository(),
       loginController: loginController,
       homeController: homeController,
