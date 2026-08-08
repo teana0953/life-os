@@ -58,6 +58,7 @@ class _TrendCardState extends State<TrendCard> {
   String _viewLabel(AppLocalizations loc, TrendView view) => switch (view) {
     TrendView.weight => loc.trendMetricWeight,
     TrendView.bodyFat => loc.trendMetricBodyFat,
+    TrendView.waist => loc.trendMetricWaist,
     TrendView.bloodPressurePulse => loc.trendMetricBloodPressurePulse,
     TrendView.glucose => loc.trendMetricGlucose,
     TrendView.spo2 => loc.trendMetricSpo2,
@@ -69,6 +70,7 @@ class _TrendCardState extends State<TrendCard> {
       switch (metric) {
         VitalsMetric.weight => loc.trendMetricWeight,
         VitalsMetric.bodyFat => loc.trendMetricBodyFat,
+        VitalsMetric.waist => loc.trendMetricWaist,
         VitalsMetric.systolic => loc.trendMetricSystolic,
         VitalsMetric.diastolic => loc.trendMetricDiastolic,
         VitalsMetric.pulse => loc.trendMetricPulse,
@@ -81,6 +83,7 @@ class _TrendCardState extends State<TrendCard> {
   String _viewUnit(AppLocalizations loc, TrendView view) => switch (view) {
     TrendView.weight => loc.trendUnitKg,
     TrendView.bodyFat => loc.trendUnitPercent,
+    TrendView.waist => loc.trendUnitCm,
     TrendView.bloodPressurePulse => '${loc.trendUnitMmhg} · ${loc.trendUnitBpm}',
     TrendView.glucose => loc.trendUnitMgdl,
     TrendView.spo2 => loc.trendUnitPercent,

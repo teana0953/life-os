@@ -508,6 +508,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vitalsHistoryTitle => '數值紀錄';
 
   @override
+  String get vitalsWaistLabel => 'Waist (cm)';
+
+  @override
+  String get trendMetricWaist => 'Waist';
+
+  @override
+  String get trendUnitCm => 'cm';
+
+  @override
   String get vitalsWeightLabel => '體重(公斤)';
 
   @override
@@ -3155,6 +3164,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get vitalsHistoryTitle => '數值紀錄';
+
+  @override
+  String get vitalsWaistLabel => '腰圍 (cm)';
+
+  @override
+  String get trendMetricWaist => '腰圍';
+
+  @override
+  String get trendUnitCm => '公分';
 
   @override
   String get vitalsWeightLabel => '體重(公斤)';

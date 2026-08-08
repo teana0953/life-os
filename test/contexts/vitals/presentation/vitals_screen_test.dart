@@ -30,6 +30,7 @@ class FakeVitalsRepository implements VitalsRepository {
     series: const VitalsSeries(
       weight: [],
       bodyFat: [],
+      waist: [],
       systolic: [],
       diastolic: [],
       pulse: [],
@@ -57,6 +58,7 @@ class FakeVitalsRepository implements VitalsRepository {
             day: '2026-07-18',
             weightKg: null,
             bodyFatPct: null,
+            waistCm: null,
             bpReadings: [],
             glucoseReadings: [],
             spo2Readings: [],
@@ -205,6 +207,36 @@ void main() {
       expect(controller.weightKg, isNull);
     });
 
+    testWidgets('the waist field drives setWaist, and reaches the save payload', (
+      tester,
+    ) async {
+      // Both halves: a field wired to the wrong setter still shows what you
+      // typed, and a controller field missing from the save payload still
+      // shows the right number until the next reload.
+      final repository = FakeVitalsRepository();
+      final controller = await _pumpScreen(tester, repository: repository);
+
+      await tester.enterText(find.byKey(const Key('vitals-waist-field')), '78.5');
+      expect(controller.waistCm, 78.5);
+      // Not the neighbouring scalars — one field wired to the wrong setter is
+      // the failure a single-field assertion cannot see.
+      expect(controller.weightKg, isNull);
+      expect(controller.bodyFatPct, isNull);
+
+      // Scroll first: the form is one field taller now, and a tap on an
+      // off-screen target only prints a warning — the failure then lands on
+      // the assertion below, looking like a wiring bug.
+      await tester.ensureVisible(find.byKey(const Key('vitals-save-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('vitals-save-button')));
+      await tester.pumpAndSettle();
+      expect(repository.savedDay?.waistCm, 78.5);
+
+      await tester.enterText(find.byKey(const Key('vitals-waist-field')), '');
+      // An emptied optional metric is null, NOT 0.
+      expect(controller.waistCm, isNull);
+    });
+
     testWidgets(
       'typing a decimal into weight character-by-character keeps the raw '
       'string (72. then 5 -> 72.5, not 72.05)',
@@ -297,6 +329,7 @@ void main() {
             day: '2026-07-18',
             weightKg: null,
             bodyFatPct: null,
+            waistCm: null,
             bpReadings: [
               BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
             ],
@@ -324,6 +357,7 @@ void main() {
             day: '2026-07-18',
             weightKg: null,
             bodyFatPct: null,
+            waistCm: null,
             bpReadings: [
               BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
             ],
@@ -372,6 +406,7 @@ void main() {
             day: '2026-07-18',
             weightKg: null,
             bodyFatPct: null,
+            waistCm: null,
             bpReadings: [
               BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
             ],
@@ -401,6 +436,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [
                 BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '21:30'),
               ],
@@ -434,6 +470,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [],
               glucoseReadings: [
                 GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '21:30'),
@@ -466,6 +503,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [],
               glucoseReadings: [],
               spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '21:30')],
@@ -496,6 +534,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [
                 BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '09:00'),
               ],
@@ -530,6 +569,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [],
               glucoseReadings: [
                 GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '09:00'),
@@ -566,6 +606,7 @@ void main() {
               day: '2026-07-18',
               weightKg: null,
               bodyFatPct: null,
+              waistCm: null,
               bpReadings: [],
               glucoseReadings: [],
               spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '21:30')],
@@ -691,6 +732,7 @@ void main() {
                   day: '2026-07-18',
                   weightKg: 65.5,
                   bodyFatPct: 20,
+                  waistCm: null,
                   bpReadings: [
                     BpReading(
                       systolic: 120,
@@ -1134,6 +1176,7 @@ void main() {
             day: '2026-07-18',
             weightKg: 72.5,
             bodyFatPct: 22.0,
+            waistCm: null,
             bpReadings: [
               BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
               BpReading(systolic: 118, diastolic: 78, pulse: 68, time: '12:30'),

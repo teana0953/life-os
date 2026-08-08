@@ -196,6 +196,9 @@ class VitalsDay {
   final String day;
   final num? weightKg;
   final num? bodyFatPct;
+
+  /// Waist circumference in cm; `null` == not recorded, not 0.
+  final num? waistCm;
   final List<BpReading> bpReadings;
   final List<GlucoseReading> glucoseReadings;
   final List<Spo2Reading> spo2Readings;
@@ -204,6 +207,7 @@ class VitalsDay {
     required this.day,
     required this.weightKg,
     required this.bodyFatPct,
+    required this.waistCm,
     required this.bpReadings,
     required this.glucoseReadings,
     required this.spo2Readings,
@@ -213,6 +217,7 @@ class VitalsDay {
     day: json['day'] as String,
     weightKg: json['weight_kg'] as num?,
     bodyFatPct: json['body_fat_pct'] as num?,
+    waistCm: json['waist_cm'] as num?,
     bpReadings: [
       for (final r in (json['bp_readings'] as List? ?? const []))
         BpReading.fromJson(r as Map<String, dynamic>),
@@ -231,6 +236,7 @@ class VitalsDay {
     'day': day,
     'weight_kg': weightKg,
     'body_fat_pct': bodyFatPct,
+    'waist_cm': waistCm,
     'bp_readings': [for (final r in bpReadings) r.toJson()],
     'glucose_readings': [for (final r in glucoseReadings) r.toJson()],
     'spo2_readings': [for (final r in spo2Readings) r.toJson()],

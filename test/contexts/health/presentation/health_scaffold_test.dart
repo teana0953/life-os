@@ -233,6 +233,7 @@ class _FakeVitalsRepository implements VitalsRepository {
     day: day,
     weightKg: null,
     bodyFatPct: null,
+    waistCm: null,
     bpReadings: const [],
     glucoseReadings: const [],
     spo2Readings: const [],
@@ -251,6 +252,7 @@ class _FakeVitalsRepository implements VitalsRepository {
       series: const VitalsSeries(
         weight: [],
         bodyFat: [],
+        waist: [],
         systolic: [],
         diastolic: [],
         pulse: [],

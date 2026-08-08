@@ -94,6 +94,9 @@ void main() {
         'day': '2026-07-18',
         'weight_kg': 65.5,
         'body_fat_pct': 20,
+        // Deliberately different from every other scalar here: three fields
+        // reading from one key would still look right if they all held 20.
+        'waist_cm': 78.5,
         'bp_readings': [
           {'systolic': 120, 'diastolic': 80, 'pulse': 70, 'time': '08:30'},
           {'systolic': 118, 'diastolic': 78, 'pulse': null, 'time': '09:15'},
@@ -108,6 +111,7 @@ void main() {
 
       expect(day.weightKg, 65.5);
       expect(day.bodyFatPct, 20);
+      expect(day.waistCm, 78.5);
       expect(day.bpReadings.length, 2);
       expect(day.bpReadings[1].pulse, isNull);
       expect(day.bpReadings[0].time, '08:30');
@@ -153,6 +157,7 @@ void main() {
         day: '2026-07-18',
         weightKg: 65.5,
         bodyFatPct: null,
+        waistCm: null,
         bpReadings: [
           BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
         ],

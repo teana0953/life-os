@@ -90,6 +90,7 @@ void main() {
           day: '2026-07-18',
           weightKg: 65.5,
           bodyFatPct: null,
+          waistCm: null,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
           ],

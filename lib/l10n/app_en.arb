@@ -672,6 +672,18 @@
   "@vitalsHistoryTitle": {
     "description": "Heading on the vitals screen, above the record form, when viewing a past day."
   },
+  "vitalsWaistLabel": "Waist (cm)",
+  "@vitalsWaistLabel": {
+    "description": "Label for the waist-circumference field on the vitals screen."
+  },
+  "trendMetricWaist": "Waist",
+  "@trendMetricWaist": {
+    "description": "Trend tab and series label for waist circumference."
+  },
+  "trendUnitCm": "cm",
+  "@trendUnitCm": {
+    "description": "Unit shown on the waist trend."
+  },
   "vitalsWeightLabel": "Weight (kg)",
   "@vitalsWeightLabel": {
     "description": "Label for the optional weight field (kilograms) on the vitals screen; empty means not recorded."

@@ -20,6 +20,7 @@ class FakeVitalsRepository implements VitalsRepository {
     series: const VitalsSeries(
       weight: [],
       bodyFat: [],
+      waist: [],
       systolic: [],
       diastolic: [],
       pulse: [],
@@ -32,6 +33,7 @@ class FakeVitalsRepository implements VitalsRepository {
     day: '2026-07-18',
     weightKg: null,
     bodyFatPct: null,
+    waistCm: null,
     bpReadings: [],
     glucoseReadings: [],
     spo2Readings: [],
@@ -73,6 +75,7 @@ void main() {
           day: '2026-07-18',
           weightKg: 65.5,
           bodyFatPct: 20,
+          waistCm: null,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],
@@ -120,6 +123,7 @@ void main() {
           day: '2026-07-18',
           weightKg: 65,
           bodyFatPct: null,
+          waistCm: null,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],
@@ -138,6 +142,7 @@ void main() {
         day: '2026-07-17',
         weightKg: null,
         bodyFatPct: null,
+        waistCm: null,
         bpReadings: [],
         glucoseReadings: [],
         spo2Readings: [],
@@ -262,6 +267,7 @@ void main() {
           day: '2026-07-18',
           weightKg: null,
           bodyFatPct: null,
+          waistCm: null,
           // Legacy/pre-time rows loaded with an empty time; re-saving must
           // never PUT an empty time (the backend requires a strict HH:mm).
           bpReadings: [
@@ -352,6 +358,7 @@ void main() {
           day: '2026-07-18',
           weightKg: 65,
           bodyFatPct: null,
+          waistCm: null,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],
@@ -379,6 +386,7 @@ void main() {
           day: '2026-07-18',
           weightKg: 65,
           bodyFatPct: null,
+          waistCm: null,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],

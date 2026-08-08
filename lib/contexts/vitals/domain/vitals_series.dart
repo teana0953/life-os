@@ -32,6 +32,7 @@ class SeriesPoint {
 class VitalsSeries {
   final List<SeriesPoint> weight;
   final List<SeriesPoint> bodyFat;
+  final List<SeriesPoint> waist;
   final List<SeriesPoint> systolic;
   final List<SeriesPoint> diastolic;
   final List<SeriesPoint> pulse;
@@ -41,6 +42,7 @@ class VitalsSeries {
   const VitalsSeries({
     required this.weight,
     required this.bodyFat,
+    required this.waist,
     required this.systolic,
     required this.diastolic,
     required this.pulse,
@@ -51,6 +53,7 @@ class VitalsSeries {
   factory VitalsSeries.fromJson(Map<String, dynamic> json) => VitalsSeries(
     weight: _points(json['weight']),
     bodyFat: _points(json['body_fat']),
+    waist: _points(json['waist']),
     systolic: _points(json['systolic']),
     diastolic: _points(json['diastolic']),
     pulse: _points(json['pulse']),
@@ -87,18 +90,19 @@ class VitalsRange {
 }
 
 /// The metrics the trend card can plot, one at a time.
-enum VitalsMetric { weight, bodyFat, systolic, diastolic, pulse, glucose, spo2 }
+enum VitalsMetric { weight, bodyFat, waist, systolic, diastolic, pulse, glucose, spo2 }
 
 /// A selectable trend view: what the user picks in the trend card. Most views
 /// map to a single [VitalsMetric], but [bloodPressurePulse] plots systolic,
 /// diastolic, and pulse together on one chart.
-enum TrendView { weight, bodyFat, bloodPressurePulse, glucose, spo2 }
+enum TrendView { weight, bodyFat, waist, bloodPressurePulse, glucose, spo2 }
 
 /// The metrics plotted for [view], in draw order. Single-metric views return a
 /// one-element list; [TrendView.bloodPressurePulse] returns its three lines.
 List<VitalsMetric> metricsForView(TrendView view) => switch (view) {
   TrendView.weight => const [VitalsMetric.weight],
   TrendView.bodyFat => const [VitalsMetric.bodyFat],
+  TrendView.waist => const [VitalsMetric.waist],
   TrendView.bloodPressurePulse => const [
     VitalsMetric.systolic,
     VitalsMetric.diastolic,
@@ -112,6 +116,7 @@ List<VitalsMetric> metricsForView(TrendView view) => switch (view) {
 List<SeriesPoint> seriesFor(VitalsSeries series, VitalsMetric metric) =>
     switch (metric) {
       VitalsMetric.weight => series.weight,
+      VitalsMetric.waist => series.waist,
       VitalsMetric.bodyFat => series.bodyFat,
       VitalsMetric.systolic => series.systolic,
       VitalsMetric.diastolic => series.diastolic,
@@ -134,7 +139,7 @@ class NormalRange {
 /// Blood pressure, pulse, glucose, and blood oxygen use fixed clinical ranges.
 /// Weight derives its range from a healthy BMI (18.5–24.9) and [heightCm]
 /// (`weight = bmi × (height/100)²`), rounded to one decimal; it has no range
-/// when [heightCm] is null or not positive. Body fat has no range.
+/// when [heightCm] is null or not positive. Body fat and waist have none.
 NormalRange? normalRangeFor(VitalsMetric metric, {double? heightCm}) =>
     switch (metric) {
       VitalsMetric.systolic => const NormalRange(90, 120),
@@ -143,6 +148,11 @@ NormalRange? normalRangeFor(VitalsMetric metric, {double? heightCm}) =>
       VitalsMetric.glucose => const NormalRange(70, 140),
       VitalsMetric.spo2 => const NormalRange(95, 100),
       VitalsMetric.bodyFat => null,
+      // No range for waist either, and for a sharper reason than body fat's:
+      // the clinical thresholds are sex-specific (roughly 90cm and 80cm), and
+      // this app records no sex. A single line drawn for everybody would be
+      // wrong for half of them, and a wrong line is worse than none.
+      VitalsMetric.waist => null,
       VitalsMetric.weight => (heightCm == null || heightCm <= 0)
           ? null
           : () {

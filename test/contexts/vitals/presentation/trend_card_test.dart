@@ -65,6 +65,7 @@ class _FakeVitalsRepository implements VitalsRepository {
                 SeriesPoint(day: to, time: '', value: 21),
               ]
             : const [],
+        waist: const [],
         systolic: bpHasData
             ? [
                 SeriesPoint(day: from, time: '', value: 120),
