@@ -90,7 +90,9 @@ void main() {
           day: '2026-07-18',
           weightKg: 65.5,
           bodyFatPct: null,
-          waistCm: null,
+          // Different from the weight above: two fields reading one key
+          // would still look right if they held the same number.
+          waistCm: 78.5,
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: null, time: '08:30'),
           ],
@@ -105,6 +107,9 @@ void main() {
       expect(capturedMethod, 'PUT');
       expect(capturedBody!['weight_kg'], 65.5);
       expect(capturedBody!['body_fat_pct'], isNull);
+      // `toJson` is the only thing standing between a recorded waist and the
+      // server; nothing else in the suite went through it with a value.
+      expect(capturedBody!['waist_cm'], 78.5);
       expect((capturedBody!['bp_readings'] as List).single, {
         'systolic': 120,
         'diastolic': 80,

@@ -27,8 +27,8 @@ class SeriesPoint {
 /// Per-metric daily series over a date range, as returned by
 /// `GET /api/vitals/range`. Each field is the list of that metric's daily
 /// points (empty when the metric has no readings in the range). The backend's
-/// snake_case keys are exactly `weight, body_fat, systolic, diastolic, pulse,
-/// glucose, spo2` (note `body_fat` / `spo2`).
+/// snake_case keys are exactly `weight, body_fat, waist, systolic, diastolic,
+/// pulse, glucose, spo2` (note `body_fat` / `spo2`).
 class VitalsSeries {
   final List<SeriesPoint> weight;
   final List<SeriesPoint> bodyFat;

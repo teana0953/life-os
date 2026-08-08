@@ -243,6 +243,14 @@ void main() {
     await tester.tap(find.byKey(const Key('trend-view-spo2')));
     await tester.pumpAndSettle();
     expect(find.text(_en.trendUnitPercent), findsOneWidget);
+
+    // Waist is centimetres, and it sits between two percentage metrics in the
+    // unit `switch` — with no case of its own here, pointing it at either
+    // neighbour would have gone unnoticed.
+    await tester.tap(find.byKey(const Key('trend-view-waist')));
+    await tester.pumpAndSettle();
+    expect(find.text(_en.trendUnitCm), findsOneWidget);
+    expect(find.text(_en.trendMetricWaist), findsWidgets);
   });
 
   testWidgets('a metric with no points shows the empty message and no chart',

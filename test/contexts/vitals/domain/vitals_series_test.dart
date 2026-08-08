@@ -148,6 +148,15 @@ void main() {
       expect(normalRangeFor(VitalsMetric.spo2)!.max, 100);
     });
 
+    test('waist has no range even when a height is known', () {
+      // `heightCm` is supplied deliberately: without it this assertion is
+      // satisfied by the same "no height, no range" path that weight takes,
+      // and it would keep passing if waist were ever given a range of its
+      // own. The clinical thresholds are sex-specific and this app records no
+      // sex, so there is no line that is right for everybody.
+      expect(normalRangeFor(VitalsMetric.waist, heightCm: 170), isNull);
+    });
+
     test('weight derives a healthy-BMI range from height (165 cm)', () {
       final range = normalRangeFor(VitalsMetric.weight, heightCm: 165);
       expect(range!.min, 50.4);
