@@ -1,0 +1,485 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/assistant/application/send_assistant_message.dart';
+import 'package:life_os/contexts/assistant/domain/assistant_failure.dart';
+import 'package:life_os/contexts/assistant/domain/assistant_message.dart';
+import 'package:life_os/contexts/assistant/domain/transaction_draft.dart';
+import 'package:life_os/contexts/assistant/presentation/assistant_controller.dart';
+import 'package:life_os/contexts/assistant/presentation/assistant_screen.dart';
+import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
+import 'package:life_os/contexts/finance/domain/finance_money.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/assistant/gemini_key_controller.dart';
+import 'package:life_os/shared/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
+import '../assistant_test_support.dart';
+
+/// The stored key in every test. If this string is ever findable on screen,
+/// the render-canary sweep names the leak. `-9137` keeps its `last4` from
+/// colliding with any amount fixture.
+const _canaryKey = 'SK-RENDER-CANARY-9137';
+
+/// Pinned well away from the real today (see the controller test).
+final _now = DateTime(2031, 3, 15, 9, 30);
+
+final _loc = lookupAppLocalizations(const Locale('en'));
+
+class _Harness {
+  final AssistantController controller;
+  final RecordingAssistantRepository assistantRepository;
+  final GatedFinanceRepository financeRepository;
+  final GeminiKeyController keyController;
+  int signOutCalls = 0;
+
+  _Harness(
+    this.controller,
+    this.assistantRepository,
+    this.financeRepository,
+    this.keyController,
+  );
+}
+
+Future<_Harness> _pumpScreen(
+  WidgetTester tester, {
+  bool withKey = true,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final keyController = GeminiKeyController(await SharedPreferences.getInstance());
+  if (withKey) await keyController.setKey(_canaryKey);
+  final assistantRepository = RecordingAssistantRepository();
+  final financeRepository = GatedFinanceRepository();
+  final controller = AssistantController(
+    SendAssistantMessage(assistantRepository),
+    AddTransaction(financeRepository),
+    ListFinanceCategories(financeRepository),
+    clock: () => _now,
+  );
+  final harness =
+      _Harness(controller, assistantRepository, financeRepository, keyController);
+  await tester.pumpWidget(
+    l10nRouterTestApp(
+      theme: lightTheme,
+      home: AssistantScreen(
+        controller: controller,
+        geminiKeyController: keyController,
+        idToken: () async => 'token-1',
+        onSignInAgain: () => harness.signOutCalls++,
+      ),
+    ),
+  );
+  await tester.pump();
+  return harness;
+}
+
+Future<void> _sendText(WidgetTester tester, String text) async {
+  await tester.enterText(find.byKey(const Key('assistant-composer-field')), text);
+  await tester.tap(find.byKey(const Key('assistant-send-button')));
+  await tester.pump();
+}
+
+AssistantProposal _foodProposal({int amount = 1234}) => AssistantProposal(
+  kind: 'create_transaction',
+  // currency and day deliberately absent — the draft fills them, and the
+  // render-equals-write test watches both sides agree on the filled values.
+  fields: {'type': 'expense', 'amount': amount, 'category_name': '餐飲'},
+);
+
+void _expectNoCanary(WidgetTester tester, String state) {
+  expect(
+    find.textContaining('SK-RENDER-CANARY', skipOffstage: false),
+    findsNothing,
+    reason: 'the full key leaked into the "$state" state',
+  );
+}
+
+void main() {
+  group('AssistantScreen setup state', () {
+    testWidgets('no key: entry is alive, setup + settings exit shown, '
+        'composer absent — and pasting a key revives it WITHOUT remount', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester, withKey: false);
+
+      expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
+      expect(
+        find.byKey(const Key('assistant-setup-settings-button')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('assistant-composer-field')), findsNothing);
+
+      // The user goes to settings, pastes a key, comes back: the SAME mounted
+      // screen must flip to the live composer. A build-time `hasKey` capture
+      // stays dead here.
+      await harness.keyController.setKey(_canaryKey);
+      await tester.pump();
+
+      expect(find.byKey(const Key('assistant-setup')), findsNothing);
+      expect(find.byKey(const Key('assistant-composer-field')), findsOneWidget);
+    });
+
+    testWidgets('the setup settings button navigates to /settings', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, withKey: false);
+      await tester.tap(find.byKey(const Key('assistant-setup-settings-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('/settings'), findsOneWidget);
+    });
+  });
+
+  group('AssistantScreen errors', () {
+    testWidgets('the four error-row failures render four DIFFERENT texts, '
+        'and only the key-shaped ones offer a settings exit', (tester) async {
+      final rendered = <String>{};
+      const cases = [
+        (AssistantFailure.keyRejected, true),
+        (AssistantFailure.quotaExhausted, false),
+        (AssistantFailure.modelUnavailable, true),
+        (AssistantFailure.serviceUnavailable, false),
+      ];
+      for (final (failure, pointsToSettings) in cases) {
+        final harness = await _pumpScreen(tester);
+        harness.assistantRepository.failure = AssistantSendFailure(failure);
+        await _sendText(tester, 'hello');
+        await tester.pumpAndSettle();
+
+        final errorText = tester
+            .widget<Text>(find.byKey(const Key('assistant-error-text')))
+            .data!;
+        rendered.add(errorText);
+        expect(
+          find.byKey(const Key('assistant-error-settings-button')),
+          pointsToSettings ? findsOneWidget : findsNothing,
+          reason: '$failure settings-button asymmetry',
+        );
+        expect(find.byKey(const Key('assistant-retry-button')), findsOneWidget);
+        _expectNoCanary(tester, '$failure');
+      }
+      // An implementation that collapses everything into one sentence cannot
+      // reach 4 distinct strings.
+      expect(rendered, hasLength(4));
+    });
+
+    testWidgets('missingKey (key cleared in another tab) falls back to the '
+        'setup state, not an error row', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure =
+          const AssistantSendFailure(AssistantFailure.missingKey);
+      await _sendText(tester, 'hello');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
+      expect(find.byKey(const Key('assistant-error-text')), findsNothing);
+      _expectNoCanary(tester, 'missingKey');
+    });
+
+    testWidgets('a network failure reads as the service-unavailable copy', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure =
+          const AssistantSendFailure(AssistantFailure.network);
+      await _sendText(tester, 'hello');
+      await tester.pumpAndSettle();
+
+      expect(find.text(_loc.assistantErrorUnavailable), findsOneWidget);
+      expect(
+        find.byKey(const Key('assistant-error-settings-button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the error settings button navigates to /settings', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure =
+          const AssistantSendFailure(AssistantFailure.keyRejected);
+      await _sendText(tester, 'hello');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('assistant-error-settings-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('/settings'), findsOneWidget);
+    });
+
+    testWidgets('retry re-sends without duplicating the user bubble', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure =
+          const AssistantSendFailure(AssistantFailure.serviceUnavailable);
+      await _sendText(tester, 'only once');
+      await tester.pumpAndSettle();
+      expect(find.text('only once'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('assistant-retry-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('only once'), findsOneWidget);
+      final calls = harness.assistantRepository.calls;
+      expect(calls, hasLength(2));
+      expect(
+        calls[1].map((m) => '${m.role}:${m.content}').toList(),
+        calls[0].map((m) => '${m.role}:${m.content}').toList(),
+      );
+      expect(find.byKey(const Key('assistant-error-text')), findsNothing);
+    });
+
+    testWidgets('401 replaces the screen with the sign-in-again exit', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure = const AssistantReauthRequired();
+      await _sendText(tester, 'hello');
+      await tester.pumpAndSettle();
+
+      final signInAgain = find.byKey(const Key('assistant-sign-in-again-button'));
+      expect(signInAgain, findsOneWidget);
+      expect(find.byKey(const Key('assistant-composer-field')), findsNothing);
+      await tester.tap(signInAgain);
+      expect(harness.signOutCalls, 1);
+    });
+  });
+
+  group('AssistantScreen proposal cards', () {
+    testWidgets('what the card SHOWS is what accept WRITES — one draft, '
+        'both sides', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply =
+          AssistantReply(text: '要記下這筆嗎?', proposals: [_foodProposal()]);
+      await _sendText(tester, '幫我記帳');
+      await tester.pumpAndSettle();
+
+      final amountText = tester
+          .widget<Text>(find.byKey(const Key('assistant-proposal-amount-1-0')))
+          .data!;
+      final dayText = tester
+          .widget<Text>(find.byKey(const Key('assistant-proposal-day-1-0')))
+          .data!;
+      final categoryText = tester
+          .widget<Text>(find.byKey(const Key('assistant-proposal-category-1-0')))
+          .data!;
+
+      await tester.tap(find.byKey(const Key('assistant-proposal-accept-1-0')));
+      await tester.pumpAndSettle();
+
+      final saved = harness.financeRepository.byMonth['2031-03']!.single;
+      // The displayed strings are re-derived here from the WRITTEN record: a
+      // second normalization pass anywhere (render-side default, write-side
+      // default) makes the two sides disagree on the proposal's absent
+      // currency/day and turns this red.
+      expect(
+        amountText,
+        contains(formatMinorUnitsForDisplay(saved.amount, saved.currency)),
+      );
+      expect(amountText, contains(saved.currency));
+      expect(dayText, contains(saved.date));
+      expect(saved.date, '2031-03-15');
+      expect(saved.currency, 'TWD');
+      expect(categoryText, contains('餐飲'));
+      expect(saved.categoryId, 'cat-food');
+    });
+
+    testWidgets('the accept button cannot record twice: disabled while '
+        'saving, gone once saved', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply =
+          AssistantReply(text: 'ok', proposals: [_foodProposal()]);
+      harness.financeRepository.addGate = Completer<void>();
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      final accept = find.byKey(const Key('assistant-proposal-accept-1-0'));
+      await tester.tap(accept);
+      await tester.pump();
+      // Second tap lands while the save is in flight.
+      await tester.tap(accept, warnIfMissed: false);
+      await tester.pump();
+      expect(harness.financeRepository.addTransactionCalls, 1);
+      _expectNoCanary(tester, 'saving');
+
+      harness.financeRepository.addGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(harness.financeRepository.addTransactionCalls, 1);
+      expect(accept, findsNothing);
+      expect(
+        find.byKey(const Key('assistant-proposal-saved-1-0')),
+        findsOneWidget,
+      );
+      // Even a direct controller call cannot revive the saved card.
+      await harness.controller.accept('token-1', 1, 0);
+      expect(harness.financeRepository.addTransactionCalls, 1);
+    });
+
+    testWidgets('a failed save says so on the card and re-arms the button', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply =
+          AssistantReply(text: 'ok', proposals: [_foodProposal()]);
+      harness.financeRepository.failNext = const FinanceFetchFailure('boom');
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('assistant-proposal-accept-1-0')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('assistant-proposal-save-failed-1-0')),
+        findsOneWidget,
+      );
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('assistant-proposal-accept-1-0')),
+      );
+      expect(button.onPressed, isNotNull);
+      _expectNoCanary(tester, 'save failed');
+    });
+
+    testWidgets('an unknown category is an honest dead end: named on the '
+        'card, button disabled', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: 'ok',
+        proposals: [
+          AssistantProposal(
+            kind: 'create_transaction',
+            fields: {
+              'type': 'expense',
+              'amount': 250,
+              'category_name': '寵物旅館',
+            },
+          ),
+        ],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('assistant-proposal-accept-1-0')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(_loc.assistantProposalCategoryNotFound('寵物旅館')),
+        findsOneWidget,
+      );
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('assistant-proposal-accept-1-0')),
+      );
+      expect(button.onPressed, isNull);
+      expect(harness.financeRepository.addTransactionCalls, 0);
+    });
+
+    testWidgets('an unrenderable proposal shows no accept button at all', (
+      tester,
+    ) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: 'ok',
+        proposals: [
+          AssistantProposal(
+            kind: 'create_transaction',
+            fields: {'type': 'expense', 'amount': 0},
+          ),
+        ],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('assistant-proposal-unrenderable-1-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('assistant-proposal-accept-1-0')),
+        findsNothing,
+      );
+    });
+  });
+
+  group('AssistantScreen key never renders', () {
+    testWidgets('the full key appears in NO state: empty, sending, replied, '
+        'card states', (tester) async {
+      final harness = await _pumpScreen(tester);
+      _expectNoCanary(tester, 'idle empty');
+
+      // In flight.
+      harness.assistantRepository.gate = Completer<void>();
+      harness.assistantRepository.reply =
+          AssistantReply(text: '好', proposals: [_foodProposal()]);
+      await _sendText(tester, '記一筆');
+      expect(
+        find.byKey(const Key('assistant-sending-indicator')),
+        findsOneWidget,
+      );
+      _expectNoCanary(tester, 'sending');
+
+      // Replied, card pending.
+      harness.assistantRepository.gate!.complete();
+      await tester.pumpAndSettle();
+      _expectNoCanary(tester, 'card pending');
+
+      // Saved.
+      await tester.tap(find.byKey(const Key('assistant-proposal-accept-1-0')));
+      await tester.pumpAndSettle();
+      _expectNoCanary(tester, 'card saved');
+    });
+  });
+
+  group('AssistantScreen narrow layout', () {
+    testWidgets('320dp × textScale 2.0: transcript, card, error row and '
+        'composer all lay out without errors and the composer stays usable', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(() => tester.platformDispatcher.clearAllTestValues());
+
+      await expectNoLayoutErrors(() async {
+        final harness = await _pumpScreen(tester);
+        harness.assistantRepository.reply = AssistantReply(
+          text: '這個月餐飲共花了 3,600 元,其中最大一筆是 6 月 30 日的聚餐。',
+          proposals: [
+            const AssistantProposal(
+              kind: 'create_transaction',
+              fields: {
+                'type': 'expense',
+                'amount': 123456789,
+                'currency': 'USD',
+                'category_name': '一個名字很長很長的分類',
+                'note': '一段很長很長很長的備註文字,用來逼出換行與溢位',
+              },
+            ),
+          ],
+        );
+        await _sendText(tester, '幫我記一筆昨天晚上跟朋友聚餐的錢,大概三千六');
+        await tester.pumpAndSettle();
+
+        // Then an error row on top of all that.
+        harness.assistantRepository.failure =
+            const AssistantSendFailure(AssistantFailure.keyRejected);
+        await _sendText(tester, '再問一句');
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('assistant-error-text')), findsOneWidget);
+
+        // The composer is still on screen and still takes input — the
+        // keyboard-up analogue of this repo's food-search guard.
+        await tester.tap(find.byKey(const Key('assistant-composer-field')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('assistant-composer-field')),
+          '鍵盤彈出時還打得了字',
+        );
+        expect(find.text('鍵盤彈出時還打得了字'), findsOneWidget);
+      }, reason: '320dp × textScale 2.0 must not overflow');
+    });
+  });
+}

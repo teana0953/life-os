@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'contexts/assistant/application/send_assistant_message.dart';
+import 'contexts/assistant/infrastructure/http_assistant_repository.dart';
+import 'contexts/assistant/presentation/assistant_controller.dart';
 import 'contexts/auth/application/sign_in.dart';
 import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/send_password_reset.dart';
@@ -256,6 +259,16 @@ Future<void> main() async {
     GetMonthlyNetWorth(financeRepository),
     GetNetWorthTrend(financeRepository),
   );
+  // The assistant reuses the finance context's use cases for accepting a
+  // proposal card (cross-context via the application layer, the split
+  // precedent) — fresh stateless instances over the same repository.
+  final assistantController = AssistantController(
+    SendAssistantMessage(
+      HttpAssistantRepository(baseUrl: apiBaseUrl, client: httpClient),
+    ),
+    AddTransaction(financeRepository),
+    ListFinanceCategories(financeRepository),
+  );
   final bodyProfileRepository = HttpBodyProfileRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -404,6 +417,7 @@ Future<void> main() async {
       localeController: localeController,
       themeController: themeController,
       geminiKeyController: geminiKeyController,
+      assistantController: assistantController,
       signOut: signOut,
       signUp: signUp,
       sendPasswordReset: SendPasswordReset(authRepository),

@@ -4985,6 +4985,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{what}, {time}'**
   String splitActivityRowSemanticsNoAmount(String what, String time);
+
+  /// Label of the home screen's AI-assistant space tile, which opens the assistant conversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant'**
+  String get spaceAssistant;
+
+  /// App bar title of the assistant conversation screen.
+  ///
+  /// In en, this message translates to:
+  /// **'AI assistant'**
+  String get assistantTitle;
+
+  /// Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.'**
+  String get assistantEmptyHint;
+
+  /// Body text of the assistant screen's setup state, shown when no Gemini API key is stored yet; includes the free-tier data-use disclosure echoing the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.'**
+  String get assistantSetupIntro;
+
+  /// Button that opens the settings page, shown in the assistant's setup state and on key-related errors.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to settings'**
+  String get assistantGoToSettings;
+
+  /// Hint text of the assistant conversation's message input field.
+  ///
+  /// In en, this message translates to:
+  /// **'Message the assistant…'**
+  String get assistantComposerHint;
+
+  /// Tooltip of the assistant composer's send button.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get assistantSendTooltip;
+
+  /// Error shown when the backend relays that Gemini refused the user's API key (400 gemini_key_rejected); the fix is on the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini rejected this API key. Check it in Settings.'**
+  String get assistantErrorKeyRejected;
+
+  /// Error shown when the user's Gemini free-tier quota is exhausted (429 gemini_quota_exhausted); the key itself is fine, so no settings link is offered.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Gemini free quota is used up for now — it comes back tomorrow.'**
+  String get assistantErrorQuotaExhausted;
+
+  /// Error shown when the user's key cannot access the served model (403 gemini_model_unavailable); the fix is on the settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'This key can\'t use the assistant\'s model. Check it in Settings.'**
+  String get assistantErrorModelUnavailable;
+
+  /// Error shown for an upstream AI-service failure (502 gemini_unavailable) or a network error — retryable, not the user's fault.
+  ///
+  /// In en, this message translates to:
+  /// **'The AI service is temporarily unavailable. Please try again shortly.'**
+  String get assistantErrorUnavailable;
+
+  /// Heading of a transaction confirmation card the assistant proposed; the user decides whether to accept it.
+  ///
+  /// In en, this message translates to:
+  /// **'Record this?'**
+  String get assistantProposalTitle;
+
+  /// Category line on a proposal confirmation card. {name} is the category name the assistant proposed.
+  ///
+  /// In en, this message translates to:
+  /// **'Category: {name}'**
+  String assistantProposalCategoryRow(String name);
+
+  /// Stands in on a proposal confirmation card's category line when the assistant proposed no category; such a card cannot be accepted.
+  ///
+  /// In en, this message translates to:
+  /// **'No category given'**
+  String get assistantProposalNoCategory;
+
+  /// Date line on a proposal confirmation card. {day} is the YYYY-MM-DD the transaction would be recorded under.
+  ///
+  /// In en, this message translates to:
+  /// **'Date: {day}'**
+  String assistantProposalDateRow(String day);
+
+  /// Note line on a proposal confirmation card, only shown when the proposal carries a note.
+  ///
+  /// In en, this message translates to:
+  /// **'Note: {note}'**
+  String assistantProposalNoteRow(String note);
+
+  /// Accept button on a proposal confirmation card — saves the drafted transaction into the ledger.
+  ///
+  /// In en, this message translates to:
+  /// **'Record it'**
+  String get assistantProposalAccept;
+
+  /// Shown on a proposal confirmation card after it was saved successfully; the accept button is gone.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded ✓'**
+  String get assistantProposalSaved;
+
+  /// Shown on a proposal confirmation card when saving failed; the accept button is re-enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — try again.'**
+  String get assistantProposalSaveFailed;
+
+  /// Shown on a proposal confirmation card when no active category of the right type matches the proposed name; the card cannot be accepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Category \"{name}\" not found — create it in the ledger first.'**
+  String assistantProposalCategoryNotFound(String name);
+
+  /// Shown in place of a proposal confirmation card whose fields could not be normalized (bad type or amount); it has no accept button.
+  ///
+  /// In en, this message translates to:
+  /// **'This proposal is incomplete and can\'t be shown.'**
+  String get assistantProposalUnrenderable;
 }
 
 class _AppLocalizationsDelegate

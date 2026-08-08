@@ -68,6 +68,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openFinance(BuildContext context) => context.push('/finance');
 
+  void _openAssistant(BuildContext context) => context.push('/assistant');
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -120,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final spacePreviewNames = [
           loc.spaceHealth,
           loc.spaceFinance,
+          loc.spaceAssistant,
           loc.spaceTasks,
           loc.spaceJournal,
         ];
@@ -222,6 +225,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         key: const Key('finance-tile'),
                         borderRadius: BorderRadius.circular(18),
                         onTap: () => _openFinance(context),
+                        child: tile,
+                      ),
+                    );
+                  }
+                  if (index == 2) {
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        key: const Key('assistant-tile'),
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _openAssistant(context),
                         child: tile,
                       ),
                     );

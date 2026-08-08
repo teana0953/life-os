@@ -2704,6 +2704,84 @@ class AppLocalizationsZh extends AppLocalizations {
   String splitActivityRowSemanticsNoAmount(String what, String time) {
     return '$what, $time';
   }
+
+  @override
+  String get spaceAssistant => 'Assistant';
+
+  @override
+  String get assistantTitle => 'AI assistant';
+
+  @override
+  String get assistantEmptyHint =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+
+  @override
+  String get assistantSetupIntro =>
+      'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
+
+  @override
+  String get assistantGoToSettings => 'Go to settings';
+
+  @override
+  String get assistantComposerHint => 'Message the assistant…';
+
+  @override
+  String get assistantSendTooltip => 'Send';
+
+  @override
+  String get assistantErrorKeyRejected =>
+      'Gemini rejected this API key. Check it in Settings.';
+
+  @override
+  String get assistantErrorQuotaExhausted =>
+      'Your Gemini free quota is used up for now — it comes back tomorrow.';
+
+  @override
+  String get assistantErrorModelUnavailable =>
+      'This key can\'t use the assistant\'s model. Check it in Settings.';
+
+  @override
+  String get assistantErrorUnavailable =>
+      'The AI service is temporarily unavailable. Please try again shortly.';
+
+  @override
+  String get assistantProposalTitle => 'Record this?';
+
+  @override
+  String assistantProposalCategoryRow(String name) {
+    return 'Category: $name';
+  }
+
+  @override
+  String get assistantProposalNoCategory => 'No category given';
+
+  @override
+  String assistantProposalDateRow(String day) {
+    return 'Date: $day';
+  }
+
+  @override
+  String assistantProposalNoteRow(String note) {
+    return 'Note: $note';
+  }
+
+  @override
+  String get assistantProposalAccept => 'Record it';
+
+  @override
+  String get assistantProposalSaved => 'Recorded ✓';
+
+  @override
+  String get assistantProposalSaveFailed => 'Couldn\'t save — try again.';
+
+  @override
+  String assistantProposalCategoryNotFound(String name) {
+    return 'Category \"$name\" not found — create it in the ledger first.';
+  }
+
+  @override
+  String get assistantProposalUnrenderable =>
+      'This proposal is incomplete and can\'t be shown.';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -5402,4 +5480,76 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String splitActivityRowSemanticsNoAmount(String what, String time) {
     return '$what,$time';
   }
+
+  @override
+  String get spaceAssistant => 'AI 助手';
+
+  @override
+  String get assistantTitle => 'AI 助手';
+
+  @override
+  String get assistantEmptyHint => '問我你的花費、預算或分帳,也可以直接說一筆要記的帳,我會擬好草稿讓你確認。';
+
+  @override
+  String get assistantSetupIntro =>
+      'AI 助手需要你自己的 Gemini API 金鑰。到設定頁貼上即可 —— 可以免費申請;免費層的對話內容可能被用於改進產品。';
+
+  @override
+  String get assistantGoToSettings => '前往設定';
+
+  @override
+  String get assistantComposerHint => '輸入訊息…';
+
+  @override
+  String get assistantSendTooltip => '送出';
+
+  @override
+  String get assistantErrorKeyRejected => 'Gemini 拒絕了這把金鑰,請到設定頁檢查。';
+
+  @override
+  String get assistantErrorQuotaExhausted => '你的 Gemini 免費額度已用盡,明天會恢復。';
+
+  @override
+  String get assistantErrorModelUnavailable => '這把金鑰無法使用此模型,請到設定頁檢查。';
+
+  @override
+  String get assistantErrorUnavailable => 'AI 服務暫時無法使用,請稍後再試。';
+
+  @override
+  String get assistantProposalTitle => '要記下這筆嗎?';
+
+  @override
+  String assistantProposalCategoryRow(String name) {
+    return '分類:$name';
+  }
+
+  @override
+  String get assistantProposalNoCategory => '未指定分類';
+
+  @override
+  String assistantProposalDateRow(String day) {
+    return '日期:$day';
+  }
+
+  @override
+  String assistantProposalNoteRow(String note) {
+    return '備註:$note';
+  }
+
+  @override
+  String get assistantProposalAccept => '記下來';
+
+  @override
+  String get assistantProposalSaved => '已記錄 ✓';
+
+  @override
+  String get assistantProposalSaveFailed => '儲存失敗,請再試一次。';
+
+  @override
+  String assistantProposalCategoryNotFound(String name) {
+    return '找不到分類「$name」,請先到記帳建立。';
+  }
+
+  @override
+  String get assistantProposalUnrenderable => '這個提議不完整,無法呈現。';
 }

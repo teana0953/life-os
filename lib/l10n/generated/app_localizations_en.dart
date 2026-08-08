@@ -2809,4 +2809,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String splitActivityRowSemanticsNoAmount(String what, String time) {
     return '$what, $time';
   }
+
+  @override
+  String get spaceAssistant => 'Assistant';
+
+  @override
+  String get assistantTitle => 'AI assistant';
+
+  @override
+  String get assistantEmptyHint =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+
+  @override
+  String get assistantSetupIntro =>
+      'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
+
+  @override
+  String get assistantGoToSettings => 'Go to settings';
+
+  @override
+  String get assistantComposerHint => 'Message the assistant…';
+
+  @override
+  String get assistantSendTooltip => 'Send';
+
+  @override
+  String get assistantErrorKeyRejected =>
+      'Gemini rejected this API key. Check it in Settings.';
+
+  @override
+  String get assistantErrorQuotaExhausted =>
+      'Your Gemini free quota is used up for now — it comes back tomorrow.';
+
+  @override
+  String get assistantErrorModelUnavailable =>
+      'This key can\'t use the assistant\'s model. Check it in Settings.';
+
+  @override
+  String get assistantErrorUnavailable =>
+      'The AI service is temporarily unavailable. Please try again shortly.';
+
+  @override
+  String get assistantProposalTitle => 'Record this?';
+
+  @override
+  String assistantProposalCategoryRow(String name) {
+    return 'Category: $name';
+  }
+
+  @override
+  String get assistantProposalNoCategory => 'No category given';
+
+  @override
+  String assistantProposalDateRow(String day) {
+    return 'Date: $day';
+  }
+
+  @override
+  String assistantProposalNoteRow(String note) {
+    return 'Note: $note';
+  }
+
+  @override
+  String get assistantProposalAccept => 'Record it';
+
+  @override
+  String get assistantProposalSaved => 'Recorded ✓';
+
+  @override
+  String get assistantProposalSaveFailed => 'Couldn\'t save — try again.';
+
+  @override
+  String assistantProposalCategoryNotFound(String name) {
+    return 'Category \"$name\" not found — create it in the ledger first.';
+  }
+
+  @override
+  String get assistantProposalUnrenderable =>
+      'This proposal is incomplete and can\'t be shown.';
 }
