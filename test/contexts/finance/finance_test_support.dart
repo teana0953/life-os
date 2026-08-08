@@ -368,6 +368,12 @@ class FakeFinanceRepository implements FinanceRepository {
   /// `create:<kind>:<name>`, `update:<id>:<field>=<value>`).
   final List<String> networthCalls = [];
 
+  /// Held by `reorderNetWorthAccounts` before it does anything, so a test can
+  /// look at the screen while the write is still in flight — which is the
+  /// only way to tell "the row moved immediately" from "the row moved once
+  /// the server answered".
+  Future<void>? reorderGate;
+
   /// Every trend range requested, as `<from>..<to>`.
   final List<String> trendCalls = [];
 
@@ -468,6 +474,7 @@ class FakeFinanceRepository implements FinanceRepository {
     List<String> orderedIds,
   ) async {
     networthCalls.add('reorder:${netWorthKindToJson(kind)}:${orderedIds.join(",")}');
+    if (reorderGate != null) await reorderGate;
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;

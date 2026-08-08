@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -32,6 +34,19 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   NetWorthKind _newKind = NetWorthKind.asset;
   bool _busy = false;
 
+  /// The order the user has tapped their way to but the server has not been
+  /// told about yet, per kind. Reordering is shown immediately and written
+  /// once the tapping stops (issue #136): a far move is a burst of taps, and
+  /// making each one wait for a round trip is what made it slow.
+  ///
+  /// Null for a kind means "no local opinion" — read the controller.
+  final Map<NetWorthKind, List<String>> _pendingOrder = {};
+  Timer? _flushTimer;
+
+  /// Long enough that a burst of taps collapses into one write, short enough
+  /// that a user who taps once and looks away is not waiting on it.
+  static const _flushDelay = Duration(milliseconds: 400);
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +62,18 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
 
   @override
   void dispose() {
+    _flushTimer?.cancel();
+    // Fire and forget, because a closing sheet has nowhere to report to — but
+    // it must still be sent. The debounce cannot become a way to lose a
+    // change: a user who taps and immediately dismisses the sheet meant that
+    // tap, and dropping it would show the row snapping back on the next load.
+    // The controller outlives this widget, so the write and its local
+    // renumbering are safe to leave running.
+    for (final entry in _pendingOrder.entries) {
+      final kind = entry.key;
+      final order = entry.value;
+      widget.idToken().then((token) => widget.controller.reorderAccounts(token, kind, order));
+    }
     widget.controller.removeListener(_syncNameControllers);
     _newNameController.removeListener(_onChanged);
     _newNameController.dispose();
@@ -89,17 +116,34 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   bool _isNameMissing(NetWorthAccount account) =>
       _nameControllerFor(account).text.trim().isEmpty;
 
+  /// [kind]'s accounts in the order to draw them: the pending local order
+  /// when the user has moved something, the server's otherwise.
+  ///
   /// Sorted by (sortOrder, id) — sortOrder alone is not a stable key because
   /// every user-created account arrives at sortOrder 0 (issue #130), so ties
   /// are the normal state, not an edge case. id is the tiebreaker so the
   /// display order is a pure function of the data, independent of whatever
   /// order the backend happened to return tied rows in.
-  List<NetWorthAccount> _group(NetWorthKind kind) =>
-      widget.controller.accounts.where((a) => a.kind == kind).toList()..sort(
+  List<NetWorthAccount> _group(NetWorthKind kind) {
+    final group = widget.controller.accounts.where((a) => a.kind == kind).toList()
+      ..sort(
         (a, b) => a.sortOrder != b.sortOrder
             ? a.sortOrder.compareTo(b.sortOrder)
             : a.id.compareTo(b.id),
       );
+    final pending = _pendingOrder[kind];
+    if (pending == null) return group;
+    // Positions from the pending order, but the *accounts* from the
+    // controller — a rename or an archive that lands while an order is
+    // pending has to show, and an account that has since disappeared must not
+    // be resurrected by a stale id list.
+    final byId = {for (final account in group) account.id: account};
+    final ordered = [
+      for (final id in pending)
+        if (byId.remove(id) case final account?) account,
+    ];
+    return [...ordered, ...byId.values];
+  }
 
   /// Runs a write and surfaces a failure as a snackbar, leaving the sheet
   /// open — the controller has already reloaded either way.
@@ -158,9 +202,9 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
     );
   }
 
-  Future<void> _moveUp(NetWorthAccount account) => _reorder(account, -1);
+  void _moveUp(NetWorthAccount account) => _reorder(account, -1);
 
-  Future<void> _moveDown(NetWorthAccount account) => _reorder(account, 1);
+  void _moveDown(NetWorthAccount account) => _reorder(account, 1);
 
   /// Moves [account] one slot ([delta] `-1`/`+1`) within its group, then
   /// renumbers the *whole* group to 0..n-1 in its new order.
@@ -174,23 +218,54 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
   /// rather than racing ahead — a failed write must surface as a failure
   /// (via [_run]'s status check), never get silently overtaken by a later
   /// write's success.
-  Future<void> _reorder(NetWorthAccount account, int delta) {
+  void _reorder(NetWorthAccount account, int delta) {
     final group = _group(account.kind);
     final from = group.indexWhere((a) => a.id == account.id);
     final to = from + delta;
-    if (to < 0 || to >= group.length) return Future.value();
+    if (to < 0 || to >= group.length) return;
     final reordered = List.of(group)
       ..removeAt(from)
       ..insert(to, account);
-    // One call, not one per account: the server rewrites the whole group in a
-    // single atomic write (life-os-backend#80). The per-account loop this
-    // replaces left a half-renumbered group behind whenever it failed midway,
-    // and the client had no way to roll that back.
-    return _run(
-      () async => widget.controller.reorderAccounts(
-        await widget.idToken(),
-        account.kind,
-        [for (final a in reordered) a.id],
+    // Shown now, written later. Not through `_run`: that disables the whole
+    // sheet for the duration, so the second tap of a two-step move could not
+    // even be registered until the first round trip came back — the thing
+    // that made a far move N sequential waits.
+    setState(() => _pendingOrder[account.kind] = [for (final a in reordered) a.id]);
+    _flushTimer?.cancel();
+    _flushTimer = Timer(_flushDelay, () => _flushOrder(account.kind));
+  }
+
+  /// Sends the pending order for [kind] as one call and clears it, putting the
+  /// order back if the server refused.
+  ///
+  /// One call, not one per account: the server rewrites the whole group in a
+  /// single atomic write (life-os-backend#80). The per-account loop this
+  /// replaces left a half-renumbered group behind whenever it failed midway,
+  /// and the client had no way to roll that back.
+  Future<void> _flushOrder(NetWorthKind kind) async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    final pending = _pendingOrder[kind];
+    if (pending == null) return;
+    final ok = await widget.controller.reorderAccounts(await widget.idToken(), kind, pending);
+    if (!mounted) return;
+    // Cleared either way: on success the controller now holds this order, and
+    // on failure the local one is a lie that has to go. Only clear *this*
+    // order though — a tap that happened while the write was in flight left a
+    // newer one behind, and dropping it would show the user's own change
+    // being undone.
+    setState(() {
+      if (identical(_pendingOrder[kind], pending)) _pendingOrder.remove(kind);
+    });
+    if (ok) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          widget.controller.status == FinanceStatus.needsReauth
+              ? loc.pleaseSignInAgain
+              : loc.financeSaveFailed,
+        ),
       ),
     );
   }
@@ -357,7 +432,7 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
                 key: Key('account-move-up-${account.id}'),
                 tooltip: loc.networthMoveUpTooltip,
                 icon: const Icon(Icons.arrow_upward),
-                onPressed: _busy || isFirstInGroup
+                onPressed: isFirstInGroup
                     ? null
                     : () => _moveUp(account),
               ),
@@ -365,7 +440,7 @@ class _AccountManageSheetState extends State<AccountManageSheet> {
                 key: Key('account-move-down-${account.id}'),
                 tooltip: loc.networthMoveDownTooltip,
                 icon: const Icon(Icons.arrow_downward),
-                onPressed: _busy || isLastInGroup
+                onPressed: isLastInGroup
                     ? null
                     : () => _moveDown(account),
               ),
