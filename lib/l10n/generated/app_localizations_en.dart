@@ -2136,6 +2136,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsFriendsRowLabel => 'Friends';
 
   @override
+  String get settingsAssistantSectionTitle => 'AI assistant';
+
+  @override
+  String get settingsAssistantIntro =>
+      'Paste a Gemini API key to enable the AI assistant. You can create one for free in Google AI Studio (aistudio.google.com).';
+
+  @override
+  String get settingsAssistantKeyFieldLabel => 'Gemini API key';
+
+  @override
+  String get settingsAssistantKeyFieldHint => 'Paste your Gemini API key';
+
+  @override
+  String get settingsAssistantSaveKeyButton => 'Save key';
+
+  @override
+  String get settingsAssistantClearKeyButton => 'Clear key';
+
+  @override
+  String settingsAssistantKeySet(String last4) {
+    return 'Key set (****$last4)';
+  }
+
+  @override
+  String get settingsAssistantTrainingNotice =>
+      'On the Gemini free tier, Google may use what you send to improve its models. Don\'t paste sensitive personal information into conversations.';
+
+  @override
+  String get settingsAssistantDeviceNotice =>
+      'The key is stored only on this device. Reinstalling the app or clearing browser data removes it, and you\'ll need to paste it again.';
+
+  @override
   String get financeTabSplit => 'Split';
 
   @override

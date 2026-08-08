@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/assistant/gemini_key_controller.dart';
 import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/theme_controller.dart';
@@ -19,6 +20,7 @@ const _zhHantLocale = Locale.fromSubtags(
 class SettingsScreen extends StatefulWidget {
   final ThemeController themeController;
   final LocaleController localeController;
+  final GeminiKeyController geminiKeyController;
   final SignOut signOut;
   final PwaInstall pwaInstall;
 
@@ -26,6 +28,7 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     required this.themeController,
     required this.localeController,
+    required this.geminiKeyController,
     required this.signOut,
     required this.pwaInstall,
   });
@@ -40,12 +43,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     widget.themeController.addListener(_onControllerChanged);
     widget.localeController.addListener(_onControllerChanged);
+    widget.geminiKeyController.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
     widget.themeController.removeListener(_onControllerChanged);
     widget.localeController.removeListener(_onControllerChanged);
+    widget.geminiKeyController.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -175,6 +180,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                _AssistantKeySection(controller: widget.geminiKeyController),
                 ..._buildInstallSection(context, loc),
                 const SizedBox(height: 20),
                 OutlinedButton(
@@ -220,6 +227,116 @@ class _SettingsSection extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// The "AI assistant" section: paste/store a Gemini API key on this device.
+///
+/// The full key exists in memory only while it sits in the input field; once
+/// saved, the UI only ever shows the last four characters (via
+/// [GeminiKeyController.last4]) and the field is cleared. Both states carry
+/// the same two always-visible notices: the key lives in device-local storage
+/// (a PWA reinstall or cleared browser data removes it), and free-tier Gemini
+/// content may be used by Google for model training.
+class _AssistantKeySection extends StatefulWidget {
+  final GeminiKeyController controller;
+
+  const _AssistantKeySection({required this.controller});
+
+  @override
+  State<_AssistantKeySection> createState() => _AssistantKeySectionState();
+}
+
+class _AssistantKeySectionState extends State<_AssistantKeySection> {
+  final _keyFieldController = TextEditingController();
+
+  @override
+  void dispose() {
+    _keyFieldController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await widget.controller.setKey(_keyFieldController.text);
+    // Drop the only in-memory copy of the full key the UI holds: if the user
+    // later clears the stored key, the field must come back empty, not
+    // pre-filled with the secret.
+    _keyFieldController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return _SettingsSection(
+      title: loc.settingsAssistantSectionTitle,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.controller.hasKey) ...[
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        key: const Key('assistant-key-set-label'),
+                        loc.settingsAssistantKeySet(widget.controller.last4!),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  key: const Key('assistant-key-clear-button'),
+                  onPressed: widget.controller.clear,
+                  child: Text(loc.settingsAssistantClearKeyButton),
+                ),
+              ] else ...[
+                Text(loc.settingsAssistantIntro),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('assistant-key-field'),
+                  controller: _keyFieldController,
+                  // A secret: dots on screen, and keep it out of the
+                  // keyboard's learning/suggestion dictionary.
+                  obscureText: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: loc.settingsAssistantKeyFieldLabel,
+                    hintText: loc.settingsAssistantKeyFieldHint,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _keyFieldController,
+                  builder: (context, value, _) => FilledButton(
+                    key: const Key('assistant-key-save-button'),
+                    onPressed: value.text.trim().isEmpty ? null : _save,
+                    child: Text(loc.settingsAssistantSaveKeyButton),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                loc.settingsAssistantDeviceNotice,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                loc.settingsAssistantTrainingNotice,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
