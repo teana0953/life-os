@@ -1231,6 +1231,11 @@ Future<LocaleController> pumpApp(
   NetWorthController? netWorthController,
   AssistantController? assistantController,
 
+  /// Backs `/assistant` and the settings key section — a fresh, keyless
+  /// instance by default. Pass one with a key already set for a test that
+  /// needs the composer (not the setup state).
+  GeminiKeyController? geminiKeyController,
+
   /// Hands back the health-calendar controller [App] was wired with — it is
   /// built internally by [testHealthControllers], so this is how a test gets
   /// a reference to assert on it.
@@ -1265,10 +1270,12 @@ Future<LocaleController> pumpApp(
       localeController ?? await testLocaleController();
   final resolvedThemeController =
       themeController ?? await testThemeController();
-  final resolvedGeminiKeyController = await () async {
-    SharedPreferences.setMockInitialValues({});
-    return GeminiKeyController(await SharedPreferences.getInstance());
-  }();
+  final resolvedGeminiKeyController =
+      geminiKeyController ??
+      await () async {
+        SharedPreferences.setMockInitialValues({});
+        return GeminiKeyController(await SharedPreferences.getInstance());
+      }();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
   final resolvedFinanceController =

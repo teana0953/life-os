@@ -32,7 +32,7 @@
   "@passwordResetSentTitle": {
     "description": "Heading shown after a reset request is accepted."
   },
-  "passwordResetSentBody": "If that address has an account, a reset link is on its way. It can land in spam \u2014 look for a message from noreply.",
+  "passwordResetSentBody": "If that address has an account, a reset link is on its way. It can land in spam — look for a message from noreply.",
   "@passwordResetSentBody": {
     "description": "Confirmation after a reset request. Deliberately the same whether or not the address has an account: saying which would let anyone test whether an address uses this app."
   },
@@ -870,7 +870,9 @@
   "@menstrualDaysValue": {
     "description": "A statistic value expressed as a whole number of days, e.g. '28 days'.",
     "placeholders": {
-      "days": {"type": "int"}
+      "days": {
+        "type": "int"
+      }
     }
   },
   "menstrualStatPlaceholder": "—",
@@ -949,21 +951,27 @@
   "@menstrualDaySemanticPeriod": {
     "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.",
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "menstrualDaySemanticPredicted": "{date}, predicted next period",
   "@menstrualDaySemanticPredicted": {
     "description": "Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.",
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "menstrualDaySemanticToday": "{date}, today",
   "@menstrualDaySemanticToday": {
     "description": "Screen-reader label for the menstrual calendar day cell representing today (when it is neither a period day nor the predicted next start). {date} is the localized date.",
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "menstrualLegendPeriod": "Period",
@@ -986,8 +994,12 @@
   "@nextPeriodUpcoming": {
     "description": "The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is. Pluralized — being one day away happens every cycle.",
     "placeholders": {
-      "date": {"type": "String"},
-      "days": {"type": "int"}
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
     }
   },
   "nextPeriodToday": "Expected today",
@@ -998,22 +1010,30 @@
   "@nextPeriodOverdue": {
     "description": "The overview's next-period card when the predicted next start has passed: the predicted date (never rolled forward) and how long ago it was. Worded as a gap in the record, not as a late period — the app cannot tell those apart, and a lapse in logging is the commoner cause. Pluralized.",
     "placeholders": {
-      "date": {"type": "String"},
-      "days": {"type": "int"}
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
     }
   },
   "nextPeriodOngoing": "Ongoing · day {day}",
   "@nextPeriodOngoing": {
     "description": "The overview's next-period card when today falls inside a recorded period: which day of it today is (the start day is day 1, and the count is uncapped so a period left open reads as such).",
     "placeholders": {
-      "day": {"type": "int"}
+      "day": {
+        "type": "int"
+      }
     }
   },
   "nextPeriodOngoingNext": "Next expected {date}",
   "@nextPeriodOngoingNext": {
     "description": "Secondary line on the overview's next-period card while a period is ongoing, showing the predicted next start. Omitted entirely when there is no prediction.",
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "nextPeriodNoRecords": "No periods recorded yet",
@@ -2290,7 +2310,9 @@
   "@financeSplitMirrorSheetTitle": {
     "description": "Title of the edit sheet for a transaction the server mirrored out of a split expense. {label} is the transaction's own note, which starts out as the split's description but belongs to the user afterwards — they can edit it in this same sheet, so this is not 'the split's description'.",
     "placeholders": {
-      "label": { "type": "String" }
+      "label": {
+        "type": "String"
+      }
     }
   },
   "financeSplitMirrorGoToSplit": "Go to splits",
@@ -2377,15 +2399,21 @@
   "@financeInstallmentPeriodOfTotal": {
     "description": "Marker on a transaction that is one period of an instalment plan, shown once the plan itself (its total period count) has been fetched — the record/edit sheet and both transaction lists.",
     "placeholders": {
-      "no": { "type": "int" },
-      "total": { "type": "int" }
+      "no": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "financeInstallmentPeriodOnly": "Period {no}",
   "@financeInstallmentPeriodOnly": {
     "description": "Same marker as financeInstallmentPeriodOfTotal, for a plan the viewer does not own (the plan fetch answered 404, so the total period count is unknown) — the period number still rides on the transaction itself.",
     "placeholders": {
-      "no": { "type": "int" }
+      "no": {
+        "type": "int"
+      }
     }
   },
   "financeInstallmentGoToPlan": "Manage plan",
@@ -2420,14 +2448,18 @@
   "@financeInstallmentPreviewPerPeriod": {
     "description": "Live preview under the amount/periods fields in total mode: the total divided by the period count, so a typo reads as an obviously wrong per-period figure before saving.",
     "placeholders": {
-      "perPeriod": { "type": "String" }
+      "perPeriod": {
+        "type": "String"
+      }
     }
   },
   "financeInstallmentPreviewTotal": "= {total} total",
   "@financeInstallmentPreviewTotal": {
     "description": "Live preview under the amount/periods fields in per-instalment mode: the per-period amount multiplied by the period count, so a typo reads as an obviously wrong total before saving.",
     "placeholders": {
-      "total": { "type": "String" }
+      "total": {
+        "type": "String"
+      }
     }
   },
   "financeInstallmentNoEndDateWarning": "Subscriptions with no end date aren't supported yet — enter a number of periods.",
@@ -3099,7 +3131,7 @@
       }
     }
   },
-  "splitScheduleAdjusted": "Share adjusted {from} \u2192 {to}; {name} takes the difference",
+  "splitScheduleAdjusted": "Share adjusted {from} → {to}; {name} takes the difference",
   "@splitScheduleAdjusted": {
     "description": "Shown when the share had to change so the periods divide exactly. Both figures are shown deliberately.",
     "placeholders": {
@@ -3755,7 +3787,7 @@
   },
   "splitActivityChangedNothing": "This edit changed nothing",
   "@splitActivityChangedNothing": {
-    "description": "Shown on an edit entry whose change list is empty \u2014 the update endpoint replaces the whole record, so re-saving identical values is ordinary."
+    "description": "Shown on an edit entry whose change list is empty — the update endpoint replaces the whole record, so re-saving identical values is ordinary."
   },
   "splitActivityChangedFieldCurrency": "currency",
   "@splitActivityChangedFieldCurrency": {
@@ -3801,7 +3833,7 @@
   },
   "splitActivityParticipantsRemoved": "Removed from the split: {names}",
   "@splitActivityParticipantsRemoved": {
-    "description": "Who left a split in this edit. The most consequential line on the row \u2014 their balance moved.",
+    "description": "Who left a split in this edit. The most consequential line on the row — their balance moved.",
     "placeholders": {
       "names": {
         "type": "String"
@@ -3908,9 +3940,26 @@
   "@assistantTitle": {
     "description": "App bar title of the assistant conversation screen."
   },
+  "assistantContextViewing": "Started from: {view}",
+  "@assistantContextViewing": {
+    "description": "Row in the assistant transcript naming what the user was looking at when they opened the assistant (e.g. the finance space, a tab name and a month) — past tense on purpose: the assistant only saw this view once, at entry, not for the whole conversation. The exact same string is prepended into the first message sent to the model.",
+    "placeholders": {
+      "view": {
+        "type": "String"
+      }
+    }
+  },
   "assistantEmptyHint": "Ask about your spending, budgets or split balances — or tell me a transaction and I'll draft it for you to confirm.",
   "@assistantEmptyHint": {
-    "description": "Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do."
+    "description": "Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do — used when the assistant was opened WITH a chat context (e.g. from the finance tabs), which gives the model a month/tab to anchor a vague question to."
+  },
+  "assistantEmptyHintNoContext": "Ask about your spending, budgets or split balances — or tell me a transaction and I'll draft it for you to confirm. Since I don't know what you're looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").",
+  "assistantSendingLabel": "Sending your message",
+  "@assistantSendingLabel": {
+    "description": "Screen-reader announcement while an assistant reply is in flight. The spinner is animation only, so without this a screen-reader user gets no signal that anything is happening (WCAG 4.1.3)."
+  },
+  "@assistantEmptyHintNoContext": {
+    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened WITHOUT a chat context (e.g. from the home screen) — nudges the user to state a time range themselves, since the assistant has no month/tab to anchor a question like \"how much did I spend\" to."
   },
   "assistantSetupIntro": "The assistant needs your own Gemini API key. Add one in Settings — it's free to create, and on the free tier your conversations may be used to improve the provider's products.",
   "@assistantSetupIntro": {
