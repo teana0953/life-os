@@ -187,5 +187,42 @@ void main() {
       expect(tester.getSize(find.text('10.')).width, greaterThanOrEqualTo(needed));
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('list item layout hugs content with mainAxisSize.min and Flexible, not stretching to container width', (tester) async {
+      // Regression test for the fix in commit 87536c5: without mainAxisSize.min
+      // and Flexible, a list item Row stretched to fill the 560px ConstrainedBox,
+      // pushing the content to the edge. This test catches the bug by measuring
+      // the actual Row width and ensuring it is far smaller than the constraint.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Container(
+                  color: const Color(0xFFFFFFFF),
+                  padding: const EdgeInsets.all(12),
+                  child: AssistantMarkdown(
+                    text: '* hi',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Find the Row (the _blockRow for the list item).
+      final row = find.byType(Row);
+      expect(row, findsOneWidget);
+
+      final rowSize = tester.getSize(row);
+      // The content is "• " + "hi", which should be well under 100px even at
+      // the default scale. If the Row stretched to the 560px constraint, this
+      // would fail. If someone reverts to Expanded, this test turns red.
+      expect(rowSize.width, lessThan(100));
+      expect(tester.takeException(), isNull);
+    });
   });
 }
