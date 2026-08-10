@@ -6,6 +6,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/assistant/gemini_key_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
 import '../domain/assistant_failure.dart';
+import 'assistant_chat_context.dart';
 import 'assistant_controller.dart';
 import 'proposal_card.dart';
 
@@ -28,12 +29,19 @@ class AssistantScreen extends StatefulWidget {
   /// The standard re-auth exit (sign out, land on the login screen).
   final VoidCallback onSignInAgain;
 
+  /// What the user was looking at when they entered (`null` from the home
+  /// grid). Drawn as the transcript's top row and prepended into the first
+  /// message's content — **both via [AssistantChatContext.label]**, the one
+  /// function, so the model can never be told a view the screen didn't show.
+  final AssistantChatContext? chatContext;
+
   const AssistantScreen({
     super.key,
     required this.controller,
     required this.geminiKeyController,
     required this.idToken,
     required this.onSignInAgain,
+    this.chatContext,
   });
 
   @override
@@ -46,6 +54,17 @@ const double _bubbleMaxWidth = 560;
 
 class _AssistantScreenState extends State<AssistantScreen> {
   final TextEditingController _composer = TextEditingController();
+
+  /// The entry index the context line was prepended into — `null` until the
+  /// first send of a context-carrying visit, then fixed forever. Doubles as
+  /// [_transcript]'s anchor for *where the context row paints*: the row
+  /// must sit with the turn it rode into the wire, not pinned to the top,
+  /// or the screen would show "started from X" over a reply actually
+  /// written under Y once older history sits above it. Per `State` on
+  /// purpose: the conversation controller is app-lifetime, but the context
+  /// belongs to this entry (the route keys the screen on its query, so a
+  /// new entry with a different context is a fresh `State`).
+  int? _contextEntryIndex;
 
   @override
   void initState() {
@@ -91,13 +110,33 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _send() async {
     final text = _composer.text.trim();
     if (text.isEmpty) return;
+    // Mirrors the composer/send-button gating; also keeps the context-prefix
+    // bookkeeping below honest — past this line the controller *will* append
+    // the entry, so marking the prefix as consumed cannot lose it.
+    if (widget.controller.status == AssistantStatus.sending) return;
     // Read at the moment of sending — the key may have been replaced on the
     // settings page since the last message — and passed straight through;
     // never stored on this State.
     final key = widget.geminiKeyController.key;
     if (key == null) return;
+    // The exact string the context row paints — same function, same output
+    // (see [AssistantChatContext.label]). Resolved before the awaits below,
+    // while the context is still safely usable.
+    String? contextPrefix;
+    final chatContext = widget.chatContext;
+    if (chatContext != null && _contextEntryIndex == null) {
+      contextPrefix = chatContext.label(context);
+      // Before the controller appends below — this is the index the new
+      // user entry will land on.
+      _contextEntryIndex = widget.controller.entries.length;
+    }
     _composer.clear();
-    await widget.controller.send(await widget.idToken(), key, text);
+    await widget.controller.send(
+      await widget.idToken(),
+      key,
+      text,
+      contextPrefix: contextPrefix,
+    );
   }
 
   Future<void> _retry() async {
@@ -183,17 +222,49 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
+  /// The context row — a system-styled line, visually neither party's
+  /// bubble. Its text is [AssistantChatContext.label]'s output, the same
+  /// string [_send] prepends into the first message (never composed twice).
+  Widget _contextRow(BuildContext context, ThemeData theme) {
+    return Container(
+      key: const Key('assistant-context-row'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        widget.chatContext!.label(context),
+        key: const Key('assistant-context-row-text'),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
   Widget _transcript(BuildContext context, AppLocalizations loc) {
     final theme = Theme.of(context);
     final entries = widget.controller.entries;
     if (entries.isEmpty && widget.controller.status == AssistantStatus.idle) {
-      return Center(
+      final hint = Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
-              loc.assistantEmptyHint,
+              // Keyed on the *month*, not on having a context at all: what
+              // this hint is for is a vague "how much did I spend" having
+              // nothing to anchor to. The home screen sends no context, and
+              // the split tab sends a tab but never a month (`fromQuery`
+              // drops it — split has no month to show), so both leave the
+              // question unanchored and both need the nudge.
+              widget.chatContext?.month == null
+                  ? loc.assistantEmptyHintNoContext
+                  : loc.assistantEmptyHint,
               key: const Key('assistant-empty-hint'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -203,19 +274,50 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ),
         ),
       );
+      if (widget.chatContext == null) return hint;
+      // The context must be visible *before* the first message too — it is
+      // exactly the first message it will be woven into.
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: _contextRow(context, theme),
+          ),
+          Expanded(child: hint),
+        ],
+      );
     }
+    // Where the context row paints: the entry it rode into the wire
+    // ([_contextEntryIndex]), or — not consumed yet — right after all
+    // existing history, closest to the composer, since that is where the
+    // next message (the one it will ride into) is about to appear.
+    final contextInsertAt = _contextEntryIndex ?? entries.length;
     final rows = <Widget>[
-      for (var i = 0; i < entries.length; i++) _entryRow(theme, entries[i], i),
+      for (var i = 0; i < entries.length; i++) ...[
+        if (widget.chatContext != null && i == contextInsertAt)
+          _contextRow(context, theme),
+        _entryRow(theme, entries[i], i),
+      ],
+      if (widget.chatContext != null && contextInsertAt >= entries.length)
+        _contextRow(context, theme),
       if (widget.controller.lastError != null) _errorRow(context, loc),
       if (widget.controller.status == AssistantStatus.sending)
-        const Padding(
-          key: Key('assistant-sending-indicator'),
-          padding: EdgeInsets.symmetric(vertical: 12),
+        Padding(
+          key: const Key('assistant-sending-indicator'),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            // The spinner is animation and nothing else, so a screen-reader
+            // user gets no signal at all that a reply is on its way.
+            // `liveRegion` makes it an announcement when it appears rather
+            // than something you have to go looking for (WCAG 4.1.3).
+            child: Semantics(
+              label: loc.assistantSendingLabel,
+              liveRegion: true,
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
           ),
         ),

@@ -7,6 +7,7 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/send_password_reset.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
+import 'contexts/assistant/presentation/assistant_chat_context.dart';
 import 'contexts/assistant/presentation/assistant_controller.dart';
 import 'contexts/assistant/presentation/assistant_screen.dart';
 import 'contexts/auth/presentation/login_controller.dart';
@@ -620,13 +621,23 @@ class _AppState extends State<App> {
         // so it belongs to none of them. Built purely from injected DI, so
         // a web refresh reconstructs it — the conversation itself lives on
         // the app-lifetime controller.
+        // `ctx`/`tab`/`month` in the query carry what the user was looking
+        // at when they entered (the finance shell's entry point) — on the
+        // URL, not in `extra`, so a web refresh reconstructs the context
+        // too. Garbage parameters are dropped by `fromQuery`, never echoed.
+        // `key: ValueKey(query)`: go_router's `pageKey` tracks only the path
+        // pattern (the `/invite` lesson), so without it entering again with
+        // a different context would reuse the old `State` — and its
+        // already-consumed context-prefix flag.
         GoRoute(
           path: '/assistant',
           builder: (context, state) => AssistantScreen(
+            key: ValueKey(state.uri.query),
             controller: widget.assistantController,
             geminiKeyController: widget.geminiKeyController,
             idToken: _idToken,
             onSignInAgain: widget.signOut.call,
+            chatContext: AssistantChatContext.fromQuery(state.uri.queryParameters),
           ),
         ),
         GoRoute(

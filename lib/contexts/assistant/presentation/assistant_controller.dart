@@ -37,14 +37,27 @@ class ProposalState {
 /// proposal cards.
 class AssistantEntry {
   final String role;
+
+  /// What the transcript draws for this turn — the user's words alone.
   final String text;
+
+  /// What goes on the wire for this turn: [text], with the screen's context
+  /// line prepended on the one entry that introduced it. The backend body is
+  /// `{messages}` only — no context field — so the context can only travel
+  /// inside content. Stored on the entry (not re-derived per send) so a
+  /// retry or any later send replays the identical history.
+  final String wireContent;
+
   final List<ProposalState> proposals;
 
-  AssistantEntry.user(this.text)
+  AssistantEntry.user(this.text, {String? contextPrefix})
       : role = 'user',
+        wireContent = contextPrefix == null ? text : '$contextPrefix\n$text',
         proposals = const [];
 
-  AssistantEntry.assistant(this.text, this.proposals) : role = 'assistant';
+  AssistantEntry.assistant(this.text, this.proposals)
+      : role = 'assistant',
+        wireContent = text;
 }
 
 /// Holds the assistant conversation — **in memory only, for the app's
@@ -92,10 +105,20 @@ class AssistantController extends ChangeNotifier {
 
   /// Appends [text] as a user turn and asks for the next reply. [geminiKey]
   /// is used for this one request and not retained.
-  Future<void> send(String idToken, String geminiKey, String text) async {
+  ///
+  /// [contextPrefix] — the screen's context line ("進入時檢視:…"), prepended
+  /// into this turn's **wire content only** (the transcript keeps drawing
+  /// [text]; the context is drawn once as its own row). The screen passes it
+  /// on the first send of a context-carrying visit.
+  Future<void> send(
+    String idToken,
+    String geminiKey,
+    String text, {
+    String? contextPrefix,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _status == AssistantStatus.sending) return;
-    _entries.add(AssistantEntry.user(trimmed));
+    _entries.add(AssistantEntry.user(trimmed, contextPrefix: contextPrefix));
     _lastError = null;
     await _dispatch(idToken, geminiKey);
   }
@@ -146,7 +169,7 @@ class AssistantController extends ChangeNotifier {
   List<AssistantMessage> _messages() => [
     for (final entry in _entries)
       if (entry.text.trim().isNotEmpty)
-        AssistantMessage(role: entry.role, content: entry.text),
+        AssistantMessage(role: entry.role, content: entry.wireContent),
   ];
 
   /// Accepts one proposal card: resolves the category by name against the

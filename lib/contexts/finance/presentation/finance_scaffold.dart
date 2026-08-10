@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
@@ -481,6 +482,40 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
   }
 
+  /// Opens the assistant carrying what this scaffold is showing right now —
+  /// the active tab and *its* month — as `/assistant` query parameters, so
+  /// the context survives a web refresh (`AssistantChatContext.fromQuery`
+  /// rebuilds it from the URL).
+  ///
+  /// The month is per-tab: the ledger tabs share [FinanceController]'s
+  /// month, 淨值 keeps its own (see [NetWorthController]), and 分帳 has no
+  /// month at all — sending the ledger's month from those two would put a
+  /// view on the URL that this screen never showed.
+  ///
+  /// Awaited, then reloaded (the `_openPlanScreen` shape): the assistant can
+  /// record a transaction, so the ledger behind it is stale the moment the
+  /// user returns — a fire-and-forget push would show them a ledger missing
+  /// the entry they just watched the assistant save.
+  Future<void> _openAssistant() async {
+    const tabs = ['overview', 'transactions', 'networth', 'split'];
+    final month = switch (_index) {
+      0 || 1 => widget.controller.selectedMonth,
+      2 => widget.netWorthController.selectedMonth,
+      _ => '',
+    };
+    final uri = Uri(
+      path: '/assistant',
+      queryParameters: {
+        'ctx': 'finance',
+        'tab': tabs[_index],
+        if (month.isNotEmpty) 'month': month,
+      },
+    );
+    await context.push(uri.toString());
+    if (!mounted) return;
+    await widget.controller.load(await _idToken(), widget.controller.selectedMonth);
+  }
+
   Future<void> _openBudgetSheet() async {
     await showAppSheet<void>(
       context,
@@ -512,6 +547,14 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             loc.financeTabSplit,
           ][_index],
         ),
+        actions: [
+          IconButton(
+            key: const Key('finance-assistant-button'),
+            tooltip: loc.assistantTitle,
+            icon: const Icon(Icons.smart_toy_outlined),
+            onPressed: () => unawaited(_openAssistant()),
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _index,

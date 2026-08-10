@@ -1,0 +1,91 @@
+version: 1
+name: assistant-context-ui
+budget: 550k
+defaults:
+  tier: standard
+
+# No plan node: 2b's plan was produced and gated in the assistant-chat-ui run
+# (`outputs/plan.json`, the "刀 2b" section and guards 11–13). Re-planning it
+# would cost ~100k to rewrite something already approved.
+inputs: [goal]
+
+nodes:
+  implement:
+    kind: task
+    role: implementer
+    tier: heavy
+    prompt: |
+      {{ inputs.goal }}
+
+      鐵則:
+      - **畫在畫面上的上下文字串,與送進 message content 的,必須出自同一個函式。**
+        分家就是「畫面顯示 A、資料是 B」—— 這個 repo 最會反覆長出來的一類 bug。
+      - 每寫一條守門就想「什麼突變會讓它紅」;想不出來就是壞守門。
+      - fixture 要落在**危險側**:月份用**非本月**,用本月的話「有沒有帶月份」看不出差別。
+      - 窄螢幕 320dp / textScale 2.0 要驗。
+
+  test:
+    kind: script
+    after: [implement]
+    run: "flutter analyze && flutter test"
+
+  code-review:
+    kind: check
+    role: code-reviewer
+    after: [implement]
+    prompt: |
+      只看這一刀的 diff。重點:
+      - 上下文從 URL 解析回來的路徑(web 重整、手打網址、缺參數、參數是垃圾)
+      - 從助手回到記帳時的 reload:await 了嗎、失敗了會怎樣、會不會重複載入
+      - 助手畫面已經開著時再帶新的上下文進來會怎樣
+
+  uiux-review:
+    kind: check
+    role: uiux-reviewer
+    after: [implement]
+    prompt: |
+      使用者從記帳頁點進助手。看:
+      - 「以哪個月為準」有沒有畫在畫面上、看得懂嗎
+      - 使用者在助手裡換了話題,那行上下文還在說什麼
+      - 從首頁進(無上下文)與從記帳進(有上下文)兩種畫面的差別合理嗎
+
+  guard-audit:
+    kind: check
+    role: code-reviewer
+    tier: heavy
+    after: [implement]
+    prompt: |
+      只找**不會失敗的守門**。逐條說明要怎麼突變才會紅;想不出來的就是壞守門。
+
+      這個 change 已經死過**八條**守門,形態逐一對照:
+      - **斷言的東西不在危險側**(死過五次:分類器拿不到金鑰、`toString` 沒 override、
+        canary 只掃畫出來的文字漏了 tooltip/semantics、header 只查 URL 與 body、
+        「Shift+Enter 換行」只斷言了不送出那半)
+      - fixture 是 null / 空 / 跟鄰居撞號 / **落在區別的同一邊**(月份用本月就白測)
+      - 斷言量到的是別人夾的(寬度 `lessThanOrEqualTo` 在 cap 拿掉後照樣綠)
+      - fallback 恆真(`x ?? someAlwaysTrueThing`)
+      - `tap` 打不到只警告、`enterText` 不做 hit-test
+      - 「不包含 X」型的斷言,對之後新增的東西永遠是綠的
+
+  fix:
+    kind: task
+    role: fixer
+    after: [test, code-review, uiux-review, guard-audit]
+    when: any-fail
+    goto: [test, code-review, uiux-review, guard-audit]
+    max_iterations: 2
+    prompt: "依三份 review 的發現修正。每補一條守門就說明能讓它紅的突變。"
+
+  ship:
+    kind: gate
+    after: [test, code-review, uiux-review, guard-audit]
+    when: all-pass
+    show: |
+      code review:
+      {{ nodes.code-review.output }}
+
+      UI/UX:
+      {{ nodes.uiux-review.output }}
+
+      守門稽核:
+      {{ nodes.guard-audit.output }}

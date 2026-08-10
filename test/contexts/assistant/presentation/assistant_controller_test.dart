@@ -361,4 +361,63 @@ void main() {
       expect(controller.status, AssistantStatus.idle);
     });
   });
+
+  group('AssistantController with context prefix', () {
+    test('the context prefix is included in wireContent but not in text', () async {
+      const contextPrefix = 'CONTEXT-CANARY-2849';
+      final repo = RecordingAssistantRepository()
+        ..reply = const AssistantReply(text: 'ok', proposals: []);
+      final controller = _controller(repo, GatedFinanceRepository());
+
+      await controller.send(
+        'tok',
+        'key',
+        'hello',
+        contextPrefix: contextPrefix,
+      );
+
+      final call = repo.calls.single;
+      final userMessage = call.firstWhere((m) => m.role == 'user');
+      expect(
+        userMessage.content,
+        contains(contextPrefix),
+        reason: 'the context prefix must be in wireContent so the backend sees it',
+      );
+      final userEntry = controller.entries.firstWhere((e) => e.role == 'user');
+      expect(
+        userEntry.text,
+        isNot(contains(contextPrefix)),
+        reason: 'the transcript draws text, not wireContent — context is a separate row',
+      );
+    });
+
+    test('a second send without context does not repeat the first send\'s prefix',
+        () async {
+      const contextPrefix = 'CONTEXT-CANARY-2849';
+      final repo = RecordingAssistantRepository()
+        ..reply = const AssistantReply(text: 'ok 1', proposals: []);
+      final controller = _controller(repo, GatedFinanceRepository());
+
+      await controller.send(
+        'tok',
+        'key',
+        'first',
+        contextPrefix: contextPrefix,
+      );
+
+      repo.reply = const AssistantReply(text: 'ok 2', proposals: []);
+      await controller.send('tok', 'key', 'second');
+
+      // The second message's wireContent should not have the context prefix.
+      final calls = repo.calls;
+      expect(calls, hasLength(2));
+      final secondCall = calls[1];
+      final secondUserMessage = secondCall.lastWhere((m) => m.role == 'user');
+      expect(
+        secondUserMessage.content,
+        isNot(contains(contextPrefix)),
+        reason: 'only the first send carries the context prefix',
+      );
+    });
+  });
 }

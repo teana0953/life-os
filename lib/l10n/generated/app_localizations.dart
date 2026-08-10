@@ -4998,11 +4998,29 @@ abstract class AppLocalizations {
   /// **'AI assistant'**
   String get assistantTitle;
 
-  /// Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do.
+  /// Row in the assistant transcript naming what the user was looking at when they opened the assistant (e.g. the finance space, a tab name and a month) — past tense on purpose: the assistant only saw this view once, at entry, not for the whole conversation. The exact same string is prepended into the first message sent to the model.
+  ///
+  /// In en, this message translates to:
+  /// **'Started from: {view}'**
+  String assistantContextViewing(String view);
+
+  /// Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do — used when the assistant was opened WITH a chat context (e.g. from the finance tabs), which gives the model a month/tab to anchor a vague question to.
   ///
   /// In en, this message translates to:
   /// **'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.'**
   String get assistantEmptyHint;
+
+  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened WITHOUT a chat context (e.g. from the home screen) — nudges the user to state a time range themselves, since the assistant has no month/tab to anchor a question like "how much did I spend" to.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").'**
+  String get assistantEmptyHintNoContext;
+
+  /// Screen-reader announcement while an assistant reply is in flight. The spinner is animation only, so without this a screen-reader user gets no signal that anything is happening (WCAG 4.1.3).
+  ///
+  /// In en, this message translates to:
+  /// **'Sending your message'**
+  String get assistantSendingLabel;
 
   /// Body text of the assistant screen's setup state, shown when no Gemini API key is stored yet; includes the free-tier data-use disclosure echoing the settings page.
   ///
