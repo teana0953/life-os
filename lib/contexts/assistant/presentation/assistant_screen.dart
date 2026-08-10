@@ -8,6 +8,7 @@ import '../../../shared/auth/id_token_provider.dart';
 import '../domain/assistant_failure.dart';
 import 'assistant_chat_context.dart';
 import 'assistant_controller.dart';
+import 'assistant_markdown.dart';
 import 'proposal_card.dart';
 
 /// The assistant conversation: transcript, confirmation cards, composer.
@@ -408,12 +409,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
             // `primaryContainer` whose text falls through to `onSurface` is
             // 1.4:1 in the dark theme — the user's own words, unreadable.
             // `tracker_day_nav_header.dart` is the house pattern for this.
-            child: Text(
-              entry.text,
-              style: TextStyle(
-                color: isUser ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurface,
-              ),
-            ),
+            // The assistant writes Markdown; the user writes what they typed.
+            // Only the reply goes through the renderer — running the user's
+            // own line through it would turn a literal `*` they can still see
+            // in the composer into a bullet.
+            child: isUser
+                ? Text(
+                    entry.text,
+                    style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
+                  )
+                : AssistantMarkdown(
+                    text: entry.text,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
           );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

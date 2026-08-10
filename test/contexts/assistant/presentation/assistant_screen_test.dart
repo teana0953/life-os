@@ -303,6 +303,30 @@ void main() {
       expect(find.byKey(const Key('assistant-error-text')), findsNothing);
     });
 
+    testWidgets('the reply is rendered as Markdown, the user\'s own line is '
+        'not', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '總花費為 **NT\$ 23,847**。\n* 醫療：NT\$ 21,200',
+        proposals: [],
+      );
+      // A star the user typed themselves — it is still visible in what they
+      // sent, so the transcript must show it, not turn it into a bullet.
+      // The fixture must be one the parser would transform (bullet marker at
+      // start), so that if someone accidentally applies AssistantMarkdown to
+      // user messages, the test catches it: the literal star disappears when
+      // parsed as a bullet item.
+      await _sendText(tester, '* 3 加 2 是多少');
+      await tester.pumpAndSettle();
+
+      // The literal star and number must remain in the user's message.
+      expect(find.textContaining('* 3 加 2 是多少'), findsOneWidget);
+      // No bold markers in the reply (they are eaten and rendered as weight).
+      expect(find.textContaining('**', findRichText: true), findsNothing);
+      // The assistant's reply has a bullet marker.
+      expect(find.text('•'), findsOneWidget);
+    });
+
     testWidgets('401 replaces the screen with the sign-in-again exit', (
       tester,
     ) async {
@@ -616,19 +640,38 @@ void main() {
   });
 
   group('AssistantScreen narrow layout', () {
-    testWidgets('320dp × textScale 2.0: transcript, card, error row and '
+    testWidgets('320dp × textScale 3.0: transcript, card, error row and '
         'composer all lay out without errors and the composer stays usable', (
       tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      // 3.0, not 2.0 — the level-3 nested item below (mirroring the
+      // unit-level regression test's parameters) has enough slack at 2.0 to
+      // not squeeze the body even with the fix's indent cap deleted; only
+      // 3.0 actually exercises the regression this guard exists for.
+      tester.platformDispatcher.textScaleFactorTestValue = 3.0;
       addTearDown(() => tester.platformDispatcher.clearAllTestValues());
 
       await expectNoLayoutErrors(() async {
         final harness = await _pumpScreen(tester);
         harness.assistantRepository.reply = AssistantReply(
-          text: '這個月餐飲共花了 3,600 元,其中最大一筆是 6 月 30 日的聚餐。',
+          // Worst case for the Markdown gutter/indent path, not a plain
+          // sentence: a numbered list plus a level-3 nested bullet with a
+          // long unbreakable run. A fixed-px gutter/indent overflows this
+          // horizontally at 320dp × textScale 2.0 without erroring — the
+          // nested line just silently shrinks to zero width — so a guard
+          // built only from a plain sentence never renders this path at all.
+          // Level 3 (six leading spaces), not level 2 — measured: a level-2
+          // item at this width/scale leaves the fixed-indent bug too much
+          // slack to actually squeeze the body, so it stays green with or
+          // without the fix. Level 3 mirrors the unit-level regression test
+          // at assistant_markdown_test.dart that the fix was written for.
+          text: '這個月餐飲共花了 3,600 元：\n'
+              '1. 早餐 500 元\n'
+              '2. 晚餐 3,100 元\n'
+              '* 醫療\n'
+              '      * 掛號費用一百元這一段故意寫得很長很長很長很長很長很長不許換行',
           proposals: [
             const AssistantProposal(
               kind: 'create_transaction',
@@ -644,6 +687,20 @@ void main() {
         );
         await _sendText(tester, '幫我記一筆昨天晚上跟朋友聚餐的錢,大概三千六');
         await tester.pumpAndSettle();
+
+        // Not just "no layout error" — the nested list line must actually
+        // have width. A fixed-px gutter/indent silently squeezes it to zero
+        // width instead of throwing, which the layout-error guard alone
+        // cannot see. `greaterThan(20)` at level 2 stayed green with the
+        // fix's cap deleted entirely — 320dp of width gives a level-2 item
+        // enough slack to not visibly squeeze. Level 3 above closes that
+        // gap; the threshold itself is raised to a width an actual
+        // multi-character line needs, not a number that a single clipped
+        // glyph could also satisfy.
+        expect(
+          tester.getSize(find.textContaining('掛號費用', findRichText: true).first).width,
+          greaterThan(60),
+        );
 
         // Then an error row on top of all that.
         harness.assistantRepository.failure =
@@ -843,6 +900,34 @@ void main() {
           .width;
       expect(bubbleWidth, 560, reason: 'the bubble must actually be at its cap, or this proves nothing');
       expect(cardWidth, bubbleWidth);
+    });
+
+    testWidgets('a short list reply hugs its content, not the real bubble path\'s width unit test alone', (tester) async {
+      // The unit test in assistant_markdown_test.dart proves the Row inside
+      // AssistantMarkdown hugs its content in an isolated harness. It does
+      // not prove the real bubble — Container -> ConstrainedBox(560) ->
+      // AssistantMarkdown — stays narrow too. Widening the bubble Container
+      // to `width: double.infinity` (exactly the symptom the fix targets)
+      // must turn this red even though the unit test alone stays green.
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '* hi',
+        proposals: [],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      final bubbleWidth = tester
+          .getSize(find.ancestor(
+            of: find.text('•'),
+            matching: find.byType(Container),
+          ).first)
+          .width;
+
+      // 560 mirrors assistant_screen.dart's private `_bubbleMaxWidth` (not
+      // importable here); the point of this test is that the bubble is far
+      // under it, not the exact cap.
+      expect(bubbleWidth, lessThan(560 / 2));
     });
   });
 }

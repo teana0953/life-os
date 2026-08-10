@@ -61,7 +61,17 @@ nodes:
     when: any-fail
     goto: [suites, code-review, uiux-review, guard-audit]
     max_iterations: 2
-    prompt: "依三份 review 的發現修正。每補一條守門就說明能讓它紅的突變。"
+    prompt: |
+      依下面三份 review 的發現修正。每補一條守門就說明能讓它紅的突變。
+
+      code review:
+      {{ nodes.code-review.output }}
+
+      UI/UX:
+      {{ nodes.uiux-review.output }}
+
+      守門稽核:
+      {{ nodes.guard-audit.output }}
 
   ship:
     kind: gate
