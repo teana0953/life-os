@@ -5082,6 +5082,12 @@ abstract class AppLocalizations {
   /// **'Note: {note}'**
   String assistantProposalNoteRow(String note);
 
+  /// The accept button after a category could not be found. Named differently from the first attempt because by now the user has been told to go and create the category, and this is the press that tries again.
+  ///
+  /// In en, this message translates to:
+  /// **'Record it now'**
+  String get assistantProposalRetryAccept;
+
   /// Accept button on a proposal confirmation card — saves the drafted transaction into the ledger.
   ///
   /// In en, this message translates to:

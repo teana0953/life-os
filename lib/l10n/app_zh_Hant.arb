@@ -829,6 +829,7 @@
   "assistantProposalNoCategory": "未指定分類",
   "assistantProposalDateRow": "日期:{day}",
   "assistantProposalNoteRow": "備註:{note}",
+  "assistantProposalRetryAccept": "建好了,記下來",
   "assistantProposalAccept": "記下來",
   "assistantProposalSaved": "已記錄 ✓",
   "assistantProposalSaveFailed": "儲存失敗,請再試一次。",

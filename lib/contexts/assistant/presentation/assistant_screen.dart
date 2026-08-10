@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -38,6 +39,10 @@ class AssistantScreen extends StatefulWidget {
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
 }
+
+/// The widest a transcript item gets. Shared by the message bubbles and the
+/// proposal cards so the two never drift apart on a wide window.
+const double _bubbleMaxWidth = 560;
 
 class _AssistantScreenState extends State<AssistantScreen> {
   final TextEditingController _composer = TextEditingController();
@@ -261,16 +266,22 @@ class _AssistantScreenState extends State<AssistantScreen> {
               alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
               // Cap the bubble, don't let a long message span edge to edge.
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
+                constraints: const BoxConstraints(maxWidth: _bubbleMaxWidth),
                 child: bubble,
               ),
             ),
           for (var p = 0; p < entry.proposals.length; p++)
-            ProposalCard(
-              state: entry.proposals[p],
-              entryIndex: entryIndex,
-              proposalIndex: p,
-              onAccept: () => _accept(entryIndex, p),
+            // The same cap as the bubbles above. Two card-shaped things in
+            // one transcript growing to different widths on a desktop reads
+            // as two unrelated components.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _bubbleMaxWidth),
+              child: ProposalCard(
+                state: entry.proposals[p],
+                entryIndex: entryIndex,
+                proposalIndex: p,
+                onAccept: () => _accept(entryIndex, p),
+              ),
             ),
         ],
       ),
@@ -341,15 +352,29 @@ class _AssistantScreenState extends State<AssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              key: const Key('assistant-composer-field'),
-              controller: _composer,
-              enabled: !sending,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(),
-              decoration: InputDecoration(hintText: loc.assistantComposerHint),
+            // A multi-line field swallows Enter: `onSubmitted` fires for a
+            // single-line one and for the on-screen keyboard's send action,
+            // but on a desktop or the web Enter just inserts a newline and
+            // the message sits there. Shift+Enter keeps the newline, which is
+            // the convention every chat box on that platform uses.
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                if (event.logicalKey != LogicalKeyboardKey.enter) return KeyEventResult.ignored;
+                if (HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored;
+                _send();
+                return KeyEventResult.handled;
+              },
+              child: TextField(
+                key: const Key('assistant-composer-field'),
+                controller: _composer,
+                enabled: !sending,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(hintText: loc.assistantComposerHint),
+              ),
             ),
           ),
           IconButton(

@@ -3979,6 +3979,10 @@
       }
     }
   },
+  "assistantProposalRetryAccept": "Record it now",
+  "@assistantProposalRetryAccept": {
+    "description": "The accept button after a category could not be found. Named differently from the first attempt because by now the user has been told to go and create the category, and this is the press that tries again."
+  },
   "assistantProposalAccept": "Record it",
   "@assistantProposalAccept": {
     "description": "Accept button on a proposal confirmation card — saves the drafted transaction into the ledger."

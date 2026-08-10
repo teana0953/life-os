@@ -11,10 +11,14 @@ import 'assistant_controller.dart';
 /// [ProposalState.draft] — the same object [AssistantController.accept]
 /// saves — so what the user reads and what gets written cannot diverge.
 ///
-/// Four live states (pending / saving / saved / failed) plus two dead ends:
-/// an unrenderable proposal (no draft → no accept button at all) and
-/// `categoryNotFound` (button visible but disabled — an honest dead end
-/// beats writing into a wrong category).
+/// Five live states (pending / saving / saved / failed / categoryNotFound)
+/// and one dead end: an unrenderable proposal, which has no draft and so no
+/// accept button at all.
+///
+/// `categoryNotFound` keeps a live button on purpose. Its message sends the
+/// user off to create the category, so pressing again on their return has to
+/// re-resolve it — refusing to write into a wrong category is the honest
+/// part, and making the user retype the request is not.
 class ProposalCard extends StatelessWidget {
   final ProposalState state;
 
@@ -133,10 +137,13 @@ class ProposalCard extends StatelessWidget {
             style: TextStyle(color: theme.colorScheme.error),
           ),
           const SizedBox(height: 8),
+          // Live, not disabled: the message above tells the user to go and
+          // create the category, so the button they come back to has to try
+          // again. A dead button would make that instruction a lie.
           FilledButton(
             key: _key('accept'),
-            onPressed: null,
-            child: Text(loc.assistantProposalAccept),
+            onPressed: onAccept,
+            child: Text(loc.assistantProposalRetryAccept),
           ),
         ];
       case ProposalStatus.failed:

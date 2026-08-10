@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:life_os/contexts/finance/domain/finance_category.dart';
+import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/assistant/application/send_assistant_message.dart';
 import 'package:life_os/contexts/assistant/domain/assistant_failure.dart';
@@ -396,8 +399,8 @@ void main() {
       _expectNoCanary(tester, 'save failed');
     });
 
-    testWidgets('an unknown category is an honest dead end: named on the '
-        'card, button disabled', (tester) async {
+    testWidgets('an unknown category is named on the card, and the button '
+        'still works once the category exists', (tester) async {
       final harness = await _pumpScreen(tester);
       harness.assistantRepository.reply = const AssistantReply(
         text: 'ok',
@@ -422,11 +425,33 @@ void main() {
         find.text(_loc.assistantProposalCategoryNotFound('寵物旅館')),
         findsOneWidget,
       );
+      expect(harness.financeRepository.addTransactionCalls, 0);
+
+      // The message says "go and create it", so the button has to still be
+      // there when they come back. A dead button would make that a lie and
+      // force them to retype the whole request for a fresh card.
       final button = tester.widget<FilledButton>(
         find.byKey(const Key('assistant-proposal-accept-1-0')),
       );
-      expect(button.onPressed, isNull);
-      expect(harness.financeRepository.addTransactionCalls, 0);
+      expect(button.onPressed, isNotNull);
+
+      // They create it, come back, press again.
+      harness.financeRepository.categoriesToReturn = [
+        ...harness.financeRepository.categoriesToReturn,
+        const FinanceCategory(
+          id: 'cat-pets',
+          name: '寵物旅館',
+          type: FinanceType.expense,
+          icon: 'other',
+          sortOrder: 9,
+          archived: false,
+        ),
+      ];
+      await tester.tap(find.byKey(const Key('assistant-proposal-accept-1-0')));
+      await tester.pumpAndSettle();
+
+      expect(harness.financeRepository.addTransactionCalls, 1);
+      expect(find.byKey(const Key('assistant-proposal-saved-1-0')), findsOneWidget);
     });
 
     testWidgets('an unrenderable proposal shows no accept button at all', (
@@ -549,6 +574,80 @@ void main() {
         );
         expect(find.text('鍵盤彈出時還打得了字'), findsOneWidget);
       }, reason: '320dp × textScale 2.0 must not overflow');
+    });
+  });
+
+  group('the composer on a hardware keyboard', () {
+    testWidgets('Enter sends, Shift+Enter does not', (tester) async {
+      // A multi-line TextField swallows Enter: `onSubmitted` fires for a
+      // single-line one and for the on-screen keyboard's send action, but on
+      // a desktop or the web the message just sits there with a newline in
+      // it. Both halves are asserted — a handler that sends on every Enter
+      // would take Shift+Enter away, which is how every chat box on that
+      // platform inserts a line break.
+      final harness = await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('assistant-composer-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('assistant-composer-field')), '第一行');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(harness.assistantRepository.calls, isEmpty, reason: 'Shift+Enter must not send');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(harness.assistantRepository.calls, hasLength(1));
+    });
+  });
+
+  group('transcript width', () {
+    testWidgets('a proposal card is capped like the bubbles beside it', (tester) async {
+      // Two card-shaped things in one transcript growing to different widths
+      // on a wide window reads as two unrelated components. The surface is
+      // deliberately far wider than the cap, or both would be constrained by
+      // the window instead and the assertion would pass on nothing.
+      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        // Both long enough to exceed the cap on a 1400px window — otherwise
+        // each renders at its content width and the comparison says nothing
+        // about clamping.
+        text: '這是一段刻意寫得很長的回覆,長到在一四〇〇像素寬的視窗上一定會撞到寬度上限,'
+            '而不是停在自己的內容寬度,這樣才量得到夾住這件事本身,而不是量到內容有多長。',
+        proposals: [
+          AssistantProposal(
+            kind: 'create_transaction',
+            fields: {
+              'type': 'expense',
+              'amount': 250,
+              'category_name': '餐飲',
+              'note': '一段同樣刻意寫得很長的備註,長到這張卡片在寬視窗上也一定會撞到同一個寬度上限,'
+                  '否則卡片會停在自己的內容寬度而不是被夾住。',
+            },
+          ),
+        ],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      // Against the bubble, not against a number: what matters is that the
+      // two agree. A bare `<= 560` passed with the cap removed, because at
+      // this width some ancestor was holding the card in anyway — the
+      // assertion was measuring that, not the cap.
+      final cardWidth = tester.getSize(find.byKey(const Key('assistant-proposal-card-1-0'))).width;
+      final bubbleWidth = tester
+          .getSize(find.ancestor(
+            of: find.textContaining('這是一段刻意寫得很長的回覆'),
+            matching: find.byType(ConstrainedBox),
+          ).first)
+          .width;
+      expect(bubbleWidth, 560, reason: 'the bubble must actually be at its cap, or this proves nothing');
+      expect(cardWidth, bubbleWidth);
     });
   });
 }

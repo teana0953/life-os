@@ -2871,6 +2871,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get assistantProposalRetryAccept => 'Record it now';
+
+  @override
   String get assistantProposalAccept => 'Record it';
 
   @override

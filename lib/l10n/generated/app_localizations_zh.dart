@@ -2766,6 +2766,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get assistantProposalRetryAccept => 'Record it now';
+
+  @override
   String get assistantProposalAccept => 'Record it';
 
   @override
@@ -5535,6 +5538,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String assistantProposalNoteRow(String note) {
     return '備註:$note';
   }
+
+  @override
+  String get assistantProposalRetryAccept => '建好了,記下來';
 
   @override
   String get assistantProposalAccept => '記下來';

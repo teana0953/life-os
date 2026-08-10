@@ -162,8 +162,14 @@ class AssistantController extends ChangeNotifier {
     final proposal = proposals[proposalIndex];
     final draft = proposal.draft;
     if (draft == null) return;
+    // `categoryNotFound` is re-enterable, and that is the whole point of the
+    // copy: it tells the user to go and create the category, so coming back
+    // and pressing again has to re-resolve it. A terminal state here would
+    // make the instruction a lie — they would have to retype the request to
+    // get a fresh card. `saving` and `saved` stay closed.
     if (proposal.status != ProposalStatus.pending &&
-        proposal.status != ProposalStatus.failed) {
+        proposal.status != ProposalStatus.failed &&
+        proposal.status != ProposalStatus.categoryNotFound) {
       return;
     }
     proposal.status = ProposalStatus.saving;
