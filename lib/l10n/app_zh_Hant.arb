@@ -1,5 +1,6 @@
 {
   "@@locale": "zh_Hant",
+  "appTitle": "Life OS",
   "welcomeBack": "歡迎回來",
   "signInSubtitle": "登入 Life OS",
   "passwordResetTitle": "重設密碼",

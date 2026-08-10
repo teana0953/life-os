@@ -9,6 +9,9 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get appTitle => 'Life OS';
+
+  @override
   String get welcomeBack => 'Welcome back';
 
   @override

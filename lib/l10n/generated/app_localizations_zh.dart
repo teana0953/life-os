@@ -9,6 +9,9 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get appTitle => 'Life OS';
+
+  @override
   String get welcomeBack => '歡迎回來';
 
   @override
@@ -2821,6 +2824,9 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get appTitle => 'Life OS';
 
   @override
   String get welcomeBack => '歡迎回來';

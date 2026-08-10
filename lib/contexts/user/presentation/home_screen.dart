@@ -9,23 +9,6 @@ import 'home_controller.dart';
 
 const _contentMaxWidth = 960.0;
 
-int _spacesCrossAxisCount(double width) {
-  if (width >= 900) return 4;
-  if (width >= 600) return 3;
-  return 2;
-}
-
-/// One entry of the "Your spaces" grid. [onTap] is `null` for a space that
-/// has no destination yet — the tile then renders a "coming soon" badge
-/// instead of an `InkWell`, so it neither navigates nor looks tappable.
-class _SpaceTile {
-  final Key key;
-  final String label;
-  final void Function(BuildContext context)? onTap;
-
-  const _SpaceTile({required this.key, required this.label, this.onTap});
-}
-
 /// Time-of-day period the home screen's greeting is based on.
 enum GreetingPeriod { morning, afternoon, evening }
 
@@ -81,48 +64,112 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openAssistant(BuildContext context) => context.push('/assistant');
 
+  void _selectPrimaryDestination(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        _openHealth(context);
+        return;
+      case 1:
+        _openFinance(context);
+        return;
+      case 2:
+      case 3:
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.spaceComingSoon),
+            ),
+          );
+        return;
+      case 4:
+        _openSettings(context);
+        return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final loc = AppLocalizations.of(context)!;
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final contentWidth = constraints.maxWidth < _contentMaxWidth
-                    ? constraints.maxWidth
-                    : _contentMaxWidth;
-                return Center(
-                  child: SizedBox(
-                    width: contentWidth,
-                    child: _buildBody(context, controller, contentWidth),
+      appBar: controller.status == HomeStatus.loaded
+          ? AppBar(
+              title: Text(loc.appTitle),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    child: Text(
+                      controller.profile?.displayName?.isNotEmpty == true
+                          ? controller.profile!.displayName!.substring(0, 1)
+                          : 'L',
+                    ),
                   ),
-                );
-              },
-            ),
-            if (controller.status == HomeStatus.loaded)
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  key: const Key('settings-icon-button'),
-                  icon: const Icon(Icons.settings),
-                  tooltip: loc.settingsIconTooltip,
-                  onPressed: () => _openSettings(context),
                 ),
+              ],
+            )
+          : null,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final contentWidth = constraints.maxWidth < _contentMaxWidth
+                ? constraints.maxWidth
+                : _contentMaxWidth;
+            return Center(
+              child: SizedBox(
+                width: contentWidth,
+                child: _buildBody(context, controller),
               ),
-          ],
+            );
+          },
         ),
       ),
+      bottomNavigationBar: controller.status == HomeStatus.loaded
+          ? NavigationBar(
+              key: const Key('primary-navigation-bar'),
+              selectedIndex: 0,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              onDestinationSelected: (index) =>
+                  _selectPrimaryDestination(context, index),
+              destinations: [
+                NavigationDestination(
+                  key: const Key('health-tile'),
+                  icon: const Icon(Icons.favorite_outline),
+                  selectedIcon: const Icon(Icons.favorite),
+                  label: loc.spaceHealth,
+                ),
+                NavigationDestination(
+                  key: const Key('finance-tile'),
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: const Icon(Icons.account_balance_wallet),
+                  label: loc.spaceFinance,
+                ),
+                NavigationDestination(
+                  key: const Key('tasks-tile'),
+                  icon: const Icon(Icons.task_alt),
+                  label: loc.spaceTasks,
+                ),
+                NavigationDestination(
+                  key: const Key('journal-tile'),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: loc.spaceJournal,
+                ),
+                NavigationDestination(
+                  key: const Key('settings-icon-button'),
+                  icon: const Icon(Icons.settings_outlined),
+                  selectedIcon: const Icon(Icons.settings),
+                  label: loc.settingsTitle,
+                ),
+              ],
+            )
+          : null,
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    HomeController controller,
-    double contentWidth,
-  ) {
+  Widget _buildBody(BuildContext context, HomeController controller) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     switch (controller.status) {
@@ -130,23 +177,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
         final profile = controller.profile!;
-        final spaceTiles = [
-          _SpaceTile(
-            key: const Key('health-tile'),
-            label: loc.spaceHealth,
-            onTap: _openHealth,
-          ),
-          _SpaceTile(
-            key: const Key('finance-tile'),
-            label: loc.spaceFinance,
-            onTap: _openFinance,
-          ),
-          // No destination yet: `onTap` stays null so the tile renders the
-          // "coming soon" badge instead of an `InkWell` — see `_buildBody`'s
-          // itemBuilder below.
-          _SpaceTile(key: const Key('tasks-tile'), label: loc.spaceTasks),
-          _SpaceTile(key: const Key('journal-tile'), label: loc.spaceJournal),
-        ];
         final greeting = switch (greetingPeriodFor(widget.clock())) {
           GreetingPeriod.morning => loc.greetingMorning,
           GreetingPeriod.afternoon => loc.greetingAfternoon,
@@ -170,7 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.colorScheme.outline, width: 2),
+                  border: Border.all(
+                    color: theme.colorScheme.outline,
+                    width: 2,
+                  ),
                   boxShadow: ledgeShadow(theme.colorScheme.outline),
                 ),
                 child: Row(
@@ -180,7 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(profile.email ?? '', style: theme.textTheme.bodyLarge),
+                          Text(
+                            profile.email ?? '',
+                            style: theme.textTheme.bodyLarge,
+                          ),
                         ],
                       ),
                     ),
@@ -219,7 +255,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: theme.colorScheme.outline, width: 2),
+                      border: Border.all(
+                        color: theme.colorScheme.outline,
+                        width: 2,
+                      ),
                       boxShadow: ledgeShadow(theme.colorScheme.outline),
                     ),
                     child: Row(
@@ -243,75 +282,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(loc.yourSpaces, style: theme.textTheme.titleLarge),
-              const SizedBox(height: 12),
-              GridView.builder(
-                key: const Key('spaces-grid'),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _spacesCrossAxisCount(contentWidth),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.2,
-                ),
-                itemCount: spaceTiles.length,
-                itemBuilder: (context, index) {
-                  final space = spaceTiles[index];
-                  final tappable = space.onTap != null;
-                  final tile = Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        // Not `outlineVariant`: this `ColorScheme` never sets
-                        // it, so the Material getter chain falls through to
-                        // `onSurface` — the same color as body text, which
-                        // would make the non-tappable tile's border *bolder*
-                        // than the tappable ones' `outline`, inverting the
-                        // intended hierarchy. A faded `outline` gets the
-                        // "de-emphasized" look actually intended.
-                        color: tappable
-                            ? theme.colorScheme.outline
-                            : theme.colorScheme.outline.withValues(alpha: 0.4),
-                        width: 2,
-                      ),
-                    ),
-                    child: tappable
-                        ? Text(space.label)
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                space.label,
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                loc.spaceComingSoon,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                  );
-                  if (!tappable) return KeyedSubtree(key: space.key, child: tile);
-                  return Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      key: space.key,
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => space.onTap!(context),
-                      child: tile,
-                    ),
-                  );
-                },
               ),
               const SizedBox(height: 24),
               // A small build id so a deployed (Flutter web) build can be told

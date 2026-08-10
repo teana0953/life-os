@@ -414,64 +414,59 @@ void main() {
     );
 
     testWidgets(
-      'the assistant bar sits between the profile card and the spaces grid',
+      'the assistant bar remains visible above primary navigation',
       (tester) async {
         final controller = await loadedController();
         await pumpHomeScreen(tester, controller);
 
-        final barTop = tester
-            .getTopLeft(find.byKey(const Key('home-assistant-bar')))
-            .dy;
-        final gridTop = tester.getTopLeft(find.byKey(const Key('spaces-grid'))).dy;
-        final profileCardBottom = tester
-            .getBottomLeft(find.text('test@example.com'))
-            .dy;
-
-        expect(barTop, greaterThan(profileCardBottom));
-        expect(barTop, lessThan(gridTop));
+        expect(find.byKey(const Key('home-assistant-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('primary-navigation-bar')),
+          findsOneWidget,
+        );
       },
     );
 
     testWidgets(
-      'tasks and journal tiles are not tappable and show a coming-soon badge',
+      'tasks and journal destinations stay on home and show coming soon',
       (tester) async {
         final controller = await loadedController();
         await pumpHomeScreen(tester, controller);
 
-        await tester.ensureVisible(find.byKey(const Key('tasks-tile')));
         await tester.tap(find.byKey(const Key('tasks-tile')));
-        await tester.pumpAndSettle();
-        expect(find.text('HEALTH-ROUTE'), findsNothing);
-        expect(find.text('FINANCE-ROUTE'), findsNothing);
-        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
-
-        await tester.ensureVisible(find.byKey(const Key('journal-tile')));
-        await tester.tap(find.byKey(const Key('journal-tile')));
-        await tester.pumpAndSettle();
-        expect(find.text('HEALTH-ROUTE'), findsNothing);
-        expect(find.text('FINANCE-ROUTE'), findsNothing);
-        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
-
+        await tester.pump();
         expect(
           find.text(lookupAppLocalizations(const Locale('en')).spaceComingSoon),
-          findsNWidgets(2),
+          findsOneWidget,
+        );
+        expect(find.text('HEALTH-ROUTE'), findsNothing);
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+
+        await tester.tap(find.byKey(const Key('journal-tile')));
+        await tester.pump();
+        expect(find.text('HEALTH-ROUTE'), findsNothing);
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+        expect(
+          find.text(lookupAppLocalizations(const Locale('en')).spaceComingSoon),
+          findsOneWidget,
         );
       },
     );
 
     testWidgets(
-      'the spaces grid has exactly 4 tiles and no assistant tile',
+      'primary navigation has five destinations and replaces the spaces grid',
       (tester) async {
         final controller = await loadedController();
         await pumpHomeScreen(tester, controller);
 
-        final grid = tester.widget<GridView>(find.byKey(const Key('spaces-grid')));
-        expect(
-          (grid.childrenDelegate as SliverChildBuilderDelegate).childCount,
-          4,
+        final navigation = tester.widget<NavigationBar>(
+          find.byKey(const Key('primary-navigation-bar')),
         );
+        expect(navigation.destinations, hasLength(5));
+        expect(navigation.selectedIndex, 0);
+        expect(find.byKey(const Key('spaces-grid')), findsNothing);
         expect(find.byKey(const Key('assistant-tile')), findsNothing);
       },
     );
@@ -543,4 +538,3 @@ void main() {
     });
   });
 }
-
