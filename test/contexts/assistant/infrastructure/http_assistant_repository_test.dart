@@ -83,6 +83,13 @@ void main() {
       // turns this red.
       expect(captured!.url.toString(), isNot(contains(_canaryKey)));
       expect(utf8.decode(captured!.bodyBytes), isNot(contains(_canaryKey)));
+      // And **no other header** carries it. Checking only the URL and the
+      // body left a copy in a second header green — "and nowhere else" has to
+      // mean the whole request, or the sentence is decoration.
+      final elsewhere = captured!.headers.entries.where(
+        (header) => header.key.toLowerCase() != 'x-gemini-api-key' && header.value.contains(_canaryKey),
+      );
+      expect(elsewhere, isEmpty, reason: 'the key was copied into another header');
     });
 
     test('classifies the five backend failures by BODY error code, apart', () async {

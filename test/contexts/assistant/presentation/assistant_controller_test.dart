@@ -35,8 +35,20 @@ AssistantProposal _foodProposal({int amount = 1234}) => AssistantProposal(
   kind: 'create_transaction',
   // Deliberately no `currency` and no `day`: normalization must fill both,
   // and rendering/writing must agree on the filled values.
-  fields: {'type': 'expense', 'amount': amount, 'category_name': '餐飲'},
+  fields: {
+    'type': 'expense',
+    'amount': amount,
+    'category_name': '餐飲',
+    // A marker no user text or rendered figure could produce. The wire-leak
+    // assertion below needs something that only a leaked proposal can carry:
+    // asserting the *amount* is absent cannot fire, because the raw field is
+    // `1234` while the formatter emits `1,234 TWD` and neither string ever
+    // appears in a message either way.
+    'note': _proposalCanary,
+  },
 );
+
+const _proposalCanary = 'PROPOSAL-CANARY-7788';
 
 void main() {
   group('AssistantController.send', () {
@@ -72,7 +84,9 @@ void main() {
       expect(second.map((m) => m.role).toList(), ['user', 'user']);
       for (final message in second) {
         expect(message.content.trim(), isNotEmpty);
-        expect(message.content, isNot(contains('1234 TWD')));
+        // The proposal reached the client, so if any part of it were folded
+        // into the conversation the marker would ride along with it.
+        expect(message.content, isNot(contains(_proposalCanary)));
       }
     });
 

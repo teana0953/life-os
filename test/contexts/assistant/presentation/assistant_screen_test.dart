@@ -91,11 +91,40 @@ AssistantProposal _foodProposal({int amount = 1234}) => AssistantProposal(
   fields: {'type': 'expense', 'amount': amount, 'category_name': '餐飲'},
 );
 
+/// Every place a string can reach a person: painted text, tooltips (hover,
+/// long-press, and screen readers), and the semantics tree.
+///
+/// `find.textContaining` alone reads `Text` and `EditableText` and nothing
+/// else — measured: interpolating the key into the send button's tooltip left
+/// all fifteen screen tests green. Two earlier guards in this same change
+/// died the same way, by asserting about somewhere the secret could not
+/// reach.
 void _expectNoCanary(WidgetTester tester, String state) {
+  const canary = 'SK-RENDER-CANARY';
   expect(
-    find.textContaining('SK-RENDER-CANARY', skipOffstage: false),
+    find.textContaining(canary, skipOffstage: false),
     findsNothing,
-    reason: 'the full key leaked into the "$state" state',
+    reason: 'the full key leaked into painted text in the "$state" state',
+  );
+
+  final tooltips = tester.widgetList<Tooltip>(find.byType(Tooltip, skipOffstage: false));
+  expect(
+    tooltips.where((tooltip) => tooltip.message?.contains(canary) ?? false),
+    isEmpty,
+    reason: 'the full key leaked into a tooltip in the "$state" state',
+  );
+
+  final semantics = tester.widgetList<Semantics>(find.byType(Semantics, skipOffstage: false));
+  expect(
+    semantics.where((node) {
+      final properties = node.properties;
+      return (properties.label?.contains(canary) ?? false) ||
+          (properties.value?.contains(canary) ?? false) ||
+          (properties.hint?.contains(canary) ?? false) ||
+          (properties.tooltip?.contains(canary) ?? false);
+    }),
+    isEmpty,
+    reason: 'the full key leaked into the semantics tree in the "$state" state',
   );
 }
 
@@ -178,6 +207,29 @@ void main() {
       expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
       expect(find.byKey(const Key('assistant-error-text')), findsNothing);
       _expectNoCanary(tester, 'missingKey');
+    });
+
+    testWidgets('and pasting a key gets the conversation back', (tester) async {
+      // The half the original test did not cover: it proved the screen falls
+      // into the setup state, not that anyone can climb out. `_lastError` is
+      // cleared only by send/retry/reset, and the setup state shows neither
+      // the composer nor the retry button — so a valid key pasted afterwards
+      // used to leave the user reading "add a key" forever. The controller is
+      // an app-lifetime singleton, so re-navigating did not help; only
+      // signing out or reloading did.
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.failure =
+          const AssistantSendFailure(AssistantFailure.missingKey);
+      await _sendText(tester, 'hello');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
+
+      // What the user does next: settings, paste, back.
+      await harness.keyController.setKey('AIzaSy-A-DIFFERENT-KEY-5150');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('assistant-setup')), findsNothing);
+      expect(find.byKey(const Key('assistant-composer-field')), findsOneWidget);
     });
 
     testWidgets('a network failure reads as the service-unavailable copy', (
@@ -472,8 +524,25 @@ void main() {
 
         // The composer is still on screen and still takes input — the
         // keyboard-up analogue of this repo's food-search guard.
+        //
+        // The focus assertion is the load-bearing one. `tap` on something
+        // unreachable only warns, and `enterText` focuses the field itself
+        // without hit-testing — measured: wrapping the composer in an
+        // `IgnorePointer`, so no real finger could reach it, left all fifteen
+        // screen tests green.
         await tester.tap(find.byKey(const Key('assistant-composer-field')));
         await tester.pumpAndSettle();
+        final editable = tester.widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const Key('assistant-composer-field')),
+            matching: find.byType(EditableText),
+          ),
+        );
+        expect(
+          editable.focusNode.hasFocus,
+          isTrue,
+          reason: 'the tap did not land on the composer — it is on screen but not reachable',
+        );
         await tester.enterText(
           find.byKey(const Key('assistant-composer-field')),
           '鍵盤彈出時還打得了字',

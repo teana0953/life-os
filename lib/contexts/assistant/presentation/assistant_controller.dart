@@ -217,6 +217,23 @@ class AssistantController extends ChangeNotifier {
 
   /// Clears the conversation — called from `app.dart`'s sign-out reset so
   /// the next account on this device never reads this one's transcript.
+  /// Forgets a `missingKey` failure once a key exists again.
+  ///
+  /// That failure routes the screen to its setup state, which shows neither
+  /// the composer nor the retry button — the only two things that clear an
+  /// error. Without this the user pastes a valid key, comes back, and is
+  /// still told to go and add one, forever: the controller is an app-lifetime
+  /// singleton, so re-navigating does not help either. Only sign-out or a
+  /// hard reload escaped it.
+  ///
+  /// Deliberately narrow: any other failure is cleared by retrying, which is
+  /// reachable from the transcript.
+  void clearMissingKeyError() {
+    if (_lastError != AssistantFailure.missingKey) return;
+    _lastError = null;
+    notifyListeners();
+  }
+
   void reset() {
     _entries.clear();
     _status = AssistantStatus.idle;

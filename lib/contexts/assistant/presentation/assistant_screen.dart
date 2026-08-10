@@ -46,18 +46,40 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
-    widget.geminiKeyController.addListener(_onChanged);
+    widget.geminiKeyController.addListener(_onKeyChanged);
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
-    widget.geminiKeyController.removeListener(_onChanged);
+    widget.geminiKeyController.removeListener(_onKeyChanged);
     _composer.dispose();
     super.dispose();
   }
 
   void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The stored key changed — `GeminiKeyController` only notifies on save or
+  /// clear, so this firing means the user really did go and do something.
+  ///
+  /// If a send had failed because the backend saw no key, that failure is now
+  /// stale and must go. It routes the screen to the setup state, which shows
+  /// neither the composer nor the retry button — the only two things that
+  /// clear an error — so without this the user pastes a valid key, comes
+  /// back, and is still told to add one. Forever: the controller is an
+  /// app-lifetime singleton, so re-navigating does not help; only signing out
+  /// or reloading did.
+  ///
+  /// Deliberately keyed on the key *changing* rather than on `hasKey`: the
+  /// failure means the backend saw no key, which happens while this device
+  /// still has one, so clearing on every notification would stop the setup
+  /// state from ever appearing.
+  void _onKeyChanged() {
+    if (widget.geminiKeyController.hasKey) {
+      widget.controller.clearMissingKeyError();
+    }
     if (mounted) setState(() {});
   }
 
@@ -217,7 +239,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: theme.colorScheme.outline, width: 2),
             ),
-            child: Text(entry.text),
+            // Paired with the background above. A bubble on
+            // `primaryContainer` whose text falls through to `onSurface` is
+            // 1.4:1 in the dark theme — the user's own words, unreadable.
+            // `tracker_day_nav_header.dart` is the house pattern for this.
+            child: Text(
+              entry.text,
+              style: TextStyle(
+                color: isUser ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurface,
+              ),
+            ),
           );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
