@@ -640,29 +640,38 @@ void main() {
   });
 
   group('AssistantScreen narrow layout', () {
-    testWidgets('320dp × textScale 2.0: transcript, card, error row and '
+    testWidgets('320dp × textScale 3.0: transcript, card, error row and '
         'composer all lay out without errors and the composer stays usable', (
       tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      // 3.0, not 2.0 — the level-3 nested item below (mirroring the
+      // unit-level regression test's parameters) has enough slack at 2.0 to
+      // not squeeze the body even with the fix's indent cap deleted; only
+      // 3.0 actually exercises the regression this guard exists for.
+      tester.platformDispatcher.textScaleFactorTestValue = 3.0;
       addTearDown(() => tester.platformDispatcher.clearAllTestValues());
 
       await expectNoLayoutErrors(() async {
         final harness = await _pumpScreen(tester);
         harness.assistantRepository.reply = AssistantReply(
           // Worst case for the Markdown gutter/indent path, not a plain
-          // sentence: a numbered list plus a level-2 nested bullet with a
+          // sentence: a numbered list plus a level-3 nested bullet with a
           // long unbreakable run. A fixed-px gutter/indent overflows this
           // horizontally at 320dp × textScale 2.0 without erroring — the
           // nested line just silently shrinks to zero width — so a guard
           // built only from a plain sentence never renders this path at all.
+          // Level 3 (six leading spaces), not level 2 — measured: a level-2
+          // item at this width/scale leaves the fixed-indent bug too much
+          // slack to actually squeeze the body, so it stays green with or
+          // without the fix. Level 3 mirrors the unit-level regression test
+          // at assistant_markdown_test.dart that the fix was written for.
           text: '這個月餐飲共花了 3,600 元：\n'
               '1. 早餐 500 元\n'
               '2. 晚餐 3,100 元\n'
               '* 醫療\n'
-              '    * 掛號費用一百元這一段故意寫得很長很長很長很長很長很長不許換行',
+              '      * 掛號費用一百元這一段故意寫得很長很長很長很長很長很長不許換行',
           proposals: [
             const AssistantProposal(
               kind: 'create_transaction',
@@ -682,11 +691,16 @@ void main() {
         // Not just "no layout error" — the nested list line must actually
         // have width. A fixed-px gutter/indent silently squeezes it to zero
         // width instead of throwing, which the layout-error guard alone
-        // cannot see.
-        final nestedLine = tester.getSize(
-          find.textContaining('掛號費用', findRichText: true).first,
+        // cannot see. `greaterThan(20)` at level 2 stayed green with the
+        // fix's cap deleted entirely — 320dp of width gives a level-2 item
+        // enough slack to not visibly squeeze. Level 3 above closes that
+        // gap; the threshold itself is raised to a width an actual
+        // multi-character line needs, not a number that a single clipped
+        // glyph could also satisfy.
+        expect(
+          tester.getSize(find.textContaining('掛號費用', findRichText: true).first).width,
+          greaterThan(60),
         );
-        expect(nestedLine.width, greaterThan(20));
 
         // Then an error row on top of all that.
         harness.assistantRepository.failure =

@@ -226,26 +226,18 @@ void main() {
       expect(tester.getSize(find.text('10.')).width, greaterThanOrEqualTo(needed));
       expect(tester.takeException(), isNull);
 
-      // The box the marker is painted into must leave a gap before the body
-      // text, not sit flush against it. `getSize` on the marker `Text` can't
-      // tell them apart here — the SizedBox hands it a tight width
-      // constraint, so it reports the box's own width back regardless of
-      // glyph content. Measure the glyphs directly instead, with the exact
-      // style the Text widget was actually given (so this can't drift from
-      // whatever `effectiveStyle` production code merges to) — removing the
-      // gutter's `+ 6px` gap makes the box exactly as wide as the glyphs,
-      // which stays green against `greaterThanOrEqualTo` above but fails
-      // this strict `>`.
-      final markerStyle = tester.widget<Text>(find.text('10.')).style;
-      final glyphs = TextPainter(
-        text: TextSpan(text: '10.', style: markerStyle),
-        textScaler: const TextScaler.linear(2.0),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final sizedBox = tester.widget<SizedBox>(
-        find.ancestor(of: find.text('10.'), matching: find.byType(SizedBox)).first,
-      );
-      expect(sizedBox.width, greaterThan(glyphs.width));
+      // There must be a visible gap between the marker and the body text,
+      // not the marker sitting flush against it. Measured on-screen rather
+      // than via the marker's own SizedBox width — an end-aligned marker
+      // whose gap is folded into its own box (instead of a separate spacer
+      // after it) reports the same box width either way, but the gap ends
+      // up on the WRONG side: before the marker's glyphs, not after them.
+      // That regression stays invisible to a width-only assertion and only
+      // shows up by comparing where the marker's glyphs actually end
+      // against where the body text actually starts.
+      final markerRight = tester.getTopRight(find.text('10.')).dx;
+      final bodyLeft = tester.getTopLeft(find.textContaining('居住', findRichText: true)).dx;
+      expect(bodyLeft, greaterThan(markerRight));
     });
 
     testWidgets('list item layout hugs content, not the width of its container', (tester) async {
@@ -348,11 +340,17 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      // Not just "no exception" — a squeezed-to-zero body is the silent
-      // failure mode this fix is also for (no error thrown, text just
-      // disappears). The nested line must still have real width to read.
+      // Not just "no exception" — a body squeezed down to a sliver is the
+      // silent failure mode this fix is also for (no error thrown, but the
+      // line wraps to one glyph per row for hundreds of logical pixels of
+      // height). `greaterThan(10)` stayed green even at 32 logical px — far
+      // narrower than a single glyph at this text scale. The invariant that
+      // actually pins readability: the body column must be a substantial
+      // share of the bubble's own width (measured here: ~45% once the
+      // level-3 gutter/indent take their share), not some fixed pixel count
+      // that a large text scale can dwarf.
       final nested = tester.getSize(find.textContaining('掛號費用', findRichText: true));
-      expect(nested.width, greaterThan(10));
+      expect(nested.width, greaterThan(maxWidth * 0.4));
     });
 
     testWidgets('a paragraph break after a blank line breathes more than a wrapped line', (tester) async {
@@ -426,7 +424,15 @@ void main() {
       // matches nothing and stays green with the bullet being read aloud.
       expect(find.bySemanticsLabel(RegExp('•')), findsNothing);
 
-      final semanticsWidget = tester.widget<Semantics>(
+      // Read the RENDERED semantics tree, not the `Semantics` widget's own
+      // constructor argument — `tester.widget<Semantics>(...).properties.label`
+      // reports whatever string the widget was built with even if that node
+      // never reaches the platform's semantics tree at all (e.g. an
+      // `ExcludeSemantics` wrapped around the outside instead of the inside,
+      // which would make the entire reply disappear for a screen-reader
+      // user while this assertion stayed green because it never looked at
+      // what actually got rendered).
+      final node = tester.getSemantics(
         find.descendant(of: find.byType(AssistantMarkdown), matching: find.byType(Semantics)),
       );
       // One label, in reading order, that: keeps bold text (a mutant that
@@ -438,7 +444,7 @@ void main() {
       // above stays green); and prefixes the nested item so "掛號 100"
       // doesn't read as another top-level line beside "醫療".
       expect(
-        semanticsWidget.properties.label,
+        node.label,
         '請先確認金額：\n1. 開啟設定\n2. 貼上金鑰\n醫療：NT\$ 21,200\n－ 掛號 100',
       );
       handle.dispose();

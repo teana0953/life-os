@@ -226,8 +226,14 @@ class AssistantMarkdown extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     // The gutter holds glyphs, so its width is measured from the widest
     // marker actually present, at the ambient text scale — a fixed width in
-    // logical pixels clips "10." at 200% and the user loses the number.
-    final gutter = _gutterWidth(context, blocks, effectiveStyle);
+    // logical pixels clips "10." at 200% and the user loses the number. The
+    // gap sits between the marker and the body text and is kept separate
+    // from the marker's own box, or a `TextAlign.end` marker would render it
+    // on the wrong (leading) side, flush against the body instead of before
+    // it.
+    final markerWidth = _markerWidth(context, blocks, effectiveStyle);
+    final markerGap = markerWidth == 0 ? 0.0 : scaler.scale(6);
+    final gutter = markerWidth + markerGap;
     // One indent step per nesting level, so `    * 掛號` under `* 醫療` reads
     // as a child, not another top-level category.
     final indentUnit = scaler.scale(16);
@@ -254,12 +260,17 @@ class AssistantMarkdown extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Reserve room for the gutter and a little body text, so a deep
-        // nesting level can't push the Row's fixed-width parts past the
-        // bubble's own width — without this, a level-3 item in a narrow
-        // bubble at a large text scale overflows horizontally instead of
-        // wrapping.
-        const minBodyWidth = 32.0;
+        // Reserve room for the gutter and a body column wide enough to
+        // actually read, so a deep nesting level can't push the Row's
+        // fixed-width parts past the bubble's own width — without this, a
+        // level-3 item in a narrow bubble at a large text scale overflows
+        // horizontally instead of wrapping. A fixed 32px floor is fine at
+        // scale 1.0 but is narrower than a single glyph at scale 3.0 — the
+        // body doesn't overflow, it just wraps to one character per line
+        // for hundreds of logical pixels of height. Scaling the floor with
+        // the ambient font size keeps a multi-character-wide column at any
+        // text scale.
+        final minBodyWidth = scaler.scale((effectiveStyle.fontSize ?? 14) * 8);
         final maxTotalIndent = constraints.hasBoundedWidth
             ? (constraints.maxWidth - gutter - minBodyWidth).clamp(0.0, double.infinity)
             : double.infinity;
@@ -278,7 +289,7 @@ class AssistantMarkdown extends StatelessWidget {
                       top: i == 0 ? 0 : _gapAbove(blocks[i], scaler),
                       left: blocks[i].level * perLevelIndent,
                     ),
-                    child: _blockRow(blocks[i], effectiveStyle, effectiveBold, gutter),
+                    child: _blockRow(blocks[i], effectiveStyle, effectiveBold, markerWidth, markerGap),
                   ),
               ],
             ),
@@ -289,9 +300,11 @@ class AssistantMarkdown extends StatelessWidget {
   }
 
   /// The widest marker in [blocks], laid out at the ambient scale in
-  /// [effectiveStyle], plus a small gap before the text. Zero when nothing is
-  /// a list item.
-  double _gutterWidth(BuildContext context, List<MdBlock> blocks, TextStyle effectiveStyle) {
+  /// [effectiveStyle]. The gap before the body text is added by the caller,
+  /// not here — folding it into this width and end-aligning the marker text
+  /// inside it puts the gap on the wrong (leading) side of the marker.
+  /// Zero when nothing is a list item.
+  double _markerWidth(BuildContext context, List<MdBlock> blocks, TextStyle effectiveStyle) {
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
     var widest = 0.0;
@@ -306,7 +319,7 @@ class AssistantMarkdown extends StatelessWidget {
       if (painter.width > widest) widest = painter.width;
       painter.dispose();
     }
-    return widest == 0 ? 0 : widest + scaler.scale(6);
+    return widest;
   }
 
   // Scaled with the ambient text scale like the gutter and indent are — at
@@ -318,7 +331,13 @@ class AssistantMarkdown extends StatelessWidget {
     return scaler.scale(block.kind == MdBlockKind.paragraph ? 4 : 2);
   }
 
-  Widget _blockRow(MdBlock block, TextStyle style, TextStyle bold, double gutter) {
+  Widget _blockRow(
+    MdBlock block,
+    TextStyle style,
+    TextStyle bold,
+    double markerWidth,
+    double markerGap,
+  ) {
     final body = Text.rich(
       TextSpan(
         children: [
@@ -333,12 +352,15 @@ class AssistantMarkdown extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // A fixed-width gutter, so wrapped list text lines up under itself
-        // instead of under the marker.
+        // A fixed-width marker box, so wrapped list text lines up under
+        // itself instead of under the marker.
         SizedBox(
-          width: gutter,
+          width: markerWidth,
           child: Text(block.marker!, style: style, textAlign: TextAlign.end),
         ),
+        // The gap belongs between the marker and the body, not inside the
+        // end-aligned marker box (where it would sit to the marker's left).
+        SizedBox(width: markerGap),
         Flexible(child: body),
       ],
     );
