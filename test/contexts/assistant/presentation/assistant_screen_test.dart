@@ -312,11 +312,18 @@ void main() {
       );
       // A star the user typed themselves — it is still visible in what they
       // sent, so the transcript must show it, not turn it into a bullet.
-      await _sendText(tester, '2 * 3 是多少');
+      // The fixture must be one the parser would transform (bullet marker at
+      // start), so that if someone accidentally applies AssistantMarkdown to
+      // user messages, the test catches it: the literal star disappears when
+      // parsed as a bullet item.
+      await _sendText(tester, '* 3 加 2 是多少');
       await tester.pumpAndSettle();
 
-      expect(find.text('2 * 3 是多少'), findsOneWidget);
+      // The literal star and number must remain in the user's message.
+      expect(find.textContaining('* 3 加 2 是多少'), findsOneWidget);
+      // No bold markers in the reply (they are eaten and rendered as weight).
       expect(find.textContaining('**', findRichText: true), findsNothing);
+      // The assistant's reply has a bullet marker.
       expect(find.text('•'), findsOneWidget);
     });
 

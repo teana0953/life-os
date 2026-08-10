@@ -221,6 +221,7 @@ class AssistantMarkdown extends StatelessWidget {
     if (block.marker == null) return body;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // A fixed-width gutter, so wrapped list text lines up under itself
         // instead of under the marker.
@@ -228,7 +229,7 @@ class AssistantMarkdown extends StatelessWidget {
           width: gutter,
           child: Text(block.marker!, style: style),
         ),
-        Expanded(child: body),
+        Flexible(child: body),
       ],
     );
   }
