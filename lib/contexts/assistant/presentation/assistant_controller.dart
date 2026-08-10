@@ -14,9 +14,11 @@ import '../domain/transaction_draft.dart';
 enum AssistantStatus { idle, sending }
 
 /// One confirmation card's lifecycle. `pending → saving → saved` on the happy
-/// path; `failed` re-enables the accept button, `categoryNotFound` is an
-/// honest dead end (the button stays visible but disabled — writing into a
-/// wrong category would be worse).
+/// path. `failed` and `categoryNotFound` both keep the accept button live:
+/// the first because a retry may succeed, the second because its message
+/// sends the user off to create the category and pressing again on their
+/// return has to re-resolve it. Refusing to write into a wrong category is
+/// the honest part; making the fix unusable was not.
 enum ProposalStatus { pending, saving, saved, failed, categoryNotFound }
 
 /// The state of one proposal card. [draft] is `null` for a proposal

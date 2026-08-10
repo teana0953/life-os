@@ -5106,7 +5106,7 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save — try again.'**
   String get assistantProposalSaveFailed;
 
-  /// Shown on a proposal confirmation card when no active category of the right type matches the proposed name; the card cannot be accepted.
+  /// Shown on a proposal confirmation card when no active category of the right type matches the proposed name. The card stays acceptable: the message tells the user to create the category, so pressing again afterwards re-resolves it.
   ///
   /// In en, this message translates to:
   /// **'Category \"{name}\" not found — create it in the ledger first.'**

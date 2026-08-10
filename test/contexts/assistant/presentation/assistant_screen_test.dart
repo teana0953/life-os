@@ -597,9 +597,99 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.assistantRepository.calls, isEmpty, reason: 'Shift+Enter must not send');
 
+      // Not sending is only half of it: the newline has to reach the field.
+      // A handler that returned `handled` for Shift+Enter would swallow the
+      // key and silently drop the line break, and the assertion above alone
+      // stayed green through exactly that mutation. Widget tests do not
+      // insert text from hardware key events, so the observable is the
+      // handler's own verdict: it must leave the key alone.
+      final wrapper = tester.widget<Focus>(
+        find.ancestor(
+          of: find.byKey(const Key('assistant-composer-field')),
+          matching: find.byType(Focus),
+        ).first,
+      );
+      final shiftEnter = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.enter,
+        logicalKey: LogicalKeyboardKey.enter,
+        timeStamp: Duration.zero,
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(
+        wrapper.onKeyEvent!(FocusNode(), shiftEnter),
+        KeyEventResult.ignored,
+        reason: 'Shift+Enter must pass through to the field, or the newline is swallowed',
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(harness.assistantRepository.calls, hasLength(1));
+    });
+
+    testWidgets('Enter confirming an IME candidate does not send', (tester) async {
+      // How every Chinese and Japanese input method commits a word: the
+      // candidate window is open, Enter picks the highlighted one. Treating
+      // that as send fires off half-composed text — and worse, returning
+      // `handled` eats the confirmation itself, because the embedder only
+      // forwards a key the framework left alone. zh-Hant is this app's other
+      // locale, so this is the common case, not an edge one.
+      final harness = await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('assistant-composer-field')));
+      await tester.pumpAndSettle();
+      // A live Zhuyin candidate: '吃拉' is committed, 'ㄇㄧㄢ' is still being
+      // composed — exactly the shape the engines report.
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '吃拉ㄇㄧㄢ',
+          selection: TextSelection.collapsed(offset: 5),
+          composing: TextRange(start: 2, end: 5),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(harness.assistantRepository.calls, isEmpty);
+
+      // And once the composition is committed, Enter sends as it should —
+      // otherwise "never sends while composing" could be satisfied by never
+      // sending at all.
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(text: '吃拉麵', selection: TextSelection.collapsed(offset: 3)),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(harness.assistantRepository.calls, hasLength(1));
+    });
+
+    testWidgets('the key handler is not itself a tab stop', (tester) async {
+      // The wrapper exists to watch keys bubbling up from the field. Left
+      // focusable — the default — it also becomes a tab target of its own,
+      // with no visible focus ring and no text entry: a keyboard-only user
+      // tabs to the composer, types, and nothing appears until they press
+      // Tab again.
+      //
+      // Asserted on the two properties rather than by walking the traversal
+      // order: those properties *are* what makes a node a stop, and a
+      // traversal walk written here passed with them removed — it was
+      // measuring the wrong thing, which is the mistake this whole change
+      // keeps making.
+      await _pumpScreen(tester);
+
+      final wrapper = tester.widget<Focus>(
+        find.ancestor(
+          of: find.byKey(const Key('assistant-composer-field')),
+          matching: find.byType(Focus),
+        ).first,
+      );
+
+      expect(wrapper.canRequestFocus, isFalse);
+      expect(wrapper.skipTraversal, isTrue);
     });
   });
 

@@ -358,10 +358,24 @@ class _AssistantScreenState extends State<AssistantScreen> {
             // the message sits there. Shift+Enter keeps the newline, which is
             // the convention every chat box on that platform uses.
             child: Focus(
+              // Observes keys on their way up from the field; never a stop of
+              // its own. Left focusable, this wrapper becomes a separate tab
+              // target with no visible focus and no text entry — a
+              // keyboard-only user tabs to the composer, types, and nothing
+              // appears until they press Tab again.
+              canRequestFocus: false,
+              skipTraversal: true,
               onKeyEvent: (node, event) {
                 if (event is! KeyDownEvent) return KeyEventResult.ignored;
                 if (event.logicalKey != LogicalKeyboardKey.enter) return KeyEventResult.ignored;
                 if (HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored;
+                // Mid-composition, Enter confirms the candidate — it is how
+                // every Chinese and Japanese input method commits a word.
+                // Treating it as send fires off the half-composed text *and*
+                // eats the confirmation, because the embedder only forwards a
+                // key the framework left alone. zh-Hant is this app's other
+                // locale; this is not an edge case here.
+                if (_composer.value.composing.isValid) return KeyEventResult.ignored;
                 _send();
                 return KeyEventResult.handled;
               },

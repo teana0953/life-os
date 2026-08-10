@@ -5540,7 +5540,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get assistantProposalRetryAccept => '建好了,記下來';
+  String get assistantProposalRetryAccept => '再記一次';
 
   @override
   String get assistantProposalAccept => '記下來';

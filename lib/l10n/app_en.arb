@@ -3997,7 +3997,7 @@
   },
   "assistantProposalCategoryNotFound": "Category \"{name}\" not found — create it in the ledger first.",
   "@assistantProposalCategoryNotFound": {
-    "description": "Shown on a proposal confirmation card when no active category of the right type matches the proposed name; the card cannot be accepted.",
+    "description": "Shown on a proposal confirmation card when no active category of the right type matches the proposed name. The card stays acceptable: the message tells the user to create the category, so pressing again afterwards re-resolves it.",
     "placeholders": {
       "name": {
         "type": "String"
