@@ -98,6 +98,21 @@ void main() {
       expect(blocks.last.blankBefore, isTrue);
     });
 
+    test('reads an indented bullet as a nested level, not another top-level item', () {
+      // A category → item breakdown ("醫療" then, indented under it, "掛號")
+      // must not flatten to two siblings — the child's amount would read as
+      // another top-level category.
+      final blocks = parseAssistantMarkdown('* 醫療\n    * 掛號 100');
+
+      expect(blocks[0].level, 0);
+      expect(blocks[1].level, 2);
+    });
+
+    test('caps nesting at level 3 rather than growing without bound', () {
+      final blocks = parseAssistantMarkdown('        * 深到不合理');
+      expect(blocks.single.level, 3);
+    });
+
     test('leaves syntax it does not know as literal text', () {
       // The deliberate limit: an unsupported mark is shown, never swallowed.
       final blocks = parseAssistantMarkdown('## 標題\n| a | b |\n`code`');
@@ -188,17 +203,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('list item layout hugs content with mainAxisSize.min and Flexible, not stretching to container width', (tester) async {
-      // Regression test for the fix in commit 87536c5: without mainAxisSize.min
-      // and Flexible, a list item Row stretched to fill the 560px ConstrainedBox,
-      // pushing the content to the edge. This test catches the bug by measuring
-      // the actual Row width and ensuring it is far smaller than the constraint.
+    testWidgets('list item layout hugs content, not the width of its container', (tester) async {
+      // Without mainAxisSize.min and Flexible, a list item Row stretches to
+      // fill the 560px ConstrainedBox, pushing the content to the edge. This
+      // catches the bug by measuring the actual Row width against half of a
+      // wide surrounding constraint — an invariant, not a number tied to
+      // today's content — and ensuring it is far smaller than that.
+      const maxWidth = 560.0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
+                constraints: const BoxConstraints(maxWidth: maxWidth),
                 child: Container(
                   color: const Color(0xFFFFFFFF),
                   padding: const EdgeInsets.all(12),
@@ -213,16 +230,104 @@ void main() {
         ),
       );
 
-      // Find the Row (the _blockRow for the list item).
-      final row = find.byType(Row);
+      // Scoped to AssistantMarkdown's own Row, not the first Row in the tree —
+      // future content (nesting, MaterialApp scaffolding) can add other Rows
+      // without this silently narrowing to `.first` and losing its target.
+      final row = find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(Row),
+      );
       expect(row, findsOneWidget);
 
       final rowSize = tester.getSize(row);
-      // The content is "• " + "hi", which should be well under 100px even at
-      // the default scale. If the Row stretched to the 560px constraint, this
-      // would fail. If someone reverts to Expanded, this test turns red.
-      expect(rowSize.width, lessThan(100));
+      // The content is "• " + "hi". If the Row stretched to the constraint,
+      // this would fail. If someone reverts to Expanded, this test turns red.
+      expect(rowSize.width, lessThan(maxWidth / 2));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a nested bullet sits to the right of its parent, not flush with it', (tester) async {
+      await pump(tester, '* 醫療\n    * 掛號 100');
+
+      final parentLeft = tester.getTopLeft(find.text('醫療')).dx;
+      final childLeft = tester.getTopLeft(find.textContaining('掛號')).dx;
+
+      // A `getTopLeft` comparison, not merely `find.textContaining('掛號')`
+      // succeeding — the latter stays green even flattened to the same
+      // indent as the parent.
+      expect(childLeft, greaterThan(parentLeft));
+    });
+
+    testWidgets('a paragraph break after a blank line breathes more than a wrapped line', (tester) async {
+      await pump(tester, '第一句\n\n第二句\n第三句');
+
+      final firstTop = tester.getTopLeft(find.text('第一句')).dy;
+      final blankGapTop = tester.getTopLeft(find.text('第二句')).dy;
+      final noBlankGapTop = tester.getTopLeft(find.text('第三句')).dy;
+
+      final afterBlank = blankGapTop - firstTop;
+      final afterNoBlank = noBlankGapTop - blankGapTop;
+      // Pins _gapAbove's blankBefore branch: collapsing it to the same value
+      // as the non-blank gap must turn this red.
+      expect(afterBlank, greaterThan(afterNoBlank));
+    });
+
+    testWidgets('the marker is measured with the style Text actually paints, not a narrower default', (tester) async {
+      // assistant_screen.dart's real call site passes a style with only
+      // `color` set — no fontSize — which Text then merges up to the ambient
+      // DefaultTextStyle (here, deliberately much larger than the engine's
+      // unstyled default of 14, mirroring the reviewer's repro). Measuring
+      // the gutter from the raw, unmerged style under-sizes it, clipping and
+      // wrapping the marker.
+      // No Scaffold: `Scaffold`'s `Material` inserts its own DefaultTextStyle
+      // from the theme (fontSize 14, same as the engine default this bug
+      // hides behind), which would mask the very mismatch under test.
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: DefaultTextStyle(
+              style: TextStyle(fontSize: 28),
+              child: AssistantMarkdown(
+                text: '10. 居住',
+                style: TextStyle(color: Color(0xFF000000)),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // What "10." needs at fontSize 28, measured with nothing constraining it.
+      final painter = TextPainter(
+        text: const TextSpan(text: '10.', style: TextStyle(fontSize: 28)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final needed = painter.width;
+
+      expect(tester.getSize(find.text('10.')).width, greaterThanOrEqualTo(needed));
+      // Wrapped onto two lines (as "1" / "0.") is the visible symptom of a
+      // too-narrow gutter; asserting merely that the text is *found* would
+      // stay green even wrapped.
+      expect(find.text('10.'), findsOneWidget);
+    });
+
+    testWidgets('the reply reads as one announcement, not one swipe per line with the bullet glyph spoken', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await pump(tester, '總花費 **NT\$ 23,847**\n* 醫療：NT\$ 21,200\n* 其他：NT\$ 1,120');
+
+      // The bullet glyph must not be spoken at all — matched as a substring,
+      // not as a whole label. `bySemanticsLabel('•')` compares the entire
+      // label, so once the glyph is folded into the merged announcement it
+      // matches nothing and stays green with the bullet being read aloud.
+      expect(find.bySemanticsLabel(RegExp('•')), findsNothing);
+      // The whole reply is reachable as a single node's label.
+      expect(
+        find.bySemanticsLabel(RegExp(r'總花費.*醫療.*其他', dotAll: true)),
+        findsOneWidget,
+      );
+      handle.dispose();
     });
   });
 }

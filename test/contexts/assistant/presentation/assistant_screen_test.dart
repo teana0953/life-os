@@ -868,5 +868,33 @@ void main() {
       expect(bubbleWidth, 560, reason: 'the bubble must actually be at its cap, or this proves nothing');
       expect(cardWidth, bubbleWidth);
     });
+
+    testWidgets('a short list reply hugs its content, not the real bubble path\'s width unit test alone', (tester) async {
+      // The unit test in assistant_markdown_test.dart proves the Row inside
+      // AssistantMarkdown hugs its content in an isolated harness. It does
+      // not prove the real bubble — Container -> ConstrainedBox(560) ->
+      // AssistantMarkdown — stays narrow too. Widening the bubble Container
+      // to `width: double.infinity` (exactly the symptom the fix targets)
+      // must turn this red even though the unit test alone stays green.
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '* hi',
+        proposals: [],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+
+      final bubbleWidth = tester
+          .getSize(find.ancestor(
+            of: find.text('•'),
+            matching: find.byType(Container),
+          ).first)
+          .width;
+
+      // 560 mirrors assistant_screen.dart's private `_bubbleMaxWidth` (not
+      // importable here); the point of this test is that the bubble is far
+      // under it, not the exact cap.
+      expect(bubbleWidth, lessThan(560 / 2));
+    });
   });
 }

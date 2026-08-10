@@ -34,7 +34,13 @@ class MdSpan {
 /// One source line: its kind, its list marker if it has one, and its content.
 @immutable
 class MdBlock {
-  const MdBlock(this.kind, this.spans, {this.marker, this.blankBefore = false});
+  const MdBlock(
+    this.kind,
+    this.spans, {
+    this.marker,
+    this.blankBefore = false,
+    this.level = 0,
+  });
 
   final MdBlockKind kind;
   final List<MdSpan> spans;
@@ -47,19 +53,27 @@ class MdBlock {
   /// a paragraph break can breathe more than a wrapped line does.
   final bool blankBefore;
 
+  /// How many levels of leading indent the source line had, capped at 3.
+  /// Only meaningful for list items — a nested `    * 掛號` under `* 醫療`
+  /// must not read as another top-level item.
+  final int level;
+
   @override
   bool operator ==(Object other) =>
       other is MdBlock &&
       other.kind == kind &&
       other.marker == marker &&
       other.blankBefore == blankBefore &&
+      other.level == level &&
       _sameSpans(other.spans, spans);
 
   @override
-  int get hashCode => Object.hash(kind, marker, blankBefore, Object.hashAll(spans));
+  int get hashCode =>
+      Object.hash(kind, marker, blankBefore, level, Object.hashAll(spans));
 
   @override
-  String toString() => 'MdBlock($kind, marker: $marker, blankBefore: $blankBefore, $spans)';
+  String toString() =>
+      'MdBlock($kind, marker: $marker, blankBefore: $blankBefore, level: $level, $spans)';
 }
 
 bool _sameSpans(List<MdSpan> a, List<MdSpan> b) {
@@ -70,8 +84,14 @@ bool _sameSpans(List<MdSpan> a, List<MdSpan> b) {
   return true;
 }
 
-final _bullet = RegExp(r'^\s*[*-]\s+(.*)$');
-final _numbered = RegExp(r'^\s*(\d+)[.)]\s+(.*)$');
+final _bullet = RegExp(r'^(\s*)[*-]\s+(.*)$');
+final _numbered = RegExp(r'^(\s*)(\d+)[.)]\s+(.*)$');
+
+/// Every two leading spaces is one nesting level, capped at 3 — deep enough
+/// for a real reply's category → item breakdown, shallow enough that a
+/// model's stray extra space doesn't run the gutter off the bubble.
+int _indentLevel(String leadingSpaces) =>
+    (leadingSpaces.length / 2).floor().clamp(0, 3);
 
 /// Splits [source] into one block per non-blank line.
 ///
@@ -95,18 +115,20 @@ List<MdBlock> parseAssistantMarkdown(String source) {
     if (bullet != null) {
       blocks.add(MdBlock(
         MdBlockKind.bullet,
-        parseInlineMarkdown(bullet.group(1)!),
+        parseInlineMarkdown(bullet.group(2)!),
         marker: '•',
         blankBefore: blankBefore,
+        level: _indentLevel(bullet.group(1)!),
       ));
     } else {
       final numbered = _numbered.firstMatch(line);
       if (numbered != null) {
         blocks.add(MdBlock(
           MdBlockKind.numbered,
-          parseInlineMarkdown(numbered.group(2)!),
-          marker: '${numbered.group(1)}.',
+          parseInlineMarkdown(numbered.group(3)!),
+          marker: '${numbered.group(2)}.',
           blankBefore: blankBefore,
+          level: _indentLevel(numbered.group(1)!),
         ));
       } else {
         blocks.add(MdBlock(
@@ -165,27 +187,61 @@ class AssistantMarkdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final blocks = parseAssistantMarkdown(text);
     final bold = style.copyWith(fontWeight: FontWeight.w700);
+    // Measured with the style Text actually paints with — Text merges the
+    // ambient DefaultTextStyle onto whatever it's given, and measuring the
+    // raw `style` instead silently under-sizes the gutter whenever the
+    // caller passes a style with gaps (assistant_screen.dart only sets
+    // `color`, so it merges up to the theme's Quicksand body style).
+    final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
+    final effectiveBold = DefaultTextStyle.of(context).style.merge(bold);
+    final scaler = MediaQuery.textScalerOf(context);
     // The gutter holds glyphs, so its width is measured from the widest
     // marker actually present, at the ambient text scale — a fixed width in
     // logical pixels clips "10." at 200% and the user loses the number.
-    final gutter = _gutterWidth(context, blocks);
+    final gutter = _gutterWidth(context, blocks, effectiveStyle);
+    // One indent step per nesting level, so `    * 掛號` under `* 醫療` reads
+    // as a child, not another top-level category.
+    final indentUnit = scaler.scale(16);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < blocks.length; i++)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : _gapAbove(blocks[i])),
-            child: _blockRow(blocks[i], bold, gutter),
-          ),
-      ],
+    // A screen-reader user hears the reply once, in reading order, the same
+    // as before this widget existed — not one swipe per block plus a
+    // announced "•" for every bullet. The rendered tree stays excluded; this
+    // label is the only thing assistive tech sees.
+    final semanticLabel = blocks
+        .map((b) {
+          // The bullet glyph itself is decoration, not content — reading it
+          // aloud ("bullet") on every item is noise. A numbered marker is
+          // content (it is the step number), so that one stays.
+          final marker = (b.marker == null || b.marker == '•') ? '' : '${b.marker} ';
+          return marker + b.spans.map((s) => s.text).join();
+        })
+        .join('\n');
+
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < blocks.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  top: i == 0 ? 0 : _gapAbove(blocks[i]),
+                  left: blocks[i].level * indentUnit,
+                ),
+                child: _blockRow(blocks[i], effectiveStyle, effectiveBold, gutter),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
-  /// The widest marker in [blocks], laid out at the ambient scale, plus a
-  /// small gap before the text. Zero when nothing is a list item.
-  double _gutterWidth(BuildContext context, List<MdBlock> blocks) {
+  /// The widest marker in [blocks], laid out at the ambient scale in
+  /// [effectiveStyle], plus a small gap before the text. Zero when nothing is
+  /// a list item.
+  double _gutterWidth(BuildContext context, List<MdBlock> blocks, TextStyle effectiveStyle) {
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
     var widest = 0.0;
@@ -193,7 +249,7 @@ class AssistantMarkdown extends StatelessWidget {
       final marker = block.marker;
       if (marker == null) continue;
       final painter = TextPainter(
-        text: TextSpan(text: marker, style: style),
+        text: TextSpan(text: marker, style: effectiveStyle),
         textScaler: scaler,
         textDirection: direction,
       )..layout();
@@ -208,7 +264,7 @@ class AssistantMarkdown extends StatelessWidget {
     return block.kind == MdBlockKind.paragraph ? 4 : 2;
   }
 
-  Widget _blockRow(MdBlock block, TextStyle bold, double gutter) {
+  Widget _blockRow(MdBlock block, TextStyle style, TextStyle bold, double gutter) {
     final body = Text.rich(
       TextSpan(
         children: [
