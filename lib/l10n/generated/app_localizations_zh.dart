@@ -2718,14 +2718,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assistantEmptyHint =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log.';
 
   @override
   String get assistantEmptyHintNoContext =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.';
 
   @override
   String get assistantSendingLabel => 'Sending your message';
+
+  @override
+  String get assistantOpenButton => 'Ask AI';
+
+  @override
+  String get assistantExampleSpend => 'How much did I spend this month?';
+
+  @override
+  String get assistantExampleLog => 'Log: lunch 120';
+
+  @override
+  String get assistantExampleOwe => 'Who do I owe?';
 
   @override
   String get assistantSetupIntro =>
@@ -5508,14 +5520,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get assistantEmptyHint => '問我你的花費、預算或分帳,也可以直接說一筆要記的帳,我會擬好草稿讓你確認。';
+  String get assistantEmptyHint => '問我花費、預算或分帳,也可以直接說一筆要記的帳。';
 
   @override
   String get assistantEmptyHintNoContext =>
-      '問我你的花費、預算或分帳,也可以直接說一筆要記的帳,我會擬好草稿讓你確認。因為我不知道你現在在看哪裡,問題牽涉時間範圍的話請自己講清楚(例如「這個月」或「7月」)。';
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」)。';
 
   @override
   String get assistantSendingLabel => '正在傳送你的訊息';
+
+  @override
+  String get assistantOpenButton => '問助手';
+
+  @override
+  String get assistantExampleSpend => '這個月花多少?';
+
+  @override
+  String get assistantExampleLog => '記一筆:午餐 120';
+
+  @override
+  String get assistantExampleOwe => '我欠誰錢?';
 
   @override
   String get assistantSetupIntro =>

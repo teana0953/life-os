@@ -15,6 +15,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../split/support/fake_split_repository.dart';
 import '../../split/support/split_presentation_fakes.dart';
 import '../finance_test_support.dart';
@@ -116,8 +117,60 @@ Future<_Harness> _pumpScaffold(WidgetTester tester) async {
   return _Harness(router, repo, controller, pushed);
 }
 
+final _loc = lookupAppLocalizations(const Locale('en'));
+
 void main() {
   group('FinanceScaffold assistant entry', () {
+    testWidgets('the entry is labelled, not a bare icon — and the label is '
+        'painted, not just a tooltip', (tester) async {
+      await _pumpScaffold(tester);
+
+      // `find.text` reads painted `Text` only: an `IconButton` whose tooltip
+      // said the same words — what this entry used to be — fails here, which
+      // is the whole point. A tooltip needs hover or long-press, and this app
+      // is used on a phone.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('finance-assistant-button')),
+          matching: find.text(_loc.assistantOpenButton),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('320dp × textScale 2.0: the labelled entry does not overflow '
+        'the app bar and still opens the assistant', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(() => tester.platformDispatcher.clearAllTestValues());
+
+      late _Harness harness;
+      late double labelWidth;
+      await expectNoLayoutErrors(() async {
+        harness = await _pumpScaffold(tester);
+        // Measured before the tap — the tap replaces this route with the
+        // assistant stub and the button stops existing.
+        labelWidth = tester
+            .getSize(find.descendant(
+              of: find.byKey(const Key('finance-assistant-button')),
+              matching: find.text(_loc.assistantOpenButton),
+            ))
+            .width;
+        await tester.tap(find.byKey(const Key('finance-assistant-button')));
+        await tester.pumpAndSettle();
+      });
+
+      // Reachability, not mere presence: a tap that lands on nothing only
+      // warns, so the push is what proves the button is still hittable at
+      // this size.
+      expect(harness.pushedAssistantUris, hasLength(1));
+
+      // The label is capped rather than allowed to push the toolbar wide —
+      // without the cap this is where a long translation at 2.0 would go.
+      expect(labelWidth, lessThanOrEqualTo(96.0));
+    });
+
     testWidgets('the entry URL carries the tab being looked at and the pinned '
         'non-current month — not today\'s', (tester) async {
       final harness = await _pumpScaffold(tester);

@@ -548,10 +548,21 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           ][_index],
         ),
         actions: [
-          IconButton(
+          // Labelled, not an icon-only `IconButton`: its tooltip is the only
+          // thing that named it, and a tooltip needs a hover or a long-press
+          // — on the phone/PWA this app is used on, that left a bare robot
+          // glyph in the app bar's utility corner meaning nothing.
+          TextButton.icon(
             key: const Key('finance-assistant-button'),
-            tooltip: loc.assistantTitle,
             icon: const Icon(Icons.smart_toy_outlined),
+            // The app bar's title ellipsizes to make room for actions, so a
+            // long translation at a large text scale would eat the tab name
+            // whole before it ever overflowed. Capped and ellipsized here so
+            // the pressure stops at this label instead.
+            label: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(loc.assistantOpenButton, overflow: TextOverflow.ellipsis),
+            ),
             onPressed: () => unawaited(_openAssistant()),
           ),
         ],

@@ -55,6 +55,12 @@ const double _bubbleMaxWidth = 560;
 class _AssistantScreenState extends State<AssistantScreen> {
   final TextEditingController _composer = TextEditingController();
 
+  /// Focused when an example prompt is tapped, so the example lands in a
+  /// field the user is already typing in — the examples fill the composer
+  /// rather than sending, and an unfocused field would make editing the
+  /// amount a second, separate tap.
+  final FocusNode _composerFocus = FocusNode();
+
   /// The entry index the context line was prepended into — `null` until the
   /// first send of a context-carrying visit, then fixed forever. Doubles as
   /// [_transcript]'s anchor for *where the context row paints*: the row
@@ -78,6 +84,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     widget.controller.removeListener(_onChanged);
     widget.geminiKeyController.removeListener(_onKeyChanged);
     _composer.dispose();
+    _composerFocus.dispose();
     super.dispose();
   }
 
@@ -246,30 +253,69 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
+  /// One tappable example prompt. It **fills the composer and stops there**
+  /// rather than sending: two of the three examples ("log: lunch 120") are
+  /// templates the user is meant to edit, and a stray tap that sent would
+  /// spend a request out of their own Gemini quota.
+  Widget _exampleChip(String key, String text) {
+    return ActionChip(
+      key: Key(key),
+      label: Text(text),
+      onPressed: () {
+        _composer.value = TextEditingValue(
+          text: text,
+          // Caret at the end, not at 0 — the user's next keystroke should
+          // continue the example, not prepend to it.
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+        _composerFocus.requestFocus();
+      },
+    );
+  }
+
   Widget _transcript(BuildContext context, AppLocalizations loc) {
     final theme = Theme.of(context);
     final entries = widget.controller.entries;
     if (entries.isEmpty && widget.controller.status == AssistantStatus.idle) {
       final hint = Center(
-        child: Padding(
+        // Scrollable, not a plain Column: hint plus three example chips at a
+        // large text scale is taller than a short phone's transcript area,
+        // and this sits inside an `Expanded` that would clip it.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Text(
-              // Keyed on the *month*, not on having a context at all: what
-              // this hint is for is a vague "how much did I spend" having
-              // nothing to anchor to. The home screen sends no context, and
-              // the split tab sends a tab but never a month (`fromQuery`
-              // drops it — split has no month to show), so both leave the
-              // question unanchored and both need the nudge.
-              widget.chatContext?.month == null
-                  ? loc.assistantEmptyHintNoContext
-                  : loc.assistantEmptyHint,
-              key: const Key('assistant-empty-hint'),
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  // Keyed on the *month*, not on having a context at all: what
+                  // this hint is for is a vague "how much did I spend" having
+                  // nothing to anchor to. The home screen sends no context, and
+                  // the split tab sends a tab but never a month (`fromQuery`
+                  // drops it — split has no month to show), so both leave the
+                  // question unanchored and both need the nudge.
+                  widget.chatContext?.month == null
+                      ? loc.assistantEmptyHintNoContext
+                      : loc.assistantEmptyHint,
+                  key: const Key('assistant-empty-hint'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _exampleChip('assistant-example-spend', loc.assistantExampleSpend),
+                    _exampleChip('assistant-example-log', loc.assistantExampleLog),
+                    _exampleChip('assistant-example-owe', loc.assistantExampleOwe),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -484,6 +530,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
               child: TextField(
                 key: const Key('assistant-composer-field'),
                 controller: _composer,
+                focusNode: _composerFocus,
                 enabled: !sending,
                 minLines: 1,
                 maxLines: 4,
