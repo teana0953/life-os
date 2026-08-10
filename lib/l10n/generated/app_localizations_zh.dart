@@ -2712,8 +2712,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantTitle => 'AI assistant';
 
   @override
+  String assistantContextViewing(String view) {
+    return 'Started from: $view';
+  }
+
+  @override
   String get assistantEmptyHint =>
       'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+
+  @override
+  String get assistantEmptyHintNoContext =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").';
+
+  @override
+  String get assistantSendingLabel => 'Sending your message';
 
   @override
   String get assistantSetupIntro =>
@@ -5491,7 +5503,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantTitle => 'AI 助手';
 
   @override
+  String assistantContextViewing(String view) {
+    return '進入時檢視:$view';
+  }
+
+  @override
   String get assistantEmptyHint => '問我你的花費、預算或分帳,也可以直接說一筆要記的帳,我會擬好草稿讓你確認。';
+
+  @override
+  String get assistantEmptyHintNoContext =>
+      '問我你的花費、預算或分帳,也可以直接說一筆要記的帳,我會擬好草稿讓你確認。因為我不知道你現在在看哪裡,問題牽涉時間範圍的話請自己講清楚(例如「這個月」或「7月」)。';
+
+  @override
+  String get assistantSendingLabel => '正在傳送你的訊息';
 
   @override
   String get assistantSetupIntro =>

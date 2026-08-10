@@ -2817,8 +2817,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assistantTitle => 'AI assistant';
 
   @override
+  String assistantContextViewing(String view) {
+    return 'Started from: $view';
+  }
+
+  @override
   String get assistantEmptyHint =>
       'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+
+  @override
+  String get assistantEmptyHintNoContext =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").';
+
+  @override
+  String get assistantSendingLabel => 'Sending your message';
 
   @override
   String get assistantSetupIntro =>
