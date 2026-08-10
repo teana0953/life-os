@@ -15,6 +15,17 @@ int _spacesCrossAxisCount(double width) {
   return 2;
 }
 
+/// One entry of the "Your spaces" grid. [onTap] is `null` for a space that
+/// has no destination yet — the tile then renders a "coming soon" badge
+/// instead of an `InkWell`, so it neither navigates nor looks tappable.
+class _SpaceTile {
+  final Key key;
+  final String label;
+  final void Function(BuildContext context)? onTap;
+
+  const _SpaceTile({required this.key, required this.label, this.onTap});
+}
+
 /// Time-of-day period the home screen's greeting is based on.
 enum GreetingPeriod { morning, afternoon, evening }
 
@@ -119,12 +130,22 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
         final profile = controller.profile!;
-        final spacePreviewNames = [
-          loc.spaceHealth,
-          loc.spaceFinance,
-          loc.spaceAssistant,
-          loc.spaceTasks,
-          loc.spaceJournal,
+        final spaceTiles = [
+          _SpaceTile(
+            key: const Key('health-tile'),
+            label: loc.spaceHealth,
+            onTap: _openHealth,
+          ),
+          _SpaceTile(
+            key: const Key('finance-tile'),
+            label: loc.spaceFinance,
+            onTap: _openFinance,
+          ),
+          // No destination yet: `onTap` stays null so the tile renders the
+          // "coming soon" badge instead of an `InkWell` — see `_buildBody`'s
+          // itemBuilder below.
+          _SpaceTile(key: const Key('tasks-tile'), label: loc.spaceTasks),
+          _SpaceTile(key: const Key('journal-tile'), label: loc.spaceJournal),
         ];
         final greeting = switch (greetingPeriodFor(widget.clock())) {
           GreetingPeriod.morning => loc.greetingMorning,
@@ -184,6 +205,46 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  key: const Key('home-assistant-bar'),
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _openAssistant(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: theme.colorScheme.outline, width: 2),
+                      boxShadow: ledgeShadow(theme.colorScheme.outline),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.smart_toy_outlined,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            loc.homeAssistantBarLabel,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(loc.yourSpaces, style: theme.textTheme.titleLarge),
               const SizedBox(height: 12),
               GridView.builder(
@@ -196,51 +257,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.2,
                 ),
-                itemCount: spacePreviewNames.length,
+                itemCount: spaceTiles.length,
                 itemBuilder: (context, index) {
+                  final space = spaceTiles[index];
+                  final tappable = space.onTap != null;
                   final tile = Container(
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: theme.colorScheme.outline, width: 2),
+                      border: Border.all(
+                        // Not `outlineVariant`: this `ColorScheme` never sets
+                        // it, so the Material getter chain falls through to
+                        // `onSurface` — the same color as body text, which
+                        // would make the non-tappable tile's border *bolder*
+                        // than the tappable ones' `outline`, inverting the
+                        // intended hierarchy. A faded `outline` gets the
+                        // "de-emphasized" look actually intended.
+                        color: tappable
+                            ? theme.colorScheme.outline
+                            : theme.colorScheme.outline.withValues(alpha: 0.4),
+                        width: 2,
+                      ),
                     ),
-                    child: Text(spacePreviewNames[index]),
+                    child: tappable
+                        ? Text(space.label)
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                space.label,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                loc.spaceComingSoon,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                   );
-                  if (index == 0) {
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: InkWell(
-                        key: const Key('health-tile'),
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => _openHealth(context),
-                        child: tile,
-                      ),
-                    );
-                  }
-                  if (index == 1) {
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: InkWell(
-                        key: const Key('finance-tile'),
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => _openFinance(context),
-                        child: tile,
-                      ),
-                    );
-                  }
-                  if (index == 2) {
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: InkWell(
-                        key: const Key('assistant-tile'),
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => _openAssistant(context),
-                        child: tile,
-                      ),
-                    );
-                  }
-                  return tile;
+                  if (!tappable) return KeyedSubtree(key: space.key, child: tile);
+                  return Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      key: space.key,
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => space.onTap!(context),
+                      child: tile,
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 24),

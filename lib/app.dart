@@ -10,6 +10,7 @@ import 'contexts/auth/domain/auth_repository.dart';
 import 'contexts/assistant/presentation/assistant_chat_context.dart';
 import 'contexts/assistant/presentation/assistant_controller.dart';
 import 'contexts/assistant/presentation/assistant_screen.dart';
+import 'contexts/assistant/presentation/assistant_sheet_page.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/auth/presentation/password_reset_screen.dart';
@@ -629,15 +630,39 @@ class _AppState extends State<App> {
         // pattern (the `/invite` lesson), so without it entering again with
         // a different context would reuse the old `State` — and its
         // already-consumed context-prefix flag.
+        // `pageBuilder` (not `builder`): the route is non-opaque so the
+        // screen it was opened from stays visible and interactive behind an
+        // `AssistantSheetPage` panel — see that widget's doc for why this
+        // keeps the URL/back-button/refresh behaviour a real route gives
+        // instead of a `showModalBottomSheet`. `barrierColor` is set
+        // explicitly: `CustomTransitionPage` leaves it `null` by default,
+        // which is a fully transparent (but still dismissible) barrier — the
+        // panel would look like it has nothing behind it to dismiss.
         GoRoute(
           path: '/assistant',
-          builder: (context, state) => AssistantScreen(
-            key: ValueKey(state.uri.query),
-            controller: widget.assistantController,
-            geminiKeyController: widget.geminiKeyController,
-            idToken: _idToken,
-            onSignInAgain: widget.signOut.call,
-            chatContext: AssistantChatContext.fromQuery(state.uri.queryParameters),
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            opaque: false,
+            barrierDismissible: true,
+            barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.32),
+            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+                    .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                child: child,
+              );
+            },
+            child: AssistantSheetPage(
+              child: AssistantScreen(
+                key: ValueKey(state.uri.query),
+                controller: widget.assistantController,
+                geminiKeyController: widget.geminiKeyController,
+                idToken: _idToken,
+                onSignInAgain: widget.signOut.call,
+                chatContext: AssistantChatContext.fromQuery(state.uri.queryParameters),
+              ),
+            ),
           ),
         ),
         GoRoute(

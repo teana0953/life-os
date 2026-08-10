@@ -152,6 +152,14 @@
   "@spaceJournal": {
     "description": "Illustrative placeholder name for a future module preview tile."
   },
+  "homeAssistantBarLabel": "Ask me anything",
+  "@homeAssistantBarLabel": {
+    "description": "Label of the home screen's action bar that opens the AI assistant conversation."
+  },
+  "spaceComingSoon": "Coming soon",
+  "@spaceComingSoon": {
+    "description": "Small badge on a home screen space tile that has no destination yet, indicating it isn't tappable."
+  },
   "signedIn": "Signed in",
   "@signedIn": {
     "description": "Badge shown next to the signed-in user's profile summary."
@@ -3931,10 +3939,6 @@
         "type": "String"
       }
     }
-  },
-  "spaceAssistant": "Assistant",
-  "@spaceAssistant": {
-    "description": "Label of the home screen's AI-assistant space tile, which opens the assistant conversation."
   },
   "assistantTitle": "AI assistant",
   "@assistantTitle": {

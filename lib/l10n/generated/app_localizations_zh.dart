@@ -126,6 +126,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get spaceJournal => '日誌';
 
   @override
+  String get homeAssistantBarLabel => 'Ask me anything';
+
+  @override
+  String get spaceComingSoon => 'Coming soon';
+
+  @override
   String get signedIn => '已登入';
 
   @override
@@ -2706,9 +2712,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get spaceAssistant => 'Assistant';
-
-  @override
   String get assistantTitle => 'AI assistant';
 
   @override
@@ -2929,6 +2932,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get spaceJournal => '日誌';
+
+  @override
+  String get homeAssistantBarLabel => '問我任何事';
+
+  @override
+  String get spaceComingSoon => '即將推出';
 
   @override
   String get signedIn => '已登入';
@@ -5507,9 +5516,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String splitActivityRowSemanticsNoAmount(String what, String time) {
     return '$what,$time';
   }
-
-  @override
-  String get spaceAssistant => 'AI 助手';
 
   @override
   String get assistantTitle => 'AI 助手';
