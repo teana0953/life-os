@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// The slice of Markdown the assistant actually emits — bold, bullet and
@@ -89,9 +91,11 @@ final _numbered = RegExp(r'^(\s*)(\d+)[.)]\s+(.*)$');
 
 /// Every two leading spaces is one nesting level, capped at 3 — deep enough
 /// for a real reply's category → item breakdown, shallow enough that a
-/// model's stray extra space doesn't run the gutter off the bubble.
+/// model's stray extra space doesn't run the gutter off the bubble. A tab is
+/// expanded to two spaces first, or it would count as zero indent and the
+/// nested item would flatten to a sibling of its parent.
 int _indentLevel(String leadingSpaces) =>
-    (leadingSpaces.length / 2).floor().clamp(0, 3);
+    (leadingSpaces.replaceAll('\t', '  ').length / 2).floor().clamp(0, 3);
 
 /// Splits [source] into one block per non-blank line.
 ///
@@ -144,6 +148,31 @@ List<MdBlock> parseAssistantMarkdown(String source) {
   return blocks;
 }
 
+/// Finds the next `**` in [s] at or after [from] that can pair off cleanly —
+/// the run of consecutive stars it sits in has even length, so it splits
+/// into whole `**` delimiters with none left over. A run of odd length like
+/// `***` cannot: pairing off two of its stars as a delimiter always leaves
+/// one star stranded, and consuming it as part of a delimiter anyway is how
+/// `***重要***` used to render as bold `*重要` plus a leaked `*` — a mark
+/// half-eaten, not shown as typed. An even run (`**`, `****`, ...) is
+/// unaffected — that's the existing, tested "empty bold" shape.
+int _findDelimiter(String s, int from) {
+  var i = s.indexOf('**', from);
+  while (i >= 0) {
+    var start = i;
+    while (start > 0 && s[start - 1] == '*') {
+      start--;
+    }
+    var end = i + 2;
+    while (end < s.length && s[end] == '*') {
+      end++;
+    }
+    if ((end - start).isEven) return i;
+    i = s.indexOf('**', i + 1);
+  }
+  return -1;
+}
+
 /// Splits one line into bold and plain runs on `**`.
 ///
 /// An opener with no closer is not a mark at all: `**note` keeps its stars, so
@@ -154,9 +183,9 @@ List<MdSpan> parseInlineMarkdown(String line) {
   var rest = line;
 
   while (true) {
-    final open = rest.indexOf('**');
+    final open = _findDelimiter(rest, 0);
     if (open < 0) break;
-    final close = rest.indexOf('**', open + 2);
+    final close = _findDelimiter(rest, open + 2);
     if (close < 0) break;
 
     if (open > 0) spans.add(MdSpan(rest.substring(0, open)));
@@ -213,28 +242,49 @@ class AssistantMarkdown extends StatelessWidget {
           // aloud ("bullet") on every item is noise. A numbered marker is
           // content (it is the step number), so that one stays.
           final marker = (b.marker == null || b.marker == '•') ? '' : '${b.marker} ';
-          return marker + b.spans.map((s) => s.text).join();
+          // A nested item's marker alone doesn't say it's a child — flattened
+          // into the announcement, "掛號 100" under "醫療" would read as
+          // another top-level line, same misreading the visual indent was
+          // built to prevent. One `－` per nesting level, a symbol rather
+          // than a language-specific word, so it needs no l10n.
+          final levelPrefix = b.level > 0 ? '${'－' * b.level} ' : '';
+          return levelPrefix + marker + b.spans.map((s) => s.text).join();
         })
         .join('\n');
 
-    return Semantics(
-      label: semanticLabel,
-      child: ExcludeSemantics(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < blocks.length; i++)
-              Padding(
-                padding: EdgeInsets.only(
-                  top: i == 0 ? 0 : _gapAbove(blocks[i]),
-                  left: blocks[i].level * indentUnit,
-                ),
-                child: _blockRow(blocks[i], effectiveStyle, effectiveBold, gutter),
-              ),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Reserve room for the gutter and a little body text, so a deep
+        // nesting level can't push the Row's fixed-width parts past the
+        // bubble's own width — without this, a level-3 item in a narrow
+        // bubble at a large text scale overflows horizontally instead of
+        // wrapping.
+        const minBodyWidth = 32.0;
+        final maxTotalIndent = constraints.hasBoundedWidth
+            ? (constraints.maxWidth - gutter - minBodyWidth).clamp(0.0, double.infinity)
+            : double.infinity;
+        final perLevelIndent = math.min(indentUnit, maxTotalIndent / 3);
+
+        return Semantics(
+          label: semanticLabel,
+          child: ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < blocks.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: i == 0 ? 0 : _gapAbove(blocks[i], scaler),
+                      left: blocks[i].level * perLevelIndent,
+                    ),
+                    child: _blockRow(blocks[i], effectiveStyle, effectiveBold, gutter),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -259,9 +309,13 @@ class AssistantMarkdown extends StatelessWidget {
     return widest == 0 ? 0 : widest + scaler.scale(6);
   }
 
-  double _gapAbove(MdBlock block) {
-    if (block.blankBefore) return 10;
-    return block.kind == MdBlockKind.paragraph ? 4 : 2;
+  // Scaled with the ambient text scale like the gutter and indent are — at
+  // 200% a paragraph break and a wrapped line would otherwise collapse
+  // toward the same gap once the (unscaled) text around them has doubled in
+  // height.
+  double _gapAbove(MdBlock block, TextScaler scaler) {
+    if (block.blankBefore) return scaler.scale(10);
+    return scaler.scale(block.kind == MdBlockKind.paragraph ? 4 : 2);
   }
 
   Widget _blockRow(MdBlock block, TextStyle style, TextStyle bold, double gutter) {
@@ -283,7 +337,7 @@ class AssistantMarkdown extends StatelessWidget {
         // instead of under the marker.
         SizedBox(
           width: gutter,
-          child: Text(block.marker!, style: style),
+          child: Text(block.marker!, style: style, textAlign: TextAlign.end),
         ),
         Flexible(child: body),
       ],

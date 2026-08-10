@@ -43,6 +43,24 @@ void main() {
       // would look like it skipped a line.
       expect(parseInlineMarkdown('****'), const [MdSpan('')]);
     });
+
+    test('treats a run of three stars as literal, not a partial bold match', () {
+      // A `**` matched out of the middle of `***` would bold `*重要` and leave
+      // a stray `*` on screen — half swallowed, half leaked, violating the
+      // "never swallowed" contract for syntax this parser doesn't know. An
+      // odd-length run can never split into whole `**` pairs.
+      expect(parseInlineMarkdown('***重要***的一筆'), const [MdSpan('***重要***的一筆')]);
+    });
+
+    test('still bolds a normal pair next to an unrelated run of three stars', () {
+      expect(
+        parseInlineMarkdown('**重要**的事，***不是***這個'),
+        const [
+          MdSpan('重要', bold: true),
+          MdSpan('的事，***不是***這個'),
+        ],
+      );
+    });
   });
 
   group('blocks', () {
@@ -111,6 +129,12 @@ void main() {
     test('caps nesting at level 3 rather than growing without bound', () {
       final blocks = parseAssistantMarkdown('        * 深到不合理');
       expect(blocks.single.level, 3);
+    });
+
+    test('expands a tab to two spaces of indent instead of counting as zero', () {
+      final blocks = parseAssistantMarkdown('* 醫療\n\t* 掛號 100');
+      expect(blocks[0].level, 0);
+      expect(blocks[1].level, 1);
     });
 
     test('leaves syntax it does not know as literal text', () {
@@ -201,6 +225,27 @@ void main() {
       // green while it is clipped.
       expect(tester.getSize(find.text('10.')).width, greaterThanOrEqualTo(needed));
       expect(tester.takeException(), isNull);
+
+      // The box the marker is painted into must leave a gap before the body
+      // text, not sit flush against it. `getSize` on the marker `Text` can't
+      // tell them apart here — the SizedBox hands it a tight width
+      // constraint, so it reports the box's own width back regardless of
+      // glyph content. Measure the glyphs directly instead, with the exact
+      // style the Text widget was actually given (so this can't drift from
+      // whatever `effectiveStyle` production code merges to) — removing the
+      // gutter's `+ 6px` gap makes the box exactly as wide as the glyphs,
+      // which stays green against `greaterThanOrEqualTo` above but fails
+      // this strict `>`.
+      final markerStyle = tester.widget<Text>(find.text('10.')).style;
+      final glyphs = TextPainter(
+        text: TextSpan(text: '10.', style: markerStyle),
+        textScaler: const TextScaler.linear(2.0),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final sizedBox = tester.widget<SizedBox>(
+        find.ancestor(of: find.text('10.'), matching: find.byType(SizedBox)).first,
+      );
+      expect(sizedBox.width, greaterThan(glyphs.width));
     });
 
     testWidgets('list item layout hugs content, not the width of its container', (tester) async {
@@ -256,6 +301,58 @@ void main() {
       // succeeding — the latter stays green even flattened to the same
       // indent as the parent.
       expect(childLeft, greaterThan(parentLeft));
+    });
+
+    testWidgets('a nested numbered item sits to the right of its parent, not flush with it', (tester) async {
+      // The bullet path has the guard above; the numbered path shares the
+      // same `level` field but had no widget-level guard of its own.
+      await pump(tester, '1. 醫療\n    1. 掛號 100');
+
+      final parentLeft = tester.getTopLeft(find.text('醫療')).dx;
+      final childLeft = tester.getTopLeft(find.textContaining('掛號')).dx;
+
+      expect(childLeft, greaterThan(parentLeft));
+    });
+
+    testWidgets('a deep nested item does not overflow a narrow bubble at a large text scale', (tester) async {
+      // The narrow-bubble regression this fix is for: a fixed-px indent per
+      // level, uncapped against the incoming width, pushes a level-3 item's
+      // fixed-width Row parts (gutter + indent) past the bubble's own width
+      // at large text scales — measured before this fix: a `RenderFlex
+      // overflowed` exception at scale 3.0 in a 260-wide bubble.
+      const maxWidth = 260.0;
+      // Tall enough that the (irrelevant to this test) vertical extent of a
+      // wrapped multi-block reply at scale 3.0 never overflows — only the
+      // horizontal Row overflow this test targets should be able to fail it.
+      tester.view.physicalSize = const Size(320, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(3.0)),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: maxWidth),
+                child: AssistantMarkdown(
+                  text: '* 醫療\n      10. 掛號費用一百元這一段故意寫得很長很長很長很長很長',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      // Not just "no exception" — a squeezed-to-zero body is the silent
+      // failure mode this fix is also for (no error thrown, text just
+      // disappears). The nested line must still have real width to read.
+      final nested = tester.getSize(find.textContaining('掛號費用', findRichText: true));
+      expect(nested.width, greaterThan(10));
     });
 
     testWidgets('a paragraph break after a blank line breathes more than a wrapped line', (tester) async {
@@ -315,17 +412,34 @@ void main() {
     testWidgets('the reply reads as one announcement, not one swipe per line with the bullet glyph spoken', (tester) async {
       final handle = tester.ensureSemantics();
 
-      await pump(tester, '總花費 **NT\$ 23,847**\n* 醫療：NT\$ 21,200\n* 其他：NT\$ 1,120');
+      // Bold text, a numbered step and a nested bullet all in one fixture:
+      // each is a distinct way the merged announcement can silently lose
+      // content that the visible bubble still shows correctly.
+      await pump(
+        tester,
+        '請先**確認金額**：\n1. 開啟設定\n2. 貼上金鑰\n* 醫療：NT\$ 21,200\n  * 掛號 100',
+      );
 
       // The bullet glyph must not be spoken at all — matched as a substring,
       // not as a whole label. `bySemanticsLabel('•')` compares the entire
       // label, so once the glyph is folded into the merged announcement it
       // matches nothing and stays green with the bullet being read aloud.
       expect(find.bySemanticsLabel(RegExp('•')), findsNothing);
-      // The whole reply is reachable as a single node's label.
+
+      final semanticsWidget = tester.widget<Semantics>(
+        find.descendant(of: find.byType(AssistantMarkdown), matching: find.byType(Semantics)),
+      );
+      // One label, in reading order, that: keeps bold text (a mutant that
+      // drops bold spans from the label — e.g. `s.bold ? '' : s.text` — would
+      // silently lose "確認金額" here, undetectable since ExcludeSemantics
+      // makes this label the only thing assistive tech can read); keeps the
+      // numbered markers "1." / "2." (a mutant that empties the marker
+      // string would drop the step numbers while every other assertion
+      // above stays green); and prefixes the nested item so "掛號 100"
+      // doesn't read as another top-level line beside "醫療".
       expect(
-        find.bySemanticsLabel(RegExp(r'總花費.*醫療.*其他', dotAll: true)),
-        findsOneWidget,
+        semanticsWidget.properties.label,
+        '請先確認金額：\n1. 開啟設定\n2. 貼上金鑰\n醫療：NT\$ 21,200\n－ 掛號 100',
       );
       handle.dispose();
     });

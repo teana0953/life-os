@@ -652,7 +652,17 @@ void main() {
       await expectNoLayoutErrors(() async {
         final harness = await _pumpScreen(tester);
         harness.assistantRepository.reply = AssistantReply(
-          text: '這個月餐飲共花了 3,600 元,其中最大一筆是 6 月 30 日的聚餐。',
+          // Worst case for the Markdown gutter/indent path, not a plain
+          // sentence: a numbered list plus a level-2 nested bullet with a
+          // long unbreakable run. A fixed-px gutter/indent overflows this
+          // horizontally at 320dp × textScale 2.0 without erroring — the
+          // nested line just silently shrinks to zero width — so a guard
+          // built only from a plain sentence never renders this path at all.
+          text: '這個月餐飲共花了 3,600 元：\n'
+              '1. 早餐 500 元\n'
+              '2. 晚餐 3,100 元\n'
+              '* 醫療\n'
+              '    * 掛號費用一百元這一段故意寫得很長很長很長很長很長很長不許換行',
           proposals: [
             const AssistantProposal(
               kind: 'create_transaction',
@@ -668,6 +678,15 @@ void main() {
         );
         await _sendText(tester, '幫我記一筆昨天晚上跟朋友聚餐的錢,大概三千六');
         await tester.pumpAndSettle();
+
+        // Not just "no layout error" — the nested list line must actually
+        // have width. A fixed-px gutter/indent silently squeezes it to zero
+        // width instead of throwing, which the layout-error guard alone
+        // cannot see.
+        final nestedLine = tester.getSize(
+          find.textContaining('掛號費用', findRichText: true).first,
+        );
+        expect(nestedLine.width, greaterThan(20));
 
         // Then an error row on top of all that.
         harness.assistantRepository.failure =
