@@ -7,6 +7,8 @@ import 'contexts/auth/application/sign_out.dart';
 import 'contexts/auth/application/send_password_reset.dart';
 import 'contexts/auth/application/sign_up.dart';
 import 'contexts/auth/domain/auth_repository.dart';
+import 'contexts/assistant/presentation/assistant_controller.dart';
+import 'contexts/assistant/presentation/assistant_screen.dart';
 import 'contexts/auth/presentation/login_controller.dart';
 import 'contexts/auth/presentation/login_screen.dart';
 import 'contexts/auth/presentation/password_reset_screen.dart';
@@ -188,6 +190,7 @@ class App extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final GeminiKeyController geminiKeyController;
+  final AssistantController assistantController;
   final SignOut signOut;
   final SignUp signUp;
   final SendPasswordReset sendPasswordReset;
@@ -291,6 +294,7 @@ class App extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.geminiKeyController,
+    required this.assistantController,
     required this.signOut,
     required this.signUp,
     required this.sendPasswordReset,
@@ -448,6 +452,11 @@ class _AppState extends State<App> {
       // clears it, so the next user would open it on the previous user's
       // month (and its data) instead of their own current month.
       widget.healthCalendarController.reset();
+      // The assistant transcript is the previous user's finances in prose,
+      // and its proposal cards are pre-filled writes into *their* ledger —
+      // nothing else ever clears it (the conversation deliberately survives
+      // navigation), so sign-out must.
+      widget.assistantController.reset();
     }
     _wasSignedIn = signedIn;
   }
@@ -604,6 +613,20 @@ class _AppState extends State<App> {
           builder: (context, state) => _AuthenticatedHome(
             authRepository: widget.authRepository,
             homeController: widget.homeController,
+          ),
+        ),
+        // Flat top-level route (not nested under any shell): the assistant
+        // is entered from the home grid today and from other shells later,
+        // so it belongs to none of them. Built purely from injected DI, so
+        // a web refresh reconstructs it — the conversation itself lives on
+        // the app-lifetime controller.
+        GoRoute(
+          path: '/assistant',
+          builder: (context, state) => AssistantScreen(
+            controller: widget.assistantController,
+            geminiKeyController: widget.geminiKeyController,
+            idToken: _idToken,
+            onSignInAgain: widget.signOut.call,
           ),
         ),
         GoRoute(

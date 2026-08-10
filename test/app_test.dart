@@ -115,6 +115,10 @@ import 'package:life_os/contexts/health/presentation/daily_target_controller.dar
 import 'package:life_os/contexts/health/presentation/dictionary_controller.dart';
 import 'package:life_os/contexts/health/presentation/snack_naming.dart';
 import 'package:life_os/contexts/health/presentation/today_controller.dart';
+import 'package:life_os/contexts/assistant/application/send_assistant_message.dart';
+import 'package:life_os/contexts/assistant/domain/assistant_message.dart';
+import 'package:life_os/contexts/assistant/domain/assistant_repository.dart';
+import 'package:life_os/contexts/assistant/presentation/assistant_controller.dart';
 import 'package:life_os/contexts/hydration/application/add_water.dart';
 import 'package:life_os/contexts/hydration/application/get_water_day.dart';
 import 'package:life_os/contexts/hydration/application/set_water_target.dart';
@@ -515,6 +519,17 @@ class _FakeMenstrualRepository implements MenstrualRepository {
 
   @override
   Future<bool> deletePeriod(String idToken, String id) async => true;
+}
+
+/// An inert assistant fake for `App` construction — routing tests never send
+/// a message through it.
+class _InertAssistantRepository implements AssistantRepository {
+  @override
+  Future<AssistantReply> send(
+    String idToken, {
+    required String geminiKey,
+    required List<AssistantMessage> messages,
+  }) async => const AssistantReply(text: '', proposals: []);
 }
 
 /// An inert fake: empty categories/transactions, an empty summary for any
@@ -1214,6 +1229,7 @@ Future<LocaleController> pumpApp(
   CareHistoryController? careAdherenceController,
   FinanceController? financeController,
   NetWorthController? netWorthController,
+  AssistantController? assistantController,
 
   /// Hands back the health-calendar controller [App] was wired with — it is
   /// built internally by [testHealthControllers], so this is how a test gets
@@ -1281,6 +1297,16 @@ Future<LocaleController> pumpApp(
           UpsertSnapshot(repository),
           GetMonthlyNetWorth(repository),
           GetNetWorthTrend(repository),
+        );
+      }();
+  final resolvedAssistantController =
+      assistantController ??
+      () {
+        final repository = _FakeFinanceRepository();
+        return AssistantController(
+          SendAssistantMessage(_InertAssistantRepository()),
+          AddTransaction(repository),
+          ListFinanceCategories(repository),
         );
       }();
   final health = testHealthControllers(
@@ -1373,6 +1399,7 @@ Future<LocaleController> pumpApp(
       localeController: resolvedLocaleController,
       themeController: resolvedThemeController,
       geminiKeyController: resolvedGeminiKeyController,
+      assistantController: resolvedAssistantController,
       signOut: resolvedSignOut,
       signUp: resolvedSignUp,
       healthTodayController: health.today,
@@ -1543,6 +1570,36 @@ void main() {
 
         expect(authRepository.signOutCalled, isTrue);
         expect(find.byKey(const Key('email-field')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the home assistant tile opens /assistant, which lands on the setup '
+      'state when no Gemini key is stored',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The entry is present and tappable even with no key stored — the
+        // no-key case must lead somewhere, not hide or grey out.
+        await tester.tap(find.byKey(const Key('assistant-tile')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
+        expect(
+          find.byKey(const Key('assistant-setup-settings-button')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -3099,6 +3156,44 @@ void main() {
         expect(financeController.summary, isNull);
         expect(financeController.transactions, isEmpty);
         expect(financeController.budgets, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'signing out clears the assistant conversation, so the next user never '
+      "reads the previous user's finances in prose",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final financeRepository = _FakeFinanceRepository();
+        final assistantController = AssistantController(
+          SendAssistantMessage(_InertAssistantRepository()),
+          AddTransaction(financeRepository),
+          ListFinanceCategories(financeRepository),
+        );
+        await assistantController.send('tok', 'key', '我上個月花了多少?');
+        expect(assistantController.entries, isNotEmpty);
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          assistantController: assistantController,
+        );
+        await tester.pumpAndSettle();
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // App-lifetime singleton (main.dart): nothing else ever clears the
+        // transcript — it deliberately survives navigation — so if sign-out
+        // doesn't, the next account on this device inherits it.
+        expect(assistantController.entries, isEmpty);
+        expect(assistantController.lastError, isNull);
+        expect(assistantController.needsReauth, isFalse);
       },
     );
 
