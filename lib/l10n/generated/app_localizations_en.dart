@@ -2182,7 +2182,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAssistantDeviceNotice =>
-      'The key is stored only on this device. Reinstalling the app or clearing browser data removes it, and you\'ll need to paste it again.';
+      'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it, and you\'ll need to paste it again.';
 
   @override
   String get financeTabSplit => 'Split';
@@ -2850,6 +2850,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get assistantSetupIntro =>
       'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
+
+  @override
+  String get assistantSetupSignOutNotice =>
+      'Your key is stored only on this device and is cleared when you sign out, so it has to be pasted again after each sign-in.';
 
   @override
   String get assistantGoToSettings => 'Go to settings';

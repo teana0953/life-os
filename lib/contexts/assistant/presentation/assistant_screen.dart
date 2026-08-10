@@ -205,6 +205,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(loc.assistantSetupIntro, textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                // Why a key they already pasted is gone: sign-out clears it
+                // (app.dart's sign-out reset). Worded as a standing rule, not
+                // as "we just cleared it", so the first-time reader — who
+                // never had a key to lose — reads the same sentence without
+                // it sounding like something went wrong.
+                Text(
+                  loc.assistantSetupSignOutNotice,
+                  key: const Key('assistant-setup-sign-out-notice'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   key: const Key('assistant-setup-settings-button'),

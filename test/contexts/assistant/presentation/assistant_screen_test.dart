@@ -156,6 +156,21 @@ void main() {
       expect(find.byKey(const Key('assistant-composer-field')), findsOneWidget);
     });
 
+    testWidgets('the setup state says why a key that was already set is gone: '
+        'sign-out clears it', (tester) async {
+      await _pumpScreen(tester, withKey: false);
+
+      // Asserting on the localized string, not just the key: the notice's
+      // whole job is to name sign-out as the cause. A widget that renders the
+      // right key with unrelated copy would leave the returning user with the
+      // same "I set this yesterday" confusion this line exists to answer.
+      expect(
+        find.byKey(const Key('assistant-setup-sign-out-notice')),
+        findsOneWidget,
+      );
+      expect(find.text(_loc.assistantSetupSignOutNotice), findsOneWidget);
+    });
+
     testWidgets('the setup settings button navigates to /settings', (
       tester,
     ) async {
