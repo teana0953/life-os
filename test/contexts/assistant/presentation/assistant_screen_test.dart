@@ -303,6 +303,23 @@ void main() {
       expect(find.byKey(const Key('assistant-error-text')), findsNothing);
     });
 
+    testWidgets('the reply is rendered as Markdown, the user\'s own line is '
+        'not', (tester) async {
+      final harness = await _pumpScreen(tester);
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '總花費為 **NT\$ 23,847**。\n* 醫療：NT\$ 21,200',
+        proposals: [],
+      );
+      // A star the user typed themselves — it is still visible in what they
+      // sent, so the transcript must show it, not turn it into a bullet.
+      await _sendText(tester, '2 * 3 是多少');
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 * 3 是多少'), findsOneWidget);
+      expect(find.textContaining('**', findRichText: true), findsNothing);
+      expect(find.text('•'), findsOneWidget);
+    });
+
     testWidgets('401 replaces the screen with the sign-in-again exit', (
       tester,
     ) async {
