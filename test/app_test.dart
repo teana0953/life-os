@@ -3241,6 +3241,42 @@ void main() {
         expect(calendarController.calendar, isNull);
       },
     );
+
+    testWidgets(
+      "signing out clears the stored Gemini API key, so the next account on "
+      "this device cannot spend the previous user's AI quota",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        SharedPreferences.setMockInitialValues({
+          'gemini_api_key': 'AIzaSy-first-user-secret',
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final geminiKeyController = GeminiKeyController(prefs);
+        expect(geminiKeyController.hasKey, isTrue);
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          geminiKeyController: geminiKeyController,
+        );
+        await tester.pumpAndSettle();
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // Both halves matter. The in-memory `hasKey` is what the assistant
+        // reads while the app stays open, and the persisted entry is what the
+        // *next* launch reads back — clearing only the field would hand the
+        // key to the next account after one reload.
+        expect(geminiKeyController.hasKey, isFalse);
+        expect(prefs.getString('gemini_api_key'), isNull);
+      },
+    );
   });
 
   group('the nested /finance/groups/:id route', () {

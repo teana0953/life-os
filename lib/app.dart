@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -459,6 +461,14 @@ class _AppState extends State<App> {
       // nothing else ever clears it (the conversation deliberately survives
       // navigation), so sign-out must.
       widget.assistantController.reset();
+      // The BYOK Gemini key is the previous user's own billable credential,
+      // persisted device-locally with nothing else that ever removes it — so
+      // without this the next account signed in on this device sends its
+      // prompts (and its data) on the previous user's key and quota.
+      // Fire-and-forget because this listener is synchronous; the clear only
+      // has to land before a signed-in screen can reach the assistant again,
+      // and sign-out has just put the login screen in front of the user.
+      unawaited(widget.geminiKeyController.clear());
     }
     _wasSignedIn = signedIn;
   }

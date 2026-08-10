@@ -2747,6 +2747,10 @@ class AppLocalizationsZh extends AppLocalizations {
       'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
 
   @override
+  String get assistantSetupSignOutNotice =>
+      'Your key is stored only on this device and is cleared when you sign out, so it has to be pasted again after each sign-in.';
+
+  @override
   String get assistantGoToSettings => 'Go to settings';
 
   @override
@@ -4907,7 +4911,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsAssistantDeviceNotice =>
-      '金鑰只儲存在這個裝置。重新安裝 App 或清除瀏覽器資料會一併清掉,需要重新貼上。';
+      '金鑰只儲存在這個裝置。登出、重新安裝 App 或清除瀏覽器資料都會一併清掉,需要重新貼上。';
 
   @override
   String get financeTabSplit => '分帳';
@@ -5550,6 +5554,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get assistantSetupIntro =>
       'AI 助手需要你自己的 Gemini API 金鑰。到設定頁貼上即可 —— 可以免費申請;免費層的對話內容可能被用於改進產品。';
+
+  @override
+  String get assistantSetupSignOutNotice =>
+      '金鑰只存在這台裝置,而且登出時會一併清除,所以每次重新登入都要再貼一次。';
 
   @override
   String get assistantGoToSettings => '前往設定';

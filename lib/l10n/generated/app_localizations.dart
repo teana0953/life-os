@@ -3998,10 +3998,10 @@ abstract class AppLocalizations {
   /// **'On the Gemini free tier, Google may use what you send to improve its models. Don\'t paste sensitive personal information into conversations.'**
   String get settingsAssistantTrainingNotice;
 
-  /// Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive a PWA reinstall or cleared browser data.
+  /// Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive signing out, a PWA reinstall, or cleared browser data.
   ///
   /// In en, this message translates to:
-  /// **'The key is stored only on this device. Reinstalling the app or clearing browser data removes it, and you\'ll need to paste it again.'**
+  /// **'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it, and you\'ll need to paste it again.'**
   String get settingsAssistantDeviceNotice;
 
   /// Label of the finance shell's fourth bottom-nav destination and app bar title, for the split-expenses tab.
@@ -5057,6 +5057,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.'**
   String get assistantSetupIntro;
+
+  /// Secondary line under the assistant setup state's intro, explaining why a key the user already set is gone: sign-out clears it. Shown to first-time users too, so it reads as a rule rather than an incident report.
+  ///
+  /// In en, this message translates to:
+  /// **'Your key is stored only on this device and is cleared when you sign out, so it has to be pasted again after each sign-in.'**
+  String get assistantSetupSignOutNotice;
 
   /// Button that opens the settings page, shown in the assistant's setup state and on key-related errors.
   ///
