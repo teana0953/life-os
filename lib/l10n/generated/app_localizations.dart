@@ -99,6 +99,12 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// Product name shown in the top app bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Life OS'**
+  String get appTitle;
+
   /// Heading shown on the sign-in card.
   ///
   /// In en, this message translates to:

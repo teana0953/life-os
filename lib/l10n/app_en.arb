@@ -1,5 +1,9 @@
 {
   "@@locale": "en",
+  "appTitle": "Life OS",
+  "@appTitle": {
+    "description": "Product name shown in the top app bar."
+  },
   "welcomeBack": "Welcome back",
   "@welcomeBack": {
     "description": "Heading shown on the sign-in card."

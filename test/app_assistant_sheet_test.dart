@@ -60,7 +60,7 @@ Future<GeminiKeyController> _keyedGeminiKeyController() async {
 void main() {
   group('Assistant sheet panel', () {
     testWidgets(
-      'opening the panel from home leaves the home grid visible underneath',
+      'opening the panel from home leaves primary navigation visible underneath',
       (tester) async {
         await _pumpHomeAndOpenAssistant(tester);
 
@@ -69,7 +69,7 @@ void main() {
         // ...and the route it was opened from is STILL there, not offstage.
         // `opaque: true` would stop it being built at all, and `find`
         // skips offstage widgets by default — this is what would go red.
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
       },
     );
 
@@ -88,7 +88,7 @@ void main() {
 
         expect(find.byKey(const Key('assistant-setup')), findsNothing);
         final router = GoRouter.of(
-          tester.element(find.byKey(const Key('spaces-grid'))),
+          tester.element(find.byKey(const Key('primary-navigation-bar'))),
         );
         expect(
           router.routerDelegate.currentConfiguration.uri.toString(),
@@ -123,7 +123,7 @@ void main() {
         router.go('/assistant');
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('spaces-grid')), findsNothing);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
         expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
         // The assistant's own Scaffold starts at the very top of the
         // screen — not offset by the panel's gap, which only exists when
@@ -208,7 +208,7 @@ void main() {
         await tester.tap(find.byType(BackButton));
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
         expect(find.byKey(const Key('assistant-setup')), findsNothing);
       },
     );
@@ -239,10 +239,17 @@ void main() {
         // messages have been sent yet. Floored well under the ~300px this
         // layout actually leaves, so this only trips if the panel's chrome
         // grows enough to matter.
-        final appBarBottom = tester.getRect(find.byType(AppBar)).bottom;
-        final composerTop = tester
-            .getRect(find.byKey(const Key('assistant-composer-field')))
-            .top;
+        final composer = find.byKey(const Key('assistant-composer-field'));
+        final assistantScaffold = find.ancestor(
+          of: composer,
+          matching: find.byType(Scaffold),
+        );
+        final assistantAppBar = find.descendant(
+          of: assistantScaffold,
+          matching: find.byType(AppBar),
+        );
+        final appBarBottom = tester.getRect(assistantAppBar).bottom;
+        final composerTop = tester.getRect(composer).top;
         expect(composerTop - appBarBottom, greaterThanOrEqualTo(100));
       },
     );

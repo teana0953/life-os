@@ -10,6 +10,25 @@ The app SHALL apply a single Material 3 theme with an explicit color scheme (a p
 - **WHEN** the app builds its root `MaterialApp`
 - **THEN** it uses a Material 3 theme whose color scheme primary is the design's pale-blue accent, and its screens render with the themed components
 
+### Requirement: Home uses primary bottom navigation
+
+The authenticated home screen SHALL replace the four-space grid with a Material 3 NavigationBar containing health, finance, tasks, journal, and settings in that order. Existing health, finance, and settings destinations SHALL remain navigable. Destinations without product functionality SHALL communicate that they are coming soon instead of navigating to a false or empty feature.
+
+#### Scenario: Primary destinations are visible
+
+- **WHEN** an authenticated profile has loaded
+- **THEN** the bottom navigation shows health, finance, tasks, journal, and settings with health selected
+
+#### Scenario: Existing destinations navigate
+
+- **WHEN** the user selects health, finance, or settings
+- **THEN** the corresponding existing route opens
+
+#### Scenario: Planned destinations do not imply finished functionality
+
+- **WHEN** the user selects tasks or journal
+- **THEN** the app remains on the home screen and shows the localized coming-soon message
+
 ### Requirement: Light and dark themes follow the system
 The app SHALL define both light and dark themes and select between them by the operating-system preference.
 
@@ -84,4 +103,3 @@ in the suite.
 - **WHEN** a change introduces an overflow on a screen covered by these guards
 - **THEN** the guard test fails, rather than passing because an existing
   overflow was drained first
-

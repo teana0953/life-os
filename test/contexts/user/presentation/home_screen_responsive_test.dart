@@ -65,29 +65,24 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
   return controller;
 }
 
-SliverGridDelegateWithFixedCrossAxisCount _gridDelegate(WidgetTester tester) {
-  final gridView = tester.widget<GridView>(find.byKey(const Key('spaces-grid')));
-  return gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-}
-
 void main() {
   group('HomeScreen responsive layout', () {
-    testWidgets('narrow phone width: spaces grid uses fewer columns, no overflow', (
+    testWidgets('narrow phone width: primary navigation has no overflow', (
       tester,
     ) async {
       await _pumpAt(tester, const Size(360, 800));
 
       expect(tester.takeException(), isNull);
-      expect(_gridDelegate(tester).crossAxisCount, 2);
+      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
     });
 
-    testWidgets('wide desktop width: spaces grid uses more columns', (
+    testWidgets('wide desktop width: content remains bounded with navigation', (
       tester,
     ) async {
       await _pumpAt(tester, const Size(1200, 800));
 
       expect(tester.takeException(), isNull);
-      expect(_gridDelegate(tester).crossAxisCount, 4);
+      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
     });
   });
 }

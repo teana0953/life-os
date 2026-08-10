@@ -218,7 +218,7 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
         expect(find.byType(CareTodayScreen), findsNothing);
       },
     );
@@ -246,7 +246,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
       expect(find.byType(CareTodayScreen), findsNothing);
     });
 
@@ -269,7 +269,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
         expect(find.byType(CareTodayScreen), findsNothing);
       },
     );
@@ -316,7 +316,7 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
       },
     );
 
@@ -370,7 +370,7 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
         expect(find.byType(CareTodayScreen), findsNothing);
       },
     );

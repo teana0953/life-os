@@ -1,5 +1,6 @@
 {
   "@@locale": "zh",
+  "appTitle": "Life OS",
   "welcomeBack": "歡迎回來",
   "signInSubtitle": "登入 Life OS",
   "emailLabel": "電子郵件",
