@@ -5004,16 +5004,16 @@ abstract class AppLocalizations {
   /// **'Started from: {view}'**
   String assistantContextViewing(String view);
 
-  /// Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do — used when the assistant was opened WITH a chat context (e.g. from the finance tabs), which gives the model a month/tab to anchor a vague question to.
+  /// Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do — used when the assistant was opened WITH a chat context (e.g. from the finance tabs), which gives the model a month/tab to anchor a vague question to. Kept to one line: it sits above the tappable example prompts, which are what actually teach the capability.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.'**
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log.'**
   String get assistantEmptyHint;
 
   /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened WITHOUT a chat context (e.g. from the home screen) — nudges the user to state a time range themselves, since the assistant has no month/tab to anchor a question like "how much did I spend" to.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").'**
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.'**
   String get assistantEmptyHintNoContext;
 
   /// Screen-reader announcement while an assistant reply is in flight. The spinner is animation only, so without this a screen-reader user gets no signal that anything is happening (WCAG 4.1.3).
@@ -5021,6 +5021,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sending your message'**
   String get assistantSendingLabel;
+
+  /// Label of the button that opens the assistant from a screen's app bar (finance). Spelled out rather than icon-only: a tooltip never appears on a touch device, so an unlabelled robot icon says nothing there.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask AI'**
+  String get assistantOpenButton;
+
+  /// Tappable example prompt in the assistant's empty state. Tapping fills the composer (it does not send), so the user can edit it first.
+  ///
+  /// In en, this message translates to:
+  /// **'How much did I spend this month?'**
+  String get assistantExampleSpend;
+
+  /// Tappable example prompt in the assistant's empty state, showing that a transaction can be dictated in one line. Tapping fills the composer (it does not send).
+  ///
+  /// In en, this message translates to:
+  /// **'Log: lunch 120'**
+  String get assistantExampleLog;
+
+  /// Tappable example prompt in the assistant's empty state, pointing at split balances. Tapping fills the composer (it does not send).
+  ///
+  /// In en, this message translates to:
+  /// **'Who do I owe?'**
+  String get assistantExampleOwe;
 
   /// Body text of the assistant screen's setup state, shown when no Gemini API key is stored yet; includes the free-tier data-use disclosure echoing the settings page.
   ///

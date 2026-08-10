@@ -2823,14 +2823,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantEmptyHint =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm.';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log.';
 
   @override
   String get assistantEmptyHintNoContext =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction and I\'ll draft it for you to confirm. Since I don\'t know what you\'re looking at, mention a time range or month if it matters (e.g. \"this month\" or \"in July\").';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.';
 
   @override
   String get assistantSendingLabel => 'Sending your message';
+
+  @override
+  String get assistantOpenButton => 'Ask AI';
+
+  @override
+  String get assistantExampleSpend => 'How much did I spend this month?';
+
+  @override
+  String get assistantExampleLog => 'Log: lunch 120';
+
+  @override
+  String get assistantExampleOwe => 'Who do I owe?';
 
   @override
   String get assistantSetupIntro =>

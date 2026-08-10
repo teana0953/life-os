@@ -510,6 +510,96 @@ void main() {
     });
   });
 
+  group('AssistantScreen empty-state examples', () {
+    testWidgets('tapping an example fills the composer and focuses it — and '
+        'sends nothing', (tester) async {
+      final harness = await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('assistant-example-log')));
+      await tester.pumpAndSettle();
+
+      // Read off the live EditableText, not the localization constant alone:
+      // a chip that painted the right label but wrote a different string into
+      // the field would otherwise pass.
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('assistant-composer-field')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editable.controller.text, _loc.assistantExampleLog);
+      // Caret at the end — a `TextEditingController(text: …)` assignment
+      // leaves it at 0, so the user's next keystroke would prepend.
+      expect(
+        editable.controller.selection.baseOffset,
+        _loc.assistantExampleLog.length,
+      );
+      expect(
+        editable.focusNode.hasFocus,
+        isTrue,
+        reason: 'the example must land in a field the user is already typing in',
+      );
+
+      // The load-bearing half: filling is not sending. Two of the three
+      // examples are templates to edit, and a chip that sent would spend the
+      // user's own Gemini quota on a stray tap.
+      expect(harness.assistantRepository.calls, isEmpty);
+      expect(find.byKey(const Key('assistant-sending-indicator')), findsNothing);
+    });
+
+    testWidgets('the examples are the empty state only — they leave once the '
+        'transcript has a message', (tester) async {
+      final harness = await _pumpScreen(tester);
+      expect(find.byKey(const Key('assistant-example-spend')), findsOneWidget);
+      expect(find.byKey(const Key('assistant-example-owe')), findsOneWidget);
+
+      harness.assistantRepository.reply =
+          const AssistantReply(text: '好', proposals: []);
+      await _sendText(tester, '這個月花多少?');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('assistant-example-spend')), findsNothing);
+      expect(find.byKey(const Key('assistant-example-log')), findsNothing);
+      expect(find.byKey(const Key('assistant-example-owe')), findsNothing);
+      expect(find.byKey(const Key('assistant-empty-hint')), findsNothing);
+    });
+
+    testWidgets('320dp × textScale 2.0: hint and all three examples lay out '
+        'without errors and every chip is reachable', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(() => tester.platformDispatcher.clearAllTestValues());
+
+      await expectNoLayoutErrors(() async {
+        await _pumpScreen(tester);
+        // Scrolled to, not merely found: at this text scale the chips sit
+        // below the fold of the transcript area, and `findsOneWidget` alone
+        // would pass on a column that clipped them out of reach.
+        for (final key in const [
+          'assistant-example-spend',
+          'assistant-example-log',
+          'assistant-example-owe',
+        ]) {
+          await tester.ensureVisible(find.byKey(Key(key)));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(Key(key)));
+          await tester.pumpAndSettle();
+        }
+      });
+
+      // The last tap landed: taps that miss only warn, so without this the
+      // loop above proves nothing about reachability.
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('assistant-composer-field')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editable.controller.text, _loc.assistantExampleOwe);
+    });
+  });
+
   group('AssistantScreen narrow layout', () {
     testWidgets('320dp × textScale 2.0: transcript, card, error row and '
         'composer all lay out without errors and the composer stays usable', (
