@@ -86,6 +86,11 @@ Future<void> pumpHomeScreen(
             const Scaffold(body: Text('FINANCE-ROUTE')),
       ),
       GoRoute(
+        path: '/assistant',
+        builder: (context, state) =>
+            const Scaffold(body: Text('ASSISTANT-ROUTE')),
+      ),
+      GoRoute(
         path: '/settings',
         builder: (context, state) =>
             const Scaffold(body: Text('SETTINGS-ROUTE')),
@@ -370,6 +375,104 @@ void main() {
 
         expect(find.byKey(const Key('language-switcher')), findsNothing);
         expect(find.byKey(const Key('sign-out-button')), findsNothing);
+      },
+    );
+  });
+
+  group('HomeScreen assistant bar and space tiles', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    testWidgets(
+      'tapping the assistant bar navigates to the assistant route',
+      (tester) async {
+        final controller = await loadedController();
+        await pumpHomeScreen(tester, controller);
+
+        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+
+        await tester.tap(find.byKey(const Key('home-assistant-bar')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('ASSISTANT-ROUTE'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the assistant bar sits between the profile card and the spaces grid',
+      (tester) async {
+        final controller = await loadedController();
+        await pumpHomeScreen(tester, controller);
+
+        final barTop = tester
+            .getTopLeft(find.byKey(const Key('home-assistant-bar')))
+            .dy;
+        final gridTop = tester.getTopLeft(find.byKey(const Key('spaces-grid'))).dy;
+        final profileCardBottom = tester
+            .getBottomLeft(find.text('test@example.com'))
+            .dy;
+
+        expect(barTop, greaterThan(profileCardBottom));
+        expect(barTop, lessThan(gridTop));
+      },
+    );
+
+    testWidgets(
+      'tasks and journal tiles are not tappable and show a coming-soon badge',
+      (tester) async {
+        final controller = await loadedController();
+        await pumpHomeScreen(tester, controller);
+
+        await tester.ensureVisible(find.byKey(const Key('tasks-tile')));
+        await tester.tap(find.byKey(const Key('tasks-tile')));
+        await tester.pumpAndSettle();
+        expect(find.text('HEALTH-ROUTE'), findsNothing);
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+
+        await tester.ensureVisible(find.byKey(const Key('journal-tile')));
+        await tester.tap(find.byKey(const Key('journal-tile')));
+        await tester.pumpAndSettle();
+        expect(find.text('HEALTH-ROUTE'), findsNothing);
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+        expect(find.byKey(const Key('spaces-grid')), findsOneWidget);
+
+        expect(
+          find.text(lookupAppLocalizations(const Locale('en')).spaceComingSoon),
+          findsNWidgets(2),
+        );
+      },
+    );
+
+    testWidgets(
+      'the spaces grid has exactly 4 tiles and no assistant tile',
+      (tester) async {
+        final controller = await loadedController();
+        await pumpHomeScreen(tester, controller);
+
+        final grid = tester.widget<GridView>(find.byKey(const Key('spaces-grid')));
+        expect(
+          (grid.childrenDelegate as SliverChildBuilderDelegate).childCount,
+          4,
+        );
+        expect(find.byKey(const Key('assistant-tile')), findsNothing);
       },
     );
   });

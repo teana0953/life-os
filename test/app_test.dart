@@ -1581,7 +1581,7 @@ void main() {
     );
 
     testWidgets(
-      'the home assistant tile opens /assistant, which lands on the setup '
+      'the home assistant bar opens /assistant, which lands on the setup '
       'state when no Gemini key is stored',
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
@@ -1599,7 +1599,7 @@ void main() {
 
         // The entry is present and tappable even with no key stored — the
         // no-key case must lead somewhere, not hide or grey out.
-        await tester.tap(find.byKey(const Key('assistant-tile')));
+        await tester.tap(find.byKey(const Key('home-assistant-bar')));
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('assistant-setup')), findsOneWidget);

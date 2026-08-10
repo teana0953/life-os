@@ -128,6 +128,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spaceJournal => 'Journal';
 
   @override
+  String get homeAssistantBarLabel => 'Ask me anything';
+
+  @override
+  String get spaceComingSoon => 'Coming soon';
+
+  @override
   String get signedIn => 'Signed in';
 
   @override
@@ -2809,9 +2815,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String splitActivityRowSemanticsNoAmount(String what, String time) {
     return '$what, $time';
   }
-
-  @override
-  String get spaceAssistant => 'Assistant';
 
   @override
   String get assistantTitle => 'AI assistant';

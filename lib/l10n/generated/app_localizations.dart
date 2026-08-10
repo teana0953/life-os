@@ -327,6 +327,18 @@ abstract class AppLocalizations {
   /// **'Journal'**
   String get spaceJournal;
 
+  /// Label of the home screen's action bar that opens the AI assistant conversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask me anything'**
+  String get homeAssistantBarLabel;
+
+  /// Small badge on a home screen space tile that has no destination yet, indicating it isn't tappable.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get spaceComingSoon;
+
   /// Badge shown next to the signed-in user's profile summary.
   ///
   /// In en, this message translates to:
@@ -4985,12 +4997,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{what}, {time}'**
   String splitActivityRowSemanticsNoAmount(String what, String time);
-
-  /// Label of the home screen's AI-assistant space tile, which opens the assistant conversation.
-  ///
-  /// In en, this message translates to:
-  /// **'Assistant'**
-  String get spaceAssistant;
 
   /// App bar title of the assistant conversation screen.
   ///
