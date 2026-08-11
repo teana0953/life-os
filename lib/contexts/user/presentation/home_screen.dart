@@ -3,18 +3,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
-import '../../../shared/theme/app_theme.dart';
-import '../../../shared/widgets/mascot.dart';
+import '../../../shared/widgets/ledge_card.dart';
+import '../../finance/domain/finance_money.dart';
+import '../../menstrual/domain/next_period_status.dart';
 import 'home_controller.dart';
+import 'home_dashboard_controller.dart';
 
 const _contentMaxWidth = 960.0;
 
-/// Time-of-day period the home screen's greeting is based on.
 enum GreetingPeriod { morning, afternoon, evening }
 
-/// Buckets [time] into a [GreetingPeriod]. Takes a [DateTime] directly
-/// (rather than reading `DateTime.now()` itself) so callers can inject a
-/// fixed clock and keep tests deterministic.
 GreetingPeriod greetingPeriodFor(DateTime time) {
   if (time.hour < 12) return GreetingPeriod.morning;
   if (time.hour < 18) return GreetingPeriod.afternoon;
@@ -23,16 +21,16 @@ GreetingPeriod greetingPeriodFor(DateTime time) {
 
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
-
-  /// Returns the current time, used to pick the home screen's time-of-day
-  /// greeting. Defaults to [DateTime.now]; tests inject a fixed clock to
-  /// avoid time-of-day flakiness.
+  final HomeDashboardController? dashboardController;
   final DateTime Function() clock;
+  final Future<String> Function()? idToken;
 
   const HomeScreen({
     super.key,
     required this.controller,
+    this.dashboardController,
     this.clock = DateTime.now,
+    this.idToken,
   });
 
   @override
@@ -44,48 +42,52 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    widget.dashboardController?.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+    if (oldWidget.dashboardController != widget.dashboardController) {
+      oldWidget.dashboardController?.removeListener(_onControllerChanged);
+      widget.dashboardController?.addListener(_onControllerChanged);
+    }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    widget.dashboardController?.removeListener(_onControllerChanged);
     super.dispose();
   }
 
   void _onControllerChanged() => setState(() {});
 
-  // Navigation targets are built by the app router (from injected controllers),
-  // so these just push the path — no screen construction here.
-  void _openSettings(BuildContext context) => context.push('/settings');
+  void _openSettings() => context.push('/settings');
+  void _openHealth() => context.push('/health');
+  void _openFinance() => context.push('/finance');
+  void _openAssistant() => context.push('/assistant');
+  void _openVitals() => context.push('/health/vitals');
+  void _openMenstrual() => context.push('/health/menstrual');
+  void _openFoodDictionary() => context.push('/health/dictionary');
 
-  void _openHealth(BuildContext context) => context.push('/health');
+  void _showComingSoon() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.spaceComingSoon)),
+      );
+  }
 
-  void _openFinance(BuildContext context) => context.push('/finance');
-
-  void _openAssistant(BuildContext context) => context.push('/assistant');
-
-  void _selectPrimaryDestination(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        _openHealth(context);
-        return;
-      case 1:
-        _openFinance(context);
-        return;
-      case 2:
-      case 3:
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context)!.spaceComingSoon),
-            ),
-          );
-        return;
-      case 4:
-        _openSettings(context);
-        return;
-    }
+  Future<void> _retryDashboard() async {
+    final dashboard = widget.dashboardController;
+    final token = widget.idToken;
+    if (dashboard == null || token == null) return;
+    await dashboard.load(await token(), widget.clock());
   }
 
   @override
@@ -97,196 +99,86 @@ class _HomeScreenState extends State<HomeScreen> {
           ? AppBar(
               title: Text(loc.appTitle),
               actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    child: Text(
-                      controller.profile?.displayName?.isNotEmpty == true
-                          ? controller.profile!.displayName!.substring(0, 1)
-                          : 'L',
-                    ),
-                  ),
+                IconButton(
+                  key: const Key('settings-icon-button'),
+                  tooltip: loc.settingsIconTooltip,
+                  onPressed: _openSettings,
+                  icon: const Icon(Icons.settings_outlined),
                 ),
+                const SizedBox(width: 8),
               ],
             )
           : null,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final contentWidth = constraints.maxWidth < _contentMaxWidth
-                ? constraints.maxWidth
-                : _contentMaxWidth;
+            final width = constraints.maxWidth.clamp(0, _contentMaxWidth);
             return Center(
               child: SizedBox(
-                width: contentWidth,
-                child: _buildBody(context, controller),
+                width: width.toDouble(),
+                child: _buildBody(controller),
               ),
             );
           },
         ),
       ),
-      bottomNavigationBar: controller.status == HomeStatus.loaded
-          ? NavigationBar(
-              key: const Key('primary-navigation-bar'),
-              selectedIndex: 0,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              onDestinationSelected: (index) =>
-                  _selectPrimaryDestination(context, index),
-              destinations: [
-                NavigationDestination(
-                  key: const Key('health-tile'),
-                  icon: const Icon(Icons.favorite_outline),
-                  selectedIcon: const Icon(Icons.favorite),
-                  label: loc.spaceHealth,
-                ),
-                NavigationDestination(
-                  key: const Key('finance-tile'),
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: const Icon(Icons.account_balance_wallet),
-                  label: loc.spaceFinance,
-                ),
-                NavigationDestination(
-                  key: const Key('tasks-tile'),
-                  icon: const Icon(Icons.task_alt),
-                  label: loc.spaceTasks,
-                ),
-                NavigationDestination(
-                  key: const Key('journal-tile'),
-                  icon: const Icon(Icons.menu_book_outlined),
-                  label: loc.spaceJournal,
-                ),
-                NavigationDestination(
-                  key: const Key('settings-icon-button'),
-                  icon: const Icon(Icons.settings_outlined),
-                  selectedIcon: const Icon(Icons.settings),
-                  label: loc.settingsTitle,
-                ),
-              ],
-            )
-          : null,
     );
   }
 
-  Widget _buildBody(BuildContext context, HomeController controller) {
+  Widget _buildBody(HomeController controller) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
     switch (controller.status) {
       case HomeStatus.loading:
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
-        final profile = controller.profile!;
-        final greeting = switch (greetingPeriodFor(widget.clock())) {
-          GreetingPeriod.morning => loc.greetingMorning,
-          GreetingPeriod.afternoon => loc.greetingAfternoon,
-          GreetingPeriod.evening => loc.greetingEvening,
-        };
+        final name = controller.profile?.displayName?.trim() ?? '';
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Center(child: Mascot(size: 64)),
-              const SizedBox(height: 12),
               Text(
-                greeting,
-                textAlign: TextAlign.center,
+                _greeting(loc, widget.clock(), name),
+                key: const Key('home-greeting'),
                 style: theme.textTheme.headlineMedium,
               ),
+              const SizedBox(height: 4),
+              Text(
+                loc.homeHubPrompt,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _AssistantEntry(onTap: _openAssistant),
+              const SizedBox(height: 18),
+              _buildDashboard(),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FutureEntry(
+                      entryKey: const Key('tasks-tile'),
+                      icon: Icons.task_alt_outlined,
+                      label: loc.spaceTasks,
+                      comingSoon: loc.spaceComingSoon,
+                      onTap: _showComingSoon,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _FutureEntry(
+                      entryKey: const Key('journal-tile'),
+                      icon: Icons.menu_book_outlined,
+                      label: loc.spaceJournal,
+                      comingSoon: loc.spaceComingSoon,
+                      onTap: _showComingSoon,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: theme.colorScheme.outline,
-                    width: 2,
-                  ),
-                  boxShadow: ledgeShadow(theme.colorScheme.outline),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            profile.email ?? '',
-                            style: theme.textTheme.bodyLarge,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        loc.signedIn,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  key: const Key('home-assistant-bar'),
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _openAssistant(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: theme.colorScheme.outline,
-                        width: 2,
-                      ),
-                      boxShadow: ledgeShadow(theme.colorScheme.outline),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.smart_toy_outlined,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            loc.homeAssistantBarLabel,
-                            style: theme.textTheme.bodyLarge,
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // A small build id so a deployed (Flutter web) build can be told
-              // apart from a cached one on the device. Not localized — it's a
-              // technical build tag, not user-facing copy.
               Center(
                 child: Text(
                   buildLabel,
@@ -338,5 +230,455 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
     }
+  }
+
+  Widget _buildDashboard() {
+    final loc = AppLocalizations.of(context)!;
+    final dashboard = widget.dashboardController;
+    if (dashboard == null || dashboard.status == HomeDashboardStatus.idle) {
+      return Column(
+        children: [
+          _DashboardSection(
+            sectionKey: const Key('health-dashboard-section'),
+            openKey: const Key('health-tile'),
+            title: loc.spaceHealth,
+            openLabel: loc.homeOpenHealth,
+            onOpen: _openHealth,
+            children: [
+              _SnapshotTile(
+                tileKey: const Key('home-latest-weight'),
+                label: loc.homeLatestWeight,
+                value: loc.homeNoData,
+                onTap: _openVitals,
+              ),
+              _SnapshotTile(
+                tileKey: const Key('home-food-dictionary'),
+                label: loc.homeFoodPortionTool,
+                actionLabel: loc.homeFoodPortionButton,
+                onTap: _openFoodDictionary,
+              ),
+              _SnapshotTile(
+                tileKey: const Key('home-latest-blood-pressure'),
+                label: loc.homeLatestBloodPressure,
+                value: loc.homeNoData,
+                onTap: _openVitals,
+              ),
+              _SnapshotTile(
+                tileKey: const Key('home-menstrual-prediction'),
+                label: loc.homeMenstrualPrediction,
+                value: loc.homeNoData,
+                onTap: _openMenstrual,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _DashboardSection(
+            sectionKey: const Key('finance-dashboard-section'),
+            openKey: const Key('finance-tile'),
+            title: loc.spaceFinance,
+            openLabel: loc.homeOpenFinance,
+            onOpen: _openFinance,
+            children: [
+              for (final entry in [
+                (const Key('home-budget'), loc.homeBudget),
+                (const Key('home-total-assets'), loc.homeTotalAssets),
+                (const Key('home-total-liabilities'), loc.homeTotalLiabilities),
+                (const Key('home-split-overview'), loc.homeSplitOverview),
+              ])
+                _SnapshotTile(
+                  tileKey: entry.$1,
+                  label: entry.$2,
+                  value: loc.homeNoData,
+                  onTap: _openFinance,
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+    if (dashboard.status == HomeDashboardStatus.loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(36),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    if (dashboard.status == HomeDashboardStatus.error ||
+        dashboard.data == null) {
+      return _DashboardUnavailable(
+        text: loc.homeDashboardLoadFailed,
+        retryLabel: loc.retry,
+        onRetry: _retryDashboard,
+      );
+    }
+    final data = dashboard.data!;
+    return Column(
+      children: [
+        _DashboardSection(
+          sectionKey: const Key('health-dashboard-section'),
+          openKey: const Key('health-tile'),
+          title: loc.spaceHealth,
+          openLabel: loc.homeOpenHealth,
+          onOpen: _openHealth,
+          children: [
+            _SnapshotTile(
+              tileKey: const Key('home-latest-weight'),
+              label: loc.homeLatestWeight,
+              value: data.weightGoal.currentWeightKg == null
+                  ? loc.homeNoData
+                  : loc.homeWeightValue(
+                      _compactNumber(data.weightGoal.currentWeightKg!),
+                    ),
+              onTap: _openVitals,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-food-dictionary'),
+              label: loc.homeFoodPortionTool,
+              actionLabel: loc.homeFoodPortionButton,
+              onTap: _openFoodDictionary,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-latest-blood-pressure'),
+              label: loc.homeLatestBloodPressure,
+              value: data.bloodPressure == null
+                  ? loc.homeNoData
+                  : '${_compactNumber(data.bloodPressure!.systolic)} / '
+                        '${_compactNumber(data.bloodPressure!.diastolic)}',
+              onTap: _openVitals,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-menstrual-prediction'),
+              label: loc.homeMenstrualPrediction,
+              value: _menstrualValue(context, loc, data.menstrualStatus),
+              onTap: _openMenstrual,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _DashboardSection(
+          sectionKey: const Key('finance-dashboard-section'),
+          openKey: const Key('finance-tile'),
+          title: loc.spaceFinance,
+          openLabel: loc.homeOpenFinance,
+          onOpen: _openFinance,
+          children: [
+            _SnapshotTile(
+              tileKey: const Key('home-budget'),
+              label: loc.homeBudget,
+              value: data.overallBudget == null
+                  ? loc.homeNoData
+                  : loc.homeBudgetRemaining(
+                      formatMinorUnitsForDisplay(
+                        data.overallBudget!.remaining,
+                        defaultCurrency,
+                      ),
+                    ),
+              onTap: _openFinance,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-total-assets'),
+              label: loc.homeTotalAssets,
+              value: formatMinorUnitsForDisplay(
+                data.netWorth.totalAsset,
+                defaultCurrency,
+              ),
+              onTap: _openFinance,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-total-liabilities'),
+              label: loc.homeTotalLiabilities,
+              value: formatMinorUnitsForDisplay(
+                data.netWorth.totalLiability,
+                defaultCurrency,
+              ),
+              onTap: _openFinance,
+            ),
+            _SnapshotTile(
+              tileKey: const Key('home-split-overview'),
+              label: loc.homeSplitOverview,
+              value: _splitValue(loc, data),
+              onTap: _openFinance,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+String _greeting(AppLocalizations loc, DateTime now, String name) {
+  final period = greetingPeriodFor(now);
+  if (name.isEmpty) {
+    return switch (period) {
+      GreetingPeriod.morning => loc.greetingMorning,
+      GreetingPeriod.afternoon => loc.greetingAfternoon,
+      GreetingPeriod.evening => loc.greetingEvening,
+    };
+  }
+  return switch (period) {
+    GreetingPeriod.morning => loc.greetingMorningName(name),
+    GreetingPeriod.afternoon => loc.greetingAfternoonName(name),
+    GreetingPeriod.evening => loc.greetingEveningName(name),
+  };
+}
+
+String _compactNumber(num value) =>
+    value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
+
+String _menstrualValue(
+  BuildContext context,
+  AppLocalizations loc,
+  NextPeriodStatus status,
+) {
+  switch (status.state) {
+    case NextPeriodState.ongoing:
+      return loc.homeMenstrualOngoing(status.days!);
+    case NextPeriodState.noRecords:
+      return loc.homeNoData;
+    case NextPeriodState.needsOneMore:
+      return loc.homeMenstrualNeedsMore;
+    case NextPeriodState.upcoming:
+      return loc.homeMenstrualExpected(
+        MaterialLocalizations.of(
+          context,
+        ).formatShortDate(status.predictedNextStart!),
+      );
+    case NextPeriodState.today:
+      return loc.homeMenstrualToday;
+    case NextPeriodState.overdue:
+      return loc.homeMenstrualOverdue(status.days!);
+  }
+}
+
+String _splitValue(AppLocalizations loc, HomeDashboardData data) {
+  var receivable = 0;
+  var payable = 0;
+  for (final person in data.splitBalances) {
+    for (final balance in person.balances) {
+      if (balance.currency != defaultCurrency) continue;
+      if (balance.amount > 0) receivable += balance.amount;
+      if (balance.amount < 0) payable += -balance.amount;
+    }
+  }
+  if (receivable == 0 && payable == 0) return loc.homeSplitSettled;
+  if (receivable > 0) {
+    return loc.homeSplitReceivable(
+      formatMinorUnitsForDisplay(receivable, defaultCurrency),
+    );
+  }
+  return loc.homeSplitPayable(
+    formatMinorUnitsForDisplay(payable, defaultCurrency),
+  );
+}
+
+class _AssistantEntry extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AssistantEntry({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return LedgeCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        key: const Key('home-assistant-bar'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.smart_toy_outlined),
+              const SizedBox(width: 12),
+              Expanded(child: Text(loc.homeAssistantBarLabel)),
+              const Icon(Icons.arrow_forward),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardSection extends StatelessWidget {
+  final Key sectionKey;
+  final Key openKey;
+  final String title;
+  final String openLabel;
+  final VoidCallback onOpen;
+  final List<Widget> children;
+
+  const _DashboardSection({
+    required this.sectionKey,
+    required this.openKey,
+    required this.title,
+    required this.openLabel,
+    required this.onOpen,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LedgeCard(
+      key: sectionKey,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+              TextButton(
+                key: openKey,
+                onPressed: onOpen,
+                child: Text(openLabel),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final singleColumn = constraints.maxWidth < 330;
+              final tileWidth = singleColumn
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final child in children)
+                    SizedBox(width: tileWidth, child: child),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SnapshotTile extends StatelessWidget {
+  final Key tileKey;
+  final String label;
+  final String? value;
+  final String? actionLabel;
+  final VoidCallback onTap;
+
+  const _SnapshotTile({
+    required this.tileKey,
+    required this.label,
+    this.value,
+    this.actionLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      key: tileKey,
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 92),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outline),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 10),
+            if (actionLabel != null)
+              Text(actionLabel!, style: theme.textTheme.labelLarge)
+            else
+              Text(value ?? '', style: theme.textTheme.titleMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FutureEntry extends StatelessWidget {
+  final Key entryKey;
+  final IconData icon;
+  final String label;
+  final String comingSoon;
+  final VoidCallback onTap;
+
+  const _FutureEntry({
+    required this.entryKey,
+    required this.icon,
+    required this.label,
+    required this.comingSoon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      key: entryKey,
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label),
+                  Text(comingSoon, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardUnavailable extends StatelessWidget {
+  final String text;
+  final String? retryLabel;
+  final VoidCallback? onRetry;
+
+  const _DashboardUnavailable({
+    required this.text,
+    this.retryLabel,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LedgeCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Text(text, textAlign: TextAlign.center),
+          if (onRetry != null && retryLabel != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onRetry, child: Text(retryLabel!)),
+          ],
+        ],
+      ),
+    );
   }
 }

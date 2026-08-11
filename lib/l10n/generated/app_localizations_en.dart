@@ -116,6 +116,111 @@ class AppLocalizationsEn extends AppLocalizations {
   String get greetingEvening => 'Good evening';
 
   @override
+  String greetingMorningName(String name) {
+    return 'Good morning, $name';
+  }
+
+  @override
+  String greetingAfternoonName(String name) {
+    return 'Good afternoon, $name';
+  }
+
+  @override
+  String greetingEveningName(String name) {
+    return 'Good evening, $name';
+  }
+
+  @override
+  String get homeHubPrompt => 'What would you like to take care of first?';
+
+  @override
+  String get homeOpenHealth => 'Open Health →';
+
+  @override
+  String get homeOpenFinance => 'Open Finance →';
+
+  @override
+  String get homeLatestWeight => 'Latest weight';
+
+  @override
+  String homeWeightValue(String value) {
+    return '$value kg';
+  }
+
+  @override
+  String get homeFoodPortionTool => 'Food portion tool';
+
+  @override
+  String get homeFoodPortionButton => 'Look up portion guide';
+
+  @override
+  String get homeLatestBloodPressure => 'Latest blood pressure';
+
+  @override
+  String get homeMenstrualPrediction => 'Cycle prediction';
+
+  @override
+  String homeMenstrualOngoing(int days) {
+    return 'Period day $days';
+  }
+
+  @override
+  String get homeMenstrualNeedsMore => 'Log one more period to predict';
+
+  @override
+  String homeMenstrualExpected(String date) {
+    return 'Expected $date';
+  }
+
+  @override
+  String get homeMenstrualToday => 'Expected today';
+
+  @override
+  String homeMenstrualOverdue(int days) {
+    return 'Prediction passed $days days ago';
+  }
+
+  @override
+  String get homeBudget => 'Monthly budget';
+
+  @override
+  String homeBudgetRemaining(String amount) {
+    return '$amount remaining';
+  }
+
+  @override
+  String get homeTotalAssets => 'Total assets';
+
+  @override
+  String get homeTotalLiabilities => 'Total liabilities';
+
+  @override
+  String get homeSplitOverview => 'Split overview';
+
+  @override
+  String homeSplitReceivable(String amount) {
+    return 'To receive $amount';
+  }
+
+  @override
+  String homeSplitPayable(String amount) {
+    return 'To pay $amount';
+  }
+
+  @override
+  String get homeSplitSettled => 'All settled';
+
+  @override
+  String get homeNoData => 'No data yet';
+
+  @override
+  String get homeDashboardUnavailable =>
+      'Dashboard details are unavailable in this view.';
+
+  @override
+  String get homeDashboardLoadFailed => 'Couldn\'t load your dashboard.';
+
+  @override
   String get yourSpaces => 'Your spaces';
 
   @override
@@ -182,6 +287,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsAccountSectionTitle => 'Account';
+
+  @override
+  String get settingsDisplayNameLabel => 'Your name';
+
+  @override
+  String get settingsDisplayNameHelper =>
+      'Used in your home greeting and shared activity.';
+
+  @override
+  String get settingsDisplayNameSaveButton => 'Save name';
+
+  @override
+  String get settingsDisplayNameSaved => 'Name updated';
+
+  @override
+  String get settingsDisplayNameSaveFailed =>
+      'Couldn\'t update your name. Try again.';
 
   @override
   String get settingsIconTooltip => 'Settings';

@@ -136,6 +136,94 @@
   "@greetingEvening": {
     "description": "Home screen greeting shown in the evening."
   },
+  "greetingMorningName": "Good morning, {name}",
+  "@greetingMorningName": {
+    "description": "Personalized home greeting shown before noon.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "greetingAfternoonName": "Good afternoon, {name}",
+  "@greetingAfternoonName": {
+    "description": "Personalized home greeting shown in the afternoon.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "greetingEveningName": "Good evening, {name}",
+  "@greetingEveningName": {
+    "description": "Personalized home greeting shown in the evening.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "homeHubPrompt": "What would you like to take care of first?",
+  "@homeHubPrompt": {
+    "description": "Prompt below the personalized greeting on the home hub."
+  },
+  "homeOpenHealth": "Open Health →",
+  "@homeOpenHealth": { "description": "Action that opens the full Health app area." },
+  "homeOpenFinance": "Open Finance →",
+  "@homeOpenFinance": { "description": "Action that opens the full Finance app area." },
+  "homeLatestWeight": "Latest weight",
+  "@homeLatestWeight": { "description": "Label for the latest-weight home snapshot." },
+  "homeWeightValue": "{value} kg",
+  "@homeWeightValue": {
+    "description": "Latest weight value on the home snapshot.",
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "homeFoodPortionTool": "Food portion tool",
+  "@homeFoodPortionTool": { "description": "Label for the food portion lookup shortcut." },
+  "homeFoodPortionButton": "Look up portion guide",
+  "@homeFoodPortionButton": { "description": "Action text for the food portion lookup shortcut." },
+  "homeLatestBloodPressure": "Latest blood pressure",
+  "@homeLatestBloodPressure": { "description": "Label for the latest blood-pressure home snapshot." },
+  "homeMenstrualPrediction": "Cycle prediction",
+  "@homeMenstrualPrediction": { "description": "Label for the menstrual-cycle home snapshot." },
+  "homeMenstrualOngoing": "Period day {days}",
+  "@homeMenstrualOngoing": {
+    "description": "Cycle snapshot while a period is ongoing.",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "homeMenstrualNeedsMore": "Log one more period to predict",
+  "@homeMenstrualNeedsMore": { "description": "Cycle snapshot when one more period is needed for a prediction." },
+  "homeMenstrualExpected": "Expected {date}",
+  "@homeMenstrualExpected": {
+    "description": "Cycle snapshot with the predicted next date.",
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "homeMenstrualToday": "Expected today",
+  "@homeMenstrualToday": { "description": "Cycle snapshot when the next period is predicted today." },
+  "homeMenstrualOverdue": "Prediction passed {days} days ago",
+  "@homeMenstrualOverdue": {
+    "description": "Cycle snapshot when the predicted date has passed.",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "homeBudget": "Monthly budget",
+  "@homeBudget": { "description": "Label for the overall monthly-budget home snapshot." },
+  "homeBudgetRemaining": "{amount} remaining",
+  "@homeBudgetRemaining": {
+    "description": "Remaining overall budget shown on the home snapshot.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "homeTotalAssets": "Total assets",
+  "@homeTotalAssets": { "description": "Label for total assets on the home snapshot." },
+  "homeTotalLiabilities": "Total liabilities",
+  "@homeTotalLiabilities": { "description": "Label for total liabilities on the home snapshot." },
+  "homeSplitOverview": "Split overview",
+  "@homeSplitOverview": { "description": "Label for the split-bill home snapshot." },
+  "homeSplitReceivable": "To receive {amount}",
+  "@homeSplitReceivable": {
+    "description": "Split snapshot when other people owe the user.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "homeSplitPayable": "To pay {amount}",
+  "@homeSplitPayable": {
+    "description": "Split snapshot when the user owes other people.",
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "homeSplitSettled": "All settled",
+  "@homeSplitSettled": { "description": "Split snapshot when no TWD balance remains." },
+  "homeNoData": "No data yet",
+  "@homeNoData": { "description": "Home snapshot fallback when no record exists." },
+  "homeDashboardUnavailable": "Dashboard details are unavailable in this view.",
+  "@homeDashboardUnavailable": { "description": "Fallback used by isolated home views without dashboard dependencies." },
+  "homeDashboardLoadFailed": "Couldn't load your dashboard.",
+  "@homeDashboardLoadFailed": { "description": "Shown when the home snapshot batch fails." },
   "yourSpaces": "Your spaces",
   "@yourSpaces": {
     "description": "Heading above the home screen's grid of space previews."
@@ -224,6 +312,18 @@
   "@settingsTitle": {
     "description": "Title of the settings page."
   },
+  "settingsAccountSectionTitle": "Account",
+  "@settingsAccountSectionTitle": { "description": "Heading for the signed-in account section in settings." },
+  "settingsDisplayNameLabel": "Your name",
+  "@settingsDisplayNameLabel": { "description": "Label for the editable display-name field in settings." },
+  "settingsDisplayNameHelper": "Used in your home greeting and shared activity.",
+  "@settingsDisplayNameHelper": { "description": "Explains where the user's chosen display name appears." },
+  "settingsDisplayNameSaveButton": "Save name",
+  "@settingsDisplayNameSaveButton": { "description": "Button that saves the chosen display name." },
+  "settingsDisplayNameSaved": "Name updated",
+  "@settingsDisplayNameSaved": { "description": "Confirmation after the display name is saved." },
+  "settingsDisplayNameSaveFailed": "Couldn't update your name. Try again.",
+  "@settingsDisplayNameSaveFailed": { "description": "Error shown when updating the display name fails." },
   "settingsIconTooltip": "Settings",
   "@settingsIconTooltip": {
     "description": "Tooltip/accessible label for the gear icon on the home screen that opens the settings page."

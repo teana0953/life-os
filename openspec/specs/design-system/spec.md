@@ -10,18 +10,18 @@ The app SHALL apply a single Material 3 theme with an explicit color scheme (a p
 - **WHEN** the app builds its root `MaterialApp`
 - **THEN** it uses a Material 3 theme whose color scheme primary is the design's pale-blue accent, and its screens render with the themed components
 
-### Requirement: Home uses primary bottom navigation
+### Requirement: Home is a dashboard hub
 
-The authenticated home screen SHALL replace the four-space grid with a Material 3 NavigationBar containing health, finance, tasks, journal, and settings in that order. Existing health, finance, and settings destinations SHALL remain navigable. Destinations without product functionality SHALL communicate that they are coming soon instead of navigating to a false or empty feature.
+The authenticated home screen SHALL be a dashboard hub rather than a tab shell. It SHALL show an AI entry, a Health preview containing latest weight, food-portion lookup, latest blood pressure, and menstrual prediction, and a Finance preview containing overall budget, total assets, total liabilities, and split overview. Health and Finance SHALL each open their existing independent app area. Settings SHALL remain a top-level header action. Unfinished Tasks and Journal entries SHALL be visually secondary and communicate that they are coming soon.
 
-#### Scenario: Primary destinations are visible
+#### Scenario: Dashboard previews are visible
 
 - **WHEN** an authenticated profile has loaded
-- **THEN** the bottom navigation shows health, finance, tasks, journal, and settings with health selected
+- **THEN** the home hub shows Health and Finance previews plus AI, Settings, Tasks, and Journal entries without a bottom navigation bar
 
-#### Scenario: Existing destinations navigate
+#### Scenario: Independent app areas remain navigable
 
-- **WHEN** the user selects health, finance, or settings
+- **WHEN** the user activates the Health, Finance, or Settings entry
 - **THEN** the corresponding existing route opens
 
 #### Scenario: Planned destinations do not imply finished functionality
