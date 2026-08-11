@@ -1164,8 +1164,16 @@ class FakeAuthRepository implements AuthRepository {
   /// `getIdToken()` takes when a renewal has to reach the network and fails.
   bool idTokenThrows = false;
 
+  /// `idToken()` is not free: Firebase reaches the network whenever the cached
+  /// token is close to expiring. Tests that care about what the UI paints
+  /// WHILE a token is being fetched must set this — with the default zero
+  /// delay the whole window closes inside one microtask, before the first
+  /// `pump`, and such a test passes no matter what is painted.
+  Duration idTokenDelay = Duration.zero;
+
   @override
   Future<String?> idToken() async {
+    if (idTokenDelay > Duration.zero) await Future<void>.delayed(idTokenDelay);
     if (idTokenThrows) throw Exception('token renewal failed');
     return _isAuthenticated ? 'fake-token' : null;
   }

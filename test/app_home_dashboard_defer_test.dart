@@ -10,6 +10,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 
 import 'app_test.dart';
 
@@ -44,9 +45,10 @@ void main() {
 
   Future<GoRouter> pumpSignedIn(
     WidgetTester tester,
-    HomeDashboardController dashboard,
-  ) async {
-    final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+    HomeDashboardController dashboard, {
+    FakeAuthRepository? auth,
+  }) async {
+    final authRepository = auth ?? FakeAuthRepository(initiallyAuthenticated: true);
     await pumpApp(
       tester,
       authRepository: authRepository,
@@ -139,6 +141,66 @@ void main() {
         0,
         reason: 'settings is on top — home is not the visible page',
       );
+    },
+  );
+
+  testWidgets(
+    'home never paints "no data yet" figures while the deferred fan-out is '
+    'still idle',
+    (tester) async {
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final dashboard = buildDashboard();
+      // The delay is the whole point of this test. `idToken()` reaches the
+      // network whenever the cached token is close to expiring — exactly the
+      // situation on a cold start — and the deferred fan-out cannot start
+      // until it lands. With the harness default (zero delay) the idle window
+      // closes before the first `pump` and this test cannot fail no matter
+      // what home paints.
+      final auth = FakeAuthRepository(initiallyAuthenticated: true)
+        ..idTokenDelay = const Duration(milliseconds: 300);
+      final router = await pumpSignedIn(tester, dashboard, auth: auth);
+      dashboard.reset();
+      bodyProfile.reads = 0;
+
+      // Cold-start shape: the user lands past home and walks back down to it.
+      // The profile (`/api/me`) is loaded by then, so home is out of its own
+      // full-page spinner and its BODY is what the user reads.
+      router.go('/health/vitals');
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      var idleMs = 0;
+      while (idleMs < 300) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (dashboard.status != HomeDashboardStatus.idle) break;
+        expect(
+          find.byKey(const Key('build-label')),
+          findsOneWidget,
+          reason: 'home\'s loaded body is what is on screen during this gap',
+        );
+        expect(
+          find.text(loc.homeNoData),
+          findsNothing,
+          reason:
+              'the figures have not been fetched yet — telling a user with '
+              'records that they have none is worse than showing nothing',
+        );
+        idleMs += 20;
+      }
+      expect(
+        idleMs,
+        greaterThanOrEqualTo(200),
+        reason:
+            'the assertions above must have run against a REAL idle window; '
+            'if the token resolves instantly there is nothing to observe and '
+            'this guard proves nothing',
+      );
+
+      await tester.pumpAndSettle();
+      expect(bodyProfile.reads, 1);
+      expect(find.byKey(const Key('home-latest-weight')), findsOneWidget);
     },
   );
 

@@ -235,7 +235,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDashboard() {
     final loc = AppLocalizations.of(context)!;
     final dashboard = widget.dashboardController;
-    if (dashboard == null || dashboard.status == HomeDashboardStatus.idle) {
+    // `dashboard == null` ONLY — deliberately not `status == idle`. `idle`
+    // means "nobody has asked for the figures yet", and since the fan-out was
+    // deferred to the moment home becomes the visible page, that state now
+    // outlives the first frame of every return to home: the listener fires,
+    // then waits on `idToken()` (which reaches the network whenever the token
+    // is close to expiring). Painting the no-data layout during that gap tells
+    // a user who has records that they have none. It gets the same placeholder
+    // as `loading` below, because that is exactly what it is.
+    if (dashboard == null) {
       return Column(
         children: [
           _DashboardSection(
@@ -296,7 +304,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
-    if (dashboard.status == HomeDashboardStatus.loading) {
+    if (dashboard.status == HomeDashboardStatus.idle ||
+        dashboard.status == HomeDashboardStatus.loading) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(36),

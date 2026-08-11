@@ -232,7 +232,11 @@ void main() {
           2,
           reason:
               'the shell and the diet day below already fetch this day — the '
-              'portion tool must not fetch it a third time',
+              'portion tool must not fetch it a third time. NOTE: 2 is an '
+              'INHERITED cost (the shell and the diet day each fetch the same '
+              'day, on `main` too), not a target. Removing that duplicate is a '
+              'good change that will turn this number into 1 — update it, do '
+              'not restore the duplicate to keep this green.',
         );
       },
     );

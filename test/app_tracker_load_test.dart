@@ -41,9 +41,11 @@ import 'app_test.dart';
 ///     OVERWRITES the screen's state (that is how `?add=glucose` lost the
 ///     reading its shortcut had just opened);
 ///  3. re-entering from home reuses what is already on the controller;
-///  4. a failed load reaches the screen's own error copy, not a stuck spinner;
-///  5. arriving while the shell's own load is still in flight waits for it
-///     rather than firing a second one.
+///  4. a failed load reaches the screen's own error copy, not a stuck spinner.
+///
+/// Note what case 2 does NOT say: the gate has no in-flight check to wait on.
+/// It stands down because the shell is in the stack at all — the shell has not
+/// even set `loadingDay` yet at that point (it is still awaiting its ID token).
 ///
 /// There is no midnight-rollover case: a route's `builder` runs once per page
 /// and is not re-run when `App` rebuilds (measured), so the day these screens
@@ -112,7 +114,6 @@ void main() {
   Future<GoRouter> pumpSignedIn(
     WidgetTester tester, {
     required _CountingRepository repository,
-    DateTime Function()? clock,
   }) async {
     final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
     await pumpApp(
@@ -138,7 +139,6 @@ void main() {
       menstrualRepository: repository is MenstrualRepository
           ? repository as MenstrualRepository
           : null,
-      clock: clock,
     );
     await tester.pumpAndSettle();
     return GoRouter.of(tester.element(find.byKey(const Key('health-tile'))));

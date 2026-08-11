@@ -1450,8 +1450,22 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     // loaded yet. The shell being in the stack does not by itself mean it is
     // about to load today: it may have been mounted long ago, with the diet
     // day browsing a past day since, which is precisely the takeover this
-    // method exists for. "Shell below AND the controller is still empty" is
-    // the one shape that means "its mount-time load is coming".
+    // method exists for.
+    //
+    // "Shell below AND the controller is still empty" is a SUFFICIENT test for
+    // standing down, not an exact one, and the two ways it is inexact are both
+    // deliberate:
+    //  - the shell's load may have already FAILED rather than be coming.
+    //    Standing down is still right: `guardedIdToken` turns a thrown
+    //    renewal into `''`, so the shell always reaches `load` and always
+    //    leaves the controller in `error`/`needsReauth`, which this screen's
+    //    own `build` renders as error copy — not as a stuck spinner.
+    //  - the mirror case (shell below, its mount-time load still coming, but
+    //    the controller ALREADY holding a day) does not stand down, so a
+    //    re-entry that lands in that window costs one duplicate fetch of the
+    //    same day. Pre-existing on `main` — its `status == loading` check
+    //    reads `loaded` there too — and harmless: both answers are the same
+    //    day, so neither can overwrite the other with stale data.
     if (controller.loadingDay != null) return;
     if (held == null && _healthShellInStack(context)) return;
     // Captured before the error guard, though: the diet day can reach
