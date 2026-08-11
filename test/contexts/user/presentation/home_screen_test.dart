@@ -7,9 +7,27 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_exceptions.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
+import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
+import 'package:life_os/contexts/body_profile/domain/body_profile_repository.dart';
+import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
+import 'package:life_os/contexts/finance/application/list_finance_budgets.dart';
+import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
+import 'package:life_os/contexts/finance/domain/finance_budget.dart';
+import 'package:life_os/contexts/finance/domain/finance_repository.dart';
+import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
+import 'package:life_os/contexts/menstrual/domain/next_period_status.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
+import 'package:life_os/contexts/split/domain/balance.dart';
+import 'package:life_os/contexts/split/domain/split_repository.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
+import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/routing/finance_tab.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,13 +74,29 @@ Future<ThemeController> testThemeController() async {
   return ThemeController(prefs);
 }
 
-Future<void> pumpHomeScreen(
+/// What a `pumpHomeScreen` test can look at afterwards: the router, and the
+/// **full location `/finance` was entered with**, query string included.
+///
+/// The location is recorded by the route builder rather than read back from
+/// `routerDelegate.currentConfiguration.uri`, which reports `/` for an
+/// imperative `push` — the exact shape that would make a URL guard here pass
+/// no matter what the tile linked to.
+class HomeHarness {
+  final GoRouter router;
+  final List<String> financeLocations;
+
+  HomeHarness(this.router, this.financeLocations);
+}
+
+Future<HomeHarness> pumpHomeScreen(
   WidgetTester tester,
   HomeController controller, {
   DateTime Function()? clock,
   Locale locale = const Locale('en'),
   AuthRepository? authRepository,
+  HomeDashboardController? dashboardController,
 }) async {
+  final financeLocations = <String>[];
   final localeController = await testLocaleController();
   // HomeScreen now navigates by pushing routes (the app router builds the target
   // screens), so give it a router with marker destinations for `/health` and
@@ -72,8 +106,12 @@ Future<void> pumpHomeScreen(
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) =>
-            HomeScreen(controller: controller, clock: clock ?? DateTime.now),
+        builder: (context, state) => HomeScreen(
+          controller: controller,
+          clock: clock ?? DateTime.now,
+          dashboardController: dashboardController,
+          idToken: dashboardController == null ? null : () async => 'tok',
+        ),
       ),
       GoRoute(
         path: '/health',
@@ -81,8 +119,10 @@ Future<void> pumpHomeScreen(
       ),
       GoRoute(
         path: '/finance',
-        builder: (context, state) =>
-            const Scaffold(body: Text('FINANCE-ROUTE')),
+        builder: (context, state) {
+          financeLocations.add(state.uri.toString());
+          return const Scaffold(body: Text('FINANCE-ROUTE'));
+        },
       ),
       GoRoute(
         path: '/assistant',
@@ -107,6 +147,7 @@ Future<void> pumpHomeScreen(
       ),
     ),
   );
+  return HomeHarness(router, financeLocations);
 }
 
 void main() {
@@ -545,4 +586,184 @@ void main() {
       );
     });
   });
+
+  // ------------------------------------------------------ finance tile targets
+  //
+  // A snapshot tile must land on the tab that shows the number it just
+  // printed, and the tab has to be on the URL (a refresh or a shared link
+  // otherwise drops back to 總覽). Both dashboard states are covered: the
+  // placeholder is what a cold-start user actually taps, and it used to build
+  // its four tiles from one loop with a single shared destination.
+  group('finance snapshot tiles open the tab their number lives on', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    Future<void> tapTile(WidgetTester tester, Key key) async {
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+    }
+
+    /// `false` = the `dashboard == null` placeholder block; `true` = the
+    /// loaded block. Both are run because they are two separate lists of
+    /// tiles in the source, and only one of them is what a cold start shows.
+    for (final loaded in [false, true]) {
+      final state = loaded ? 'loaded dashboard' : 'placeholder dashboard';
+
+      Future<HomeHarness> pump(WidgetTester tester) async {
+        final harness = await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: loaded ? loadedDashboardFixture() : null,
+        );
+        if (loaded) {
+          // The fixture prints real figures, so "the loaded block rendered"
+          // cannot be satisfied by the 無資料 placeholder wearing the same
+          // keys — i.e. this loop really does cover two different blocks.
+          expect(find.text('987,600'), findsOneWidget); // 總資產
+          expect(find.text('456,700'), findsOneWidget); // 總負債
+        } else {
+          expect(find.text('987,600'), findsNothing);
+        }
+        return harness;
+      }
+
+      testWidgets('$state: 總資產 opens /finance?tab=networth', (tester) async {
+        final harness = await pump(tester);
+        await tapTile(tester, const Key('home-total-assets'));
+        expect(harness.financeLocations, ['/finance?tab=networth']);
+      });
+
+      testWidgets('$state: 總負債 opens /finance?tab=networth', (tester) async {
+        final harness = await pump(tester);
+        await tapTile(tester, const Key('home-total-liabilities'));
+        expect(harness.financeLocations, ['/finance?tab=networth']);
+      });
+
+      testWidgets('$state: 分帳總覽 opens /finance?tab=split', (tester) async {
+        final harness = await pump(tester);
+        await tapTile(tester, const Key('home-split-overview'));
+        expect(harness.financeLocations, ['/finance?tab=split']);
+      });
+
+      testWidgets(
+        '$state: 預算 and the 開啟財務 button stay on a bare /finance',
+        (tester) async {
+          // The reverse case. Without it, "append ?tab=networth to every
+          // finance tile" passes the three tests above.
+          final harness = await pump(tester);
+          await tapTile(tester, const Key('home-budget'));
+          expect(
+            harness.financeLocations,
+            ['/finance'],
+            reason: '預算 lives on 總覽, the shell default — no query string',
+          );
+
+          harness.router.go('/');
+          await tester.pumpAndSettle();
+          harness.financeLocations.clear();
+
+          await tapTile(tester, const Key('finance-tile'));
+          expect(harness.financeLocations, ['/finance']);
+        },
+      );
+    }
+
+    testWidgets(
+      'the tile destinations are built from FinanceTab, not hand-written',
+      (tester) async {
+        // Pins the tiles to the same vocabulary the route builder parses: a
+        // hand-typed '?tab=net-worth' would satisfy a `contains('networth')`
+        // check and still land on 總覽 in production.
+        final harness = await pumpHomeScreen(tester, await loadedController());
+        await tapTile(tester, const Key('home-total-assets'));
+
+        final uri = Uri.parse(harness.financeLocations.single);
+        expect(uri.path, FinanceTab.financeLocation);
+        expect(
+          FinanceTab.fromSlug(uri.queryParameters[FinanceTab.queryParameter]),
+          FinanceTab.networth,
+        );
+      },
+    );
+  });
+}
+
+/// A [HomeDashboardController] already in its loaded state, with figures the
+/// tiles actually print — so a tile that renders is distinguishable from the
+/// 無資料 placeholder wearing the same key.
+///
+/// Assigned rather than loaded: `load` is a six-request fan-out and none of
+/// those six requests is what these tests are about.
+HomeDashboardController loadedDashboardFixture() {
+  final unused = _UnusedRepositories();
+  return HomeDashboardController(
+    GetWeightGoal(unused),
+    GetVitalsTrends(unused),
+    GetMenstrualOverview(unused),
+    ListFinanceBudgets(unused),
+    GetMonthlyNetWorth(unused),
+    GetBalances(unused),
+  )
+    ..status = HomeDashboardStatus.loaded
+    ..data = const HomeDashboardData(
+      weightGoal: WeightGoal(currentWeightKg: 62.5),
+      bloodPressure: null,
+      menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
+      overallBudget: FinanceBudget(
+        id: 'b1',
+        categoryId: null,
+        amount: 500000,
+        spent: 377600,
+        remaining: 123400,
+        percent: 76,
+      ),
+      netWorth: MonthlyNetWorth(
+        month: '2026-01',
+        accounts: [],
+        totalAsset: 987600,
+        totalLiability: 456700,
+        netWorth: 530900,
+        prevNetWorth: null,
+        growthRate: null,
+      ),
+      splitBalances: [
+        Balance(
+          userId: 'friend-1',
+          displayName: 'Friend',
+          balances: [CurrencyBalance(currency: 'TWD', amount: 55500)],
+        ),
+      ],
+    );
+}
+
+/// The three repositories behind the dashboard arms this fixture never runs.
+/// Throws rather than returning empties: if a future change makes the loaded
+/// fixture actually fetch, that must be loud, not silently blank.
+class _UnusedRepositories
+    implements
+        BodyProfileRepository,
+        VitalsRepository,
+        MenstrualRepository,
+        FinanceRepository,
+        SplitRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw StateError(
+    'the loaded dashboard fixture is assigned directly, never fetched',
+  );
 }

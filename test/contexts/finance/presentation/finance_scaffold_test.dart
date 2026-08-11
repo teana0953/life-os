@@ -724,17 +724,33 @@ void main() {
             clock: () => DateTime(2026, 7, 15),
           );
 
-          await tester.pumpWidget(
-            l10nRouterTestApp(
-              home: Builder(
-                builder: (context) => Scaffold(
+          // A real `/finance` route rather than `l10nRouterTestApp`'s
+          // `extra`-carried widget: switching tabs now rewrites the URL
+          // (`context.replace`), which re-runs the route builder — and a
+          // builder that can only render what rode in `extra` has nothing to
+          // render on the second pass.
+          final router = GoRouter(
+            initialLocation: '/',
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => Scaffold(
                   body: TextButton(
                     key: const Key('open-finance'),
-                    onPressed: () => context.push('/finance', extra: scaffold),
+                    onPressed: () => context.push('/finance'),
                     child: const Text('open'),
                   ),
                 ),
               ),
+              GoRoute(path: '/finance', builder: (_, __) => scaffold),
+            ],
+          );
+          await tester.pumpWidget(
+            MaterialApp.router(
+              locale: const Locale('en'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: testSupportedLocales,
+              routerConfig: router,
             ),
           );
           await tester.pumpAndSettle();

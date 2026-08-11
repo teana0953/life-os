@@ -78,6 +78,7 @@ import 'shared/date/day_format.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/routing/app_locations.dart';
 import 'shared/routing/auth_router_notifier.dart';
+import 'shared/routing/finance_tab.dart';
 import 'shared/data_revision.dart';
 import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pending_deep_link_controller.dart';
@@ -841,6 +842,17 @@ class _AppState extends State<App> {
             GoRoute(
               path: 'finance',
               builder: (context, state) => FinanceScaffold(
+                // A query parameter, not a nested route: switching tabs is not
+                // a history entry (see the comment above). Not `state.extra`
+                // either — `extra` does not survive a refresh, a PWA shortcut
+                // or a push deep link, which are exactly the entries that have
+                // to land on the right tab. Unknown/missing falls back to
+                // 總覽 rather than 404ing or rewriting the URL.
+                initialTab:
+                    FinanceTab.fromSlug(
+                      state.uri.queryParameters[FinanceTab.queryParameter],
+                    ) ??
+                    FinanceTab.overview,
                 authRepository: widget.authRepository,
                 controller: widget.financeController,
                 netWorthController: widget.netWorthController,
