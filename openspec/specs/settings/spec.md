@@ -18,6 +18,20 @@ groups user preferences (theme, language), the friends entry, and sign-out.
 - **WHEN** the user activates the friends entry on the settings page
 - **THEN** the friends page is shown
 
+### Requirement: Signed-in account and display name
+
+Settings SHALL show the signed-in email and let the user choose a non-empty display name of at most 50 characters. Saving SHALL persist the name through the authenticated profile API and update the loaded profile immediately. The home greeting SHALL include the saved name according to the time of day.
+
+#### Scenario: User changes their name
+
+- **WHEN** the user enters a valid name and saves it
+- **THEN** Settings confirms the update and the home greeting uses the new name
+
+#### Scenario: Invalid name is not submitted
+
+- **WHEN** the name is blank or longer than 50 characters
+- **THEN** the save action is disabled
+
 ### Requirement: Theme selection
 The settings page SHALL let the user choose the app theme among **System**, **Light**, and **Dark**, apply it immediately, and remember it across app restarts (overriding the system setting until changed back to System).
 
@@ -53,4 +67,3 @@ All settings-page text SHALL be localized (English and Traditional Chinese), wit
 #### Scenario: Settings in Traditional Chinese
 - **WHEN** the active locale is Traditional Chinese
 - **THEN** the settings page labels and options render in Traditional Chinese
-

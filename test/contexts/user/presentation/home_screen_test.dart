@@ -77,8 +77,7 @@ Future<void> pumpHomeScreen(
       ),
       GoRoute(
         path: '/health',
-        builder: (context, state) =>
-            const Scaffold(body: Text('HEALTH-ROUTE')),
+        builder: (context, state) => const Scaffold(body: Text('HEALTH-ROUTE')),
       ),
       GoRoute(
         path: '/finance',
@@ -113,7 +112,7 @@ Future<void> pumpHomeScreen(
 void main() {
   group('HomeScreen', () {
     testWidgets(
-      'shows the loaded profile email and does not show the internal id',
+      'uses the loaded name in the greeting and keeps account details off home',
       (tester) async {
         final profileRepository = FakeProfileRepository()
           ..profileToReturn = UserProfile(
@@ -130,70 +129,73 @@ void main() {
           SignOut(authRepository),
         );
         await controller.load('token-123');
-        await pumpHomeScreen(tester, controller);
+        await pumpHomeScreen(
+          tester,
+          controller,
+          clock: () => DateTime(2026, 1, 1, 8),
+        );
 
-        expect(find.text('test@example.com'), findsOneWidget);
+        expect(find.text('Good morning, Test User'), findsOneWidget);
+        expect(find.text('test@example.com'), findsNothing);
         expect(find.text('user-1'), findsNothing);
       },
     );
 
-    testWidgets(
-      'tapping the health tile navigates to the health route',
-      (tester) async {
-        final profileRepository = FakeProfileRepository()
-          ..profileToReturn = UserProfile(
-            id: 'user-1',
-            firebaseUid: 'firebase-abc',
-            email: 'test@example.com',
-            displayName: 'Test User',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            isAdmin: false,
-          );
-        final controller = HomeController(
-          GetProfile(profileRepository),
-          SignOut(FakeAuthRepository()),
+    testWidgets('tapping the health tile navigates to the health route', (
+      tester,
+    ) async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
         );
-        await controller.load('token-123');
-        await pumpHomeScreen(tester, controller);
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      await pumpHomeScreen(tester, controller);
 
-        expect(find.text('HEALTH-ROUTE'), findsNothing);
+      expect(find.text('HEALTH-ROUTE'), findsNothing);
 
-        await tester.tap(find.byKey(const Key('health-tile')));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('health-tile')));
+      await tester.pumpAndSettle();
 
-        // HomeScreen pushes `/health`; the app router builds the module there.
-        // The full grid → health → diet flow is covered at the app level.
-        expect(find.text('HEALTH-ROUTE'), findsOneWidget);
-      },
-    );
+      // HomeScreen pushes `/health`; the app router builds the module there.
+      // The full grid → health → diet flow is covered at the app level.
+      expect(find.text('HEALTH-ROUTE'), findsOneWidget);
+    });
 
-    testWidgets(
-      'tapping the finance tile navigates to the finance route',
-      (tester) async {
-        final profileRepository = FakeProfileRepository()
-          ..profileToReturn = UserProfile(
-            id: 'user-1',
-            firebaseUid: 'firebase-abc',
-            email: 'test@example.com',
-            displayName: 'Test User',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            isAdmin: false,
-          );
-        final controller = HomeController(
-          GetProfile(profileRepository),
-          SignOut(FakeAuthRepository()),
+    testWidgets('tapping the finance tile navigates to the finance route', (
+      tester,
+    ) async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
         );
-        await controller.load('token-123');
-        await pumpHomeScreen(tester, controller);
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      await pumpHomeScreen(tester, controller);
 
-        expect(find.text('FINANCE-ROUTE'), findsNothing);
+      expect(find.text('FINANCE-ROUTE'), findsNothing);
 
-        await tester.tap(find.byKey(const Key('finance-tile')));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('finance-tile')));
+      await tester.pumpAndSettle();
 
-        expect(find.text('FINANCE-ROUTE'), findsOneWidget);
-      },
-    );
+      expect(find.text('FINANCE-ROUTE'), findsOneWidget);
+    });
 
     testWidgets(
       'shows a semver build label (defaults to "1.0.0+dev" without CI defines)',
@@ -299,58 +301,54 @@ void main() {
       },
     );
 
-    testWidgets(
-      '401 shows a "sign in again" exit rather than a dead end',
-      (tester) async {
-        final profileRepository = FakeProfileRepository()
-          ..errorToThrow = const ReauthenticationRequired();
-        final authRepository = FakeAuthRepository();
-        final controller = HomeController(
-          GetProfile(profileRepository),
-          SignOut(authRepository),
+    testWidgets('401 shows a "sign in again" exit rather than a dead end', (
+      tester,
+    ) async {
+      final profileRepository = FakeProfileRepository()
+        ..errorToThrow = const ReauthenticationRequired();
+      final authRepository = FakeAuthRepository();
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(authRepository),
+      );
+      await controller.load('token-123');
+      await pumpHomeScreen(tester, controller);
+
+      final signInAgainButton = find.byKey(const Key('sign-in-again-button'));
+      expect(signInAgainButton, findsOneWidget);
+
+      await tester.tap(signInAgainButton);
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signOutCalled, isTrue);
+    });
+
+    testWidgets('tapping the settings icon navigates to the settings route', (
+      tester,
+    ) async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
         );
-        await controller.load('token-123');
-        await pumpHomeScreen(tester, controller);
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      await pumpHomeScreen(tester, controller);
 
-        final signInAgainButton = find.byKey(
-          const Key('sign-in-again-button'),
-        );
-        expect(signInAgainButton, findsOneWidget);
+      expect(find.text('SETTINGS-ROUTE'), findsNothing);
 
-        await tester.tap(signInAgainButton);
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('settings-icon-button')));
+      await tester.pumpAndSettle();
 
-        expect(authRepository.signOutCalled, isTrue);
-      },
-    );
-
-    testWidgets(
-      'tapping the settings icon navigates to the settings route',
-      (tester) async {
-        final profileRepository = FakeProfileRepository()
-          ..profileToReturn = UserProfile(
-            id: 'user-1',
-            firebaseUid: 'firebase-abc',
-            email: 'test@example.com',
-            displayName: 'Test User',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            isAdmin: false,
-          );
-        final controller = HomeController(
-          GetProfile(profileRepository),
-          SignOut(FakeAuthRepository()),
-        );
-        await controller.load('token-123');
-        await pumpHomeScreen(tester, controller);
-
-        expect(find.text('SETTINGS-ROUTE'), findsNothing);
-
-        await tester.tap(find.byKey(const Key('settings-icon-button')));
-        await tester.pumpAndSettle();
-
-        expect(find.text('SETTINGS-ROUTE'), findsOneWidget);
-      },
-    );
+      expect(find.text('SETTINGS-ROUTE'), findsOneWidget);
+    });
 
     testWidgets(
       'no longer shows a language chip or sign-out button directly on the '
@@ -398,34 +396,34 @@ void main() {
       return controller;
     }
 
-    testWidgets(
-      'tapping the assistant bar navigates to the assistant route',
-      (tester) async {
-        final controller = await loadedController();
-        await pumpHomeScreen(tester, controller);
+    testWidgets('tapping the assistant bar navigates to the assistant route', (
+      tester,
+    ) async {
+      final controller = await loadedController();
+      await pumpHomeScreen(tester, controller);
 
-        expect(find.text('ASSISTANT-ROUTE'), findsNothing);
+      expect(find.text('ASSISTANT-ROUTE'), findsNothing);
 
-        await tester.tap(find.byKey(const Key('home-assistant-bar')));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-assistant-bar')));
+      await tester.pumpAndSettle();
 
-        expect(find.text('ASSISTANT-ROUTE'), findsOneWidget);
-      },
-    );
+      expect(find.text('ASSISTANT-ROUTE'), findsOneWidget);
+    });
 
-    testWidgets(
-      'the assistant bar remains visible above primary navigation',
-      (tester) async {
-        final controller = await loadedController();
-        await pumpHomeScreen(tester, controller);
+    testWidgets('the assistant bar remains visible above dashboard sections', (
+      tester,
+    ) async {
+      final controller = await loadedController();
+      await pumpHomeScreen(tester, controller);
 
-        expect(find.byKey(const Key('home-assistant-bar')), findsOneWidget);
-        expect(
-          find.byKey(const Key('primary-navigation-bar')),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(find.byKey(const Key('home-assistant-bar')), findsOneWidget);
+      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+      expect(
+        find.byKey(const Key('finance-dashboard-section')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
+    });
 
     testWidgets(
       'tasks and journal destinations stay on home and show coming soon',
@@ -433,39 +431,39 @@ void main() {
         final controller = await loadedController();
         await pumpHomeScreen(tester, controller);
 
+        await tester.ensureVisible(find.byKey(const Key('tasks-tile')));
         await tester.tap(find.byKey(const Key('tasks-tile')));
         await tester.pump();
-        expect(
-          find.text(lookupAppLocalizations(const Locale('en')).spaceComingSoon),
-          findsOneWidget,
-        );
+        expect(find.byType(SnackBar), findsOneWidget);
         expect(find.text('HEALTH-ROUTE'), findsNothing);
         expect(find.text('FINANCE-ROUTE'), findsNothing);
         expect(find.text('ASSISTANT-ROUTE'), findsNothing);
 
+        await tester.ensureVisible(find.byKey(const Key('journal-tile')));
         await tester.tap(find.byKey(const Key('journal-tile')));
         await tester.pump();
         expect(find.text('HEALTH-ROUTE'), findsNothing);
         expect(find.text('FINANCE-ROUTE'), findsNothing);
         expect(find.text('ASSISTANT-ROUTE'), findsNothing);
-        expect(
-          find.text(lookupAppLocalizations(const Locale('en')).spaceComingSoon),
-          findsOneWidget,
-        );
+        expect(find.byType(SnackBar), findsOneWidget);
       },
     );
 
     testWidgets(
-      'primary navigation has five destinations and replaces the spaces grid',
+      'dashboard hub replaces primary navigation and the spaces grid',
       (tester) async {
         final controller = await loadedController();
         await pumpHomeScreen(tester, controller);
 
-        final navigation = tester.widget<NavigationBar>(
-          find.byKey(const Key('primary-navigation-bar')),
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
         );
-        expect(navigation.destinations, hasLength(5));
-        expect(navigation.selectedIndex, 0);
+        expect(
+          find.byKey(const Key('finance-dashboard-section')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
         expect(find.byKey(const Key('spaces-grid')), findsNothing);
         expect(find.byKey(const Key('assistant-tile')), findsNothing);
       },
@@ -500,7 +498,11 @@ void main() {
       );
 
       expect(
-        find.text(lookupAppLocalizations(const Locale('en')).greetingMorning),
+        find.text(
+          lookupAppLocalizations(
+            const Locale('en'),
+          ).greetingMorningName('Test User'),
+        ),
         findsOneWidget,
       );
     });
@@ -517,7 +519,9 @@ void main() {
 
       expect(
         find.text(
-          lookupAppLocalizations(const Locale('en')).greetingAfternoon,
+          lookupAppLocalizations(
+            const Locale('en'),
+          ).greetingAfternoonName('Test User'),
         ),
         findsOneWidget,
       );
@@ -532,7 +536,11 @@ void main() {
       );
 
       expect(
-        find.text(lookupAppLocalizations(const Locale('en')).greetingEvening),
+        find.text(
+          lookupAppLocalizations(
+            const Locale('en'),
+          ).greetingEveningName('Test User'),
+        ),
         findsOneWidget,
       );
     });

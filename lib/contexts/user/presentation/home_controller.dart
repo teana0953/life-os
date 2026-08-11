@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../auth/application/sign_out.dart';
 import '../application/get_profile.dart';
+import '../application/update_display_name.dart';
 import '../domain/profile_exceptions.dart';
 import '../domain/user_profile.dart';
 
@@ -17,12 +18,19 @@ enum ProfileError { fetchFailed, unknown }
 class HomeController extends ChangeNotifier {
   final GetProfile _getProfile;
   final SignOut _signOut;
+  final UpdateDisplayName? _updateDisplayName;
 
-  HomeController(this._getProfile, this._signOut);
+  HomeController(
+    this._getProfile,
+    this._signOut, {
+    UpdateDisplayName? updateDisplayName,
+  }) : _updateDisplayName = updateDisplayName;
 
   HomeStatus status = HomeStatus.loading;
   UserProfile? profile;
   ProfileError? error;
+  bool isSavingDisplayName = false;
+  bool displayNameSaveFailed = false;
 
   Future<void>? _ensureLoadedInFlight;
 
@@ -65,4 +73,25 @@ class HomeController extends ChangeNotifier {
   }
 
   Future<void> signOut() => _signOut();
+
+  Future<bool> saveDisplayName(String idToken, String displayName) async {
+    final update = _updateDisplayName;
+    if (update == null) return false;
+    isSavingDisplayName = true;
+    displayNameSaveFailed = false;
+    notifyListeners();
+    try {
+      profile = await update(idToken, displayName);
+      return true;
+    } on ReauthenticationRequired {
+      status = HomeStatus.needsReauth;
+      return false;
+    } catch (_) {
+      displayNameSaveFailed = true;
+      return false;
+    } finally {
+      isSavingDisplayName = false;
+      notifyListeners();
+    }
+  }
 }

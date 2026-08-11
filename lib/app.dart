@@ -70,6 +70,7 @@ import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'contexts/vitals/presentation/vitals_screen.dart';
 import 'contexts/user/application/get_profile.dart';
 import 'contexts/user/presentation/home_controller.dart';
+import 'contexts/user/presentation/home_dashboard_controller.dart';
 import 'contexts/user/presentation/home_screen.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/assistant/gemini_key_controller.dart';
@@ -163,7 +164,10 @@ AuthRedirect resolveAuthRedirect({
     return AuthRedirect(loc == splashLocation ? null : splashLocation, pending);
   }
   if (!signedIn) {
-    return AuthRedirect(isAuthGateLocation(loc) ? null : loginLocation, pendingDeepLink);
+    return AuthRedirect(
+      isAuthGateLocation(loc) ? null : loginLocation,
+      pendingDeepLink,
+    );
   }
   // Signed in: if parked on a transient/auth-gate screen, replay the remembered
   // deep link (else home), then clear it.
@@ -191,6 +195,7 @@ class App extends StatefulWidget {
   final FinanceRepository financeRepository;
   final LoginController loginController;
   final HomeController homeController;
+  final HomeDashboardController? homeDashboardController;
   final LocaleController localeController;
   final ThemeController themeController;
   final GeminiKeyController geminiKeyController;
@@ -295,6 +300,7 @@ class App extends StatefulWidget {
     required this.financeRepository,
     required this.loginController,
     required this.homeController,
+    this.homeDashboardController,
     required this.localeController,
     required this.themeController,
     required this.geminiKeyController,
@@ -445,6 +451,7 @@ class _AppState extends State<App> {
     final signedIn = _authNotifier.signedIn;
     if (_wasSignedIn && !signedIn) {
       widget.homeController.reset();
+      widget.homeDashboardController?.reset();
       widget.netWorthController.reset();
       // `FinanceScaffold` reloads this one on entry, but a reload is not a
       // clear: re-entering finance in the same calendar month keeps the
@@ -593,7 +600,8 @@ class _AppState extends State<App> {
         ),
         GoRoute(
           path: authErrorLocation,
-          builder: (context, state) => _AuthErrorScreen(onRetry: _authNotifier.retry),
+          builder: (context, state) =>
+              _AuthErrorScreen(onRetry: _authNotifier.retry),
         ),
         GoRoute(
           path: loginLocation,
@@ -625,6 +633,8 @@ class _AppState extends State<App> {
           builder: (context, state) => _AuthenticatedHome(
             authRepository: widget.authRepository,
             homeController: widget.homeController,
+            dashboardController: widget.homeDashboardController,
+            clock: widget.clock,
           ),
         ),
         // Flat top-level route (not nested under any shell): the assistant
@@ -654,15 +664,28 @@ class _AppState extends State<App> {
             key: state.pageKey,
             opaque: false,
             barrierDismissible: true,
-            barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.32),
-            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return SlideTransition(
-                position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-                    .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-                child: child,
-              );
-            },
+            barrierColor: Theme.of(
+              context,
+            ).colorScheme.scrim.withValues(alpha: 0.32),
+            barrierLabel: MaterialLocalizations.of(
+              context,
+            ).modalBarrierDismissLabel,
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 1),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                    child: child,
+                  );
+                },
             child: AssistantSheetPage(
               child: AssistantScreen(
                 key: ValueKey(state.uri.query),
@@ -670,7 +693,9 @@ class _AppState extends State<App> {
                 geminiKeyController: widget.geminiKeyController,
                 idToken: _idToken,
                 onSignInAgain: widget.signOut.call,
-                chatContext: AssistantChatContext.fromQuery(state.uri.queryParameters),
+                chatContext: AssistantChatContext.fromQuery(
+                  state.uri.queryParameters,
+                ),
               ),
             ),
           ),
@@ -683,6 +708,8 @@ class _AppState extends State<App> {
             geminiKeyController: widget.geminiKeyController,
             signOut: widget.signOut,
             pwaInstall: const PwaInstallImpl(),
+            homeController: widget.homeController,
+            idToken: _idToken,
           ),
         ),
         // No `extra`: built purely from injected DI, so a web refresh on this
@@ -883,13 +910,17 @@ class _AppState extends State<App> {
                   // with no extra resets to the diet day.
                   builder: (context, state) {
                     final day = state.extra;
-                    if (day is! String) return const _Redirect(to: '/health/diet');
+                    if (day is! String) {
+                      return const _Redirect(to: '/health/diet');
+                    }
                     return DailyTargetScreen(
                       controller: widget.healthDailyTargetController,
                       idToken: _idToken,
                       day: day,
-                      onSaved: () async =>
-                          widget.healthTodayController.load(await _idToken(), day),
+                      onSaved: () async => widget.healthTodayController.load(
+                        await _idToken(),
+                        day,
+                      ),
                       onSignInAgain: widget.signOut.call,
                     );
                   },
@@ -913,10 +944,12 @@ class _AppState extends State<App> {
                         idToken: _idToken,
                         day: args.day,
                         signOut: widget.signOut,
-                        isAdmin: widget.homeController.profile?.isAdmin ?? false,
-                        sharedFoodItemController: widget.healthSharedFoodItemController,
-                        onNeedProfile: () async =>
-                            widget.homeController.ensureLoaded(await _idToken()),
+                        isAdmin:
+                            widget.homeController.profile?.isAdmin ?? false,
+                        sharedFoodItemController:
+                            widget.healthSharedFoodItemController,
+                        onNeedProfile: () async => widget.homeController
+                            .ensureLoaded(await _idToken()),
                       ),
                     );
                   },
@@ -936,15 +969,19 @@ class _AppState extends State<App> {
                         builder: (context, _) => FoodSearchScreen(
                           meal: null,
                           mealNames: args.mealNames,
-                          dictionaryController: widget.healthDictionaryController,
-                          createMealController: widget.healthCreateMealController,
+                          dictionaryController:
+                              widget.healthDictionaryController,
+                          createMealController:
+                              widget.healthCreateMealController,
                           idToken: _idToken,
                           day: args.day,
                           signOut: widget.signOut,
-                          isAdmin: widget.homeController.profile?.isAdmin ?? false,
-                          sharedFoodItemController: widget.healthSharedFoodItemController,
-                          onNeedProfile: () async =>
-                              widget.homeController.ensureLoaded(await _idToken()),
+                          isAdmin:
+                              widget.homeController.profile?.isAdmin ?? false,
+                          sharedFoodItemController:
+                              widget.healthSharedFoodItemController,
+                          onNeedProfile: () async => widget.homeController
+                              .ensureLoaded(await _idToken()),
                         ),
                       );
                     }
@@ -952,7 +989,8 @@ class _AppState extends State<App> {
                       todayController: widget.healthTodayController,
                       dictionaryController: widget.healthDictionaryController,
                       createMealController: widget.healthCreateMealController,
-                      sharedFoodItemController: widget.healthSharedFoodItemController,
+                      sharedFoodItemController:
+                          widget.healthSharedFoodItemController,
                       homeController: widget.homeController,
                       idToken: _idToken,
                       day: _today,
@@ -1325,7 +1363,8 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
             signOut: widget.signOut,
             isAdmin: widget.homeController.profile?.isAdmin ?? false,
             sharedFoodItemController: widget.sharedFoodItemController,
-            onNeedProfile: () async => widget.homeController.ensureLoaded(await widget.idToken()),
+            onNeedProfile: () async =>
+                widget.homeController.ensureLoaded(await widget.idToken()),
           ),
         );
     }
@@ -1335,10 +1374,14 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
 class _AuthenticatedHome extends StatefulWidget {
   final AuthRepository authRepository;
   final HomeController homeController;
+  final HomeDashboardController? dashboardController;
+  final DateTime Function() clock;
 
   const _AuthenticatedHome({
     required this.authRepository,
     required this.homeController,
+    this.dashboardController,
+    required this.clock,
   });
 
   @override
@@ -1354,11 +1397,21 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
 
   Future<void> _load() async {
     final token = await widget.authRepository.idToken();
-    await widget.homeController.load(token ?? '');
+    final idToken = token ?? '';
+    await Future.wait([
+      widget.homeController.load(idToken),
+      if (widget.dashboardController != null)
+        widget.dashboardController!.load(idToken, widget.clock()),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
-    return HomeScreen(controller: widget.homeController);
+    return HomeScreen(
+      controller: widget.homeController,
+      dashboardController: widget.dashboardController,
+      clock: widget.clock,
+      idToken: () async => await widget.authRepository.idToken() ?? '',
+    );
   }
 }
