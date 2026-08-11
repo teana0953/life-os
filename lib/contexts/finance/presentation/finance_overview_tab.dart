@@ -10,6 +10,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
@@ -112,6 +113,25 @@ class FinanceOverviewTab extends StatelessWidget {
                         onSwitchMonth(previousMonth(controller.selectedMonth)),
                     onNext: () =>
                         onSwitchMonth(nextMonth(controller.selectedMonth)),
+                  ),
+                  // A background reload (triggered by a split write elsewhere,
+                  // see `FinanceScaffold._reloadLedger`) can fail while this
+                  // month's figures are already on screen — `status` flips to
+                  // `error` but `summary` is kept (design: a same-month reload
+                  // never blanks what's already shown), so without this the
+                  // failure was entirely silent and the reader kept looking at
+                  // numbers that never updated. Always present, not
+                  // conditionally built: [StaleNotice] hides itself, and must
+                  // stay mounted through its own retry (see its class doc).
+                  StaleNotice(
+                    failed:
+                        controller.status == FinanceStatus.error &&
+                        controller.summary != null,
+                    loading:
+                        controller.status == FinanceStatus.loading &&
+                        controller.summary != null,
+                    subject: loc.financeTabOverview,
+                    onRetry: () => onSwitchMonth(controller.selectedMonth),
                   ),
                   const SizedBox(height: 16),
                   BudgetCard(controller: controller, onEdit: onEditBudgets),

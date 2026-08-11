@@ -69,6 +69,15 @@ class FinanceController extends ChangeNotifier {
   /// defaulting internally.
   String selectedMonth = '';
 
+  /// Bumped at the start of every [load] call. [selectedMonth] alone only
+  /// catches a response landing for a month the reader has since switched
+  /// away from — it says nothing when two [load] calls target the *same*
+  /// month (e.g. two quick split writes each triggering a background
+  /// reload) and land out of order, letting the earlier, now-stale response
+  /// overwrite the later one. Each call captures its own sequence number and
+  /// only applies its result while it is still the most recent call.
+  int _loadSeq = 0;
+
   FinanceStatus status = FinanceStatus.loading;
   FinanceError? error;
   List<FinanceCategory> categories = [];
@@ -128,6 +137,7 @@ class FinanceController extends ChangeNotifier {
   /// feedback immediately — safe here because, unlike the entry call, it
   /// runs well after the widget has built.
   Future<void> load(String idToken, String month, {bool notifyOnStart = false}) async {
+    final seq = ++_loadSeq;
     final isMonthChange = month != selectedMonth;
     selectedMonth = month;
     status = FinanceStatus.loading;
@@ -158,14 +168,14 @@ class FinanceController extends ChangeNotifier {
     // and not folded into a shared `Future.wait` (design D9/D6): its own
     // failure must never turn the whole month into [FinanceStatus.error].
     // Awaited at the end so callers of [load] see a fully settled state.
-    final splitSpendingFuture = _loadSplitSpending(idToken, month);
+    final splitSpendingFuture = _loadSplitSpending(idToken, month, seq);
 
     try {
       final data = await _getFinanceMonth(idToken, month);
-      // Stale-response guard: a faster later switch may have moved
-      // `selectedMonth` on while this request was in flight — that response
-      // must never land over the (now different) currently viewed month.
-      if (selectedMonth != month) return;
+      // Stale-response guard: a faster later call — for this same month or a
+      // different one — may have moved on while this request was in flight;
+      // that response must never land over whatever the newer call produced.
+      if (seq != _loadSeq) return;
       categories = data.categories;
       summary = data.summary;
       transactions = data.transactions;
@@ -173,14 +183,14 @@ class FinanceController extends ChangeNotifier {
       installmentPlans = data.installmentPlans;
       status = FinanceStatus.loaded;
     } on FinanceReauthenticationRequired {
-      if (selectedMonth != month) return;
+      if (seq != _loadSeq) return;
       status = FinanceStatus.needsReauth;
     } on FinanceFetchFailure {
-      if (selectedMonth != month) return;
+      if (seq != _loadSeq) return;
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
     } catch (_) {
-      if (selectedMonth != month) return;
+      if (seq != _loadSeq) return;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
     }
@@ -189,20 +199,19 @@ class FinanceController extends ChangeNotifier {
   }
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
-  /// for why this is separate from the main fetch. [selectedMonth] is
-  /// checked against [month] on completion (the same stale-response guard
-  /// [load] applies to `summary`/`transactions`, design D9/finance-ledger-ui
-  /// "Month switching is race-safe"): a slow response for a month the user
-  /// has since switched away from must never overwrite the currently
-  /// selected month's line.
-  Future<void> _loadSplitSpending(String idToken, String month) async {
+  /// for why this is separate from the main fetch. [seq] is checked against
+  /// [_loadSeq] on completion (the same stale-response guard [load] applies
+  /// to `summary`/`transactions`): a slow response for a call the reader has
+  /// since moved on from — same month or not — must never overwrite the
+  /// currently selected month's line.
+  Future<void> _loadSplitSpending(String idToken, String month, int seq) async {
     try {
       final result = await _getSplitSpending(idToken, month);
-      if (selectedMonth != month) return;
+      if (seq != _loadSeq) return;
       splitSpending = result;
       splitSpendingStatus = SplitSpendingStatus.loaded;
     } catch (_) {
-      if (selectedMonth != month) return;
+      if (seq != _loadSeq) return;
       splitSpendingStatus = SplitSpendingStatus.error;
     }
     notifyListeners();

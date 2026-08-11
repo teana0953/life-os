@@ -439,6 +439,53 @@ void main() {
     });
 
     test(
+      'same-month race: a slow earlier same-month load never overwrites a '
+      'fast later same-month load (e.g. two quick split writes each '
+      'triggering a background reload)',
+      () async {
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary!.totals.single.expense, 0);
+
+        // Call A: gated, so it will sit mid-flight.
+        final gateA = Completer<void>();
+        repo.gates['2026-07'] = gateA;
+        final callA = controller.load('tok', '2026-07');
+
+        // Before A's response lands, the underlying data changes and a
+        // second, faster same-month reload starts and completes — the
+        // `selectedMonth != month` guard alone cannot tell these two calls
+        // apart, since both target '2026-07'.
+        repo.gates.remove('2026-07');
+        repo._byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-b',
+            type: FinanceType.expense,
+            amount: 999,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ];
+        final callB = controller.load('tok', '2026-07');
+        await callB;
+        expect(controller.summary!.totals.single.expense, 999);
+        expect(controller.transactions.single.id, 't-b');
+
+        // Now let A's stale response land late.
+        gateA.complete();
+        await callA;
+
+        // B — the newer call — must still be showing; A must not have
+        // clobbered it just because its response arrived later.
+        expect(controller.summary!.totals.single.expense, 999);
+        expect(controller.transactions, hasLength(1));
+        expect(controller.transactions.single.id, 't-b');
+      },
+    );
+
+    test(
       'rapid month switching: a stale slow response never overwrites the '
       'currently selected month',
       () async {
