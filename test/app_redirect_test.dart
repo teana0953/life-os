@@ -1,5 +1,19 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:life_os/app.dart';
+import 'package:life_os/contexts/auth/application/sign_in.dart';
+import 'package:life_os/contexts/auth/application/sign_out.dart';
+import 'package:life_os/contexts/auth/presentation/login_controller.dart';
+import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
+import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
+import 'package:life_os/contexts/health/presentation/health_scaffold.dart';
+import 'package:life_os/contexts/user/application/get_profile.dart';
+import 'package:life_os/contexts/user/domain/user_profile.dart';
+import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/contexts/user/presentation/home_screen.dart';
+
+import 'app_test.dart';
 
 /// Regression for the push-notification deep-link bug: a cold start opens the
 /// app while auth is still `loading`, which used to redirect every location to
@@ -185,5 +199,150 @@ void main() {
       expect(r.location, '/');
       expect(r.pendingDeepLink, isNull);
     });
+  });
+
+  _redirectWidgetTests();
+}
+
+/// The other redirect in `app.dart`: the `_Redirect` widget a route builder
+/// returns when it cannot build anything for the current URL (an unknown
+/// tracker name, a `/health/diet/*` screen rebuilt with no `extra`).
+///
+/// It used to `go`, which discards the whole page stack. Now that every
+/// signed-in route is nested under `/`, that would throw away exactly what
+/// nesting is for. These cases pin BOTH repairs — pop when the page below is
+/// already the destination, replace otherwise — because a fix for one of them
+/// is what breaks the other.
+void _redirectWidgetTests() {
+  final testProfile = UserProfile(
+    id: 'user-1',
+    firebaseUid: 'firebase-abc',
+    email: 'user@example.com',
+    displayName: 'Test User',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    isAdmin: false,
+  );
+
+  Future<GoRouter> pumpSignedIn(WidgetTester tester) async {
+    final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+    await pumpApp(
+      tester,
+      authRepository: authRepository,
+      loginController: LoginController(SignIn(authRepository)),
+      homeController: HomeController(
+        GetProfile(FakeProfileRepository(testProfile)),
+        SignOut(authRepository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return GoRouter.of(tester.element(find.byKey(const Key('health-tile'))));
+  }
+
+  String location(GoRouter router) =>
+      router.routerDelegate.currentConfiguration.uri.toString();
+
+  group('_Redirect keeps the stack it landed in', () {
+    testWidgets(
+      'a URL-driven unknown tracker settles on ONE health shell, with home '
+      'still underneath',
+      (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        // URL-driven: the stack is rebuilt as [/, /health, /health/nope].
+        // The page below the redirect is already `/health`, so the repair is
+        // a pop. A blanket `pushReplacement` would leave [/, /health,
+        // /health] — two shells, each loading a screenful of data.
+        router.go('/health/nope');
+        await tester.pumpAndSettle();
+
+        expect(location(router), '/health');
+        expect(find.byType(HealthScaffold), findsOneWidget);
+        expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
+
+        // And the back button reaches home in ONE step — which is only true
+        // if there is a single health shell in the stack.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(location(router), '/');
+        expect(find.byType(HomeScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an unknown tracker pushed from home replaces itself with the health '
+      'shell, leaving home underneath',
+      (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        // In-app: the stack is [/, /health/nope] — nothing below is
+        // `/health`, so the repair is a replace. A blanket `pop` would take
+        // the user back to home and show nothing at all.
+        router.push('/health/nope');
+        await tester.pumpAndSettle();
+
+        expect(find.byType(HealthScaffold), findsOneWidget);
+        expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(location(router), '/');
+        expect(find.byType(HomeScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'it discards only itself — pages pushed below it survive',
+      (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        // The user walked in: home → finance → (somewhere that could not be
+        // built). `go` would collapse all of that and rebuild from
+        // `/health` alone, silently deleting the finance page the user
+        // expects the back button to return to.
+        router.push('/finance');
+        await tester.pumpAndSettle();
+        router.push('/health/nope');
+        await tester.pumpAndSettle();
+
+        expect(find.byType(HealthScaffold), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(FinanceScaffold),
+          findsOneWidget,
+          reason: 'the redirect must not discard the page it was pushed over',
+        );
+      },
+    );
+
+    testWidgets(
+      'a URL-driven /health/diet/target with no extra falls back to the diet '
+      'day it was built over, not past it',
+      (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        router.go('/health/diet/target');
+        await tester.pumpAndSettle();
+
+        expect(location(router), '/health/diet');
+        expect(find.byType(DietDayScreen), findsOneWidget);
+        expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a URL-driven /health/diet/food-search with no extra does the same',
+      (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        router.go('/health/diet/food-search');
+        await tester.pumpAndSettle();
+
+        expect(location(router), '/health/diet');
+        expect(find.byType(DietDayScreen), findsOneWidget);
+        expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
+      },
+    );
   });
 }

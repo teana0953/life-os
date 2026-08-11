@@ -555,9 +555,9 @@
       }
     }
   },
-  "dietDictionaryTitle": "Food dictionary",
+  "dietDictionaryTitle": "Food portion tool",
   "@dietDictionaryTitle": {
-    "description": "Title of the full-screen food search when it is opened as the dictionary — with no target meal — instead of to add food to a specific meal."
+    "description": "Title of the full-screen food search when it is opened as the portion tool — with no target meal — instead of to add food to a specific meal."
   },
   "dietOpenDictionaryTooltip": "Look up a food",
   "@dietOpenDictionaryTooltip": {

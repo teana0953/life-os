@@ -483,7 +483,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dietDictionaryTitle => 'Food dictionary';
+  String get dietDictionaryTitle => 'Food portion tool';
 
   @override
   String get dietOpenDictionaryTooltip => 'Look up a food';

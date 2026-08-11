@@ -939,10 +939,10 @@ abstract class AppLocalizations {
   /// **'Done ({count})'**
   String dietSearchDoneButton(int count);
 
-  /// Title of the full-screen food search when it is opened as the dictionary — with no target meal — instead of to add food to a specific meal.
+  /// Title of the full-screen food search when it is opened as the portion tool — with no target meal — instead of to add food to a specific meal.
   ///
   /// In en, this message translates to:
-  /// **'Food dictionary'**
+  /// **'Food portion tool'**
   String get dietDictionaryTitle;
 
   /// Tooltip/accessible label for the diet screen's icon-only action that opens the food dictionary without first choosing a meal.

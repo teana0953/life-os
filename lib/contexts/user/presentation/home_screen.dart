@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openAssistant() => context.push('/assistant');
   void _openVitals() => context.push('/health/vitals');
   void _openMenstrual() => context.push('/health/menstrual');
-  void _openFoodDictionary() => context.push('/health/dictionary');
+  void _openFoodDictionary() => context.push('/health/diet/dictionary');
 
   void _showComingSoon() {
     ScaffoldMessenger.of(context)

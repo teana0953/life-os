@@ -517,47 +517,84 @@ class _AppState extends State<App> {
   /// [query] is the URL's query parameters — a modifier on the same screen
   /// rather than a route of its own, which is how the vitals launcher
   /// shortcuts say which reading to start (`/health/vitals?add=glucose`).
+  ///
+  /// Every tracker is wrapped in a [_TrackerLoadGate]. None of these screens
+  /// loads its own day: [HealthScaffold.initState] does it for all of them at
+  /// once, which is fine when the shell is what put them on screen — but a
+  /// home-grid tile (`push('/health/vitals')`) mounts the tracker with NO
+  /// shell in the stack, and its controller sits in its initial `loading`
+  /// state with nobody left to leave it: a permanent spinner. The gate is the
+  /// missing loader. The `default` branch is not wrapped — there is no
+  /// controller behind an unknown name.
   Widget _trackerFor(String? name, Map<String, String> query) {
+    final day = _today;
     switch (name) {
       case 'water':
-        return WaterScreen(
-          controller: widget.waterController,
-          idToken: _idToken,
-          day: _today,
-          clock: widget.clock,
-          onSignInAgain: widget.signOut.call,
+        final controller = widget.waterController;
+        return _TrackerLoadGate(
+          hasWantedDay: () => controller.day?.day == day,
+          load: () async => controller.load(await _idToken(), day),
+          child: WaterScreen(
+            controller: controller,
+            idToken: _idToken,
+            day: day,
+            clock: widget.clock,
+            onSignInAgain: widget.signOut.call,
+          ),
         );
       case 'vitals':
-        return VitalsScreen(
-          controller: widget.vitalsController,
-          idToken: _idToken,
-          day: _today,
-          clock: widget.clock,
-          autoAddSection: query['add'],
-          onSignInAgain: widget.signOut.call,
+        final controller = widget.vitalsController;
+        return _TrackerLoadGate(
+          hasWantedDay: () => controller.day?.day == day,
+          load: () async => controller.load(await _idToken(), day),
+          child: VitalsScreen(
+            controller: controller,
+            idToken: _idToken,
+            day: day,
+            clock: widget.clock,
+            autoAddSection: query['add'],
+            onSignInAgain: widget.signOut.call,
+          ),
         );
       case 'bowel':
-        return BowelScreen(
-          controller: widget.bowelController,
-          idToken: _idToken,
-          day: _today,
-          clock: widget.clock,
-          onSignInAgain: widget.signOut.call,
+        final controller = widget.bowelController;
+        return _TrackerLoadGate(
+          hasWantedDay: () => controller.day?.day == day,
+          load: () async => controller.load(await _idToken(), day),
+          child: BowelScreen(
+            controller: controller,
+            idToken: _idToken,
+            day: day,
+            clock: widget.clock,
+            onSignInAgain: widget.signOut.call,
+          ),
         );
       case 'exercise':
-        return ExerciseScreen(
-          controller: widget.exerciseController,
-          idToken: _idToken,
-          day: _today,
-          clock: widget.clock,
-          onSignInAgain: widget.signOut.call,
+        final controller = widget.exerciseController;
+        return _TrackerLoadGate(
+          hasWantedDay: () => controller.day?.day == day,
+          load: () async => controller.load(await _idToken(), day),
+          child: ExerciseScreen(
+            controller: controller,
+            idToken: _idToken,
+            day: day,
+            clock: widget.clock,
+            onSignInAgain: widget.signOut.call,
+          ),
         );
       case 'menstrual':
-        return MenstrualScreen(
-          controller: widget.menstrualController,
-          idToken: _idToken,
-          clock: widget.clock,
-          onSignInAgain: widget.signOut.call,
+        final controller = widget.menstrualController;
+        return _TrackerLoadGate(
+          // The menstrual overview is not day-keyed, so "already has it" is
+          // simply "has an overview".
+          hasWantedDay: () => controller.overview != null,
+          load: () async => controller.load(await _idToken()),
+          child: MenstrualScreen(
+            controller: controller,
+            idToken: _idToken,
+            clock: widget.clock,
+            onSignInAgain: widget.signOut.call,
+          ),
         );
       default:
         return const _Redirect(to: '/health');
@@ -628,6 +665,14 @@ class _AppState extends State<App> {
             localeController: widget.localeController,
           ),
         ),
+        // Every signed-in destination is a CHILD of home, so the stack a
+        // browser (or a launcher shortcut, or a push deep link) rebuilds from
+        // a URL always has home underneath it — the back button walks into the
+        // app instead of out of it. Nesting changes only what is built below a
+        // location, never the location itself: the URLs are unchanged and
+        // pinned by `app_route_shapes_test.dart`. In-app `context.push('/x')`
+        // calls are unaffected — an absolute path still matches, and an
+        // imperative push still adds exactly one page.
         GoRoute(
           path: '/',
           builder: (context, state) => _AuthenticatedHome(
@@ -636,376 +681,381 @@ class _AppState extends State<App> {
             dashboardController: widget.homeDashboardController,
             clock: widget.clock,
           ),
-        ),
-        // Flat top-level route (not nested under any shell): the assistant
-        // is entered from the home grid today and from other shells later,
-        // so it belongs to none of them. Built purely from injected DI, so
-        // a web refresh reconstructs it — the conversation itself lives on
-        // the app-lifetime controller.
-        // `ctx`/`tab`/`month` in the query carry what the user was looking
-        // at when they entered (the finance shell's entry point) — on the
-        // URL, not in `extra`, so a web refresh reconstructs the context
-        // too. Garbage parameters are dropped by `fromQuery`, never echoed.
-        // `key: ValueKey(query)`: go_router's `pageKey` tracks only the path
-        // pattern (the `/invite` lesson), so without it entering again with
-        // a different context would reuse the old `State` — and its
-        // already-consumed context-prefix flag.
-        // `pageBuilder` (not `builder`): the route is non-opaque so the
-        // screen it was opened from stays visible and interactive behind an
-        // `AssistantSheetPage` panel — see that widget's doc for why this
-        // keeps the URL/back-button/refresh behaviour a real route gives
-        // instead of a `showModalBottomSheet`. `barrierColor` is set
-        // explicitly: `CustomTransitionPage` leaves it `null` by default,
-        // which is a fully transparent (but still dismissible) barrier — the
-        // panel would look like it has nothing behind it to dismiss.
-        GoRoute(
-          path: '/assistant',
-          pageBuilder: (context, state) => CustomTransitionPage(
-            key: state.pageKey,
-            opaque: false,
-            barrierDismissible: true,
-            barrierColor: Theme.of(
-              context,
-            ).colorScheme.scrim.withValues(alpha: 0.32),
-            barrierLabel: MaterialLocalizations.of(
-              context,
-            ).modalBarrierDismissLabel,
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  return SlideTransition(
-                    position:
-                        Tween<Offset>(
-                          begin: const Offset(0, 1),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                          ),
-                        ),
-                    child: child,
-                  );
-                },
-            child: AssistantSheetPage(
-              child: AssistantScreen(
-                key: ValueKey(state.uri.query),
-                controller: widget.assistantController,
-                geminiKeyController: widget.geminiKeyController,
-                idToken: _idToken,
-                onSignInAgain: widget.signOut.call,
-                chatContext: AssistantChatContext.fromQuery(
-                  state.uri.queryParameters,
+          routes: [
+            // Nested under home rather than under a shell: the assistant is
+            // entered from the home grid today and from other shells later, so it
+            // belongs to none of them. Built purely from injected DI, so
+            // a web refresh reconstructs it — the conversation itself lives on
+            // the app-lifetime controller.
+            // `ctx`/`tab`/`month` in the query carry what the user was looking
+            // at when they entered (the finance shell's entry point) — on the
+            // URL, not in `extra`, so a web refresh reconstructs the context
+            // too. Garbage parameters are dropped by `fromQuery`, never echoed.
+            // `key: ValueKey(query)`: go_router's `pageKey` tracks only the path
+            // pattern (the `/invite` lesson), so without it entering again with
+            // a different context would reuse the old `State` — and its
+            // already-consumed context-prefix flag.
+            // `pageBuilder` (not `builder`): the route is non-opaque so the
+            // screen it was opened from stays visible and interactive behind an
+            // `AssistantSheetPage` panel — see that widget's doc for why this
+            // keeps the URL/back-button/refresh behaviour a real route gives
+            // instead of a `showModalBottomSheet`. `barrierColor` is set
+            // explicitly: `CustomTransitionPage` leaves it `null` by default,
+            // which is a fully transparent (but still dismissible) barrier — the
+            // panel would look like it has nothing behind it to dismiss.
+            GoRoute(
+              path: 'assistant',
+              pageBuilder: (context, state) => CustomTransitionPage(
+                key: state.pageKey,
+                opaque: false,
+                barrierDismissible: true,
+                barrierColor: Theme.of(
+                  context,
+                ).colorScheme.scrim.withValues(alpha: 0.32),
+                barrierLabel: MaterialLocalizations.of(
+                  context,
+                ).modalBarrierDismissLabel,
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, 1),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                        child: child,
+                      );
+                    },
+                child: AssistantSheetPage(
+                  child: AssistantScreen(
+                    key: ValueKey(state.uri.query),
+                    controller: widget.assistantController,
+                    geminiKeyController: widget.geminiKeyController,
+                    idToken: _idToken,
+                    onSignInAgain: widget.signOut.call,
+                    chatContext: AssistantChatContext.fromQuery(
+                      state.uri.queryParameters,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-        GoRoute(
-          path: '/settings',
-          builder: (context, state) => SettingsScreen(
-            themeController: widget.themeController,
-            localeController: widget.localeController,
-            geminiKeyController: widget.geminiKeyController,
-            signOut: widget.signOut,
-            pwaInstall: const PwaInstallImpl(),
-            homeController: widget.homeController,
-            idToken: _idToken,
-          ),
-        ),
-        // No `extra`: built purely from injected DI, so a web refresh on this
-        // URL reconstructs the screen. `FriendsController` is built by the
-        // screen's own `State` (design D9), not here.
-        GoRoute(
-          path: '/friends',
-          builder: (context, state) => FriendsScreen(
-            listFriends: widget.listFriends,
-            removeFriend: widget.removeFriend,
-            createInvite: widget.createInvite,
-            listInvites: widget.listInvites,
-            revokeInvite: widget.revokeInvite,
-            authRepository: widget.authRepository,
-            signOut: widget.signOut,
-          ),
-        ),
-        // `key: ValueKey(token)`: go_router's `pageKey` only tracks the path
-        // pattern, not the query — without this key, opening a second invite
-        // link without leaving the app would reuse the first link's `State`
-        // (and its `InviteController`), silently showing the first inviter
-        // while consuming the first token (design D13).
-        GoRoute(
-          path: '/invite',
-          builder: (context, state) {
-            final token = state.uri.queryParameters['token'];
-            return InviteScreen(
-              key: ValueKey(token),
-              previewInvite: widget.previewInvite,
-              acceptInvite: widget.acceptInvite,
-              authRepository: widget.authRepository,
-              signOut: widget.signOut,
-              token: token,
-            );
-          },
-        ),
-        // No `extra`: built purely from injected DI, so a web refresh on this
-        // URL reconstructs the screen.
-        GoRoute(
-          path: '/import/chaodays',
-          builder: (context, state) => ChaodaysImportScreen(
-            controller: widget.chaodaysImportController,
-            authRepository: widget.authRepository,
-          ),
-        ),
-        GoRoute(
-          path: '/reminders',
-          builder: (context, state) => ReminderSettingsScreen(
-            controller: widget.reminderSettingsController,
-            authRepository: widget.authRepository,
-          ),
-        ),
-        GoRoute(
-          path: '/care-items',
-          builder: (context, state) => CareItemsScreen(
-            controller: widget.careItemsController,
-            authRepository: widget.authRepository,
-            pushHealthController: widget.pushHealthController,
-          ),
-        ),
-        GoRoute(
-          path: '/care-today',
-          builder: (context, state) => CareTodayScreen(
-            controller: widget.careTodayController,
-            authRepository: widget.authRepository,
-            onOpenCareItems: () => context.push('/care-items'),
-            pushHealthController: widget.pushHealthController,
-          ),
-        ),
-        GoRoute(
-          path: '/care-history',
-          builder: (context, state) => CareHistoryScreen(
-            controller: widget.careHistoryController,
-            authRepository: widget.authRepository,
-          ),
-        ),
-        // The three ledger/net-worth/split tabs are the shell's own internal
-        // state (design.md — mirroring HealthScaffold's record hub), but a
-        // group's own detail screen is nested under `/finance/groups/:id`
-        // (task 8.1) — nested, not flat, for the same reason `/health`'s
-        // sub-routes are: a web back button or refresh reconstructs the
-        // whole stack from the URL hierarchy, where a flat route would only
-        // rebuild the leaf and collapse back-navigation straight to the grid.
-        GoRoute(
-          path: '/finance',
-          builder: (context, state) => FinanceScaffold(
-            authRepository: widget.authRepository,
-            controller: widget.financeController,
-            netWorthController: widget.netWorthController,
-            financeRepository: widget.financeRepository,
-            split: SplitTabDependencies(
-              getBalances: widget.splitGetBalances,
-              listGroups: widget.splitListGroups,
-              listExpenses: widget.splitListExpenses,
-              createExpense: widget.splitCreateExpense,
-              updateExpense: widget.splitUpdateExpense,
-              deleteExpense: widget.splitDeleteExpense,
-              createGroup: widget.splitCreateGroup,
-              listFriends: widget.listFriends,
-              getProfile: widget.splitGetProfile,
-              listSettlements: widget.splitListSettlements,
-              createSettlement: widget.splitCreateSettlement,
-              deleteSettlement: widget.splitDeleteSettlement,
-              listActivity: widget.splitListActivity,
-              // Just the group id: the caller's own id (design D5c) is
-              // resolved by the group screen itself from `/api/me`. It used
-              // to ride in a `?self=` query parameter, which made every
-              // permission gate on that screen a function of a shareable,
-              // hand-editable, history-persisted URL — a link carrying
-              // someone else's id offered the creator-only archive and the
-              // payer-only edit to a viewer who was neither.
-              onOpenGroup: (context, groupId) =>
-                  context.push<void>('/finance/groups/$groupId'),
-              // `push`, not `go`: adding a friend is a detour, and the user
-              // is expected back on the split tab afterwards.
-              onAddFriend: (context) => context.push('/friends'),
-            ),
-            clock: widget.clock,
-          ),
-          routes: [
             GoRoute(
-              path: 'groups/:id',
+              path: 'settings',
+              builder: (context, state) => SettingsScreen(
+                themeController: widget.themeController,
+                localeController: widget.localeController,
+                geminiKeyController: widget.geminiKeyController,
+                signOut: widget.signOut,
+                pwaInstall: const PwaInstallImpl(),
+                homeController: widget.homeController,
+                idToken: _idToken,
+              ),
+            ),
+            // No `extra`: built purely from injected DI, so a web refresh on this
+            // URL reconstructs the screen. `FriendsController` is built by the
+            // screen's own `State` (design D9), not here.
+            GoRoute(
+              path: 'friends',
+              builder: (context, state) => FriendsScreen(
+                listFriends: widget.listFriends,
+                removeFriend: widget.removeFriend,
+                createInvite: widget.createInvite,
+                listInvites: widget.listInvites,
+                revokeInvite: widget.revokeInvite,
+                authRepository: widget.authRepository,
+                signOut: widget.signOut,
+              ),
+            ),
+            // `key: ValueKey(token)`: go_router's `pageKey` only tracks the path
+            // pattern, not the query — without this key, opening a second invite
+            // link without leaving the app would reuse the first link's `State`
+            // (and its `InviteController`), silently showing the first inviter
+            // while consuming the first token (design D13).
+            GoRoute(
+              path: 'invite',
               builder: (context, state) {
-                final groupId = state.pathParameters['id']!;
-                return GroupDetailScreen(
-                  // go_router's `pageKey` is derived from the path
-                  // *pattern* only, not the matched `:id` — without this key,
-                  // opening a second group from the first group's screen
-                  // (in-app push, no intervening pop) would reuse the first
-                  // group's `State`, and with it its `GroupDetailController`,
-                  // silently showing the first group's data under the new
-                  // URL (the friends change's invite-token bug, same shape).
-                  key: ValueKey(groupId),
-                  getGroup: widget.splitGetGroup,
-                  getGroupBalances: widget.splitGetGroupBalances,
-                  listExpenses: widget.splitListExpenses,
-                  addGroupMember: widget.splitAddGroupMember,
-                  archiveGroup: widget.splitArchiveGroup,
-                  createExpense: widget.splitCreateExpense,
-                  updateExpense: widget.splitUpdateExpense,
-                  deleteExpense: widget.splitDeleteExpense,
-                  listFriends: widget.listFriends,
-                  listFinanceCategories: widget.listFinanceCategories,
-                  getBalances: widget.splitGetBalances,
-                  createSettlement: widget.splitCreateSettlement,
-                  getProfile: widget.splitGetProfile,
+                final token = state.uri.queryParameters['token'];
+                return InviteScreen(
+                  key: ValueKey(token),
+                  previewInvite: widget.previewInvite,
+                  acceptInvite: widget.acceptInvite,
                   authRepository: widget.authRepository,
-                  groupId: groupId,
-                  clock: widget.clock,
+                  signOut: widget.signOut,
+                  token: token,
                 );
               },
             ),
-          ],
-        ),
-        // Nested so a web back / refresh rebuilds the whole stack from the URL
-        // (flat routes rebuilt only the leaf, collapsing back-navigation to the
-        // grid). Screens are built from injected controllers — not carried in
-        // `extra` — so a URL-driven rebuild reconstructs them.
-        GoRoute(
-          path: '/health',
-          builder: (context, state) => HealthScaffold(
-            pushHealthController: widget.pushHealthController,
-            authRepository: widget.authRepository,
-            signOut: widget.signOut,
-            weightGoalController: widget.weightGoalController,
-            trendController: widget.trendController,
-            healthCalendarController: widget.healthCalendarController,
-            todayController: widget.healthTodayController,
-            dictionaryController: widget.healthDictionaryController,
-            dailyTargetController: widget.healthDailyTargetController,
-            createMealController: widget.healthCreateMealController,
-            getLoggedDays: widget.healthGetLoggedDays,
-            waterController: widget.waterController,
-            bowelController: widget.bowelController,
-            vitalsController: widget.vitalsController,
-            exerciseController: widget.exerciseController,
-            menstrualController: widget.menstrualController,
-            careTodayController: widget.careTodayController,
-            careAdherenceController: widget.careAdherenceController,
-            onOpenSettings: () => context.push('/settings'),
-            onOpenImport: () => context.push('/import/chaodays'),
-            onOpenReminders: () => context.push('/reminders'),
-            onOpenCareItems: () => context.push('/care-items'),
-            onOpenCareToday: () => context.push('/care-today'),
-            onOpenCareHistory: () => context.push('/care-history'),
-            dataRevision: widget.dataRevision,
-            clock: widget.clock,
-          ),
-          routes: [
+            // No `extra`: built purely from injected DI, so a web refresh on this
+            // URL reconstructs the screen.
             GoRoute(
-              path: 'diet',
-              builder: (context, state) => _dietDayScreen(),
+              path: 'import/chaodays',
+              builder: (context, state) => ChaodaysImportScreen(
+                controller: widget.chaodaysImportController,
+                authRepository: widget.authRepository,
+              ),
+            ),
+            GoRoute(
+              path: 'reminders',
+              builder: (context, state) => ReminderSettingsScreen(
+                controller: widget.reminderSettingsController,
+                authRepository: widget.authRepository,
+              ),
+            ),
+            GoRoute(
+              path: 'care-items',
+              builder: (context, state) => CareItemsScreen(
+                controller: widget.careItemsController,
+                authRepository: widget.authRepository,
+                pushHealthController: widget.pushHealthController,
+              ),
+            ),
+            GoRoute(
+              path: 'care-today',
+              builder: (context, state) => CareTodayScreen(
+                controller: widget.careTodayController,
+                authRepository: widget.authRepository,
+                onOpenCareItems: () => context.push('/care-items'),
+                pushHealthController: widget.pushHealthController,
+              ),
+            ),
+            GoRoute(
+              path: 'care-history',
+              builder: (context, state) => CareHistoryScreen(
+                controller: widget.careHistoryController,
+                authRepository: widget.authRepository,
+              ),
+            ),
+            // The three ledger/net-worth/split tabs are the shell's own internal
+            // state (design.md — mirroring HealthScaffold's record hub), but a
+            // group's own detail screen is nested under `/finance/groups/:id`
+            // (task 8.1) — nested, not flat, for the same reason `/health`'s
+            // sub-routes are: a web back button or refresh reconstructs the
+            // whole stack from the URL hierarchy, where a flat route would only
+            // rebuild the leaf and collapse back-navigation straight to the grid.
+            GoRoute(
+              path: 'finance',
+              builder: (context, state) => FinanceScaffold(
+                authRepository: widget.authRepository,
+                controller: widget.financeController,
+                netWorthController: widget.netWorthController,
+                financeRepository: widget.financeRepository,
+                split: SplitTabDependencies(
+                  getBalances: widget.splitGetBalances,
+                  listGroups: widget.splitListGroups,
+                  listExpenses: widget.splitListExpenses,
+                  createExpense: widget.splitCreateExpense,
+                  updateExpense: widget.splitUpdateExpense,
+                  deleteExpense: widget.splitDeleteExpense,
+                  createGroup: widget.splitCreateGroup,
+                  listFriends: widget.listFriends,
+                  getProfile: widget.splitGetProfile,
+                  listSettlements: widget.splitListSettlements,
+                  createSettlement: widget.splitCreateSettlement,
+                  deleteSettlement: widget.splitDeleteSettlement,
+                  listActivity: widget.splitListActivity,
+                  // Just the group id: the caller's own id (design D5c) is
+                  // resolved by the group screen itself from `/api/me`. It used
+                  // to ride in a `?self=` query parameter, which made every
+                  // permission gate on that screen a function of a shareable,
+                  // hand-editable, history-persisted URL — a link carrying
+                  // someone else's id offered the creator-only archive and the
+                  // payer-only edit to a viewer who was neither.
+                  onOpenGroup: (context, groupId) =>
+                      context.push<void>('/finance/groups/$groupId'),
+                  // `push`, not `go`: adding a friend is a detour, and the user
+                  // is expected back on the split tab afterwards.
+                  onAddFriend: (context) => context.push('/friends'),
+                ),
+                clock: widget.clock,
+              ),
               routes: [
                 GoRoute(
-                  path: 'target',
-                  // The viewed day is a per-navigation arg (diet may be browsing
-                  // a past day), so it rides in `extra`; a URL-driven rebuild
-                  // with no extra resets to the diet day.
+                  path: 'groups/:id',
                   builder: (context, state) {
-                    final day = state.extra;
-                    if (day is! String) {
-                      return const _Redirect(to: '/health/diet');
-                    }
-                    return DailyTargetScreen(
-                      controller: widget.healthDailyTargetController,
-                      idToken: _idToken,
-                      day: day,
-                      onSaved: () async => widget.healthTodayController.load(
-                        await _idToken(),
-                        day,
-                      ),
-                      onSignInAgain: widget.signOut.call,
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: 'food-search',
-                  // The meal and the viewed day are per-navigation args, so they
-                  // ride in `extra`; a URL-driven rebuild with no extra resets to
-                  // the diet day.
-                  builder: (context, state) {
-                    final args = state.extra;
-                    if (args is! ({String meal, String day})) {
-                      return const _Redirect(to: '/health/diet');
-                    }
-                    return ListenableBuilder(
-                      listenable: widget.homeController,
-                      builder: (context, _) => FoodSearchScreen(
-                        meal: args.meal,
-                        dictionaryController: widget.healthDictionaryController,
-                        createMealController: widget.healthCreateMealController,
-                        idToken: _idToken,
-                        day: args.day,
-                        signOut: widget.signOut,
-                        isAdmin:
-                            widget.homeController.profile?.isAdmin ?? false,
-                        sharedFoodItemController:
-                            widget.healthSharedFoodItemController,
-                        onNeedProfile: () async => widget.homeController
-                            .ensureLoaded(await _idToken()),
-                      ),
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: 'dictionary',
-                  // The same full-screen search with no target meal: a lookup
-                  // that asks which meal only at completion. In-app, the viewed
-                  // day and its meal names ride in `extra`; a launcher shortcut
-                  // is pure URL and carries none, so that case builds
-                  // [_UrlDictionaryScreen], which supplies both itself.
-                  builder: (context, state) {
-                    final args = state.extra;
-                    if (args is ({String day, List<String> mealNames})) {
-                      return ListenableBuilder(
-                        listenable: widget.homeController,
-                        builder: (context, _) => FoodSearchScreen(
-                          meal: null,
-                          mealNames: args.mealNames,
-                          dictionaryController:
-                              widget.healthDictionaryController,
-                          createMealController:
-                              widget.healthCreateMealController,
-                          idToken: _idToken,
-                          day: args.day,
-                          signOut: widget.signOut,
-                          isAdmin:
-                              widget.homeController.profile?.isAdmin ?? false,
-                          sharedFoodItemController:
-                              widget.healthSharedFoodItemController,
-                          onNeedProfile: () async => widget.homeController
-                              .ensureLoaded(await _idToken()),
-                        ),
-                      );
-                    }
-                    return _UrlDictionaryScreen(
-                      todayController: widget.healthTodayController,
-                      dictionaryController: widget.healthDictionaryController,
-                      createMealController: widget.healthCreateMealController,
-                      sharedFoodItemController:
-                          widget.healthSharedFoodItemController,
-                      homeController: widget.homeController,
-                      idToken: _idToken,
-                      day: _today,
-                      signOut: widget.signOut,
+                    final groupId = state.pathParameters['id']!;
+                    return GroupDetailScreen(
+                      // go_router's `pageKey` is derived from the path
+                      // *pattern* only, not the matched `:id` — without this key,
+                      // opening a second group from the first group's screen
+                      // (in-app push, no intervening pop) would reuse the first
+                      // group's `State`, and with it its `GroupDetailController`,
+                      // silently showing the first group's data under the new
+                      // URL (the friends change's invite-token bug, same shape).
+                      key: ValueKey(groupId),
+                      getGroup: widget.splitGetGroup,
+                      getGroupBalances: widget.splitGetGroupBalances,
+                      listExpenses: widget.splitListExpenses,
+                      addGroupMember: widget.splitAddGroupMember,
+                      archiveGroup: widget.splitArchiveGroup,
+                      createExpense: widget.splitCreateExpense,
+                      updateExpense: widget.splitUpdateExpense,
+                      deleteExpense: widget.splitDeleteExpense,
+                      listFriends: widget.listFriends,
+                      listFinanceCategories: widget.listFinanceCategories,
+                      getBalances: widget.splitGetBalances,
+                      createSettlement: widget.splitCreateSettlement,
+                      getProfile: widget.splitGetProfile,
+                      authRepository: widget.authRepository,
+                      groupId: groupId,
+                      clock: widget.clock,
                     );
                   },
                 ),
               ],
             ),
+            // Nested so a web back / refresh rebuilds the whole stack from the URL
+            // (flat routes rebuilt only the leaf, collapsing back-navigation to the
+            // grid). Screens are built from injected controllers — not carried in
+            // `extra` — so a URL-driven rebuild reconstructs them.
             GoRoute(
-              path: ':name',
-              builder: (context, state) => _trackerFor(
-                state.pathParameters['name'],
-                state.uri.queryParameters,
+              path: 'health',
+              builder: (context, state) => HealthScaffold(
+                pushHealthController: widget.pushHealthController,
+                authRepository: widget.authRepository,
+                signOut: widget.signOut,
+                weightGoalController: widget.weightGoalController,
+                trendController: widget.trendController,
+                healthCalendarController: widget.healthCalendarController,
+                todayController: widget.healthTodayController,
+                dictionaryController: widget.healthDictionaryController,
+                dailyTargetController: widget.healthDailyTargetController,
+                createMealController: widget.healthCreateMealController,
+                getLoggedDays: widget.healthGetLoggedDays,
+                waterController: widget.waterController,
+                bowelController: widget.bowelController,
+                vitalsController: widget.vitalsController,
+                exerciseController: widget.exerciseController,
+                menstrualController: widget.menstrualController,
+                careTodayController: widget.careTodayController,
+                careAdherenceController: widget.careAdherenceController,
+                onOpenSettings: () => context.push('/settings'),
+                onOpenImport: () => context.push('/import/chaodays'),
+                onOpenReminders: () => context.push('/reminders'),
+                onOpenCareItems: () => context.push('/care-items'),
+                onOpenCareToday: () => context.push('/care-today'),
+                onOpenCareHistory: () => context.push('/care-history'),
+                dataRevision: widget.dataRevision,
+                clock: widget.clock,
               ),
+              routes: [
+                GoRoute(
+                  path: 'diet',
+                  builder: (context, state) => _dietDayScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'target',
+                      // The viewed day is a per-navigation arg (diet may be browsing
+                      // a past day), so it rides in `extra`; a URL-driven rebuild
+                      // with no extra resets to the diet day.
+                      builder: (context, state) {
+                        final day = state.extra;
+                        if (day is! String) {
+                          return const _Redirect(to: '/health/diet');
+                        }
+                        return DailyTargetScreen(
+                          controller: widget.healthDailyTargetController,
+                          idToken: _idToken,
+                          day: day,
+                          onSaved: () async => widget.healthTodayController
+                              .load(await _idToken(), day),
+                          onSignInAgain: widget.signOut.call,
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: 'food-search',
+                      // The meal and the viewed day are per-navigation args, so they
+                      // ride in `extra`; a URL-driven rebuild with no extra resets to
+                      // the diet day.
+                      builder: (context, state) {
+                        final args = state.extra;
+                        if (args is! ({String meal, String day})) {
+                          return const _Redirect(to: '/health/diet');
+                        }
+                        return ListenableBuilder(
+                          listenable: widget.homeController,
+                          builder: (context, _) => FoodSearchScreen(
+                            meal: args.meal,
+                            dictionaryController:
+                                widget.healthDictionaryController,
+                            createMealController:
+                                widget.healthCreateMealController,
+                            idToken: _idToken,
+                            day: args.day,
+                            signOut: widget.signOut,
+                            isAdmin:
+                                widget.homeController.profile?.isAdmin ?? false,
+                            sharedFoodItemController:
+                                widget.healthSharedFoodItemController,
+                            onNeedProfile: () async => widget.homeController
+                                .ensureLoaded(await _idToken()),
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: 'dictionary',
+                      // The same full-screen search with no target meal: a lookup
+                      // that asks which meal only at completion. In-app, the viewed
+                      // day and its meal names ride in `extra`; a launcher shortcut
+                      // is pure URL and carries none, so that case builds
+                      // [_UrlDictionaryScreen], which supplies both itself.
+                      builder: (context, state) {
+                        final args = state.extra;
+                        if (args is ({String day, List<String> mealNames})) {
+                          return ListenableBuilder(
+                            listenable: widget.homeController,
+                            builder: (context, _) => FoodSearchScreen(
+                              meal: null,
+                              mealNames: args.mealNames,
+                              dictionaryController:
+                                  widget.healthDictionaryController,
+                              createMealController:
+                                  widget.healthCreateMealController,
+                              idToken: _idToken,
+                              day: args.day,
+                              signOut: widget.signOut,
+                              isAdmin:
+                                  widget.homeController.profile?.isAdmin ??
+                                  false,
+                              sharedFoodItemController:
+                                  widget.healthSharedFoodItemController,
+                              onNeedProfile: () async => widget.homeController
+                                  .ensureLoaded(await _idToken()),
+                            ),
+                          );
+                        }
+                        return _UrlDictionaryScreen(
+                          todayController: widget.healthTodayController,
+                          dictionaryController:
+                              widget.healthDictionaryController,
+                          createMealController:
+                              widget.healthCreateMealController,
+                          sharedFoodItemController:
+                              widget.healthSharedFoodItemController,
+                          homeController: widget.homeController,
+                          idToken: _idToken,
+                          day: _today,
+                          signOut: widget.signOut,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: ':name',
+                  builder: (context, state) => _trackerFor(
+                    state.pathParameters['name'],
+                    state.uri.queryParameters,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1083,6 +1133,22 @@ class _AuthErrorScreen extends StatelessWidget {
 /// Redirects to [to] after the frame — used when a route can't be built for the
 /// current URL (an unknown tracker name, or a food-search rebuilt by a URL-driven
 /// navigation with no `extra` meal).
+///
+/// Deliberately NOT `go`: that discards the whole page stack and rebuilds it
+/// from [to], so a user who pushed their way here from home would be left with
+/// nothing behind [to] and a back button that leaves the app — the very thing
+/// nesting the routes under `/` exists to prevent. The two shapes this can be
+/// reached in need opposite repairs:
+///
+///  * the page below is ALREADY [to] (the ordinary in-app case: `/health` is
+///    below `/health/<unknown>` because the stack was rebuilt from the URL) —
+///    just `pop`, which leaves exactly one [to] on screen;
+///  * anything else — `pushReplacement`, which swaps this page for [to] and
+///    leaves everything below it untouched.
+///
+/// A blanket `pushReplacement` would get the first case wrong: a URL-driven
+/// `/health/<unknown>` would end as `[/, /health, /health]` — two health
+/// shells stacked, each running its own screenful of loads.
 class _Redirect extends StatefulWidget {
   final String to;
   const _Redirect({required this.to});
@@ -1096,13 +1162,111 @@ class _RedirectState extends State<_Redirect> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) GoRouter.of(context).go(widget.to);
+      if (!mounted) return;
+      final router = GoRouter.of(context);
+      final matches = router.routerDelegate.currentConfiguration.matches;
+      final below = matches.length >= 2
+          ? matches[matches.length - 2].matchedLocation
+          : null;
+      if (below == widget.to && router.canPop()) {
+        router.pop();
+      } else {
+        router.pushReplacement(widget.to);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) =>
       const Scaffold(body: Center(child: CircularProgressIndicator()));
+}
+
+/// Whether `HealthScaffold` is in the current page stack.
+///
+/// It loads the whole health module on mount — every tracker's day, the diet
+/// day's meals, the food favourites — so any screen that would otherwise fetch
+/// one of those itself must stand down when the shell is below it, or the two
+/// answers race and the loser's state is overwritten.
+///
+/// Read from the route match list rather than from a controller flag because
+/// it is exact and, unlike "is a load in flight?", already true at the moment
+/// these screens mount (the shell has to await an ID token before its own load
+/// starts). A URL-driven `/health/water` matches `[/, /health, /health/water]`;
+/// the same location reached by an imperative push from home matches
+/// `[/, /health/water]` — no shell, nobody else loading.
+bool _healthShellInStack(BuildContext context) => GoRouter.of(context)
+    .routerDelegate
+    .currentConfiguration
+    .matches
+    .any((match) => match.matchedLocation == '/health');
+
+/// Makes sure the tracker below it actually has the day it is about to show,
+/// loading it if nobody else will.
+///
+/// One generic gate for all five trackers rather than five copies: the traps
+/// below are the same for each, and traps duplicated five times are five
+/// places to get one of them wrong.
+///
+/// * **It loads only when the health shell is NOT in this page stack.** That
+///   is the whole distinction. `HealthScaffold.initState` loads all five
+///   trackers, so whenever it is below this route (a URL-driven entry, or a
+///   push from inside the shell) there is nothing for this gate to do — and
+///   doing it anyway is not merely a wasted request: the second answer to
+///   land overwrites the screen's state, which on `/health/vitals?add=glucose`
+///   wipes out the empty reading the shortcut just opened. The signal is the
+///   route match list, checked in [_healthShellInStack]; it is exact, and
+///   crucially it is available SYNCHRONOUSLY. An "is a load in flight?" flag
+///   on the controllers cannot do this job: measured, this gate's whole
+///   decision runs before `HealthScaffold.initState` is even called, so at
+///   decision time nothing is in flight yet.
+/// * **Post-frame, never in `build`.** `load` notifies SYNCHRONOUSLY, and
+///   this widget is mounted in the middle of a router stack rebuild — a
+///   notification there marks widgets below dirty mid-build and throws.
+/// * **Nothing to do when the day is already held.** Re-entering a tracker
+///   from home must not put a spinner over data the user can already see.
+/// * **Exactly one decision, taken once.** No re-entrancy flag is needed for
+///   that: measured, a route's `builder` runs ONCE per page and is not re-run
+///   when `App` rebuilds, so this gate is mounted once and never updated in
+///   place. That is also why there is no midnight-rollover reset — the day it
+///   was built with cannot change underneath it. (The day the child shows is
+///   frozen the same way: a pre-existing property of these routes, not
+///   something this gate introduces.)
+///
+/// No listener: this is a loader, not a view. It decides once, on mount; the
+/// screen below it listens to the controller itself and repaints on its own.
+class _TrackerLoadGate extends StatefulWidget {
+  /// Whether the controller already holds what the child needs.
+  final bool Function() hasWantedDay;
+
+  final Future<void> Function() load;
+  final Widget child;
+
+  const _TrackerLoadGate({
+    required this.hasWantedDay,
+    required this.load,
+    required this.child,
+  });
+
+  @override
+  State<_TrackerLoadGate> createState() => _TrackerLoadGateState();
+}
+
+class _TrackerLoadGateState extends State<_TrackerLoadGate> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureLoaded());
+  }
+
+  void _ensureLoaded() {
+    if (!mounted) return;
+    if (_healthShellInStack(context)) return;
+    if (widget.hasWantedDay()) return;
+    widget.load();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// The food dictionary reached by URL alone — a launcher shortcut, or a web
@@ -1169,6 +1333,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
       // dictionary opens showing recording controls.
       widget.createMealController.start(null);
       widget.dictionaryController.clearSearch();
+      _ensureFavoritesLoaded();
       _ensureDayLoaded();
     });
   }
@@ -1232,6 +1397,24 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     _ensureDayLoaded();
   }
 
+  /// Fetches the favourite foods when nobody else is going to. The health
+  /// shell loads them on mount, which is why this screen never had to — but it
+  /// is now reachable straight from the home grid (the 食物份量工具 tile), with
+  /// no shell in the stack, and the favourites list would otherwise sit on its
+  /// initial spinner forever.
+  ///
+  /// Guarded by [_healthShellInStack] for the same reason the tracker gate is:
+  /// when the shell is below, it is already fetching these and a second fetch
+  /// would race it. The remaining condition is "still in its initial state" —
+  /// `loaded` needs nothing, and `error`/`needsReauth` belong to the screen's
+  /// own retry.
+  void _ensureFavoritesLoaded() {
+    if (_healthShellInStack(context)) return;
+    final dictionary = widget.dictionaryController;
+    if (dictionary.status != DictionaryStatus.loading) return;
+    dictionary.load();
+  }
+
   /// Loads [widget.day] itself when the shared controller is holding another
   /// day — the diet day's day-nav browses the past, and the shortcut always
   /// records against today. Nothing else would trigger that reload
@@ -1245,7 +1428,20 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     // mount); this listener runs again when it lands. Return BEFORE capturing:
     // `dayMealsLog` is still the day being replaced, and recording it would
     // hand back a day the user has already navigated away from.
-    if (controller.status == TodayStatus.loading) return;
+    //
+    // `loadingDay`, NOT `status == TodayStatus.loading`: `loading` is also
+    // this controller's INITIAL value, so the status read could not tell "the
+    // shell is fetching" from "nobody has fetched at all". That was harmless
+    // while the shell was always below this screen, and stopped being harmless
+    // when the home grid's 食物份量工具 tile started pushing straight here —
+    // with no shell in the stack, this screen waited forever for a load nobody
+    // had started.
+    //
+    // Not [_healthShellInStack] either (which the favourites fetch below does
+    // use): the shell being in the stack does not mean it is about to load
+    // today. It may have been mounted long ago, with the diet day browsing a
+    // past day since — which is precisely the takeover this method exists for.
+    if (controller.loadingDay != null) return;
     // Captured before the error guard, though: the diet day can reach
     // `error`/`needsReauth` with `dayMealsLog` INTACT (a failed mutation goes
     // through `TodayController._mutate`, which sets the status and leaves the
@@ -1389,20 +1585,69 @@ class _AuthenticatedHome extends StatefulWidget {
 }
 
 class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
+  GoRouterDelegate? _routerDelegate;
+
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadProfile();
   }
 
-  Future<void> _load() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // In `didChangeDependencies`, not `initState`: reading the router is an
+    // inherited-widget lookup.
+    final delegate = GoRouter.of(context).routerDelegate;
+    if (identical(delegate, _routerDelegate)) return;
+    _routerDelegate?.removeListener(_onRouteChanged);
+    _routerDelegate = delegate..addListener(_onRouteChanged);
+    // Post-frame for the first check too: a URL-driven cold start builds home
+    // and the pages above it in the SAME frame, and mid-frame the top of the
+    // stack is not settled yet — checking here would read `/` and fire the
+    // very fan-out this defers.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onRouteChanged());
+  }
+
+  /// `/api/me` — one request, and everything downstream of it (`isAdmin`, the
+  /// greeting, sign-out) is needed whether or not home is the visible page,
+  /// including by screens deep-linked to directly. Loaded unconditionally.
+  Future<void> _loadProfile() async {
     final token = await widget.authRepository.idToken();
-    final idToken = token ?? '';
-    await Future.wait([
-      widget.homeController.load(idToken),
-      if (widget.dashboardController != null)
-        widget.dashboardController!.load(idToken, widget.clock()),
-    ]);
+    await widget.homeController.load(token ?? '');
+  }
+
+  /// The dashboard, in contrast, is a SIX-request fan-out (weight goal,
+  /// vitals trends, menstrual, budgets, net worth, split balances) that paints
+  /// nothing except on home itself. On a launcher-shortcut or push-deep-link
+  /// cold start, home is built but never seen — and those six requests were
+  /// competing for the connection with the one screen the user actually asked
+  /// for. Deferred until home is the current page.
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final dashboard = widget.dashboardController;
+    if (dashboard == null) return;
+    // `status`, not a one-shot field of this widget's own: sign-out resets the
+    // controller back to `idle`, so the next user's home loads their figures
+    // instead of inheriting the previous user's.
+    if (dashboard.status != HomeDashboardStatus.idle) return;
+    // `matches.last`, not `currentConfiguration.uri`: an imperative `push`
+    // deliberately leaves the URI alone, so the URI still reads `/` while the
+    // user is looking at a pushed screen.
+    final matches = _routerDelegate!.currentConfiguration.matches;
+    if (matches.isEmpty || matches.last.matchedLocation != '/') return;
+    unawaited(_loadDashboard(dashboard));
+  }
+
+  Future<void> _loadDashboard(HomeDashboardController dashboard) async {
+    final token = await widget.authRepository.idToken();
+    await dashboard.load(token ?? '', widget.clock());
+  }
+
+  @override
+  void dispose() {
+    _routerDelegate?.removeListener(_onRouteChanged);
+    super.dispose();
   }
 
   @override
