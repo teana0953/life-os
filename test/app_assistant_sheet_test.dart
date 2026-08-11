@@ -16,9 +16,9 @@ import 'app_test.dart';
 /// (`CustomTransitionPage(opaque: false, ...)`, framed by
 /// `AssistantSheetPage`) — the panel presentation this change introduces,
 /// and the four things that presentation must not break: the screen behind
-/// the panel stays visible, the gap above it dismisses on tap, a route
-/// entered with nothing to show through still takes the full screen, and
-/// the keyboard never covers the composer.
+/// the panel stays visible, the gap above it dismisses on tap, a URL-driven
+/// entry gets the same panel over home that an in-app entry does, and the
+/// keyboard never covers the composer.
 final _testProfile = UserProfile(
   id: 'user-1',
   firebaseUid: 'firebase-abc',
@@ -99,8 +99,8 @@ void main() {
     );
 
     testWidgets(
-      'a direct /assistant entry with nothing to show through takes the '
-      'full screen, not a panel over an empty gap',
+      'a direct /assistant entry is the same panel over home as entering '
+      'from inside the app',
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
@@ -116,20 +116,47 @@ void main() {
         await tester.pumpAndSettle();
 
         // `go`, not `push`/tapping the bar: this replaces the whole match
-        // stack with just `/assistant` — the shape of a deep link or a web
-        // refresh landing directly on this URL, with no route beneath it.
+        // stack from the URL alone — the shape of a deep link or a web
+        // refresh landing directly on this URL. `/assistant` is a child of
+        // `/`, so that rebuilt stack is [home, assistant]: the assistant is
+        // never the bottom of the stack any more, and this entry looks
+        // exactly like the in-app one above.
         final router = GoRouter.of(
           tester.element(find.byKey(const Key('home-assistant-bar'))),
         );
         router.go('/assistant');
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('health-dashboard-section')), findsNothing);
         expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
-        // The assistant's own Scaffold starts at the very top of the
-        // screen — not offset by the panel's gap, which only exists when
-        // there is something beneath it to reveal.
-        expect(tester.getTopLeft(find.byType(Scaffold)).dy, 0);
+        // Home is genuinely built below — not merely retained offstage.
+        // `find` skips offstage by default, so this is the strong form.
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
+        // The panel's gap is drawn (it only is when there is something
+        // beneath to reveal) and is a real, READABLE strip. Not
+        // `greaterThan(0)`: a 1px gap satisfies that while being visually
+        // indistinguishable from the old full-screen presentation, so that
+        // form of the assertion cannot be killed by the thing it is guarding
+        // against. `kToolbarHeight` is the floor because the gap has to read
+        // as "home is showing through" rather than as a hairline — the
+        // widget's own rule (`max(min(72, height * 0.12), topPadding + 16)`)
+        // clears it on any surface this test runs at.
+        final gap = find.byKey(const Key('assistant-sheet-gap'));
+        expect(gap, findsOneWidget);
+        expect(
+          tester.getSize(gap).height,
+          greaterThanOrEqualTo(kToolbarHeight),
+          reason: 'the gap must be a visible strip, not a hairline',
+        );
+
+        // And the back button walks INTO the app, not out of it: the whole
+        // point of nesting `/assistant` under `/`.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('assistant-setup')), findsNothing);
+        expect(router.routerDelegate.currentConfiguration.uri.toString(), '/');
       },
     );
 

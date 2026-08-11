@@ -30,15 +30,13 @@ class AssistantSheetPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nothing underneath to show through — a deep link or a web refresh
-    // straight onto `/assistant`. Framing a gap over an empty navigator
-    // would be a strip of nothing, so the assistant simply takes the screen.
-    //
-    // Read here rather than in the route builder on purpose: at `pageBuilder`
-    // time this route is not in the navigator yet, so the answer there is
-    // about the wrong stack.
-    if (!Navigator.of(context).canPop()) return child;
-
+    // There is always something underneath to show through. This used to
+    // carry a `if (!Navigator.of(context).canPop()) return child;` escape for
+    // a deep link or a web refresh landing straight on `/assistant` with an
+    // empty navigator below — framing a gap over nothing would have been a
+    // strip of nothing. `/assistant` is now a CHILD of `/` (app.dart), so a
+    // URL-driven rebuild always puts home in the stack first and that case no
+    // longer exists; the sole construction site is that one route.
     final theme = Theme.of(context);
     final height = MediaQuery.sizeOf(context).height;
     final topPadding = MediaQuery.paddingOf(context).top;

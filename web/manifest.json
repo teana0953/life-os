@@ -35,8 +35,8 @@
             ]
         },
         {
-            "name": "食物字典",
-            "short_name": "查食物",
+            "name": "食物份量工具",
+            "short_name": "查份量",
             "url": "/#/health/diet/dictionary",
             "icons": [
                 {

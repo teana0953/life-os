@@ -473,10 +473,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get dietDictionaryTitle => '食物字典';
+  String get dietDictionaryTitle => '食物份量工具';
 
   @override
-  String get dietOpenDictionaryTooltip => '查詢食物';
+  String get dietOpenDictionaryTooltip => '開啟份量工具';
 
   @override
   String get dietChooseMealSheetTitle => '要加到哪一餐？';
@@ -3410,10 +3410,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get dietDictionaryTitle => '食物字典';
+  String get dietDictionaryTitle => '食物份量工具';
 
   @override
-  String get dietOpenDictionaryTooltip => '查詢食物';
+  String get dietOpenDictionaryTooltip => '開啟份量工具';
 
   @override
   String get dietChooseMealSheetTitle => '要加到哪一餐？';

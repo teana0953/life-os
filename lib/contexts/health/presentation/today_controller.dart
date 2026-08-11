@@ -40,12 +40,22 @@ class TodayController extends ChangeNotifier {
   );
 
   TodayStatus status = TodayStatus.loading;
+
+  /// The day a [load] is CURRENTLY fetching, or `null` when none is in
+  /// flight. Not derivable from [status], whose INITIAL value is also
+  /// `loading` — so `status` alone cannot tell "someone else's load is
+  /// running" from "nobody has loaded at all". `_UrlDictionaryScreen` has to
+  /// tell those apart: it is now reachable straight from the home grid, with
+  /// no health shell below it to be waiting for, and reading `loading` as
+  /// "wait" left it spinning forever.
+  String? loadingDay;
   DayMealsLog? dayMealsLog;
   DailyTargetWithRemaining? target;
   TodayError? error;
 
   Future<void> load(String idToken, String day) async {
     status = TodayStatus.loading;
+    loadingDay = day;
     error = null;
     notifyListeners();
 
@@ -61,6 +71,8 @@ class TodayController extends ChangeNotifier {
     } catch (_) {
       status = TodayStatus.error;
       error = TodayError.unknown;
+    } finally {
+      loadingDay = null;
     }
     notifyListeners();
   }

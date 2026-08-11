@@ -51,6 +51,7 @@ import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
+import 'package:life_os/contexts/finance/application/list_finance_budgets.dart';
 import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
@@ -156,6 +157,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/assistant/gemini_key_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
@@ -1006,6 +1008,10 @@ class _FakeSocialRepository implements SocialRepository {
   FoodDictionaryRepository? foodDictionaryRepository,
   DailyTargetRepository? dailyTargetRepository,
   WaterRepository? waterRepository,
+  VitalsRepository? vitalsRepository,
+  BowelRepository? bowelRepository,
+  ExerciseRepository? exerciseRepository,
+  MenstrualRepository? menstrualRepository,
   /// Threaded into [HealthCalendarController] so a test asserting on the month
   /// it opens on pins it, rather than reading the real `DateTime.now()`.
   DateTime Function() clock = DateTime.now,
@@ -1014,10 +1020,10 @@ class _FakeSocialRepository implements SocialRepository {
   dailyTargetRepository ??= _FakeDailyTargetRepository();
   waterRepository ??= _FakeWaterRepository();
   foodDictionaryRepository ??= _FakeFoodDictionaryRepository();
-  final bowelRepository = _FakeBowelRepository();
-  final vitalsRepository = _FakeVitalsRepository();
-  final exerciseRepository = _FakeExerciseRepository();
-  final menstrualRepository = _FakeMenstrualRepository();
+  bowelRepository ??= _FakeBowelRepository();
+  vitalsRepository ??= _FakeVitalsRepository();
+  exerciseRepository ??= _FakeExerciseRepository();
+  menstrualRepository ??= _FakeMenstrualRepository();
   final bodyProfileRepository = _FakeBodyProfileRepository();
   return (
     today: TodayController(
@@ -1083,6 +1089,24 @@ class _FakeSocialRepository implements SocialRepository {
   );
 }
 
+/// Builds a [HomeDashboardController] wired to the inert fakes in this file,
+/// so a test that cares only about WHEN its six-request fan-out goes out does
+/// not have to stand up six repositories of its own. Pass
+/// [bodyProfileRepository] to count one arm of the batch.
+HomeDashboardController testHomeDashboardController({
+  BodyProfileRepository? bodyProfileRepository,
+}) {
+  final finance = _FakeFinanceRepository();
+  return HomeDashboardController(
+    GetWeightGoal(bodyProfileRepository ?? _FakeBodyProfileRepository()),
+    GetVitalsTrends(_FakeVitalsRepository()),
+    GetMenstrualOverview(_FakeMenstrualRepository()),
+    ListFinanceBudgets(finance),
+    GetMonthlyNetWorth(finance),
+    GetBalances(FakeSplitRepository()),
+  );
+}
+
 class _FakeHealthCalendarRepository implements HealthCalendarRepository {
   @override
   Future<HealthCalendar> getCalendar(
@@ -1140,8 +1164,16 @@ class FakeAuthRepository implements AuthRepository {
   /// `getIdToken()` takes when a renewal has to reach the network and fails.
   bool idTokenThrows = false;
 
+  /// `idToken()` is not free: Firebase reaches the network whenever the cached
+  /// token is close to expiring. Tests that care about what the UI paints
+  /// WHILE a token is being fetched must set this — with the default zero
+  /// delay the whole window closes inside one microtask, before the first
+  /// `pump`, and such a test passes no matter what is painted.
+  Duration idTokenDelay = Duration.zero;
+
   @override
   Future<String?> idToken() async {
+    if (idTokenDelay > Duration.zero) await Future<void>.delayed(idTokenDelay);
     if (idTokenThrows) throw Exception('token renewal failed');
     return _isAuthenticated ? 'fake-token' : null;
   }
@@ -1231,6 +1263,11 @@ Future<LocaleController> pumpApp(
   NetWorthController? netWorthController,
   AssistantController? assistantController,
 
+  /// The home hub's cross-context dashboard. `null` (the default) leaves
+  /// `App` without one, exactly as before this parameter existed — pass one
+  /// to observe WHEN its six-request fan-out goes out.
+  HomeDashboardController? homeDashboardController,
+
   /// Backs `/assistant` and the settings key section — a fresh, keyless
   /// instance by default. Pass one with a key already set for a test that
   /// needs the composer (not the setup state).
@@ -1261,6 +1298,10 @@ Future<LocaleController> pumpApp(
   /// default — for a test that needs `DailyTargetScreen` to reach an error or
   /// needsReauth state.
   WaterRepository? waterRepository,
+  VitalsRepository? vitalsRepository,
+  BowelRepository? bowelRepository,
+  ExerciseRepository? exerciseRepository,
+  MenstrualRepository? menstrualRepository,
   DailyTargetRepository? dailyTargetRepository,
 
   /// Pins (and lets a test advance) the "today" the day-keyed routes resolve.
@@ -1321,6 +1362,10 @@ Future<LocaleController> pumpApp(
     foodDictionaryRepository: foodDictionaryRepository,
     dailyTargetRepository: dailyTargetRepository,
     waterRepository: waterRepository,
+    vitalsRepository: vitalsRepository,
+    bowelRepository: bowelRepository,
+    exerciseRepository: exerciseRepository,
+    menstrualRepository: menstrualRepository,
     clock: clock ?? DateTime.now,
   );
   onHealthCalendarController?.call(health.healthCalendar);
@@ -1403,6 +1448,7 @@ Future<LocaleController> pumpApp(
       financeRepository: _FakeFinanceRepository(),
       loginController: loginController,
       homeController: homeController,
+      homeDashboardController: homeDashboardController,
       localeController: resolvedLocaleController,
       themeController: resolvedThemeController,
       geminiKeyController: resolvedGeminiKeyController,
