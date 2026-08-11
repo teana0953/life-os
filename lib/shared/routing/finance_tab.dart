@@ -50,8 +50,13 @@ enum FinanceTab {
   }
 
   /// The deep link that opens the shell on this tab — the one place the URL
-  /// is composed, so the home tiles and the shell's own URL sync cannot drift
-  /// into two different shapes.
+  /// is composed, so a home tile, a PWA shortcut and a hand-typed address
+  /// cannot drift into two different shapes.
+  ///
+  /// One-way, on purpose: this is only ever *read* into
+  /// `FinanceScaffold.initialTab`. The shell never writes the visible tab back
+  /// to the router — see `FinanceScaffold._selectTab` for the measurements
+  /// behind that.
   Uri get location => Uri(
     path: financeLocation,
     queryParameters: {queryParameter: slug},

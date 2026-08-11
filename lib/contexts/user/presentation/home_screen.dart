@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openSettings() => context.push('/settings');
   void _openHealth() => context.push('/health');
-  void _openFinance() => context.push('/finance');
+  void _openFinance() => context.push(FinanceTab.financeLocation);
   void _openAssistant() => context.push('/assistant');
   void _openVitals() => context.push('/health/vitals');
   void _openMenstrual() => context.push('/health/menstrual');
@@ -78,9 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Opens the finance shell on a specific destination. A snapshot tile has to
   /// land on the tab that shows the number it just displayed — 總資產/總負債 on
-  /// 淨值, 分帳總覽 on 分帳 — and the tab has to ride on the URL so a refresh or
-  /// a shared link stays there. 預算 keeps plain [_openFinance]: its number
-  /// lives on 總覽, which is the shell's default.
+  /// 淨值, 分帳總覽 on 分帳. The destination rides on the location rather than on
+  /// `extra` so that the same string also works as a deep link, a PWA shortcut
+  /// or a pasted URL. (In-app this is a `push`, which — like every other
+  /// pushed screen in this app — does not put its location in the address bar;
+  /// see `FinanceScaffold._selectTab`.) 預算 keeps plain [_openFinance]: its
+  /// number lives on 總覽, which is the shell's default.
   void _openFinanceTab(FinanceTab tab) => context.push(tab.location.toString());
 
   void _showComingSoon() {

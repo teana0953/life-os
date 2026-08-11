@@ -82,11 +82,11 @@ Future<_Harness> _pumpScaffold(
 }) async {
   final repo = FakeFinanceRepository();
   final controller = testFinanceController(repo);
-  // Built ONCE, outside the route builder. `replace` re-runs that builder on
-  // every tab switch, and a controller constructed inside it would hand the
-  // scaffold a brand-new, empty controller each time — the screen would reset
-  // itself mid-session and every month guard below would be testing a fresh
-  // object. In production these come from `main.dart`'s DI and are stable.
+  // Built ONCE, outside the route builder. Anything that re-runs that builder
+  // (a route rebuild, a push and a pop back) would otherwise hand the scaffold
+  // a brand-new, empty controller — the screen would reset itself mid-session
+  // and every month guard below would be testing a fresh object. In production
+  // these come from `main.dart`'s DI and are stable.
   final netWorthController = testNetWorthController(repo);
   final splitDeps = _splitDeps(FakeSplitRepository());
   final pushed = <String>[];

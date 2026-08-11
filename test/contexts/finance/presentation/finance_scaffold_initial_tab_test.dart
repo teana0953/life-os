@@ -82,10 +82,10 @@ Future<_Harness> _pump(WidgetTester tester, String location) async {
     ..groupsToReturn = const [
       SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
     ];
-  // Built ONCE, outside the route builder: `replace` (the tab-switch URL sync)
-  // re-runs that builder, and controllers constructed inside it would hand the
-  // scaffold fresh empty ones on every tab switch. In production these come
-  // from `main.dart`'s DI and are stable.
+  // Built ONCE, outside the route builder: these tests drive the route
+  // directly, which re-runs that builder, and controllers constructed inside
+  // it would hand the scaffold fresh empty ones each time. In production these
+  // come from `main.dart`'s DI and are stable.
   final financeController = testFinanceController(finance);
   final netWorthController = testNetWorthController(finance);
   final splitDeps = _splitDeps(split);

@@ -70,10 +70,10 @@ class FinanceScaffold extends StatefulWidget {
   /// builder in `app.dart` (unknown or missing → [FinanceTab.overview]).
   ///
   /// **An `initState`-only seed.** There is deliberately no `didUpdateWidget`
-  /// syncing it: this widget rewrites its own URL as the user switches tabs
-  /// (see `_syncTabUrl`), so a `didUpdateWidget` that re-applied this field
-  /// would race the user's own taps — the router's rebuild would keep pushing
-  /// the tab back to whatever the URL said a moment ago.
+  /// syncing it: the URL is read inwards once and never written back (see
+  /// [_selectTab]), so any later rebuild of this route still carries the
+  /// *entry* tab. Re-applying it there would drag the tab back to whatever the
+  /// address said on arrival, out from under a user who has since moved.
   final FinanceTab initialTab;
 
   const FinanceScaffold({
@@ -167,10 +167,10 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     // The URL-seeded destination goes through the *same* method the nav bar
     // uses, so it cannot miss the lazy-build gate or the first-open load.
     // `notify: false` only because `setState` is illegal in `initState`; the
-    // gate-and-load half is byte-for-byte the nav bar's. It also does not sync
-    // the URL — the user just arrived on it, and rewriting a bare `/finance`
-    // into `/finance?tab=overview` under them would be this scaffold editing
-    // an address it was given.
+    // gate-and-load half is byte-for-byte the nav bar's. Nothing here writes
+    // to the router either — the user just arrived on this address, and
+    // rewriting a bare `/finance` into `/finance?tab=overview` under them
+    // would be this scaffold editing an address it was given.
     _selectTab(widget.initialTab, notify: false);
     // Post-frame, not called directly from `initState`: `load`'s first
     // synchronous work (before its own first await) must not run as part of
@@ -490,7 +490,28 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// would paint a permanent spinner.
   ///
   /// [notify] is false for exactly one caller — [initState], where `setState`
-  /// is illegal. That path also skips the URL sync: see [_syncTabUrl].
+  /// is illegal.
+  ///
+  /// **Switching a tab deliberately does not touch the router.** The URL
+  /// carries the tab *inwards* only: `/finance?tab=…` seeds [initState] (see
+  /// `app.dart`'s builder), and from then on the address bar is left alone.
+  /// Writing it back was tried and measured, and every way of doing it is
+  /// worse than a slightly stale address:
+  ///
+  /// * `push`/`go` make each tab switch a browser history entry, which the
+  ///   bottom nav must not do (the tabs are `IndexedStack` siblings, not a
+  ///   stack) — and `go` additionally rebuilds this `State` when finance was
+  ///   entered by `push` (the home tiles), throwing away the per-`State`
+  ///   [SplitController] and refetching everything.
+  /// * `replace` keeps the `State`, but its location never reaches the address
+  ///   bar: it produces an `ImperativeRouteMatch`, which go_router only
+  ///   reports when `GoRouter.optionURLReflectsImperativeAPIs` is true (it
+  ///   defaults to false and this app never sets it). `/finance` is nested
+  ///   under `/`, so what the browser actually gets is the *parent* location
+  ///   carrying the old query — `/?tab=networth`. A refresh then lands on 首頁.
+  ///
+  /// `finance_scaffold_tab_url_test.dart` pins the resulting contract: the
+  /// reported location does not move when the user switches tabs.
   void _selectTab(FinanceTab tab, {bool notify = true}) {
     void apply() {
       _index = tab.index;
@@ -505,25 +526,6 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     }
     if (tab == FinanceTab.networth) unawaited(_loadNetWorth());
     if (tab == FinanceTab.split) unawaited(_loadSplit());
-    if (notify) _syncTabUrl(tab);
-  }
-
-  /// Puts the visible tab on the URL, so a refresh, a shared link or a
-  /// bookmark lands back on what the user was actually looking at instead of
-  /// on whichever tab they happened to enter through.
-  ///
-  /// `replace`, never `go`/`push`: switching a bottom-nav destination is not a
-  /// history entry in this app (the tabs are `IndexedStack` siblings, not a
-  /// stack), so this must be a history *replaceState* — with `push` the back
-  /// button would walk backwards through tabs instead of leaving finance.
-  ///
-  /// `maybeOf`, not `of`: most of this scaffold's widget tests pump it under a
-  /// plain `MaterialApp` with no router at all, where this has to be a no-op
-  /// rather than a crash. `finance_scaffold_url_sync_test.dart` is what keeps
-  /// that null-guard honest — a guard nobody exercises with a *real* router
-  /// quietly degrades into "never syncs".
-  void _syncTabUrl(FinanceTab tab) {
-    GoRouter.maybeOf(context)?.replace(tab.location.toString());
   }
 
   Future<void> _openSheet({FinanceTransaction? editing}) async {
