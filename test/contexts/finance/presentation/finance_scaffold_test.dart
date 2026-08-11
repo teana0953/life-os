@@ -68,8 +68,22 @@ class _FakeAuthRepository implements AuthRepository {
 
   _FakeAuthRepository({this.token = 'tok'});
 
+  /// Every `idToken()` call, in order, so a test can see which call is whose.
+  int idTokenCalls = 0;
+
+  /// Holds the token fetch open — a real one goes to the network when the
+  /// token is near expiry, and the whole point of the month-switch race is
+  /// what the reader can do during that window. Keyed by call number so a
+  /// test can stall one caller without stalling the write that precedes it.
+  final Map<int, Completer<void>> gates = {};
+
   @override
-  Future<String?> idToken() async => token;
+  Future<String?> idToken() async {
+    final call = ++idTokenCalls;
+    await gates[call]?.future;
+    return token;
+  }
+
 
   @override
   Stream<bool> get authStateChanges => const Stream.empty();
@@ -1238,6 +1252,104 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('finance-transaction-t-mirror')), findsOneWidget);
       });
+    });
+
+    testWidgets('a month switch made while the reload is fetching its token '
+        'is not dragged back', (tester) async {
+      // The reload has to read the month AFTER awaiting the token, not
+      // before. A real token fetch goes to the network when the token is
+      // near expiry, and a month captured before that await is the month the
+      // reader was on when the split write landed — applying it afterwards
+      // sets `selectedMonth` back, and `FinanceController`'s own stale guard
+      // then discards the response for the month the reader actually asked
+      // for. The month switch just silently undoes itself.
+      final repo = FakeFinanceRepository()
+        ..byMonth['2026-06'] = [
+          const FinanceTransaction(
+            id: 't-june',
+            type: FinanceType.expense,
+            amount: 600,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-06-10',
+          ),
+        ]
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-july',
+            type: FinanceType.expense,
+            amount: 700,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-10',
+          ),
+        ];
+      final splitRepo = FakeSplitRepository()
+        ..groupsToReturn = const [
+          SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+        ];
+      final auth = _FakeAuthRepository();
+      final returned = Completer<void>();
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: FinanceScaffold(
+            authRepository: auth,
+            controller: testFinanceController(repo),
+            netWorthController: testNetWorthController(repo),
+            financeRepository: repo,
+            split: _splitDeps(splitRepo, onOpenGroup: (_, __) => returned.future),
+            clock: () => DateTime(2026, 7, 15),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('split-tab')));
+      await tester.pumpAndSettle();
+      // Calls so far: the first ledger load, then the split tab's load. The
+      // next one is the ledger reload the return below kicks off — held open
+      // so the month switch happens inside its window. Asserted rather than
+      // assumed: a call added ahead of it would otherwise stall a different
+      // request and the race would never be set up.
+      expect(auth.idTokenCalls, 2);
+      auth.gates[3] = Completer<void>();
+
+      await tester.tap(find.byKey(const Key('split-group-row-g1')));
+      await tester.pump();
+      returned.complete();
+      await tester.pump();
+
+      // The reader switches month while that fetch is still open. The
+      // destination is matched inside the nav bar: 總覽 is also the name of a
+      // section switch on the 分帳 tab we are standing on.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text(loc.financeTabOverview),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('finance-month-previous')));
+      await tester.pumpAndSettle();
+
+      // The stalled reload lands last.
+      auth.gates[3]!.complete();
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text(loc.financeTabTransactions),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('finance-transaction-t-june')),
+        findsOneWidget,
+        reason: 'the reload dragged the reader back to the month they left',
+      );
+      expect(find.byKey(const Key('finance-transaction-t-july')), findsNothing);
     });
 
     group('the 變更紀錄 section', () {
