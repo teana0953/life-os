@@ -35,12 +35,14 @@ class FinanceTransactionsTab extends StatelessWidget {
 
     return AsyncStateScaffold(
       isLoading:
-          controller.status == FinanceStatus.loading && controller.summary == null,
+          controller.status == FinanceStatus.loading &&
+          controller.summary == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       onSignInAgain: onSignInAgain,
       builder: (context) {
-        if (controller.status == FinanceStatus.error && controller.summary == null) {
+        if (controller.status == FinanceStatus.error &&
+            controller.summary == null) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -57,15 +59,18 @@ class FinanceTransactionsTab extends StatelessWidget {
           );
         }
 
-        // See `FinanceOverviewTab`'s identical notice for why this is here
-        // and always built rather than conditionally: a background reload
-        // (a split write elsewhere) can fail while this month's list is
-        // already on screen, and without this that failure was silent.
+        // See `FinanceOverviewTab`'s identical notice for why this is here,
+        // always built rather than conditionally, and pinned outside the
+        // scrollable content rather than appended as its row 0: a background
+        // reload (a split write elsewhere) can fail while this month's list
+        // is already on screen, and as row 0 of a `ListView` — lazily built,
+        // and off the top the moment the reader scrolls — that failure was
+        // invisible exactly when nobody happened to be looking at the top.
         final staleNotice = StaleNotice(
-          failed:
-              controller.status == FinanceStatus.error && controller.summary != null,
+          failed: controller.reloadFailed,
           loading:
-              controller.status == FinanceStatus.loading && controller.summary != null,
+              controller.status == FinanceStatus.loading &&
+              controller.summary != null,
           subject: loc.financeTabTransactions,
           onRetry: () => onSwitchMonth(controller.selectedMonth),
         );
@@ -117,36 +122,48 @@ class FinanceTransactionsTab extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: ListView(
-                padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
                   staleNotice,
-                  for (final day in days) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8, top: 8),
-                      child: Text(day, style: Theme.of(context).textTheme.titleMedium),
-                    ),
-                    LedgeCard(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Column(
-                        children: [
-                          for (final txn in byDay[day]!)
-                            FinanceTransactionRow(
-                              key: Key('finance-transaction-${txn.id}'),
-                              transaction: txn,
-                              category: _categoryFor(txn.categoryId),
-                              mirrorKeyPrefix: 'finance-transaction-mirror',
-                              installmentKeyPrefix: 'finance-transaction-installment',
-                              plan: txn.planId == null
-                                  ? null
-                                  : controller.installmentPlans[txn.planId],
-                              onTap: () => onEdit(txn),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        for (final day in days) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8, top: 8),
+                            child: Text(
+                              day,
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
+                          ),
+                          LedgeCard(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Column(
+                              children: [
+                                for (final txn in byDay[day]!)
+                                  FinanceTransactionRow(
+                                    key: Key('finance-transaction-${txn.id}'),
+                                    transaction: txn,
+                                    category: _categoryFor(txn.categoryId),
+                                    mirrorKeyPrefix:
+                                        'finance-transaction-mirror',
+                                    installmentKeyPrefix:
+                                        'finance-transaction-installment',
+                                    plan: txn.planId == null
+                                        ? null
+                                        : controller.installmentPlans[txn
+                                              .planId],
+                                    onTap: () => onEdit(txn),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                         ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                  ],
+                  ),
                 ],
               ),
             ),

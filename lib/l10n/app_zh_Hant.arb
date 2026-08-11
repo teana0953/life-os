@@ -544,6 +544,7 @@
   "financeCancelButton": "取消",
   "financeSaveFailed": "儲存失敗,請檢查網路後重試。",
   "financeLoadFailed": "財務資料載入失敗。",
+  "financeLedgerNotUpdated": "帳本沒有更新到。",
   "financeEmptyTitle": "這個月還沒有紀錄",
   "financeEmptyCta": "記第一筆",
   "financeExpenseTotal": "支出",

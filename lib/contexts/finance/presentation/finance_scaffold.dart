@@ -208,7 +208,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     if (_splitController.writeSeq != _splitWriteSeq) {
       _splitWriteSeq = _splitController.writeSeq;
       unawaited(_splitActivityController.refreshIfLoaded());
-      unawaited(_reloadLedger());
+      unawaited(_reloadLedgerWithFeedback());
     }
     _onChanged();
   }
@@ -239,10 +239,47 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _reloadLedger() async {
     final token = await _idToken();
     if (!mounted) return;
+    // `_idToken` resolves to `''` on both "signed out" and "renewal failed"
+    // (see `guardedIdToken`'s doc) rather than throwing — calling `load` with
+    // it anyway would send this unrequested reload out unauthenticated,
+    // fail with a genuine 401, and only get treated as a reload failure via
+    // `background: true` below. This just skips the pointless round trip and
+    // goes straight to the same failure path.
+    if (token.isEmpty) {
+      widget.controller.markReloadFailed();
+      return;
+    }
     final month = widget.controller.selectedMonth.isEmpty
         ? monthOf(_todayDate)
         : widget.controller.selectedMonth;
-    await widget.controller.load(token, month);
+    // `background: true`: this reload is not something the reader asked for
+    // right now (it fires off a split write or a group-detail return), so a
+    // 401 here must not flip the whole ledger to the full-page "sign in
+    // again" exit — that reads as "your account broke" over a write that
+    // just succeeded. See `FinanceController.load`'s doc.
+    await widget.controller.load(token, month, background: true);
+  }
+
+  /// [_reloadLedger], plus feedback on the screen the reader is actually
+  /// standing on. `_reloadLedger` alone leaves both ledger tabs' own
+  /// [StaleNotice] as the only sign anything went wrong — invisible to a
+  /// reader on 分帳 or group detail who never happens to switch to 總覽/明細.
+  /// Both call sites below fire this reload from a screen that isn't either
+  /// tab, so a snackbar here is the only feedback reachable from where the
+  /// reader actually is.
+  Future<void> _reloadLedgerWithFeedback() async {
+    await _reloadLedger();
+    if (!mounted || !widget.controller.reloadFailed) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(loc.financeLedgerNotUpdated),
+        action: SnackBarAction(
+          label: loc.retry,
+          onPressed: () => unawaited(_reloadLedgerWithFeedback()),
+        ),
+      ),
+    );
   }
 
   String get _todayDate => dayString(widget.clock());
@@ -432,7 +469,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     // way one added here does (see [_reloadLedger]), and for the same reason
     // as the line above — `writeSeq` never moves for group detail's writes,
     // so [_onSplitChanged]'s reload never fires for them.
-    unawaited(_reloadLedger());
+    unawaited(_reloadLedgerWithFeedback());
     await _retrySplit();
   }
 

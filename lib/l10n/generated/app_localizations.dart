@@ -3368,6 +3368,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load your finance data.'**
   String get financeLoadFailed;
 
+  /// Snackbar shown when a background reload of the ledger (triggered by a split write or returning from group detail) fails, on a screen other than the two ledger tabs that already carry their own stale notice.
+  ///
+  /// In en, this message translates to:
+  /// **'The ledger didn\'t update.'**
+  String get financeLedgerNotUpdated;
+
   /// Empty-state guide shown on the overview and transactions tabs when the selected month has no transactions.
   ///
   /// In en, this message translates to:

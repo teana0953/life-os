@@ -97,6 +97,10 @@ class _StaleNoticeState extends State<StaleNotice> {
       button: true,
       enabled: !retrying,
       label: '${widget.subject}: ${loc.cardRefreshFailed}. ${loc.retry}',
+      // This row can appear with no gesture from the reader at all — a
+      // background reload elsewhere failing while they're mid-scroll — so a
+      // screen-reader user needs to be told, not left to stumble onto it.
+      liveRegion: widget.failed,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(

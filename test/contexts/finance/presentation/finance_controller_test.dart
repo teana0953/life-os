@@ -424,6 +424,7 @@ void main() {
 
       expect(controller.status, FinanceStatus.error);
       expect(controller.error, FinanceError.fetchFailed);
+      expect(controller.reloadFailed, isTrue);
     });
 
     test('does not call notifyListeners before the first await', () async {
@@ -482,6 +483,58 @@ void main() {
         expect(controller.summary!.totals.single.expense, 999);
         expect(controller.transactions, hasLength(1));
         expect(controller.transactions.single.id, 't-b');
+      },
+    );
+
+    test(
+      'same-month race, the split-spending leg: a slow earlier same-month '
+      "call's split-spending response never overwrites a fast later "
+      'same-month call\'s — identical hazard to the summary/transactions '
+      'leg above, guarded separately in `_loadSplitSpending`',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 111, countedInTransactions: true),
+          ];
+        final controller = _controller(repo);
+
+        // Call A: gated on the split-spending leg specifically, so it sits
+        // mid-flight there while the rest of the load has already finished.
+        final gateA = Completer<void>();
+        repo.splitSpendingGates['2026-07'] = gateA;
+        final callA = controller.load('tok', '2026-07');
+
+        // Before A's split-spending response lands, a second, faster
+        // same-month reload starts and completes with a different value.
+        repo.splitSpendingGates.remove('2026-07');
+        repo.splitSpendingByMonth['2026-07'] = const [
+          SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ];
+        final callB = controller.load('tok', '2026-07');
+        await callB;
+        expect(controller.splitSpending, [
+          const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ]);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+
+        // The fake reads its backing store at the moment a gated call is
+        // released, not at the moment it was issued — so without restoring
+        // the pre-B value here, A's response would happen to carry B's own
+        // 222 and the guard's correctness would be untestable by value
+        // alone. Restoring it models what a real backend would have handed
+        // back to A's request in the first place: whatever was true before
+        // B's write landed.
+        repo.splitSpendingByMonth['2026-07'] = const [
+          SplitSpending(currency: 'TWD', amount: 111, countedInTransactions: true),
+        ];
+        gateA.complete();
+        await callA;
+
+        // B — the newer call — must still be showing.
+        expect(controller.splitSpending, [
+          const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ]);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
       },
     );
 
@@ -929,6 +982,12 @@ void main() {
       expect(controller.error, FinanceError.validation);
       expect(controller.categories, same(categoriesBefore));
       expect(controller.transactions, isEmpty);
+      // `_mutate` never called `load` for a validation failure (the write
+      // itself was rejected, nothing was ever re-fetched) — `reloadFailed`
+      // must stay false, or the ledger tabs would permanently show a
+      // "couldn't refresh" notice about data that was never stale, on top
+      // of the sheet's own validation error.
+      expect(controller.reloadFailed, isFalse);
     });
 
     test('a 401 surfaces needsReauth', () async {
@@ -996,6 +1055,56 @@ void main() {
       expect(controller.error, FinanceError.notFound);
       expect(controller.transactions, hasLength(1));
     });
+  });
+
+  group('reset', () {
+    test('clears the loaded month back to its pre-load state', () async {
+      final controller = _controller(_FakeWithSeed());
+      await controller.load('tok', '2026-07');
+      expect(controller.summary, isNotNull);
+
+      controller.reset();
+
+      expect(controller.selectedMonth, '');
+      expect(controller.status, FinanceStatus.loading);
+      expect(controller.summary, isNull);
+      expect(controller.transactions, isEmpty);
+      expect(controller.categories, isEmpty);
+      expect(controller.splitSpending, isEmpty);
+    });
+
+    test(
+      'a load already in flight when reset() is called must not repopulate the '
+      "controller once it lands — this app-lifetime singleton would otherwise "
+      'hand the next signed-in account the previous one\'s figures on '
+      'sign-out (the #156/#157 shape)',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 500, countedInTransactions: true),
+          ];
+        final controller = _controller(repo);
+
+        // The old guard (`selectedMonth != month`) caught this because
+        // `reset()` cleared `selectedMonth` to `''`, which happened to make
+        // every in-flight response's own captured month mismatch. The
+        // sequence-number guard that replaced it has no equivalent side
+        // effect unless `reset()` also bumps the sequence.
+        final gate = Completer<void>();
+        repo.gates['2026-07'] = gate;
+        final inFlight = controller.load('tok', '2026-07');
+
+        controller.reset();
+        gate.complete();
+        await inFlight;
+
+        expect(controller.selectedMonth, '');
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.summary, isNull);
+        expect(controller.transactions, isEmpty);
+        expect(controller.splitSpending, isEmpty);
+      },
+    );
   });
 }
 

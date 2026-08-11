@@ -80,6 +80,16 @@ class FinanceController extends ChangeNotifier {
 
   FinanceStatus status = FinanceStatus.loading;
   FinanceError? error;
+
+  /// True only when the most recent [load] call itself failed to fetch —
+  /// never set by a write (`_mutate`/[saveBudgets]) leaving [status] `error`
+  /// for its own reasons (a validation/conflict/not-found failure, which the
+  /// sheet that triggered it already reports on its own). Kept separate from
+  /// [status] because the two screens' "reload of what's already on screen
+  /// failed" notice must fire only for an actual reload failure — gating it
+  /// on `status == error` alone made a failed *write* permanently show a
+  /// "couldn't refresh" row about data that was never stale.
+  bool reloadFailed = false;
   List<FinanceCategory> categories = [];
   List<FinanceTransaction> transactions = [];
   MonthlySummary? summary;
@@ -107,9 +117,20 @@ class FinanceController extends ChangeNotifier {
   /// new fetches land. This makes sign-out, not the next load, the point
   /// they stop existing.
   void reset() {
+    // Bumped, not left alone: this controller is an app-lifetime singleton,
+    // so a `load` started by the previous account can still be in flight
+    // when they sign out. The old guard (`selectedMonth != month`, dropped
+    // when this became a sequence number) incidentally discarded such a
+    // response because `reset` cleared `selectedMonth` to `''`; the sequence
+    // guard has no such side effect unless `_loadSeq` moves too, so without
+    // this a slow in-flight response for the signed-out account's own month
+    // still passes `seq == _loadSeq` and repopulates the screen after
+    // sign-out — the exact #156/#157 leak shape.
+    _loadSeq++;
     selectedMonth = '';
     status = FinanceStatus.loading;
     error = null;
+    reloadFailed = false;
     categories = [];
     transactions = [];
     summary = null;
@@ -136,7 +157,22 @@ class FinanceController extends ChangeNotifier {
   /// switcher, not the initial entry load) so the screen can show loading
   /// feedback immediately — safe here because, unlike the entry call, it
   /// runs well after the widget has built.
-  Future<void> load(String idToken, String month, {bool notifyOnStart = false}) async {
+  ///
+  /// [background]: set by an unrequested reload the reader did not ask for
+  /// (`FinanceScaffold._reloadLedger`, fired after a split write or a group
+  /// detail return). A background reload's own token can be near-expiry or
+  /// the server can 401 it independently of the reader's own session — that
+  /// must not blank the screen into the full-page "sign in again" exit the
+  /// same failure gets when the reader's *own* action triggered it; it's
+  /// downgraded to the same [FinanceError.fetchFailed]/[reloadFailed] path
+  /// as any other failed background reload, leaving whatever is already on
+  /// screen in place under a [reloadFailed] notice.
+  Future<void> load(
+    String idToken,
+    String month, {
+    bool notifyOnStart = false,
+    bool background = false,
+  }) async {
     final seq = ++_loadSeq;
     final isMonthChange = month != selectedMonth;
     selectedMonth = month;
@@ -182,20 +218,46 @@ class FinanceController extends ChangeNotifier {
       budgets = data.budgets;
       installmentPlans = data.installmentPlans;
       status = FinanceStatus.loaded;
+      reloadFailed = false;
     } on FinanceReauthenticationRequired {
       if (seq != _loadSeq) return;
-      status = FinanceStatus.needsReauth;
+      if (background) {
+        status = FinanceStatus.error;
+        error = FinanceError.fetchFailed;
+        reloadFailed = true;
+      } else {
+        status = FinanceStatus.needsReauth;
+        reloadFailed = false;
+      }
     } on FinanceFetchFailure {
       if (seq != _loadSeq) return;
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
+      reloadFailed = true;
     } catch (_) {
       if (seq != _loadSeq) return;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
+      reloadFailed = true;
     }
     notifyListeners();
     await splitSpendingFuture;
+  }
+
+  /// Marks the currently loaded month as having failed a background reload,
+  /// without making a request — for when a background reload
+  /// (`FinanceScaffold._reloadLedger`) could not even get a token to call
+  /// [load] with (`guardedIdToken` returns `''`, not a thrown failure, when
+  /// it can't refresh one). Calling [load] with an empty token would just
+  /// turn that into a 401 the server never actually sent. A no-op before the
+  /// first successful load ([summary] still `null`): there is nothing on
+  /// screen yet for a notice to be about.
+  void markReloadFailed() {
+    if (summary == null) return;
+    status = FinanceStatus.error;
+    error = FinanceError.fetchFailed;
+    reloadFailed = true;
+    notifyListeners();
   }
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc

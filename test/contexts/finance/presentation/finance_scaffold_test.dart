@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_money.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
@@ -1357,6 +1358,196 @@ void main() {
       });
     });
 
+    testWidgets(
+      "a background reload that can't get a token shows the stale notice "
+      "instead of sending an empty one out — `guardedIdToken` resolves to "
+      "'' rather than throwing, and calling `load` with it anyway would turn "
+      'a token renewal that merely failed into a real, avoidable 401',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't-existing',
+              type: FinanceType.expense,
+              amount: 700,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-10',
+            ),
+          ];
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        final auth = _FakeAuthRepository();
+        final returned = Completer<void>();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: auth,
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                onOpenGroup: (_, __) {
+                  // The token has since gone unrenewable (e.g. the reader
+                  // signed out on another tab) by the time the reload fires.
+                  auth.token = '';
+                  return returned.future;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+
+        // No request went out empty-handed — `getSummary` was never called
+        // with `''`.
+        expect(repo.summaryTokens, isNot(contains('')));
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.financeTabOverview));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        // The existing figures stay — this is a stale notice, not a wipe.
+        expect(find.text(formatMinorUnitsForDisplay(700, 'TWD')), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'a background reload that hits a real 401 keeps the ledger on screen '
+      "with a stale notice — it must not flip to the full-page 'sign in "
+      "again' exit, which reads as the reader's own session breaking over a "
+      'write that just succeeded',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't-existing',
+              type: FinanceType.expense,
+              amount: 700,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-10',
+            ),
+          ];
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        final returned = Completer<void>();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                onOpenGroup: (_, __) {
+                  repo.failNext = const FinanceReauthenticationRequired();
+                  return returned.future;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        await tester.tap(find.text(loc.financeTabOverview));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('async-state-reauth-sign-in-button')), findsNothing);
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        expect(find.text(formatMinorUnitsForDisplay(700, 'TWD')), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'a failed background reload says so with a snackbar right where the '
+      'reader is standing (分帳), not only on the two ledger tabs — both '
+      "tabs' own StaleNotice is invisible to someone who never switches to "
+      'them',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't-existing',
+              type: FinanceType.expense,
+              amount: 700,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-10',
+            ),
+          ];
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        final returned = Completer<void>();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                onOpenGroup: (_, __) {
+                  repo.failNext = Exception('offline');
+                  return returned.future;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+
+        // Still standing on 分帳 the whole time — never switched to either
+        // ledger tab.
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.financeLedgerNotUpdated), findsOneWidget);
+
+        // The snackbar's own retry actually refetches.
+        await tester.tap(find.text(loc.retry));
+        await tester.pumpAndSettle();
+        expect(find.text(loc.financeLedgerNotUpdated), findsNothing);
+
+        await tester.tap(find.text(loc.financeTabTransactions));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('finance-transaction-t-existing')), findsOneWidget);
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+      },
+    );
+
     testWidgets('a failed reload after a split write says so on both tabs, '
         'with a retry', (tester) async {
       // The failure mode this refresh introduced: `load` keeps the month's
@@ -1380,7 +1571,9 @@ void main() {
         ..groupsToReturn = const [
           SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
         ];
-      final returned = Completer<void>();
+      // Reassigned per trigger below, so the same "open the group, let it
+      // return" flow can be replayed for each tab in turn.
+      late Completer<void> returned;
       final loc = lookupAppLocalizations(const Locale('en'));
 
       await tester.pumpWidget(
@@ -1405,12 +1598,21 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-tab')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('split-group-row-g1')));
-      await tester.pump();
-      returned.complete();
-      await tester.pumpAndSettle();
+
+      Future<void> triggerFailedReload() async {
+        // The tab may have switched away from 分帳 since the last trigger —
+        // it has to be showing for its group row to be tappable.
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        returned = Completer<void>();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+      }
 
       for (final destination in [loc.financeTabOverview, loc.financeTabTransactions]) {
+        await triggerFailedReload();
         await tester.tap(
           find.descendant(
             of: find.byType(NavigationBar),
@@ -1425,15 +1627,25 @@ void main() {
         );
         expect(find.byKey(const Key('stale-notice-retry')), findsOneWidget);
         // The figures that were already there stay — the notice is a warning
-        // over live content, not a replacement for it.
+        // over live content, not a replacement for it. Both tabs' own empty
+        // guides — they don't share a key — must be absent either way.
         expect(find.byKey(const Key('finance-empty-title')), findsNothing);
+        expect(find.byKey(const Key('finance-transactions-empty')), findsNothing);
+
+        // This tab's own retry — tapped while standing on THIS tab, not
+        // after the loop has moved to a different one — actually refetches.
+        // A retry wired to nothing (or to a hard-coded wrong month) would
+        // leave the row sitting here forever.
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('stale-notice-row')),
+          findsNothing,
+          reason: "$destination's own retry did not refetch",
+        );
       }
 
-      // And the retry actually refetches: the row is back to normal after it.
-      await tester.tap(find.byKey(const Key('stale-notice-retry')));
-      await tester.pumpAndSettle();
       expect(find.byKey(const Key('finance-transaction-t-existing')), findsOneWidget);
-      expect(find.byKey(const Key('stale-notice-row')), findsNothing);
     });
 
     testWidgets('a month switch made while the reload is fetching its token '

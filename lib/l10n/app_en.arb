@@ -2388,6 +2388,10 @@
   "@financeLoadFailed": {
     "description": "Error message shown (with a retry action) when the finance month fails to load."
   },
+  "financeLedgerNotUpdated": "The ledger didn't update.",
+  "@financeLedgerNotUpdated": {
+    "description": "Snackbar shown when a background reload of the ledger (triggered by a split write or returning from group detail) fails, on a screen other than the two ledger tabs that already carry their own stale notice."
+  },
   "financeEmptyTitle": "No transactions yet this month",
   "@financeEmptyTitle": {
     "description": "Empty-state guide shown on the overview and transactions tabs when the selected month has no transactions."

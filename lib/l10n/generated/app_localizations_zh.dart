@@ -1777,6 +1777,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeLoadFailed => '財務資料載入失敗。';
 
   @override
+  String get financeLedgerNotUpdated => 'The ledger didn\'t update.';
+
+  @override
   String get financeEmptyTitle => '這個月還沒有紀錄';
 
   @override
@@ -4734,6 +4737,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get financeLoadFailed => '財務資料載入失敗。';
+
+  @override
+  String get financeLedgerNotUpdated => '帳本沒有更新到。';
 
   @override
   String get financeEmptyTitle => '這個月還沒有紀錄';

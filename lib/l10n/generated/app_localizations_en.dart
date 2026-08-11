@@ -1837,6 +1837,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get financeLoadFailed => 'Couldn\'t load your finance data.';
 
   @override
+  String get financeLedgerNotUpdated => 'The ledger didn\'t update.';
+
+  @override
   String get financeEmptyTitle => 'No transactions yet this month';
 
   @override

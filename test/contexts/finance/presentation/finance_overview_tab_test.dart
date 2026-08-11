@@ -5,6 +5,7 @@ import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
+import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -283,6 +284,124 @@ void main() {
         await tester.tap(find.byKey(const Key('finance-overview-retry')));
         await tester.pump();
         expect(switchedTo, '2026-08');
+      },
+    );
+
+    testWidgets(
+      'a failed WRITE does not raise the reload notice — the figures on '
+      'screen are not stale',
+      (tester) async {
+        // `status` goes to `error` for a rejected write too, with the month's
+        // figures untouched. Keying the notice off that pair puts a permanent
+        // "could not refresh" row over data that is perfectly current, right
+        // after the sheet has already said what went wrong.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+
+        repo.failNext = const FinanceValidationFailure();
+        await controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 0,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-06',
+        );
+        expect(controller.error, isNotNull, reason: 'the write did fail');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('tok', m),
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                  onSignInAgain: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "a stale notice's own retry, while its reload is still in flight, keeps "
+      'the row mounted with a disabled spinner — StaleNotice must not read as '
+      '"refreshed" mid-flight (see its class doc)',
+      (tester) async {
+        final repo = _GatedFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        // The background reload that put the notice up in the first place
+        // already failed and settled — only the retry itself is gated.
+        controller.markReloadFailed();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('tok', m),
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                  onSignInAgain: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+
+        repo.gate = Completer<void>();
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pump();
+
+        // Still mounted, and the button reads as an in-flight spinner, not
+        // a pressable "Retry" — a `loading: false` wiring would already show
+        // the row as gone or the button as pressable again here.
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('stale-notice-retry')),
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsOneWidget,
+        );
+
+        repo.gate!.complete();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
       },
     );
 
@@ -881,4 +1000,19 @@ void main() {
       );
     }
   });
+}
+
+/// A [FakeFinanceRepository] whose `getSummary` awaits [gate] (once set)
+/// before resolving — lets a test hold a reload open to observe the
+/// in-flight `loading: true` state of [StaleNotice]'s retry, which
+/// [FakeFinanceRepository] alone has no way to pause mid-flight for.
+class _GatedFinanceRepository extends FakeFinanceRepository {
+  Completer<void>? gate;
+
+  @override
+  Future<MonthlySummary> getSummary(String idToken, String month) async {
+    final g = gate;
+    if (g != null) await g.future;
+    return super.getSummary(idToken, month);
+  }
 }
