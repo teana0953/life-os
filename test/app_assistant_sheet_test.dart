@@ -135,11 +135,21 @@ void main() {
           findsOneWidget,
         );
         // The panel's gap is drawn (it only is when there is something
-        // beneath to reveal) and is a real, visible strip — a zero-height
-        // gap would be the old full-screen presentation wearing a SizedBox.
+        // beneath to reveal) and is a real, READABLE strip. Not
+        // `greaterThan(0)`: a 1px gap satisfies that while being visually
+        // indistinguishable from the old full-screen presentation, so that
+        // form of the assertion cannot be killed by the thing it is guarding
+        // against. `kToolbarHeight` is the floor because the gap has to read
+        // as "home is showing through" rather than as a hairline — the
+        // widget's own rule (`max(min(72, height * 0.12), topPadding + 16)`)
+        // clears it on any surface this test runs at.
         final gap = find.byKey(const Key('assistant-sheet-gap'));
         expect(gap, findsOneWidget);
-        expect(tester.getSize(gap).height, greaterThan(0));
+        expect(
+          tester.getSize(gap).height,
+          greaterThanOrEqualTo(kToolbarHeight),
+          reason: 'the gap must be a visible strip, not a hairline',
+        );
 
         // And the back button walks INTO the app, not out of it: the whole
         // point of nesting `/assistant` under `/`.

@@ -249,8 +249,8 @@ void main() {
       );
 
       testWidgets(
-        'opened after the shell already failed, it shows that failure '
-        'instead of retrying behind the user\'s back',
+        'opened from a shell whose load already FAILED, the gate still '
+        'stands down and the screen shows that failure',
         (tester) async {
           final repository = tracker.repository()..failing = true;
           final router = await pumpSignedIn(tester, repository: repository);
@@ -266,14 +266,19 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text(tracker.errorText), findsOneWidget);
-          // The gate must recognise "already failed" and let the screen
-          // through, NOT quietly re-request. A gate that re-requested here
-          // would make every visit to a tracker after a failed shell load a
-          // second hit on a backend that just failed.
+          // What actually stops the second read is [_healthShellInStack] —
+          // `/health` is still in the match list under this push, so the gate
+          // returns before it ever looks at the controller. Spelled out
+          // because the gate has NO "already failed" branch of its own: read
+          // as one, this test would promise a behaviour nothing implements.
+          // It is worth pinning all the same — a gate that keyed off "the
+          // controller has no data" instead would re-request here, turning
+          // every visit after a failed shell load into a second hit on a
+          // backend that just failed.
           expect(
             repository.reads.length,
             1,
-            reason: 'an already-failed controller must not be re-requested',
+            reason: 'the shell is in the stack — the gate must not re-request',
           );
         },
       );
@@ -285,11 +290,16 @@ void main() {
           final repository = tracker.repository();
           final router = await pumpSignedIn(tester, repository: repository);
 
-          // Hold the shell's read open so the tracker is opened DURING it.
-          // This is the race the controllers' in-flight signal exists for:
-          // the controller's `status` is `loading` here, but it is also
-          // `loading` before anyone has loaded at all, so `status` alone
-          // cannot tell the gate to stand down.
+          // Hold the shell's read open so the tracker is opened DURING it —
+          // the timing that would race two answers for the same day.
+          //
+          // Note what does the work: `_healthShellInStack`, not an in-flight
+          // flag. The gate deliberately has none, because its decision runs
+          // BEFORE `HealthScaffold.initState` has awaited its ID token, so
+          // at decision time nothing is in flight to observe. (The
+          // controller's `status` is no help either: `loading` is also its
+          // initial value, so it cannot tell "the shell is fetching" from
+          // "nobody has fetched at all".)
           repository.inFlight = Completer<void>();
           router.go('/health');
           await tester.pump();
@@ -306,7 +316,7 @@ void main() {
           expect(
             repository.reads.length,
             1,
-            reason: 'a load was already in flight — the gate must stand down',
+            reason: 'the shell is in the stack — the gate must stand down',
           );
 
           repository.inFlight!.complete();

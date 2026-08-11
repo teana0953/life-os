@@ -1437,11 +1437,23 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     // with no shell in the stack, this screen waited forever for a load nobody
     // had started.
     //
-    // Not [_healthShellInStack] either (which the favourites fetch below does
-    // use): the shell being in the stack does not mean it is about to load
-    // today. It may have been mounted long ago, with the diet day browsing a
-    // past day since — which is precisely the takeover this method exists for.
+    // `loadingDay` alone is NOT enough, though, and cannot be: on a
+    // URL-driven entry this screen and `HealthScaffold` are mounted in the
+    // SAME frame, and the shell only sets `loadingDay` after `await
+    // idToken()` — so at the moment this post-frame callback runs, the shell's
+    // load is decided upon but not yet in flight and the flag still reads
+    // `null`. Measured: without the second clause below, a launcher shortcut
+    // to `/health/diet/dictionary` fired a THIRD `GET /api/meals` for the day
+    // the shell was already about to fetch.
+    //
+    // Hence [_healthShellInStack] as well — but only while NOTHING has been
+    // loaded yet. The shell being in the stack does not by itself mean it is
+    // about to load today: it may have been mounted long ago, with the diet
+    // day browsing a past day since, which is precisely the takeover this
+    // method exists for. "Shell below AND the controller is still empty" is
+    // the one shape that means "its mount-time load is coming".
     if (controller.loadingDay != null) return;
+    if (held == null && _healthShellInStack(context)) return;
     // Captured before the error guard, though: the diet day can reach
     // `error`/`needsReauth` with `dayMealsLog` INTACT (a failed mutation goes
     // through `TodayController._mutate`, which sets the status and leaves the

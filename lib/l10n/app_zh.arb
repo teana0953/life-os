@@ -127,7 +127,7 @@
   "dietAddSnackButton": "加點心",
   "dietSearchDoneButton": "完成（{count}）",
   "dietDictionaryTitle": "食物份量工具",
-  "dietOpenDictionaryTooltip": "查詢食物",
+  "dietOpenDictionaryTooltip": "開啟份量工具",
   "dietChooseMealSheetTitle": "要加到哪一餐？",
   "dietRemoveItemTooltip": "移除",
   "dietMealTotalLabel": "合計",

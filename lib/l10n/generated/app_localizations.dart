@@ -945,10 +945,10 @@ abstract class AppLocalizations {
   /// **'Food portion tool'**
   String get dietDictionaryTitle;
 
-  /// Tooltip/accessible label for the diet screen's icon-only action that opens the food dictionary without first choosing a meal.
+  /// Tooltip/accessible label for the diet screen's icon-only action that opens the portion tool without first choosing a meal.
   ///
   /// In en, this message translates to:
-  /// **'Look up a food'**
+  /// **'Open the portion tool'**
   String get dietOpenDictionaryTooltip;
 
   /// Title of the bottom sheet that asks which meal the dictionary tray should be saved to, shown when completing a tray built in the dictionary.

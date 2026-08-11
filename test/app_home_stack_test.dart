@@ -4,8 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/presentation/login_controller.dart';
+import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/food_dictionary_repository.dart';
 import 'package:life_os/contexts/health/domain/food_item.dart';
+import 'package:life_os/contexts/health/domain/meal_entry.dart';
+import 'package:life_os/contexts/health/domain/meal_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/domain/shared_food_item_input.dart';
 import 'package:life_os/contexts/health/domain/shared_food_item_patch.dart';
 import 'package:life_os/contexts/health/presentation/food_search_screen.dart';
@@ -47,12 +51,14 @@ void main() {
   Future<GoRouter> pumpSignedIn(
     WidgetTester tester, {
     FoodDictionaryRepository? foodDictionaryRepository,
+    MealRepository? mealRepository,
   }) async {
     final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
     await pumpApp(
       tester,
       authRepository: authRepository,
       foodDictionaryRepository: foodDictionaryRepository,
+      mealRepository: mealRepository,
       loginController: LoginController(SignIn(authRepository)),
       homeController: HomeController(
         GetProfile(FakeProfileRepository(testProfile)),
@@ -201,6 +207,56 @@ void main() {
     );
 
     testWidgets(
+      'reaching the portion tool by URL leaves the DAY fetch to the health '
+      'shell below it too',
+      (tester) async {
+        final meals = _CountingMealRepository();
+        final router = await pumpSignedIn(tester, mealRepository: meals);
+        // The two the shell's own stack owes: `HealthScaffold` on mount, and
+        // the diet day it rebuilds underneath. Anything this screen adds on
+        // top of that is a duplicate.
+        meals.reads.clear();
+
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
+        // Counted, not merely "loaded": the screen's stand-down check reads
+        // `TodayController.loadingDay`, and on this path the shell has NOT
+        // set it yet — it is still awaiting its ID token when this screen's
+        // post-frame callback runs, so the flag reads `null` and the screen
+        // used to fire a third identical `GET /api/meals` of its own.
+        // `findsOneWidget` above cannot see that; only the count can.
+        expect(
+          meals.reads.length,
+          2,
+          reason:
+              'the shell and the diet day below already fetch this day — the '
+              'portion tool must not fetch it a third time',
+        );
+      },
+    );
+
+    testWidgets(
+      'reaching the portion tool from home fetches the day itself',
+      (tester) async {
+        final meals = _CountingMealRepository();
+        final router = await pumpSignedIn(tester, mealRepository: meals);
+        meals.reads.clear();
+
+        // The mirror image, and the reason the guard above cannot simply be
+        // "shell in the stack or not, never fetch": with no shell below,
+        // nobody else loads the day and the screen sat on a spinner forever.
+        router.push('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
+        expect(meals.reads.length, 1);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+      },
+    );
+
+    testWidgets(
       'reaching the portion tool from home fetches the favourites itself',
       (tester) async {
         final dictionary = _CountingFoodDictionaryRepository();
@@ -269,6 +325,64 @@ void main() {
       },
     );
   });
+}
+
+/// Counts day fetches, so a test can tell "the shell fetched the day" from
+/// "the shell AND the portion tool both did".
+class _CountingMealRepository implements MealRepository {
+  final List<String> reads = [];
+
+  @override
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    reads.add(day);
+    return DayMealsLog.fromJson({
+      'day': day,
+      'meals': const <dynamic>[],
+      'totals': const {
+        'carb_g': 0,
+        'protein_g': 0,
+        'fat_g': 0,
+        'sugar_g': 0,
+        'fiber_g': 0,
+        'kcal': 0,
+        'staple': 0,
+        'meat': 0,
+        'fruit': 0,
+        'veg': 0,
+      },
+    });
+  }
+
+  @override
+  Future<MealEntry> createMeal(
+    String idToken, {
+    required String day,
+    required String meal,
+    DateTime? time,
+    required List<CreateMealItem> items,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<List<String>> loggedDays(String idToken, String month) async =>
+      const [];
+
+  @override
+  Future<void> patchMealItem(
+    String idToken,
+    String id, {
+    double? quantity,
+    double? measure,
+    Portions? portions,
+  }) async {}
+
+  @override
+  Future<void> deleteMealItem(String idToken, String id) async {}
+
+  @override
+  Future<void> patchMealTime(String idToken, String id, DateTime time) async {}
+
+  @override
+  Future<void> deleteMeal(String idToken, String id) async {}
 }
 
 /// Counts favourites fetches, so a test can tell "the shell fetched them" from
