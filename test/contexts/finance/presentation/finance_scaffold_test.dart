@@ -724,11 +724,11 @@ void main() {
             clock: () => DateTime(2026, 7, 15),
           );
 
-          // A real `/finance` route rather than `l10nRouterTestApp`'s
-          // `extra`-carried widget: switching tabs now rewrites the URL
-          // (`context.replace`), which re-runs the route builder — and a
-          // builder that can only render what rode in `extra` has nothing to
-          // render on the second pass.
+          // A real `/finance` route pushed from `/`: this test pops a route
+          // in the middle of a tab switch, so it needs the same push/pop
+          // shape production has — a shell that was pushed onto a stack with
+          // something underneath it to pop back to. (Switching tabs itself
+          // never touches the router; see `FinanceScaffold._selectTab`.)
           final router = GoRouter(
             initialLocation: '/',
             routes: [

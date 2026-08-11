@@ -50,8 +50,9 @@ enum FinanceTab {
   }
 
   /// The deep link that opens the shell on this tab — the one place the URL
-  /// is composed, so a home tile, a PWA shortcut and a hand-typed address
-  /// cannot drift into two different shapes.
+  /// is composed, so that today's only caller (the home tiles) and anything
+  /// added later (a PWA shortcut, a pushed notification, a hand-typed
+  /// address) cannot drift into two different shapes.
   ///
   /// One-way, on purpose: this is only ever *read* into
   /// `FinanceScaffold.initialTab`. The shell never writes the visible tab back
