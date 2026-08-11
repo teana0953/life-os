@@ -185,8 +185,41 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     if (_splitController.writeSeq != _splitWriteSeq) {
       _splitWriteSeq = _splitController.writeSeq;
       unawaited(_splitActivityController.refreshIfLoaded());
+      unawaited(_reloadLedger());
     }
     _onChanged();
+  }
+
+  /// Refetches the ledger month a split write may have changed.
+  ///
+  /// The payer's own share of a split expense is a real transaction, written
+  /// server-side (backend #79), so 總覽's totals and 明細's list are stale the
+  /// moment a split write lands — and switching destinations does not
+  /// refetch, so nothing else would ever correct them (issue #160). Called
+  /// for every split write rather than only the expense ones: a repayment or
+  /// a deleted expense moves the same numbers, and keying it off `writeSeq`
+  /// is what keeps a write added later from forgetting.
+  ///
+  /// A write dated outside the selected month lands in a month this reload
+  /// does not fetch. That is a decision, not an oversight: the ledger shows
+  /// one month at a time, the split sheet defaults to today, and jumping the
+  /// reader's month while they are standing on 分帳 would be worse than the
+  /// staleness. Reconsider if back-dated split expenses turn out to be common.
+  ///
+  /// The month is read **after** the token, not before. A real token fetch
+  /// goes to the network when the token is near expiry, and a month captured
+  /// before that await is the month the reader was on when the write landed —
+  /// applying it afterwards sets `selectedMonth` back, after which the
+  /// controller's own stale guard discards the response for the month they
+  /// actually asked for, and their month switch silently undoes itself. Same
+  /// order as `_openPlanScreen` and `_openInstallmentPlanSheet` in this file.
+  Future<void> _reloadLedger() async {
+    final token = await _idToken();
+    if (!mounted) return;
+    final month = widget.controller.selectedMonth.isEmpty
+        ? monthOf(_todayDate)
+        : widget.controller.selectedMonth;
+    await widget.controller.load(token, month);
   }
 
   String get _todayDate => dayString(widget.clock());
@@ -372,6 +405,11 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     // controller, so `writeSeq` never moves for them and [_onSplitChanged]
     // never fires.
     unawaited(_splitActivityController.refreshIfLoaded());
+    // And the ledger: an expense added in the group mirrors into it the same
+    // way one added here does (see [_reloadLedger]), and for the same reason
+    // as the line above — `writeSeq` never moves for group detail's writes,
+    // so [_onSplitChanged]'s reload never fires for them.
+    unawaited(_reloadLedger());
     await _retrySplit();
   }
 
