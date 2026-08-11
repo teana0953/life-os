@@ -15,11 +15,11 @@ The app SHALL let an unauthenticated user sign in with an email and password via
 - **THEN** the app stays on the login screen and shows a user-facing error message without exposing internal error detail
 
 ### Requirement: Authenticated profile retrieval and display
-Once authenticated, the app SHALL fetch the current user's profile from the backend `GET /api/me` using the Firebase ID token as a bearer credential, and SHALL display the returned email. It SHALL NOT display the internal user id.
+Once authenticated, the app SHALL fetch the current user's profile from the backend `GET /api/me` using the Firebase ID token as a bearer credential. The signed-in email SHALL be displayed in Settings rather than consuming dashboard space. The internal user id SHALL NOT be displayed.
 
 #### Scenario: Profile loads
 - **WHEN** the user is authenticated and the backend returns their profile
-- **THEN** the home view displays the profile's email and does not show the internal user id
+- **THEN** Settings displays the profile's email and no screen displays the internal user id
 
 #### Scenario: Profile request fails
 - **WHEN** the backend returns a non-success response for `/api/me`
@@ -109,4 +109,3 @@ auth routing; that object's job is the signed-in/loading/error state only.
 - **WHEN** the user signs in or signs out
 - **THEN** routing between the login screen and the authenticated view behaves
   as before
-

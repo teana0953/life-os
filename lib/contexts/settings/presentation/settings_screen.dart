@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/assistant/gemini_key_controller.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../../../shared/i18n/locale_controller.dart';
 import '../../../shared/pwa/pwa_install.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
+import '../../user/presentation/home_controller.dart';
 
 const _zhHantLocale = Locale.fromSubtags(
   languageCode: 'zh',
@@ -20,8 +22,10 @@ const _zhHantLocale = Locale.fromSubtags(
 /// auth context's [SignOut] use case; holds no business logic of its own.
 /// Where a Gemini key is created. A top-level function so it can be the
 /// default argument above — a closure cannot be const.
-Future<bool> launchGeminiKeyConsole() =>
-    launchUrl(Uri.parse('https://aistudio.google.com/apikey'), mode: LaunchMode.externalApplication);
+Future<bool> launchGeminiKeyConsole() => launchUrl(
+  Uri.parse('https://aistudio.google.com/apikey'),
+  mode: LaunchMode.externalApplication,
+);
 
 class SettingsScreen extends StatefulWidget {
   final ThemeController themeController;
@@ -29,6 +33,8 @@ class SettingsScreen extends StatefulWidget {
   final GeminiKeyController geminiKeyController;
   final SignOut signOut;
   final PwaInstall pwaInstall;
+  final HomeController? homeController;
+  final IdTokenProvider? idToken;
 
   /// Opens the Gemini key console, returning whether it opened. Defaults to
   /// the real launcher; a test passes its own so no browser is involved.
@@ -41,6 +47,8 @@ class SettingsScreen extends StatefulWidget {
     required this.geminiKeyController,
     required this.signOut,
     required this.pwaInstall,
+    this.homeController,
+    this.idToken,
     this.openKeyConsole = launchGeminiKeyConsole,
   });
 
@@ -55,6 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.themeController.addListener(_onControllerChanged);
     widget.localeController.addListener(_onControllerChanged);
     widget.geminiKeyController.addListener(_onControllerChanged);
+    widget.homeController?.addListener(_onControllerChanged);
   }
 
   @override
@@ -62,6 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.themeController.removeListener(_onControllerChanged);
     widget.localeController.removeListener(_onControllerChanged);
     widget.geminiKeyController.removeListener(_onControllerChanged);
+    widget.homeController?.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -81,7 +91,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// already-installed standalone sessions, or browsers with nothing to offer),
   /// an "Install LifeOS" button when the browser has a pending install prompt,
   /// or a short add-to-home instruction on iOS Safari.
-  List<Widget> _buildInstallSection(BuildContext context, AppLocalizations loc) {
+  List<Widget> _buildInstallSection(
+    BuildContext context,
+    AppLocalizations loc,
+  ) {
     final pwa = widget.pwaInstall;
     if (pwa.isStandalone) return const [];
 
@@ -125,6 +138,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
+                if (widget.homeController != null &&
+                    widget.idToken != null) ...[
+                  _AccountSection(
+                    controller: widget.homeController!,
+                    idToken: widget.idToken!,
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 _SettingsSection(
                   title: loc.themeSectionTitle,
                   children: [
@@ -219,6 +240,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+class _AccountSection extends StatefulWidget {
+  final HomeController controller;
+  final IdTokenProvider idToken;
+
+  const _AccountSection({required this.controller, required this.idToken});
+
+  @override
+  State<_AccountSection> createState() => _AccountSectionState();
+}
+
+class _AccountSectionState extends State<_AccountSection> {
+  late final TextEditingController _nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(
+      text: widget.controller.profile?.displayName ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty || name.length > 50) return;
+    final saved = await widget.controller.saveDisplayName(
+      await widget.idToken(),
+      name,
+    );
+    if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: Key(saved ? 'display-name-saved' : 'display-name-save-failed'),
+          content: Text(
+            saved
+                ? loc.settingsDisplayNameSaved
+                : loc.settingsDisplayNameSaveFailed,
+          ),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final profile = widget.controller.profile;
+    return _SettingsSection(
+      title: loc.settingsAccountSectionTitle,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(profile?.email ?? ''),
+                  const SizedBox(height: 4),
+                  Text(
+                    loc.signedIn,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('settings-display-name-field'),
+                controller: _nameController,
+                maxLength: 50,
+                decoration: InputDecoration(
+                  labelText: loc.settingsDisplayNameLabel,
+                  helperText: loc.settingsDisplayNameHelper,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _nameController,
+                builder: (context, value, _) {
+                  final name = value.text.trim();
+                  return FilledButton(
+                    key: const Key('settings-display-name-save-button'),
+                    onPressed:
+                        name.isEmpty ||
+                            name.length > 50 ||
+                            widget.controller.isSavingDisplayName
+                        ? null
+                        : _save,
+                    child: widget.controller.isSavingDisplayName
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(loc.settingsDisplayNameSaveButton),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// A themed, rounded card grouping a titled cluster of settings rows.
 class _SettingsSection extends StatelessWidget {
   final String title;
@@ -262,7 +396,10 @@ class _AssistantKeySection extends StatefulWidget {
   /// has shipped before.
   final Future<bool> Function() openKeyConsole;
 
-  const _AssistantKeySection({required this.controller, required this.openKeyConsole});
+  const _AssistantKeySection({
+    required this.controller,
+    required this.openKeyConsole,
+  });
 
   @override
   State<_AssistantKeySection> createState() => _AssistantKeySectionState();
@@ -349,7 +486,10 @@ class _AssistantKeySectionState extends State<_AssistantKeySection> {
                   child: Text(loc.settingsAssistantClearKeyButton),
                 ),
               ] else ...[
-                Text(loc.settingsAssistantIntro, key: const Key('assistant-key-intro')),
+                Text(
+                  loc.settingsAssistantIntro,
+                  key: const Key('assistant-key-intro'),
+                ),
                 // Its own tappable element, not an address buried in a
                 // sentence: getting the key means leaving the app, and
                 // retyping a URL by hand is where a bring-your-own-key
@@ -449,7 +589,11 @@ class _NavRow extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _NavRow({required this.rowKey, required this.label, required this.onTap});
+  const _NavRow({
+    required this.rowKey,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

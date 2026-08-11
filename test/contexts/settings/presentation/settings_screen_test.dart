@@ -5,6 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/settings/presentation/settings_screen.dart';
+import 'package:life_os/contexts/user/application/get_profile.dart';
+import 'package:life_os/contexts/user/application/update_display_name.dart';
+import 'package:life_os/contexts/user/domain/display_name_repository.dart';
+import 'package:life_os/contexts/user/domain/profile_repository.dart';
+import 'package:life_os/contexts/user/domain/user_profile.dart';
+import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/assistant/gemini_key_controller.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
@@ -64,6 +70,37 @@ class _FakeAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges => const Stream.empty();
 }
 
+class _FakeProfileRepository
+    implements ProfileRepository, DisplayNameRepository {
+  UserProfile profile = UserProfile(
+    id: 'user-1',
+    firebaseUid: 'firebase-1',
+    email: 'test@example.com',
+    displayName: 'Test User',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    isAdmin: false,
+  );
+
+  @override
+  Future<UserProfile> getProfile(String idToken) async => profile;
+
+  @override
+  Future<UserProfile> updateDisplayName(
+    String idToken,
+    String displayName,
+  ) async {
+    profile = UserProfile(
+      id: profile.id,
+      firebaseUid: profile.firebaseUid,
+      email: profile.email,
+      displayName: displayName.trim(),
+      createdAt: profile.createdAt,
+      isAdmin: profile.isAdmin,
+    );
+    return profile;
+  }
+}
+
 Future<ThemeController> _testThemeController() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -77,6 +114,7 @@ Future<
     GeminiKeyController geminiKeyController,
     SharedPreferences prefs,
     _FakeAuthRepository authRepository,
+    HomeController homeController,
   })
 >
 _pumpSettingsScreen(
@@ -88,10 +126,11 @@ _pumpSettingsScreen(
   /// `{'gemini_api_key': ...}` to start the assistant section in its
   /// key-already-stored state.
   Map<String, Object> initialPrefs = const {},
+
   /// Records whether the key-console link was actually invoked. A link that
   /// renders but is wired to nothing is the shape this repo has shipped.
   Future<bool> Function()? openKeyConsole,
-  Size size = const Size(800, 1400),
+  Size size = const Size(800, 2000),
   double textScale = 1.0,
 }) async {
   // The settings list (theme + language + friends + assistant + sign-out)
@@ -108,6 +147,13 @@ _pumpSettingsScreen(
   final prefs = await SharedPreferences.getInstance();
   final geminiKeyController = GeminiKeyController(prefs);
   final authRepository = _FakeAuthRepository();
+  final profileRepository = _FakeProfileRepository();
+  final homeController = HomeController(
+    GetProfile(profileRepository),
+    SignOut(authRepository),
+    updateDisplayName: UpdateDisplayName(profileRepository),
+  );
+  await homeController.load('fake-token');
   Widget home = SettingsScreen(
     themeController: themeController,
     localeController: localeController,
@@ -115,6 +161,8 @@ _pumpSettingsScreen(
     openKeyConsole: openKeyConsole ?? () async => true,
     signOut: SignOut(authRepository),
     pwaInstall: pwaInstall ?? _FakePwaInstall(isStandalone: true),
+    homeController: homeController,
+    idToken: () async => 'fake-token',
   );
   if (textScale != 1.0) {
     home = MediaQuery(
@@ -135,10 +183,44 @@ _pumpSettingsScreen(
     geminiKeyController: geminiKeyController,
     prefs: prefs,
     authRepository: authRepository,
+    homeController: homeController,
   );
 }
 
 void main() {
+  group('SettingsScreen account section', () {
+    testWidgets('shows the signed-in email and saves a chosen display name', (
+      tester,
+    ) async {
+      final harness = await _pumpSettingsScreen(tester);
+      final field = find.byKey(const Key('settings-display-name-field'));
+      final save = find.byKey(const Key('settings-display-name-save-button'));
+
+      expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Test User'), findsOneWidget);
+      await tester.enterText(field, '小明');
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      expect(harness.homeController.profile?.displayName, '小明');
+      expect(find.byKey(const Key('display-name-saved')), findsOneWidget);
+    });
+
+    testWidgets('keeps save disabled for a blank display name', (tester) async {
+      await _pumpSettingsScreen(tester);
+      await tester.enterText(
+        find.byKey(const Key('settings-display-name-field')),
+        '   ',
+      );
+      await tester.pump();
+
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('settings-display-name-save-button')),
+      );
+      expect(button.onPressed, isNull);
+    });
+  });
+
   group('SettingsScreen theme section', () {
     testWidgets('selecting Dark calls ThemeController.setThemeMode', (
       tester,
@@ -308,9 +390,7 @@ void main() {
     ) async {
       await _pumpSettingsScreen(tester);
 
-      await tester.ensureVisible(
-        find.byKey(const Key('settings-friends-row')),
-      );
+      await tester.ensureVisible(find.byKey(const Key('settings-friends-row')));
       await tester.tap(find.byKey(const Key('settings-friends-row')));
       await tester.pumpAndSettle();
 
@@ -352,23 +432,20 @@ void main() {
       },
     );
 
-    testWidgets(
-      'whitespace-only input keeps save disabled',
-      (tester) async {
-        await _pumpSettingsScreen(tester);
+    testWidgets('whitespace-only input keeps save disabled', (tester) async {
+      await _pumpSettingsScreen(tester);
 
-        await tester.enterText(
-          find.byKey(const Key('assistant-key-field')),
-          '  \n ',
-        );
-        await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('assistant-key-field')),
+        '  \n ',
+      );
+      await tester.pump();
 
-        final save = tester.widget<FilledButton>(
-          find.byKey(const Key('assistant-key-save-button')),
-        );
-        expect(save.onPressed, isNull);
-      },
-    );
+      final save = tester.widget<FilledButton>(
+        find.byKey(const Key('assistant-key-save-button')),
+      );
+      expect(save.onPressed, isNull);
+    });
 
     testWidgets(
       'saving stores the key and the UI shows only the last four characters',
@@ -387,7 +464,10 @@ void main() {
         expect(harness.prefs.getString('gemini_api_key'), _fakeKey);
 
         // The masked status line carries the tail of the key …
-        expect(find.byKey(const Key('assistant-key-set-label')), findsOneWidget);
+        expect(
+          find.byKey(const Key('assistant-key-set-label')),
+          findsOneWidget,
+        );
         expect(find.textContaining('wxyz'), findsOneWidget);
         // … and the full value appears nowhere in the tree, in any widget.
         expect(find.text(_fakeKey), findsNothing);
@@ -405,20 +485,19 @@ void main() {
       },
     );
 
-    testWidgets(
-      'a stored key surfaces as masked status on a fresh screen',
-      (tester) async {
-        await _pumpSettingsScreen(
-          tester,
-          initialPrefs: const {'gemini_api_key': _fakeKey},
-        );
+    testWidgets('a stored key surfaces as masked status on a fresh screen', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        initialPrefs: const {'gemini_api_key': _fakeKey},
+      );
 
-        expect(find.byKey(const Key('assistant-key-set-label')), findsOneWidget);
-        expect(find.textContaining('wxyz'), findsOneWidget);
-        expect(find.textContaining(_fakeKey), findsNothing);
-        expect(find.byKey(const Key('assistant-key-field')), findsNothing);
-      },
-    );
+      expect(find.byKey(const Key('assistant-key-set-label')), findsOneWidget);
+      expect(find.textContaining('wxyz'), findsOneWidget);
+      expect(find.textContaining(_fakeKey), findsNothing);
+      expect(find.byKey(const Key('assistant-key-field')), findsNothing);
+    });
 
     testWidgets(
       'clear removes the prefs entry entirely and returns an empty field',
@@ -500,44 +579,52 @@ void main() {
       },
     );
 
-    testWidgets(
-      'lays out and saves at 320dp with textScale 2.0',
-      (tester) async {
-        final harness = await _pumpSettingsScreen(
-          tester,
-          size: const Size(320, 800),
-          textScale: 2.0,
-        );
-        expect(tester.takeException(), isNull);
+    testWidgets('lays out and saves at 320dp with textScale 2.0', (
+      tester,
+    ) async {
+      final harness = await _pumpSettingsScreen(
+        tester,
+        size: const Size(320, 800),
+        textScale: 2.0,
+      );
+      expect(tester.takeException(), isNull);
 
-        // Not just "no overflow": the input and the save button must still
-        // be reachable and hittable once everything doubled in height.
-        // scrollUntilVisible, not ensureVisible: the ListView builds lazily,
-        // so at this height the section doesn't exist until scrolled to.
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('assistant-key-field')),
-          100,
-        );
-        await tester.enterText(
-          find.byKey(const Key('assistant-key-field')),
-          _fakeKey,
-        );
-        await tester.pump();
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('assistant-key-save-button')),
-          100,
-          // The settings ListView, explicitly: once the key field holds
-          // text, its EditableText contributes a second Scrollable.
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pump();
-        await tester.tap(find.byKey(const Key('assistant-key-save-button')));
-        await tester.pumpAndSettle();
+      // Not just "no overflow": the input and the save button must still
+      // be reachable and hittable once everything doubled in height.
+      // scrollUntilVisible, not ensureVisible: the ListView builds lazily,
+      // so at this height the section doesn't exist until scrolled to.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('assistant-key-field')),
+        100,
+        scrollable: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const Key('assistant-key-field')),
+        _fakeKey,
+      );
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('assistant-key-save-button')),
+        100,
+        // The settings ListView, explicitly: once the key field holds
+        // text, its EditableText contributes a second Scrollable.
+        scrollable: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('assistant-key-save-button')));
+      await tester.pumpAndSettle();
 
-        expect(harness.prefs.getString('gemini_api_key'), _fakeKey);
-        expect(tester.takeException(), isNull);
-      },
-    );
+      expect(harness.prefs.getString('gemini_api_key'), _fakeKey);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('SettingsScreen localization', () {
@@ -565,10 +652,7 @@ void main() {
     });
 
     testWidgets('renders Traditional Chinese strings', (tester) async {
-      const zhHant = Locale.fromSubtags(
-        languageCode: 'zh',
-        scriptCode: 'Hant',
-      );
+      const zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
       await _pumpSettingsScreen(tester, locale: zhHant);
       final zh = lookupAppLocalizations(zhHant);
 
@@ -598,10 +682,13 @@ void main() {
       // and does nothing is worse than no link: they tap it, nothing happens,
       // and they have no address to fall back on.
       var opened = 0;
-      await _pumpSettingsScreen(tester, openKeyConsole: () async {
-        opened++;
-        return true;
-      });
+      await _pumpSettingsScreen(
+        tester,
+        openKeyConsole: () async {
+          opened++;
+          return true;
+        },
+      );
 
       await tester.tap(find.byKey(const Key('assistant-get-key-link')));
       await tester.pumpAndSettle();
@@ -610,7 +697,9 @@ void main() {
       expect(find.byKey(const Key('assistant-get-key-failed')), findsNothing);
     });
 
-    testWidgets('names the address when the browser will not open', (tester) async {
+    testWidgets('names the address when the browser will not open', (
+      tester,
+    ) async {
       // A dead button that says nothing leaves no way forward at all.
       await _pumpSettingsScreen(tester, openKeyConsole: () async => false);
 
@@ -618,7 +707,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final snack = tester.widget<Text>(
-        find.descendant(of: find.byKey(const Key('assistant-get-key-failed')), matching: find.byType(Text)),
+        find.descendant(
+          of: find.byKey(const Key('assistant-get-key-failed')),
+          matching: find.byType(Text),
+        ),
       );
       expect(snack.data, contains('aistudio.google.com'));
     });

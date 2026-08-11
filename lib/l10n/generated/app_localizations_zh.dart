@@ -114,6 +114,110 @@ class AppLocalizationsZh extends AppLocalizations {
   String get greetingEvening => '晚安';
 
   @override
+  String greetingMorningName(String name) {
+    return '早安，$name';
+  }
+
+  @override
+  String greetingAfternoonName(String name) {
+    return '午安，$name';
+  }
+
+  @override
+  String greetingEveningName(String name) {
+    return '晚安，$name';
+  }
+
+  @override
+  String get homeHubPrompt => '今天想先處理哪一部分？';
+
+  @override
+  String get homeOpenHealth => '進入健康 App →';
+
+  @override
+  String get homeOpenFinance => '進入財務 App →';
+
+  @override
+  String get homeLatestWeight => '最新體重';
+
+  @override
+  String homeWeightValue(String value) {
+    return '$value kg';
+  }
+
+  @override
+  String get homeFoodPortionTool => '食物份量工具';
+
+  @override
+  String get homeFoodPortionButton => '查詢份量對照表';
+
+  @override
+  String get homeLatestBloodPressure => '上次血壓';
+
+  @override
+  String get homeMenstrualPrediction => '生理週期預測';
+
+  @override
+  String homeMenstrualOngoing(int days) {
+    return '生理期第 $days 天';
+  }
+
+  @override
+  String get homeMenstrualNeedsMore => '再記錄一次即可預測';
+
+  @override
+  String homeMenstrualExpected(String date) {
+    return '預計 $date';
+  }
+
+  @override
+  String get homeMenstrualToday => '預計今天';
+
+  @override
+  String homeMenstrualOverdue(int days) {
+    return '預測日已過 $days 天';
+  }
+
+  @override
+  String get homeBudget => '本月預算';
+
+  @override
+  String homeBudgetRemaining(String amount) {
+    return '剩餘 $amount';
+  }
+
+  @override
+  String get homeTotalAssets => '淨值總資產';
+
+  @override
+  String get homeTotalLiabilities => '總負債';
+
+  @override
+  String get homeSplitOverview => '分帳總覽';
+
+  @override
+  String homeSplitReceivable(String amount) {
+    return '待收 $amount';
+  }
+
+  @override
+  String homeSplitPayable(String amount) {
+    return '待付 $amount';
+  }
+
+  @override
+  String get homeSplitSettled => '已結清';
+
+  @override
+  String get homeNoData => '尚無資料';
+
+  @override
+  String get homeDashboardUnavailable => '此畫面沒有 Dashboard 資料。';
+
+  @override
+  String get homeDashboardLoadFailed => '無法載入 Dashboard。';
+
+  @override
   String get yourSpaces => '你的空間';
 
   @override
@@ -178,6 +282,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsTitle => '設定';
+
+  @override
+  String get settingsAccountSectionTitle => '帳戶';
+
+  @override
+  String get settingsDisplayNameLabel => '你的名稱';
+
+  @override
+  String get settingsDisplayNameHelper => '會顯示在首頁問候與共同活動中。';
+
+  @override
+  String get settingsDisplayNameSaveButton => '儲存名稱';
+
+  @override
+  String get settingsDisplayNameSaved => '名稱已更新';
+
+  @override
+  String get settingsDisplayNameSaveFailed => '無法更新名稱，請再試一次。';
 
   @override
   String get settingsIconTooltip => '設定';
@@ -2929,6 +3051,110 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get greetingEvening => '晚安';
 
   @override
+  String greetingMorningName(String name) {
+    return '早安，$name';
+  }
+
+  @override
+  String greetingAfternoonName(String name) {
+    return '午安，$name';
+  }
+
+  @override
+  String greetingEveningName(String name) {
+    return '晚安，$name';
+  }
+
+  @override
+  String get homeHubPrompt => '今天想先處理哪一部分？';
+
+  @override
+  String get homeOpenHealth => '進入健康 App →';
+
+  @override
+  String get homeOpenFinance => '進入財務 App →';
+
+  @override
+  String get homeLatestWeight => '最新體重';
+
+  @override
+  String homeWeightValue(String value) {
+    return '$value kg';
+  }
+
+  @override
+  String get homeFoodPortionTool => '食物份量工具';
+
+  @override
+  String get homeFoodPortionButton => '查詢份量對照表';
+
+  @override
+  String get homeLatestBloodPressure => '上次血壓';
+
+  @override
+  String get homeMenstrualPrediction => '生理週期預測';
+
+  @override
+  String homeMenstrualOngoing(int days) {
+    return '生理期第 $days 天';
+  }
+
+  @override
+  String get homeMenstrualNeedsMore => '再記錄一次即可預測';
+
+  @override
+  String homeMenstrualExpected(String date) {
+    return '預計 $date';
+  }
+
+  @override
+  String get homeMenstrualToday => '預計今天';
+
+  @override
+  String homeMenstrualOverdue(int days) {
+    return '預測日已過 $days 天';
+  }
+
+  @override
+  String get homeBudget => '本月預算';
+
+  @override
+  String homeBudgetRemaining(String amount) {
+    return '剩餘 $amount';
+  }
+
+  @override
+  String get homeTotalAssets => '淨值總資產';
+
+  @override
+  String get homeTotalLiabilities => '總負債';
+
+  @override
+  String get homeSplitOverview => '分帳總覽';
+
+  @override
+  String homeSplitReceivable(String amount) {
+    return '待收 $amount';
+  }
+
+  @override
+  String homeSplitPayable(String amount) {
+    return '待付 $amount';
+  }
+
+  @override
+  String get homeSplitSettled => '已結清';
+
+  @override
+  String get homeNoData => '尚無資料';
+
+  @override
+  String get homeDashboardUnavailable => '此畫面沒有 Dashboard 資料。';
+
+  @override
+  String get homeDashboardLoadFailed => '無法載入 Dashboard。';
+
+  @override
   String get yourSpaces => '你的空間';
 
   @override
@@ -2993,6 +3219,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsTitle => '設定';
+
+  @override
+  String get settingsAccountSectionTitle => '帳戶';
+
+  @override
+  String get settingsDisplayNameLabel => '你的名稱';
+
+  @override
+  String get settingsDisplayNameHelper => '會顯示在首頁問候與共同活動中。';
+
+  @override
+  String get settingsDisplayNameSaveButton => '儲存名稱';
+
+  @override
+  String get settingsDisplayNameSaved => '名稱已更新';
+
+  @override
+  String get settingsDisplayNameSaveFailed => '無法更新名稱，請再試一次。';
 
   @override
   String get settingsIconTooltip => '設定';

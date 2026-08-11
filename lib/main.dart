@@ -33,6 +33,7 @@ import 'contexts/finance/application/add_transaction.dart';
 import 'contexts/finance/application/delete_budget.dart';
 import 'contexts/finance/application/delete_transaction.dart';
 import 'contexts/finance/application/get_finance_month.dart';
+import 'contexts/finance/application/list_finance_budgets.dart';
 import 'contexts/finance/application/get_split_spending.dart';
 import 'contexts/finance/application/list_finance_categories.dart';
 import 'contexts/finance/application/networth_use_cases.dart';
@@ -112,7 +113,9 @@ import 'contexts/split/application/group_use_cases.dart';
 import 'contexts/split/application/settlement_use_cases.dart';
 import 'contexts/split/infrastructure/http_split_repository.dart';
 import 'contexts/user/application/get_profile.dart';
+import 'contexts/user/application/update_display_name.dart';
 import 'contexts/user/infrastructure/http_profile_repository.dart';
+import 'contexts/user/presentation/home_dashboard_controller.dart';
 import 'contexts/user/presentation/home_controller.dart';
 import 'contexts/vitals/application/get_vitals_day.dart';
 import 'contexts/vitals/application/get_vitals_trends.dart';
@@ -134,7 +137,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  final authRepository = FirebaseAuthRepository(firebase_auth.FirebaseAuth.instance);
+  final authRepository = FirebaseAuthRepository(
+    firebase_auth.FirebaseAuth.instance,
+  );
   final profileRepository = HttpProfileRepository(
     baseUrl: apiBaseUrl,
     client: http.Client(),
@@ -143,7 +148,11 @@ Future<void> main() async {
   final signOut = SignOut(authRepository);
   final signUp = SignUp(authRepository);
   final loginController = LoginController(SignIn(authRepository));
-  final homeController = HomeController(GetProfile(profileRepository), signOut);
+  final homeController = HomeController(
+    GetProfile(profileRepository),
+    signOut,
+    updateDisplayName: UpdateDisplayName(profileRepository),
+  );
   final prefs = await SharedPreferences.getInstance();
   final localeController = LocaleController(prefs);
   final themeController = ThemeController(prefs);
@@ -392,6 +401,14 @@ Future<void> main() async {
     client: httpClient,
   );
   final splitGetBalances = GetBalances(splitRepository);
+  final homeDashboardController = HomeDashboardController(
+    GetWeightGoal(bodyProfileRepository),
+    GetVitalsTrends(vitalsRepository),
+    GetMenstrualOverview(menstrualRepository),
+    ListFinanceBudgets(financeRepository),
+    GetMonthlyNetWorth(financeRepository),
+    splitGetBalances,
+  );
   final splitListGroups = ListGroups(splitRepository);
   final splitCreateGroup = CreateGroup(splitRepository);
   final splitGetGroup = GetGroup(splitRepository);
@@ -414,6 +431,7 @@ Future<void> main() async {
       financeRepository: financeRepository,
       loginController: loginController,
       homeController: homeController,
+      homeDashboardController: homeDashboardController,
       localeController: localeController,
       themeController: themeController,
       geminiKeyController: geminiKeyController,

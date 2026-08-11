@@ -303,6 +303,174 @@ abstract class AppLocalizations {
   /// **'Good evening'**
   String get greetingEvening;
 
+  /// Personalized home greeting shown before noon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning, {name}'**
+  String greetingMorningName(String name);
+
+  /// Personalized home greeting shown in the afternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon, {name}'**
+  String greetingAfternoonName(String name);
+
+  /// Personalized home greeting shown in the evening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening, {name}'**
+  String greetingEveningName(String name);
+
+  /// Prompt below the personalized greeting on the home hub.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to take care of first?'**
+  String get homeHubPrompt;
+
+  /// Action that opens the full Health app area.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Health →'**
+  String get homeOpenHealth;
+
+  /// Action that opens the full Finance app area.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Finance →'**
+  String get homeOpenFinance;
+
+  /// Label for the latest-weight home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest weight'**
+  String get homeLatestWeight;
+
+  /// Latest weight value on the home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} kg'**
+  String homeWeightValue(String value);
+
+  /// Label for the food portion lookup shortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Food portion tool'**
+  String get homeFoodPortionTool;
+
+  /// Action text for the food portion lookup shortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up portion guide'**
+  String get homeFoodPortionButton;
+
+  /// Label for the latest blood-pressure home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest blood pressure'**
+  String get homeLatestBloodPressure;
+
+  /// Label for the menstrual-cycle home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle prediction'**
+  String get homeMenstrualPrediction;
+
+  /// Cycle snapshot while a period is ongoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Period day {days}'**
+  String homeMenstrualOngoing(int days);
+
+  /// Cycle snapshot when one more period is needed for a prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Log one more period to predict'**
+  String get homeMenstrualNeedsMore;
+
+  /// Cycle snapshot with the predicted next date.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected {date}'**
+  String homeMenstrualExpected(String date);
+
+  /// Cycle snapshot when the next period is predicted today.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected today'**
+  String get homeMenstrualToday;
+
+  /// Cycle snapshot when the predicted date has passed.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction passed {days} days ago'**
+  String homeMenstrualOverdue(int days);
+
+  /// Label for the overall monthly-budget home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly budget'**
+  String get homeBudget;
+
+  /// Remaining overall budget shown on the home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} remaining'**
+  String homeBudgetRemaining(String amount);
+
+  /// Label for total assets on the home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Total assets'**
+  String get homeTotalAssets;
+
+  /// Label for total liabilities on the home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Total liabilities'**
+  String get homeTotalLiabilities;
+
+  /// Label for the split-bill home snapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Split overview'**
+  String get homeSplitOverview;
+
+  /// Split snapshot when other people owe the user.
+  ///
+  /// In en, this message translates to:
+  /// **'To receive {amount}'**
+  String homeSplitReceivable(String amount);
+
+  /// Split snapshot when the user owes other people.
+  ///
+  /// In en, this message translates to:
+  /// **'To pay {amount}'**
+  String homeSplitPayable(String amount);
+
+  /// Split snapshot when no TWD balance remains.
+  ///
+  /// In en, this message translates to:
+  /// **'All settled'**
+  String get homeSplitSettled;
+
+  /// Home snapshot fallback when no record exists.
+  ///
+  /// In en, this message translates to:
+  /// **'No data yet'**
+  String get homeNoData;
+
+  /// Fallback used by isolated home views without dashboard dependencies.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard details are unavailable in this view.'**
+  String get homeDashboardUnavailable;
+
+  /// Shown when the home snapshot batch fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your dashboard.'**
+  String get homeDashboardLoadFailed;
+
   /// Heading above the home screen's grid of space previews.
   ///
   /// In en, this message translates to:
@@ -434,6 +602,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTitle;
+
+  /// Heading for the signed-in account section in settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get settingsAccountSectionTitle;
+
+  /// Label for the editable display-name field in settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name'**
+  String get settingsDisplayNameLabel;
+
+  /// Explains where the user's chosen display name appears.
+  ///
+  /// In en, this message translates to:
+  /// **'Used in your home greeting and shared activity.'**
+  String get settingsDisplayNameHelper;
+
+  /// Button that saves the chosen display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Save name'**
+  String get settingsDisplayNameSaveButton;
+
+  /// Confirmation after the display name is saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Name updated'**
+  String get settingsDisplayNameSaved;
+
+  /// Error shown when updating the display name fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update your name. Try again.'**
+  String get settingsDisplayNameSaveFailed;
 
   /// Tooltip/accessible label for the gear icon on the home screen that opens the settings page.
   ///

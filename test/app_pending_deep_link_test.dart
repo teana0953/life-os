@@ -190,38 +190,35 @@ final _testProfile = UserProfile(
 
 void main() {
   group('App pending deep-link hand-over', () {
-    testWidgets(
-      'a fresh pending deep link pushes 今日照護 over the home screen '
-      '(push, not go: the home screen is still beneath it)',
-      (tester) async {
-        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
-        final profileRepository = FakeProfileRepository(_testProfile);
-        final store = _FakeStore(
-          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
-        );
-        await pumpApp(
-          tester,
-          authRepository: authRepository,
-          loginController: LoginController(SignIn(authRepository)),
-          homeController: HomeController(
-            GetProfile(profileRepository),
-            SignOut(authRepository),
-          ),
-          pendingDeepLinkStore: store,
-        );
-        await tester.pumpAndSettle();
+    testWidgets('a fresh pending deep link pushes 今日照護 over the home screen '
+        '(push, not go: the home screen is still beneath it)', (tester) async {
+      final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+      final profileRepository = FakeProfileRepository(_testProfile);
+      final store = _FakeStore(
+        PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+      );
+      await pumpApp(
+        tester,
+        authRepository: authRepository,
+        loginController: LoginController(SignIn(authRepository)),
+        homeController: HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        ),
+        pendingDeepLinkStore: store,
+      );
+      await tester.pumpAndSettle();
 
-        expect(find.byType(CareTodayScreen), findsOneWidget);
-        final context = tester.element(find.byType(CareTodayScreen));
-        expect(Navigator.canPop(context), isTrue);
+      expect(find.byType(CareTodayScreen), findsOneWidget);
+      final context = tester.element(find.byType(CareTodayScreen));
+      expect(Navigator.canPop(context), isTrue);
 
-        await tester.pageBack();
-        await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
-        expect(find.byType(CareTodayScreen), findsNothing);
-      },
-    );
+      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+      expect(find.byType(CareTodayScreen), findsNothing);
+    });
 
     testWidgets('an expired pending deep link leaves the app on home', (
       tester,
@@ -246,7 +243,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
       expect(find.byType(CareTodayScreen), findsNothing);
     });
 
@@ -269,7 +266,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
         expect(find.byType(CareTodayScreen), findsNothing);
       },
     );
@@ -316,7 +316,10 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -370,7 +373,10 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
         expect(find.byType(CareTodayScreen), findsNothing);
       },
     );

@@ -8,36 +8,38 @@ import 'package:life_os/contexts/user/infrastructure/http_profile_repository.dar
 
 void main() {
   group('HttpProfileRepository', () {
-    test('GETs {baseUrl}/api/me with a bearer token and parses the profile',
-        () async {
-      Uri? capturedUri;
-      String? capturedAuthHeader;
-      final client = MockClient((request) async {
-        capturedUri = request.url;
-        capturedAuthHeader = request.headers['Authorization'];
-        return http.Response(
-          jsonEncode({
-            'id': 'user-1',
-            'firebase_uid': 'firebase-abc',
-            'email': 'test@example.com',
-            'display_name': 'Test User',
-            'created_at': '2026-01-01T00:00:00.000Z',
-          }),
-          200,
+    test(
+      'GETs {baseUrl}/api/me with a bearer token and parses the profile',
+      () async {
+        Uri? capturedUri;
+        String? capturedAuthHeader;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          capturedAuthHeader = request.headers['Authorization'];
+          return http.Response(
+            jsonEncode({
+              'id': 'user-1',
+              'firebase_uid': 'firebase-abc',
+              'email': 'test@example.com',
+              'display_name': 'Test User',
+              'created_at': '2026-01-01T00:00:00.000Z',
+            }),
+            200,
+          );
+        });
+        final repository = HttpProfileRepository(
+          baseUrl: 'https://example.test',
+          client: client,
         );
-      });
-      final repository = HttpProfileRepository(
-        baseUrl: 'https://example.test',
-        client: client,
-      );
 
-      final profile = await repository.getProfile('token-123');
+        final profile = await repository.getProfile('token-123');
 
-      expect(capturedUri, Uri.parse('https://example.test/api/me'));
-      expect(capturedAuthHeader, 'Bearer token-123');
-      expect(profile.id, 'user-1');
-      expect(profile.email, 'test@example.com');
-    });
+        expect(capturedUri, Uri.parse('https://example.test/api/me'));
+        expect(capturedAuthHeader, 'Bearer token-123');
+        expect(profile.id, 'user-1');
+        expect(profile.email, 'test@example.com');
+      },
+    );
 
     test('throws ReauthenticationRequired on 401', () async {
       final client = MockClient((request) async {
@@ -69,13 +71,88 @@ void main() {
       );
     });
 
+    test('wraps network exceptions from the client in ProfileFetchFailure '
+        'without leaking the original exception text', () async {
+      final client = MockClient((request) async {
+        throw http.ClientException(
+          'Connection refused at 10.0.0.5:443 (internal-host)',
+        );
+      });
+      final repository = HttpProfileRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      try {
+        await repository.getProfile('token-123');
+        fail('expected ProfileFetchFailure');
+      } catch (e) {
+        expect(e, isA<ProfileFetchFailure>());
+        expect((e as ProfileFetchFailure).message, isNot(contains('10.0.0.5')));
+        expect(e.message, isNot(contains('Connection refused')));
+      }
+    });
+
+    test('wraps a non-JSON response body in ProfileFetchFailure without '
+        'leaking the parser error text', () async {
+      final client = MockClient((request) async {
+        return http.Response('not valid json {{{', 200);
+      });
+      final repository = HttpProfileRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      try {
+        await repository.getProfile('token-123');
+        fail('expected ProfileFetchFailure');
+      } catch (e) {
+        expect(e, isA<ProfileFetchFailure>());
+        expect(
+          (e as ProfileFetchFailure).message,
+          isNot(contains('FormatException')),
+        );
+      }
+    });
+
+    test('wraps a 200 response missing required profile fields in '
+        'ProfileFetchFailure without leaking the cast error text', () async {
+      final client = MockClient((request) async {
+        return http.Response(jsonEncode({'id': 'user-1'}), 200);
+      });
+      final repository = HttpProfileRepository(
+        baseUrl: 'https://example.test',
+        client: client,
+      );
+
+      try {
+        await repository.getProfile('token-123');
+        fail('expected ProfileFetchFailure');
+      } catch (e) {
+        expect(e, isA<ProfileFetchFailure>());
+        expect(
+          (e as ProfileFetchFailure).message,
+          isNot(contains('type \'Null\'')),
+        );
+      }
+    });
+
     test(
-      'wraps network exceptions from the client in ProfileFetchFailure '
-      'without leaking the original exception text',
+      'PATCHes the chosen display name and parses the updated profile',
       () async {
+        http.Request? capturedRequest;
         final client = MockClient((request) async {
-          throw http.ClientException(
-            'Connection refused at 10.0.0.5:443 (internal-host)',
+          capturedRequest = request;
+          return http.Response(
+            jsonEncode({
+              'id': 'user-1',
+              'firebase_uid': 'firebase-abc',
+              'email': 'test@example.com',
+              'display_name': '小安',
+              'created_at': '2026-01-01T00:00:00.000Z',
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
           );
         });
         final repository = HttpProfileRepository(
@@ -83,68 +160,47 @@ void main() {
           client: client,
         );
 
-        try {
-          await repository.getProfile('token-123');
-          fail('expected ProfileFetchFailure');
-        } catch (e) {
-          expect(e, isA<ProfileFetchFailure>());
-          expect(
-            (e as ProfileFetchFailure).message,
-            isNot(contains('10.0.0.5')),
-          );
-          expect(e.message, isNot(contains('Connection refused')));
-        }
+        final profile = await repository.updateDisplayName('token-123', '小安');
+
+        expect(capturedRequest?.method, 'PATCH');
+        expect(capturedRequest?.url, Uri.parse('https://example.test/api/me'));
+        expect(capturedRequest?.headers['Authorization'], 'Bearer token-123');
+        expect(capturedRequest?.headers['Content-Type'], 'application/json');
+        expect(jsonDecode(capturedRequest!.body), {'display_name': '小安'});
+        expect(profile.displayName, '小安');
       },
     );
 
-    test(
-      'wraps a non-JSON response body in ProfileFetchFailure without '
-      'leaking the parser error text',
-      () async {
-        final client = MockClient((request) async {
-          return http.Response('not valid json {{{', 200);
-        });
-        final repository = HttpProfileRepository(
-          baseUrl: 'https://example.test',
-          client: client,
+    test('updateDisplayName requires reauthentication on 401', () async {
+      final repository = HttpProfileRepository(
+        baseUrl: 'https://example.test',
+        client: MockClient((_) async => http.Response('Unauthorized', 401)),
+      );
+
+      expect(
+        () => repository.updateDisplayName('expired-token', '小安'),
+        throwsA(isA<ReauthenticationRequired>()),
+      );
+    });
+
+    test('updateDisplayName hides server details on failure', () async {
+      final repository = HttpProfileRepository(
+        baseUrl: 'https://example.test',
+        client: MockClient(
+          (_) async => http.Response('database host 10.0.0.5 failed', 500),
+        ),
+      );
+
+      try {
+        await repository.updateDisplayName('token-123', '小安');
+        fail('expected ProfileFetchFailure');
+      } catch (error) {
+        expect(error, isA<ProfileFetchFailure>());
+        expect(
+          (error as ProfileFetchFailure).message,
+          isNot(contains('10.0.0.5')),
         );
-
-        try {
-          await repository.getProfile('token-123');
-          fail('expected ProfileFetchFailure');
-        } catch (e) {
-          expect(e, isA<ProfileFetchFailure>());
-          expect(
-            (e as ProfileFetchFailure).message,
-            isNot(contains('FormatException')),
-          );
-        }
-      },
-    );
-
-    test(
-      'wraps a 200 response missing required profile fields in '
-      'ProfileFetchFailure without leaking the cast error text',
-      () async {
-        final client = MockClient((request) async {
-          return http.Response(jsonEncode({'id': 'user-1'}), 200);
-        });
-        final repository = HttpProfileRepository(
-          baseUrl: 'https://example.test',
-          client: client,
-        );
-
-        try {
-          await repository.getProfile('token-123');
-          fail('expected ProfileFetchFailure');
-        } catch (e) {
-          expect(e, isA<ProfileFetchFailure>());
-          expect(
-            (e as ProfileFetchFailure).message,
-            isNot(contains('type \'Null\'')),
-          );
-        }
-      },
-    );
+      }
+    });
   });
 }

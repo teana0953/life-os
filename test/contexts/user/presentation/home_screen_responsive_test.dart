@@ -67,22 +67,31 @@ Future<HomeController> _pumpAt(WidgetTester tester, Size size) async {
 
 void main() {
   group('HomeScreen responsive layout', () {
-    testWidgets('narrow phone width: primary navigation has no overflow', (
+    testWidgets('narrow phone width: dashboard sections have no overflow', (
       tester,
     ) async {
       await _pumpAt(tester, const Size(360, 800));
 
       expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+      expect(
+        find.byKey(const Key('finance-dashboard-section')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
     });
 
-    testWidgets('wide desktop width: content remains bounded with navigation', (
+    testWidgets('wide desktop width: dashboard content remains bounded', (
       tester,
     ) async {
       await _pumpAt(tester, const Size(1200, 800));
 
       expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+      expect(
+        find.byKey(const Key('finance-dashboard-section')),
+        findsOneWidget,
+      );
     });
   });
 }

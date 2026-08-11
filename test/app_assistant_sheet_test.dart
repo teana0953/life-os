@@ -69,7 +69,10 @@ void main() {
         // ...and the route it was opened from is STILL there, not offstage.
         // `opaque: true` would stop it being built at all, and `find`
         // skips offstage widgets by default — this is what would go red.
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -79,7 +82,8 @@ void main() {
         await _pumpHomeAndOpenAssistant(tester);
         expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
 
-        final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+        final width =
+            tester.view.physicalSize.width / tester.view.devicePixelRatio;
         // Well inside the empty gap above the panel (the panel's rounded
         // top sits well below this), which is nothing but the route's own
         // modal barrier — a tap there must dismiss like tapping a scrim.
@@ -88,12 +92,9 @@ void main() {
 
         expect(find.byKey(const Key('assistant-setup')), findsNothing);
         final router = GoRouter.of(
-          tester.element(find.byKey(const Key('primary-navigation-bar'))),
+          tester.element(find.byKey(const Key('health-dashboard-section'))),
         );
-        expect(
-          router.routerDelegate.currentConfiguration.uri.toString(),
-          '/',
-        );
+        expect(router.routerDelegate.currentConfiguration.uri.toString(), '/');
       },
     );
 
@@ -123,7 +124,7 @@ void main() {
         router.go('/assistant');
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
+        expect(find.byKey(const Key('health-dashboard-section')), findsNothing);
         expect(find.byKey(const Key('assistant-setup')), findsOneWidget);
         // The assistant's own Scaffold starts at the very top of the
         // screen — not offset by the panel's gap, which only exists when
@@ -132,35 +133,32 @@ void main() {
       },
     );
 
-    testWidgets(
-      'the keyboard does not cover the composer',
-      (tester) async {
-        addTearDown(() => tester.view.resetPhysicalSize());
-        addTearDown(() => tester.view.resetDevicePixelRatio());
-        addTearDown(tester.view.resetViewInsets);
-        tester.view.physicalSize = const Size(400, 800);
-        tester.view.devicePixelRatio = 1.0;
+    testWidgets('the keyboard does not cover the composer', (tester) async {
+      addTearDown(() => tester.view.resetPhysicalSize());
+      addTearDown(() => tester.view.resetDevicePixelRatio());
+      addTearDown(tester.view.resetViewInsets);
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
 
-        await _pumpHomeAndOpenAssistant(
-          tester,
-          geminiKeyController: await _keyedGeminiKeyController(),
-        );
-        expect(find.byKey(const Key('assistant-composer-field')), findsOneWidget);
+      await _pumpHomeAndOpenAssistant(
+        tester,
+        geminiKeyController: await _keyedGeminiKeyController(),
+      );
+      expect(find.byKey(const Key('assistant-composer-field')), findsOneWidget);
 
-        // Simulate the on-screen keyboard opening: 300 logical px of the
-        // screen's bottom are now the keyboard, reported the same way a
-        // real keyboard is — as `viewInsets.bottom`.
-        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-        await tester.pumpAndSettle();
+      // Simulate the on-screen keyboard opening: 300 logical px of the
+      // screen's bottom are now the keyboard, reported the same way a
+      // real keyboard is — as `viewInsets.bottom`.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
 
-        final composerBottom = tester
-            .getRect(find.byKey(const Key('assistant-composer-field')))
-            .bottom;
-        final screenHeight =
-            tester.view.physicalSize.height / tester.view.devicePixelRatio;
-        expect(composerBottom, lessThanOrEqualTo(screenHeight - 300));
-      },
-    );
+      final composerBottom = tester
+          .getRect(find.byKey(const Key('assistant-composer-field')))
+          .bottom;
+      final screenHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(composerBottom, lessThanOrEqualTo(screenHeight - 300));
+    });
 
     testWidgets(
       'the gap above the panel widens for a notch/status-bar inset instead '
@@ -180,8 +178,9 @@ void main() {
 
         await _pumpHomeAndOpenAssistant(tester);
 
-        final gapHeight =
-            tester.getSize(find.byKey(const Key('assistant-sheet-gap'))).height;
+        final gapHeight = tester
+            .getSize(find.byKey(const Key('assistant-sheet-gap')))
+            .height;
         // 800 * 0.12 = 96, so the proportional cap (72) would otherwise
         // apply; the fix floors the gap at topPadding (59) + 16, i.e. 75,
         // so at least 16 logical px of home stay visible below the inset.
@@ -208,7 +207,10 @@ void main() {
         await tester.tap(find.byType(BackButton));
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('primary-navigation-bar')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('assistant-setup')), findsNothing);
       },
     );

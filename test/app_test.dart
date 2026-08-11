@@ -1508,7 +1508,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('user@example.com'), findsOneWidget);
+        // The signed-in account section (email) now lives in Settings, not
+        // on the home screen — the loaded profile shows up here via the
+        // greeting's display name instead.
+        expect(find.textContaining('Test User'), findsOneWidget);
       },
     );
 
@@ -1539,7 +1542,9 @@ void main() {
       await tester.tap(find.byKey(const Key('submit-button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('user@example.com'), findsOneWidget);
+      // Same as above: the home screen no longer shows the raw email, only
+      // the greeting built from the loaded profile's display name.
+      expect(find.textContaining('Test User'), findsOneWidget);
     });
 
     testWidgets(
