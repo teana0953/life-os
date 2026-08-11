@@ -942,6 +942,63 @@ void main() {
         },
       );
 
+      testWidgets('returning from group detail reloads the ledger too, since its '
+          'writes never move writeSeq', (tester) async {
+        // Group detail writes through its OWN controller, so the split
+        // write counter this scaffold watches never moves and the ledger
+        // refresh keyed off it never fires — an expense added in a group
+        // mirrors into the ledger and 明細 keeps showing the old list
+        // (issue #160, the group half).
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        final returned = Completer<void>();
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                // Stands in for what group detail did while it was open.
+                onOpenGroup: (context, groupId) {
+                  repo.byMonth['2026-07'] = [
+                    const FinanceTransaction(
+                      id: 't-group-mirror',
+                      type: FinanceType.expense,
+                      amount: 5000,
+                      currency: 'TWD',
+                      categoryId: 'cat-food',
+                      date: '2026-07-15',
+                      splitExpenseId: 'e-in-group',
+                    ),
+                  ];
+                  return returned.future;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(loc.financeTabTransactions));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('finance-transaction-t-group-mirror')), findsOneWidget);
+      });
+
       // The settle wiring is the one place the *signed* balance crosses from
       // a tab row into the sheet, and the sign is the whole direction of the
       // money (design D1/D2). Driving `SettleUpSheet` directly with a
@@ -1093,6 +1150,94 @@ void main() {
           expect(splitRepo.gotSettlementId, 's1');
         },
       );
+    });
+
+    group('the ledger after a split write', () {
+      testWidgets('recording a split expense shows its mirror in 總覽 and 明細 '
+          'without leaving the screen', (tester) async {
+        // The payer's own share is written as a real transaction server-side
+        // (backend #79), so the ledger genuinely changed — but the scaffold
+        // only refreshed the change log on a split write, and switching
+        // destinations does not refetch. The reader recorded a split expense,
+        // tapped 總覽, and saw last month's numbers with their own share
+        // missing (issue #160).
+        final repo = FakeFinanceRepository();
+        final splitRepo = FakeSplitRepository()
+          ..expenseToReturn = const SplitExpense(
+            id: 'e-new',
+            groupId: null,
+            payerUserId: 'self-1',
+            payerDisplayName: 'Self',
+            createdByUserId: 'self-1',
+            amount: 10000,
+            currency: 'TWD',
+            description: 'Lunch',
+            day: '2026-07-15',
+            splitMode: 'equal',
+            shares: [],
+            createdAt: '2026-07-15T10:30:00.000Z',
+            updatedAt: '2026-07-15T10:30:00.000Z',
+          );
+        // The mirror lands only when the split write happens — seeding it up
+        // front would let the scaffold's first load carry the assertion and
+        // the test would pass with no refresh at all.
+        splitRepo.onExpenseCreated = () => repo.byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-mirror',
+            type: FinanceType.expense,
+            amount: 5000,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-15',
+            splitExpenseId: 'e-new',
+          ),
+        ];
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: _FakeAuthRepository(),
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                friends: const [Friend(userId: 'f1', displayName: 'Friend One')],
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('split-fab')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('split-amount-field')), '100');
+        await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('split-participant-f1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-participant-f1')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('split-save-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-save-button')));
+        await tester.pumpAndSettle();
+
+        // 總覽 first: with no transactions it shows the empty guide, so its
+        // disappearance is the summary having been refetched — asserting on
+        // the 明細 row alone would leave the overview half unpinned.
+        await tester.tap(find.text(loc.financeTabOverview));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('finance-empty-title')), findsNothing);
+
+        await tester.tap(find.text(loc.financeTabTransactions));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('finance-transaction-t-mirror')), findsOneWidget);
+      });
     });
 
     group('the 變更紀錄 section', () {

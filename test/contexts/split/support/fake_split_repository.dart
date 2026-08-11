@@ -54,6 +54,13 @@ class FakeSplitRepository implements SplitRepository {
   List<SplitExpense> expensesToReturn = const [];
   SplitExpense? expenseToReturn;
 
+  /// Runs after a successful [createExpense], before it returns. The seam for
+  /// the ledger mirror: the backend writes the payer's own share as a real
+  /// transaction (backend #79), so a test that needs the ledger to have
+  /// changed *because of* the split write seeds it from here rather than up
+  /// front, where the first load would already have picked it up.
+  void Function()? onExpenseCreated;
+
   String? gotFromUserId;
   String? gotToUserId;
   String? gotNote;
@@ -178,6 +185,7 @@ class FakeSplitRepository implements SplitRepository {
     gotCategoryName = categoryName;
     categoryNameSent = true;
     _maybeThrow();
+    onExpenseCreated?.call();
     return expenseToReturn!;
   }
 

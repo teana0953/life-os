@@ -185,8 +185,32 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     if (_splitController.writeSeq != _splitWriteSeq) {
       _splitWriteSeq = _splitController.writeSeq;
       unawaited(_splitActivityController.refreshIfLoaded());
+      unawaited(_reloadLedger());
     }
     _onChanged();
+  }
+
+  /// Refetches the ledger month a split write may have changed.
+  ///
+  /// The payer's own share of a split expense is a real transaction, written
+  /// server-side (backend #79), so 總覽's totals and 明細's list are stale the
+  /// moment a split write lands — and switching destinations does not
+  /// refetch, so nothing else would ever correct them (issue #160). Called
+  /// for every split write rather than only the expense ones: a repayment or
+  /// a deleted expense moves the same numbers, and keying it off `writeSeq`
+  /// is what keeps a write added later from forgetting.
+  ///
+  /// Nothing here awaits a month check — a write dated outside the selected
+  /// month lands in a month this reload does not fetch, and that is correct:
+  /// the ledger shows one month at a time and the reader is looking at this
+  /// one.
+  Future<void> _reloadLedger() async {
+    final month = widget.controller.selectedMonth.isEmpty
+        ? monthOf(_todayDate)
+        : widget.controller.selectedMonth;
+    final token = await _idToken();
+    if (!mounted) return;
+    await widget.controller.load(token, month);
   }
 
   String get _todayDate => dayString(widget.clock());
@@ -372,6 +396,11 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     // controller, so `writeSeq` never moves for them and [_onSplitChanged]
     // never fires.
     unawaited(_splitActivityController.refreshIfLoaded());
+    // And the ledger: an expense added in the group mirrors into it the same
+    // way one added here does (see [_reloadLedger]), and for the same reason
+    // as the line above — `writeSeq` never moves for group detail's writes,
+    // so [_onSplitChanged]'s reload never fires for them.
+    unawaited(_reloadLedger());
     await _retrySplit();
   }
 
