@@ -8,6 +8,7 @@ import 'package:life_os/shared/theme/app_theme.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
 import '../../support/l10n_test_app.dart';
+import '../../support/semantics_tree.dart';
 
 final _loc = lookupAppLocalizations(const Locale('en'));
 
@@ -271,6 +272,63 @@ void main() {
 
       handle.dispose();
     });
+
+    // Reads the real `SemanticsOwner` tree via `semanticsDataForLabel`
+    // (`test/support/semantics_tree.dart`), not `tester.getSemantics`
+    // (a widget's *cached* node) — this row can appear with no gesture
+    // from the reader (a background reload elsewhere failing while they're
+    // mid-scroll), so what actually reaches the platform's accessibility
+    // tree is what matters, not merely what the widget asked for.
+    testWidgets(
+      'is announced as a live region when a reload has actually failed',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await _pump(tester, initial: (failed: true, loading: false));
+
+        final data = semanticsDataForLabel(
+          tester,
+          '$_subject: ${_loc.cardRefreshFailed}. ${_loc.retry}',
+        );
+        expect(data, isNotNull);
+        expect(data!.flagsCollection.isLiveRegion, isTrue);
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'is not a live region while merely showing an in-flight retry — '
+      'nothing has failed yet for a screen-reader user to be interrupted for',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await _pump(tester, initial: (failed: false, loading: true));
+        // Nothing renders here (see "a reload nobody asked for..." above),
+        // so there is no live-region node to find at all.
+        expect(
+          semanticsDataForLabel(
+            tester,
+            '$_subject: ${_loc.cardRefreshFailed}. ${_loc.retry}',
+          ),
+          isNull,
+        );
+
+        // The state that actually renders `retrying` (a press followed by a
+        // still-in-flight reload) does carry the label — this is the case
+        // that must NOT be a live region, since `widget.failed` is false.
+        await _pump(tester);
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pump();
+
+        final data = semanticsDataForLabel(
+          tester,
+          '$_subject: ${_loc.cardRefreshFailed}. ${_loc.retry}',
+        );
+        expect(data, isNotNull);
+        expect(data!.flagsCollection.isLiveRegion, isFalse);
+
+        handle.dispose();
+      },
+    );
   });
 
   group('the retry label meets AA contrast on the card it sits on', () {

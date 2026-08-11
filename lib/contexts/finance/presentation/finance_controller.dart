@@ -167,7 +167,17 @@ class FinanceController extends ChangeNotifier {
   /// downgraded to the same [FinanceError.fetchFailed]/[reloadFailed] path
   /// as any other failed background reload, leaving whatever is already on
   /// screen in place under a [reloadFailed] notice.
-  Future<void> load(
+  /// Returns `true` if this call's own result (data or error) was the one
+  /// applied to [status]/[error]/the data fields, `false` if a newer,
+  /// still-current call superseded it before this one landed — the caller
+  /// then knows [status] says nothing about *this* call's own outcome (a
+  /// fresher call, in flight or already settled, owns it instead). Every
+  /// caller that needs to know whether *its own* write/reload succeeded
+  /// (`_mutate`, `saveBudgets`, `FinanceScaffold._reloadLedger`) reads this
+  /// rather than [status] directly — see their call sites for why: `status`
+  /// alone cannot distinguish "this call's own result" from "whatever a
+  /// concurrent call left behind while this one was still in flight".
+  Future<bool> load(
     String idToken,
     String month, {
     bool notifyOnStart = false,
@@ -211,7 +221,7 @@ class FinanceController extends ChangeNotifier {
       // Stale-response guard: a faster later call — for this same month or a
       // different one — may have moved on while this request was in flight;
       // that response must never land over whatever the newer call produced.
-      if (seq != _loadSeq) return;
+      if (seq != _loadSeq) return false;
       categories = data.categories;
       summary = data.summary;
       transactions = data.transactions;
@@ -220,7 +230,7 @@ class FinanceController extends ChangeNotifier {
       status = FinanceStatus.loaded;
       reloadFailed = false;
     } on FinanceReauthenticationRequired {
-      if (seq != _loadSeq) return;
+      if (seq != _loadSeq) return false;
       if (background) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
@@ -230,18 +240,19 @@ class FinanceController extends ChangeNotifier {
         reloadFailed = false;
       }
     } on FinanceFetchFailure {
-      if (seq != _loadSeq) return;
+      if (seq != _loadSeq) return false;
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
       reloadFailed = true;
     } catch (_) {
-      if (seq != _loadSeq) return;
+      if (seq != _loadSeq) return false;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
       reloadFailed = true;
     }
     notifyListeners();
     await splitSpendingFuture;
+    return true;
   }
 
   /// Marks the currently loaded month as having failed a background reload,
@@ -258,6 +269,34 @@ class FinanceController extends ChangeNotifier {
     error = FinanceError.fetchFailed;
     reloadFailed = true;
     notifyListeners();
+  }
+
+  /// Reloads after a write that is already known to have succeeded
+  /// server-side — used by [addTransaction], [updateTransaction], and
+  /// [deleteTransaction], which only reach this after their own write call
+  /// completed without throwing. If a concurrent, newer call (e.g. a
+  /// background reload from a split write elsewhere,
+  /// `FinanceScaffold._reloadLedger`) supersedes this call's own reload
+  /// response before it lands, [load] returns `false` and leaves [status]
+  /// wherever it stood at the *start* of this call — `loading`, set
+  /// synchronously by [load] itself, never resolved to a terminal state by
+  /// this call. Left alone, every caller that reads [status] right after
+  /// awaiting the write (`AddTransactionSheet._save`/`_delete`) would read
+  /// "still loading" as "the write failed" — even though it plainly did
+  /// not — and tell the user so about a row that is already saved,
+  /// inviting a duplicate resubmit on retry. The write's own success is
+  /// known unconditionally here (this is only reached once it has already
+  /// happened), so a superseded reload still resolves to
+  /// [FinanceStatus.loaded]; the newer call's own result (fresher data,
+  /// and possibly a different status of its own) settles in right after,
+  /// same as it would have anyway.
+  Future<void> _reloadAfterWrite(String idToken, String month) async {
+    final applied = await load(idToken, month);
+    if (!applied) {
+      status = FinanceStatus.loaded;
+      error = null;
+      notifyListeners();
+    }
   }
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
@@ -299,7 +338,7 @@ class FinanceController extends ChangeNotifier {
       date: date,
       note: note,
     );
-    await load(idToken, monthOf(created.date));
+    await _reloadAfterWrite(idToken, monthOf(created.date));
   });
 
   /// Full-replace edits an existing transaction, then reloads the month its
@@ -324,7 +363,7 @@ class FinanceController extends ChangeNotifier {
       date: date,
       note: note,
     );
-    await load(idToken, monthOf(updated.date));
+    await _reloadAfterWrite(idToken, monthOf(updated.date));
   });
 
   /// Deletes a transaction, then reloads the currently selected month — NOT
@@ -333,7 +372,7 @@ class FinanceController extends ChangeNotifier {
   Future<void> deleteTransaction(String idToken, String id) =>
       _mutate(idToken, () async {
         await _deleteTransaction(idToken, id);
-        await load(idToken, selectedMonth);
+        await _reloadAfterWrite(idToken, selectedMonth);
       });
 
   /// Applies only the differences between [desired] and the currently loaded
@@ -365,35 +404,43 @@ class FinanceController extends ChangeNotifier {
       await load(idToken, selectedMonth);
       return;
     } on FinanceReauthenticationRequired {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      // `!applied ||`: a concurrent, newer reload (e.g. a background reload
+      // from a split write elsewhere) can supersede this call's own reload
+      // before it lands, leaving [status] wherever [load] set it
+      // synchronously at the start — `loading`, not a terminal state (see
+      // [_reloadAfterWrite]'s doc for the full shape). Without the
+      // `!applied` branch this error would be silently dropped and the
+      // caller would read "still loading" for a budget save that is known
+      // to have failed.
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.needsReauth;
         notifyListeners();
       }
     } on FinanceValidationFailure {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.validation;
         notifyListeners();
       }
     } on FinanceNotFound {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
         notifyListeners();
       }
     } on FinanceFetchFailure {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
         notifyListeners();
       }
     } catch (_) {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.unknown;
         notifyListeners();
@@ -427,14 +474,20 @@ class FinanceController extends ChangeNotifier {
       status = FinanceStatus.error;
       error = FinanceError.validation;
     } on FinanceConflict {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      // `!applied ||`: see [_reloadAfterWrite]'s doc — a concurrent, newer
+      // reload can supersede this call's own reload before it lands,
+      // leaving [status] `loading` instead of a terminal state. Without the
+      // `!applied` branch this 409 would be silently dropped and the caller
+      // would read "still loading" for a write that is known to have
+      // failed.
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.conflict;
       }
     } on FinanceNotFound {
-      await load(idToken, selectedMonth);
-      if (status == FinanceStatus.loaded) {
+      final applied = await load(idToken, selectedMonth);
+      if (!applied || status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
       }

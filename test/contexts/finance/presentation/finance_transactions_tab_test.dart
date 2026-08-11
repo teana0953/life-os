@@ -65,6 +65,62 @@ void main() {
       expect(find.byKey(const Key('stale-notice-row')), findsNothing);
     });
 
+    testWidgets(
+      'stays visible after the reader scrolls the list away from the top '
+      '— pinned above the ListView, not row 0 of it',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        // 40 rows so the list is genuinely scrollable and, were the notice
+        // ever back to being row 0 of a lazily-built `ListView`, off-screen
+        // once scrolled far enough that Flutter has no reason to keep it
+        // built at all.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            for (var i = 0; i < 40; i++)
+              FinanceTransaction(
+                id: 't$i',
+                type: FinanceType.expense,
+                amount: 100 + i,
+                currency: 'TWD',
+                categoryId: 'cat-food',
+                date: '2026-07-${(i % 27 + 1).toString().padLeft(2, '0')}',
+              ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        controller.markReloadFailed();
+
+        await tester.binding.setSurfaceSize(const Size(390, 640));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: FinanceTransactionsTab(
+                controller: controller,
+                onEdit: (_) {},
+                onSwitchMonth: (m) async {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+
+        await tester.drag(find.byType(ListView), const Offset(0, -1200));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        final rect = tester.getRect(find.byKey(const Key('stale-notice-row')));
+        final viewport = tester.getRect(find.byType(Scaffold));
+        expect(
+          rect.overlaps(viewport),
+          isTrue,
+          reason: 'the notice must stay pinned in view after a scroll, not '
+              'ride away with row 0 of the list',
+        );
+      },
+    );
+
     testWidgets('empty month shows the empty state', (tester) async {
       final controller = testFinanceController(FakeFinanceRepository());
       await controller.load('tok', '2026-07');

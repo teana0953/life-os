@@ -343,6 +343,59 @@ void main() {
     );
 
     testWidgets(
+      'stays visible after the reader scrolls the overview away from the top '
+      '— pinned above the ListView, not row 0 of it',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            for (var i = 0; i < 40; i++)
+              FinanceTransaction(
+                id: 't$i',
+                type: FinanceType.expense,
+                amount: 100 + i,
+                currency: 'TWD',
+                categoryId: 'cat-food',
+                date: '2026-07-${(i % 27 + 1).toString().padLeft(2, '0')}',
+              ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        controller.markReloadFailed();
+
+        await tester.binding.setSurfaceSize(const Size(390, 640));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: FinanceOverviewTab(
+                controller: controller,
+                onSwitchMonth: (m) => controller.load('tok', m),
+                onAdd: () {},
+                onEditBudgets: () {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+
+        await tester.drag(find.byType(ListView), const Offset(0, -1200));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        final rect = tester.getRect(find.byKey(const Key('stale-notice-row')));
+        final viewport = tester.getRect(find.byType(Scaffold));
+        expect(
+          rect.overlaps(viewport),
+          isTrue,
+          reason: 'the notice must stay pinned in view after a scroll, not '
+              'ride away with row 0 of the list',
+        );
+      },
+    );
+
+    testWidgets(
       "a stale notice's own retry, while its reload is still in flight, keeps "
       'the row mounted with a disabled spinner — StaleNotice must not read as '
       '"refreshed" mid-flight (see its class doc)',

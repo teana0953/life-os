@@ -1007,6 +1007,55 @@ void main() {
 
       expect(controller.status, FinanceStatus.needsReauth);
     });
+
+    test(
+      "a write's own reload superseded by a concurrent background reload "
+      '(e.g. FinanceScaffold._reloadLedger firing from a split write while '
+      'this write is also landing) must not leave status stuck on `loading` '
+      "— every caller that reads `status` right after awaiting addTransaction "
+      'treats anything but `loaded` as the write having failed',
+      () async {
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+
+        // Call 2 (the write's own reload): gated, so its `getSummary`
+        // response sits mid-flight once addTransaction's internal `load`
+        // reaches it.
+        final gate = Completer<void>();
+        repo.gates['2026-07'] = gate;
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        // Let the write's own reload actually start and capture its
+        // (earlier) sequence number before call 3 below starts and captures
+        // a later one — otherwise the two would race the other way.
+        await pumpEventQueue();
+
+        // Call 3 (the background reload a concurrent split write would
+        // fire): a fresh, later `load` for the same month, gated on the
+        // same completer so it too sits mid-flight — matching the review's
+        // probe ("gate call 2 and call 3, release call 2 first").
+        final background = controller.load('tok', '2026-07', background: true);
+        await pumpEventQueue();
+
+        // Release call 2 first: its response is now stale (call 3 moved
+        // `_loadSeq` on), so `load` discards it — but the write itself
+        // already succeeded, and `status` must say so, not sit on
+        // `loading` until call 3 also lands.
+        gate.complete();
+        await write;
+        expect(controller.status, FinanceStatus.loaded);
+
+        await background;
+        expect(controller.status, FinanceStatus.loaded);
+      },
+    );
   });
 
   group('updateTransaction', () {
@@ -1057,11 +1106,49 @@ void main() {
     });
   });
 
+  group('markReloadFailed', () {
+    test('notifies listeners — a screen already on the tab, not one that '
+        'rebuilds by switching to it, has no other way to learn the marking '
+        'just appeared', () async {
+      final controller = _controller(_FakeWithSeed());
+      await controller.load('tok', '2026-07');
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      controller.markReloadFailed();
+
+      expect(notified, isTrue);
+      expect(controller.reloadFailed, isTrue);
+    });
+
+    test('a no-op before the first successful load — there is nothing on '
+        'screen yet for a notice to be about', () async {
+      final controller = _controller(_FakeWithSeed());
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      controller.markReloadFailed();
+
+      expect(notified, isFalse);
+      expect(controller.reloadFailed, isFalse);
+    });
+  });
+
   group('reset', () {
     test('clears the loaded month back to its pre-load state', () async {
       final controller = _controller(_FakeWithSeed());
       await controller.load('tok', '2026-07');
       expect(controller.summary, isNotNull);
+      // Left `true` on purpose before `reset()`: without this,
+      // `reloadFailed` starts (and stays) `false` regardless of whether
+      // `reset()` clears it, so the assertion below would pass even with
+      // the clear removed — the #156 shape in miniature (a per-user flag
+      // `reset()`'s field-by-field list has to remember on its own): the
+      // previous account's own reload failure otherwise survives sign-out
+      // and greets the *next* signed-in account with a stale "couldn't
+      // refresh" notice the moment their own `summary` is non-null.
+      controller.markReloadFailed();
+      expect(controller.reloadFailed, isTrue);
 
       controller.reset();
 
@@ -1071,6 +1158,7 @@ void main() {
       expect(controller.transactions, isEmpty);
       expect(controller.categories, isEmpty);
       expect(controller.splitSpending, isEmpty);
+      expect(controller.reloadFailed, isFalse);
     });
 
     test(
