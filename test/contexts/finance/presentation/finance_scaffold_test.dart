@@ -724,17 +724,33 @@ void main() {
             clock: () => DateTime(2026, 7, 15),
           );
 
-          await tester.pumpWidget(
-            l10nRouterTestApp(
-              home: Builder(
-                builder: (context) => Scaffold(
+          // A real `/finance` route pushed from `/`: this test pops a route
+          // in the middle of a tab switch, so it needs the same push/pop
+          // shape production has — a shell that was pushed onto a stack with
+          // something underneath it to pop back to. (Switching tabs itself
+          // never touches the router; see `FinanceScaffold._selectTab`.)
+          final router = GoRouter(
+            initialLocation: '/',
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => Scaffold(
                   body: TextButton(
                     key: const Key('open-finance'),
-                    onPressed: () => context.push('/finance', extra: scaffold),
+                    onPressed: () => context.push('/finance'),
                     child: const Text('open'),
                   ),
                 ),
               ),
+              GoRoute(path: '/finance', builder: (_, __) => scaffold),
+            ],
+          );
+          await tester.pumpWidget(
+            MaterialApp.router(
+              locale: const Locale('en'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: testSupportedLocales,
+              routerConfig: router,
             ),
           );
           await tester.pumpAndSettle();

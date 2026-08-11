@@ -13,6 +13,7 @@ import 'package:life_os/contexts/split/application/settlement_use_cases.dart';
 import 'package:life_os/contexts/split/presentation/split_tab_dependencies.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/routing/finance_tab.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
@@ -70,25 +71,41 @@ class _Harness {
   _Harness(this.router, this.repo, this.controller, this.pushedAssistantUris);
 }
 
-/// A real router: `/` is the scaffold, `/assistant` records the **full URI it
-/// was pushed with** (query included) and shows a stub the test can pop —
-/// which is what lets these guards see the URL and the return, the two things
-/// this slice is about.
-Future<_Harness> _pumpScaffold(WidgetTester tester) async {
+/// A real router: `/finance` is the scaffold (parsing `?tab=` the way
+/// `app.dart` does, so a test can enter on a specific tab), `/assistant`
+/// records the **full URI it was pushed with** (query included) and shows a
+/// stub the test can pop — which is what lets these guards see the URL and the
+/// return, the two things this slice is about.
+Future<_Harness> _pumpScaffold(
+  WidgetTester tester, {
+  String location = '/finance',
+}) async {
   final repo = FakeFinanceRepository();
   final controller = testFinanceController(repo);
+  // Built ONCE, outside the route builder. Anything that re-runs that builder
+  // (a route rebuild, a push and a pop back) would otherwise hand the scaffold
+  // a brand-new, empty controller — the screen would reset itself mid-session
+  // and every month guard below would be testing a fresh object. In production
+  // these come from `main.dart`'s DI and are stable.
+  final netWorthController = testNetWorthController(repo);
+  final splitDeps = _splitDeps(FakeSplitRepository());
   final pushed = <String>[];
   final router = GoRouter(
-    initialLocation: '/',
+    initialLocation: location,
     routes: [
       GoRoute(
-        path: '/',
-        builder: (_, __) => FinanceScaffold(
+        path: '/finance',
+        builder: (_, state) => FinanceScaffold(
+          initialTab:
+              FinanceTab.fromSlug(
+                state.uri.queryParameters[FinanceTab.queryParameter],
+              ) ??
+              FinanceTab.overview,
           authRepository: _FakeAuthRepository(),
           controller: controller,
-          netWorthController: testNetWorthController(repo),
+          netWorthController: netWorthController,
           financeRepository: repo,
-          split: _splitDeps(FakeSplitRepository()),
+          split: splitDeps,
           // The clock's month (2026-07) is deliberately different from the
           // month the tests pin (2026-06) AND from the real today: an entry
           // built from "today" instead of the selected month comes out
@@ -260,6 +277,52 @@ void main() {
         reason: "淨值's own month must not silently fall back to today's",
       );
     });
+
+    testWidgets(
+      'a URL-seeded 淨值 entry sends tab=networth and 淨值\'s OWN month — '
+      'without the nav bar ever being tapped',
+      (tester) async {
+        // The initial tab from the URL has to reach `_openAssistant`'s per-tab
+        // month rule, not merely the nav bar's `selectedIndex`. Deliberately
+        // no destination taps anywhere in this test: a tap would re-select the
+        // tab through the ordinary path and hide an initial tab that never
+        // moved `_index` at all.
+        final harness = await _pumpScaffold(tester, location: '/finance?tab=networth');
+
+        // Move 淨值's own month off the clock's 2026-07, leaving the ledger on
+        // it — so 淨值's month, the ledger's month and today are not all the
+        // same string and the assertion below can actually distinguish them.
+        await tester.tap(find.byKey(const Key('networth-month-previous')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('finance-assistant-button')));
+        await tester.pumpAndSettle();
+
+        final uri = Uri.parse(harness.pushedAssistantUris.single);
+        expect(uri.queryParameters['tab'], 'networth');
+        expect(uri.queryParameters['month'], '2026-06');
+        expect(
+          harness.controller.selectedMonth,
+          '2026-07',
+          reason: 'the ledger stayed on today — so 2026-06 can only be 淨值\'s',
+        );
+      },
+    );
+
+    testWidgets(
+      'entering on ?tab=split sends split and no month at all',
+      (tester) async {
+        final harness = await _pumpScaffold(tester, location: '/finance?tab=split');
+
+        await tester.tap(find.byKey(const Key('finance-assistant-button')));
+        await tester.pumpAndSettle();
+
+        final uri = Uri.parse(harness.pushedAssistantUris.single);
+        expect(uri.queryParameters['tab'], 'split');
+        expect(uri.queryParameters.containsKey('month'), isFalse);
+        expect(uri.queryParameters.length, 2, reason: 'ctx + tab only');
+      },
+    );
 
     testWidgets(
       'returning from the assistant reloads the ledger — and only on return',

@@ -29,6 +29,7 @@ import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
+import 'package:life_os/shared/routing/finance_tab.dart';
 
 import 'app_test.dart';
 
@@ -88,6 +89,13 @@ void main() {
       '/health/exercise': ExerciseScreen,
       '/health/menstrual': MenstrualScreen,
       '/finance': FinanceScaffold,
+      // A query-carrying deep link still matches the nested route under `/`,
+      // and is not rewritten — including the unknown value, which falls back
+      // to 總覽 *without* touching the URL (a rewrite would edit the address
+      // a user hand-typed or bookmarked).
+      '/finance?tab=networth': FinanceScaffold,
+      '/finance?tab=split': FinanceScaffold,
+      '/finance?tab=bogus': FinanceScaffold,
       '/finance/groups/g1': GroupDetailScreen,
       '/settings': SettingsScreen,
       '/friends': FriendsScreen,
@@ -123,6 +131,33 @@ void main() {
         );
       });
     });
+  });
+
+  group('the real /finance route builder applies ?tab=', () {
+    // The URL-surface table above only proves the *screen* is reached.
+    // `app.dart`'s builder is what turns `?tab=` into the selected
+    // destination, and nothing else in the suite exercises that wiring: the
+    // scaffold's own tests parse the query in their harness.
+    for (final entry in {
+      '/finance': FinanceTab.overview,
+      '/finance?tab=networth': FinanceTab.networth,
+      '/finance?tab=split': FinanceTab.split,
+      '/finance?tab=bogus': FinanceTab.overview,
+    }.entries) {
+      testWidgets('${entry.key} selects ${entry.value.slug}', (tester) async {
+        final router = await pumpSignedIn(tester);
+
+        router.go(entry.key);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<NavigationBar>(find.byType(NavigationBar))
+              .selectedIndex,
+          entry.value.index,
+        );
+      });
+    }
   });
 
   group('web/manifest.json launcher shortcuts', () {

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
+import '../../../shared/routing/finance_tab.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../menstrual/domain/next_period_status.dart';
@@ -69,11 +70,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openSettings() => context.push('/settings');
   void _openHealth() => context.push('/health');
-  void _openFinance() => context.push('/finance');
+  void _openFinance() => context.push(FinanceTab.financeLocation);
   void _openAssistant() => context.push('/assistant');
   void _openVitals() => context.push('/health/vitals');
   void _openMenstrual() => context.push('/health/menstrual');
   void _openFoodDictionary() => context.push('/health/diet/dictionary');
+
+  /// Opens the finance shell on a specific destination. A snapshot tile has to
+  /// land on the tab that shows the number it just displayed — 總資產/總負債 on
+  /// 淨值, 分帳總覽 on 分帳. The destination rides on the location rather than on
+  /// `extra` so that the same string also works as a deep link, a PWA shortcut
+  /// or a pasted URL. (In-app this is a `push`, which — like every other
+  /// pushed screen in this app — does not put its location in the address bar;
+  /// see `FinanceScaffold._selectTab`.) 預算 keeps plain [_openFinance]: its
+  /// number lives on 總覽, which is the shell's default.
+  void _openFinanceTab(FinanceTab tab) => context.push(tab.location.toString());
 
   void _showComingSoon() {
     ScaffoldMessenger.of(context)
@@ -287,17 +298,33 @@ class _HomeScreenState extends State<HomeScreen> {
             openLabel: loc.homeOpenFinance,
             onOpen: _openFinance,
             children: [
-              for (final entry in [
-                (const Key('home-budget'), loc.homeBudget),
-                (const Key('home-total-assets'), loc.homeTotalAssets),
-                (const Key('home-total-liabilities'), loc.homeTotalLiabilities),
-                (const Key('home-split-overview'), loc.homeSplitOverview),
+              // The destination is part of the tuple, not a shared `_openFinance`
+              // for the whole loop: this placeholder block is the state a
+              // cold-start user actually taps, so it has to send each tile to
+              // the same tab the loaded block does.
+              for (final entry in <(Key, String, void Function())>[
+                (const Key('home-budget'), loc.homeBudget, _openFinance),
+                (
+                  const Key('home-total-assets'),
+                  loc.homeTotalAssets,
+                  () => _openFinanceTab(FinanceTab.networth),
+                ),
+                (
+                  const Key('home-total-liabilities'),
+                  loc.homeTotalLiabilities,
+                  () => _openFinanceTab(FinanceTab.networth),
+                ),
+                (
+                  const Key('home-split-overview'),
+                  loc.homeSplitOverview,
+                  () => _openFinanceTab(FinanceTab.split),
+                ),
               ])
                 _SnapshotTile(
                   tileKey: entry.$1,
                   label: entry.$2,
                   value: loc.homeNoData,
-                  onTap: _openFinance,
+                  onTap: entry.$3,
                 ),
             ],
           ),
@@ -392,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 data.netWorth.totalAsset,
                 defaultCurrency,
               ),
-              onTap: _openFinance,
+              onTap: () => _openFinanceTab(FinanceTab.networth),
             ),
             _SnapshotTile(
               tileKey: const Key('home-total-liabilities'),
@@ -401,13 +428,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 data.netWorth.totalLiability,
                 defaultCurrency,
               ),
-              onTap: _openFinance,
+              onTap: () => _openFinanceTab(FinanceTab.networth),
             ),
             _SnapshotTile(
               tileKey: const Key('home-split-overview'),
               label: loc.homeSplitOverview,
               value: _splitValue(loc, data),
-              onTap: _openFinance,
+              onTap: () => _openFinanceTab(FinanceTab.split),
             ),
           ],
         ),

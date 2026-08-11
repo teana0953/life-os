@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/routing/finance_tab.dart';
 import '../../../shared/widgets/app_sheet.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../../split/domain/settlement.dart';
@@ -65,6 +66,16 @@ class FinanceScaffold extends StatefulWidget {
   /// tests inject a fixed clock.
   final DateTime Function() clock;
 
+  /// The destination to open on, taken from `/finance?tab=…` by the route
+  /// builder in `app.dart` (unknown or missing → [FinanceTab.overview]).
+  ///
+  /// **An `initState`-only seed.** There is deliberately no `didUpdateWidget`
+  /// syncing it: the URL is read inwards once and never written back (see
+  /// [_selectTab]), so any later rebuild of this route still carries the
+  /// *entry* tab. Re-applying it there would drag the tab back to whatever the
+  /// address said on arrival, out from under a user who has since moved.
+  final FinanceTab initialTab;
+
   const FinanceScaffold({
     super.key,
     required this.authRepository,
@@ -73,18 +84,22 @@ class FinanceScaffold extends StatefulWidget {
     required this.financeRepository,
     required this.split,
     this.clock = DateTime.now,
+    this.initialTab = FinanceTab.overview,
   });
 
   @override
   State<FinanceScaffold> createState() => _FinanceScaffoldState();
 }
 
-/// The 分帳 destination's index in the nav bar below — named because two
-/// places select it now: the bar itself, and the mirrored-transaction sheet's
-/// exit.
-const _splitTabIndex = 3;
-
 class _FinanceScaffoldState extends State<FinanceScaffold> {
+  /// The selected destination, as [FinanceTab]'s declaration index.
+  ///
+  /// **Assigned in exactly one place: [_selectTab].** Selecting a destination
+  /// is not just a number — it releases that tab's lazy-build gate and starts
+  /// its first-open load — and this scaffold now has three callers that select
+  /// one (the nav bar, the mirrored-transaction sheet's exit, and the initial
+  /// tab from the URL). A second assignment site is how a tab ends up blank or
+  /// spinning forever on a load nobody started.
   int _index = 0;
 
   /// Whether the entry load has run — the gate for the first-frame spinner in
@@ -149,6 +164,14 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       getProfile: widget.split.getProfile,
       idToken: _idToken,
     );
+    // The URL-seeded destination goes through the *same* method the nav bar
+    // uses, so it cannot miss the lazy-build gate or the first-open load.
+    // `notify: false` only because `setState` is illegal in `initState`; the
+    // gate-and-load half is byte-for-byte the nav bar's. Nothing here writes
+    // to the router either — the user just arrived on this address, and
+    // rewriting a bare `/finance` into `/finance?tab=overview` under them
+    // would be this scaffold editing an address it was given.
+    _selectTab(widget.initialTab, notify: false);
     // Post-frame, not called directly from `initState`: `load`'s first
     // synchronous work (before its own first await) must not run as part of
     // this widget's own build — see FinanceController's no-sync-notify rule.
@@ -455,12 +478,54 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// Deliberately only the tab, not the individual expense: there is no route
   /// for a single split, and a mirrored transaction carries no group id
   /// either. A half-built deep link would look like one and land nowhere.
-  void _goToSplitTab() {
-    setState(() {
-      _index = _splitTabIndex;
-      _splitOpened = true;
-    });
-    unawaited(_loadSplit());
+  void _goToSplitTab() => _selectTab(FinanceTab.split);
+
+  /// Selects a destination — the single path every caller takes.
+  ///
+  /// Three things happen together and must never come apart: the index moves,
+  /// the tab's lazy-build gate opens (the `IndexedStack` below builds every
+  /// child, so an ungated tab that was never opened would sit there spinning
+  /// on a load nobody started), and its first-open load runs. A caller that
+  /// only set the index would paint a blank tab; one that only opened the gate
+  /// would paint a permanent spinner.
+  ///
+  /// [notify] is false for exactly one caller — [initState], where `setState`
+  /// is illegal.
+  ///
+  /// **Switching a tab deliberately does not touch the router.** The URL
+  /// carries the tab *inwards* only: `/finance?tab=…` seeds [initState] (see
+  /// `app.dart`'s builder), and from then on the address bar is left alone.
+  /// Writing it back was tried and measured, and every way of doing it is
+  /// worse than a slightly stale address:
+  ///
+  /// * `push`/`go` make each tab switch a browser history entry, which the
+  ///   bottom nav must not do (the tabs are `IndexedStack` siblings, not a
+  ///   stack) — and `go` additionally rebuilds this `State` when finance was
+  ///   entered by `push` (the home tiles), throwing away the per-`State`
+  ///   [SplitController] and refetching everything.
+  /// * `replace` keeps the `State`, but its location never reaches the address
+  ///   bar: it produces an `ImperativeRouteMatch`, which go_router only
+  ///   reports when `GoRouter.optionURLReflectsImperativeAPIs` is true (it
+  ///   defaults to false and this app never sets it). `/finance` is nested
+  ///   under `/`, so what the browser actually gets is the *parent* location
+  ///   carrying the old query — `/?tab=networth`. A refresh then lands on 首頁.
+  ///
+  /// `finance_scaffold_tab_url_test.dart` pins the resulting contract: the
+  /// reported location does not move when the user switches tabs.
+  void _selectTab(FinanceTab tab, {bool notify = true}) {
+    void apply() {
+      _index = tab.index;
+      if (tab == FinanceTab.networth) _netWorthOpened = true;
+      if (tab == FinanceTab.split) _splitOpened = true;
+    }
+
+    if (notify) {
+      setState(apply);
+    } else {
+      apply();
+    }
+    if (tab == FinanceTab.networth) unawaited(_loadNetWorth());
+    if (tab == FinanceTab.split) unawaited(_loadSplit());
   }
 
   Future<void> _openSheet({FinanceTransaction? editing}) async {
@@ -535,17 +600,17 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// user returns — a fire-and-forget push would show them a ledger missing
   /// the entry they just watched the assistant save.
   Future<void> _openAssistant() async {
-    const tabs = ['overview', 'transactions', 'networth', 'split'];
-    final month = switch (_index) {
-      0 || 1 => widget.controller.selectedMonth,
-      2 => widget.netWorthController.selectedMonth,
-      _ => '',
+    final tab = FinanceTab.values[_index];
+    final month = switch (tab) {
+      FinanceTab.overview || FinanceTab.transactions => widget.controller.selectedMonth,
+      FinanceTab.networth => widget.netWorthController.selectedMonth,
+      FinanceTab.split => '',
     };
     final uri = Uri(
       path: '/assistant',
       queryParameters: {
         'ctx': 'finance',
-        'tab': tabs[_index],
+        'tab': tab.slug,
         if (month.isNotEmpty) 'month': month,
       },
     );
@@ -681,9 +746,9 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       // entries fine from its own profile request, so the whole screen looks
       // loaded. A button that is absent is honest; one that swallows taps is
       // not, and the overview's retry is the way back.
-      floatingActionButton: _index == 2
+      floatingActionButton: _index == FinanceTab.networth.index
           ? null
-          : _index == 3
+          : _index == FinanceTab.split.index
           ? _splitController.selfUserId == null
                 ? null
                 : FloatingActionButton(
@@ -745,15 +810,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
         height: math.max(80, MediaQuery.textScalerOf(context).scale(70)),
 
         selectedIndex: _index,
-        onDestinationSelected: (value) {
-          setState(() {
-            _index = value;
-            if (value == 2) _netWorthOpened = true;
-            if (value == _splitTabIndex) _splitOpened = true;
-          });
-          if (value == 2) unawaited(_loadNetWorth());
-          if (value == _splitTabIndex) unawaited(_loadSplit());
-        },
+        onDestinationSelected: (value) => _selectTab(FinanceTab.values[value]),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),
