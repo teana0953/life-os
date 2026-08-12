@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
@@ -72,6 +74,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// Whether a reload can actually run — the same pair `_refreshDashboard`
+  /// checks before doing anything, so no control is offered that it would
+  /// silently drop.
+  bool get _canRefresh =>
+      widget.dashboardController != null && widget.idToken != null;
+
   void _openSettings() => context.push('/settings');
   void _openHealth() => context.push('/health');
   void _openFinance() => context.push(FinanceTab.financeLocation);
@@ -109,13 +117,36 @@ class _HomeScreenState extends State<HomeScreen> {
     final dashboard = widget.dashboardController;
     final token = widget.idToken;
     if (dashboard == null || token == null) return;
+    final loc = AppLocalizations.of(context)!;
+    final direction = Directionality.of(context);
+    var failed = false;
     try {
       await dashboard.load(await token(), widget.clock());
     } catch (_) {
       // `load` swallows its own errors, so this only catches a token renewal
       // that throws — and it must not escape: the future this returns is what
       // RefreshIndicator awaits, and an error there leaves the pull spinner
-      // turning with nothing left to finish it.
+      // turning with nothing left to finish it. It is still a failed refresh,
+      // though: without this flag the announcement below would read the
+      // untouched `lastLoadedAt` and report the OLD time as fresh news.
+      failed = true;
+    }
+    if (!mounted) return;
+    // The whole outcome of the gesture is otherwise conveyed by two silent
+    // repaints — a timestamp that moved and a row that appeared. A screen
+    // reader user pulls, hears nothing, and cannot tell a slow refresh from a
+    // finished one.
+    final lastLoadedAt = dashboard.lastLoadedAt;
+    if (failed ||
+        dashboard.status == HomeDashboardStatus.error ||
+        lastLoadedAt == null) {
+      SemanticsService.announce(loc.cardRefreshFailed, direction);
+    } else {
+      // Same 24-hour rendering as the `LastLoadedLabel` this repeats aloud.
+      SemanticsService.announce(
+        loc.lastUpdatedAt(DateFormat('HH:mm').format(lastLoadedAt)),
+        direction,
+      );
     }
   }
 
@@ -133,19 +164,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 // there is nothing to Tab to inside the gesture), so this is
                 // the only reachable refresh control for those users. Wired
                 // to the same `_refreshDashboard` as the pull and the retry
-                // button; disabled mid-round instead of hidden, so it stays
-                // in the same tab position and the disabled state itself
-                // says a reload is already running.
-                if (widget.dashboardController != null)
+                // button.
+                //
+                // Shown on exactly the condition `_refreshDashboard` acts on
+                // — a controller AND a token provider. The looser
+                // `dashboardController != null` put a button on screen that
+                // the guard turns into a no-op, i.e. one that can never
+                // respond to a press.
+                //
+                // It stays ENABLED mid-round and says so with a spinner in
+                // place of its icon. Nulling `onPressed` takes the button out
+                // of the focus traversal while it is the focused node, and
+                // focus does not come back when the round ends: a keyboard
+                // user who presses it loses their place and has to Tab the
+                // whole page again. Nothing is protected by disabling it —
+                // `HomeDashboardController.load` already returns the running
+                // round instead of starting a second fan-out.
+                if (_canRefresh)
                   IconButton(
                     key: const Key('home-refresh-button'),
                     tooltip: loc.homeRefreshTooltip,
-                    onPressed:
+                    onPressed: () => unawaited(_refreshDashboard()),
+                    icon:
                         widget.dashboardController!.status ==
                             HomeDashboardStatus.loading
-                        ? null
-                        : () => unawaited(_refreshDashboard()),
-                    icon: const Icon(Icons.refresh),
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
                   ),
                 IconButton(
                   key: const Key('settings-icon-button'),
@@ -183,16 +230,25 @@ class _HomeScreenState extends State<HomeScreen> {
         final name = controller.profile?.displayName?.trim() ?? '';
         return RefreshIndicator(
           onRefresh: _refreshDashboard,
+          semanticsLabel: loc.homeRefreshTooltip,
           child: SingleChildScrollView(
             // Always scrollable so a short home on a tall screen still accepts
             // the overscroll pull that triggers the refresh.
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            // Vertical only. The horizontal inset moves onto the content
+            // below, because `StaleNotice` carries its own horizontal padding
+            // (see its doc: a screen whose padding sits on the scroll view
+            // must move it onto the content, or the notice inherits it twice
+            // and sits indented past every other line on the page).
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LastLoadedLabel(
-                  lastLoadedAt: widget.dashboardController?.lastLoadedAt,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: LastLoadedLabel(
+                    lastLoadedAt: widget.dashboardController?.lastLoadedAt,
+                  ),
                 ),
                 // Right beside the timestamp it qualifies, and above the fold
                 // on a phone screen — appended after the whole dashboard (as
@@ -213,54 +269,62 @@ class _HomeScreenState extends State<HomeScreen> {
                     subject: loc.homeDashboardTitle,
                     onRetry: () => unawaited(_refreshDashboard()),
                   ),
-                Text(
-                  _greeting(loc, widget.clock(), name),
-                  key: const Key('home-greeting'),
-                  style: theme.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  loc.homeHubPrompt,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _AssistantEntry(onTap: _openAssistant),
-                const SizedBox(height: 18),
-                _buildDashboard(),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _FutureEntry(
-                        entryKey: const Key('tasks-tile'),
-                        icon: Icons.task_alt_outlined,
-                        label: loc.spaceTasks,
-                        comingSoon: loc.spaceComingSoon,
-                        onTap: _showComingSoon,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _greeting(loc, widget.clock(), name),
+                        key: const Key('home-greeting'),
+                        style: theme.textTheme.headlineMedium,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _FutureEntry(
-                        entryKey: const Key('journal-tile'),
-                        icon: Icons.menu_book_outlined,
-                        label: loc.spaceJournal,
-                        comingSoon: loc.spaceComingSoon,
-                        onTap: _showComingSoon,
+                      const SizedBox(height: 4),
+                      Text(
+                        loc.homeHubPrompt,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: Text(
-                    buildLabel,
-                    key: const Key('build-label'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                      const SizedBox(height: 16),
+                      _AssistantEntry(onTap: _openAssistant),
+                      const SizedBox(height: 18),
+                      _buildDashboard(),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FutureEntry(
+                              entryKey: const Key('tasks-tile'),
+                              icon: Icons.task_alt_outlined,
+                              label: loc.spaceTasks,
+                              comingSoon: loc.spaceComingSoon,
+                              onTap: _showComingSoon,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _FutureEntry(
+                              entryKey: const Key('journal-tile'),
+                              icon: Icons.menu_book_outlined,
+                              label: loc.spaceJournal,
+                              comingSoon: loc.spaceComingSoon,
+                              onTap: _showComingSoon,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: Text(
+                          buildLabel,
+                          key: const Key('build-label'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

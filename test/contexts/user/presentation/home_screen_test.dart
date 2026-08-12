@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
@@ -99,6 +100,11 @@ Future<HomeHarness> pumpHomeScreen(
   AuthRepository? authRepository,
   HomeDashboardController? dashboardController,
   Future<String> Function()? idToken,
+
+  /// Hands the screen a dashboard controller but NO token provider — the
+  /// combination where a reload can never run. `idToken: null` cannot express
+  /// it, since that is also the default.
+  bool omitIdToken = false,
 }) async {
   final financeLocations = <String>[];
   final localeController = await testLocaleController();
@@ -114,9 +120,10 @@ Future<HomeHarness> pumpHomeScreen(
           controller: controller,
           clock: clock ?? DateTime.now,
           dashboardController: dashboardController,
-          idToken:
-              idToken ??
-              (dashboardController == null ? null : () async => 'tok'),
+          idToken: omitIdToken
+              ? null
+              : (idToken ??
+                    (dashboardController == null ? null : () async => 'tok')),
         ),
       ),
       GoRoute(
@@ -667,27 +674,26 @@ void main() {
         expect(harness.financeLocations, ['/finance?tab=split']);
       });
 
-      testWidgets(
-        '$state: 預算 and the 開啟財務 button stay on a bare /finance',
-        (tester) async {
-          // The reverse case. Without it, "append ?tab=networth to every
-          // finance tile" passes the three tests above.
-          final harness = await pump(tester);
-          await tapTile(tester, const Key('home-budget'));
-          expect(
-            harness.financeLocations,
-            ['/finance'],
-            reason: '預算 lives on 總覽, the shell default — no query string',
-          );
+      testWidgets('$state: 預算 and the 開啟財務 button stay on a bare /finance', (
+        tester,
+      ) async {
+        // The reverse case. Without it, "append ?tab=networth to every
+        // finance tile" passes the three tests above.
+        final harness = await pump(tester);
+        await tapTile(tester, const Key('home-budget'));
+        expect(
+          harness.financeLocations,
+          ['/finance'],
+          reason: '預算 lives on 總覽, the shell default — no query string',
+        );
 
-          harness.router.go('/');
-          await tester.pumpAndSettle();
-          harness.financeLocations.clear();
+        harness.router.go('/');
+        await tester.pumpAndSettle();
+        harness.financeLocations.clear();
 
-          await tapTile(tester, const Key('finance-tile'));
-          expect(harness.financeLocations, ['/finance']);
-        },
-      );
+        await tapTile(tester, const Key('finance-tile'));
+        expect(harness.financeLocations, ['/finance']);
+      });
     }
 
     testWidgets(
@@ -798,7 +804,8 @@ void main() {
     );
 
     testWidgets(
-      'the refresh button disables itself while a round is already running',
+      'LINCHPIN: the refresh button stays enabled (and so stays focusable) '
+      'while a round runs, showing a spinner in place of its icon',
       (tester) async {
         final repos = FakeDashboardRepositories();
         final dashboard = dashboardFor(repos);
@@ -809,22 +816,69 @@ void main() {
           dashboardController: dashboard,
         );
 
+        final button = find.byKey(const Key('home-refresh-button'));
         final gate = Completer<void>();
         repos.gate = gate;
-        await tester.tap(find.byKey(const Key('home-refresh-button')));
+        await tester.tap(button);
         await tester.pump();
 
-        final iconButton = tester.widget<IconButton>(
-          find.byKey(const Key('home-refresh-button')),
+        // Disabling it drops keyboard focus mid-round and never gives it back,
+        // so a keyboard user has to Tab the whole page again. `load` already
+        // dedupes concurrent rounds, so there is nothing to protect here.
+        expect(
+          tester.widget<IconButton>(button).onPressed,
+          isNotNull,
+          reason: 'a disabled IconButton cannot hold keyboard focus',
         );
         expect(
-          iconButton.onPressed,
-          isNull,
-          reason: 'a reload is already in flight',
+          find.descendant(
+            of: button,
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsOneWidget,
+          reason: 'the button must still SAY a reload is running',
         );
+        expect(
+          find.descendant(of: button, matching: find.byIcon(Icons.refresh)),
+          findsNothing,
+        );
+
+        // And pressing it again while it runs does not start a second fan-out.
+        await tester.tap(button);
+        await tester.pump();
+        expect(repos.rounds, 2);
 
         gate.complete();
         await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: button, matching: find.byIcon(Icons.refresh)),
+          findsOneWidget,
+          reason: 'the icon comes back once the round lands',
+        );
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: no refresh button when there is no token to reload with — '
+      'the button appears exactly when a press can do something',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          omitIdToken: true,
+        );
+
+        expect(
+          find.byKey(const Key('home-refresh-button')),
+          findsNothing,
+          reason:
+              '_refreshDashboard returns immediately without a token, so '
+              'this button would be dead on arrival',
+        );
       },
     );
 
@@ -853,37 +907,36 @@ void main() {
       },
     );
 
-    testWidgets(
-      'the gesture future settles only when the reload finishes',
-      (tester) async {
-        final repos = FakeDashboardRepositories();
-        final dashboard = dashboardFor(repos);
-        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
-        await pumpHomeScreen(
-          tester,
-          await loadedController(),
-          dashboardController: dashboard,
-          clock: () => DateTime(2026, 1, 1, 11, 45),
-        );
+    testWidgets('the gesture future settles only when the reload finishes', (
+      tester,
+    ) async {
+      final repos = FakeDashboardRepositories();
+      final dashboard = dashboardFor(repos);
+      await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboard,
+        clock: () => DateTime(2026, 1, 1, 11, 45),
+      );
 
-        final gate = Completer<void>();
-        repos.gate = gate;
-        var settled = false;
-        unawaited(indicator(tester).onRefresh().then((_) => settled = true));
-        await tester.pump();
+      final gate = Completer<void>();
+      repos.gate = gate;
+      var settled = false;
+      unawaited(indicator(tester).onRefresh().then((_) => settled = true));
+      await tester.pump();
 
-        expect(repos.rounds, 2);
-        expect(
-          settled,
-          isFalse,
-          reason: 'the spinner stopped before the reload finished',
-        );
+      expect(repos.rounds, 2);
+      expect(
+        settled,
+        isFalse,
+        reason: 'the spinner stopped before the reload finished',
+      );
 
-        gate.complete();
-        await tester.pumpAndSettle();
-        expect(settled, isTrue);
-      },
-    );
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(settled, isTrue);
+    });
 
     testWidgets(
       'a token fetch that throws during a pull still settles the gesture '
@@ -1036,10 +1089,16 @@ void main() {
 
         expect(dashboard.status, HomeDashboardStatus.loading);
         expect(find.byKey(const Key('home-latest-weight')), findsOneWidget);
-        expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
         expect(find.text('987,600'), findsOneWidget);
         expect(
-          find.byType(CircularProgressIndicator),
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(CircularProgressIndicator),
+          ),
           findsNothing,
           reason: 'the reload replaced the dashboard with a spinner',
         );
@@ -1068,7 +1127,175 @@ void main() {
         expect(find.text(loc.lastUpdatedAt('09:30')), findsNothing);
       },
     );
+
+    testWidgets(
+      'LINCHPIN: the stale notice starts on the same left edge as the rest of '
+      'the page (its own padding must not stack on the page padding)',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        repos.fail = true;
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        final noticeLeft = tester
+            .getTopLeft(find.byIcon(Icons.cloud_off_outlined))
+            .dx;
+        final greetingLeft = tester
+            .getTopLeft(find.byKey(const Key('home-greeting')))
+            .dx;
+        expect(
+          noticeLeft,
+          greetingLeft,
+          reason: 'the notice is indented past every other line on the page',
+        );
+        // And its tappable row runs the full width of the page rather than
+        // floating rounded corners over the page ground.
+        final rowLeft = tester
+            .getTopLeft(find.byKey(const Key('stale-notice-row')))
+            .dx;
+        expect(rowLeft, 0);
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: a real overscroll pull — not a hand-called onRefresh — runs '
+      'a round and advances the timestamp',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        expect(repos.rounds, 1);
+
+        // Every other test here calls `onRefresh()` directly, which passes
+        // even if the RefreshIndicator sits somewhere the overscroll never
+        // reaches. This one drags the actual scrollable.
+        await tester.fling(
+          find.byType(SingleChildScrollView),
+          const Offset(0, 350),
+          1000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(repos.rounds, 2, reason: 'the pull started no reload');
+        expect(dashboard.lastLoadedAt, DateTime(2026, 1, 1, 11, 45));
+        expect(find.text(loc.lastUpdatedAt('11:45')), findsOneWidget);
+      },
+    );
+
+    testWidgets('the pull gesture carries a screen-reader label', (
+      tester,
+    ) async {
+      final repos = FakeDashboardRepositories();
+      final dashboard = dashboardFor(repos);
+      await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboard,
+      );
+
+      expect(indicator(tester).semanticsLabel, loc.homeRefreshTooltip);
+    });
+
+    testWidgets(
+      'LINCHPIN: a finished refresh announces itself — the new time on '
+      'success, the failure copy on failure',
+      (tester) async {
+        final announced = _captureAnnouncements(tester);
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        expect(announced, isEmpty, reason: 'nothing was refreshed yet');
+
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+        expect(announced, [loc.lastUpdatedAt('11:45')]);
+
+        repos.fail = true;
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+        expect(announced, [loc.lastUpdatedAt('11:45'), loc.cardRefreshFailed]);
+      },
+    );
+
+    testWidgets(
+      'a refresh whose token renewal throws announces the failure, not a '
+      'success carrying the old timestamp',
+      (tester) async {
+        final announced = _captureAnnouncements(tester);
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          idToken: () async => throw StateError('token renewal failed'),
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        expect(announced, [loc.cardRefreshFailed]);
+      },
+    );
   });
+}
+
+/// Collects what the screen sends to the platform's accessibility channel —
+/// what `SemanticsService.announce` actually puts on the wire, rather than a
+/// spy wrapped around the call site.
+List<String> _captureAnnouncements(WidgetTester tester) {
+  final announced = <String>[];
+  tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<Object?>(
+    SystemChannels.accessibility,
+    (message) async {
+      final event = message! as Map<Object?, Object?>;
+      if (event['type'] == 'announce') {
+        final data = event['data']! as Map<Object?, Object?>;
+        announced.add(data['message']! as String);
+      }
+      return null;
+    },
+  );
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger
+        .setMockDecodedMessageHandler<Object?>(
+          SystemChannels.accessibility,
+          null,
+        ),
+  );
+  return announced;
 }
 
 /// A [HomeDashboardController] already in its loaded state, with figures the
@@ -1080,13 +1307,13 @@ void main() {
 HomeDashboardController loadedDashboardFixture() {
   final unused = _UnusedRepositories();
   return HomeDashboardController(
-    GetWeightGoal(unused),
-    GetVitalsTrends(unused),
-    GetMenstrualOverview(unused),
-    ListFinanceBudgets(unused),
-    GetMonthlyNetWorth(unused),
-    GetBalances(unused),
-  )
+      GetWeightGoal(unused),
+      GetVitalsTrends(unused),
+      GetMenstrualOverview(unused),
+      ListFinanceBudgets(unused),
+      GetMonthlyNetWorth(unused),
+      GetBalances(unused),
+    )
     ..status = HomeDashboardStatus.loaded
     ..data = const HomeDashboardData(
       weightGoal: WeightGoal(currentWeightKg: 62.5),
