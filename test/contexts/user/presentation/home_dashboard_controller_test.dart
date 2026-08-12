@@ -1,0 +1,283 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
+import 'package:life_os/contexts/finance/application/list_finance_budgets.dart';
+import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
+import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
+import 'package:life_os/contexts/split/application/balance_use_cases.dart';
+import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
+import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
+
+import 'dashboard_repositories_fake.dart';
+
+void main() {
+  HomeDashboardController controllerFor(FakeDashboardRepositories repos) =>
+      HomeDashboardController(
+        GetWeightGoal(repos),
+        GetVitalsTrends(repos),
+        GetMenstrualOverview(repos),
+        ListFinanceBudgets(repos),
+        GetMonthlyNetWorth(repos),
+        GetBalances(repos),
+      );
+
+  test('a successful load stamps lastLoadedAt with the `now` it was given', () async {
+    final repos = FakeDashboardRepositories();
+    final controller = controllerFor(repos);
+
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+    expect(controller.status, HomeDashboardStatus.loaded);
+    expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 9, 30));
+  });
+
+  test('a failed load leaves lastLoadedAt exactly where it was', () async {
+    final repos = FakeDashboardRepositories();
+    final controller = controllerFor(repos);
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+    repos.fail = true;
+    await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
+
+    expect(controller.status, HomeDashboardStatus.error);
+    expect(
+      controller.lastLoadedAt,
+      DateTime(2026, 1, 1, 9, 30),
+      reason: 'a failed round must not claim the data was just refreshed',
+    );
+  });
+
+  test('a failed load keeps the data already on hand', () async {
+    final repos = FakeDashboardRepositories();
+    final controller = controllerFor(repos);
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+    final loaded = controller.data;
+
+    repos.fail = true;
+    await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
+
+    expect(controller.data, same(loaded));
+  });
+
+  test(
+    'reset() clears lastLoadedAt along with the data (sign-out leaves no '
+    'per-user state behind)',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+      expect(controller.lastLoadedAt, isNotNull);
+
+      controller.reset();
+
+      expect(controller.data, isNull);
+      expect(controller.status, HomeDashboardStatus.idle);
+      expect(controller.lastLoadedAt, isNull);
+    },
+  );
+
+  test(
+    'a load started while one is already in flight rides the same round '
+    'instead of firing a second fan-out',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+
+      var firstSettled = false;
+      var secondSettled = false;
+      unawaited(
+        controller.load('tok', DateTime(2026, 1, 1, 9, 30)).then((_) {
+          firstSettled = true;
+        }),
+      );
+      // Let the fan-out reach the gate.
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      unawaited(
+        controller.load('tok', DateTime(2026, 1, 1, 9, 31)).then((_) {
+          secondSettled = true;
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1, reason: 'the second call must not start a round');
+      expect(firstSettled, isFalse);
+      expect(secondSettled, isFalse);
+
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(firstSettled, isTrue);
+      expect(secondSettled, isTrue);
+      expect(repos.rounds, 1);
+      // The round that ran is the first one — its `now`, not the second call's.
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 9, 30));
+    },
+  );
+
+  test(
+    'reset() while a round is in flight lets the next load start a fresh '
+    "round for the new user, instead of riding the old user's future",
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+
+      // User A's fan-out starts and parks on the gate.
+      unawaited(controller.load('tokenA', DateTime(2026, 1, 1, 9, 30)));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      // User A signs out while that round is still in flight.
+      controller.reset();
+
+      // User B signs in and loads.
+      final loadB = controller.load('tokenB', DateTime(2026, 1, 1, 10, 0));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        repos.rounds,
+        2,
+        reason:
+            "a fresh round must start for user B, not reuse user A's in-flight future",
+      );
+      expect(repos.goalTokens, contains('tokenB'));
+
+      // Let both rounds finish so the gated arms don't leak into other tests.
+      gate.complete();
+      await loadB;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 10, 0));
+    },
+  );
+
+  test(
+    'a round that was in flight at reset() must not write its result onto the '
+    'controller afterwards',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+
+      // User A's fan-out starts and parks on the gate.
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      // User A signs out while that round is still in flight.
+      controller.reset();
+
+      // The outgoing round now completes successfully.
+      gate.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.data,
+        isNull,
+        reason: "the outgoing user's round must not land data on a reset controller",
+      );
+      expect(controller.status, HomeDashboardStatus.idle);
+      expect(controller.lastLoadedAt, isNull);
+    },
+  );
+
+  test(
+    'a round that was in flight at reset() must not write an error status '
+    'afterwards either',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+      repos.fail = true;
+
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      controller.reset();
+
+      // The outgoing round now fails.
+      gate.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.status,
+        HomeDashboardStatus.idle,
+        reason:
+            "the outgoing user's failure must not paint an error on the next user's screen",
+      );
+      expect(controller.data, isNull);
+      expect(controller.lastLoadedAt, isNull);
+    },
+  );
+
+  test(
+    'an old round finishing after reset() must not clear the newer round\'s '
+    'in-flight slot',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gateA = Completer<void>();
+      repos.gate = gateA;
+
+      // User A's round starts and parks on gate A.
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      controller.reset();
+
+      // User B's round starts and parks on its own gate.
+      final gateB = Completer<void>();
+      repos.gate = gateB;
+      final roundB = controller.load('tokenB', DateTime(2026, 1, 1, 10, 0));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 2);
+
+      // Round A finishes while B is still in flight.
+      gateA.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      // A refresh now must ride round B, not start a third fan-out.
+      final rideAlong = controller.load('tokenB', DateTime(2026, 1, 1, 10, 5));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        repos.rounds,
+        2,
+        reason:
+            "round A's completion must not free the slot round B is still holding",
+      );
+
+      gateB.complete();
+      await roundB;
+      await rideAlong;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 10, 0));
+    },
+  );
+
+  test('a later load runs normally once the in-flight one has finished', () async {
+    final repos = FakeDashboardRepositories();
+    final controller = controllerFor(repos);
+
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+    await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
+
+    expect(repos.rounds, 2);
+    expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 11, 45));
+  });
+}

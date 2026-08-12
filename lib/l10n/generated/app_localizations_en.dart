@@ -221,6 +221,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeDashboardLoadFailed => 'Couldn\'t load your dashboard.';
 
   @override
+  String get homeDashboardTitle => 'Dashboard';
+
+  @override
+  String get homeRefreshTooltip => 'Refresh';
+
+  @override
   String get yourSpaces => 'Your spaces';
 
   @override

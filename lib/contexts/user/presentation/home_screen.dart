@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
 import '../../../shared/routing/finance_tab.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../menstrual/domain/next_period_status.dart';
 import 'home_controller.dart';
@@ -68,6 +74,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// Whether a reload can actually run — the same pair `_refreshDashboard`
+  /// checks before doing anything, so no control is offered that it would
+  /// silently drop.
+  bool get _canRefresh =>
+      widget.dashboardController != null && widget.idToken != null;
+
   void _openSettings() => context.push('/settings');
   void _openHealth() => context.push('/health');
   void _openFinance() => context.push(FinanceTab.financeLocation);
@@ -94,11 +106,48 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  Future<void> _retryDashboard() async {
+  /// Reloads the dashboard — the pull-to-refresh handler and the error card's
+  /// retry, which are the same request. Only the dashboard: the profile is a
+  /// name and an admin flag, and reloading it would add a seventh request and
+  /// another failure mode to the gesture.
+  ///
+  /// A fresh token per reload (issue #106): home stays mounted for the whole
+  /// session, so a token captured at mount goes stale under it.
+  Future<void> _refreshDashboard() async {
     final dashboard = widget.dashboardController;
     final token = widget.idToken;
     if (dashboard == null || token == null) return;
-    await dashboard.load(await token(), widget.clock());
+    final loc = AppLocalizations.of(context)!;
+    final direction = Directionality.of(context);
+    var failed = false;
+    try {
+      await dashboard.load(await token(), widget.clock());
+    } catch (_) {
+      // `load` swallows its own errors, so this only catches a token renewal
+      // that throws — and it must not escape: the future this returns is what
+      // RefreshIndicator awaits, and an error there leaves the pull spinner
+      // turning with nothing left to finish it. It is still a failed refresh,
+      // though: without this flag the announcement below would read the
+      // untouched `lastLoadedAt` and report the OLD time as fresh news.
+      failed = true;
+    }
+    if (!mounted) return;
+    // The whole outcome of the gesture is otherwise conveyed by two silent
+    // repaints — a timestamp that moved and a row that appeared. A screen
+    // reader user pulls, hears nothing, and cannot tell a slow refresh from a
+    // finished one.
+    final lastLoadedAt = dashboard.lastLoadedAt;
+    if (failed ||
+        dashboard.status == HomeDashboardStatus.error ||
+        lastLoadedAt == null) {
+      SemanticsService.announce(loc.cardRefreshFailed, direction);
+    } else {
+      // Same 24-hour rendering as the `LastLoadedLabel` this repeats aloud.
+      SemanticsService.announce(
+        loc.lastUpdatedAt(DateFormat('HH:mm').format(lastLoadedAt)),
+        direction,
+      );
+    }
   }
 
   @override
@@ -110,6 +159,41 @@ class _HomeScreenState extends State<HomeScreen> {
           ? AppBar(
               title: Text(loc.appTitle),
               actions: [
+                // Pull-to-refresh has no keyboard/mouse equivalent (Flutter's
+                // default `ScrollBehavior` doesn't drag on mouse input, and
+                // there is nothing to Tab to inside the gesture), so this is
+                // the only reachable refresh control for those users. Wired
+                // to the same `_refreshDashboard` as the pull and the retry
+                // button.
+                //
+                // Shown on exactly the condition `_refreshDashboard` acts on
+                // — a controller AND a token provider. The looser
+                // `dashboardController != null` put a button on screen that
+                // the guard turns into a no-op, i.e. one that can never
+                // respond to a press.
+                //
+                // It stays ENABLED mid-round and says so with a spinner in
+                // place of its icon. Nulling `onPressed` takes the button out
+                // of the focus traversal while it is the focused node, and
+                // focus does not come back when the round ends: a keyboard
+                // user who presses it loses their place and has to Tab the
+                // whole page again. Nothing is protected by disabling it —
+                // `HomeDashboardController.load` already returns the running
+                // round instead of starting a second fan-out.
+                if (_canRefresh)
+                  IconButton(
+                    key: const Key('home-refresh-button'),
+                    tooltip: loc.homeRefreshTooltip,
+                    onPressed: () => unawaited(_refreshDashboard()),
+                    icon:
+                        widget.dashboardController!.status ==
+                            HomeDashboardStatus.loading
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                  ),
                 IconButton(
                   key: const Key('settings-icon-button'),
                   tooltip: loc.settingsIconTooltip,
@@ -144,62 +228,107 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
         final name = controller.profile?.displayName?.trim() ?? '';
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _greeting(loc, widget.clock(), name),
-                key: const Key('home-greeting'),
-                style: theme.textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                loc.homeHubPrompt,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _AssistantEntry(onTap: _openAssistant),
-              const SizedBox(height: 18),
-              _buildDashboard(),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _FutureEntry(
-                      entryKey: const Key('tasks-tile'),
-                      icon: Icons.task_alt_outlined,
-                      label: loc.spaceTasks,
-                      comingSoon: loc.spaceComingSoon,
-                      onTap: _showComingSoon,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _FutureEntry(
-                      entryKey: const Key('journal-tile'),
-                      icon: Icons.menu_book_outlined,
-                      label: loc.spaceJournal,
-                      comingSoon: loc.spaceComingSoon,
-                      onTap: _showComingSoon,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
-                  buildLabel,
-                  key: const Key('build-label'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+        return RefreshIndicator(
+          onRefresh: _refreshDashboard,
+          semanticsLabel: loc.homeRefreshTooltip,
+          child: SingleChildScrollView(
+            // Always scrollable so a short home on a tall screen still accepts
+            // the overscroll pull that triggers the refresh.
+            physics: const AlwaysScrollableScrollPhysics(),
+            // Vertical only. The horizontal inset moves onto the content
+            // below, because `StaleNotice` carries its own horizontal padding
+            // (see its doc: a screen whose padding sits on the scroll view
+            // must move it onto the content, or the notice inherits it twice
+            // and sits indented past every other line on the page).
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: LastLoadedLabel(
+                    lastLoadedAt: widget.dashboardController?.lastLoadedAt,
                   ),
                 ),
-              ),
-            ],
+                // Right beside the timestamp it qualifies, and above the fold
+                // on a phone screen — appended after the whole dashboard (as
+                // every other card-level StaleNotice does after its own
+                // card) leaves it several screens below where a pull started
+                // at the top of the page, so a failed refresh reads as
+                // silence instead of a failure. `dashboard.data != null` only:
+                // the no-data-yet case already shows `_DashboardUnavailable`.
+                if (widget.dashboardController != null &&
+                    widget.dashboardController!.data != null)
+                  StaleNotice(
+                    failed:
+                        widget.dashboardController!.status ==
+                        HomeDashboardStatus.error,
+                    loading:
+                        widget.dashboardController!.status ==
+                        HomeDashboardStatus.loading,
+                    subject: loc.homeDashboardTitle,
+                    onRetry: () => unawaited(_refreshDashboard()),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _greeting(loc, widget.clock(), name),
+                        key: const Key('home-greeting'),
+                        style: theme.textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        loc.homeHubPrompt,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _AssistantEntry(onTap: _openAssistant),
+                      const SizedBox(height: 18),
+                      _buildDashboard(),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FutureEntry(
+                              entryKey: const Key('tasks-tile'),
+                              icon: Icons.task_alt_outlined,
+                              label: loc.spaceTasks,
+                              comingSoon: loc.spaceComingSoon,
+                              onTap: _showComingSoon,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _FutureEntry(
+                              entryKey: const Key('journal-tile'),
+                              icon: Icons.menu_book_outlined,
+                              label: loc.spaceJournal,
+                              comingSoon: loc.spaceComingSoon,
+                              onTap: _showComingSoon,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: Text(
+                          buildLabel,
+                          key: const Key('build-label'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       case HomeStatus.error:
@@ -331,24 +460,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
-    if (dashboard.status == HomeDashboardStatus.idle ||
-        dashboard.status == HomeDashboardStatus.loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(36),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    if (dashboard.status == HomeDashboardStatus.error ||
-        dashboard.data == null) {
+    // Both placeholders are gated on `data == null`, i.e. on there being
+    // nothing to show — never on the status alone. A pull-to-refresh sets
+    // `loading` and then possibly `error` with the previous figures still
+    // held, and swapping the whole dashboard for a spinner (which also
+    // shrinks the scrollable under the user's finger mid-gesture) or for the
+    // "couldn't load" card would throw away data that is still perfectly
+    // displayable. A failed reload keeps the figures and marks them stale
+    // below instead.
+    final data = dashboard.data;
+    if (data == null) {
+      if (dashboard.status == HomeDashboardStatus.idle ||
+          dashboard.status == HomeDashboardStatus.loading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(36),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
       return _DashboardUnavailable(
         text: loc.homeDashboardLoadFailed,
         retryLabel: loc.retry,
-        onRetry: _retryDashboard,
+        onRetry: _refreshDashboard,
       );
     }
-    final data = dashboard.data!;
     return Column(
       children: [
         _DashboardSection(

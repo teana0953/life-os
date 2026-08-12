@@ -471,6 +471,18 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load your dashboard.'**
   String get homeDashboardLoadFailed;
 
+  /// StaleNotice's subject on the home screen, i.e. what failed to refresh — not the app's name.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get homeDashboardTitle;
+
+  /// Tooltip for the app-bar icon button that reloads the home dashboard, for keyboard/mouse users who cannot pull-to-refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get homeRefreshTooltip;
+
   /// Heading above the home screen's grid of space previews.
   ///
   /// In en, this message translates to:
