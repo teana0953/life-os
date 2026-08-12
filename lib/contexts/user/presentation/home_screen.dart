@@ -128,6 +128,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ? AppBar(
               title: Text(loc.appTitle),
               actions: [
+                // Pull-to-refresh has no keyboard/mouse equivalent (Flutter's
+                // default `ScrollBehavior` doesn't drag on mouse input, and
+                // there is nothing to Tab to inside the gesture), so this is
+                // the only reachable refresh control for those users. Wired
+                // to the same `_refreshDashboard` as the pull and the retry
+                // button; disabled mid-round instead of hidden, so it stays
+                // in the same tab position and the disabled state itself
+                // says a reload is already running.
+                if (widget.dashboardController != null)
+                  IconButton(
+                    key: const Key('home-refresh-button'),
+                    tooltip: loc.homeRefreshTooltip,
+                    onPressed:
+                        widget.dashboardController!.status ==
+                            HomeDashboardStatus.loading
+                        ? null
+                        : () => unawaited(_refreshDashboard()),
+                    icon: const Icon(Icons.refresh),
+                  ),
                 IconButton(
                   key: const Key('settings-icon-button'),
                   tooltip: loc.settingsIconTooltip,
@@ -175,6 +194,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 LastLoadedLabel(
                   lastLoadedAt: widget.dashboardController?.lastLoadedAt,
                 ),
+                // Right beside the timestamp it qualifies, and above the fold
+                // on a phone screen — appended after the whole dashboard (as
+                // every other card-level StaleNotice does after its own
+                // card) leaves it several screens below where a pull started
+                // at the top of the page, so a failed refresh reads as
+                // silence instead of a failure. `dashboard.data != null` only:
+                // the no-data-yet case already shows `_DashboardUnavailable`.
+                if (widget.dashboardController != null &&
+                    widget.dashboardController!.data != null)
+                  StaleNotice(
+                    failed:
+                        widget.dashboardController!.status ==
+                        HomeDashboardStatus.error,
+                    loading:
+                        widget.dashboardController!.status ==
+                        HomeDashboardStatus.loading,
+                    subject: loc.homeDashboardTitle,
+                    onRetry: () => unawaited(_refreshDashboard()),
+                  ),
                 Text(
                   _greeting(loc, widget.clock(), name),
                   key: const Key('home-greeting'),
@@ -471,18 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => _openFinanceTab(FinanceTab.split),
             ),
           ],
-        ),
-        // Says the figures above are older than they look, and offers the one
-        // retry that covers them (the fan-out is a single request set, so —
-        // unlike the health overview's per-card notices — there is one notice
-        // for the whole dashboard). Renders nothing while the last reload
-        // succeeded, and must stay mounted through `loading` so a retry it
-        // started keeps its spinner instead of reading as "refreshed".
-        StaleNotice(
-          failed: dashboard.status == HomeDashboardStatus.error,
-          loading: dashboard.status == HomeDashboardStatus.loading,
-          subject: loc.appTitle,
-          onRetry: () => unawaited(_refreshDashboard()),
         ),
       ],
     );

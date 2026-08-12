@@ -132,6 +132,12 @@ class HomeDashboardController extends ChangeNotifier {
     // otherwise the next account's home opens claiming a load time that
     // belongs to the previous one.
     lastLoadedAt = null;
+    // Also per-user: if a round for the outgoing user is still in flight when
+    // they sign out, `load` for the incoming user must start a fresh fan-out
+    // rather than riding the old round's future to completion — otherwise the
+    // new user's screen quietly fills in with the old user's data and no
+    // request is ever made with the new token.
+    _inFlight = null;
   }
 }
 

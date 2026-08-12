@@ -120,6 +120,44 @@ void main() {
     },
   );
 
+  test(
+    'reset() while a round is in flight lets the next load start a fresh '
+    "round for the new user, instead of riding the old user's future",
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+
+      // User A's fan-out starts and parks on the gate.
+      unawaited(controller.load('tokenA', DateTime(2026, 1, 1, 9, 30)));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      // User A signs out while that round is still in flight.
+      controller.reset();
+
+      // User B signs in and loads.
+      final loadB = controller.load('tokenB', DateTime(2026, 1, 1, 10, 0));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        repos.rounds,
+        2,
+        reason:
+            "a fresh round must start for user B, not reuse user A's in-flight future",
+      );
+      expect(repos.goalTokens, contains('tokenB'));
+
+      // Let both rounds finish so the gated arms don't leak into other tests.
+      gate.complete();
+      await loadB;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 10, 0));
+    },
+  );
+
   test('a later load runs normally once the in-flight one has finished', () async {
     final repos = FakeDashboardRepositories();
     final controller = controllerFor(repos);

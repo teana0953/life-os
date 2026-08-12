@@ -224,6 +224,10 @@
   "@homeDashboardUnavailable": { "description": "Fallback used by isolated home views without dashboard dependencies." },
   "homeDashboardLoadFailed": "Couldn't load your dashboard.",
   "@homeDashboardLoadFailed": { "description": "Shown when the home snapshot batch fails." },
+  "homeDashboardTitle": "Dashboard",
+  "@homeDashboardTitle": { "description": "StaleNotice's subject on the home screen, i.e. what failed to refresh — not the app's name." },
+  "homeRefreshTooltip": "Refresh",
+  "@homeRefreshTooltip": { "description": "Tooltip for the app-bar icon button that reloads the home dashboard, for keyboard/mouse users who cannot pull-to-refresh." },
   "yourSpaces": "Your spaces",
   "@yourSpaces": {
     "description": "Heading above the home screen's grid of space previews."

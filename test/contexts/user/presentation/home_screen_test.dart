@@ -775,6 +775,60 @@ void main() {
     );
 
     testWidgets(
+      'the app bar carries a refresh button for keyboard/mouse users who '
+      'cannot pull-to-refresh, wired to the same reload as the gesture',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+        );
+
+        final button = find.byKey(const Key('home-refresh-button'));
+        expect(button, findsOneWidget);
+
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+
+        expect(repos.rounds, 2);
+      },
+    );
+
+    testWidgets(
+      'the refresh button disables itself while a round is already running',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+        );
+
+        final gate = Completer<void>();
+        repos.gate = gate;
+        await tester.tap(find.byKey(const Key('home-refresh-button')));
+        await tester.pump();
+
+        final iconButton = tester.widget<IconButton>(
+          find.byKey(const Key('home-refresh-button')),
+        );
+        expect(
+          iconButton.onPressed,
+          isNull,
+          reason: 'a reload is already in flight',
+        );
+
+        gate.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
       'a pull after a token renewal refetches with the freshly resolved token',
       (tester) async {
         final repos = FakeDashboardRepositories();
@@ -918,6 +972,47 @@ void main() {
         expect(find.text('987,600'), findsOneWidget);
         expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
         expect(find.text(loc.homeDashboardLoadFailed), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the stale notice sits above the fold on a phone-sized viewport, and '
+      'names the dashboard rather than the whole app',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        repos.fail = true;
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        final noticeTop = tester
+            .getTopLeft(find.byKey(const Key('stale-notice-row')))
+            .dy;
+        expect(
+          noticeTop,
+          lessThan(844),
+          reason: 'a failed refresh must be visible without scrolling',
+        );
+        // Not `loc.appTitle`: the notice's contract is the card's own title,
+        // and the app name in its screen-reader label would read as "the
+        // whole app is broken" rather than naming just the dashboard.
+        expect(
+          find.bySemanticsLabel(
+            '${loc.homeDashboardTitle}: ${loc.cardRefreshFailed}. ${loc.retry}',
+          ),
+          findsOneWidget,
+        );
       },
     );
 

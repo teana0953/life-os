@@ -218,6 +218,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeDashboardLoadFailed => '無法載入 Dashboard。';
 
   @override
+  String get homeDashboardTitle => 'Dashboard';
+
+  @override
+  String get homeRefreshTooltip => 'Refresh';
+
+  @override
   String get yourSpaces => '你的空間';
 
   @override
@@ -3153,6 +3159,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get homeDashboardLoadFailed => '無法載入 Dashboard。';
+
+  @override
+  String get homeDashboardTitle => '總覽';
+
+  @override
+  String get homeRefreshTooltip => '重新整理';
 
   @override
   String get yourSpaces => '你的空間';

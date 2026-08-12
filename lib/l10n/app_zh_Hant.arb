@@ -62,6 +62,8 @@
   "homeNoData": "尚無資料",
   "homeDashboardUnavailable": "此畫面沒有 Dashboard 資料。",
   "homeDashboardLoadFailed": "無法載入 Dashboard。",
+  "homeDashboardTitle": "總覽",
+  "homeRefreshTooltip": "重新整理",
   "yourSpaces": "你的空間",
   "spaceHealth": "健康",
   "spaceFinance": "財務",
