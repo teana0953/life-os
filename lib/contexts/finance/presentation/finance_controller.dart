@@ -115,6 +115,18 @@ class FinanceController extends ChangeNotifier {
   /// only applies its result while it is still the most recent call.
   int _loadSeq = 0;
 
+  /// Bumped only by [reset] — never by [load]. Captured by [_mutate] and
+  /// [saveBudgets] *before* their write's own network call, so that if
+  /// [reset] runs while that write is still in flight (sign-out mid-write),
+  /// the write's own post-success reload can tell its session ended even
+  /// though, by the time it goes to call [load], that call's own freshly
+  /// minted [_loadSeq] would otherwise look perfectly current. [_loadSeq]
+  /// alone cannot express this: [reset] bumping it only protects a reload
+  /// already in flight at reset time, not one a write starts *after* reset
+  /// with the signed-out session's stale token — see [_reloadAfterWrite]
+  /// and [_reportRefusedWrite].
+  int _sessionEpoch = 0;
+
   FinanceStatus status = FinanceStatus.loading;
   FinanceError? error;
 
@@ -164,6 +176,7 @@ class FinanceController extends ChangeNotifier {
     // still passes `seq == _loadSeq` and repopulates the screen after
     // sign-out — the exact #156/#157 leak shape.
     _loadSeq++;
+    _sessionEpoch++;
     selectedMonth = '';
     status = FinanceStatus.loading;
     error = null;
@@ -349,7 +362,16 @@ class FinanceController extends ChangeNotifier {
   /// 401'd, the reader must keep seeing the sign-in exit. Both attempts to
   /// make this one field answer both questions (7af5e79, 7c58e68) turned one
   /// half true by making the other half lie.
-  Future<void> _reloadAfterWrite(String idToken, String month) async {
+  ///
+  /// [epoch] is the [_sessionEpoch] the caller captured before its write's
+  /// own network call started. If [reset] ran since — sign-out landed while
+  /// the write was in flight — this must not call [load] at all: doing so
+  /// would fetch with the signed-out session's token and, because that call
+  /// mints its own fresh [_loadSeq], it would look like the newest call and
+  /// repaint the previous account's data over a screen [reset] already
+  /// cleared (#156/#157).
+  Future<void> _reloadAfterWrite(String idToken, String month, int epoch) async {
+    if (epoch != _sessionEpoch) return;
     await load(idToken, month);
   }
 
@@ -365,11 +387,18 @@ class FinanceController extends ChangeNotifier {
   /// terminal outcome — and this stale one must not overwrite it. The caller
   /// hears about the refusal through the returned [FinanceWriteResult]
   /// regardless, so nothing is lost by staying off the screen here.
+  ///
+  /// [epoch] is the [_sessionEpoch] captured before the refused write's own
+  /// network call — same reasoning as [_reloadAfterWrite]: if [reset] ran
+  /// since, this must not call [load] (or paint anything) with the
+  /// signed-out session's token at all.
   Future<void> _reportRefusedWrite(
     String idToken, {
     required FinanceStatus refusedStatus,
     FinanceError? refusal,
+    required int epoch,
   }) async {
+    if (epoch != _sessionEpoch) return;
     final applied = await load(idToken, selectedMonth);
     if (!applied || status != FinanceStatus.loaded) return;
     status = refusedStatus;
@@ -408,7 +437,7 @@ class FinanceController extends ChangeNotifier {
     required String categoryId,
     required String date,
     String? note,
-  }) => _mutate(idToken, () async {
+  }) => _mutate(idToken, (epoch) async {
     final created = await _addTransaction(
       idToken,
       type: type,
@@ -418,7 +447,7 @@ class FinanceController extends ChangeNotifier {
       date: date,
       note: note,
     );
-    await _reloadAfterWrite(idToken, monthOf(created.date));
+    await _reloadAfterWrite(idToken, monthOf(created.date), epoch);
   });
 
   /// Full-replace edits an existing transaction, then reloads the month its
@@ -432,7 +461,7 @@ class FinanceController extends ChangeNotifier {
     required String categoryId,
     required String date,
     String? note,
-  }) => _mutate(idToken, () async {
+  }) => _mutate(idToken, (epoch) async {
     final updated = await _updateTransaction(
       idToken,
       id,
@@ -443,7 +472,7 @@ class FinanceController extends ChangeNotifier {
       date: date,
       note: note,
     );
-    await _reloadAfterWrite(idToken, monthOf(updated.date));
+    await _reloadAfterWrite(idToken, monthOf(updated.date), epoch);
   });
 
   /// Deletes a transaction, then reloads the currently selected month — NOT
@@ -451,9 +480,9 @@ class FinanceController extends ChangeNotifier {
   /// switched months while its edit sheet was open). Returns this write's own
   /// outcome.
   Future<FinanceWriteResult> deleteTransaction(String idToken, String id) =>
-      _mutate(idToken, () async {
+      _mutate(idToken, (epoch) async {
         await _deleteTransaction(idToken, id);
-        await _reloadAfterWrite(idToken, selectedMonth);
+        await _reloadAfterWrite(idToken, selectedMonth, epoch);
       });
 
   /// Applies only the differences between [desired] and the currently loaded
@@ -475,6 +504,7 @@ class FinanceController extends ChangeNotifier {
     String idToken,
     Map<String?, int?> desired,
   ) async {
+    final epoch = _sessionEpoch;
     final currentByCategory = {for (final budget in budgets) budget.categoryId: budget};
     try {
       for (final entry in desired.entries) {
@@ -491,12 +521,13 @@ class FinanceController extends ChangeNotifier {
       // writes and for exactly the same reason: every step above has already
       // succeeded server-side, so nothing that reload runs into changes the
       // answer this call gives its own caller.
-      await _reloadAfterWrite(idToken, selectedMonth);
+      await _reloadAfterWrite(idToken, selectedMonth, epoch);
       return FinanceWriteResult.saved;
     } on FinanceReauthenticationRequired {
       await _reportRefusedWrite(
         idToken,
         refusedStatus: FinanceStatus.needsReauth,
+        epoch: epoch,
       );
       return FinanceWriteResult.needsReauth;
     } on FinanceValidationFailure {
@@ -504,6 +535,7 @@ class FinanceController extends ChangeNotifier {
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.validation,
+        epoch: epoch,
       );
       return FinanceWriteResult.validation;
     } on FinanceNotFound {
@@ -511,6 +543,7 @@ class FinanceController extends ChangeNotifier {
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.notFound,
+        epoch: epoch,
       );
       return FinanceWriteResult.notFound;
     } on FinanceFetchFailure {
@@ -518,6 +551,7 @@ class FinanceController extends ChangeNotifier {
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.fetchFailed,
+        epoch: epoch,
       );
       return FinanceWriteResult.fetchFailed;
     } catch (_) {
@@ -525,6 +559,7 @@ class FinanceController extends ChangeNotifier {
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.unknown,
+        epoch: epoch,
       );
       return FinanceWriteResult.unknown;
     }
@@ -545,26 +580,44 @@ class FinanceController extends ChangeNotifier {
   /// In both, what is on screen is now wrong about the *server's own* facts,
   /// not just about this write, so both reload and only then set the error
   /// status, mirroring [saveBudgets] (see [_reportRefusedWrite]).
+  ///
+  /// The four failure arms that don't reload (`needsReauth`, `validation`,
+  /// `fetchFailed`, unknown) still write `status`/`error` directly — they
+  /// have nothing to reload against, unlike the 409/404 arms. But "directly"
+  /// must not mean "unconditionally": [seq] is [_loadSeq] captured before
+  /// [action] ran, so if a concurrent, newer [load] (a month switch, another
+  /// write's background reload) has already settled its own terminal status
+  /// by the time this write's failure lands, that newer call — not this
+  /// stale one — owns the screen, and painting over it here would silently
+  /// replace it (e.g. hiding a live [FinanceStatus.needsReauth] sign-in exit
+  /// behind a generic "load failed" page). [epoch] is threaded into [action]
+  /// so its own success-path reload can apply the same "did a sign-out
+  /// happen since I started" check — see [_reloadAfterWrite].
   Future<FinanceWriteResult> _mutate(
     String idToken,
-    Future<void> Function() action,
+    Future<void> Function(int epoch) action,
   ) async {
+    final seq = _loadSeq;
+    final epoch = _sessionEpoch;
     final FinanceWriteResult result;
     try {
-      await action();
+      await action(epoch);
       return FinanceWriteResult.saved;
     } on FinanceReauthenticationRequired {
-      status = FinanceStatus.needsReauth;
+      if (seq == _loadSeq) status = FinanceStatus.needsReauth;
       result = FinanceWriteResult.needsReauth;
     } on FinanceValidationFailure {
-      status = FinanceStatus.error;
-      error = FinanceError.validation;
+      if (seq == _loadSeq) {
+        status = FinanceStatus.error;
+        error = FinanceError.validation;
+      }
       result = FinanceWriteResult.validation;
     } on FinanceConflict {
       await _reportRefusedWrite(
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.conflict,
+        epoch: epoch,
       );
       result = FinanceWriteResult.conflict;
     } on FinanceNotFound {
@@ -572,15 +625,20 @@ class FinanceController extends ChangeNotifier {
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.notFound,
+        epoch: epoch,
       );
       result = FinanceWriteResult.notFound;
     } on FinanceFetchFailure {
-      status = FinanceStatus.error;
-      error = FinanceError.fetchFailed;
+      if (seq == _loadSeq) {
+        status = FinanceStatus.error;
+        error = FinanceError.fetchFailed;
+      }
       result = FinanceWriteResult.fetchFailed;
     } catch (_) {
-      status = FinanceStatus.error;
-      error = FinanceError.unknown;
+      if (seq == _loadSeq) {
+        status = FinanceStatus.error;
+        error = FinanceError.unknown;
+      }
       result = FinanceWriteResult.unknown;
     }
     notifyListeners();

@@ -1252,7 +1252,133 @@ void main() {
         expect(controller.splitSpending, isEmpty);
       },
     );
+
+    test(
+      "reset() called while a write's own network call is still in flight "
+      "must stick even once that write later succeeds and reloads — the "
+      "write's post-success reload starts *after* reset() with the "
+      "signed-out session's own token, mints its own fresh, perfectly "
+      "current sequence number, and so would otherwise repaint the "
+      'previous account\'s figures over a screen `reset()` already '
+      'cleared (the #156/#157 leak shape, this time reached through a '
+      'write rather than a plain `load`)',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary, isNotNull);
+
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        controller.reset();
+        expect(controller.summary, isNull);
+
+        repo.addGate.complete();
+        await write;
+
+        expect(
+          controller.summary,
+          isNull,
+          reason: "the write's own reload, started after reset(), must not repopulate the controller",
+        );
+        expect(controller.transactions, isEmpty);
+        expect(controller.selectedMonth, '');
+      },
+    );
   });
+
+  group('a stale write-failure arm racing a newer, already-settled call', () {
+    test(
+      "a write that fails without reloading (needsReauth/validation/"
+      'fetchFailed/unknown) must not paint `status`/`error` once a newer '
+      'call — a month switch, say — has already settled its own terminal '
+      'status: only the 409/404 arms reload before they paint, but every '
+      'arm must still defer to whichever call is current',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        // Hold the write's own network call while a newer, current call
+        // (a month switch) settles first.
+        repo.addFailNext = const FinanceValidationFailure();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 10,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-05',
+        );
+        await repo.addStarted.future;
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        await controller.load('tok', '2026-08');
+        expect(controller.status, FinanceStatus.needsReauth);
+
+        // Release the older write — its validation failure must not
+        // overwrite the newer call's needsReauth exit.
+        repo.addGate.complete();
+        await write;
+
+        expect(
+          controller.status,
+          FinanceStatus.needsReauth,
+          reason: 'a stale write failure must not paint over a newer call\'s settled status',
+        );
+      },
+    );
+  });
+}
+
+/// A [FakeFinanceRepository] whose `addTransaction` holds until [addGate]
+/// completes — lets a test control exactly when a write's own network call
+/// lands, for interleavings [FakeFinanceRepository.gates] (which only gates
+/// `getSummary`, i.e. `load`) cannot express. [addFailNext], separate from
+/// [FakeFinanceRepository.failNext], throws once the gate releases instead
+/// of before it — so a test can hold a write mid-flight *and* choose to fail
+/// it, in either order relative to a concurrent `load`.
+class _GatedAddFake extends FakeFinanceRepository {
+  final addGate = Completer<void>();
+  final addStarted = Completer<void>();
+  Object? addFailNext;
+
+  @override
+  Future<FinanceTransaction> addTransaction(
+    String idToken, {
+    required FinanceType type,
+    required int amount,
+    required String currency,
+    required String categoryId,
+    required String date,
+    String? note,
+  }) async {
+    addStarted.complete();
+    await addGate.future;
+    if (addFailNext != null) {
+      final failure = addFailNext!;
+      addFailNext = null;
+      throw failure;
+    }
+    return super.addTransaction(
+      idToken,
+      type: type,
+      amount: amount,
+      currency: currency,
+      categoryId: categoryId,
+      date: date,
+      note: note,
+    );
+  }
 }
 
 /// A [FakeFinanceRepository] pre-seeded with one July transaction, for tests
