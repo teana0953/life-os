@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 
 class FakeDailyTargetRepository implements DailyTargetRepository {
@@ -102,4 +104,133 @@ void main() {
       },
     );
   });
+
+  group('DailyTargetController: the in-flight claim registry', () {
+    test(
+      'a load that finishes first does not clear a slower load\'s claim',
+      () async {
+        final repository = _GatedDailyTargetRepository(_target());
+        final controller = DailyTargetController(
+          GetDailyTargetWithRemaining(repository),
+          SetDailyTarget(repository),
+        );
+
+        final slow = controller.load('token', '2026-07-18');
+        final fast = controller.load('token', '2026-07-19');
+        expect(controller.isLoadingDay('2026-07-18'), isTrue);
+        expect(controller.isLoadingDay('2026-07-19'), isTrue);
+
+        repository.release('2026-07-19');
+        await fast;
+
+        // Same invariant as `TodayController`'s, and the same reason it is a
+        // per-request registry and not one field: whichever load lands first
+        // would otherwise clear the other's signal too, and the health shell
+        // reads this to decide whether the diet day below it is already
+        // fetching the day.
+        expect(controller.isLoadingDay('2026-07-19'), isFalse);
+        expect(
+          controller.isLoadingDay('2026-07-18'),
+          isTrue,
+          reason: 'the slower load is still in flight',
+        );
+
+        repository.release('2026-07-18');
+        await slow;
+        expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      },
+    );
+
+    test('a failed load releases its own claim', () async {
+      final repository = _ThrowingDailyTargetRepository();
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, DailyTargetStatus.error);
+      expect(controller.isLoadingDay('2026-07-18'), isFalse);
+    });
+
+    test('holdsDay answers for the day HELD, not the day requested', () async {
+      // The fake answers with the 18th's target whatever day it is asked for,
+      // so the requested day and the held day DISAGREE here on purpose: an
+      // implementation that remembered the day it last asked for would pass a
+      // test where the two always match, and would tell the shell "I hold the
+      // 19th" while the 18th's numbers are on screen.
+      final repository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+
+      expect(controller.holdsDay('2026-07-18'), isFalse);
+      await controller.load('token', '2026-07-19');
+
+      expect(controller.holdsDay('2026-07-19'), isFalse);
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+    });
+
+    test('a FAILED load does not make holdsDay claim the day it asked for', () async {
+      final repository = _FailingOnDayDailyTargetRepository('2026-07-19')
+        ..targetToReturn = _target();
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+
+      await controller.load('token', '2026-07-18');
+      await controller.load('token', '2026-07-19');
+
+      expect(controller.status, DailyTargetStatus.error);
+      expect(
+        controller.holdsDay('2026-07-19'),
+        isFalse,
+        reason:
+            'nothing was fetched — claiming the 19th would make the shell '
+            'stand down over the 18th\'s numbers',
+      );
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+    });
+  });
+}
+
+/// A target repository whose answer for each day is parked until the test
+/// releases it — the only way to hold two loads in flight at once and choose
+/// which one lands first.
+class _GatedDailyTargetRepository extends FakeDailyTargetRepository {
+  final DailyTargetWithRemaining _value;
+  final _gates = <String, Completer<DailyTargetWithRemaining>>{};
+
+  _GatedDailyTargetRepository(this._value);
+
+  void release(String day) => _gates[day]!.complete(_value);
+
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) {
+    return (_gates[day] = Completer<DailyTargetWithRemaining>()).future;
+  }
+}
+
+/// Answers normally except for one day, which always fails — so a load can
+/// fail with an EARLIER day's target already held.
+class _FailingOnDayDailyTargetRepository extends FakeDailyTargetRepository {
+  final String failingDay;
+
+  _FailingOnDayDailyTargetRepository(this.failingDay);
+
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    if (day == failingDay) throw const DietFetchFailure('boom');
+    return super.getTarget(idToken, day);
+  }
+}
+
+class _ThrowingDailyTargetRepository extends FakeDailyTargetRepository {
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    throw const DietFetchFailure('boom');
+  }
 }

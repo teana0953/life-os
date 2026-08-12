@@ -183,6 +183,12 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   /// otherwise, so it always reflects data actually fetched.
   DateTime? _lastOverviewLoadAt;
 
+  /// Whether [_load] is about to run its FIRST round. Only that round may
+  /// stand down from the two diet loads below: every later round is a
+  /// deliberate forced refresh (a [DataRevision] bump, a pull-to-refresh) and
+  /// must re-issue every request, "we already have this day" or not.
+  bool _firstLoadRound = true;
+
   @override
   void initState() {
     super.initState();
@@ -265,20 +271,200 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   /// `FriendsScreen._token` uses.
   Future<String> _idToken() => guardedIdToken(widget.authRepository);
 
+  /// Covers one stand-down: the shell skipped its own load of [load]'s day
+  /// because another screen in this stack had claimed it, so wait for that
+  /// claim to settle and issue the load after all if it did not land.
+  ///
+  /// The `isLoadingDay` half of the decision has to commit BEFORE the claimed
+  /// request has an answer, so — unlike the `holdsDay` half, which can read
+  /// the outcome inline — it cannot tell "landed" from "landed SUCCESSFULLY"
+  /// at decision time. Measured: a diet-day fetch that was still in flight at
+  /// the decision and then failed left the screen on `TodayStatus.error` with
+  /// the shell's own fetch, the only other one that day was going to get,
+  /// already skipped — while before the stand-down existed the shell's fetch
+  /// landed after it and put the day on screen.
+  ///
+  /// Fire-and-forget on purpose: the shell's own batch must not wait on a
+  /// foreign request. A claim that never settles leaves this listener parked,
+  /// not the UI.
+  Future<void> _coverStandDown({
+    required ChangeNotifier controller,
+    required bool Function() claimInFlight,
+    required bool Function() landed,
+    required Future<void> Function() load,
+  }) async {
+    if (claimInFlight()) {
+      final settled = Completer<void>();
+      void onChange() {
+        if (!claimInFlight() && !settled.isCompleted) settled.complete();
+      }
+
+      // No re-check after subscribing, and none is needed: nothing between
+      // the test above and this line awaits, so on a single-threaded isolate
+      // the claim cannot settle in the gap. (Written with one, then deleted
+      // — no mutation could make it matter, and a check that cannot fire is
+      // worse than none.)
+      controller.addListener(onChange);
+      try {
+        await settled.future;
+      } finally {
+        controller.removeListener(onChange);
+      }
+    }
+    // One cover, never a loop: if this load fails too, the day is on the same
+    // error state a retry-less screen already has, and re-firing here would
+    // hammer a down backend from a screen nobody is looking at.
+    if (!mounted || landed()) return;
+    await load();
+  }
+
+  /// Whether `DietDayScreen` is in the page stack this shell was built into —
+  /// i.e. whether somebody else in this very navigation is already loading the
+  /// diet day. The mirror image of `app.dart`'s `_healthShellInStack`, and read
+  /// the same way: from the route match list, which is exact and available at
+  /// the moment the decision is taken.
+  ///
+  /// It has to be part of the decision, and a controller signal alone cannot
+  /// replace it. Measured on a URL-driven `/health/diet`: the diet day mounts,
+  /// resolves its token and *completes* its load before this shell's widget is
+  /// constructed — so by the time [_load] runs there is no in-flight load left
+  /// to see, and "the controller holds today" on its own is indistinguishable
+  /// from a controller that has held today since an earlier visit (which must
+  /// still be refetched, or entering the shell would show data of unbounded
+  /// age). The stack is what tells those two apart: below a mounted diet day,
+  /// today's meals/target were fetched by this same navigation.
+  ///
+  /// It is NOT the whole decision, though — the caller ANDs it with a
+  /// day-keyed check on the controller. On its own it is not day-keyed, so a
+  /// cold start straddling midnight (the diet day built on `D`, this shell
+  /// resolving `D+1`) would make the shell stand down from a day nobody
+  /// fetches, which is exactly the "screen shows one day, controller holds
+  /// another" failure this module keeps producing.
+  ///
+  /// [GoRouter.maybeOf], not `of`: this scaffold is also pumped straight into
+  /// a `MaterialApp` by widget tests, and `of` throws where there is no router
+  /// ancestor. No router means no page stack means no diet day below — nothing
+  /// to stand down for.
+  bool get _dietDayInStack {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return false;
+    return router.routerDelegate.currentConfiguration.matches.any(
+      (match) => match.matchedLocation == '/health/diet',
+    );
+  }
+
   Future<void> _load() async {
     final token = await _idToken();
     if (!mounted) return;
     setState(() => _bootstrapped = true);
     final day = _todayString(widget.clock());
+    final firstRound = _firstLoadRound;
+    _firstLoadRound = false;
+    // On a URL-driven entry under `/health/diet` (a PWA shortcut, a deep link,
+    // a browser refresh) go_router builds the whole stack, so `DietDayScreen`
+    // is mounted below this shell and fires its own `_reloadCurrentDay()` for
+    // today — and without standing down here, the same day went out twice
+    // (issue #171). The check lives here and `diet_day_screen.dart` is
+    // untouched: its reload is what pulls a re-entered diet day back to today
+    // from whatever past day the day-nav left the shared controllers on.
+    final standDownRound = firstRound && _dietDayInStack;
+    if (standDownRound) {
+      // Let the diet day announce its own load before deciding. Measured, the
+      // mount order is NOT stable across entry points: on `/health/diet` the
+      // diet day mounts, loads and settles before this shell's widget is even
+      // constructed, while on `/health/diet/dictionary` this shell's `_load`
+      // body reaches here first and the diet day has only mounted — its
+      // `await idToken()` has not resolved, so it has claimed nothing yet and
+      // an immediate read of the controllers would say "nobody is loading
+      // today" on a stack where somebody is about to.
+      //
+      // One event-loop turn (a zero-duration timer, NOT `endOfFrame` — that
+      // needs a frame to be scheduled and would hang a test where none is)
+      // drains the microtasks that resolve those tokens. Paid only when a diet
+      // day really is below, and it cannot make anything worse: if the claim
+      // still has not appeared, the conditions below are simply false and this
+      // shell loads the day itself, exactly as it did before this change.
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
+    }
+    // Day-keyed, per controller: "somebody in this stack is fetching MY day",
+    // never merely "somebody is fetching". `isLoadingDay` covers the ordering
+    // where the diet day's request is still out (production, where the network
+    // outlasts the frame); `holdsDay` covers the one where it has already
+    // landed (measured on `/health/diet`, and always the case in tests).
+    //
+    // "Landed" is not the same as "landed SUCCESSFULLY", hence the status
+    // clause on the `holdsDay` half — do not delete it as redundant:
+    //
+    //  * `TodayController.load` assigns `dayMealsLog` BEFORE fetching the
+    //    target, so a run where the meals read succeeded and the target read
+    //    failed ends on `TodayStatus.error` while `holdsDay(day)` is already
+    //    true. Standing down there throws away this batch's fetch, which is
+    //    the only load that state gets on its own: `TodayStatus.error` renders
+    //    a message and a sign-out button, so the sole way back is to walk the
+    //    day-nav header off the day and back (undiscoverable, and a
+    //    pre-existing gap tracked separately).
+    //  * `DailyTargetController.load` has no such assign-then-fail shape
+    //    WITHIN one call (it assigns `target` only after the fetch returns),
+    //    but the controller is app-scoped: a day it loaded successfully
+    //    earlier stays in `target` when a later load for the same day fails,
+    //    which reaches this decision as holds-the-day + `error` just the same.
+    //
+    // `== loaded` rather than `!= error`: `needsReauth` (and, for the target,
+    // `saving`) must not stand down either. Not standing down when the data is
+    // in fact fine costs one extra request; standing down when it is not costs
+    // the user the day's data with no way back.
+    final skipMeals =
+        standDownRound &&
+        (widget.todayController.isLoadingDay(day) ||
+            (widget.todayController.holdsDay(day) &&
+                widget.todayController.status == TodayStatus.loaded));
+    final skipTarget =
+        standDownRound &&
+        (widget.dailyTargetController.isLoadingDay(day) ||
+            (widget.dailyTargetController.holdsDay(day) &&
+                widget.dailyTargetController.status ==
+                    DailyTargetStatus.loaded));
+    // Every stand-down is a BET that the claim it defers to lands
+    // successfully. The `holdsDay` half checks that inline (the status clause
+    // above); the `isLoadingDay` half cannot, because it decides while the
+    // answer is still out — so it is covered afterwards instead, once that
+    // claim settles. Both halves go through the same cover, so the one that
+    // stood down on a `loaded` claim simply finds `landed()` true and does
+    // nothing.
+    if (skipMeals) {
+      unawaited(
+        _coverStandDown(
+          controller: widget.todayController,
+          claimInFlight: () => widget.todayController.isLoadingDay(day),
+          landed: () =>
+              widget.todayController.holdsDay(day) &&
+              widget.todayController.status == TodayStatus.loaded,
+          load: () => widget.todayController.load(token, day),
+        ),
+      );
+    }
+    if (skipTarget) {
+      unawaited(
+        _coverStandDown(
+          controller: widget.dailyTargetController,
+          claimInFlight: () => widget.dailyTargetController.isLoadingDay(day),
+          landed: () =>
+              widget.dailyTargetController.holdsDay(day) &&
+              widget.dailyTargetController.status == DailyTargetStatus.loaded,
+          load: () => widget.dailyTargetController.load(token, day),
+        ),
+      );
+    }
     // Independent loads run concurrently so the landing (overview) cards and the
     // trackers all populate without waiting on a serial chain.
     await Future.wait([
       widget.weightGoalController.load(token),
       widget.trendController.load(token),
       widget.healthCalendarController.load(token),
-      widget.todayController.load(token, day),
+      if (!skipMeals) widget.todayController.load(token, day),
       widget.dictionaryController.load(),
-      widget.dailyTargetController.load(token, day),
+      if (!skipTarget) widget.dailyTargetController.load(token, day),
       widget.waterController.load(token, day),
       widget.bowelController.load(token, day),
       widget.vitalsController.load(token, day),
@@ -346,7 +532,9 @@ class _HealthScaffoldState extends State<HealthScaffold> {
 
     if (!_bootstrapped) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(key: Key('health-loading'))),
+        body: Center(
+          child: CircularProgressIndicator(key: Key('health-loading')),
+        ),
       );
     }
 
@@ -681,7 +869,8 @@ class _RecordHub extends StatelessWidget {
   /// Navigates to a tracker's route (`/health/<name>`). The screen is built by
   /// the app router (from injected controllers), nested under `/health`, so a
   /// web back / refresh reconstructs the full stack from the URL.
-  void _push(BuildContext context, String name) => context.push('/health/$name');
+  void _push(BuildContext context, String name) =>
+      context.push('/health/$name');
 
   @override
   Widget build(BuildContext context) {

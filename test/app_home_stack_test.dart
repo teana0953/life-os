@@ -212,9 +212,10 @@ void main() {
       (tester) async {
         final meals = _CountingMealRepository();
         final router = await pumpSignedIn(tester, mealRepository: meals);
-        // The two the shell's own stack owes: `HealthScaffold` on mount, and
-        // the diet day it rebuilds underneath. Anything this screen adds on
-        // top of that is a duplicate.
+        // The one the shell's own stack owes: the diet day it rebuilds
+        // underneath fetches the day, and `HealthScaffold` stands down for it
+        // (issue #171). Anything this screen adds on top of that is a
+        // duplicate.
         meals.reads.clear();
 
         router.go('/health/diet/dictionary');
@@ -229,14 +230,13 @@ void main() {
         // `findsOneWidget` above cannot see that; only the count can.
         expect(
           meals.reads.length,
-          2,
+          1,
           reason:
-              'the shell and the diet day below already fetch this day — the '
-              'portion tool must not fetch it a third time. NOTE: 2 is an '
-              'INHERITED cost (the shell and the diet day each fetch the same '
-              'day, on `main` too), not a target. Removing that duplicate is a '
-              'good change that will turn this number into 1 — update it, do '
-              'not restore the duplicate to keep this green.',
+              'the diet day below already fetches this day — the portion tool '
+              'must not fetch it again. This was 2 until issue #171: the shell '
+              'fetched the same day as well, and now stands down for the diet '
+              'day mounted in its own stack (see '
+              '`app_diet_day_duplicate_fetch_test.dart`).',
         );
       },
     );

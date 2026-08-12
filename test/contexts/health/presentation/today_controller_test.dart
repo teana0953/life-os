@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -315,4 +316,129 @@ void main() {
       expect(controller.error, TodayError.fetchFailed);
     });
   });
+
+  group('TodayController: the in-flight claim registry', () {
+    test(
+      'a load that finishes first does not clear a slower load\'s claim',
+      () async {
+        final mealRepository = _GatedMealRepository(_dayLog());
+        final targetRepository = FakeDailyTargetRepository()
+          ..targetToReturn = _target();
+        final controller = _controller(mealRepository, targetRepository);
+
+        // Two loads in flight at once — the shape a URL-driven entry produces
+        // (the health shell and the diet day both loading) and the shape a
+        // day-nav tap produces while a previous day is still coming back.
+        final slow = controller.load('token', '2026-07-18');
+        final fast = controller.load('token', '2026-07-19');
+        expect(controller.isLoadingDay('2026-07-18'), isTrue);
+        expect(controller.isLoadingDay('2026-07-19'), isTrue);
+
+        mealRepository.release('2026-07-19');
+        await fast;
+
+        // THE invariant. A single `String? loadingDay` field cannot hold it:
+        // both loads write the one slot, so the load that lands FIRST clears
+        // it for the other too and every reader is told "nothing is in
+        // flight" while the 18th is still being fetched. Keyed by request id,
+        // an entry exists iff that specific call is unsettled.
+        expect(controller.isLoadingDay('2026-07-19'), isFalse);
+        expect(
+          controller.isLoadingDay('2026-07-18'),
+          isTrue,
+          reason: 'the slower load is still in flight',
+        );
+        // The derived getter the dictionary screen reads ("is anyone
+        // loading?") must answer the same way.
+        expect(controller.loadingDay, '2026-07-18');
+
+        mealRepository.release('2026-07-18');
+        await slow;
+        expect(controller.loadingDay, isNull);
+        expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      },
+    );
+
+    test('a failed load releases its own claim', () async {
+      final mealRepository = FakeMealRepository()
+        ..errorToThrow = const DietFetchFailure('boom');
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      await controller.load('token', '2026-07-18');
+
+      // Via `finally`: a claim left behind by a throwing load would tell every
+      // later reader that a fetch is in flight forever.
+      expect(controller.status, TodayStatus.error);
+      expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      expect(controller.loadingDay, isNull);
+    });
+
+    test('holdsDay answers for the day HELD, not the day requested', () async {
+      // The fake answers with the 18th's log whatever day it is asked for, so
+      // the requested day and the held day DISAGREE here on purpose. An
+      // implementation that remembered the day it last asked for (instead of
+      // reading the log it actually holds) would pass a test where the two
+      // always match — and would tell the shell "I hold the 19th" while the
+      // 18th is on screen, which is the exact wrong-day bug this getter
+      // exists to prevent.
+      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      expect(controller.holdsDay('2026-07-18'), isFalse);
+      await controller.load('token', '2026-07-19');
+
+      expect(controller.holdsDay('2026-07-19'), isFalse);
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+    });
+
+    test('a FAILED load does not make holdsDay claim the day it asked for', () async {
+      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      await controller.load('token', '2026-07-18');
+      // The MEALS read itself is what fails here, so `load` never reaches the
+      // assignment and the previous day's log stays in place — the controller
+      // still holds the 18th. Note this is the only failure shape with that
+      // property: `dayMealsLog` is assigned BEFORE the target read, so a run
+      // whose meals landed and whose TARGET read failed ends on
+      // `TodayStatus.error` already holding the new day. That is why
+      // `health_scaffold.dart` pairs `holdsDay` with `status == loaded`
+      // instead of trusting `holdsDay` alone.
+      mealRepository.errorToThrow = const DietFetchFailure('boom');
+      await controller.load('token', '2026-07-19');
+
+      expect(controller.status, TodayStatus.error);
+      expect(
+        controller.holdsDay('2026-07-19'),
+        isFalse,
+        reason:
+            'nothing was fetched — claiming the 19th would make the shell '
+            'stand down and leave the 18th on screen under the 19th\'s header',
+      );
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+    });
+  });
+}
+
+/// A meals repository whose answer for each day is parked until the test
+/// releases it — the only way to hold two loads in flight at the same time
+/// and choose which one lands first.
+class _GatedMealRepository extends FakeMealRepository {
+  final DayMealsLog _log;
+  final _gates = <String, Completer<DayMealsLog>>{};
+
+  _GatedMealRepository(this._log);
+
+  void release(String day) => _gates[day]!.complete(_log);
+
+  @override
+  Future<DayMealsLog> getDayMeals(String idToken, String day) {
+    return (_gates[day] = Completer<DayMealsLog>()).future;
+  }
 }

@@ -41,21 +41,51 @@ class TodayController extends ChangeNotifier {
 
   TodayStatus status = TodayStatus.loading;
 
-  /// The day a [load] is CURRENTLY fetching, or `null` when none is in
-  /// flight. Not derivable from [status], whose INITIAL value is also
-  /// `loading` — so `status` alone cannot tell "someone else's load is
-  /// running" from "nobody has loaded at all". `_UrlDictionaryScreen` has to
-  /// tell those apart: it is now reachable straight from the home grid, with
-  /// no health shell below it to be waiting for, and reading `loading` as
-  /// "wait" left it spinning forever.
-  String? loadingDay;
+  /// The day each UNSETTLED [load] is fetching, keyed by a per-call request
+  /// id it removes only in its own `finally`.
+  ///
+  /// A single `String?` field cannot express this and is why this is a map:
+  /// two interleaved loads share the one slot, so whichever finishes FIRST
+  /// clears it for the other as well and a reader is told "nobody is loading"
+  /// while a load is still in flight. Keyed by request id, the invariant is
+  /// "an entry exists iff that specific call has been announced and has not
+  /// settled" — no other call can violate it.
+  final Map<int, String> _pendingDays = {};
+  int _nextRequestId = 0;
+
+  /// The day of an unsettled [load], or `null` when none is in flight.
+  /// Derived from [_pendingDays] so the one existing reader
+  /// (`_UrlDictionaryScreen`, which asks only "is someone else's load in
+  /// flight") keeps reading the same question — now answered correctly under
+  /// interleaving, where the single field used to go `null` early.
+  ///
+  /// Not derivable from [status], whose INITIAL value is also `loading` — so
+  /// `status` alone cannot tell "someone else's load is running" from "nobody
+  /// has loaded at all". `_UrlDictionaryScreen` has to tell those apart: it is
+  /// now reachable straight from the home grid, with no health shell below it
+  /// to be waiting for, and reading `loading` as "wait" left it spinning
+  /// forever.
+  String? get loadingDay =>
+      _pendingDays.isEmpty ? null : _pendingDays.values.first;
+
+  /// Whether a [load] for exactly [day] is in flight. Day-keyed on purpose:
+  /// "something is loading" is not the same question as "the day I am about
+  /// to fetch is already being fetched", and answering the first for the
+  /// second is how a screen ends up showing one day while the controller
+  /// holds another.
+  bool isLoadingDay(String day) => _pendingDays.containsValue(day);
+
+  /// Whether the controller currently HOLDS [day]'s meals log.
+  bool holdsDay(String day) => dayMealsLog?.day == day;
+
   DayMealsLog? dayMealsLog;
   DailyTargetWithRemaining? target;
   TodayError? error;
 
   Future<void> load(String idToken, String day) async {
+    final requestId = _nextRequestId++;
+    _pendingDays[requestId] = day;
     status = TodayStatus.loading;
-    loadingDay = day;
     error = null;
     notifyListeners();
 
@@ -72,7 +102,9 @@ class TodayController extends ChangeNotifier {
       status = TodayStatus.error;
       error = TodayError.unknown;
     } finally {
-      loadingDay = null;
+      // Only this call's own claim — removing anyone else's is exactly the
+      // early-clear the single field suffered from.
+      _pendingDays.remove(requestId);
     }
     notifyListeners();
   }
