@@ -375,16 +375,47 @@ void main() {
       expect(controller.loadingDay, isNull);
     });
 
-    test('holdsDay is keyed by the day actually held', () async {
+    test('holdsDay answers for the day HELD, not the day requested', () async {
+      // The fake answers with the 18th's log whatever day it is asked for, so
+      // the requested day and the held day DISAGREE here on purpose. An
+      // implementation that remembered the day it last asked for (instead of
+      // reading the log it actually holds) would pass a test where the two
+      // always match — and would tell the shell "I hold the 19th" while the
+      // 18th is on screen, which is the exact wrong-day bug this getter
+      // exists to prevent.
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
       final targetRepository = FakeDailyTargetRepository()
         ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       expect(controller.holdsDay('2026-07-18'), isFalse);
-      await controller.load('token', '2026-07-18');
-      expect(controller.holdsDay('2026-07-18'), isTrue);
+      await controller.load('token', '2026-07-19');
+
       expect(controller.holdsDay('2026-07-19'), isFalse);
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+    });
+
+    test('a FAILED load does not make holdsDay claim the day it asked for', () async {
+      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      await controller.load('token', '2026-07-18');
+      // A failed load leaves the PREVIOUS day's log in place (`load` only
+      // assigns on success), so the controller still holds the 18th.
+      mealRepository.errorToThrow = const DietFetchFailure('boom');
+      await controller.load('token', '2026-07-19');
+
+      expect(controller.status, TodayStatus.error);
+      expect(
+        controller.holdsDay('2026-07-19'),
+        isFalse,
+        reason:
+            'nothing was fetched — claiming the 19th would make the shell '
+            'stand down and leave the 18th on screen under the 19th\'s header',
+      );
+      expect(controller.holdsDay('2026-07-18'), isTrue);
     });
   });
 }

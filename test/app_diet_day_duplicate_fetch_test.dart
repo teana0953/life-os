@@ -177,7 +177,7 @@ void main() {
         // the meals log) ON TOP OF `DailyTargetController.load`. That is a
         // different duplication one layer down — two controllers each own a
         // copy of the target — and collapsing it means moving target ownership,
-        // which is tracked separately (issue #175). If that lands, this number
+        // which is tracked separately (issue #176). If that lands, this number
         // becomes 1: change the number, do not restore a duplicate to keep it
         // green.
         expect(target.reads, [today, today]);
