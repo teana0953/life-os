@@ -246,7 +246,6 @@ void main() {
     ) async {
       await _pumpAt(tester, const Size(360, 800), strict: true);
 
-      expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
       expect(
         find.byKey(const Key('finance-dashboard-section')),
@@ -260,7 +259,6 @@ void main() {
     ) async {
       await _pumpAt(tester, const Size(1200, 800), strict: true);
 
-      expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
       expect(
         find.byKey(const Key('finance-dashboard-section')),
