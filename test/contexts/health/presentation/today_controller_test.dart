@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -315,4 +316,92 @@ void main() {
       expect(controller.error, TodayError.fetchFailed);
     });
   });
+
+  group('TodayController: the in-flight claim registry', () {
+    test(
+      'a load that finishes first does not clear a slower load\'s claim',
+      () async {
+        final mealRepository = _GatedMealRepository(_dayLog());
+        final targetRepository = FakeDailyTargetRepository()
+          ..targetToReturn = _target();
+        final controller = _controller(mealRepository, targetRepository);
+
+        // Two loads in flight at once — the shape a URL-driven entry produces
+        // (the health shell and the diet day both loading) and the shape a
+        // day-nav tap produces while a previous day is still coming back.
+        final slow = controller.load('token', '2026-07-18');
+        final fast = controller.load('token', '2026-07-19');
+        expect(controller.isLoadingDay('2026-07-18'), isTrue);
+        expect(controller.isLoadingDay('2026-07-19'), isTrue);
+
+        mealRepository.release('2026-07-19');
+        await fast;
+
+        // THE invariant. A single `String? loadingDay` field cannot hold it:
+        // both loads write the one slot, so the load that lands FIRST clears
+        // it for the other too and every reader is told "nothing is in
+        // flight" while the 18th is still being fetched. Keyed by request id,
+        // an entry exists iff that specific call is unsettled.
+        expect(controller.isLoadingDay('2026-07-19'), isFalse);
+        expect(
+          controller.isLoadingDay('2026-07-18'),
+          isTrue,
+          reason: 'the slower load is still in flight',
+        );
+        // The derived getter the dictionary screen reads ("is anyone
+        // loading?") must answer the same way.
+        expect(controller.loadingDay, '2026-07-18');
+
+        mealRepository.release('2026-07-18');
+        await slow;
+        expect(controller.loadingDay, isNull);
+        expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      },
+    );
+
+    test('a failed load releases its own claim', () async {
+      final mealRepository = FakeMealRepository()
+        ..errorToThrow = const DietFetchFailure('boom');
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      await controller.load('token', '2026-07-18');
+
+      // Via `finally`: a claim left behind by a throwing load would tell every
+      // later reader that a fetch is in flight forever.
+      expect(controller.status, TodayStatus.error);
+      expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      expect(controller.loadingDay, isNull);
+    });
+
+    test('holdsDay is keyed by the day actually held', () async {
+      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
+      final controller = _controller(mealRepository, targetRepository);
+
+      expect(controller.holdsDay('2026-07-18'), isFalse);
+      await controller.load('token', '2026-07-18');
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+      expect(controller.holdsDay('2026-07-19'), isFalse);
+    });
+  });
+}
+
+/// A meals repository whose answer for each day is parked until the test
+/// releases it — the only way to hold two loads in flight at the same time
+/// and choose which one lands first.
+class _GatedMealRepository extends FakeMealRepository {
+  final DayMealsLog _log;
+  final _gates = <String, Completer<DayMealsLog>>{};
+
+  _GatedMealRepository(this._log);
+
+  void release(String day) => _gates[day]!.complete(_log);
+
+  @override
+  Future<DayMealsLog> getDayMeals(String idToken, String day) {
+    return (_gates[day] = Completer<DayMealsLog>()).future;
+  }
 }

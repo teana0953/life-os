@@ -183,6 +183,12 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   /// otherwise, so it always reflects data actually fetched.
   DateTime? _lastOverviewLoadAt;
 
+  /// Whether [_load] is about to run its FIRST round. Only that round may
+  /// stand down from the two diet loads below: every later round is a
+  /// deliberate forced refresh (a [DataRevision] bump, a pull-to-refresh) and
+  /// must re-issue every request, "we already have this day" or not.
+  bool _firstLoadRound = true;
+
   @override
   void initState() {
     super.initState();
@@ -265,20 +271,97 @@ class _HealthScaffoldState extends State<HealthScaffold> {
   /// `FriendsScreen._token` uses.
   Future<String> _idToken() => guardedIdToken(widget.authRepository);
 
+  /// Whether `DietDayScreen` is in the page stack this shell was built into —
+  /// i.e. whether somebody else in this very navigation is already loading the
+  /// diet day. The mirror image of `app.dart`'s `_healthShellInStack`, and read
+  /// the same way: from the route match list, which is exact and available at
+  /// the moment the decision is taken.
+  ///
+  /// It has to be part of the decision, and a controller signal alone cannot
+  /// replace it. Measured on a URL-driven `/health/diet`: the diet day mounts,
+  /// resolves its token and *completes* its load before this shell's widget is
+  /// constructed — so by the time [_load] runs there is no in-flight load left
+  /// to see, and "the controller holds today" on its own is indistinguishable
+  /// from a controller that has held today since an earlier visit (which must
+  /// still be refetched, or entering the shell would show data of unbounded
+  /// age). The stack is what tells those two apart: below a mounted diet day,
+  /// today's meals/target were fetched by this same navigation.
+  ///
+  /// It is NOT the whole decision, though — the caller ANDs it with a
+  /// day-keyed check on the controller. On its own it is not day-keyed, so a
+  /// cold start straddling midnight (the diet day built on `D`, this shell
+  /// resolving `D+1`) would make the shell stand down from a day nobody
+  /// fetches, which is exactly the "screen shows one day, controller holds
+  /// another" failure this module keeps producing.
+  ///
+  /// [GoRouter.maybeOf], not `of`: this scaffold is also pumped straight into
+  /// a `MaterialApp` by widget tests, and `of` throws where there is no router
+  /// ancestor. No router means no page stack means no diet day below — nothing
+  /// to stand down for.
+  bool get _dietDayInStack {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return false;
+    return router.routerDelegate.currentConfiguration.matches.any(
+      (match) => match.matchedLocation == '/health/diet',
+    );
+  }
+
   Future<void> _load() async {
     final token = await _idToken();
     if (!mounted) return;
     setState(() => _bootstrapped = true);
     final day = _todayString(widget.clock());
+    final firstRound = _firstLoadRound;
+    _firstLoadRound = false;
+    // On a URL-driven entry under `/health/diet` (a PWA shortcut, a deep link,
+    // a browser refresh) go_router builds the whole stack, so `DietDayScreen`
+    // is mounted below this shell and fires its own `_reloadCurrentDay()` for
+    // today — and without standing down here, the same day went out twice
+    // (issue #171). The check lives here and `diet_day_screen.dart` is
+    // untouched: its reload is what pulls a re-entered diet day back to today
+    // from whatever past day the day-nav left the shared controllers on.
+    final standDownRound = firstRound && _dietDayInStack;
+    if (standDownRound) {
+      // Let the diet day announce its own load before deciding. Measured, the
+      // mount order is NOT stable across entry points: on `/health/diet` the
+      // diet day mounts, loads and settles before this shell's widget is even
+      // constructed, while on `/health/diet/dictionary` this shell's `_load`
+      // body reaches here first and the diet day has only mounted — its
+      // `await idToken()` has not resolved, so it has claimed nothing yet and
+      // an immediate read of the controllers would say "nobody is loading
+      // today" on a stack where somebody is about to.
+      //
+      // One event-loop turn (a zero-duration timer, NOT `endOfFrame` — that
+      // needs a frame to be scheduled and would hang a test where none is)
+      // drains the microtasks that resolve those tokens. Paid only when a diet
+      // day really is below, and it cannot make anything worse: if the claim
+      // still has not appeared, the conditions below are simply false and this
+      // shell loads the day itself, exactly as it did before this change.
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
+    }
+    // Day-keyed, per controller: "somebody in this stack is fetching MY day",
+    // never merely "somebody is fetching". `isLoadingDay` covers the ordering
+    // where the diet day's request is still out (production, where the network
+    // outlasts the frame); `holdsDay` covers the one where it has already
+    // landed (measured on `/health/diet`, and always the case in tests).
+    final skipMeals =
+        standDownRound &&
+        (widget.todayController.isLoadingDay(day) ||
+            widget.todayController.holdsDay(day));
+    final skipTarget =
+        standDownRound &&
+        (widget.dailyTargetController.isLoadingDay(day) ||
+            widget.dailyTargetController.holdsDay(day));
     // Independent loads run concurrently so the landing (overview) cards and the
     // trackers all populate without waiting on a serial chain.
     await Future.wait([
       widget.weightGoalController.load(token),
       widget.trendController.load(token),
       widget.healthCalendarController.load(token),
-      widget.todayController.load(token, day),
+      if (!skipMeals) widget.todayController.load(token, day),
       widget.dictionaryController.load(),
-      widget.dailyTargetController.load(token, day),
+      if (!skipTarget) widget.dailyTargetController.load(token, day),
       widget.waterController.load(token, day),
       widget.bowelController.load(token, day),
       widget.vitalsController.load(token, day),

@@ -25,12 +25,29 @@ class DailyTargetController extends ChangeNotifier {
   DailyTargetWithRemaining? target;
   DailyTargetError? error;
 
+  /// The day each UNSETTLED [load] is fetching, keyed by a per-call request
+  /// id it removes only in its own `finally` — the same claim registry
+  /// [TodayController] carries, and for the same reason: a single field is
+  /// cleared by whichever interleaved load finishes first, which reports "no
+  /// load in flight" while one still is.
+  final Map<int, String> _pendingDays = {};
+  int _nextRequestId = 0;
+
+  /// Whether a [load] for exactly [day] is in flight (day-keyed on purpose —
+  /// see [TodayController.isLoadingDay]).
+  bool isLoadingDay(String day) => _pendingDays.containsValue(day);
+
+  /// Whether the controller currently HOLDS [day]'s target.
+  bool holdsDay(String day) => target?.day == day;
+
   double draftBaseStaple = 0;
   double draftBaseMeat = 0;
   double draftBaseFruit = 0;
   double draftBaseVeg = 0;
 
   Future<void> load(String idToken, String day) async {
+    final requestId = _nextRequestId++;
+    _pendingDays[requestId] = day;
     status = DailyTargetStatus.loading;
     error = null;
     notifyListeners();
@@ -50,6 +67,10 @@ class DailyTargetController extends ChangeNotifier {
     } catch (_) {
       status = DailyTargetStatus.error;
       error = DailyTargetError.unknown;
+    } finally {
+      // Only this call's own claim — removing anyone else's is exactly the
+      // early-clear a single field suffers from.
+      _pendingDays.remove(requestId);
     }
     notifyListeners();
   }

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
 
 class FakeDailyTargetRepository implements DailyTargetRepository {
@@ -102,4 +104,94 @@ void main() {
       },
     );
   });
+
+
+  group('DailyTargetController: the in-flight claim registry', () {
+    test(
+      'a load that finishes first does not clear a slower load\'s claim',
+      () async {
+        final repository = _GatedDailyTargetRepository(_target());
+        final controller = DailyTargetController(
+          GetDailyTargetWithRemaining(repository),
+          SetDailyTarget(repository),
+        );
+
+        final slow = controller.load('token', '2026-07-18');
+        final fast = controller.load('token', '2026-07-19');
+        expect(controller.isLoadingDay('2026-07-18'), isTrue);
+        expect(controller.isLoadingDay('2026-07-19'), isTrue);
+
+        repository.release('2026-07-19');
+        await fast;
+
+        // Same invariant as `TodayController`'s, and the same reason it is a
+        // per-request registry and not one field: whichever load lands first
+        // would otherwise clear the other's signal too, and the health shell
+        // reads this to decide whether the diet day below it is already
+        // fetching the day.
+        expect(controller.isLoadingDay('2026-07-19'), isFalse);
+        expect(
+          controller.isLoadingDay('2026-07-18'),
+          isTrue,
+          reason: 'the slower load is still in flight',
+        );
+
+        repository.release('2026-07-18');
+        await slow;
+        expect(controller.isLoadingDay('2026-07-18'), isFalse);
+      },
+    );
+
+    test('a failed load releases its own claim', () async {
+      final repository = _ThrowingDailyTargetRepository();
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+
+      await controller.load('token', '2026-07-18');
+
+      expect(controller.status, DailyTargetStatus.error);
+      expect(controller.isLoadingDay('2026-07-18'), isFalse);
+    });
+
+    test('holdsDay is keyed by the day actually held', () async {
+      final repository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final controller = DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+
+      expect(controller.holdsDay('2026-07-18'), isFalse);
+      await controller.load('token', '2026-07-18');
+      // The fake answers with the 18th whatever it is asked, so this asserts
+      // on the day the controller actually HOLDS, not the day requested.
+      expect(controller.holdsDay('2026-07-18'), isTrue);
+      expect(controller.holdsDay('2026-07-19'), isFalse);
+    });
+  });
+}
+
+/// A target repository whose answer for each day is parked until the test
+/// releases it — the only way to hold two loads in flight at once and choose
+/// which one lands first.
+class _GatedDailyTargetRepository extends FakeDailyTargetRepository {
+  final DailyTargetWithRemaining _value;
+  final _gates = <String, Completer<DailyTargetWithRemaining>>{};
+
+  _GatedDailyTargetRepository(this._value);
+
+  void release(String day) => _gates[day]!.complete(_value);
+
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) {
+    return (_gates[day] = Completer<DailyTargetWithRemaining>()).future;
+  }
+}
+
+class _ThrowingDailyTargetRepository extends FakeDailyTargetRepository {
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    throw const DietFetchFailure('boom');
+  }
 }
