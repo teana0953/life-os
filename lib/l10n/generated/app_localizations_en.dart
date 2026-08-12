@@ -214,6 +214,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeNoData => 'No data yet';
 
   @override
+  String get homeMaskedValue => '••••';
+
+  @override
+  String get homeValueHidden => 'Hidden';
+
+  @override
+  String homeMaskHide(String label) {
+    return 'Hide $label';
+  }
+
+  @override
+  String homeMaskShow(String label) {
+    return 'Show $label';
+  }
+
+  @override
   String get homeDashboardUnavailable =>
       'Dashboard details are unavailable in this view.';
 

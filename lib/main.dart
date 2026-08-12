@@ -128,6 +128,7 @@ import 'shared/assistant/gemini_key_controller.dart';
 import 'shared/config.dart';
 import 'shared/data_revision.dart';
 import 'shared/i18n/locale_controller.dart';
+import 'shared/privacy/privacy_mask_controller.dart';
 import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pwa_update.dart';
 import 'shared/pwa/pwa_update_controller.dart';
@@ -157,6 +158,7 @@ Future<void> main() async {
   final localeController = LocaleController(prefs);
   final themeController = ThemeController(prefs);
   final geminiKeyController = GeminiKeyController(prefs);
+  final privacyMaskController = PrivacyMaskController(prefs);
 
   final httpClient = http.Client();
   final foodDictionaryRepository = HttpFoodDictionaryRepository(
@@ -435,6 +437,7 @@ Future<void> main() async {
       localeController: localeController,
       themeController: themeController,
       geminiKeyController: geminiKeyController,
+      privacyMaskController: privacyMaskController,
       assistantController: assistantController,
       signOut: signOut,
       signUp: signUp,

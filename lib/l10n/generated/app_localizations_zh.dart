@@ -212,6 +212,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeNoData => '尚無資料';
 
   @override
+  String get homeMaskedValue => '••••';
+
+  @override
+  String get homeValueHidden => 'Hidden';
+
+  @override
+  String homeMaskHide(String label) {
+    return 'Hide $label';
+  }
+
+  @override
+  String homeMaskShow(String label) {
+    return 'Show $label';
+  }
+
+  @override
   String get homeDashboardUnavailable => '此畫面沒有 Dashboard 資料。';
 
   @override
@@ -3153,6 +3169,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get homeNoData => '尚無資料';
+
+  @override
+  String get homeMaskedValue => '••••';
+
+  @override
+  String get homeValueHidden => '已隱藏';
+
+  @override
+  String homeMaskHide(String label) {
+    return '隱藏$label';
+  }
+
+  @override
+  String homeMaskShow(String label) {
+    return '顯示$label';
+  }
 
   @override
   String get homeDashboardUnavailable => '此畫面沒有 Dashboard 資料。';

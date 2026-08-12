@@ -459,6 +459,30 @@ abstract class AppLocalizations {
   /// **'No data yet'**
   String get homeNoData;
 
+  /// Visual stand-in painted over a home snapshot figure the user chose to hide. Lives in the ARB so presentation code never hard-codes it; screen readers get homeValueHidden instead.
+  ///
+  /// In en, this message translates to:
+  /// **'••••'**
+  String get homeMaskedValue;
+
+  /// What a screen reader reads in place of a hidden home snapshot figure, instead of spelling out the bullet characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden'**
+  String get homeValueHidden;
+
+  /// Tooltip/semantic label of the eye button on a home snapshot tile whose figure is currently visible. Names the tile so four eyes on one screen are distinguishable.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide {label}'**
+  String homeMaskHide(String label);
+
+  /// Tooltip/semantic label of the eye button on a home snapshot tile whose figure is currently hidden. Names the tile so four eyes on one screen are distinguishable.
+  ///
+  /// In en, this message translates to:
+  /// **'Show {label}'**
+  String homeMaskShow(String label);
+
   /// Fallback used by isolated home views without dashboard dependencies.
   ///
   /// In en, this message translates to:

@@ -220,6 +220,20 @@
   "@homeSplitSettled": { "description": "Split snapshot when no TWD balance remains." },
   "homeNoData": "No data yet",
   "@homeNoData": { "description": "Home snapshot fallback when no record exists." },
+  "homeMaskedValue": "••••",
+  "@homeMaskedValue": { "description": "Visual stand-in painted over a home snapshot figure the user chose to hide. Lives in the ARB so presentation code never hard-codes it; screen readers get homeValueHidden instead." },
+  "homeValueHidden": "Hidden",
+  "@homeValueHidden": { "description": "What a screen reader reads in place of a hidden home snapshot figure, instead of spelling out the bullet characters." },
+  "homeMaskHide": "Hide {label}",
+  "@homeMaskHide": {
+    "description": "Tooltip/semantic label of the eye button on a home snapshot tile whose figure is currently visible. Names the tile so four eyes on one screen are distinguishable.",
+    "placeholders": { "label": { "type": "String" } }
+  },
+  "homeMaskShow": "Show {label}",
+  "@homeMaskShow": {
+    "description": "Tooltip/semantic label of the eye button on a home snapshot tile whose figure is currently hidden. Names the tile so four eyes on one screen are distinguishable.",
+    "placeholders": { "label": { "type": "String" } }
+  },
   "homeDashboardUnavailable": "Dashboard details are unavailable in this view.",
   "@homeDashboardUnavailable": { "description": "Fallback used by isolated home views without dashboard dependencies." },
   "homeDashboardLoadFailed": "Couldn't load your dashboard.",

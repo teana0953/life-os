@@ -80,6 +80,7 @@ import 'shared/routing/app_locations.dart';
 import 'shared/routing/auth_router_notifier.dart';
 import 'shared/routing/finance_tab.dart';
 import 'shared/data_revision.dart';
+import 'shared/privacy/privacy_mask_controller.dart';
 import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pending_deep_link_controller.dart';
 import 'shared/pwa/pwa_install.dart';
@@ -200,6 +201,11 @@ class App extends StatefulWidget {
   final LocaleController localeController;
   final ThemeController themeController;
   final GeminiKeyController geminiKeyController;
+
+  /// Which home figures the signed-in user chose to hide. Held here, not in
+  /// `main.dart` alone, because [App] is what sees the auth transitions that
+  /// load and clear it.
+  final PrivacyMaskController privacyMaskController;
   final AssistantController assistantController;
   final SignOut signOut;
   final SignUp signUp;
@@ -305,6 +311,7 @@ class App extends StatefulWidget {
     required this.localeController,
     required this.themeController,
     required this.geminiKeyController,
+    required this.privacyMaskController,
     required this.assistantController,
     required this.signOut,
     required this.signUp,
@@ -426,7 +433,7 @@ class _AppState extends State<App> {
     // is deferred a frame (see `_scheduleDeepLinkCheck`) to let that redirect
     // land first (design.md D6).
     _authNotifier.addListener(_scheduleDeepLinkCheck);
-    _authNotifier.addListener(_resetControllersOnSignOut);
+    _authNotifier.addListener(_onAuthStateChanged);
     _pendingDeepLinkController.start();
   }
 
@@ -448,8 +455,17 @@ class _AppState extends State<App> {
   /// anyone else necessarily passes through a sign-out first.
   bool _wasSignedIn = false;
 
-  void _resetControllersOnSignOut() {
+  void _onAuthStateChanged() {
     final signedIn = _authNotifier.signedIn;
+    if (!_wasSignedIn && signedIn) {
+      // Synchronous, and deliberately not deferred to a microtask or to the
+      // uid that arrives with `/api/me`: `SharedPreferences` is already in
+      // memory, so home cannot paint an unmasked figure for a frame and then
+      // cover it up.
+      widget.privacyMaskController.loadForUser(
+        currentUidOf(widget.authRepository),
+      );
+    }
     if (_wasSignedIn && !signedIn) {
       widget.homeController.reset();
       widget.homeDashboardController?.reset();
@@ -477,6 +493,12 @@ class _AppState extends State<App> {
       // has to land before a signed-in screen can reach the assistant again,
       // and sign-out has just put the login screen in front of the user.
       unawaited(widget.geminiKeyController.clear());
+      // Memory only, and nothing else clears it: this controller is an
+      // app-lifetime singleton, so without this the next account signed in on
+      // this device would open home wearing the previous user's mask. The
+      // stored choices stay on disk on purpose — signing out is a change of
+      // occupant, not a deletion, so signing back in restores them.
+      widget.privacyMaskController.clearUser();
     }
     _wasSignedIn = signedIn;
   }
@@ -484,7 +506,7 @@ class _AppState extends State<App> {
   @override
   void dispose() {
     _authNotifier.removeListener(_scheduleDeepLinkCheck);
-    _authNotifier.removeListener(_resetControllersOnSignOut);
+    _authNotifier.removeListener(_onAuthStateChanged);
     _pendingDeepLinkController.dispose();
     _authNotifier.dispose();
     super.dispose();
@@ -679,6 +701,7 @@ class _AppState extends State<App> {
           builder: (context, state) => _AuthenticatedHome(
             authRepository: widget.authRepository,
             homeController: widget.homeController,
+            privacyMaskController: widget.privacyMaskController,
             dashboardController: widget.homeDashboardController,
             clock: widget.clock,
           ),
@@ -1608,12 +1631,14 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
 class _AuthenticatedHome extends StatefulWidget {
   final AuthRepository authRepository;
   final HomeController homeController;
+  final PrivacyMaskController privacyMaskController;
   final HomeDashboardController? dashboardController;
   final DateTime Function() clock;
 
   const _AuthenticatedHome({
     required this.authRepository,
     required this.homeController,
+    required this.privacyMaskController,
     this.dashboardController,
     required this.clock,
   });
@@ -1692,6 +1717,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
   Widget build(BuildContext context) {
     return HomeScreen(
       controller: widget.homeController,
+      privacyMaskController: widget.privacyMaskController,
       dashboardController: widget.dashboardController,
       clock: widget.clock,
       idToken: () async => await widget.authRepository.idToken() ?? '',
