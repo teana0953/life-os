@@ -67,14 +67,12 @@ class FinanceOverviewTab extends StatelessWidget {
 
     return AsyncStateScaffold(
       isLoading:
-          controller.status == FinanceStatus.loading &&
-          controller.summary == null,
+          controller.status == FinanceStatus.loading && controller.summary == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       onSignInAgain: onSignInAgain,
       builder: (context) {
-        if (controller.status == FinanceStatus.error &&
-            controller.summary == null) {
+        if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -295,10 +293,7 @@ class _SplitSpendingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            loc.financeSplitSpendingTitle,
-            style: theme.textTheme.titleMedium,
-          ),
+          Text(loc.financeSplitSpendingTitle, style: theme.textTheme.titleMedium),
           if (counted.isNotEmpty)
             _SplitSpendingGroup(
               keyPrefix: 'counted',
@@ -377,9 +372,7 @@ class _SplitSpendingGroup extends StatelessWidget {
               value: Text(
                 formatMinorUnitsForDisplay(total.amount, total.currency),
                 textAlign: TextAlign.end,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -412,10 +405,7 @@ class _TotalRow extends StatelessWidget {
         value: Text(
           text,
           textAlign: TextAlign.end,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
+          style: theme.textTheme.bodyLarge?.copyWith(color: color, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -429,21 +419,15 @@ class _CategoryBreakdown extends StatelessWidget {
   final List<CategoryAmount> byCategory;
   final List<FinanceCategory> categories;
 
-  const _CategoryBreakdown({
-    required this.byCategory,
-    required this.categories,
-  });
+  const _CategoryBreakdown({required this.byCategory, required this.categories});
 
   @override
   Widget build(BuildContext context) {
-    final expenses =
-        byCategory.where((a) => a.type == FinanceType.expense).toList()
-          ..sort((a, b) => b.amount.compareTo(a.amount));
+    final expenses = byCategory.where((a) => a.type == FinanceType.expense).toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
     if (expenses.isEmpty) return const SizedBox.shrink();
 
-    final maxAmount = expenses
-        .map((a) => a.amount)
-        .reduce((a, b) => a > b ? a : b);
+    final maxAmount = expenses.map((a) => a.amount).reduce((a, b) => a > b ? a : b);
 
     return LedgeCard(
       padding: const EdgeInsets.all(16),
@@ -477,18 +461,12 @@ class _CategoryBar extends StatelessWidget {
   final FinanceCategory? category;
   final double fraction;
 
-  const _CategoryBar({
-    required this.amount,
-    required this.category,
-    required this.fraction,
-  });
+  const _CategoryBar({required this.amount, required this.category, required this.fraction});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final icon = category == null
-        ? Icons.category
-        : financeCategoryIcon(category!);
+    final icon = category == null ? Icons.category : financeCategoryIcon(category!);
     final name = category?.name ?? amount.categoryId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -517,10 +495,7 @@ class _CategoryBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        FractionalProgressBar(
-          fraction: fraction,
-          fillColor: theme.colorScheme.error,
-        ),
+        FractionalProgressBar(fraction: fraction, fillColor: theme.colorScheme.error),
       ],
     );
   }
@@ -542,8 +517,7 @@ class _RecentTransactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sorted = List.of(transactions)
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final sorted = List.of(transactions)..sort((a, b) => b.date.compareTo(a.date));
     final recent = sorted.take(5).toList();
     return LedgeCard(
       padding: const EdgeInsets.symmetric(vertical: 4),

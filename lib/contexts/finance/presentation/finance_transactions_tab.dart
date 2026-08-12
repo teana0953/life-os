@@ -35,14 +35,12 @@ class FinanceTransactionsTab extends StatelessWidget {
 
     return AsyncStateScaffold(
       isLoading:
-          controller.status == FinanceStatus.loading &&
-          controller.summary == null,
+          controller.status == FinanceStatus.loading && controller.summary == null,
       isReauth: controller.status == FinanceStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       onSignInAgain: onSignInAgain,
       builder: (context) {
-        if (controller.status == FinanceStatus.error &&
-            controller.summary == null) {
+        if (controller.status == FinanceStatus.error && controller.summary == null) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
