@@ -23,3 +23,29 @@ abstract class AuthRepository {
   /// Emits `true` when a user is signed in, `false` when signed out.
   Stream<bool> get authStateChanges;
 }
+
+/// Optional companion port for auth adapters that can name the signed-in
+/// user, read through [currentUidOf].
+///
+/// Separate from [AuthRepository] rather than a member on it — including a
+/// member *with a default body* — because Dart requires every `implements`
+/// clause to supply all interface members, defaults included: adding it to
+/// [AuthRepository] does not compile until all 42 test fakes that implement
+/// the port each grow a mechanical override. Kept out so the change stays
+/// the size of the behaviour it adds.
+///
+/// The cost is that an adapter which forgets to implement this reads as
+/// "signed out" instead of failing. That is absorbed by the one consumer:
+/// [PrivacyMaskController] with no uid holds nothing and — the part that
+/// matters — writes nothing, so a missing uid can never mix two accounts'
+/// settings together.
+abstract class CurrentUidProvider {
+  /// The signed-in user's Firebase uid, or `null` when signed out.
+  String? get currentUid;
+}
+
+/// [repository]'s signed-in uid, or `null` when it cannot supply one.
+String? currentUidOf(AuthRepository repository) =>
+    repository is CurrentUidProvider
+    ? (repository as CurrentUidProvider).currentUid
+    : null;

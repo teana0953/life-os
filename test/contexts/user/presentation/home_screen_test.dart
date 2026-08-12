@@ -30,6 +30,7 @@ import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/shared/privacy/privacy_mask_controller.dart';
 import 'package:life_os/shared/routing/finance_tab.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,6 +79,19 @@ Future<ThemeController> testThemeController() async {
   return ThemeController(prefs);
 }
 
+/// A [PrivacyMaskController] backed by mocked prefs, already loaded for [uid].
+///
+/// Loaded for a real uid by default because a controller with no user refuses
+/// to persist — a tile toggle in a test would silently do nothing.
+Future<PrivacyMaskController> testPrivacyMaskController({
+  Map<String, Object> initialValues = const {},
+  String? uid = 'uid-test',
+}) async {
+  SharedPreferences.setMockInitialValues(initialValues);
+  final prefs = await SharedPreferences.getInstance();
+  return PrivacyMaskController(prefs)..loadForUser(uid);
+}
+
 /// What a `pumpHomeScreen` test can look at afterwards: the router, and the
 /// **full location `/finance` was entered with**, query string included.
 ///
@@ -105,9 +119,12 @@ Future<HomeHarness> pumpHomeScreen(
   /// combination where a reload can never run. `idToken: null` cannot express
   /// it, since that is also the default.
   bool omitIdToken = false,
+  PrivacyMaskController? privacyMaskController,
 }) async {
   final financeLocations = <String>[];
   final localeController = await testLocaleController();
+  final resolvedPrivacyMaskController =
+      privacyMaskController ?? await testPrivacyMaskController();
   // HomeScreen now navigates by pushing routes (the app router builds the target
   // screens), so give it a router with marker destinations for `/health` and
   // `/settings` to assert the tile/icon navigate there.
@@ -118,6 +135,7 @@ Future<HomeHarness> pumpHomeScreen(
         path: '/',
         builder: (context, state) => HomeScreen(
           controller: controller,
+          privacyMaskController: resolvedPrivacyMaskController,
           clock: clock ?? DateTime.now,
           dashboardController: dashboardController,
           idToken: omitIdToken

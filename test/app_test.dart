@@ -163,12 +163,16 @@ import 'package:life_os/shared/assistant/gemini_key_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/date/day_format.dart';
 import 'package:life_os/shared/i18n/locale_controller.dart';
+import 'package:life_os/shared/privacy/privacy_mask_controller.dart';
 import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
 import 'package:life_os/shared/pwa/pwa_update_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'contexts/user/presentation/dashboard_repositories_fake.dart';
+import 'contexts/user/presentation/home_screen_test.dart' show loadedDashboardFixture;
 
 import 'package:life_os/contexts/finance/application/list_finance_categories.dart';
 
@@ -1124,9 +1128,16 @@ class _FakeHealthCalendarRepository implements HealthCalendarRepository {
   );
 }
 
-class FakeAuthRepository implements AuthRepository {
+class FakeAuthRepository implements AuthRepository, CurrentUidProvider {
   @override
   Future<void> sendPasswordReset(String email) async {}
+
+  /// Who is signed in. Settable so one test can sign A out and B in — the
+  /// only way to observe that per-account state does not leak between them.
+  String uid = 'uid-a';
+
+  @override
+  String? get currentUid => _isAuthenticated ? uid : null;
 
   static const validEmail = 'user@example.com';
   static const validPassword = 'correct-password';
@@ -1224,6 +1235,23 @@ final _testProfile = UserProfile(
   isAdmin: false,
 );
 
+/// What a masked home figure paints instead of the number.
+final _maskedValue = lookupAppLocalizations(const Locale('en')).homeMaskedValue;
+
+/// A real [HomeDashboardController] over [repos] — unlike an assigned
+/// fixture it survives the sign-out reset and re-fetches for the next user,
+/// which is exactly what the account-isolation test needs.
+HomeDashboardController _dashboardControllerFor(
+  FakeDashboardRepositories repos,
+) => HomeDashboardController(
+  GetWeightGoal(repos),
+  GetVitalsTrends(repos),
+  GetMenstrualOverview(repos),
+  ListFinanceBudgets(repos),
+  GetMonthlyNetWorth(repos),
+  GetBalances(repos),
+);
+
 /// Builds a fresh [ThemeController] backed by an empty, mocked
 /// [SharedPreferences] instance (so it defaults to [ThemeMode.system]).
 Future<ThemeController> testThemeController() async {
@@ -1273,6 +1301,11 @@ Future<LocaleController> pumpApp(
   /// needs the composer (not the setup state).
   GeminiKeyController? geminiKeyController,
 
+  /// Which home figures the signed-in user hid — a fresh, empty one by
+  /// default. Pass one built over seeded prefs to start with a choice
+  /// already on disk.
+  PrivacyMaskController? privacyMaskController,
+
   /// Hands back the health-calendar controller [App] was wired with — it is
   /// built internally by [testHealthControllers], so this is how a test gets
   /// a reference to assert on it.
@@ -1316,6 +1349,12 @@ Future<LocaleController> pumpApp(
       await () async {
         SharedPreferences.setMockInitialValues({});
         return GeminiKeyController(await SharedPreferences.getInstance());
+      }();
+  final resolvedPrivacyMaskController =
+      privacyMaskController ??
+      await () async {
+        SharedPreferences.setMockInitialValues({});
+        return PrivacyMaskController(await SharedPreferences.getInstance());
       }();
   final resolvedSignOut = signOut ?? SignOut(authRepository);
   final resolvedSignUp = signUp ?? SignUp(authRepository);
@@ -1452,6 +1491,7 @@ Future<LocaleController> pumpApp(
       localeController: resolvedLocaleController,
       themeController: resolvedThemeController,
       geminiKeyController: resolvedGeminiKeyController,
+      privacyMaskController: resolvedPrivacyMaskController,
       assistantController: resolvedAssistantController,
       signOut: resolvedSignOut,
       signUp: resolvedSignUp,
@@ -3326,6 +3366,164 @@ void main() {
         // key to the next account after one reload.
         expect(geminiKeyController.hasKey, isFalse);
         expect(prefs.getString('gemini_api_key'), isNull);
+      },
+    );
+
+    testWidgets(
+      'A1 LINCHPIN: signing in as a second account does not inherit the '
+      "first account's hidden figures",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true)
+          ..uid = 'uid-a';
+        SharedPreferences.setMockInitialValues({
+          'privacy_hidden_items_uid-a': <String>['totalAssets'],
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final privacyMaskController = PrivacyMaskController(prefs);
+        final repos = FakeDashboardRepositories();
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          homeDashboardController: _dashboardControllerFor(repos),
+          privacyMaskController: privacyMaskController,
+        );
+        await tester.pumpAndSettle();
+
+        // A sees their own choice restored.
+        expect(find.text('987,600'), findsNothing);
+        expect(find.text(_maskedValue), findsWidgets);
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // Asserted directly on the controller, because nothing renders it
+        // between the two sessions: the login screen shows no figures, so a
+        // sign-out that forgot to clear would look identical on screen and
+        // only surface if the next sign-in could not resolve a uid.
+        for (final item in PrivacyMaskItem.values) {
+          expect(privacyMaskController.isHidden(item), isFalse, reason: item.name);
+        }
+
+        authRepository.uid = 'uid-b';
+        await authRepository.signIn(
+          FakeAuthRepository.validEmail,
+          FakeAuthRepository.validPassword,
+        );
+        await tester.pumpAndSettle();
+
+        // B has hidden nothing, so B sees the figure. Both halves matter: the
+        // bullets being gone without the number being back would also be
+        // satisfied by a dashboard that simply failed to load.
+        expect(find.text('987,600'), findsOneWidget);
+        expect(find.text(_maskedValue), findsNothing);
+
+        // And A's choice was not deleted on the way out — signing out is a
+        // change of occupant, not a wipe.
+        expect(
+          prefs.getStringList('privacy_hidden_items_uid-a'),
+          contains('totalAssets'),
+        );
+      },
+    );
+
+    testWidgets(
+      'A2 LINCHPIN: a hidden figure is never painted, not even for one frame',
+      (tester) async {
+        // The reason the load is synchronous. Anything deferred — a
+        // microtask, or reading the uid off `/api/me`'s UserProfile — paints
+        // the real number first and covers it afterwards.
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true)
+          ..uid = 'uid-a';
+        SharedPreferences.setMockInitialValues({
+          'privacy_hidden_items_uid-a': <String>['totalAssets'],
+        });
+        final privacyMaskController = PrivacyMaskController(
+          await SharedPreferences.getInstance(),
+        );
+
+        final leakedFrames = <int>[];
+        var frame = 0;
+        Future<void> pumpAndCheck() async {
+          await tester.pump();
+          frame++;
+          if (find.text('987,600').evaluate().isNotEmpty) leakedFrames.add(frame);
+        }
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          // ALREADY loaded, unlike A1's live fan-out: with the figures only
+          // arriving after several async frames, any deferral of the mask
+          // load lands first and the window this test is watching is shut
+          // before it opens. Assigned data makes frame 1 the moment of truth.
+          homeDashboardController: loadedDashboardFixture(),
+          privacyMaskController: privacyMaskController,
+        );
+        // Frame by frame from the very first one, collecting every offender
+        // rather than failing on the first — a single flash is the bug.
+        for (var i = 0; i < 40; i++) {
+          await pumpAndCheck();
+        }
+        await tester.pumpAndSettle();
+        await pumpAndCheck();
+
+        expect(leakedFrames, isEmpty, reason: 'the figure flashed unmasked');
+        // The screen really did reach the loaded dashboard — otherwise the
+        // assertion above holds for the boring reason that nothing rendered.
+        expect(find.text('456,700'), findsOneWidget);
+        expect(find.text(_maskedValue), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'A3: the eyes exist on the home the real App builds',
+      (tester) async {
+        // The only test that can catch `app.dart` building `HomeScreen`
+        // without wiring the controller through.
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final repos = FakeDashboardRepositories();
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          homeDashboardController: _dashboardControllerFor(repos),
+        );
+        await tester.pumpAndSettle();
+
+        for (final item in PrivacyMaskItem.values) {
+          expect(
+            find.byKey(Key('home-mask-toggle-${item.name}')),
+            findsOneWidget,
+            reason: item.name,
+          );
+        }
+
+        WidgetController.hitTestWarningShouldBeFatal = true;
+        addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
+        final eye = find.byKey(
+          Key('home-mask-toggle-${PrivacyMaskItem.totalAssets.name}'),
+        );
+        await tester.ensureVisible(eye);
+        await tester.pumpAndSettle();
+        expect(find.text('987,600'), findsOneWidget);
+        await tester.tap(eye);
+        await tester.pumpAndSettle();
+        expect(find.text('987,600'), findsNothing);
       },
     );
   });

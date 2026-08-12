@@ -8,7 +8,7 @@ import 'firebase_auth_error_messages.dart';
 ///
 /// Firebase error codes are translated to typed [AuthFailureCode]s via
 /// [authFailureCodeFor] — internal detail is never surfaced.
-class FirebaseAuthRepository implements AuthRepository {
+class FirebaseAuthRepository implements AuthRepository, CurrentUidProvider {
   final firebase_auth.FirebaseAuth _auth;
 
   FirebaseAuthRepository(this._auth);
@@ -60,4 +60,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Stream<bool> get authStateChanges {
     return _auth.authStateChanges().map((user) => user != null);
   }
+
+  @override
+  String? get currentUid => _auth.currentUser?.uid;
 }

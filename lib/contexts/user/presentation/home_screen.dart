@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
+import '../../../shared/privacy/privacy_mask_controller.dart';
 import '../../../shared/routing/finance_tab.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
@@ -29,12 +30,20 @@ GreetingPeriod greetingPeriodFor(DateTime time) {
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
   final HomeDashboardController? dashboardController;
+
+  /// Which snapshot figures the signed-in user chose to hide.
+  ///
+  /// Required, not nullable: a nullable one turns a forgotten wire-up in
+  /// `app.dart` into "the eyes just aren't there", which every widget test
+  /// here would still pass. There are three construction sites.
+  final PrivacyMaskController privacyMaskController;
   final DateTime Function() clock;
   final Future<String> Function()? idToken;
 
   const HomeScreen({
     super.key,
     required this.controller,
+    required this.privacyMaskController,
     this.dashboardController,
     this.clock = DateTime.now,
     this.idToken,
@@ -50,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
     widget.dashboardController?.addListener(_onControllerChanged);
+    widget.privacyMaskController.addListener(_onControllerChanged);
   }
 
   @override
@@ -63,12 +73,17 @@ class _HomeScreenState extends State<HomeScreen> {
       oldWidget.dashboardController?.removeListener(_onControllerChanged);
       widget.dashboardController?.addListener(_onControllerChanged);
     }
+    if (oldWidget.privacyMaskController != widget.privacyMaskController) {
+      oldWidget.privacyMaskController.removeListener(_onControllerChanged);
+      widget.privacyMaskController.addListener(_onControllerChanged);
+    }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
     widget.dashboardController?.removeListener(_onControllerChanged);
+    widget.privacyMaskController.removeListener(_onControllerChanged);
     super.dispose();
   }
 
@@ -372,6 +387,33 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// A snapshot tile the user is allowed to hide. One builder for all four
+  /// maskable tiles in both dashboard branches (eight call sites), so the
+  /// masking wiring cannot be right in one branch and missing in the other.
+  Widget _maskableTile({
+    required Key tileKey,
+    required AppLocalizations loc,
+    required PrivacyMaskItem item,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    final mask = widget.privacyMaskController;
+    return _SnapshotTile(
+      tileKey: tileKey,
+      label: label,
+      value: value,
+      onTap: onTap,
+      maskItem: item,
+      isHidden: mask.isHidden(item),
+      onToggleMask: () => unawaited(mask.toggle(item)),
+      maskedValue: loc.homeMaskedValue,
+      hiddenSemanticLabel: loc.homeValueHidden,
+      hideLabel: loc.homeMaskHide(label),
+      showLabel: loc.homeMaskShow(label),
+    );
+  }
+
   Widget _buildDashboard() {
     final loc = AppLocalizations.of(context)!;
     final dashboard = widget.dashboardController;
@@ -393,8 +435,10 @@ class _HomeScreenState extends State<HomeScreen> {
             openLabel: loc.homeOpenHealth,
             onOpen: _openHealth,
             children: [
-              _SnapshotTile(
+              _maskableTile(
                 tileKey: const Key('home-latest-weight'),
+                loc: loc,
+                item: PrivacyMaskItem.latestWeight,
                 label: loc.homeLatestWeight,
                 value: loc.homeNoData,
                 onTap: _openVitals,
@@ -431,30 +475,53 @@ class _HomeScreenState extends State<HomeScreen> {
               // for the whole loop: this placeholder block is the state a
               // cold-start user actually taps, so it has to send each tile to
               // the same tab the loaded block does.
-              for (final entry in <(Key, String, void Function())>[
-                (const Key('home-budget'), loc.homeBudget, _openFinance),
+              // The maskable item is part of the tuple for the same reason the
+              // destination is: 分帳總覽 prints money too but is deliberately
+              // NOT maskable, so a shared value for the whole loop would give
+              // it an eye.
+              for (final entry
+                  in <(Key, String, void Function(), PrivacyMaskItem?)>[
+                (
+                  const Key('home-budget'),
+                  loc.homeBudget,
+                  _openFinance,
+                  PrivacyMaskItem.budget,
+                ),
                 (
                   const Key('home-total-assets'),
                   loc.homeTotalAssets,
                   () => _openFinanceTab(FinanceTab.networth),
+                  PrivacyMaskItem.totalAssets,
                 ),
                 (
                   const Key('home-total-liabilities'),
                   loc.homeTotalLiabilities,
                   () => _openFinanceTab(FinanceTab.networth),
+                  PrivacyMaskItem.totalLiabilities,
                 ),
                 (
                   const Key('home-split-overview'),
                   loc.homeSplitOverview,
                   () => _openFinanceTab(FinanceTab.split),
+                  null,
                 ),
               ])
-                _SnapshotTile(
-                  tileKey: entry.$1,
-                  label: entry.$2,
-                  value: loc.homeNoData,
-                  onTap: entry.$3,
-                ),
+                if (entry.$4 case final item?)
+                  _maskableTile(
+                    tileKey: entry.$1,
+                    loc: loc,
+                    item: item,
+                    label: entry.$2,
+                    value: loc.homeNoData,
+                    onTap: entry.$3,
+                  )
+                else
+                  _SnapshotTile(
+                    tileKey: entry.$1,
+                    label: entry.$2,
+                    value: loc.homeNoData,
+                    onTap: entry.$3,
+                  ),
             ],
           ),
         ],
@@ -494,8 +561,10 @@ class _HomeScreenState extends State<HomeScreen> {
           openLabel: loc.homeOpenHealth,
           onOpen: _openHealth,
           children: [
-            _SnapshotTile(
+            _maskableTile(
               tileKey: const Key('home-latest-weight'),
+              loc: loc,
+              item: PrivacyMaskItem.latestWeight,
               label: loc.homeLatestWeight,
               value: data.weightGoal.currentWeightKg == null
                   ? loc.homeNoData
@@ -535,8 +604,10 @@ class _HomeScreenState extends State<HomeScreen> {
           openLabel: loc.homeOpenFinance,
           onOpen: _openFinance,
           children: [
-            _SnapshotTile(
+            _maskableTile(
               tileKey: const Key('home-budget'),
+              loc: loc,
+              item: PrivacyMaskItem.budget,
               label: loc.homeBudget,
               value: data.overallBudget == null
                   ? loc.homeNoData
@@ -548,8 +619,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
               onTap: _openFinance,
             ),
-            _SnapshotTile(
+            _maskableTile(
               tileKey: const Key('home-total-assets'),
+              loc: loc,
+              item: PrivacyMaskItem.totalAssets,
               label: loc.homeTotalAssets,
               value: formatMinorUnitsForDisplay(
                 data.netWorth.totalAsset,
@@ -557,8 +630,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onTap: () => _openFinanceTab(FinanceTab.networth),
             ),
-            _SnapshotTile(
+            _maskableTile(
               tileKey: const Key('home-total-liabilities'),
+              loc: loc,
+              item: PrivacyMaskItem.totalLiabilities,
               label: loc.homeTotalLiabilities,
               value: formatMinorUnitsForDisplay(
                 data.netWorth.totalLiability,
@@ -740,23 +815,47 @@ class _SnapshotTile extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback onTap;
 
+  /// Non-null on the tiles the user is allowed to hide — and the only thing
+  /// that puts an eye on a tile.
+  final PrivacyMaskItem? maskItem;
+  final bool isHidden;
+  final VoidCallback? onToggleMask;
+
+  /// Already-localized strings. The tile never looks up [AppLocalizations]
+  /// itself, matching every other string it is handed.
+  final String maskedValue;
+  final String hiddenSemanticLabel;
+  final String hideLabel;
+  final String showLabel;
+
   const _SnapshotTile({
     required this.tileKey,
     required this.label,
     this.value,
     this.actionLabel,
     required this.onTap,
+    this.maskItem,
+    this.isHidden = false,
+    this.onToggleMask,
+    this.maskedValue = '',
+    this.hiddenSemanticLabel = '',
+    this.hideLabel = '',
+    this.showLabel = '',
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final maskItem = this.maskItem;
     return InkWell(
       key: tileKey,
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 92),
+        // 110, not the original 92: the eye grows the title row from ~16 to a
+        // 44pt tap target, and `Wrap` does not stretch a short tile to match a
+        // tall one — leaving the eyeless tiles visibly shorter beside them.
+        constraints: const BoxConstraints(minHeight: 110),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: theme.colorScheme.outline),
@@ -766,10 +865,46 @@ class _SnapshotTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: theme.textTheme.bodySmall),
+            // The eye rides the TITLE row, not the value row: the title is a
+            // short `bodySmall`, while the value can be as long as
+            // "剩餘 NT$123,456" — an eye beside that is the first thing to
+            // overflow in the 320dp single-column layout.
+            Row(
+              children: [
+                Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
+                if (maskItem != null)
+                  IconButton(
+                    key: Key('home-mask-toggle-${maskItem.name}'),
+                    icon: Icon(
+                      isHidden
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    iconSize: 18,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 44,
+                      height: 44,
+                    ),
+                    tooltip: isHidden ? showLabel : hideLabel,
+                    onPressed: onToggleMask,
+                  ),
+              ],
+            ),
             const SizedBox(height: 10),
             if (actionLabel != null)
               Text(actionLabel!, style: theme.textTheme.labelLarge)
+            else if (isHidden)
+              // A screen reader hears "Hidden", not four bullet characters
+              // read out one by one — and, more importantly, never the figure
+              // itself, which is still in the widget tree of a naive
+              // implementation that only repaints.
+              Semantics(
+                label: hiddenSemanticLabel,
+                child: ExcludeSemantics(
+                  child: Text(maskedValue, style: theme.textTheme.titleMedium),
+                ),
+              )
             else
               Text(value ?? '', style: theme.textTheme.titleMedium),
           ],
