@@ -257,6 +257,29 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // `where`/`isEmpty`, not `firstWhere`: the row genuinely may not be in
       // the reloaded month (see below), and `firstWhere` would answer that
       // with a `StateError` out of a save handler.
+      //
+      // **`controller.transactions` is shared, and this deliberately still
+      // reads it.** `_reportRefusedWrite` runs this write's own reload but,
+      // when a newer concurrent `load` supersedes it, leaves the data fields
+      // to that newer call (#165) — so the list read here may have been
+      // fetched by somebody else's call, for another month. The id gate below
+      // is what makes that safe, and it leaves exactly two outcomes, both
+      // pinned by tests in `add_transaction_sheet_test.dart`:
+      //
+      // * a row with this id is present — then whichever call fetched it, it
+      //   is the server's current facts *about this very row*, which is all
+      //   the re-seed claims; and
+      // * no such row — then the sheet closes with "the split moved out of
+      //   this month" instead of re-seeding, i.e. it degrades by giving up,
+      //   never by showing figures that belong to something else.
+      //
+      // The alternative — re-seeding only when this write's *own* reload
+      // landed — needs a new controller→sheet channel saying so, which is a
+      // wider interface than #165's fix and would need invariants of its own.
+      // The cost of not having it is bounded: nothing here is written to the
+      // server, the user is being asked to re-confirm and press Save again,
+      // and that Save re-validates against the server — a re-seed from a list
+      // that had not refreshed yet simply earns a second 409, not wrong data.
       final reloaded = controller.transactions.where((t) => t.id == editing.id);
       final fresh = reloaded.isEmpty ? null : reloaded.first;
       if (fresh == null) {

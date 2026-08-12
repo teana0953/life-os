@@ -122,8 +122,35 @@ class _GenerationalFakeRepository implements FinanceRepository {
     for (final method in _gatedMethods) method: <Completer<void>>[],
   };
 
-  /// Thrown by the next write call, once.
+  /// Thrown by the next write call, once. Read *after* [gatingWrites]' gate
+  /// opens, so a held write fails at release time rather than at call time.
   Object? failNextWrite;
+
+  /// Gates the write calls themselves, the way the read gates above hold a
+  /// `load`'s five reads.
+  ///
+  /// Needed by the four `_mutate` failure arms that deliberately do **not**
+  /// reload (401 / validation / fetch failure / anything unexpected): they
+  /// issue no `load`, so there is no read gate to hold them on, and without
+  /// one their failure can only land synchronously — before any concurrent
+  /// call has even been issued, let alone settled. Those arms still write
+  /// `status` (behind `if (seq == _loadSeq)`), which is precisely what I5 is
+  /// about, so they have to be orderable against the other ops' responses.
+  ///
+  /// Only writes that *arrive while this is true* register a gate, so a
+  /// succeeding write elsewhere in the same interleaving is never left
+  /// waiting for a release nobody issues.
+  bool gatingWrites = false;
+  final List<Completer<void>> _writeGates = [];
+
+  /// How many writes have been held so far — the generation number to pass to
+  /// [releaseWrite], read right after the held write has arrived.
+  int get writeCount => _writeGates.length;
+
+  void releaseWrite(int generation) {
+    final gate = _writeGates[generation - 1];
+    if (!gate.isCompleted) gate.complete();
+  }
 
   /// Generation numbers whose *main* fetch should fail with this error
   /// instead of resolving (the background-reload-failed path).
@@ -258,10 +285,17 @@ class _GenerationalFakeRepository implements FinanceRepository {
     ];
   }
 
-  Object? _takeWriteFailure() {
+  /// Registers this write against [gatingWrites]' gate (if one is open),
+  /// waits for it, and then throws whatever [failNextWrite] holds.
+  Future<void> _arriveWrite() async {
+    if (gatingWrites) {
+      final gate = Completer<void>();
+      _writeGates.add(gate);
+      await gate.future;
+    }
     final failure = failNextWrite;
     failNextWrite = null;
-    return failure;
+    if (failure != null) throw failure;
   }
 
   @override
@@ -274,8 +308,7 @@ class _GenerationalFakeRepository implements FinanceRepository {
     required String date,
     String? note,
   }) async {
-    final failure = _takeWriteFailure();
-    if (failure != null) throw failure;
+    await _arriveWrite();
     return FinanceTransaction(
       id: 'written',
       type: type,
@@ -298,8 +331,7 @@ class _GenerationalFakeRepository implements FinanceRepository {
     required String date,
     String? note,
   }) async {
-    final failure = _takeWriteFailure();
-    if (failure != null) throw failure;
+    await _arriveWrite();
     return FinanceTransaction(
       id: id,
       type: type,
@@ -313,8 +345,7 @@ class _GenerationalFakeRepository implements FinanceRepository {
 
   @override
   Future<void> deleteTransaction(String idToken, String id) async {
-    final failure = _takeWriteFailure();
-    if (failure != null) throw failure;
+    await _arriveWrite();
   }
 
   @override
@@ -323,14 +354,12 @@ class _GenerationalFakeRepository implements FinanceRepository {
     String? categoryId,
     required int amount,
   }) async {
-    final failure = _takeWriteFailure();
-    if (failure != null) throw failure;
+    await _arriveWrite();
   }
 
   @override
   Future<void> deleteBudget(String idToken, String id) async {
-    final failure = _takeWriteFailure();
-    if (failure != null) throw failure;
+    await _arriveWrite();
   }
 
   // The ledger controller never touches the networth or instalment ports;
@@ -440,9 +469,24 @@ class _Op {
   )
   run;
 
-  const _Op(this.name, {required this.run});
+  /// How many [FinanceController.load] calls this op issues before it can
+  /// settle — the number of gated response sets the harness has to hand out
+  /// and release for it.
+  ///
+  /// Every op in [_ops] issues exactly one. **Zero is the shape the harness
+  /// was missing**: `_mutate`'s 401 / validation / fetch-failure / unexpected
+  /// arms reload nothing at all, so an op built from [asNonReloading] is held
+  /// on the repository's *write* gate instead, and "releasing" it means
+  /// letting its write fail rather than letting a fetch land.
+  final int loads;
+
+  const _Op(this.name, {required this.run, this.loads = 1});
 
   bool get isWrite => this != _ops[0] && this != _ops[1];
+
+  /// The same call, but refused by the server on an arm that issues no reload
+  /// — see [loads].
+  _Op asNonReloading() => _Op(name, run: run, loads: 0);
 }
 
 final _ops = <_Op>[
@@ -615,31 +659,65 @@ Future<_Run> _interleave(
   final statusWhenOpCompleted = <int, FinanceStatus>{};
   final resultWhenOpCompleted = <int, FinanceWriteResult?>{};
   final futures = <Future<void>>[];
-  final generations = <int>[];
+  // `null` for an op that issues no load at all (see [_Op.loads]): there is no
+  // generation to stamp or fail, only a held write.
+  final generations = <int?>[];
+  /// Lets op *i*'s held response land — its load's five reads, or, for a
+  /// zero-load op, its write's failure.
+  final releases = <void Function()>[];
 
   for (var index = 0; index < ops.length; index++) {
+    final op = ops[index];
+    // Only the op being issued right now can be caught by the write gate, so
+    // a *succeeding* write elsewhere in the same interleaving is never left
+    // waiting for a release nobody issues.
+    repo.gatingWrites = op.loads == 0;
     final before = repo.count('getSummary');
     futures.add(() async {
-      final result = await ops[index].run(controller, index);
+      final result = await op.run(controller, index);
       statusWhenOpCompleted[index] = controller.status;
       resultWhenOpCompleted[index] = result;
     }());
-    // The op has to reach its gated read before the next one starts, so that
-    // generation numbers line up with the order the ops were issued in.
+    // The op has to reach its gated read (or write) before the next one
+    // starts, so that generation numbers line up with the order the ops were
+    // issued in.
     await pumpEventQueue();
+    repo.gatingWrites = false;
     final after = repo.count('getSummary');
     expect(
-      after,
-      before + 1,
+      after - before,
+      op.loads,
       reason:
-          'the harness assumes each op issues exactly one load; '
-          '"${ops[index].name}" issued ${after - before}',
+          'the harness hands out one release per op, so "${op.name}" must '
+          'issue the ${op.loads} load(s) it declares; it issued '
+          '${after - before}',
     );
-    generations.add(after);
+    if (op.loads == 0) {
+      final writeGeneration = repo.writeCount;
+      expect(
+        writeGeneration,
+        greaterThan(0),
+        reason:
+            '"${op.name}" declares no load, so it must be a write held on the '
+            'write gate — otherwise it has already settled and this release '
+            'order means nothing',
+      );
+      generations.add(null);
+      releases.add(() => repo.releaseWrite(writeGeneration));
+    } else {
+      generations.add(after);
+      releases.add(() => repo.release(after));
+    }
   }
 
   if (failNewest != null) {
-    repo.failGeneration[generations.last] = failNewest;
+    final newest = generations.last;
+    expect(
+      newest,
+      isNotNull,
+      reason: 'failNewest needs the newest op to have issued a load to fail',
+    );
+    repo.failGeneration[newest!] = failNewest;
   }
 
   if (resetBeforeRelease) {
@@ -667,7 +745,7 @@ Future<_Run> _interleave(
 
   controller.addListener(checkOwnership);
   for (final index in releaseOrder) {
-    repo.release(generations[index]);
+    releases[index]();
     await pumpEventQueue();
     if (!resetBeforeRelease &&
         index == ops.length - 1 &&
@@ -875,8 +953,15 @@ void main() {
     final backgroundReload = _ops[0];
 
     // `_mutate` deliberately reloads on only these two (design D5: the server
-    // changed under the caller); the other arms never call `load`, so there
-    // is no reload for a newer one to overtake and nothing here to test.
+    // changed under the caller), so only these two can have a reload of their
+    // own for a newer call to overtake — which is what *this* group is about.
+    //
+    // The other four arms are **not** exempt from I5: they issue no reload,
+    // but they still write `status`, behind `if (seq == _loadSeq)`. That guard
+    // is checked in the group "a write refused on an arm that reloads
+    // nothing" below, which the harness could not express until an op was
+    // allowed to issue zero loads — the reason I5, though stated universally,
+    // had in fact only ever been exercised on the reloading arms.
     final mutateFailures =
         <String, ({Object thrown, FinanceWriteResult result})>{
           'a 409 conflict': (
@@ -976,6 +1061,93 @@ void main() {
                 '`status`, which a concurrent reload also writes to',
           );
         });
+      }
+    }
+  });
+
+  group('a write refused on an arm that reloads nothing', () {
+    // **The harness gap this closes.** `_interleave` used to assert that every
+    // op issues exactly one load, so `_mutate`'s four non-reloading failure
+    // arms — 401, validation, fetch failure, anything unexpected — could never
+    // be an op at all: they fetch nothing. I5 was therefore written as a
+    // universal statement but only ever checked on the two arms that *do*
+    // reload, which is how a blocker in those four sat behind 91 green
+    // invariants.
+    //
+    // They are not exempt: each of them writes `status`/`error` directly,
+    // guarded by `if (seq == _loadSeq)` — "am I still the newest call". Here
+    // the refused write is issued **first**, so the two loads behind it bump
+    // `_loadSeq` and that guard must be false by the time its failure lands;
+    // and its write is held on the repository's write gate so the failure can
+    // land in any of the six positions relative to their responses, including
+    // last, after the newest call has already settled the screen.
+    //
+    // Every write path that reaches those arms is crossed with every failure
+    // and every release order. `saveBudgets` is absent on purpose: it reloads
+    // on *all* five of its arms, so it has no zero-load shape (its arms are
+    // covered by the reloading group above).
+    final nonReloadingFailures =
+        <String, ({Object thrown, FinanceWriteResult result})>{
+          'a 401': (
+            thrown: const FinanceReauthenticationRequired(),
+            result: FinanceWriteResult.needsReauth,
+          ),
+          'a validation failure': (
+            thrown: const FinanceValidationFailure(),
+            result: FinanceWriteResult.validation,
+          ),
+          'a fetch failure': (
+            thrown: const FinanceFetchFailure('boom'),
+            result: FinanceWriteResult.fetchFailed,
+          ),
+          'an unexpected error': (
+            thrown: StateError('boom'),
+            result: FinanceWriteResult.unknown,
+          ),
+        };
+
+    for (final op in [_ops[2], _ops[3], _ops[4]]) {
+      for (final entry in nonReloadingFailures.entries) {
+        for (final order in _releaseOrders) {
+          test(
+            '${op.name} refused with ${entry.key}, order $order',
+            () async {
+              final repo = _GenerationalFakeRepository();
+              final controller = _controller(repo);
+              await _seed(controller, repo);
+              repo.failNextWrite = entry.value.thrown;
+
+              final run = await _interleave(
+                controller,
+                repo,
+                // A background reload and a month switch behind it, both of
+                // which succeed — so the screen's own settled answer is
+                // `loaded`, and any repaint by the refused write is visible.
+                ops: [op.asNonReloading(), _ops[0], _ops[1]],
+                releaseOrder: order,
+              );
+
+              expect(run.watcher.violations, isEmpty);
+              expect(
+                run.resultWhenOpCompleted[0],
+                entry.value.result,
+                reason:
+                    'I6 "${op.name}" was refused with ${entry.key}; the sheet '
+                    'that issued it picks different copy and a different exit '
+                    'per refusal, and cannot read that off `status`',
+              );
+              expect(
+                controller.status,
+                FinanceStatus.loaded,
+                reason:
+                    'I5 both loads behind this write succeeded, so the screen '
+                    'is loaded; this write is older than both and must not '
+                    'repaint it with its own refusal — the reader would lose a '
+                    'ledger that refreshed perfectly well',
+              );
+            },
+          );
+        }
       }
     }
   });
