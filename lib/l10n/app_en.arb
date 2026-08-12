@@ -310,6 +310,10 @@
   "@cardRefreshFailed": {
     "description": "Slim marker appended inside an overview card that still shows content but whose latest reload failed. Says the content was not updated rather than that it is old — a reload can fail halfway and leave part of the card fresh. Sits next to a retry that reloads only that card."
   },
+  "cardRefreshing": "Refreshing",
+  "@cardRefreshing": {
+    "description": "Accessible label for a card's stale-content notice while its retry is in flight, replacing the failure label so a screen reader announces progress instead of repeating the same failure message."
+  },
   "switchLanguage": "Switch language",
   "@switchLanguage": {
     "description": "Tooltip/accessible label for the language switcher control."

@@ -609,6 +609,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t refresh'**
   String get cardRefreshFailed;
 
+  /// Accessible label for a card's stale-content notice while its retry is in flight, replacing the failure label so a screen reader announces progress instead of repeating the same failure message.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing'**
+  String get cardRefreshing;
+
   /// Tooltip/accessible label for the language switcher control.
   ///
   /// In en, this message translates to:

@@ -233,7 +233,17 @@ class FinanceController extends ChangeNotifier {
       reloadFailed = false;
     } on FinanceReauthenticationRequired {
       if (seq != _loadSeq) return _superseded(splitSpendingFuture);
-      if (background) {
+      // `background && summary != null`: the downgrade only makes sense when
+      // there is something already on screen to leave in place (see the
+      // [background] doc above) — mirrors [markReloadFailed]'s own
+      // `summary == null` guard. When a background reload 401s before any
+      // successful [load] ever landed (e.g. the initial load itself failed,
+      // and a split write elsewhere's background reload is what actually
+      // discovers the dead session), there is nothing on screen to protect,
+      // and the session really is dead — a full [FinanceStatus.needsReauth]
+      // exit is correct here, not a "load failed / retry" page whose retry
+      // can never succeed.
+      if (background && summary != null) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
         reloadFailed = true;
@@ -307,22 +317,31 @@ class FinanceController extends ChangeNotifier {
   /// and possibly a different status of its own) settles in right after,
   /// same as it would have anyway.
   ///
-  /// **Only while [summary] is non-null**, which is one condition doing two
-  /// jobs:
+  /// **Only while [summary] is non-null AND [status] is still `loading`**,
+  /// two conditions each guarding a different way this reload can be stale:
   ///
   /// * `loaded` is a claim about the screen, and both finance tabs cash it in
   ///   as `controller.summary!` once past their `status == error && summary
   ///   == null` guard. Announcing `loaded` with nothing loaded — a write that
   ///   lands before any successful [load] ever has — is not an optimistic
-  ///   status, it is a null dereference in `build`.
-  /// * `summary` is also what [reset] clears, so this is the sign-out guard
-  ///   too: after the account signed out mid-write, this continuation must
-  ///   not write `loaded` (and clear `error`) onto a controller that was
-  ///   deliberately emptied — the #156/#157 shape of an in-flight
-  ///   continuation reviving state on an app-lifetime singleton.
+  ///   status, it is a null dereference in `build`. `summary` is also what
+  ///   [reset] clears, so this is the sign-out guard too: after the account
+  ///   signed out mid-write, this continuation must not write `loaded` (and
+  ///   clear `error`) onto a controller that was deliberately emptied — the
+  ///   #156/#157 shape of an in-flight continuation reviving state on an
+  ///   app-lifetime singleton.
+  /// * `status == loading` guards against a *different* newer call than the
+  ///   one that superseded this reload's data: by the time this reload's
+  ///   [load] returns `false`, the newer call may already have settled
+  ///   [status] to its own terminal outcome (e.g. it 401'd and set
+  ///   `needsReauth`). [load] sets `status` to `loading` synchronously at the
+  ///   start of every call, so `loading` here means nothing newer has landed
+  ///   yet and it is still safe to resolve this call's own known-successful
+  ///   write to `loaded`; anything else means a newer, still-current call
+  ///   already owns [status] and must not be overwritten back to `loaded`.
   Future<void> _reloadAfterWrite(String idToken, String month) async {
     final applied = await load(idToken, month);
-    if (!applied && summary != null) {
+    if (!applied && summary != null && status == FinanceStatus.loading) {
       status = FinanceStatus.loaded;
       error = null;
       notifyListeners();
@@ -444,42 +463,52 @@ class FinanceController extends ChangeNotifier {
       return;
     } on FinanceReauthenticationRequired {
       final applied = await load(idToken, selectedMonth);
-      // `!applied ||`: a concurrent, newer reload (e.g. a background reload
-      // from a split write elsewhere) can supersede this call's own reload
-      // before it lands, leaving [status] wherever [load] set it
-      // synchronously at the start — `loading`, not a terminal state (see
-      // [_reloadAfterWrite]'s doc for the full shape). Without the
-      // `!applied` branch this error would be silently dropped and the
-      // caller would read "still loading" for a budget save that is known
-      // to have failed.
-      if (!applied || status == FinanceStatus.loaded) {
+      // `!applied && status == loading`: a concurrent, newer reload (e.g. a
+      // background reload from a split write elsewhere) can supersede this
+      // call's own reload before it lands. If nothing newer has settled
+      // [status] yet, [load] still has it at `loading` — set synchronously at
+      // its own start — and this branch resolves it to the failure this call
+      // already knows happened; leaving the `!applied` branch out entirely
+      // would silently drop this error and the caller would read "still
+      // loading" for a budget save that is known to have failed. But if a
+      // newer call has already landed and moved [status] to its own terminal
+      // outcome (e.g. `needsReauth` from its own 401), that result must not
+      // be overwritten back to this stale one — hence the `status ==
+      // loading` guard on top of `!applied` (see [_reloadAfterWrite]'s doc
+      // for the full shape).
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.needsReauth;
         notifyListeners();
       }
     } on FinanceValidationFailure {
       final applied = await load(idToken, selectedMonth);
-      if (!applied || status == FinanceStatus.loaded) {
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.validation;
         notifyListeners();
       }
     } on FinanceNotFound {
       final applied = await load(idToken, selectedMonth);
-      if (!applied || status == FinanceStatus.loaded) {
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
         notifyListeners();
       }
     } on FinanceFetchFailure {
       final applied = await load(idToken, selectedMonth);
-      if (!applied || status == FinanceStatus.loaded) {
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
         notifyListeners();
       }
     } catch (_) {
       final applied = await load(idToken, selectedMonth);
-      if (!applied || status == FinanceStatus.loaded) {
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.unknown;
         notifyListeners();
@@ -514,19 +543,22 @@ class FinanceController extends ChangeNotifier {
       error = FinanceError.validation;
     } on FinanceConflict {
       final applied = await load(idToken, selectedMonth);
-      // `!applied ||`: see [_reloadAfterWrite]'s doc — a concurrent, newer
-      // reload can supersede this call's own reload before it lands,
-      // leaving [status] `loading` instead of a terminal state. Without the
-      // `!applied` branch this 409 would be silently dropped and the caller
-      // would read "still loading" for a write that is known to have
-      // failed.
-      if (!applied || status == FinanceStatus.loaded) {
+      // `!applied && status == loading`: see [_reloadAfterWrite]'s doc — a
+      // concurrent, newer reload can supersede this call's own reload before
+      // it lands. If [status] is still `loading`, nothing newer has settled
+      // it yet, so this branch resolves it to the failure this call already
+      // knows happened; if a newer call has already moved [status] to its
+      // own terminal outcome, that result must not be overwritten back to
+      // this stale one.
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.conflict;
       }
     } on FinanceNotFound {
       final applied = await load(idToken, selectedMonth);
-      if (!applied || status == FinanceStatus.loaded) {
+      if ((!applied && status == FinanceStatus.loading) ||
+          status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
       }

@@ -313,18 +313,71 @@ void main() {
         );
 
         // The state that actually renders `retrying` (a press followed by a
-        // still-in-flight reload) does carry the label — this is the case
-        // that must NOT be a live region, since `widget.failed` is false.
+        // still-in-flight reload) carries the distinct "refreshing" label —
+        // this is the case that must NOT be a live region, since
+        // `widget.failed` is false.
         await _pump(tester);
         await tester.tap(find.byKey(const Key('stale-notice-retry')));
         await tester.pump();
 
         final data = semanticsDataForLabel(
           tester,
-          '$_subject: ${_loc.cardRefreshFailed}. ${_loc.retry}',
+          '$_subject: ${_loc.cardRefreshing}',
         );
         expect(data, isNotNull);
         expect(data!.flagsCollection.isLiveRegion, isFalse);
+
+        handle.dispose();
+      },
+    );
+
+    // The finance tabs (`FinanceOverviewTab`/`FinanceTransactionsTab`) key
+    // [StaleNotice.failed] off a flag that only clears on the *next success*
+    // — unlike the other callers, whose `failed` is `status == error` and so
+    // drops to `false` the moment a retry starts loading. That means finance
+    // is the one caller that can actually reach `failed: true, loading:
+    // true` mid-retry, which the two tests above never exercise.
+    testWidgets(
+      'switches off the live region and away from the failure label while '
+      'retrying even if the caller keeps `failed` true through the retry '
+      "(finance tabs' shape)",
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await _pump(
+          tester,
+          initial: (failed: true, loading: false),
+          // Unlike `_pump`'s default `onRetry`, mirror the finance tabs:
+          // `failed` stays true while the retry is in flight.
+          onRetry: (state) => state.value = (failed: true, loading: true),
+        );
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pump();
+
+        final failureLabel = semanticsDataForLabel(
+          tester,
+          '$_subject: ${_loc.cardRefreshFailed}. ${_loc.retry}',
+        );
+        expect(
+          failureLabel,
+          isNull,
+          reason:
+              'the failure label must not still be announced once a retry '
+              'this row itself started is in flight',
+        );
+
+        final retryingLabel = semanticsDataForLabel(
+          tester,
+          '$_subject: ${_loc.cardRefreshing}',
+        );
+        expect(retryingLabel, isNotNull);
+        expect(
+          retryingLabel!.flagsCollection.isLiveRegion,
+          isFalse,
+          reason:
+              'a live region here would re-announce the same failure the '
+              'reader just pressed Retry on, as if the retry had already '
+              'failed again',
+        );
 
         handle.dispose();
       },

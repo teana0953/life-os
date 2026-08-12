@@ -296,6 +296,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardRefreshFailed => 'Couldn\'t refresh';
 
   @override
+  String get cardRefreshing => 'Refreshing';
+
+  @override
   String get switchLanguage => 'Switch language';
 
   @override

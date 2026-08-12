@@ -85,6 +85,7 @@
   "authErrorGeneric": "發生錯誤，請再試一次。",
   "retry": "重試",
   "cardRefreshFailed": "沒有更新到",
+  "cardRefreshing": "更新中",
   "switchLanguage": "切換語言",
   "followSystemLanguage": "跟隨系統",
   "languageEnglish": "English",

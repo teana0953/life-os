@@ -96,11 +96,24 @@ class _StaleNoticeState extends State<StaleNotice> {
       container: true,
       button: true,
       enabled: !retrying,
-      label: '${widget.subject}: ${loc.cardRefreshFailed}. ${loc.retry}',
+      // While a retry this row itself started is in flight, the label
+      // switches to a distinct "refreshing" announcement rather than
+      // repeating the failure copy — some callers (e.g. the finance tabs)
+      // key [failed] off a flag that only clears on the *next* success, so
+      // without this the node would re-announce "Couldn't refresh" the
+      // moment the reader presses Retry, with no indication anything is
+      // happening.
+      label: retrying
+          ? '${widget.subject}: ${loc.cardRefreshing}'
+          : '${widget.subject}: ${loc.cardRefreshFailed}. ${loc.retry}',
       // This row can appear with no gesture from the reader at all — a
       // background reload elsewhere failing while they're mid-scroll — so a
       // screen-reader user needs to be told, not left to stumble onto it.
-      liveRegion: widget.failed,
+      // Not while `retrying`: the label above already changed to announce
+      // that, and re-triggering the live region on the same failure copy
+      // right after the reader pressed Retry would read as the retry having
+      // already failed again.
+      liveRegion: widget.failed && !retrying,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
