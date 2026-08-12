@@ -289,47 +289,50 @@ void main() {
     });
   });
 
-  group('re-entering the diet day pulls the shared controllers back to today', () {
-    testWidgets('after browsing to a past day, leaving and returning shows '
-        'today again', (tester) async {
-      final trace = <String>[];
-      final meals = TracingMealRepository(trace);
-      final target = TracingDailyTargetRepository(trace);
-      final router = await pumpSignedIn(
-        tester,
-        mealRepository: meals,
-        dailyTargetRepository: target,
-      );
+  group(
+    're-entering the diet day pulls the shared controllers back to today',
+    () {
+      testWidgets('after browsing to a past day, leaving and returning shows '
+          'today again', (tester) async {
+        final trace = <String>[];
+        final meals = TracingMealRepository(trace);
+        final target = TracingDailyTargetRepository(trace);
+        final router = await pumpSignedIn(
+          tester,
+          mealRepository: meals,
+          dailyTargetRepository: target,
+        );
 
-      router.go('/health/diet');
-      await tester.pumpAndSettle();
-      expect(find.text('item-$today'), findsOneWidget);
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        expect(find.text('item-$today'), findsOneWidget);
 
-      // Browse one day back: the day-nav mutates the SHARED controllers.
-      await tester.tap(find.byKey(const Key('day-nav-previous')));
-      await tester.pumpAndSettle();
-      expect(find.text('item-$yesterday'), findsOneWidget);
-      expect(find.text('item-$today'), findsNothing);
+        // Browse one day back: the day-nav mutates the SHARED controllers.
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+        expect(find.text('item-$yesterday'), findsOneWidget);
+        expect(find.text('item-$today'), findsNothing);
 
-      // Leave the diet day (the shell stays mounted below), then come back.
-      router.go('/health');
-      await tester.pumpAndSettle();
-      trace.clear();
-      router.go('/health/diet');
-      await tester.pumpAndSettle();
+        // Leave the diet day (the shell stays mounted below), then come back.
+        router.go('/health');
+        await tester.pumpAndSettle();
+        trace.clear();
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
 
-      // The shared controllers were left holding YESTERDAY, so the diet day's
-      // own mount reload is the only thing that can put today back — with it
-      // gone this shows `item-$yesterday`, the "screen says A, data is B" bug
-      // this module keeps producing.
-      expect(find.text('item-$today'), findsOneWidget);
-      expect(find.text('item-$yesterday'), findsNothing);
-      // And it costs exactly one meals read: the shell does not remount here,
-      // so nothing else fetched.
-      expect(meals.reads, [today]);
-      expect(target.reads, [today, today]);
-    });
-  });
+        // The shared controllers were left holding YESTERDAY, so the diet day's
+        // own mount reload is the only thing that can put today back — with it
+        // gone this shows `item-$yesterday`, the "screen says A, data is B" bug
+        // this module keeps producing.
+        expect(find.text('item-$today'), findsOneWidget);
+        expect(find.text('item-$yesterday'), findsNothing);
+        // And it costs exactly one meals read: the shell does not remount here,
+        // so nothing else fetched.
+        expect(meals.reads, [today]);
+        expect(target.reads, [today, today]);
+      });
+    },
+  );
 
   group('forced refreshes still re-issue every request', () {
     testWidgets('a DataRevision bump refetches the day every time', (
@@ -390,7 +393,11 @@ void main() {
       // only" half of the condition.
       router.go('/health');
       await tester.pumpAndSettle();
-      await tester.fling(find.byType(ListView).first, const Offset(0, 300), 1000);
+      await tester.fling(
+        find.byType(ListView).first,
+        const Offset(0, 300),
+        1000,
+      );
       await tester.pumpAndSettle();
 
       expect(meals.reads, [today, today]);
@@ -505,7 +512,8 @@ void main() {
       expect(
         trace,
         contains('water:$today'),
-        reason: 'the shell reached its batch, so the counts below are about a '
+        reason:
+            'the shell reached its batch, so the counts below are about a '
             'shell that decided',
       );
       // `TodayController.load` assigns `dayMealsLog` BEFORE fetching the
@@ -518,6 +526,10 @@ void main() {
       // cleanly), so the only extra target read is the one the shell's own
       // `TodayController.load` retry makes.
       expect(target.reads, [today, today, today]);
+      // And the retry has to reach the USER — a request count alone would
+      // stay green on a retry whose answer never made it onto the screen.
+      expect(find.byKey(const Key('today-error-message')), findsNothing);
+      expect(find.text('item-$today'), findsOneWidget);
     });
 
     testWidgets('the target controller still holds an earlier successful day '
@@ -560,6 +572,133 @@ void main() {
       // shell's own, because a held-but-failed day must not count as loaded.
       expect(target.reads, [today, today, today, today, today]);
     });
+
+    testWidgets('meals landed and its target read needs REAUTH: the shell '
+        'still loads the meals day itself', (tester) async {
+      final trace = <String>[];
+      final meals = TracingMealRepository(trace);
+      // Read 0 is `TodayController`'s own target fetch, and it raises reauth
+      // rather than a fetch failure — so the controller ends on
+      // `TodayStatus.needsReauth` while already holding today. This is the
+      // case `status == loaded` covers and `status != error` would NOT: it is
+      // the guard against "simplifying" the clause to `!= error`, measured by
+      // making that edit and watching only this test go red.
+      final target = TracingDailyTargetRepository(
+        trace,
+        reauthReadIndexes: const {0},
+      );
+      final router = await pumpSignedIn(
+        tester,
+        mealRepository: meals,
+        dailyTargetRepository: target,
+        waterRepository: TracingWaterRepository(trace),
+      );
+      trace.clear();
+
+      router.go('/health/diet');
+      await tester.pumpAndSettle();
+
+      expect(
+        trace,
+        contains('water:$today'),
+        reason:
+            'the shell reached its batch, so the counts below are about a '
+            'shell that decided',
+      );
+      expect(meals.reads, [today, today]);
+    });
+  });
+
+  group('a stand-down the claim did not honour is covered', () {
+    testWidgets('the diet day fetch that was IN FLIGHT at the decision then '
+        'FAILS: the shell loads the day after all', (tester) async {
+      final trace = <String>[];
+      final gate = Completer<void>();
+      // Parked AND doomed: the shell stands down on `isLoadingDay` — which has
+      // to commit before the answer exists — and that request comes back an
+      // error. Without the cover after the batch the day would end on
+      // `TodayStatus.error` having spent the only two fetches it was ever
+      // going to get, which is strictly worse than before the stand-down
+      // existed (measured: the shell's own fetch used to land and render).
+      final meals = TracingMealRepository(
+        trace,
+        holdFirstReadUntil: gate,
+        failHeldRead: true,
+      );
+      final target = TracingDailyTargetRepository(trace);
+      final router = await pumpSignedIn(
+        tester,
+        mealRepository: meals,
+        dailyTargetRepository: target,
+        waterRepository: TracingWaterRepository(trace),
+      );
+      trace.clear();
+
+      router.go('/health/diet');
+      // Frames with elapsed time, no settle — the same shape (and for the same
+      // reason) as the IN FLIGHT test above: the shell has to reach and pass
+      // its decision while this request is still parked.
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(gate.isCompleted, isFalse);
+      expect(
+        trace,
+        contains('water:$today'),
+        reason: 'the shell decided while the diet day request was parked',
+      );
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      // Two reads: the diet day's (failed) and the shell's cover.
+      expect(meals.reads, [today, today]);
+      // And the cover is only worth having if it reaches the USER: the point
+      // is a screen with the day on it, not a request count.
+      expect(find.byKey(const Key('today-error-message')), findsNothing);
+      expect(find.text('item-$today'), findsOneWidget);
+    });
+
+    testWidgets('the target fetch that was IN FLIGHT at the decision then '
+        'FAILS: the shell loads the target after all', (tester) async {
+      final trace = <String>[];
+      final gate = Completer<void>();
+      final meals = TracingMealRepository(trace);
+      // Read 0 is `TodayController`'s (healthy, so the meals half stands down
+      // cleanly and cannot mask this); read 1 is `DailyTargetController`'s,
+      // parked past the shell's decision and then failed.
+      final target = TracingDailyTargetRepository(
+        trace,
+        holdReadsUntil: {1: gate},
+        failReadIndexes: const {1},
+      );
+      final router = await pumpSignedIn(
+        tester,
+        mealRepository: meals,
+        dailyTargetRepository: target,
+        waterRepository: TracingWaterRepository(trace),
+      );
+      trace.clear();
+
+      router.go('/health/diet');
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(gate.isCompleted, isFalse);
+      expect(
+        trace,
+        contains('water:$today'),
+        reason: 'the shell decided while the target request was parked',
+      );
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      // Meals stood down and stays at the diet day's single read; the target
+      // gets the diet day's two (the second of which failed) plus the cover.
+      expect(meals.reads, [today]);
+      expect(target.reads, [today, today, today]);
+    });
   });
 }
 
@@ -574,9 +713,18 @@ class TracingMealRepository implements MealRepository {
   /// real network round trip has, and the only way to reach the shell's
   /// decision with the diet day's load still in flight.
   final Completer<void>? holdFirstReadUntil;
+
+  /// Whether the read parked on [holdFirstReadUntil] then FAILS. The
+  /// combination is the point: "still in flight when the shell decided, and
+  /// the thing the shell deferred to did not land".
+  final bool failHeldRead;
   bool _held = false;
 
-  TracingMealRepository(this.trace, {this.holdFirstReadUntil});
+  TracingMealRepository(
+    this.trace, {
+    this.holdFirstReadUntil,
+    this.failHeldRead = false,
+  });
 
   List<String> get reads => trace
       .where((e) => e.startsWith('meals:'))
@@ -589,6 +737,9 @@ class TracingMealRepository implements MealRepository {
     if (holdFirstReadUntil != null && !_held) {
       _held = true;
       await holdFirstReadUntil!.future;
+      if (failHeldRead) {
+        throw const DietFetchFailure('injected parked meals read failure');
+      }
     }
     return DayMealsLog.fromJson({
       'day': day,
@@ -674,9 +825,23 @@ class TracingDailyTargetRepository implements DailyTargetRepository {
   /// the one `TodayController.load` makes after its meals log, read 1 is
   /// `DailyTargetController.load`.
   final Set<int> failReadIndexes;
+
+  /// Same indexing, but the read fails with [DietReauthenticationRequired] —
+  /// the status the stand-down must treat exactly like `error`.
+  final Set<int> reauthReadIndexes;
+
+  /// Same indexing again: the read PARKS on the given completer before
+  /// answering (or failing), so the shell can reach its decision while that
+  /// specific caller's request is still out.
+  final Map<int, Completer<void>> holdReadsUntil;
   int _reads = 0;
 
-  TracingDailyTargetRepository(this.trace, {this.failReadIndexes = const {}});
+  TracingDailyTargetRepository(
+    this.trace, {
+    this.failReadIndexes = const {},
+    this.reauthReadIndexes = const {},
+    this.holdReadsUntil = const {},
+  });
 
   List<String> get reads => trace
       .where((e) => e.startsWith('target:'))
@@ -686,7 +851,13 @@ class TracingDailyTargetRepository implements DailyTargetRepository {
   @override
   Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
     trace.add('target:$day');
-    if (failReadIndexes.contains(_reads++)) {
+    final readIndex = _reads++;
+    final hold = holdReadsUntil[readIndex];
+    if (hold != null) await hold.future;
+    if (reauthReadIndexes.contains(readIndex)) {
+      throw const DietReauthenticationRequired();
+    }
+    if (failReadIndexes.contains(readIndex)) {
       throw const DietFetchFailure('injected target read failure');
     }
     final marker = double.parse(day.substring(8));
