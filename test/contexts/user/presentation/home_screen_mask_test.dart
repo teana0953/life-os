@@ -12,9 +12,9 @@ import 'home_screen_test.dart';
 
 final _en = lookupAppLocalizations(const Locale('en'));
 
-/// The figure `loadedDashboardFixture()` prints for 總資產 — the string the
+/// The figure `loadedDashboardFixture()` prints for 淨值 — the string the
 /// mask has to make disappear.
-const _totalAssetsText = '987,600';
+const _netWorthText = '530,900';
 
 Future<HomeController> _loadedController() async {
   final profileRepository = FakeProfileRepository()
@@ -105,13 +105,13 @@ void main() {
           await _loadedController(),
           dashboardController: loadedDashboardFixture(),
         );
-        expect(find.text(_totalAssetsText), findsOneWidget);
+        expect(find.text(_netWorthText), findsOneWidget);
 
-        await _tapEye(tester, PrivacyMaskItem.totalAssets);
+        await _tapEye(tester, PrivacyMaskItem.netWorth);
 
         // The load-bearing half: asserting only that `••••` appeared would
         // also pass if the bullets were painted beside the untouched number.
-        expect(find.text(_totalAssetsText), findsNothing);
+        expect(find.text(_netWorthText), findsNothing);
         expect(find.text(_en.homeMaskedValue), findsOneWidget);
         // And only that one tile is masked.
         expect(find.text('456,700'), findsOneWidget); // 總負債
@@ -127,11 +127,11 @@ void main() {
         dashboardController: loadedDashboardFixture(),
       );
 
-      await _tapEye(tester, PrivacyMaskItem.totalAssets);
-      expect(find.text(_totalAssetsText), findsNothing);
+      await _tapEye(tester, PrivacyMaskItem.netWorth);
+      expect(find.text(_netWorthText), findsNothing);
 
-      await _tapEye(tester, PrivacyMaskItem.totalAssets);
-      expect(find.text(_totalAssetsText), findsOneWidget);
+      await _tapEye(tester, PrivacyMaskItem.netWorth);
+      expect(find.text(_netWorthText), findsOneWidget);
       expect(find.text(_en.homeMaskedValue), findsNothing);
     });
 
@@ -146,7 +146,7 @@ void main() {
           dashboardController: loadedDashboardFixture(),
         );
 
-        await _tapEye(tester, PrivacyMaskItem.totalAssets);
+        await _tapEye(tester, PrivacyMaskItem.netWorth);
 
         // Read off the real SemanticsOwner tree, not a widget's cached node.
         // The tile is one merged node, so what a screen reader actually says
@@ -155,7 +155,7 @@ void main() {
         expect(
           semanticsDataForLabel(
             tester,
-            '${_en.homeTotalAssets}\n${_en.homeValueHidden}',
+            '${_en.homeNetWorth}\n${_en.homeValueHidden}',
           ),
           isNotNull,
           reason:
@@ -165,7 +165,7 @@ void main() {
         // Masking the pixels while the number stays in the semantics tree is
         // exactly the leak this feature exists to stop.
         expect(
-          allSemanticsLabels(tester).where((l) => l.contains(_totalAssetsText)),
+          allSemanticsLabels(tester).where((l) => l.contains(_netWorthText)),
           isEmpty,
         );
         // The bullets must not be spelled out instead.
@@ -196,7 +196,7 @@ void main() {
       final visible = {
         PrivacyMaskItem.latestWeight: _en.homeMaskHide(_en.homeLatestWeight),
         PrivacyMaskItem.budget: _en.homeMaskHide(_en.homeBudget),
-        PrivacyMaskItem.totalAssets: _en.homeMaskHide(_en.homeTotalAssets),
+        PrivacyMaskItem.netWorth: _en.homeMaskHide(_en.homeNetWorth),
         PrivacyMaskItem.totalLiabilities: _en.homeMaskHide(
           _en.homeTotalLiabilities,
         ),
@@ -216,15 +216,15 @@ void main() {
         reason: 'the four eyes must be distinguishable to a screen reader',
       );
 
-      await _tapEye(tester, PrivacyMaskItem.totalAssets);
+      await _tapEye(tester, PrivacyMaskItem.netWorth);
 
       expect(
-        tooltipOf(PrivacyMaskItem.totalAssets),
-        _en.homeMaskShow(_en.homeTotalAssets),
+        tooltipOf(PrivacyMaskItem.netWorth),
+        _en.homeMaskShow(_en.homeNetWorth),
       );
       expect(
         allSemanticsTooltips(tester),
-        contains(_en.homeMaskShow(_en.homeTotalAssets)),
+        contains(_en.homeMaskShow(_en.homeNetWorth)),
       );
       // The other three did not flip.
       expect(
@@ -243,18 +243,18 @@ void main() {
         dashboardController: loadedDashboardFixture(),
       );
 
-      await _tapEye(tester, PrivacyMaskItem.totalAssets);
+      await _tapEye(tester, PrivacyMaskItem.netWorth);
 
       expect(harness.financeLocations, isEmpty);
       // The mask still happened, i.e. the tap landed on the eye rather than
       // being swallowed entirely.
-      expect(find.text(_totalAssetsText), findsNothing);
+      expect(find.text(_netWorthText), findsNothing);
 
       // And the tile itself still navigates — the eye must not have taken
       // over the whole tile's gesture area.
-      await tester.ensureVisible(find.byKey(const Key('home-total-assets')));
+      await tester.ensureVisible(find.byKey(const Key('home-net-worth')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('home-total-assets')));
+      await tester.tap(find.byKey(const Key('home-net-worth')));
       await tester.pumpAndSettle();
       expect(harness.financeLocations, ['/finance?tab=networth']);
     });
@@ -265,7 +265,7 @@ void main() {
         // The eye is a user setting, not a property of the data: it must not
         // appear only once the six-request fan-out lands.
         await pumpHomeScreen(tester, await _loadedController());
-        expect(find.text(_totalAssetsText), findsNothing); // placeholder block
+        expect(find.text(_netWorthText), findsNothing); // placeholder block
 
         for (final item in PrivacyMaskItem.values) {
           expect(find.byKey(_eyeKey(item)), findsOneWidget, reason: item.name);
@@ -282,12 +282,12 @@ void main() {
           dashboardController: loadedDashboardFixture(),
           privacyMaskController: await testPrivacyMaskController(
             initialValues: {
-              'privacy_hidden_items_uid-test': <String>['totalAssets'],
+              'privacy_hidden_items_uid-test': <String>['netWorth'],
             },
           ),
         );
 
-        expect(find.text(_totalAssetsText), findsNothing);
+        expect(find.text(_netWorthText), findsNothing);
         expect(find.text(_en.homeMaskedValue), findsOneWidget);
       },
     );

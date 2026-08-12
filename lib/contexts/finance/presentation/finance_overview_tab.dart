@@ -211,8 +211,7 @@ class _CurrencyTotalsCard extends StatelessWidget {
           ),
           _TotalRow(
             label: loc.financeNetTotal,
-            text:
-                '${total.net < 0 ? '-' : ''}${formatMinorUnitsForDisplay(total.net.abs(), total.currency)}',
+            text: formatNetMinorUnitsForDisplay(total.net, total.currency),
           ),
         ],
       ),

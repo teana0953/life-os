@@ -187,7 +187,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get homeTotalAssets => '淨值總資產';
+  String get homeNetWorth => '淨值';
 
   @override
   String get homeTotalLiabilities => '總負債';
@@ -3146,7 +3146,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get homeTotalAssets => '淨值總資產';
+  String get homeNetWorth => '淨值';
 
   @override
   String get homeTotalLiabilities => '總負債';

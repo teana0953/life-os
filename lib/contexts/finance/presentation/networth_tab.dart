@@ -17,11 +17,6 @@ import '../domain/networth_snapshot.dart';
 import 'finance_controller.dart';
 import 'networth_controller.dart';
 
-/// Formats a TWD net worth figure, which — unlike an account value — may be
-/// negative (liabilities can exceed assets).
-String _formatSigned(int value) =>
-    '${value < 0 ? '-' : ''}${formatMinorUnitsForDisplay(value.abs(), defaultCurrency)}';
-
 /// 淨值: the month switcher, the net worth headline with its month-over-month
 /// growth, asset/liability accounts with the month's values, and the recent
 /// net worth trend. Loading/reauth go through [AsyncStateScaffold]; the load
@@ -223,7 +218,7 @@ class _NetWorthCard extends StatelessWidget {
           Text(loc.networthNetWorthLabel, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            _formatSigned(monthly.netWorth),
+            formatNetMinorUnitsForDisplay(monthly.netWorth, defaultCurrency),
             key: const Key('networth-net-value'),
             style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
           ),

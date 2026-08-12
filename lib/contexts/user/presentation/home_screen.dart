@@ -488,10 +488,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   PrivacyMaskItem.budget,
                 ),
                 (
-                  const Key('home-total-assets'),
-                  loc.homeTotalAssets,
+                  const Key('home-net-worth'),
+                  loc.homeNetWorth,
                   () => _openFinanceTab(FinanceTab.networth),
-                  PrivacyMaskItem.totalAssets,
+                  PrivacyMaskItem.netWorth,
                 ),
                 (
                   const Key('home-total-liabilities'),
@@ -620,12 +620,12 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: _openFinance,
             ),
             _maskableTile(
-              tileKey: const Key('home-total-assets'),
+              tileKey: const Key('home-net-worth'),
               loc: loc,
-              item: PrivacyMaskItem.totalAssets,
-              label: loc.homeTotalAssets,
-              value: formatMinorUnitsForDisplay(
-                data.netWorth.totalAsset,
+              item: PrivacyMaskItem.netWorth,
+              label: loc.homeNetWorth,
+              value: formatNetMinorUnitsForDisplay(
+                data.netWorth.netWorth,
                 defaultCurrency,
               ),
               onTap: () => _openFinanceTab(FinanceTab.networth),

@@ -200,8 +200,8 @@
     "description": "Remaining overall budget shown on the home snapshot.",
     "placeholders": { "amount": { "type": "String" } }
   },
-  "homeTotalAssets": "Total assets",
-  "@homeTotalAssets": { "description": "Label for total assets on the home snapshot." },
+  "homeNetWorth": "Net worth",
+  "@homeNetWorth": { "description": "Label for net worth (assets minus liabilities) on the home snapshot." },
   "homeTotalLiabilities": "Total liabilities",
   "@homeTotalLiabilities": { "description": "Label for total liabilities on the home snapshot." },
   "homeSplitOverview": "Split overview",

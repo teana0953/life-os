@@ -23,12 +23,12 @@ void main() {
       var notifications = 0;
       controller.addListener(() => notifications++);
 
-      await controller.setHidden(PrivacyMaskItem.totalAssets, true);
+      await controller.setHidden(PrivacyMaskItem.netWorth, true);
 
-      expect(controller.isHidden(PrivacyMaskItem.totalAssets), isTrue);
+      expect(controller.isHidden(PrivacyMaskItem.netWorth), isTrue);
       expect(
         prefs.getStringList('privacy_hidden_items_uid-a'),
-        contains('totalAssets'),
+        contains('netWorth'),
       );
       expect(notifications, greaterThan(0));
     });
@@ -39,26 +39,26 @@ void main() {
         // Both users already have a (different) choice on disk. The failure
         // this pins is account bleed-through: B seeing A's mask.
         final prefs = await prefsWith({
-          'privacy_hidden_items_uid-a': <String>['totalAssets'],
+          'privacy_hidden_items_uid-a': <String>['netWorth'],
           'privacy_hidden_items_uid-b': <String>['budget'],
         });
         final controller = PrivacyMaskController(prefs);
 
         controller.loadForUser('uid-a');
-        expect(controller.isHidden(PrivacyMaskItem.totalAssets), isTrue);
+        expect(controller.isHidden(PrivacyMaskItem.netWorth), isTrue);
         expect(controller.isHidden(PrivacyMaskItem.budget), isFalse);
 
         controller.loadForUser('uid-b');
         expect(controller.isHidden(PrivacyMaskItem.budget), isTrue);
         // The half that matters: A's choice must be GONE, not merely joined
         // by B's. Asserting only `budget` is hidden passes on a shared key.
-        expect(controller.isHidden(PrivacyMaskItem.totalAssets), isFalse);
+        expect(controller.isHidden(PrivacyMaskItem.netWorth), isFalse);
       },
     );
 
     test('U4: clearUser wipes memory but leaves the choices on disk', () async {
       final prefs = await prefsWith({
-        'privacy_hidden_items_uid-a': <String>['totalAssets', 'budget'],
+        'privacy_hidden_items_uid-a': <String>['netWorth', 'budget'],
       });
       final controller = PrivacyMaskController(prefs)..loadForUser('uid-a');
       expect(controller.isHidden(PrivacyMaskItem.budget), isTrue);
@@ -72,10 +72,10 @@ void main() {
       // in must get A's own settings back.
       expect(
         prefs.getStringList('privacy_hidden_items_uid-a'),
-        containsAll(<String>['totalAssets', 'budget']),
+        containsAll(<String>['netWorth', 'budget']),
       );
       controller.loadForUser('uid-a');
-      expect(controller.isHidden(PrivacyMaskItem.totalAssets), isTrue);
+      expect(controller.isHidden(PrivacyMaskItem.netWorth), isTrue);
       expect(controller.isHidden(PrivacyMaskItem.budget), isTrue);
     });
 
@@ -90,7 +90,7 @@ void main() {
       }
 
       final keysBefore = prefs.getKeys().toSet();
-      await controller.setHidden(PrivacyMaskItem.totalAssets, true);
+      await controller.setHidden(PrivacyMaskItem.netWorth, true);
       await controller.toggle(PrivacyMaskItem.budget);
 
       // The whole key set, not one named key: a null uid must not invent
@@ -104,14 +104,14 @@ void main() {
       // than left to a refactor tool.
       expect(
         PrivacyMaskItem.values.map((e) => e.name).toList(),
-        ['latestWeight', 'budget', 'totalAssets', 'totalLiabilities'],
+        ['latestWeight', 'budget', 'netWorth', 'totalLiabilities'],
       );
 
       final prefs = await prefsWith({
         'privacy_hidden_items_uid-a': <String>[
           'latestWeight',
           'budget',
-          'totalAssets',
+          'netWorth',
           'totalLiabilities',
         ],
       });
@@ -129,7 +129,7 @@ void main() {
 
       expect(() => controller.loadForUser('uid-a'), returnsNormally);
       expect(controller.isHidden(PrivacyMaskItem.budget), isTrue);
-      expect(controller.isHidden(PrivacyMaskItem.totalAssets), isFalse);
+      expect(controller.isHidden(PrivacyMaskItem.netWorth), isFalse);
     });
   });
 }

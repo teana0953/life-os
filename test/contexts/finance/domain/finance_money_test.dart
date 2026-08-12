@@ -126,6 +126,28 @@ void main() {
     });
   });
 
+  group('formatNetMinorUnitsForDisplay', () {
+    // LINCHPIN: a net worth may be negative, and the digit-count-%3-== 0 cases
+    // below are the only shapes that catch feeding a negative straight into
+    // [formatMinorUnitsForDisplay] (which would print "-,123" / "-,123,456").
+    test('groups a negative figure without a stray leading comma', () {
+      expect(formatNetMinorUnitsForDisplay(-123, 'TWD'), '-123');
+      expect(formatNetMinorUnitsForDisplay(-123456, 'TWD'), '-123,456');
+      expect(formatNetMinorUnitsForDisplay(-1234567, 'TWD'), '-1,234,567');
+      expect(formatNetMinorUnitsForDisplay(-99999999999, 'TWD'), '-99,999,999,999');
+    });
+
+    test('non-negative figures format as usual', () {
+      expect(formatNetMinorUnitsForDisplay(0, 'TWD'), '0');
+      expect(formatNetMinorUnitsForDisplay(530900, 'TWD'), '530,900');
+    });
+
+    test('a decimal currency keeps its fraction on the negative side', () {
+      expect(formatNetMinorUnitsForDisplay(-1234, 'USD'), '-12.34');
+      expect(formatNetMinorUnitsForDisplay(-123456, 'USD'), '-1,234.56');
+    });
+  });
+
   group('parseAmountToMinorUnits', () {
     test('parses a whole number for a zero-decimal currency', () {
       expect(parseAmountToMinorUnits('120', 'TWD'), 120);

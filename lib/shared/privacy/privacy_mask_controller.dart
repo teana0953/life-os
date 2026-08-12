@@ -8,7 +8,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// them silently discards every existing user's choices on their next launch
 /// — a rename here is a data migration, not a refactor. Pinned by
 /// `privacy_mask_controller_test.dart` (U6).
-enum PrivacyMaskItem { latestWeight, budget, totalAssets, totalLiabilities }
+///
+/// **The one deliberate exception so far: `totalAssets` → `netWorth`.** That
+/// tile stopped promising gross assets and started promising net worth, so the
+/// old stored name no longer identifies the figure the user chose to hide —
+/// there is nothing to migrate it *to*. A user who had hidden the old tile
+/// therefore sees the new one unhidden once, and [loadForUser] drops the
+/// leftover `totalAssets` string through its unknown-name skip rather than
+/// mapping it across. Rename only when the meaning changed too; otherwise the
+/// rule above stands.
+enum PrivacyMaskItem { latestWeight, budget, netWorth, totalLiabilities }
 
 /// The per-account key holding [PrivacyMaskItem.name]s the user hid.
 ///

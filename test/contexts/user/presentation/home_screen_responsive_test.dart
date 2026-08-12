@@ -64,7 +64,7 @@ const _healthTiles = [
 ];
 const _financeTiles = [
   'home-budget',
-  'home-total-assets',
+  'home-net-worth',
   'home-total-liabilities',
   'home-split-overview',
 ];
@@ -93,7 +93,9 @@ HomeDashboardController _longestValuesFixture() =>
           accounts: [],
           totalAsset: 99999999999,
           totalLiability: 99999999999,
-          netWorth: 0,
+          // The widest thing this tile can print: 15 characters, sign
+          // included — wider than the 14-character liability figure.
+          netWorth: -99999999999,
           prevNetWorth: null,
           growthRate: null,
         ),
@@ -290,7 +292,7 @@ void main() {
         for (final label in const [
           'Latest weight',
           'Monthly budget',
-          'Total assets',
+          'Net worth',
           'Total liabilities',
         ]) {
           expectPaintedInFull(tester, find.text(label), reason: label);
@@ -305,6 +307,32 @@ void main() {
             reason: label,
           );
         }
+
+        // The labels are only half of each row, and the half that is NOT the
+        // reason this fixture exists. Measured: with only the four label
+        // assertions above, this test stayed green both with the fixture's
+        // net worth back at `0` and with 40 extra characters glued in front
+        // of the tile's value — the widest string the screen prints was never
+        // observed at all. Pin it: the widest value, beside an eye, at 320dp.
+        const widestValue = '-99,999,999,999';
+        // Named first, so a fixture (or a tile) that stopped printing this
+        // string fails as "the widest value is gone" rather than as
+        // `expectPaintedInFull`'s "Bad state: No element".
+        expect(
+          find.text(widestValue),
+          findsOneWidget,
+          reason: 'the net worth tile prints the fixture value verbatim',
+        );
+        expectPaintedInFull(
+          tester,
+          find.text(widestValue),
+          reason: 'net worth value',
+        );
+        expect(
+          paintedTextLineCount(tester, find.text(widestValue)),
+          lessThanOrEqualTo(2),
+          reason: 'net worth value',
+        );
       },
     );
 
@@ -348,7 +376,7 @@ void main() {
       const owner = {
         PrivacyMaskItem.latestWeight: 'home-latest-weight',
         PrivacyMaskItem.budget: 'home-budget',
-        PrivacyMaskItem.totalAssets: 'home-total-assets',
+        PrivacyMaskItem.netWorth: 'home-net-worth',
         PrivacyMaskItem.totalLiabilities: 'home-total-liabilities',
       };
       for (final entry in owner.entries) {

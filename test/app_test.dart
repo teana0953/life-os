@@ -3376,7 +3376,7 @@ void main() {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true)
           ..uid = 'uid-a';
         SharedPreferences.setMockInitialValues({
-          'privacy_hidden_items_uid-a': <String>['totalAssets'],
+          'privacy_hidden_items_uid-a': <String>['netWorth'],
         });
         final prefs = await SharedPreferences.getInstance();
         final privacyMaskController = PrivacyMaskController(prefs);
@@ -3396,7 +3396,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // A sees their own choice restored.
-        expect(find.text('987,600'), findsNothing);
+        expect(find.text('530,900'), findsNothing);
         expect(find.text(_maskedValue), findsWidgets);
 
         await authRepository.signOut();
@@ -3420,14 +3420,14 @@ void main() {
         // B has hidden nothing, so B sees the figure. Both halves matter: the
         // bullets being gone without the number being back would also be
         // satisfied by a dashboard that simply failed to load.
-        expect(find.text('987,600'), findsOneWidget);
+        expect(find.text('530,900'), findsOneWidget);
         expect(find.text(_maskedValue), findsNothing);
 
         // And A's choice was not deleted on the way out — signing out is a
         // change of occupant, not a wipe.
         expect(
           prefs.getStringList('privacy_hidden_items_uid-a'),
-          contains('totalAssets'),
+          contains('netWorth'),
         );
       },
     );
@@ -3441,7 +3441,7 @@ void main() {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true)
           ..uid = 'uid-a';
         SharedPreferences.setMockInitialValues({
-          'privacy_hidden_items_uid-a': <String>['totalAssets'],
+          'privacy_hidden_items_uid-a': <String>['netWorth'],
         });
         final privacyMaskController = PrivacyMaskController(
           await SharedPreferences.getInstance(),
@@ -3452,7 +3452,7 @@ void main() {
         Future<void> pumpAndCheck() async {
           await tester.pump();
           frame++;
-          if (find.text('987,600').evaluate().isNotEmpty) leakedFrames.add(frame);
+          if (find.text('530,900').evaluate().isNotEmpty) leakedFrames.add(frame);
         }
 
         await pumpApp(
@@ -3516,14 +3516,14 @@ void main() {
         WidgetController.hitTestWarningShouldBeFatal = true;
         addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
         final eye = find.byKey(
-          Key('home-mask-toggle-${PrivacyMaskItem.totalAssets.name}'),
+          Key('home-mask-toggle-${PrivacyMaskItem.netWorth.name}'),
         );
         await tester.ensureVisible(eye);
         await tester.pumpAndSettle();
-        expect(find.text('987,600'), findsOneWidget);
+        expect(find.text('530,900'), findsOneWidget);
         await tester.tap(eye);
         await tester.pumpAndSettle();
-        expect(find.text('987,600'), findsNothing);
+        expect(find.text('530,900'), findsNothing);
       },
     );
   });

@@ -80,6 +80,28 @@ void main() {
       expect(find.text('4.0%'), findsOneWidget);
     });
 
+    testWidgets('a negative net worth keeps its sign and its grouping', (
+      tester,
+    ) async {
+      // Every other fixture on this page is positive, so nothing here observed
+      // what the sign does to thousands grouping — breaking the shared net
+      // formatter left this file entirely green.
+      //
+      // The magnitude has a digit count that is a MULTIPLE OF 3 on purpose:
+      // that is the only shape where counting the `-` as a digit moves a
+      // separator (`-,356,700` instead of `-356,700`). With, say, -35670 the
+      // buggy and the correct grouping print the same string.
+      final repo = FakeFinanceRepository()
+        ..seedSnapshot('acc-card', '2026-07', 356700);
+
+      await _pumpTab(tester, repo);
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('networth-net-value'))).data,
+        '-356,700',
+      );
+    });
+
     testWidgets('shows a falling growth indicator when net worth dropped', (
       tester,
     ) async {

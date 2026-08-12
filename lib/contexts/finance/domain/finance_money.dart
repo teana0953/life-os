@@ -81,6 +81,17 @@ String formatSignedMinorUnits(int amount, String currency, FinanceType type) {
   return '$sign${formatMinorUnitsForDisplay(amount, currency)}';
 }
 
+/// Formats a **net** minor-unit [amount] — one that may legitimately be
+/// negative, such as a net worth where liabilities exceed assets.
+///
+/// Do not call [formatMinorUnitsForDisplay] with a negative amount: it assumes
+/// a non-negative input, so the `-` is counted as a digit when grouping
+/// (`-123` -> `"-,123"`) and the fraction of a decimal currency is computed
+/// from a truncated-toward-zero quotient (`-1234` USD -> `"-12.66"`). Splitting
+/// the sign off and formatting the magnitude keeps both correct.
+String formatNetMinorUnitsForDisplay(int amount, String currency) =>
+    '${amount < 0 ? '-' : ''}${formatMinorUnitsForDisplay(amount.abs(), currency)}';
+
 /// Parses user-typed amount [text] (e.g. `"12.5"`) into a backend minor-unit
 /// integer for [currency], rounding to the currency's decimal digits.
 /// Returns `null` for empty, non-numeric, or negative input — the caller

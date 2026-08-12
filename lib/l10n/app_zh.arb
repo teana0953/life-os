@@ -44,7 +44,7 @@
   "homeMenstrualOverdue": "預測日已過 {days} 天",
   "homeBudget": "本月預算",
   "homeBudgetRemaining": "剩餘 {amount}",
-  "homeTotalAssets": "淨值總資產",
+  "homeNetWorth": "淨值",
   "homeTotalLiabilities": "總負債",
   "homeSplitOverview": "分帳總覽",
   "homeSplitReceivable": "待收 {amount}",
