@@ -10,6 +10,7 @@ import 'package:life_os/contexts/auth/presentation/login_controller.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
+import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
@@ -477,6 +478,89 @@ void main() {
       ]);
     });
   });
+
+  group('a diet-day load that only PARTLY landed does not buy a stand-down', () {
+    testWidgets('meals landed, its target read failed: the shell still loads '
+        'the meals day itself', (tester) async {
+      final trace = <String>[];
+      final meals = TracingMealRepository(trace);
+      // Read 0 is the target fetch `TodayController.load` makes right after
+      // its meals log; read 1 is `DailyTargetController.load`, left healthy so
+      // this isolates ONE controller's partial failure.
+      final target = TracingDailyTargetRepository(
+        trace,
+        failReadIndexes: const {0},
+      );
+      final router = await pumpSignedIn(
+        tester,
+        mealRepository: meals,
+        dailyTargetRepository: target,
+        waterRepository: TracingWaterRepository(trace),
+      );
+      trace.clear();
+
+      router.go('/health/diet');
+      await tester.pumpAndSettle();
+
+      expect(
+        trace,
+        contains('water:$today'),
+        reason: 'the shell reached its batch, so the counts below are about a '
+            'shell that decided',
+      );
+      // `TodayController.load` assigns `dayMealsLog` BEFORE fetching the
+      // target, so this run ends holding today on `TodayStatus.error`. Reading
+      // `holdsDay` alone the shell would stand down and the failed state would
+      // have no retry left at all — the user would be stuck on the error until
+      // sign-out. Two reads: the diet day's, and the shell's retry.
+      expect(meals.reads, [today, today]);
+      // The target half DID stand down (`DailyTargetController` landed
+      // cleanly), so the only extra target read is the one the shell's own
+      // `TodayController.load` retry makes.
+      expect(target.reads, [today, today, today]);
+    });
+
+    testWidgets('the target controller still holds an earlier successful day '
+        'when its reload fails: the shell reloads it', (tester) async {
+      final trace = <String>[];
+      final meals = TracingMealRepository(trace);
+      // Reads 0/1 are the first visit (both healthy). On the second visit read
+      // 2 is `TodayController`'s (healthy — so the meals half stands down and
+      // cannot mask this) and read 3 is `DailyTargetController`'s, which
+      // fails. Failing does NOT clear the target it loaded on the first visit,
+      // so the controller reaches the shell's decision holding today on
+      // `DailyTargetStatus.error`.
+      final target = TracingDailyTargetRepository(
+        trace,
+        failReadIndexes: const {3},
+      );
+      final router = await pumpSignedIn(
+        tester,
+        mealRepository: meals,
+        dailyTargetRepository: target,
+      );
+      trace.clear();
+
+      router.go('/health/diet');
+      await tester.pumpAndSettle();
+      expect(meals.reads, [today]);
+      expect(target.reads, [today, today]);
+
+      // Out of the health module and back in, so the shell MOUNTS again and
+      // takes a fresh first-round decision.
+      router.go('/');
+      await tester.pumpAndSettle();
+      router.go('/health/diet');
+      await tester.pumpAndSettle();
+
+      // Meals: one read for this visit only — that half legitimately stood
+      // down, and it staying at 2 is what keeps this test about the target.
+      expect(meals.reads, [today, today]);
+      // Target: the diet day's two reads (the second of which failed) plus the
+      // shell's own, because a held-but-failed day must not count as loaded.
+      expect(target.reads, [today, today, today, today, today]);
+    });
+  });
 }
 
 /// Records every `GET /api/meals` with the day it asked for, and answers with
@@ -583,7 +667,16 @@ class TracingMealRepository implements MealRepository {
 /// reason as [TracingMealRepository].
 class TracingDailyTargetRepository implements DailyTargetRepository {
   final List<String> trace;
-  TracingDailyTargetRepository(this.trace);
+
+  /// Indices (0-based, counted over every read this fake serves) that must
+  /// fail with [DietFetchFailure]. Reads are deterministic on these routes, so
+  /// an index picks out ONE caller: read 0 on a cold `/health/diet` entry is
+  /// the one `TodayController.load` makes after its meals log, read 1 is
+  /// `DailyTargetController.load`.
+  final Set<int> failReadIndexes;
+  int _reads = 0;
+
+  TracingDailyTargetRepository(this.trace, {this.failReadIndexes = const {}});
 
   List<String> get reads => trace
       .where((e) => e.startsWith('target:'))
@@ -593,6 +686,9 @@ class TracingDailyTargetRepository implements DailyTargetRepository {
   @override
   Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
     trace.add('target:$day');
+    if (failReadIndexes.contains(_reads++)) {
+      throw const DietFetchFailure('injected target read failure');
+    }
     final marker = double.parse(day.substring(8));
     return DailyTargetWithRemaining(
       day: day,

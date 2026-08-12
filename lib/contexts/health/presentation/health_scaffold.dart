@@ -345,14 +345,38 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     // where the diet day's request is still out (production, where the network
     // outlasts the frame); `holdsDay` covers the one where it has already
     // landed (measured on `/health/diet`, and always the case in tests).
+    //
+    // "Landed" is not the same as "landed SUCCESSFULLY", hence the status
+    // clause on the `holdsDay` half — do not delete it as redundant:
+    //
+    //  * `TodayController.load` assigns `dayMealsLog` BEFORE fetching the
+    //    target, so a run where the meals read succeeded and the target read
+    //    failed ends on `TodayStatus.error` while `holdsDay(day)` is already
+    //    true. Standing down there throws away this batch's fetch, which is
+    //    the only retry that state has (`TodayStatus.error` offers the user no
+    //    retry affordance — a pre-existing gap, issue tracked separately), so
+    //    a transient failure would strand the screen until sign-out.
+    //  * `DailyTargetController.load` has no such assign-then-fail shape
+    //    WITHIN one call (it assigns `target` only after the fetch returns),
+    //    but the controller is app-scoped: a day it loaded successfully
+    //    earlier stays in `target` when a later load for the same day fails,
+    //    which reaches this decision as holds-the-day + `error` just the same.
+    //
+    // `== loaded` rather than `!= error`: `needsReauth` (and, for the target,
+    // `saving`) must not stand down either. Not standing down when the data is
+    // in fact fine costs one extra request; standing down when it is not costs
+    // the user the day's data with no way back.
     final skipMeals =
         standDownRound &&
         (widget.todayController.isLoadingDay(day) ||
-            widget.todayController.holdsDay(day));
+            (widget.todayController.holdsDay(day) &&
+                widget.todayController.status == TodayStatus.loaded));
     final skipTarget =
         standDownRound &&
         (widget.dailyTargetController.isLoadingDay(day) ||
-            widget.dailyTargetController.holdsDay(day));
+            (widget.dailyTargetController.holdsDay(day) &&
+                widget.dailyTargetController.status ==
+                    DailyTargetStatus.loaded));
     // Independent loads run concurrently so the landing (overview) cards and the
     // trackers all populate without waiting on a serial chain.
     await Future.wait([

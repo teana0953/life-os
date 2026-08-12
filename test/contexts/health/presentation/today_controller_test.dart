@@ -402,8 +402,14 @@ void main() {
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.load('token', '2026-07-18');
-      // A failed load leaves the PREVIOUS day's log in place (`load` only
-      // assigns on success), so the controller still holds the 18th.
+      // The MEALS read itself is what fails here, so `load` never reaches the
+      // assignment and the previous day's log stays in place — the controller
+      // still holds the 18th. Note this is the only failure shape with that
+      // property: `dayMealsLog` is assigned BEFORE the target read, so a run
+      // whose meals landed and whose TARGET read failed ends on
+      // `TodayStatus.error` already holding the new day. That is why
+      // `health_scaffold.dart` pairs `holdsDay` with `status == loaded`
+      // instead of trusting `holdsDay` alone.
       mealRepository.errorToThrow = const DietFetchFailure('boom');
       await controller.load('token', '2026-07-19');
 
