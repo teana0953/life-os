@@ -158,6 +158,118 @@ void main() {
     },
   );
 
+  test(
+    'a round that was in flight at reset() must not write its result onto the '
+    'controller afterwards',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+
+      // User A's fan-out starts and parks on the gate.
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      // User A signs out while that round is still in flight.
+      controller.reset();
+
+      // The outgoing round now completes successfully.
+      gate.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.data,
+        isNull,
+        reason: "the outgoing user's round must not land data on a reset controller",
+      );
+      expect(controller.status, HomeDashboardStatus.idle);
+      expect(controller.lastLoadedAt, isNull);
+    },
+  );
+
+  test(
+    'a round that was in flight at reset() must not write an error status '
+    'afterwards either',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gate = Completer<void>();
+      repos.gate = gate;
+      repos.fail = true;
+
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      controller.reset();
+
+      // The outgoing round now fails.
+      gate.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.status,
+        HomeDashboardStatus.idle,
+        reason:
+            "the outgoing user's failure must not paint an error on the next user's screen",
+      );
+      expect(controller.data, isNull);
+      expect(controller.lastLoadedAt, isNull);
+    },
+  );
+
+  test(
+    'an old round finishing after reset() must not clear the newer round\'s '
+    'in-flight slot',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      final gateA = Completer<void>();
+      repos.gate = gateA;
+
+      // User A's round starts and parks on gate A.
+      final roundA = controller.load('tokenA', DateTime(2026, 1, 1, 9, 30));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 1);
+
+      controller.reset();
+
+      // User B's round starts and parks on its own gate.
+      final gateB = Completer<void>();
+      repos.gate = gateB;
+      final roundB = controller.load('tokenB', DateTime(2026, 1, 1, 10, 0));
+      await Future<void>.delayed(Duration.zero);
+      expect(repos.rounds, 2);
+
+      // Round A finishes while B is still in flight.
+      gateA.complete();
+      await roundA;
+      await Future<void>.delayed(Duration.zero);
+
+      // A refresh now must ride round B, not start a third fan-out.
+      final rideAlong = controller.load('tokenB', DateTime(2026, 1, 1, 10, 5));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        repos.rounds,
+        2,
+        reason:
+            "round A's completion must not free the slot round B is still holding",
+      );
+
+      gateB.complete();
+      await roundB;
+      await rideAlong;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 10, 0));
+    },
+  );
+
   test('a later load runs normally once the in-flight one has finished', () async {
     final repos = FakeDashboardRepositories();
     final controller = controllerFor(repos);

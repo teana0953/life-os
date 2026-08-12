@@ -79,6 +79,13 @@ class HomeDashboardController extends ChangeNotifier {
   /// The round currently running, or `null` when nothing is in flight.
   Future<void>? _inFlight;
 
+  /// Bumped by [reset]. A round captures the generation it started under and
+  /// refuses to write `data`/`status`/`lastLoadedAt` if the generation has
+  /// moved on by the time it finishes — otherwise an outgoing user's
+  /// already-in-flight round can land its response on the controller after
+  /// `reset()` supposedly cleared it for the next user.
+  int _generation = 0;
+
   /// Loads the dashboard, or — if a round is already running — returns that
   /// round's future rather than starting a second fan-out. The retry button
   /// and a pull-to-refresh can otherwise overlap into twelve concurrent
@@ -86,12 +93,19 @@ class HomeDashboardController extends ChangeNotifier {
   Future<void> load(String idToken, DateTime now) {
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
-    final round = _load(idToken, now).whenComplete(() => _inFlight = null);
+    final generation = _generation;
+    late final Future<void> round;
+    round = _load(idToken, now, generation).whenComplete(() {
+      // Only clear the slot if it's still *this* round's — an older round
+      // finishing after `reset()` started a newer one must not clobber the
+      // newer round's registration.
+      if (identical(_inFlight, round)) _inFlight = null;
+    });
     _inFlight = round;
     return round;
   }
 
-  Future<void> _load(String idToken, DateTime now) async {
+  Future<void> _load(String idToken, DateTime now, int generation) async {
     status = HomeDashboardStatus.loading;
     notifyListeners();
     final month = monthStringOf(now);
@@ -106,6 +120,7 @@ class HomeDashboardController extends ChangeNotifier {
         _getMonthlyNetWorth(idToken, month),
         _getBalances(idToken),
       ]);
+      if (generation != _generation) return;
       final vitals = results[1] as VitalsRange;
       final menstrual = results[2] as MenstrualOverview;
       final budgets = results[3] as List<FinanceBudget>;
@@ -120,6 +135,7 @@ class HomeDashboardController extends ChangeNotifier {
       status = HomeDashboardStatus.loaded;
       lastLoadedAt = now;
     } catch (_) {
+      if (generation != _generation) return;
       status = HomeDashboardStatus.error;
     }
     notifyListeners();
@@ -138,6 +154,9 @@ class HomeDashboardController extends ChangeNotifier {
     // new user's screen quietly fills in with the old user's data and no
     // request is ever made with the new token.
     _inFlight = null;
+    // Bumping the generation stops the outgoing round from writing its
+    // result onto this controller once it finishes — see `_generation`.
+    _generation++;
   }
 }
 
