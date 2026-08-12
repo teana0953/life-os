@@ -15,6 +15,7 @@ import 'package:life_os/shared/widgets/ledge_card.dart';
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
@@ -591,6 +592,80 @@ void main() {
           },
         );
       }
+    }
+
+    // The notice moved out of the `ListView` and into a `Column` above it,
+    // which is a *layout* change and not only a visibility one: it now takes
+    // height off the scrollable instead of scrolling with it. At 320dp and
+    // textScale 2.0 the notice wraps to several lines, which is where that
+    // costs the most.
+    //
+    // Two assertions, because one of them alone is a guard that cannot fail.
+    // Not overflowing is satisfied by a notice that has pushed the whole list
+    // off the bottom; and the notice being on screen is satisfied by a notice
+    // that has taken the screen. What the change actually promises is that
+    // the reader can see the warning *and* the month it is about at the same
+    // time.
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the notice and the first row are both visible at 320dp, '
+        'textScale 2.0, locale=$locale',
+        (tester) async {
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final controller = testFinanceController(FakeFinanceRepository());
+          await controller.load('tok', '2026-07');
+          controller.markReloadFailed();
+          expect(controller.reloadFailed, isTrue);
+
+          await expectNoLayoutErrors(() async {
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: FinanceOverviewTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onAdd: () {},
+                    onEditBudgets: () {},
+                    onSignInAgain: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+          });
+
+          final notice = find.byKey(const Key('stale-notice-row'));
+          expect(notice, findsOneWidget);
+          final noticeRect = tester.getRect(notice);
+          expect(noticeRect.top, greaterThanOrEqualTo(0));
+          expect(
+            noticeRect.bottom,
+            lessThanOrEqualTo(640),
+            reason: 'the notice itself was cut off at the bottom of the tab',
+          );
+
+          final firstRow = find.byKey(const Key('finance-month-label'));
+          expect(firstRow, findsOneWidget);
+          final firstRowRect = tester.getRect(firstRow);
+          expect(
+            firstRowRect.top,
+            greaterThanOrEqualTo(noticeRect.bottom),
+            reason: 'the list must start below the pinned notice',
+          );
+          expect(
+            firstRowRect.bottom,
+            lessThanOrEqualTo(640),
+            reason:
+                'the notice pushed the month header off the bottom — the '
+                'reader is told the figures are stale without being shown '
+                'which month they belong to',
+          );
+        },
+      );
     }
   });
 

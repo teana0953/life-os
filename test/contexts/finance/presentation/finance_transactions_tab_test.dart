@@ -419,51 +419,95 @@ void main() {
   // guard that cannot fail. (Deliberately left unwrapped for that reason;
   // see the note at the call site.) The measurement below covers the other
   // half: fitting the box is not the same as painting every glyph.
+  //
+  // Run on **both** sides of `reloadFailed`, not just the default one: the
+  // empty branch is now `Column[staleNotice, Expanded(Center(...))]`, so with
+  // the notice hidden the guide has the whole 640dp to itself and the case
+  // that can actually run out of room — a two-line notice at textScale 2.0
+  // eating the top of a bounded column — never gets built. A fixture that
+  // sits on one side of the distinction the code makes is this repo's
+  // recorded way of shipping a guard that cannot fail.
   group('the empty guide at 320dp, textScale 2.0', () {
     for (final locale in testSupportedLocales) {
-      testWidgets('shows its title in full, locale=$locale', (tester) async {
-        useTextScaleFactor(tester, 2.0);
-        await tester.binding.setSurfaceSize(const Size(320, 640));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final reloadFailed in [false, true]) {
+        testWidgets(
+          'shows its title in full, locale=$locale, '
+          'reloadFailed=$reloadFailed',
+          (tester) async {
+            useTextScaleFactor(tester, 2.0);
+            await tester.binding.setSurfaceSize(const Size(320, 640));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
 
-        final controller = testFinanceController(FakeFinanceRepository());
-        await controller.load('tok', '2026-07');
-        await expectNoLayoutErrors(() async {
-          await tester.pumpWidget(
-            l10nTestApp(
-              locale: locale,
-              home: Scaffold(
-                body: FinanceTransactionsTab(
-                  controller: controller,
-                  onEdit: (_) {},
-                  onSwitchMonth: (m) async {},
-                  onSignInAgain: () {},
+            final controller = testFinanceController(FakeFinanceRepository());
+            await controller.load('tok', '2026-07');
+            if (reloadFailed) controller.markReloadFailed();
+            expect(controller.reloadFailed, reloadFailed);
+
+            await expectNoLayoutErrors(() async {
+              await tester.pumpWidget(
+                l10nTestApp(
+                  locale: locale,
+                  home: Scaffold(
+                    body: FinanceTransactionsTab(
+                      controller: controller,
+                      onEdit: (_) {},
+                      onSwitchMonth: (m) async {},
+                      onSignInAgain: () {},
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-        });
+              );
+              await tester.pumpAndSettle();
+            });
 
-        final loc = lookupAppLocalizations(locale);
-        final finder = find.text(loc.financeEmptyTitle);
-        expect(finder, findsOneWidget);
-        // Measured, not read off `didExceedMaxLines`: that flag is only ever
-        // true when `maxLines` is set, and the guide's title sets neither
-        // `maxLines` nor `overflow`, so it was an assertion that could not
-        // fail. Every glyph painted is what "not cut off" actually means.
-        expectPaintedInFull(
-          tester,
-          finder,
-          reason: 'the empty-month title was cut off at 320dp × 2.0',
+            expect(
+              find.byKey(const Key('stale-notice-row')),
+              reloadFailed ? findsOneWidget : findsNothing,
+              reason:
+                  'the fixture has to actually land on the side it claims — '
+                  'otherwise both runs measure the same layout',
+            );
+
+            final loc = lookupAppLocalizations(locale);
+            final finder = find.text(loc.financeEmptyTitle);
+            expect(finder, findsOneWidget);
+            expectPaintedInFull(
+              tester,
+              finder,
+              reason: 'the empty-month title was cut off at 320dp × 2.0',
+            );
+            final rect = tester.getRect(finder);
+            expect(rect.top, greaterThanOrEqualTo(0));
+            expect(rect.bottom, lessThanOrEqualTo(640));
+
+            if (!reloadFailed) return;
+            // Fitting is not the whole guarantee. The guide is this tab's
+            // screen-level emptiness, so it stays centred in whatever the
+            // notice leaves behind — that is what the `Expanded` around it
+            // is for. Dropped to a bare `Center`, the column shrinks to its
+            // contents and the guide hugs the underside of the notice
+            // instead, which still fits at 640dp and so passes every
+            // overflow check on its own.
+            final guide = tester.getRect(find.byType(EmptyStateGuide));
+            final notice = tester.getRect(
+              find.byKey(const Key('stale-notice-row')),
+            );
+            expect(notice.bottom, lessThanOrEqualTo(guide.top));
+            expect(
+              guide.top - notice.bottom,
+              closeTo(640 - guide.bottom, 1.0),
+              reason:
+                  'the empty guide must stay centred in the space under the '
+                  'notice (top gap ${guide.top - notice.bottom}, bottom gap '
+                  '${640 - guide.bottom}) — hugging the notice means it is no '
+                  'longer filling the body',
+            );
+          },
         );
-        // Inside the surface, not merely laid out somewhere.
-        final rect = tester.getRect(finder);
-        expect(rect.top, greaterThanOrEqualTo(0));
-        expect(rect.bottom, lessThanOrEqualTo(640));
-      });
+      }
     }
   });
+
 }
 
 /// A month holding one row the server mirrored from a split expense and one
