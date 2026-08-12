@@ -213,7 +213,9 @@ class FinanceController extends ChangeNotifier {
     // Started concurrently with the main fetch below, not chained after it
     // and not folded into a shared `Future.wait` (design D9/D6): its own
     // failure must never turn the whole month into [FinanceStatus.error].
-    // Awaited at the end so callers of [load] see a fully settled state.
+    // Awaited before returning — on *every* path, including the superseded
+    // early returns via [_superseded] — so callers of [load] see a fully
+    // settled state.
     final splitSpendingFuture = _loadSplitSpending(idToken, month, seq);
 
     try {
@@ -221,7 +223,7 @@ class FinanceController extends ChangeNotifier {
       // Stale-response guard: a faster later call — for this same month or a
       // different one — may have moved on while this request was in flight;
       // that response must never land over whatever the newer call produced.
-      if (seq != _loadSeq) return false;
+      if (seq != _loadSeq) return _superseded(splitSpendingFuture);
       categories = data.categories;
       summary = data.summary;
       transactions = data.transactions;
@@ -230,7 +232,7 @@ class FinanceController extends ChangeNotifier {
       status = FinanceStatus.loaded;
       reloadFailed = false;
     } on FinanceReauthenticationRequired {
-      if (seq != _loadSeq) return false;
+      if (seq != _loadSeq) return _superseded(splitSpendingFuture);
       if (background) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
@@ -240,12 +242,12 @@ class FinanceController extends ChangeNotifier {
         reloadFailed = false;
       }
     } on FinanceFetchFailure {
-      if (seq != _loadSeq) return false;
+      if (seq != _loadSeq) return _superseded(splitSpendingFuture);
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
       reloadFailed = true;
     } catch (_) {
-      if (seq != _loadSeq) return false;
+      if (seq != _loadSeq) return _superseded(splitSpendingFuture);
       status = FinanceStatus.error;
       error = FinanceError.unknown;
       reloadFailed = true;
@@ -253,6 +255,19 @@ class FinanceController extends ChangeNotifier {
     notifyListeners();
     await splitSpendingFuture;
     return true;
+  }
+
+  /// The superseded early return out of [load]: this call's response is
+  /// dropped, but its split-spending leg — started before the main fetch and
+  /// still in flight — is waited for first, so [load] really does return "a
+  /// fully settled state" on every path rather than only on the ones that
+  /// land. Returning straight from the guard left that future dangling: the
+  /// doc said otherwise, and a test that awaits a superseded [load] would go
+  /// on to assert against a controller a stray `notifyListeners` was still
+  /// about to touch.
+  Future<bool> _superseded(Future<void> splitSpendingFuture) async {
+    await splitSpendingFuture;
+    return false;
   }
 
   /// Marks the currently loaded month as having failed a background reload,
@@ -272,9 +287,10 @@ class FinanceController extends ChangeNotifier {
   }
 
   /// Reloads after a write that is already known to have succeeded
-  /// server-side — used by [addTransaction], [updateTransaction], and
-  /// [deleteTransaction], which only reach this after their own write call
-  /// completed without throwing. If a concurrent, newer call (e.g. a
+  /// server-side — used by [addTransaction], [updateTransaction],
+  /// [deleteTransaction], and [saveBudgets]'s success path, all of which only
+  /// reach this after their own write call completed without throwing. If a
+  /// concurrent, newer call (e.g. a
   /// background reload from a split write elsewhere,
   /// `FinanceScaffold._reloadLedger`) supersedes this call's own reload
   /// response before it lands, [load] returns `false` and leaves [status]
@@ -290,9 +306,23 @@ class FinanceController extends ChangeNotifier {
   /// [FinanceStatus.loaded]; the newer call's own result (fresher data,
   /// and possibly a different status of its own) settles in right after,
   /// same as it would have anyway.
+  ///
+  /// **Only while [summary] is non-null**, which is one condition doing two
+  /// jobs:
+  ///
+  /// * `loaded` is a claim about the screen, and both finance tabs cash it in
+  ///   as `controller.summary!` once past their `status == error && summary
+  ///   == null` guard. Announcing `loaded` with nothing loaded — a write that
+  ///   lands before any successful [load] ever has — is not an optimistic
+  ///   status, it is a null dereference in `build`.
+  /// * `summary` is also what [reset] clears, so this is the sign-out guard
+  ///   too: after the account signed out mid-write, this continuation must
+  ///   not write `loaded` (and clear `error`) onto a controller that was
+  ///   deliberately emptied — the #156/#157 shape of an in-flight
+  ///   continuation reviving state on an app-lifetime singleton.
   Future<void> _reloadAfterWrite(String idToken, String month) async {
     final applied = await load(idToken, month);
-    if (!applied) {
+    if (!applied && summary != null) {
       status = FinanceStatus.loaded;
       error = null;
       notifyListeners();
@@ -401,7 +431,16 @@ class FinanceController extends ChangeNotifier {
           await _upsertBudget(idToken, categoryId: categoryId, amount: wantedAmount);
         }
       }
-      await load(idToken, selectedMonth);
+      // Through [_reloadAfterWrite], exactly like the three transaction
+      // writes and for exactly the same reason: every step above has already
+      // succeeded server-side, so a reload the next background load
+      // supersedes must still resolve to `loaded`. Left as a bare `load`,
+      // whose return value nobody read, a superseded reload left [status] on
+      // `loading` — and `budget_sheet.dart` treats anything but `loaded` as
+      // "your budget did not save", so it kept the sheet open and told the
+      // reader a save that had already gone through had failed, inviting a
+      // pointless retry.
+      await _reloadAfterWrite(idToken, selectedMonth);
       return;
     } on FinanceReauthenticationRequired {
       final applied = await load(idToken, selectedMonth);
