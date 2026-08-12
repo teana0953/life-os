@@ -878,4 +878,133 @@ void main() {
       }
     }
   });
+
+  group('a write does not get reported as failed by a newer, unrelated reload failure', () {
+    // Regression for 7af5e79: `_reloadAfterWrite` gated its supersede branch
+    // on `status == FinanceStatus.loading`, so a newer background reload
+    // that failed to *fetch* (landing on `error`/`fetchFailed` before this
+    // write's own reload arrived) blocked the branch and left a transaction
+    // that had genuinely just been written reported back to
+    // `AddTransactionSheet._save` as a failed save — `status` never even
+    // reaches `loaded`. `_ownedByNewerCall` is the fix: a newer call's own
+    // plain reload failure ([reloadFailed] `true`) is not "owned" by anyone
+    // and must not block resolving a known-successful write to `loaded`.
+    test(
+      'addTransaction resolves to loaded even though a newer background '
+      "reload's own fetch failed first",
+      () async {
+        final repo = _GenerationalFakeRepository();
+        final controller = _controller(repo);
+        await _seed(controller, repo);
+
+        final addFuture = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-15',
+        );
+        await pumpEventQueue();
+        final addGeneration = repo.count('getSummary');
+
+        // A concurrent, newer background reload whose own main fetch will
+        // fail once released — unrelated to whether addTransaction's write
+        // succeeded, which it already has.
+        final bgFuture = controller.load('tok', '2026-07', background: true);
+        await pumpEventQueue();
+        final bgGeneration = repo.count('getSummary');
+        expect(bgGeneration, addGeneration + 1);
+        repo.failGeneration[bgGeneration] = const FinanceFetchFailure('boom');
+
+        // The background reload's failure lands first, claiming `status`
+        // before addTransaction's own reload lands.
+        repo.release(bgGeneration);
+        await pumpEventQueue();
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.reloadFailed, isTrue);
+
+        // addTransaction's own reload lands next — superseded (`bgGeneration`
+        // is newer), but its write already succeeded server-side.
+        repo.release(addGeneration);
+        await Future.wait([addFuture, bgFuture]);
+
+        expect(
+          controller.status,
+          FinanceStatus.loaded,
+          reason:
+              "the write succeeded; a newer call's own plain reload failure "
+              'must not be reported back as this write having failed — '
+              'AddTransactionSheet._save only pops the sheet on `loaded`, so '
+              'anything else leaves it open telling the user a saved '
+              'transaction failed to save, inviting a duplicate resubmit',
+        );
+        expect(
+          controller.reloadFailed,
+          isTrue,
+          reason:
+              "the background reload really did fail — the \"couldn't "
+              'refresh" notice must still show even though the write '
+              'itself resolves to loaded',
+        );
+      },
+    );
+
+    test(
+      'a second write\'s own genuine conflict is not masked by a first '
+      "write's stale reload landing after it",
+      () async {
+        final repo = _GenerationalFakeRepository();
+        final controller = _controller(repo);
+        await _seed(controller, repo);
+
+        final addA = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 100,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-15',
+        );
+        await pumpEventQueue();
+        final generationA = repo.count('getSummary');
+
+        repo.failNextWrite = const FinanceConflict();
+        final addB = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 200,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-15',
+        );
+        await pumpEventQueue();
+        final generationB = repo.count('getSummary');
+        expect(generationB, generationA + 1);
+
+        // B's own reload (after its write was rejected with a conflict)
+        // lands and succeeds — a genuine, owned outcome.
+        repo.release(generationB);
+        await pumpEventQueue();
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.error, FinanceError.conflict);
+        expect(controller.reloadFailed, isFalse);
+
+        // A's own reload — for a write that succeeded — lands after B's and
+        // is superseded by it.
+        repo.release(generationA);
+        await Future.wait([addA, addB]);
+
+        expect(
+          controller.status,
+          FinanceStatus.error,
+          reason:
+              "B's genuine conflict is a different write's own reported "
+              "outcome (reloadFailed is false), not a plain reload failure — "
+              "A's stale, superseded success must not overwrite it",
+        );
+        expect(controller.error, FinanceError.conflict);
+      },
+    );
+  });
 }

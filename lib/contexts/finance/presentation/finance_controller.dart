@@ -317,8 +317,9 @@ class FinanceController extends ChangeNotifier {
   /// and possibly a different status of its own) settles in right after,
   /// same as it would have anyway.
   ///
-  /// **Only while [summary] is non-null AND [status] is still `loading`**,
-  /// two conditions each guarding a different way this reload can be stale:
+  /// **Only while [summary] is non-null AND [status] is not owned by a
+  /// newer call**, two conditions each guarding a different way this reload
+  /// can be stale:
   ///
   /// * `loaded` is a claim about the screen, and both finance tabs cash it in
   ///   as `controller.summary!` once past their `status == error && summary
@@ -330,23 +331,48 @@ class FinanceController extends ChangeNotifier {
   ///   clear `error`) onto a controller that was deliberately emptied — the
   ///   #156/#157 shape of an in-flight continuation reviving state on an
   ///   app-lifetime singleton.
-  /// * `status == loading` guards against a *different* newer call than the
+  /// * [_ownedByNewerCall] guards against a *different* newer call than the
   ///   one that superseded this reload's data: by the time this reload's
   ///   [load] returns `false`, the newer call may already have settled
-  ///   [status] to its own terminal outcome (e.g. it 401'd and set
-  ///   `needsReauth`). [load] sets `status` to `loading` synchronously at the
-  ///   start of every call, so `loading` here means nothing newer has landed
-  ///   yet and it is still safe to resolve this call's own known-successful
-  ///   write to `loaded`; anything else means a newer, still-current call
-  ///   already owns [status] and must not be overwritten back to `loaded`.
+  ///   [status] to its own terminal outcome. [load] sets `status` to
+  ///   `loading` synchronously at the start of every call, so `loading` here
+  ///   means nothing newer has landed yet and it is still safe to resolve
+  ///   this call's own known-successful write to `loaded`. An `error` left by
+  ///   a newer call is not automatically "owned", though: when that error is
+  ///   a plain reload failure ([reloadFailed] — the newer call fetched and
+  ///   the fetch itself failed, saying nothing about whether *this* write
+  ///   succeeded), it is still safe to resolve to `loaded` here, same as
+  ///   `loading`. Reported this way after 7af5e79 shipped it the other way —
+  ///   a background reload's own 401, downgraded through the `background &&
+  ///   summary != null` branch above into `error`/`fetchFailed`, was enough
+  ///   to make this branch skip and leave a transaction that had genuinely
+  ///   just been written reported back to `AddTransactionSheet._save` as a
+  ///   failed save, inviting the exact duplicate-resubmit this doc already
+  ///   warned about. What *is* still owned and must not be overwritten:
+  ///   `needsReauth` (the session is dead, full stop) and an `error` that is
+  ///   NOT a reload failure — that is a genuinely different write's own
+  ///   reported outcome (e.g. `_mutate`'s 409/404 branches, which reload
+  ///   successfully and only then set `error` themselves, leaving
+  ///   [reloadFailed] `false`) and must be left standing.
   Future<void> _reloadAfterWrite(String idToken, String month) async {
     final applied = await load(idToken, month);
-    if (!applied && summary != null && status == FinanceStatus.loading) {
+    if (!applied && summary != null && !_ownedByNewerCall) {
       status = FinanceStatus.loaded;
       error = null;
       notifyListeners();
     }
   }
+
+  /// True when [status] currently reflects a newer, still-current call's own
+  /// settled outcome that a superseded call must not overwrite: [status] is
+  /// terminal AND (it is not merely `error` from a reload that failed to
+  /// fetch — see [_reloadAfterWrite]'s doc for why that half doesn't count as
+  /// "owned"). `loading` is deliberately excluded even though it is not
+  /// terminal: it means nothing newer has landed yet, so it is not "owned" by
+  /// anyone and a superseded call is free to resolve it to its own outcome.
+  bool get _ownedByNewerCall =>
+      status != FinanceStatus.loading &&
+      !(status == FinanceStatus.error && reloadFailed);
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
   /// for why this is separate from the main fetch. [seq] is checked against
@@ -463,27 +489,29 @@ class FinanceController extends ChangeNotifier {
       return;
     } on FinanceReauthenticationRequired {
       final applied = await load(idToken, selectedMonth);
-      // `!applied && status == loading`: a concurrent, newer reload (e.g. a
+      // `!applied && !_ownedByNewerCall`: a concurrent, newer reload (e.g. a
       // background reload from a split write elsewhere) can supersede this
-      // call's own reload before it lands. If nothing newer has settled
-      // [status] yet, [load] still has it at `loading` — set synchronously at
-      // its own start — and this branch resolves it to the failure this call
-      // already knows happened; leaving the `!applied` branch out entirely
-      // would silently drop this error and the caller would read "still
-      // loading" for a budget save that is known to have failed. But if a
-      // newer call has already landed and moved [status] to its own terminal
-      // outcome (e.g. `needsReauth` from its own 401), that result must not
-      // be overwritten back to this stale one — hence the `status ==
-      // loading` guard on top of `!applied` (see [_reloadAfterWrite]'s doc
-      // for the full shape).
-      if ((!applied && status == FinanceStatus.loading) ||
+      // call's own reload before it lands. If nothing newer has claimed
+      // [status] yet (still `loading`), or the newer call's own [status] is
+      // just a plain reload failure ([reloadFailed], which says nothing
+      // about this save's own outcome — see [_ownedByNewerCall]'s doc), this
+      // branch resolves it to the failure this call already knows happened;
+      // leaving the `!applied` branch out entirely would silently drop this
+      // error and the caller would read "still loading" for a budget save
+      // that is known to have failed. But if a newer call has already landed
+      // and moved [status] to its own terminal, genuinely-owned outcome
+      // (e.g. `needsReauth` from its own 401, or a different write's own
+      // reported error), that result must not be overwritten back to this
+      // stale one — hence the [_ownedByNewerCall] guard on top of `!applied`
+      // (see [_reloadAfterWrite]'s doc for the full shape).
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.needsReauth;
         notifyListeners();
       }
     } on FinanceValidationFailure {
       final applied = await load(idToken, selectedMonth);
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.validation;
@@ -491,7 +519,7 @@ class FinanceController extends ChangeNotifier {
       }
     } on FinanceNotFound {
       final applied = await load(idToken, selectedMonth);
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
@@ -499,7 +527,7 @@ class FinanceController extends ChangeNotifier {
       }
     } on FinanceFetchFailure {
       final applied = await load(idToken, selectedMonth);
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.fetchFailed;
@@ -507,7 +535,7 @@ class FinanceController extends ChangeNotifier {
       }
     } catch (_) {
       final applied = await load(idToken, selectedMonth);
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.unknown;
@@ -543,21 +571,23 @@ class FinanceController extends ChangeNotifier {
       error = FinanceError.validation;
     } on FinanceConflict {
       final applied = await load(idToken, selectedMonth);
-      // `!applied && status == loading`: see [_reloadAfterWrite]'s doc — a
-      // concurrent, newer reload can supersede this call's own reload before
-      // it lands. If [status] is still `loading`, nothing newer has settled
-      // it yet, so this branch resolves it to the failure this call already
-      // knows happened; if a newer call has already moved [status] to its
-      // own terminal outcome, that result must not be overwritten back to
+      // `!applied && !_ownedByNewerCall`: see [_reloadAfterWrite]'s and
+      // [_ownedByNewerCall]'s docs — a concurrent, newer reload can supersede
+      // this call's own reload before it lands. If [status] is still
+      // `loading`, or the newer call's own [status] is just a plain reload
+      // failure, nothing has genuinely claimed it yet, so this branch
+      // resolves it to the failure this call already knows happened; if a
+      // newer call has already moved [status] to its own terminal,
+      // genuinely-owned outcome, that result must not be overwritten back to
       // this stale one.
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.conflict;
       }
     } on FinanceNotFound {
       final applied = await load(idToken, selectedMonth);
-      if ((!applied && status == FinanceStatus.loading) ||
+      if ((!applied && !_ownedByNewerCall) ||
           status == FinanceStatus.loaded) {
         status = FinanceStatus.error;
         error = FinanceError.notFound;
