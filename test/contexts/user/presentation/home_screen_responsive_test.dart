@@ -152,18 +152,41 @@ class _Pumped {
 /// assertion say so rather than silently widening the hole.
 const _knownSectionHeaderOverflow = 'overflowed by 0.257 pixels';
 
-void _expectOnlyKnownOverflow(List<FlutterErrorDetails> errors) {
+void _expectOnlyKnownOverflow(
+  List<FlutterErrorDetails> errors, {
+  // Only the initial build reproduces the known section-header overflow
+  // (see `_knownSectionHeaderOverflow`) — the `_guarded` calls later
+  // callers make around a tap/settle see an already-built tree and report
+  // none. So the "exactly one known overflow, not silently more" pin below
+  // only applies when [expectKnown] says this run is the initial build.
+  bool expectKnown = false,
+}) {
+  final known = errors.where(
+    (e) => e.toString().contains(_knownSectionHeaderOverflow),
+  );
   final unexpected = errors
       .where((e) => !e.toString().contains(_knownSectionHeaderOverflow))
       .map((e) => e.exception.toString().split('\n').first)
       .toList();
   expect(unexpected, isEmpty, reason: 'new layout errors at 320dp');
+  if (expectKnown) {
+    // Pins the allowance to exactly the one known overflow — so a *second*
+    // error that happens to also read "overflowed by 0.257 pixels" isn't
+    // silently swallowed alongside it, and so fixing the section header
+    // (which makes this list empty) is the signal to delete the allowance.
+    expect(
+      known,
+      hasLength(1),
+      reason:
+          'the known section-header overflow: fix it and delete this allowance',
+    );
+  }
 }
 
 /// Runs [body] with layout errors captured (so the binding never stores one
 /// and quietly swallows the *second*), then asserts nothing new broke.
-Future<void> _guarded(Future<void> Function() body) async {
-  _expectOnlyKnownOverflow(await collectLayoutErrors(body));
+Future<void> _guarded(Future<void> Function() body, {bool expectKnown = false}) async {
+  _expectOnlyKnownOverflow(await collectLayoutErrors(body), expectKnown: expectKnown);
 }
 
 Future<_Pumped> _pumpAt(
@@ -171,6 +194,12 @@ Future<_Pumped> _pumpAt(
   Size size, {
   HomeDashboardController? dashboardController,
   PrivacyMaskController? privacyMaskController,
+  // 360dp/1200dp have no known pre-existing overflow (that's only
+  // reproduced at 320dp — see `_knownSectionHeaderOverflow`), so those two
+  // callers pass `strict: true` to demand zero layout errors instead of
+  // tolerating the 320dp allowance, which would otherwise also swallow a
+  // *new* overflow at these widths.
+  bool strict = false,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -184,7 +213,7 @@ Future<_Pumped> _pumpAt(
   );
   await controller.load('token-123');
   final mask = privacyMaskController ?? await testPrivacyMaskController();
-  await _guarded(() async {
+  Future<void> pump() async {
     await tester.pumpWidget(
       l10nTestApp(
         theme: lightTheme,
@@ -196,7 +225,13 @@ Future<_Pumped> _pumpAt(
       ),
     );
     await tester.pump();
-  });
+  }
+
+  if (strict) {
+    await expectNoLayoutErrors(pump);
+  } else {
+    await _guarded(pump, expectKnown: true);
+  }
   return _Pumped(controller, mask);
 }
 
@@ -209,7 +244,7 @@ void main() {
     testWidgets('narrow phone width: dashboard sections have no overflow', (
       tester,
     ) async {
-      await _pumpAt(tester, const Size(360, 800));
+      await _pumpAt(tester, const Size(360, 800), strict: true);
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
@@ -223,7 +258,7 @@ void main() {
     testWidgets('wide desktop width: dashboard content remains bounded', (
       tester,
     ) async {
-      await _pumpAt(tester, const Size(1200, 800));
+      await _pumpAt(tester, const Size(1200, 800), strict: true);
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
@@ -261,6 +296,16 @@ void main() {
           'Total liabilities',
         ]) {
           expectPaintedInFull(tester, find.text(label), reason: label);
+          // Every glyph painting is not "not silently truncated to make
+          // room": `Expanded` can still shrink the label onto a second (or
+          // third) line while painting every character in full. Pin the
+          // line count too, so a label that wraps one line further than
+          // today doesn't pass unnoticed.
+          expect(
+            paintedTextLineCount(tester, find.text(label)),
+            lessThanOrEqualTo(2),
+            reason: label,
+          );
         }
       },
     );
