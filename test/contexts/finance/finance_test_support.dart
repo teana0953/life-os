@@ -115,9 +115,22 @@ class FakeFinanceRepository implements FinanceRepository {
   /// was sent*, which is what the token-freshness tests assert on.
   final List<String> summaryTokens = [];
 
+  /// Holds the *n*th `getSummary` call (1-indexed, matching
+  /// [summaryTokens]`.length` after the call has arrived) until the completer
+  /// is completed. Keyed by call number rather than by month so two reloads
+  /// of the **same** month can be ordered against each other — which is the
+  /// only way to build the interleaving where an earlier reload's response
+  /// lands after a later one has already settled.
+  ///
+  /// Checked before [failNext] so the call that is let through is the one
+  /// that consumes a seeded failure.
+  final Map<int, Completer<void>> summaryGates = {};
+
   @override
   Future<MonthlySummary> getSummary(String idToken, String month) async {
     summaryTokens.add(idToken);
+    final gate = summaryGates[summaryTokens.length];
+    if (gate != null) await gate.future;
     if (failNext != null) {
       final failure = failNext!;
       failNext = null;

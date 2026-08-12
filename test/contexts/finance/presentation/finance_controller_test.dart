@@ -822,6 +822,58 @@ void main() {
   });
 
   group('saveBudgets', () {
+    test(
+      'a successful save whose reload is superseded still ends up loaded',
+      () async {
+        // The named case behind invariant I2 in
+        // `finance_controller_race_invariants_test.dart`. Kept as its own
+        // test so the failure message says *saveBudgets*: this was the one
+        // write path left reloading through a bare `load` whose return value
+        // nobody read, and `budget_sheet.dart` treats anything other than
+        // `loaded` as "your budget did not save" — so a reload a concurrent
+        // background reload overtook kept the sheet open and reported a
+        // failure for budgets that were already stored.
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+
+        // The save's own reload stalls...
+        final saveReload = Completer<void>();
+        repo.gates['2026-07'] = saveReload;
+        final save = controller.saveBudgets('tok', {null: 20000});
+        await pumpEventQueue();
+
+        // ...while a newer background reload starts and is still in flight,
+        // which is what leaves `status` on `loading` rather than resolving
+        // it. Gated too: released, it would settle the status itself and the
+        // test would pass without the save resolving anything.
+        final backgroundReload = Completer<void>();
+        repo.gates['2026-07'] = backgroundReload;
+        final background = controller.load(
+          'tok',
+          '2026-07',
+          background: true,
+        );
+        await pumpEventQueue();
+
+        saveReload.complete();
+        await save;
+
+        expect(
+          controller.status,
+          FinanceStatus.loaded,
+          reason:
+              'the budgets were written server-side before the reload was '
+              'ever issued, so the sheet must not be told the save failed',
+        );
+        expect(controller.error, isNull);
+
+        backgroundReload.complete();
+        await background;
+        expect(controller.status, FinanceStatus.loaded);
+      },
+    );
+
     test('sends only the diff: one upsert, one delete, unchanged skipped', () async {
       final repo = FakeFinanceRepository();
       await repo.upsertBudget('tok', amount: 10000);
