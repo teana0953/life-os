@@ -182,9 +182,16 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     // `_saving` is deliberately left set.
     final controller = widget.controller;
     final editing = widget.editing;
+    // This write's own outcome, read instead of `controller.status` (#165):
+    // `status` is the screen, and any concurrent call — a background reload
+    // fired by a split write elsewhere, a month switch — moves it while this
+    // save is in flight. Reading it here reported other calls' failures as
+    // this save's, leaving the sheet open over a transaction the server had
+    // already accepted and inviting the user to record it twice.
+    final FinanceWriteResult result;
     try {
       if (editing == null) {
-        await controller.addTransaction(
+        result = await controller.addTransaction(
           await widget.idToken(),
           type: _type,
           amount: amount,
@@ -194,7 +201,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
           note: _note,
         );
       } else {
-        await controller.updateTransaction(
+        result = await controller.updateTransaction(
           await widget.idToken(),
           editing.id,
           type: _type,
@@ -219,7 +226,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       return;
     }
     if (!mounted) return;
-    if (controller.status == FinanceStatus.loaded) {
+    if (result == FinanceWriteResult.saved) {
       Navigator.of(context).pop();
       return;
     }
@@ -232,7 +239,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
     if (editing != null &&
         _isMirror &&
-        controller.error == FinanceError.conflict) {
+        result == FinanceWriteResult.conflict) {
       // `_isMirror`, not `editing != null`: 409 is the split-moved-underneath
       // answer and the backend returns it from exactly one place, so a
       // non-mirror cannot get here today. If one ever did, the re-seed below
@@ -273,7 +280,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       );
       return;
     }
-    if (controller.error == FinanceError.notFound) {
+    if (result == FinanceWriteResult.notFound) {
       // For a mirror: the payer deleted the split and the cascade took this row
       // with it. For a row the user recorded themselves: it was deleted on
       // another device. Either way `_mutate`'s reload has already dropped it
@@ -322,12 +329,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    await widget.controller.deleteTransaction(
+    // The delete's own outcome, not `controller.status` — see `_save`.
+    final result = await widget.controller.deleteTransaction(
       await widget.idToken(),
       editing.id,
     );
     if (!mounted) return;
-    if (widget.controller.status == FinanceStatus.loaded) {
+    if (result == FinanceWriteResult.saved) {
       Navigator.of(context).pop();
       return;
     }

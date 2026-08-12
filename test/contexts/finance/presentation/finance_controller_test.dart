@@ -823,16 +823,16 @@ void main() {
 
   group('saveBudgets', () {
     test(
-      'a successful save whose reload is superseded still ends up loaded',
+      'a successful save whose reload is superseded still returns saved',
       () async {
-        // The named case behind invariant I2 in
+        // The named case behind invariant I6 in
         // `finance_controller_race_invariants_test.dart`. Kept as its own
-        // test so the failure message says *saveBudgets*: this was the one
-        // write path left reloading through a bare `load` whose return value
-        // nobody read, and `budget_sheet.dart` treats anything other than
-        // `loaded` as "your budget did not save" — so a reload a concurrent
-        // background reload overtook kept the sheet open and reported a
-        // failure for budgets that were already stored.
+        // test so the failure message says *saveBudgets*: `budget_sheet.dart`
+        // closes on what this call returns, and the budgets were stored
+        // before the reload behind them was even issued. `status` is
+        // deliberately NOT part of the answer — here it is still `loading`,
+        // because the newer background reload that superseded this call's own
+        // reload has not landed yet, and the screen is its business.
         final repo = FakeFinanceRepository();
         final controller = _controller(repo);
         await controller.load('tok', '2026-07');
@@ -857,20 +857,27 @@ void main() {
         await pumpEventQueue();
 
         saveReload.complete();
-        await save;
 
         expect(
-          controller.status,
-          FinanceStatus.loaded,
+          await save,
+          FinanceWriteResult.saved,
           reason:
               'the budgets were written server-side before the reload was '
               'ever issued, so the sheet must not be told the save failed',
         );
-        expect(controller.error, isNull);
+        expect(
+          controller.status,
+          FinanceStatus.loading,
+          reason:
+              'the screen belongs to the newer reload, which is still in '
+              'flight — the save reports itself through its return value '
+              'instead of pretending to know what the screen should show',
+        );
 
         backgroundReload.complete();
         await background;
         expect(controller.status, FinanceStatus.loaded);
+        expect(controller.error, isNull);
       },
     );
 

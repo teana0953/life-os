@@ -30,6 +30,43 @@ enum SplitSpendingStatus { loading, loaded, error }
 /// hold a localized message directly — the screen maps this to text.
 enum FinanceError { fetchFailed, unknown, validation, notFound, conflict }
 
+/// What one write ([FinanceController.addTransaction],
+/// [FinanceController.updateTransaction],
+/// [FinanceController.deleteTransaction], [FinanceController.saveBudgets])
+/// did — returned to the caller that issued it, and about **that write
+/// alone**.
+///
+/// Deliberately not [FinanceStatus]/[FinanceError], and deliberately not read
+/// off the controller's fields (#165). [FinanceStatus] is the *screen's*
+/// state: a background reload fired by a split write elsewhere, a month
+/// switch in another tab, or a second sheet's save all move it while a write
+/// is in flight. The three sheets used to read `status == loaded` as "my save
+/// went through", which made every concurrent call's outcome masquerade as
+/// this one's — reported as a failed save, that is a bottom sheet left open
+/// over money the server already has, and a user who presses Save again. The
+/// two questions are now two values: `status` answers "what should the screen
+/// show", the returned result answers "what happened to my write".
+///
+/// An enum rather than a `bool` because the record sheet answers the
+/// refusals differently: a 409 re-seeds the mirrored facts and asks the user
+/// to re-confirm, a 404 says the row is gone and closes, a 401 in the budget
+/// sheet asks them to sign in again, and everything else is the generic
+/// retryable failure. A `bool` would push the callers straight back to
+/// reading `controller.error` — the same shared field, the same bug.
+enum FinanceWriteResult {
+  /// The server accepted the write. Says nothing about the reload that
+  /// follows it: that reload refreshes the screen (and reports its own
+  /// failure through [FinanceController.status]/`reloadFailed`), but the row
+  /// is on the server either way.
+  saved,
+  needsReauth,
+  validation,
+  notFound,
+  conflict,
+  fetchFailed,
+  unknown,
+}
+
 /// Drives the finance shell: the selected month's categories, summary, and
 /// transactions, plus add/update/delete mutations. Month-keyed like
 /// `TodayController`/`ExerciseController`, but with the extra race/cross-month
@@ -296,83 +333,49 @@ class FinanceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reloads after a write that is already known to have succeeded
-  /// server-side — used by [addTransaction], [updateTransaction],
-  /// [deleteTransaction], and [saveBudgets]'s success path, all of which only
-  /// reach this after their own write call completed without throwing. If a
-  /// concurrent, newer call (e.g. a
-  /// background reload from a split write elsewhere,
-  /// `FinanceScaffold._reloadLedger`) supersedes this call's own reload
-  /// response before it lands, [load] returns `false` and leaves [status]
-  /// wherever it stood at the *start* of this call — `loading`, set
-  /// synchronously by [load] itself, never resolved to a terminal state by
-  /// this call. Left alone, every caller that reads [status] right after
-  /// awaiting the write (`AddTransactionSheet._save`/`_delete`) would read
-  /// "still loading" as "the write failed" — even though it plainly did
-  /// not — and tell the user so about a row that is already saved,
-  /// inviting a duplicate resubmit on retry. The write's own success is
-  /// known unconditionally here (this is only reached once it has already
-  /// happened), so a superseded reload still resolves to
-  /// [FinanceStatus.loaded]; the newer call's own result (fresher data,
-  /// and possibly a different status of its own) settles in right after,
-  /// same as it would have anyway.
+  /// Refreshes the screen after a write the server has already accepted —
+  /// used by [addTransaction], [updateTransaction], [deleteTransaction] and
+  /// [saveBudgets]'s success path, all of which only reach this once their
+  /// own write call returned without throwing.
   ///
-  /// **Only while [summary] is non-null AND [status] is not owned by a
-  /// newer call**, two conditions each guarding a different way this reload
-  /// can be stale:
-  ///
-  /// * `loaded` is a claim about the screen, and both finance tabs cash it in
-  ///   as `controller.summary!` once past their `status == error && summary
-  ///   == null` guard. Announcing `loaded` with nothing loaded — a write that
-  ///   lands before any successful [load] ever has — is not an optimistic
-  ///   status, it is a null dereference in `build`. `summary` is also what
-  ///   [reset] clears, so this is the sign-out guard too: after the account
-  ///   signed out mid-write, this continuation must not write `loaded` (and
-  ///   clear `error`) onto a controller that was deliberately emptied — the
-  ///   #156/#157 shape of an in-flight continuation reviving state on an
-  ///   app-lifetime singleton.
-  /// * [_ownedByNewerCall] guards against a *different* newer call than the
-  ///   one that superseded this reload's data: by the time this reload's
-  ///   [load] returns `false`, the newer call may already have settled
-  ///   [status] to its own terminal outcome. [load] sets `status` to
-  ///   `loading` synchronously at the start of every call, so `loading` here
-  ///   means nothing newer has landed yet and it is still safe to resolve
-  ///   this call's own known-successful write to `loaded`. An `error` left by
-  ///   a newer call is not automatically "owned", though: when that error is
-  ///   a plain reload failure ([reloadFailed] — the newer call fetched and
-  ///   the fetch itself failed, saying nothing about whether *this* write
-  ///   succeeded), it is still safe to resolve to `loaded` here, same as
-  ///   `loading`. Reported this way after 7af5e79 shipped it the other way —
-  ///   a background reload's own 401, downgraded through the `background &&
-  ///   summary != null` branch above into `error`/`fetchFailed`, was enough
-  ///   to make this branch skip and leave a transaction that had genuinely
-  ///   just been written reported back to `AddTransactionSheet._save` as a
-  ///   failed save, inviting the exact duplicate-resubmit this doc already
-  ///   warned about. What *is* still owned and must not be overwritten:
-  ///   `needsReauth` (the session is dead, full stop) and an `error` that is
-  ///   NOT a reload failure — that is a genuinely different write's own
-  ///   reported outcome (e.g. `_mutate`'s 409/404 branches, which reload
-  ///   successfully and only then set `error` themselves, leaving
-  ///   [reloadFailed] `false`) and must be left standing.
+  /// **Its outcome is deliberately dropped.** This reload speaks for the
+  /// screen, not for the write: whether it lands, is superseded by a newer
+  /// call, or fails outright, the row is on the server, and the caller is
+  /// told so by the [FinanceWriteResult] the write path returns. That
+  /// separation is #165's fix, and the reason nothing here tries to steer
+  /// [status] back to [FinanceStatus.loaded] on a superseded reload: the
+  /// screen belongs to whichever call is newest — if that call failed to
+  /// fetch, the reader must keep seeing the "couldn't refresh" notice; if it
+  /// 401'd, the reader must keep seeing the sign-in exit. Both attempts to
+  /// make this one field answer both questions (7af5e79, 7c58e68) turned one
+  /// half true by making the other half lie.
   Future<void> _reloadAfterWrite(String idToken, String month) async {
-    final applied = await load(idToken, month);
-    if (!applied && summary != null && !_ownedByNewerCall) {
-      status = FinanceStatus.loaded;
-      error = null;
-      notifyListeners();
-    }
+    await load(idToken, month);
   }
 
-  /// True when [status] currently reflects a newer, still-current call's own
-  /// settled outcome that a superseded call must not overwrite: [status] is
-  /// terminal AND (it is not merely `error` from a reload that failed to
-  /// fetch — see [_reloadAfterWrite]'s doc for why that half doesn't count as
-  /// "owned"). `loading` is deliberately excluded even though it is not
-  /// terminal: it means nothing newer has landed yet, so it is not "owned" by
-  /// anyone and a superseded call is free to resolve it to its own outcome.
-  bool get _ownedByNewerCall =>
-      status != FinanceStatus.loading &&
-      !(status == FinanceStatus.error && reloadFailed);
+  /// Reloads after a write the server **refused**, then reports that refusal
+  /// on [status]/[error] — the D5 "what is on screen is now wrong about the
+  /// server's own facts" path (a 409/404 on a mirrored row), plus every
+  /// [saveBudgets] failure, whose sheet needs to see what actually applied.
+  ///
+  /// The refusal is only painted onto the screen when **this call's own
+  /// reload is the one that landed** (`applied`) and that reload succeeded
+  /// (`status == loaded`, its own result). Otherwise a newer call owns the
+  /// screen — it may still be in flight, or already settled on its own
+  /// terminal outcome — and this stale one must not overwrite it. The caller
+  /// hears about the refusal through the returned [FinanceWriteResult]
+  /// regardless, so nothing is lost by staying off the screen here.
+  Future<void> _reportRefusedWrite(
+    String idToken, {
+    required FinanceStatus refusedStatus,
+    FinanceError? refusal,
+  }) async {
+    final applied = await load(idToken, selectedMonth);
+    if (!applied || status != FinanceStatus.loaded) return;
+    status = refusedStatus;
+    error = refusal;
+    notifyListeners();
+  }
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
   /// for why this is separate from the main fetch. [seq] is checked against
@@ -394,8 +397,10 @@ class FinanceController extends ChangeNotifier {
   }
 
   /// Records a new transaction, then reloads the month the transaction's own
-  /// date falls in (see class doc — the cross-month write jump).
-  Future<void> addTransaction(
+  /// date falls in (see class doc — the cross-month write jump). Returns what
+  /// happened to *this* write (see [FinanceWriteResult]); the reload's own
+  /// fate is not part of it.
+  Future<FinanceWriteResult> addTransaction(
     String idToken, {
     required FinanceType type,
     required int amount,
@@ -417,8 +422,8 @@ class FinanceController extends ChangeNotifier {
   });
 
   /// Full-replace edits an existing transaction, then reloads the month its
-  /// (possibly changed) date falls in.
-  Future<void> updateTransaction(
+  /// (possibly changed) date falls in. Returns this write's own outcome.
+  Future<FinanceWriteResult> updateTransaction(
     String idToken,
     String id, {
     required FinanceType type,
@@ -443,8 +448,9 @@ class FinanceController extends ChangeNotifier {
 
   /// Deletes a transaction, then reloads the currently selected month — NOT
   /// necessarily the deleted transaction's month (the user may have since
-  /// switched months while its edit sheet was open).
-  Future<void> deleteTransaction(String idToken, String id) =>
+  /// switched months while its edit sheet was open). Returns this write's own
+  /// outcome.
+  Future<FinanceWriteResult> deleteTransaction(String idToken, String id) =>
       _mutate(idToken, () async {
         await _deleteTransaction(idToken, id);
         await _reloadAfterWrite(idToken, selectedMonth);
@@ -456,14 +462,19 @@ class FinanceController extends ChangeNotifier {
   /// changed/new amount upserts, a cleared existing budget deletes, and an
   /// untouched entry sends nothing (design.md's batch-diff rule).
   ///
-  /// On success the month reloads and this returns with [status] `loaded`.
-  /// On failure of any step, the month reloads immediately — so the sheet
-  /// can show what was actually applied — and [status]/[error] then reflect
-  /// the failure (unless the reload itself needs reauth, which takes
-  /// priority). Because the diff is always computed against the *current*
-  /// [budgets], a caller that retries with the same [desired] map after a
-  /// failure will only re-send the steps that didn't already succeed.
-  Future<void> saveBudgets(String idToken, Map<String?, int?> desired) async {
+  /// On success the month reloads and this returns [FinanceWriteResult.saved]
+  /// — whatever that reload does. On failure of any step, the month reloads
+  /// immediately (so the sheet can show what was actually applied) and this
+  /// returns the refusal, which `budget_sheet.dart` maps to its copy: a
+  /// [FinanceWriteResult.needsReauth] asks the user to sign in again,
+  /// everything else is the generic retryable message. Because the diff is
+  /// always computed against the *current* [budgets], a caller that retries
+  /// with the same [desired] map after a failure will only re-send the steps
+  /// that didn't already succeed.
+  Future<FinanceWriteResult> saveBudgets(
+    String idToken,
+    Map<String?, int?> desired,
+  ) async {
     final currentByCategory = {for (final budget in budgets) budget.categoryId: budget};
     try {
       for (final entry in desired.entries) {
@@ -478,127 +489,101 @@ class FinanceController extends ChangeNotifier {
       }
       // Through [_reloadAfterWrite], exactly like the three transaction
       // writes and for exactly the same reason: every step above has already
-      // succeeded server-side, so a reload the next background load
-      // supersedes must still resolve to `loaded`. Left as a bare `load`,
-      // whose return value nobody read, a superseded reload left [status] on
-      // `loading` — and `budget_sheet.dart` treats anything but `loaded` as
-      // "your budget did not save", so it kept the sheet open and told the
-      // reader a save that had already gone through had failed, inviting a
-      // pointless retry.
+      // succeeded server-side, so nothing that reload runs into changes the
+      // answer this call gives its own caller.
       await _reloadAfterWrite(idToken, selectedMonth);
-      return;
+      return FinanceWriteResult.saved;
     } on FinanceReauthenticationRequired {
-      final applied = await load(idToken, selectedMonth);
-      // `!applied && !_ownedByNewerCall`: a concurrent, newer reload (e.g. a
-      // background reload from a split write elsewhere) can supersede this
-      // call's own reload before it lands. If nothing newer has claimed
-      // [status] yet (still `loading`), or the newer call's own [status] is
-      // just a plain reload failure ([reloadFailed], which says nothing
-      // about this save's own outcome — see [_ownedByNewerCall]'s doc), this
-      // branch resolves it to the failure this call already knows happened;
-      // leaving the `!applied` branch out entirely would silently drop this
-      // error and the caller would read "still loading" for a budget save
-      // that is known to have failed. But if a newer call has already landed
-      // and moved [status] to its own terminal, genuinely-owned outcome
-      // (e.g. `needsReauth` from its own 401, or a different write's own
-      // reported error), that result must not be overwritten back to this
-      // stale one — hence the [_ownedByNewerCall] guard on top of `!applied`
-      // (see [_reloadAfterWrite]'s doc for the full shape).
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.needsReauth;
-        notifyListeners();
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.needsReauth,
+      );
+      return FinanceWriteResult.needsReauth;
     } on FinanceValidationFailure {
-      final applied = await load(idToken, selectedMonth);
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.validation;
-        notifyListeners();
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.validation,
+      );
+      return FinanceWriteResult.validation;
     } on FinanceNotFound {
-      final applied = await load(idToken, selectedMonth);
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.notFound;
-        notifyListeners();
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.notFound,
+      );
+      return FinanceWriteResult.notFound;
     } on FinanceFetchFailure {
-      final applied = await load(idToken, selectedMonth);
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.fetchFailed;
-        notifyListeners();
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.fetchFailed,
+      );
+      return FinanceWriteResult.fetchFailed;
     } catch (_) {
-      final applied = await load(idToken, selectedMonth);
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.unknown;
-        notifyListeners();
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.unknown,
+      );
+      return FinanceWriteResult.unknown;
     }
   }
 
-  /// Runs a write [action], mapping its typed failures onto [status]/[error]
-  /// — mirrors `ExerciseController._apply`: on failure the previously loaded
-  /// [categories]/[summary]/[transactions] are left untouched, so the screen
-  /// keeps showing them while the caller (the record sheet) surfaces a
-  /// transient failure (snackbar, content preserved) by checking [status]
-  /// after awaiting. On success, [action] itself calls [load], which already
-  /// notifies — so this does not double-notify on the happy path.
+  /// Runs a write [action] and **returns its outcome** — mirrors
+  /// `ExerciseController._apply` for the screen half: on failure the
+  /// previously loaded [categories]/[summary]/[transactions] are left
+  /// untouched, so the reader keeps seeing them while the caller (the record
+  /// sheet) surfaces the refusal itself. What the caller reads is the
+  /// returned [FinanceWriteResult], never [status] — see that enum's doc for
+  /// why. On success, [action] itself calls [load], which already notifies —
+  /// so this does not double-notify on the happy path.
   ///
   /// **Two failures are the exception to "never reload on failure"** (design
   /// D5): a `409` means someone else changed the split under the caller, and a
   /// `404` on a mirrored row means the split — and with it the row — is gone.
   /// In both, what is on screen is now wrong about the *server's own* facts,
   /// not just about this write, so both reload and only then set the error
-  /// status, mirroring [saveBudgets]. Setting it after matters: [load] leaves
-  /// [status] `loaded`, and the record sheet pops itself on `loaded` — it would
-  /// close on what it should be reporting.
-  Future<void> _mutate(String idToken, Future<void> Function() action) async {
+  /// status, mirroring [saveBudgets] (see [_reportRefusedWrite]).
+  Future<FinanceWriteResult> _mutate(
+    String idToken,
+    Future<void> Function() action,
+  ) async {
+    final FinanceWriteResult result;
     try {
       await action();
-      return;
+      return FinanceWriteResult.saved;
     } on FinanceReauthenticationRequired {
       status = FinanceStatus.needsReauth;
+      result = FinanceWriteResult.needsReauth;
     } on FinanceValidationFailure {
       status = FinanceStatus.error;
       error = FinanceError.validation;
+      result = FinanceWriteResult.validation;
     } on FinanceConflict {
-      final applied = await load(idToken, selectedMonth);
-      // `!applied && !_ownedByNewerCall`: see [_reloadAfterWrite]'s and
-      // [_ownedByNewerCall]'s docs — a concurrent, newer reload can supersede
-      // this call's own reload before it lands. If [status] is still
-      // `loading`, or the newer call's own [status] is just a plain reload
-      // failure, nothing has genuinely claimed it yet, so this branch
-      // resolves it to the failure this call already knows happened; if a
-      // newer call has already moved [status] to its own terminal,
-      // genuinely-owned outcome, that result must not be overwritten back to
-      // this stale one.
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.conflict;
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.conflict,
+      );
+      result = FinanceWriteResult.conflict;
     } on FinanceNotFound {
-      final applied = await load(idToken, selectedMonth);
-      if ((!applied && !_ownedByNewerCall) ||
-          status == FinanceStatus.loaded) {
-        status = FinanceStatus.error;
-        error = FinanceError.notFound;
-      }
+      await _reportRefusedWrite(
+        idToken,
+        refusedStatus: FinanceStatus.error,
+        refusal: FinanceError.notFound,
+      );
+      result = FinanceWriteResult.notFound;
     } on FinanceFetchFailure {
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
+      result = FinanceWriteResult.fetchFailed;
     } catch (_) {
       status = FinanceStatus.error;
       error = FinanceError.unknown;
+      result = FinanceWriteResult.unknown;
     }
     notifyListeners();
+    return result;
   }
 }

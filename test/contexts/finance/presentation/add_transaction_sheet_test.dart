@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
@@ -223,6 +225,103 @@ void main() {
           isNotNull,
           reason: 'a failed save must not latch the submit button off',
         );
+      },
+    );
+
+    // LINCHPIN (#165). The sheet decides whether the money was recorded from
+    // what the *write* returned, never from `controller.status` — a field
+    // every concurrent call (a background reload fired by a split write
+    // elsewhere, another tab's month switch) also writes to. Both tests build
+    // the same interleaving: the row is already on the server, this sheet's
+    // own reload is still in flight, and an unrelated newer reload fails
+    // first. Reading `status` there says "save failed" about money that is
+    // saved, and the user presses Save again.
+    testWidgets(
+      'a recorded transaction closes the sheet even though a concurrent '
+      'background reload failed first',
+      (tester) async {
+        final repo = FakeFinanceRepository();
+        final controller = await pumpSheet(
+          tester,
+          repo: repo,
+          today: '2026-07-15',
+        );
+        // Asserted, not assumed: a summary fetch added ahead of this would
+        // gate the wrong call and the interleaving would never be built.
+        expect(repo.summaryTokens, hasLength(1));
+        repo.summaryGates[2] = Completer<void>();
+
+        await tester.enterText(find.byKey(const Key('amount-field')), '250');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('finance-category-cat-food')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        // The server has the row; only the reload behind it is outstanding.
+        expect(repo.byMonth['2026-07'], hasLength(1));
+
+        // A split write elsewhere reloads the ledger, and *that* reload fails.
+        repo.failNext = const FinanceFetchFailure('offline');
+        await controller.load('tok', '2026-07', background: true);
+        await tester.pump();
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.reloadFailed, isTrue);
+
+        // This sheet's own reload lands last, superseded and with nothing to
+        // say about the write that already succeeded.
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsNothing,
+          reason:
+              'the transaction was recorded, so the sheet must close — left '
+              'open under "save failed" the user records the same money twice',
+        );
+        expect(find.text(_en.financeSaveFailed), findsNothing);
+        expect(repo.byMonth['2026-07'], hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'a deleted transaction closes the sheet even though a concurrent '
+      'background reload failed first',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_selfRecorded];
+        final controller = await pumpSheet(
+          tester,
+          repo: repo,
+          editing: _selfRecorded,
+        );
+        expect(repo.summaryTokens, hasLength(1));
+        repo.summaryGates[2] = Completer<void>();
+
+        await tester.tap(find.byKey(const Key('finance-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-delete-confirm')));
+        await tester.pump();
+
+        expect(repo.byMonth['2026-07'], isEmpty);
+
+        repo.failNext = const FinanceFetchFailure('offline');
+        await controller.load('tok', '2026-07', background: true);
+        await tester.pump();
+        expect(controller.status, FinanceStatus.error);
+
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsNothing,
+          reason:
+              'the row is gone from the server; a sheet left open over it '
+              'sends the user to delete a transaction that no longer exists',
+        );
+        expect(find.text(_en.financeSaveFailed), findsNothing);
       },
     );
 

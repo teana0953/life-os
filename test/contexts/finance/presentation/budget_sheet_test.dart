@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
@@ -69,6 +71,51 @@ void main() {
     expect(find.byKey(const Key('budget-sheet-save')), findsNothing);
     expect(controller.status, FinanceStatus.loaded);
   });
+
+  // LINCHPIN (#165), the budget half: the sheet closes on what `saveBudgets`
+  // *returned*, not on `controller.status`, which any concurrent call also
+  // writes to. Here the budgets are already applied server-side while an
+  // unrelated background reload fails first.
+  testWidgets(
+    'a saved budget closes the sheet even though a concurrent background '
+    'reload failed first',
+    (tester) async {
+      final repo = FakeFinanceRepository();
+      final controller = await pumpSheet(tester, repo: repo);
+      // Asserted, not assumed: a summary fetch ahead of this would gate the
+      // wrong call and the interleaving would never be built.
+      expect(repo.summaryTokens, hasLength(1));
+      repo.summaryGates[2] = Completer<void>();
+
+      await tester.enterText(find.byKey(const Key('budget-field-total')), '12000');
+      await tester.pump();
+      repo.budgetCalls.clear();
+      await tester.tap(find.byKey(const Key('budget-sheet-save')));
+      await tester.pump();
+
+      // The upsert is through; only the reload behind it is outstanding.
+      expect(repo.budgetCalls, contains('upsert:null:12000'));
+
+      repo.failNext = const FinanceFetchFailure('offline');
+      await controller.load('tok', '2026-07', background: true);
+      await tester.pump();
+      expect(controller.status, FinanceStatus.error);
+      expect(controller.reloadFailed, isTrue);
+
+      repo.summaryGates[2]!.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('budget-sheet-save')),
+        findsNothing,
+        reason:
+            'the budget was saved, so the sheet must close — kept open under '
+            '"save failed" the user re-sends a budget that is already set',
+      );
+      expect(find.text(loc.financeSaveFailed), findsNothing);
+      expect(find.text(loc.pleaseSignInAgain), findsNothing);
+    },
+  );
 
   testWidgets(
     'partial failure reloads, keeps the sheet open with entered values, and a '
