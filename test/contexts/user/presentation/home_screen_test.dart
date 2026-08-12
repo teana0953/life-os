@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +34,7 @@ import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/l10n_test_app.dart';
+import 'dashboard_repositories_fake.dart';
 
 class FakeProfileRepository implements ProfileRepository {
   UserProfile? profileToReturn;
@@ -95,6 +98,7 @@ Future<HomeHarness> pumpHomeScreen(
   Locale locale = const Locale('en'),
   AuthRepository? authRepository,
   HomeDashboardController? dashboardController,
+  Future<String> Function()? idToken,
 }) async {
   final financeLocations = <String>[];
   final localeController = await testLocaleController();
@@ -110,7 +114,9 @@ Future<HomeHarness> pumpHomeScreen(
           controller: controller,
           clock: clock ?? DateTime.now,
           dashboardController: dashboardController,
-          idToken: dashboardController == null ? null : () async => 'tok',
+          idToken:
+              idToken ??
+              (dashboardController == null ? null : () async => 'tok'),
         ),
       ),
       GoRoute(
@@ -699,6 +705,272 @@ void main() {
           FinanceTab.fromSlug(uri.queryParameters[FinanceTab.queryParameter]),
           FinanceTab.networth,
         );
+      },
+    );
+  });
+
+  // ------------------------------------------------------------ pull-to-refresh
+  //
+  // Unlike `loadedDashboardFixture()` above, this group drives the real
+  // six-request fan-out through `FakeDashboardRepositories`, because what is
+  // under test *is* the reload: which token it carries, when its future
+  // settles, and what the screen shows while and after it runs.
+  group('HomeScreen pull-to-refresh', () {
+    final loc = lookupAppLocalizations(const Locale('en'));
+
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    HomeDashboardController dashboardFor(FakeDashboardRepositories repos) =>
+        HomeDashboardController(
+          GetWeightGoal(repos),
+          GetVitalsTrends(repos),
+          GetMenstrualOverview(repos),
+          ListFinanceBudgets(repos),
+          GetMonthlyNetWorth(repos),
+          GetBalances(repos),
+        );
+
+    RefreshIndicator indicator(WidgetTester tester) =>
+        tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
+
+    testWidgets(
+      'the loaded home wraps its scroll view in one RefreshIndicator whose '
+      'scrollable always accepts an overscroll pull (a short home still '
+      'refreshes)',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+        );
+
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+        final scrollView = tester.widget<SingleChildScrollView>(
+          find.descendant(
+            of: find.byType(RefreshIndicator),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
+      },
+    );
+
+    testWidgets(
+      'a pull after a token renewal refetches with the freshly resolved token',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        var token = 'token-1';
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          idToken: () async => token,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        expect(repos.goalTokens, ['token-1']);
+
+        // Firebase renewed the token while home stayed mounted.
+        token = 'token-2';
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        expect(repos.goalTokens, ['token-1', 'token-2']);
+      },
+    );
+
+    testWidgets(
+      'the gesture future settles only when the reload finishes',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        final gate = Completer<void>();
+        repos.gate = gate;
+        var settled = false;
+        unawaited(indicator(tester).onRefresh().then((_) => settled = true));
+        await tester.pump();
+
+        expect(repos.rounds, 2);
+        expect(
+          settled,
+          isFalse,
+          reason: 'the spinner stopped before the reload finished',
+        );
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(settled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a token fetch that throws during a pull still settles the gesture '
+      '(the spinner never hangs forever)',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          idToken: () async => throw StateError('token renewal failed'),
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        // Awaiting it is the assertion: an unswallowed throw fails the test
+        // here, and in production leaves the pull spinner turning forever.
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        expect(repos.rounds, 1, reason: 'no round can run without a token');
+        expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+      },
+    );
+
+    testWidgets('the label shows when the dashboard last loaded', (
+      tester,
+    ) async {
+      final repos = FakeDashboardRepositories();
+      final dashboard = dashboardFor(repos);
+      await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboard,
+      );
+
+      expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+    });
+
+    testWidgets('a successful refresh advances the label', (tester) async {
+      final repos = FakeDashboardRepositories();
+      final dashboard = dashboardFor(repos);
+      await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboard,
+        clock: () => DateTime(2026, 1, 1, 11, 45),
+      );
+
+      await indicator(tester).onRefresh();
+      await tester.pumpAndSettle();
+
+      expect(find.text(loc.lastUpdatedAt('11:45')), findsOneWidget);
+      expect(find.text(loc.lastUpdatedAt('09:30')), findsNothing);
+    });
+
+    testWidgets(
+      'LINCHPIN: a refresh that fails leaves the label on the OLD time and '
+      'keeps the figures on screen behind a stale notice',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        repos.fail = true;
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        // The exact old time, not merely "non-null": stamping the clock
+        // unconditionally would still leave a label on screen.
+        expect(dashboard.lastLoadedAt, DateTime(2026, 1, 1, 9, 30));
+        expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+        expect(find.text(loc.lastUpdatedAt('11:45')), findsNothing);
+
+        // The stale figures stay, marked as stale — the whole screen must not
+        // become the first-load "couldn't load your dashboard" card.
+        expect(find.text('987,600'), findsOneWidget);
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        expect(find.text(loc.homeDashboardLoadFailed), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a refresh in flight does not blank the figures already on screen',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        final gate = Completer<void>();
+        repos.gate = gate;
+        unawaited(indicator(tester).onRefresh());
+        await tester.pump();
+
+        expect(dashboard.status, HomeDashboardStatus.loading);
+        expect(find.byKey(const Key('home-latest-weight')), findsOneWidget);
+        expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
+        expect(find.text('987,600'), findsOneWidget);
+        expect(
+          find.byType(CircularProgressIndicator),
+          findsNothing,
+          reason: 'the reload replaced the dashboard with a spinner',
+        );
+
+        gate.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'the first load failing with no data still shows the unavailable card',
+      (tester) async {
+        // The other side of the stale-data decision: with nothing on screen
+        // to keep, the error card (and its retry) is still the right state.
+        final repos = FakeDashboardRepositories()..fail = true;
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+        );
+
+        expect(find.text(loc.homeDashboardLoadFailed), findsOneWidget);
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+        expect(find.text(loc.lastUpdatedAt('09:30')), findsNothing);
       },
     );
   });

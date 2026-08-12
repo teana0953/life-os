@@ -1,0 +1,64 @@
+version: 1
+name: feature-dev-flutter
+budget: 500k
+defaults:
+  tier: standard
+
+inputs: [goal]
+
+nodes:
+  plan:
+    kind: task
+    role: planner
+    tier: heavy
+    prompt: "規劃 {{ inputs.goal }},產出步驟與檔案清單"
+    output_schema: plan
+
+  approve-plan:
+    kind: gate
+    after: [plan]
+    show: "{{ nodes.plan.output }}"
+    flow: full-only
+
+  implement:
+    kind: task
+    role: implementer
+    after: [approve-plan]
+    prompt: |
+      依照這份已經人工核可的計畫實作(計畫已定案,照做,不要重新設計):
+      {{ nodes.plan.output }}
+
+      規則:
+      - 只在既有 worktree 內改動,不要新開 worktree、不要 commit。
+      - 測試先寫再實作(TDD),計畫中標為 LINCHPIN 的測試必須存在且能真的失敗。
+      - 完成後自己跑 `flutter analyze` 與 `flutter test`,回報實際輸出結尾,不要宣稱沒跑過的結果。
+
+  test:
+    kind: script
+    after: [implement]
+    run: "flutter analyze && flutter test && TZ=UTC flutter test test/contexts/user"
+
+  code-review:
+    kind: check
+    role: code-reviewer
+    after: [implement]
+
+  uiux-review:
+    kind: check
+    role: uiux-reviewer
+    after: [implement]
+    flow: full-only
+
+  fix:
+    kind: task
+    role: fixer
+    tier: light
+    after: [test, code-review, uiux-review]
+    when: any-fail
+    goto: [test, code-review, uiux-review]
+    max_iterations: 3
+
+  ship:
+    kind: gate
+    after: [test, code-review, uiux-review]
+    when: all-pass

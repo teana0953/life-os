@@ -70,7 +70,28 @@ class HomeDashboardController extends ChangeNotifier {
   HomeDashboardStatus status = HomeDashboardStatus.idle;
   HomeDashboardData? data;
 
-  Future<void> load(String idToken, DateTime now) async {
+  /// When the fan-out last produced data, or `null` before the first success —
+  /// what the home screen's "updated HH:mm" line reads. It advances only in
+  /// [_load]'s success branch: a failed reload leaves the figures on screen
+  /// untouched, so claiming they were just refreshed would be a lie.
+  DateTime? lastLoadedAt;
+
+  /// The round currently running, or `null` when nothing is in flight.
+  Future<void>? _inFlight;
+
+  /// Loads the dashboard, or — if a round is already running — returns that
+  /// round's future rather than starting a second fan-out. The retry button
+  /// and a pull-to-refresh can otherwise overlap into twelve concurrent
+  /// requests whose two writes land in an unknown order.
+  Future<void> load(String idToken, DateTime now) {
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    final round = _load(idToken, now).whenComplete(() => _inFlight = null);
+    _inFlight = round;
+    return round;
+  }
+
+  Future<void> _load(String idToken, DateTime now) async {
     status = HomeDashboardStatus.loading;
     notifyListeners();
     final month = monthStringOf(now);
@@ -97,6 +118,7 @@ class HomeDashboardController extends ChangeNotifier {
         splitBalances: results[5] as List<Balance>,
       );
       status = HomeDashboardStatus.loaded;
+      lastLoadedAt = now;
     } catch (_) {
       status = HomeDashboardStatus.error;
     }
@@ -106,6 +128,10 @@ class HomeDashboardController extends ChangeNotifier {
   void reset() {
     data = null;
     status = HomeDashboardStatus.idle;
+    // Per-user state, so it goes when the user does (sign-out calls this):
+    // otherwise the next account's home opens claiming a load time that
+    // belongs to the previous one.
+    lastLoadedAt = null;
   }
 }
 

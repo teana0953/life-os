@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
 import '../../../shared/routing/finance_tab.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../../finance/domain/finance_money.dart';
 import '../../menstrual/domain/next_period_status.dart';
 import 'home_controller.dart';
@@ -94,11 +98,25 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  Future<void> _retryDashboard() async {
+  /// Reloads the dashboard — the pull-to-refresh handler and the error card's
+  /// retry, which are the same request. Only the dashboard: the profile is a
+  /// name and an admin flag, and reloading it would add a seventh request and
+  /// another failure mode to the gesture.
+  ///
+  /// A fresh token per reload (issue #106): home stays mounted for the whole
+  /// session, so a token captured at mount goes stale under it.
+  Future<void> _refreshDashboard() async {
     final dashboard = widget.dashboardController;
     final token = widget.idToken;
     if (dashboard == null || token == null) return;
-    await dashboard.load(await token(), widget.clock());
+    try {
+      await dashboard.load(await token(), widget.clock());
+    } catch (_) {
+      // `load` swallows its own errors, so this only catches a token renewal
+      // that throws — and it must not escape: the future this returns is what
+      // RefreshIndicator awaits, and an error there leaves the pull spinner
+      // turning with nothing left to finish it.
+    }
   }
 
   @override
@@ -144,62 +162,71 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Center(child: CircularProgressIndicator());
       case HomeStatus.loaded:
         final name = controller.profile?.displayName?.trim() ?? '';
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _greeting(loc, widget.clock(), name),
-                key: const Key('home-greeting'),
-                style: theme.textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                loc.homeHubPrompt,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+        return RefreshIndicator(
+          onRefresh: _refreshDashboard,
+          child: SingleChildScrollView(
+            // Always scrollable so a short home on a tall screen still accepts
+            // the overscroll pull that triggers the refresh.
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LastLoadedLabel(
+                  lastLoadedAt: widget.dashboardController?.lastLoadedAt,
                 ),
-              ),
-              const SizedBox(height: 16),
-              _AssistantEntry(onTap: _openAssistant),
-              const SizedBox(height: 18),
-              _buildDashboard(),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _FutureEntry(
-                      entryKey: const Key('tasks-tile'),
-                      icon: Icons.task_alt_outlined,
-                      label: loc.spaceTasks,
-                      comingSoon: loc.spaceComingSoon,
-                      onTap: _showComingSoon,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _FutureEntry(
-                      entryKey: const Key('journal-tile'),
-                      icon: Icons.menu_book_outlined,
-                      label: loc.spaceJournal,
-                      comingSoon: loc.spaceComingSoon,
-                      onTap: _showComingSoon,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
-                  buildLabel,
-                  key: const Key('build-label'),
-                  style: theme.textTheme.bodySmall?.copyWith(
+                Text(
+                  _greeting(loc, widget.clock(), name),
+                  key: const Key('home-greeting'),
+                  style: theme.textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loc.homeHubPrompt,
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                _AssistantEntry(onTap: _openAssistant),
+                const SizedBox(height: 18),
+                _buildDashboard(),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FutureEntry(
+                        entryKey: const Key('tasks-tile'),
+                        icon: Icons.task_alt_outlined,
+                        label: loc.spaceTasks,
+                        comingSoon: loc.spaceComingSoon,
+                        onTap: _showComingSoon,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _FutureEntry(
+                        entryKey: const Key('journal-tile'),
+                        icon: Icons.menu_book_outlined,
+                        label: loc.spaceJournal,
+                        comingSoon: loc.spaceComingSoon,
+                        onTap: _showComingSoon,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: Text(
+                    buildLabel,
+                    key: const Key('build-label'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       case HomeStatus.error:
@@ -331,24 +358,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
-    if (dashboard.status == HomeDashboardStatus.idle ||
-        dashboard.status == HomeDashboardStatus.loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(36),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    if (dashboard.status == HomeDashboardStatus.error ||
-        dashboard.data == null) {
+    // Both placeholders are gated on `data == null`, i.e. on there being
+    // nothing to show — never on the status alone. A pull-to-refresh sets
+    // `loading` and then possibly `error` with the previous figures still
+    // held, and swapping the whole dashboard for a spinner (which also
+    // shrinks the scrollable under the user's finger mid-gesture) or for the
+    // "couldn't load" card would throw away data that is still perfectly
+    // displayable. A failed reload keeps the figures and marks them stale
+    // below instead.
+    final data = dashboard.data;
+    if (data == null) {
+      if (dashboard.status == HomeDashboardStatus.idle ||
+          dashboard.status == HomeDashboardStatus.loading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(36),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
       return _DashboardUnavailable(
         text: loc.homeDashboardLoadFailed,
         retryLabel: loc.retry,
-        onRetry: _retryDashboard,
+        onRetry: _refreshDashboard,
       );
     }
-    final data = dashboard.data!;
     return Column(
       children: [
         _DashboardSection(
@@ -437,6 +471,18 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => _openFinanceTab(FinanceTab.split),
             ),
           ],
+        ),
+        // Says the figures above are older than they look, and offers the one
+        // retry that covers them (the fan-out is a single request set, so —
+        // unlike the health overview's per-card notices — there is one notice
+        // for the whole dashboard). Renders nothing while the last reload
+        // succeeded, and must stay mounted through `loading` so a retry it
+        // started keeps its spinner instead of reading as "refreshed".
+        StaleNotice(
+          failed: dashboard.status == HomeDashboardStatus.error,
+          loading: dashboard.status == HomeDashboardStatus.loading,
+          subject: loc.appTitle,
+          onRetry: () => unawaited(_refreshDashboard()),
         ),
       ],
     );
