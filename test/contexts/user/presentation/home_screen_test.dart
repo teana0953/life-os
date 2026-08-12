@@ -666,17 +666,17 @@ void main() {
           // The fixture prints real figures, so "the loaded block rendered"
           // cannot be satisfied by the 無資料 placeholder wearing the same
           // keys — i.e. this loop really does cover two different blocks.
-          expect(find.text('987,600'), findsOneWidget); // 總資產
+          expect(find.text('530,900'), findsOneWidget); // 淨值
           expect(find.text('456,700'), findsOneWidget); // 總負債
         } else {
-          expect(find.text('987,600'), findsNothing);
+          expect(find.text('530,900'), findsNothing);
         }
         return harness;
       }
 
-      testWidgets('$state: 總資產 opens /finance?tab=networth', (tester) async {
+      testWidgets('$state: 淨值 opens /finance?tab=networth', (tester) async {
         final harness = await pump(tester);
-        await tapTile(tester, const Key('home-total-assets'));
+        await tapTile(tester, const Key('home-net-worth'));
         expect(harness.financeLocations, ['/finance?tab=networth']);
       });
 
@@ -721,7 +721,7 @@ void main() {
         // hand-typed '?tab=net-worth' would satisfy a `contains('networth')`
         // check and still land on 總覽 in production.
         final harness = await pumpHomeScreen(tester, await loadedController());
-        await tapTile(tester, const Key('home-total-assets'));
+        await tapTile(tester, const Key('home-net-worth'));
 
         final uri = Uri.parse(harness.financeLocations.single);
         expect(uri.path, FinanceTab.financeLocation);
@@ -731,6 +731,79 @@ void main() {
         );
       },
     );
+  });
+
+  // ------------------------------------------------------------------ 淨值 tile
+  //
+  // LINCHPIN: the tile prints net worth (assets minus liabilities), not the
+  // gross total assets it used to print — and a negative net worth, which the
+  // gross figure never was, has to be grouped correctly.
+  group('the 淨值 tile', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    testWidgets('prints net worth, and total assets no longer appear at all', (
+      tester,
+    ) async {
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: loadedDashboardFixture(),
+      );
+
+      // 987,600 is the fixture's totalAsset and 530,900 its netWorth — three
+      // distinct numbers, so this cannot pass by accident.
+      expect(find.text('530,900'), findsOneWidget);
+      expect(find.text('987,600'), findsNothing);
+    });
+
+    testWidgets('groups a negative net worth without a stray comma', (
+      tester,
+    ) async {
+      final dashboard = loadedDashboardFixture();
+      final data = dashboard.data!;
+      dashboard.data = HomeDashboardData(
+        weightGoal: data.weightGoal,
+        bloodPressure: data.bloodPressure,
+        menstrualStatus: data.menstrualStatus,
+        overallBudget: data.overallBudget,
+        // Six digits on purpose: only a digit count divisible by three catches
+        // a negative fed straight into formatMinorUnitsForDisplay ("-,356,700").
+        netWorth: const MonthlyNetWorth(
+          month: '2026-01',
+          accounts: [],
+          totalAsset: 100000,
+          totalLiability: 456700,
+          netWorth: -356700,
+          prevNetWorth: null,
+          growthRate: null,
+        ),
+        splitBalances: data.splitBalances,
+      );
+
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboard,
+      );
+
+      expect(find.text('-356,700'), findsOneWidget);
+    });
   });
 
   // ------------------------------------------------------------ pull-to-refresh
@@ -1040,7 +1113,7 @@ void main() {
 
         // The stale figures stay, marked as stale — the whole screen must not
         // become the first-load "couldn't load your dashboard" card.
-        expect(find.text('987,600'), findsOneWidget);
+        expect(find.text('530,900'), findsOneWidget);
         expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
         expect(find.text(loc.homeDashboardLoadFailed), findsNothing);
       },
@@ -1111,7 +1184,7 @@ void main() {
           find.byKey(const Key('health-dashboard-section')),
           findsOneWidget,
         );
-        expect(find.text('987,600'), findsOneWidget);
+        expect(find.text('530,900'), findsOneWidget);
         expect(
           find.descendant(
             of: find.byType(SingleChildScrollView),

@@ -417,11 +417,11 @@ abstract class AppLocalizations {
   /// **'{amount} remaining'**
   String homeBudgetRemaining(String amount);
 
-  /// Label for total assets on the home snapshot.
+  /// Label for net worth (assets minus liabilities) on the home snapshot.
   ///
   /// In en, this message translates to:
-  /// **'Total assets'**
-  String get homeTotalAssets;
+  /// **'Net worth'**
+  String get homeNetWorth;
 
   /// Label for total liabilities on the home snapshot.
   ///

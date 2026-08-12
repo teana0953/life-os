@@ -189,7 +189,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeTotalAssets => 'Total assets';
+  String get homeNetWorth => 'Net worth';
 
   @override
   String get homeTotalLiabilities => 'Total liabilities';

@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// them silently discards every existing user's choices on their next launch
 /// — a rename here is a data migration, not a refactor. Pinned by
 /// `privacy_mask_controller_test.dart` (U6).
-enum PrivacyMaskItem { latestWeight, budget, totalAssets, totalLiabilities }
+enum PrivacyMaskItem { latestWeight, budget, netWorth, totalLiabilities }
 
 /// The per-account key holding [PrivacyMaskItem.name]s the user hid.
 ///

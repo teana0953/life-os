@@ -64,7 +64,7 @@ const _healthTiles = [
 ];
 const _financeTiles = [
   'home-budget',
-  'home-total-assets',
+  'home-net-worth',
   'home-total-liabilities',
   'home-split-overview',
 ];
@@ -93,7 +93,9 @@ HomeDashboardController _longestValuesFixture() =>
           accounts: [],
           totalAsset: 99999999999,
           totalLiability: 99999999999,
-          netWorth: 0,
+          // The widest thing this tile can print: 14 characters, sign
+          // included — wider than the 13-character liability figure.
+          netWorth: -99999999999,
           prevNetWorth: null,
           growthRate: null,
         ),
@@ -290,7 +292,7 @@ void main() {
         for (final label in const [
           'Latest weight',
           'Monthly budget',
-          'Total assets',
+          'Net worth',
           'Total liabilities',
         ]) {
           expectPaintedInFull(tester, find.text(label), reason: label);
@@ -348,7 +350,7 @@ void main() {
       const owner = {
         PrivacyMaskItem.latestWeight: 'home-latest-weight',
         PrivacyMaskItem.budget: 'home-budget',
-        PrivacyMaskItem.totalAssets: 'home-total-assets',
+        PrivacyMaskItem.netWorth: 'home-net-worth',
         PrivacyMaskItem.totalLiabilities: 'home-total-liabilities',
       };
       for (final entry in owner.entries) {
