@@ -55,6 +55,11 @@ class _FakeAuthRepository implements AuthRepository {
 /// The narrow phone the single-column dashboard layout is for.
 const _narrow = Size(320, 640);
 
+/// Traditional Chinese — the only locale whose dashboard labels can actually
+/// falsify a column-breakpoint threshold (plan §2d: English wraps 3–6 lines
+/// on both sides of any realistic threshold and stays on the same side).
+const _zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
+
 /// The maskable tiles, in the order they are laid out inside their section.
 const _healthTiles = [
   'home-latest-weight',
@@ -104,6 +109,45 @@ HomeDashboardController _longestValuesFixture() =>
             userId: 'friend-1',
             displayName: 'Friend',
             balances: [CurrencyBalance(currency: 'TWD', amount: 99999999999)],
+          ),
+        ],
+      );
+
+/// Like [_longestValuesFixture], but with a realistic-magnitude figure
+/// (`9,999,999` instead of the eye guards' `99,999,999,999`) — the correct
+/// instrument for the two-column breakpoint. The 11-digit fixture wraps to 3
+/// lines on both sides of the boundary (plan §2c: value line counts of 2/2/3
+/// at inner 264/258/254 for `9,999,999`, vs 3/3/3 at every one of those
+/// widths for `99,999,999`), so it cannot distinguish the two sides — a
+/// same-side fixture that would pass whether or not the threshold moved.
+HomeDashboardController _longestRealisticFixture() =>
+    loadedDashboardFixture()
+      ..data = const HomeDashboardData(
+        weightGoal: WeightGoal(currentWeightKg: 102.5),
+        bloodPressure: null,
+        menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
+        overallBudget: FinanceBudget(
+          id: 'b1',
+          categoryId: null,
+          amount: 9999999,
+          spent: 1,
+          remaining: 9999999,
+          percent: 1,
+        ),
+        netWorth: MonthlyNetWorth(
+          month: '2026-01',
+          accounts: [],
+          totalAsset: 9999999,
+          totalLiability: 9999999,
+          netWorth: -9999999,
+          prevNetWorth: null,
+          growthRate: null,
+        ),
+        splitBalances: [
+          Balance(
+            userId: 'friend-1',
+            displayName: 'Friend',
+            balances: [CurrencyBalance(currency: 'TWD', amount: 9999999)],
           ),
         ],
       );
@@ -202,6 +246,11 @@ Future<_Pumped> _pumpAt(
   // tolerating the 320dp allowance, which would otherwise also swallow a
   // *new* overflow at these widths.
   bool strict = false,
+  // Defaults to English to match the app's fallback locale and every
+  // existing caller. Breakpoint guards must pass `Locale.fromSubtags(
+  // languageCode: 'zh', scriptCode: 'Hant')`: English labels wrap 3–6 lines
+  // on both sides of the threshold and cannot falsify it (see plan §2d).
+  Locale locale = const Locale('en'),
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -219,6 +268,7 @@ Future<_Pumped> _pumpAt(
     await tester.pumpWidget(
       l10nTestApp(
         theme: lightTheme,
+        locale: locale,
         home: HomeScreen(
           controller: controller,
           privacyMaskController: mask,
@@ -241,20 +291,43 @@ List<double> _heightsOf(WidgetTester tester, List<String> tileKeys) => [
   for (final key in tileKeys) tester.getSize(find.byKey(Key(key))).height,
 ];
 
+/// Whether the first two tiles of a section (e.g. `home-latest-weight` and
+/// `home-food-dictionary`) sit side by side — same row `top`, different
+/// `left` — rather than one below the other. A behavioural check, not a
+/// width-arithmetic one: a width-only assertion still passes if the `Wrap`
+/// stops wrapping, and a relation-only assertion still passes if `tileWidth`
+/// is miscomputed, so B1 asserts both this and the tile width.
+bool _isTwoColumns(WidgetTester tester, List<String> tileKeys) {
+  final first = tester.getRect(find.byKey(Key(tileKeys[0])));
+  final second = tester.getRect(find.byKey(Key(tileKeys[1])));
+  return first.top == second.top && first.left != second.left;
+}
+
 void main() {
   group('HomeScreen responsive layout', () {
-    testWidgets('narrow phone width: dashboard sections have no overflow', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(360, 800), strict: true);
+    testWidgets(
+      '360dp phone: the two-column dashboard has no overflow',
+      (tester) async {
+        await _pumpAt(tester, const Size(360, 800), strict: true);
 
-      expect(find.byKey(const Key('health-dashboard-section')), findsOneWidget);
-      expect(
-        find.byKey(const Key('finance-dashboard-section')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
-    });
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('finance-dashboard-section')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
+
+        // 360dp crossed the breakpoint (plan §0/§3: was single column below
+        // ~402dp, now two above ~332dp) — name and assert it, so a future
+        // threshold move that puts 360dp back on the single-column side
+        // fails loudly here instead of silently changing what this test
+        // covers.
+        expect(_isTwoColumns(tester, _healthTiles), isTrue);
+      },
+    );
 
     testWidgets('wide desktop width: dashboard content remains bounded', (
       tester,
@@ -272,6 +345,17 @@ void main() {
   group('HomeScreen privacy eye at 320dp', () {
     setUp(() => WidgetController.hitTestWarningShouldBeFatal = true);
     tearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
+
+    testWidgets('320dp is single column — the narrowest tile this group covers', (
+      tester,
+    ) async {
+      // The whole group's premise is that 320dp exercises "the narrowest
+      // tile" — that was only ever assumed, never stated, and would
+      // silently stop being true if the breakpoint ever moved past 320dp.
+      await _pumpAt(tester, _narrow, dashboardController: loadedDashboardFixture());
+
+      expect(_isTwoColumns(tester, _healthTiles), isFalse);
+    });
 
     testWidgets(
       'R1: the longest values plus an eye still fit the narrowest tile',
@@ -466,6 +550,176 @@ void main() {
         });
 
         expectPaintedInFull(tester, find.text('Monthly budget'));
+      },
+    );
+  });
+
+  group('dashboard two-column breakpoint', () {
+    // Inner-width (LayoutBuilder's `constraints.maxWidth`) is
+    // `screenWidth − 72` (plan §0: 20+20 page padding, 2+2 LedgeCard border,
+    // 14+14 LedgeCard padding). 332 → inner 260 (two columns), 330 → inner
+    // 258 (single column, measured floor — plan §2b).
+    const aboveSize = Size(332, 2000);
+    const belowSize = Size(330, 2000);
+
+    testWidgets(
+      'B1 LINCHPIN: the breakpoint sits where measured, with a fixture on each side',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          aboveSize,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        expect(
+          _isTwoColumns(tester, _healthTiles),
+          isTrue,
+          reason: '332dp (inner 260) should be two columns',
+        );
+        final tile1 = tester.getSize(find.byKey(const Key('home-latest-weight')));
+        expect(tile1.width, closeTo(125, 0.5));
+      },
+    );
+
+    testWidgets(
+      'B1 LINCHPIN: just below the breakpoint stays single column',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          belowSize,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        final tile1 = tester.getRect(find.byKey(const Key('home-latest-weight')));
+        final tile2 = tester.getRect(find.byKey(const Key('home-food-dictionary')));
+        expect(
+          tile2.top,
+          greaterThanOrEqualTo(tile1.bottom),
+          reason: '330dp (inner 258) should be single column',
+        );
+        expect(tile1.width, closeTo(258, 0.5));
+      },
+    );
+
+    testWidgets(
+      'B2 LINCHPIN: the threshold is the measured legibility floor, not an arbitrary number',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          aboveSize,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+
+        for (final key in [..._healthTiles, ..._financeTiles]) {
+          final tile = find.byKey(Key(key));
+          final labelFinder = find.descendant(
+            of: tile,
+            matching: find.byType(Text),
+          );
+          for (final element in labelFinder.evaluate()) {
+            final textWidget = element.widget as Text;
+            final text = textWidget.data;
+            if (text == null || text.isEmpty) continue;
+            final textFinder = find.text(text).first;
+            expectPaintedInFull(tester, textFinder, reason: text);
+          }
+        }
+
+        // Every tile label sits on exactly one line and every value on at
+        // most two, at the measured floor (plan §2b: inner 258 → labels 1
+        // line, values ≤2 lines, 0 layout errors).
+        for (final label in const [
+          '最新體重',
+          '食物份量工具',
+          '上次血壓',
+          '生理週期預測',
+          '本月預算',
+          '淨值',
+          '總負債',
+          '分帳總覽',
+        ]) {
+          final finder = find.text(label);
+          if (finder.evaluate().isEmpty) continue;
+          expect(
+            paintedTextLineCount(tester, finder),
+            equals(1),
+            reason: label,
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'B3: the finance section sits higher on screen once two columns kick in',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          aboveSize,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        final financeAbove = tester
+            .getTopLeft(find.byKey(const Key('finance-dashboard-section')))
+            .dy;
+
+        await _pumpAt(
+          tester,
+          belowSize,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        final financeBelow = tester
+            .getTopLeft(find.byKey(const Key('finance-dashboard-section')))
+            .dy;
+
+        expect(
+          financeAbove,
+          lessThan(financeBelow),
+          reason:
+              'two columns should push the finance section up, not leave it '
+              'as far down as single column',
+        );
+      },
+    );
+
+    testWidgets(
+      'B4: no overflow, no truncation, at and just below the threshold '
+      '(NOTE: does not fail if the threshold is lowered — the tile cannot '
+      'overflow until inner ≈150, plan §2a; B2/B3 guard the threshold itself)',
+      (tester) async {
+        for (final locale in [const Locale('en'), _zhHant]) {
+          for (final size in [aboveSize, belowSize]) {
+            await _pumpAt(
+              tester,
+              size,
+              dashboardController: _longestRealisticFixture(),
+              locale: locale,
+              strict: true,
+            );
+            for (final key in [..._healthTiles, ..._financeTiles]) {
+              final tile = find.byKey(Key(key));
+              final textFinders = find.descendant(
+                of: tile,
+                matching: find.byType(Text),
+              );
+              for (final element in textFinders.evaluate()) {
+                final text = (element.widget as Text).data;
+                if (text == null || text.isEmpty) continue;
+                expectPaintedInFull(
+                  tester,
+                  find.text(text).first,
+                  reason: '$text @ $size $locale',
+                );
+              }
+            }
+          }
+        }
       },
     );
   });

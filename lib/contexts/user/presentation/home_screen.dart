@@ -19,6 +19,21 @@ import 'home_dashboard_controller.dart';
 
 const _contentMaxWidth = 960.0;
 
+/// The `_DashboardSection` `LayoutBuilder`'s **inner** width (screen width
+/// minus 20+20 page padding, 2+2 `LedgeCard` border, 14+14 `LedgeCard`
+/// padding = 72) below which the dashboard tiles stack into a single column
+/// instead of two.
+///
+/// Measured (not guessed): at inner 258, the zh-Hant tile labels (e.g.
+/// 最新體重, 本月預算 — 4 CJK glyphs beside the 44pt privacy eye) still fit on
+/// one line and the money value on at most two, with zero layout errors. At
+/// inner 256 the labels break to two lines; at inner 254 the value also
+/// breaks to three. So 258 is the measured legibility floor — the tile
+/// itself cannot overflow until inner ≈150, far narrower, so this is a
+/// readability threshold, not an overflow threshold. +2px margin for
+/// font-metric drift across Flutter/Quicksand versions.
+const _twoColumnMinWidth = 260.0;
+
 enum GreetingPeriod { morning, afternoon, evening }
 
 GreetingPeriod greetingPeriodFor(DateTime time) {
@@ -788,7 +803,7 @@ class _DashboardSection extends StatelessWidget {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
-              final singleColumn = constraints.maxWidth < 330;
+              final singleColumn = constraints.maxWidth < _twoColumnMinWidth;
               final tileWidth = singleColumn
                   ? constraints.maxWidth
                   : (constraints.maxWidth - 10) / 2;
