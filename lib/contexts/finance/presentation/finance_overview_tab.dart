@@ -10,6 +10,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/finance_category.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
@@ -92,85 +93,126 @@ class FinanceOverviewTab extends StatelessWidget {
         }
 
         final summary = controller.summary!;
-        final isEmpty = summary.totals.isEmpty && controller.transactions.isEmpty;
+        final isEmpty =
+            summary.totals.isEmpty && controller.transactions.isEmpty;
+
+        // A background reload (triggered by a split write elsewhere, see
+        // `FinanceScaffold._reloadLedger`) can fail while this month's
+        // figures are already on screen — `reloadFailed` flips to `true` but
+        // `summary` is kept (design: a same-month reload never blanks what's
+        // already shown), so without this the failure was entirely silent
+        // and the reader kept looking at numbers that never updated. Always
+        // built, not conditionally: [StaleNotice] hides itself, and must
+        // stay mounted through its own retry (see its class doc).
+        //
+        // Pinned above the scrollable list, not appended as row 0 of it
+        // (`split_activity_section.dart`'s identical placement, for the
+        // identical reason): as row 0 of a `ListView` the notice sits at the
+        // very top of a list the reader may have long since scrolled away
+        // from, and a lazily-built `ListView` may not even have built that
+        // row — so a background failure was invisible to anyone not already
+        // scrolled to the top.
+        final staleNotice = StaleNotice(
+          failed: controller.reloadFailed,
+          loading:
+              controller.status == FinanceStatus.loading &&
+              controller.summary != null,
+          subject: loc.financeTabOverview,
+          onRetry: () => onSwitchMonth(controller.selectedMonth),
+        );
 
         return SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: ListView(
-                padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
-                  MonthNavHeader(
-                    monthLabel: monthYearLabel(
-                      context,
-                      monthDateTime(controller.selectedMonth),
+                  staleNotice,
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        MonthNavHeader(
+                          monthLabel: monthYearLabel(
+                            context,
+                            monthDateTime(controller.selectedMonth),
+                          ),
+                          keyPrefix: 'finance-month',
+                          onPickMonth: () => _pickMonth(context),
+                          onPrevious: () => onSwitchMonth(
+                            previousMonth(controller.selectedMonth),
+                          ),
+                          onNext: () => onSwitchMonth(
+                            nextMonth(controller.selectedMonth),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        BudgetCard(
+                          controller: controller,
+                          onEdit: onEditBudgets,
+                        ),
+                        const SizedBox(height: 16),
+                        if (isEmpty)
+                          _EmptyState(onAdd: onAdd)
+                        else
+                          for (final total in summary.totals) ...[
+                            _CurrencyTotalsCard(total: total),
+                            const SizedBox(height: 12),
+                          ],
+                        // Rendered unconditionally, outside the isEmpty/non-empty
+                        // branch above (design D7/task 6.3): a month can have split
+                        // shares but no recorded transactions, and that branch
+                        // replaces the whole totals area with a call-to-action — the
+                        // split-spending line must survive that swap rather than be
+                        // hidden along with it.
+                        //
+                        // Placed *after* the recorded totals rather than between the
+                        // budget card and them (the spec's "beside the recorded
+                        // expense totals"): read top-to-bottom from the budget card
+                        // it looked like part of either figure, and it is part of
+                        // neither — the double-count design D6 exists to prevent.
+                        if (controller.splitSpendingStatus ==
+                            SplitSpendingStatus.error) ...[
+                          Text(
+                            loc.financeSplitSpendingLoadFailed,
+                            key: const Key('finance-split-spending-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ] else if (controller.splitSpending.isNotEmpty) ...[
+                          _SplitSpendingCard(totals: controller.splitSpending),
+                          const SizedBox(height: 16),
+                        ],
+                        if (!isEmpty) ...[
+                          const SizedBox(height: 8),
+                          if (summary.byCategory.isNotEmpty) ...[
+                            Text(
+                              loc.financeCategoryBreakdown,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            _CategoryBreakdown(
+                              byCategory: summary.byCategory,
+                              categories: controller.categories,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          Text(
+                            loc.financeRecentTransactions,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          _RecentTransactions(
+                            transactions: controller.transactions,
+                            categories: controller.categories,
+                            plans: controller.installmentPlans,
+                          ),
+                        ],
+                      ],
                     ),
-                    keyPrefix: 'finance-month',
-                    onPickMonth: () => _pickMonth(context),
-                    onPrevious: () =>
-                        onSwitchMonth(previousMonth(controller.selectedMonth)),
-                    onNext: () =>
-                        onSwitchMonth(nextMonth(controller.selectedMonth)),
                   ),
-                  const SizedBox(height: 16),
-                  BudgetCard(controller: controller, onEdit: onEditBudgets),
-                  const SizedBox(height: 16),
-                  if (isEmpty)
-                    _EmptyState(onAdd: onAdd)
-                  else
-                    for (final total in summary.totals) ...[
-                      _CurrencyTotalsCard(total: total),
-                      const SizedBox(height: 12),
-                    ],
-                  // Rendered unconditionally, outside the isEmpty/non-empty
-                  // branch above (design D7/task 6.3): a month can have split
-                  // shares but no recorded transactions, and that branch
-                  // replaces the whole totals area with a call-to-action — the
-                  // split-spending line must survive that swap rather than be
-                  // hidden along with it.
-                  //
-                  // Placed *after* the recorded totals rather than between the
-                  // budget card and them (the spec's "beside the recorded
-                  // expense totals"): read top-to-bottom from the budget card
-                  // it looked like part of either figure, and it is part of
-                  // neither — the double-count design D6 exists to prevent.
-                  if (controller.splitSpendingStatus == SplitSpendingStatus.error) ...[
-                    Text(
-                      loc.financeSplitSpendingLoadFailed,
-                      key: const Key('finance-split-spending-error'),
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                    const SizedBox(height: 16),
-                  ] else if (controller.splitSpending.isNotEmpty) ...[
-                    _SplitSpendingCard(totals: controller.splitSpending),
-                    const SizedBox(height: 16),
-                  ],
-                  if (!isEmpty) ...[
-                    const SizedBox(height: 8),
-                    if (summary.byCategory.isNotEmpty) ...[
-                      Text(
-                        loc.financeCategoryBreakdown,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      _CategoryBreakdown(
-                        byCategory: summary.byCategory,
-                        categories: controller.categories,
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    Text(
-                      loc.financeRecentTransactions,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    _RecentTransactions(
-                      transactions: controller.transactions,
-                      categories: controller.categories,
-                      plans: controller.installmentPlans,
-                    ),
-                  ],
                 ],
               ),
             ),

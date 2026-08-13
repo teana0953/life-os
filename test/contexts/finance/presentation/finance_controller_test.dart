@@ -97,8 +97,14 @@ class FakeFinanceRepository implements FinanceRepository {
     return List.of(_byMonth[month] ?? const []);
   }
 
+  /// How many times [getSummary] has been called — lets a test assert that
+  /// a guarded path never issued a `load` at all, not just that its result
+  /// didn't land.
+  int getSummaryCallCount = 0;
+
   @override
   Future<MonthlySummary> getSummary(String idToken, String month) async {
+    getSummaryCallCount++;
     final gate = gates[month];
     if (gate != null) await gate.future;
     if (failNext != null) {
@@ -424,6 +430,7 @@ void main() {
 
       expect(controller.status, FinanceStatus.error);
       expect(controller.error, FinanceError.fetchFailed);
+      expect(controller.reloadFailed, isTrue);
     });
 
     test('does not call notifyListeners before the first await', () async {
@@ -437,6 +444,105 @@ void main() {
       await future;
       expect(notifiedSync, isTrue);
     });
+
+    test(
+      'same-month race: a slow earlier same-month load never overwrites a '
+      'fast later same-month load (e.g. two quick split writes each '
+      'triggering a background reload)',
+      () async {
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary!.totals.single.expense, 0);
+
+        // Call A: gated, so it will sit mid-flight.
+        final gateA = Completer<void>();
+        repo.gates['2026-07'] = gateA;
+        final callA = controller.load('tok', '2026-07');
+
+        // Before A's response lands, the underlying data changes and a
+        // second, faster same-month reload starts and completes — the
+        // `selectedMonth != month` guard alone cannot tell these two calls
+        // apart, since both target '2026-07'.
+        repo.gates.remove('2026-07');
+        repo._byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't-b',
+            type: FinanceType.expense,
+            amount: 999,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ];
+        final callB = controller.load('tok', '2026-07');
+        await callB;
+        expect(controller.summary!.totals.single.expense, 999);
+        expect(controller.transactions.single.id, 't-b');
+
+        // Now let A's stale response land late.
+        gateA.complete();
+        await callA;
+
+        // B — the newer call — must still be showing; A must not have
+        // clobbered it just because its response arrived later.
+        expect(controller.summary!.totals.single.expense, 999);
+        expect(controller.transactions, hasLength(1));
+        expect(controller.transactions.single.id, 't-b');
+      },
+    );
+
+    test(
+      'same-month race, the split-spending leg: a slow earlier same-month '
+      "call's split-spending response never overwrites a fast later "
+      'same-month call\'s — identical hazard to the summary/transactions '
+      'leg above, guarded separately in `_loadSplitSpending`',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 111, countedInTransactions: true),
+          ];
+        final controller = _controller(repo);
+
+        // Call A: gated on the split-spending leg specifically, so it sits
+        // mid-flight there while the rest of the load has already finished.
+        final gateA = Completer<void>();
+        repo.splitSpendingGates['2026-07'] = gateA;
+        final callA = controller.load('tok', '2026-07');
+
+        // Before A's split-spending response lands, a second, faster
+        // same-month reload starts and completes with a different value.
+        repo.splitSpendingGates.remove('2026-07');
+        repo.splitSpendingByMonth['2026-07'] = const [
+          SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ];
+        final callB = controller.load('tok', '2026-07');
+        await callB;
+        expect(controller.splitSpending, [
+          const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ]);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+
+        // The fake reads its backing store at the moment a gated call is
+        // released, not at the moment it was issued — so without restoring
+        // the pre-B value here, A's response would happen to carry B's own
+        // 222 and the guard's correctness would be untestable by value
+        // alone. Restoring it models what a real backend would have handed
+        // back to A's request in the first place: whatever was true before
+        // B's write landed.
+        repo.splitSpendingByMonth['2026-07'] = const [
+          SplitSpending(currency: 'TWD', amount: 111, countedInTransactions: true),
+        ];
+        gateA.complete();
+        await callA;
+
+        // B — the newer call — must still be showing.
+        expect(controller.splitSpending, [
+          const SplitSpending(currency: 'TWD', amount: 222, countedInTransactions: true),
+        ]);
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.loaded);
+      },
+    );
 
     test(
       'rapid month switching: a stale slow response never overwrites the '
@@ -722,6 +828,65 @@ void main() {
   });
 
   group('saveBudgets', () {
+    test(
+      'a successful save whose reload is superseded still returns saved',
+      () async {
+        // The named case behind invariant I6 in
+        // `finance_controller_race_invariants_test.dart`. Kept as its own
+        // test so the failure message says *saveBudgets*: `budget_sheet.dart`
+        // closes on what this call returns, and the budgets were stored
+        // before the reload behind them was even issued. `status` is
+        // deliberately NOT part of the answer — here it is still `loading`,
+        // because the newer background reload that superseded this call's own
+        // reload has not landed yet, and the screen is its business.
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+
+        // The save's own reload stalls...
+        final saveReload = Completer<void>();
+        repo.gates['2026-07'] = saveReload;
+        final save = controller.saveBudgets('tok', {null: 20000});
+        await pumpEventQueue();
+
+        // ...while a newer background reload starts and is still in flight,
+        // which is what leaves `status` on `loading` rather than resolving
+        // it. Gated too: released, it would settle the status itself and the
+        // test would pass without the save resolving anything.
+        final backgroundReload = Completer<void>();
+        repo.gates['2026-07'] = backgroundReload;
+        final background = controller.load(
+          'tok',
+          '2026-07',
+          background: true,
+        );
+        await pumpEventQueue();
+
+        saveReload.complete();
+
+        expect(
+          await save,
+          FinanceWriteResult.saved,
+          reason:
+              'the budgets were written server-side before the reload was '
+              'ever issued, so the sheet must not be told the save failed',
+        );
+        expect(
+          controller.status,
+          FinanceStatus.loading,
+          reason:
+              'the screen belongs to the newer reload, which is still in '
+              'flight — the save reports itself through its return value '
+              'instead of pretending to know what the screen should show',
+        );
+
+        backgroundReload.complete();
+        await background;
+        expect(controller.status, FinanceStatus.loaded);
+        expect(controller.error, isNull);
+      },
+    );
+
     test('sends only the diff: one upsert, one delete, unchanged skipped', () async {
       final repo = FakeFinanceRepository();
       await repo.upsertBudget('tok', amount: 10000);
@@ -882,6 +1047,12 @@ void main() {
       expect(controller.error, FinanceError.validation);
       expect(controller.categories, same(categoriesBefore));
       expect(controller.transactions, isEmpty);
+      // `_mutate` never called `load` for a validation failure (the write
+      // itself was rejected, nothing was ever re-fetched) — `reloadFailed`
+      // must stay false, or the ledger tabs would permanently show a
+      // "couldn't refresh" notice about data that was never stale, on top
+      // of the sheet's own validation error.
+      expect(controller.reloadFailed, isFalse);
     });
 
     test('a 401 surfaces needsReauth', () async {
@@ -901,6 +1072,55 @@ void main() {
 
       expect(controller.status, FinanceStatus.needsReauth);
     });
+
+    test(
+      "a write's own reload superseded by a concurrent background reload "
+      '(e.g. FinanceScaffold._reloadLedger firing from a split write while '
+      'this write is also landing) must not leave status stuck on `loading` '
+      "— every caller that reads `status` right after awaiting addTransaction "
+      'treats anything but `loaded` as the write having failed',
+      () async {
+        final repo = FakeFinanceRepository();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+
+        // Call 2 (the write's own reload): gated, so its `getSummary`
+        // response sits mid-flight once addTransaction's internal `load`
+        // reaches it.
+        final gate = Completer<void>();
+        repo.gates['2026-07'] = gate;
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        // Let the write's own reload actually start and capture its
+        // (earlier) sequence number before call 3 below starts and captures
+        // a later one — otherwise the two would race the other way.
+        await pumpEventQueue();
+
+        // Call 3 (the background reload a concurrent split write would
+        // fire): a fresh, later `load` for the same month, gated on the
+        // same completer so it too sits mid-flight — matching the review's
+        // probe ("gate call 2 and call 3, release call 2 first").
+        final background = controller.load('tok', '2026-07', background: true);
+        await pumpEventQueue();
+
+        // Release call 2 first: its response is now stale (call 3 moved
+        // `_loadSeq` on), so `load` discards it — but the write itself
+        // already succeeded, and `status` must say so, not sit on
+        // `loading` until call 3 also lands.
+        gate.complete();
+        await write;
+        expect(controller.status, FinanceStatus.loaded);
+
+        await background;
+        expect(controller.status, FinanceStatus.loaded);
+      },
+    );
   });
 
   group('updateTransaction', () {
@@ -950,6 +1170,313 @@ void main() {
       expect(controller.transactions, hasLength(1));
     });
   });
+
+  group('markReloadFailed', () {
+    test('notifies listeners — a screen already on the tab, not one that '
+        'rebuilds by switching to it, has no other way to learn the marking '
+        'just appeared', () async {
+      final controller = _controller(_FakeWithSeed());
+      await controller.load('tok', '2026-07');
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      controller.markReloadFailed();
+
+      expect(notified, isTrue);
+      expect(controller.reloadFailed, isTrue);
+    });
+
+    test('a no-op before the first successful load — there is nothing on '
+        'screen yet for a notice to be about', () async {
+      final controller = _controller(_FakeWithSeed());
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      controller.markReloadFailed();
+
+      expect(notified, isFalse);
+      expect(controller.reloadFailed, isFalse);
+    });
+  });
+
+  group('reset', () {
+    test('clears the loaded month back to its pre-load state', () async {
+      final controller = _controller(_FakeWithSeed());
+      await controller.load('tok', '2026-07');
+      expect(controller.summary, isNotNull);
+      // Left `true` on purpose before `reset()`: without this,
+      // `reloadFailed` starts (and stays) `false` regardless of whether
+      // `reset()` clears it, so the assertion below would pass even with
+      // the clear removed — the #156 shape in miniature (a per-user flag
+      // `reset()`'s field-by-field list has to remember on its own): the
+      // previous account's own reload failure otherwise survives sign-out
+      // and greets the *next* signed-in account with a stale "couldn't
+      // refresh" notice the moment their own `summary` is non-null.
+      controller.markReloadFailed();
+      expect(controller.reloadFailed, isTrue);
+
+      controller.reset();
+
+      expect(controller.selectedMonth, '');
+      expect(controller.status, FinanceStatus.loading);
+      expect(controller.summary, isNull);
+      expect(controller.transactions, isEmpty);
+      expect(controller.categories, isEmpty);
+      expect(controller.splitSpending, isEmpty);
+      expect(controller.reloadFailed, isFalse);
+    });
+
+    test(
+      'a load already in flight when reset() is called must not repopulate the '
+      "controller once it lands — this app-lifetime singleton would otherwise "
+      'hand the next signed-in account the previous one\'s figures on '
+      'sign-out (the #156/#157 shape)',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingByMonth['2026-07'] = const [
+            SplitSpending(currency: 'TWD', amount: 500, countedInTransactions: true),
+          ];
+        final controller = _controller(repo);
+
+        // The old guard (`selectedMonth != month`) caught this because
+        // `reset()` cleared `selectedMonth` to `''`, which happened to make
+        // every in-flight response's own captured month mismatch. The
+        // sequence-number guard that replaced it has no equivalent side
+        // effect unless `reset()` also bumps the sequence.
+        final gate = Completer<void>();
+        repo.gates['2026-07'] = gate;
+        final inFlight = controller.load('tok', '2026-07');
+
+        controller.reset();
+        gate.complete();
+        await inFlight;
+
+        expect(controller.selectedMonth, '');
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.summary, isNull);
+        expect(controller.transactions, isEmpty);
+        expect(controller.splitSpending, isEmpty);
+      },
+    );
+
+    test(
+      "reset() called while a write's own network call is still in flight "
+      "must stick even once that write later succeeds and reloads — the "
+      "write's post-success reload starts *after* reset() with the "
+      "signed-out session's own token, mints its own fresh, perfectly "
+      "current sequence number, and so would otherwise repaint the "
+      'previous account\'s figures over a screen `reset()` already '
+      'cleared (the #156/#157 leak shape, this time reached through a '
+      'write rather than a plain `load`)',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.summary, isNotNull);
+
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        controller.reset();
+        expect(controller.summary, isNull);
+
+        repo.addGate.complete();
+        await write;
+
+        expect(
+          controller.summary,
+          isNull,
+          reason: "the write's own reload, started after reset(), must not repopulate the controller",
+        );
+        expect(controller.transactions, isEmpty);
+        expect(controller.selectedMonth, '');
+      },
+    );
+  });
+
+  group('a stale write-failure arm racing a newer, already-settled call', () {
+    test(
+      "a write that fails without reloading (needsReauth/validation/"
+      'fetchFailed/unknown) must not paint `status`/`error` once a newer '
+      'call — a month switch, say — has already settled its own terminal '
+      'status: only the 409/404 arms reload before they paint, but every '
+      'arm must still defer to whichever call is current',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        // Hold the write's own network call while a newer, current call
+        // (a month switch) settles first.
+        repo.addFailNext = const FinanceValidationFailure();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 10,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-05',
+        );
+        await repo.addStarted.future;
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        await controller.load('tok', '2026-08');
+        expect(controller.status, FinanceStatus.needsReauth);
+
+        // Release the older write — its validation failure must not
+        // overwrite the newer call's needsReauth exit.
+        repo.addGate.complete();
+        await write;
+
+        expect(
+          controller.status,
+          FinanceStatus.needsReauth,
+          reason: 'a stale write failure must not paint over a newer call\'s settled status',
+        );
+      },
+    );
+  });
+
+  group('_reportRefusedWrite guards', () {
+    test(
+      "reset() while a refused write's own network call is still in flight "
+      'must stop that write from reporting its refusal at all — its '
+      "captured epoch is stale by the time the refusal reaches "
+      '`_reportRefusedWrite`, so this must not call `load` with the '
+      "signed-out session's token or repaint the screen `reset()` already "
+      'cleared (the #156/#157 shape, reached through a *refused* write '
+      'this time, mirroring the existing reset test for a write that '
+      'succeeds)',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        repo.addFailNext = const FinanceConflict();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        final loadCallsBeforeReset = repo.getSummaryCallCount;
+        controller.reset();
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.selectedMonth, '');
+
+        repo.addGate.complete();
+        final result = await write;
+
+        expect(result, FinanceWriteResult.conflict);
+        expect(
+          repo.getSummaryCallCount,
+          loadCallsBeforeReset,
+          reason: "a refused write whose session ended must not issue a load with the signed-out token",
+        );
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.selectedMonth, '');
+      },
+    );
+
+    test(
+      "a refused write's own reload landing on a needsReauth exit must not "
+      'be overwritten by the refusal it is reporting — the sign-in exit is '
+      "the more important fact for the reader than the write's own 409, and "
+      'painting the refusal over it would strand them on a retry that can '
+      'never succeed',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        repo.addFailNext = const FinanceConflict();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        // The refused write's own reload (issued by `_reportRefusedWrite`
+        // once the conflict lands) hits a 401 instead of succeeding.
+        repo.failNext = const FinanceReauthenticationRequired();
+        repo.addGate.complete();
+        final result = await write;
+
+        // `conflictReloadFailed`, not `conflict`: this write's own reload ran
+        // to completion and did not land loaded (round 5 — #165's earlier
+        // design collapsed both into `conflict` and made a caller read
+        // `status`/`reloadFailed` to tell them apart, a shared field a
+        // concurrent call can also touch; the returned value now carries it).
+        expect(result, FinanceWriteResult.conflictReloadFailed);
+        expect(
+          controller.status,
+          FinanceStatus.needsReauth,
+          reason: "the write's own reload's 401 must win over the conflict it was reporting — "
+              'painting `error`/conflict here would hide a real sign-in exit behind '
+              'a retry that can never succeed',
+        );
+      },
+    );
+  });
+}
+
+/// A [FakeFinanceRepository] whose `addTransaction` holds until [addGate]
+/// completes — lets a test control exactly when a write's own network call
+/// lands, for interleavings [FakeFinanceRepository.gates] (which only gates
+/// `getSummary`, i.e. `load`) cannot express. [addFailNext], separate from
+/// [FakeFinanceRepository.failNext], throws once the gate releases instead
+/// of before it — so a test can hold a write mid-flight *and* choose to fail
+/// it, in either order relative to a concurrent `load`.
+class _GatedAddFake extends FakeFinanceRepository {
+  final addGate = Completer<void>();
+  final addStarted = Completer<void>();
+  Object? addFailNext;
+
+  @override
+  Future<FinanceTransaction> addTransaction(
+    String idToken, {
+    required FinanceType type,
+    required int amount,
+    required String currency,
+    required String categoryId,
+    required String date,
+    String? note,
+  }) async {
+    addStarted.complete();
+    await addGate.future;
+    if (addFailNext != null) {
+      final failure = addFailNext!;
+      addFailNext = null;
+      throw failure;
+    }
+    return super.addTransaction(
+      idToken,
+      type: type,
+      amount: amount,
+      currency: currency,
+      categoryId: categoryId,
+      date: date,
+      note: note,
+    );
+  }
 }
 
 /// A [FakeFinanceRepository] pre-seeded with one July transaction, for tests

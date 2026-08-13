@@ -310,6 +310,10 @@
   "@cardRefreshFailed": {
     "description": "Slim marker appended inside an overview card that still shows content but whose latest reload failed. Says the content was not updated rather than that it is old — a reload can fail halfway and leave part of the card fresh. Sits next to a retry that reloads only that card."
   },
+  "cardRefreshing": "Refreshing",
+  "@cardRefreshing": {
+    "description": "Accessible label for a card's stale-content notice while its retry is in flight, replacing the failure label so a screen reader announces progress instead of repeating the same failure message."
+  },
   "switchLanguage": "Switch language",
   "@switchLanguage": {
     "description": "Tooltip/accessible label for the language switcher control."
@@ -2387,6 +2391,10 @@
   "financeLoadFailed": "Couldn't load your finance data.",
   "@financeLoadFailed": {
     "description": "Error message shown (with a retry action) when the finance month fails to load."
+  },
+  "financeLedgerNotUpdated": "The ledger didn't update.",
+  "@financeLedgerNotUpdated": {
+    "description": "Snackbar shown when a background reload of the ledger (triggered by a split write or returning from group detail) fails, on a screen other than the two ledger tabs that already carry their own stale notice."
   },
   "financeEmptyTitle": "No transactions yet this month",
   "@financeEmptyTitle": {

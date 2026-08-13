@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
@@ -226,6 +228,103 @@ void main() {
       },
     );
 
+    // LINCHPIN (#165). The sheet decides whether the money was recorded from
+    // what the *write* returned, never from `controller.status` — a field
+    // every concurrent call (a background reload fired by a split write
+    // elsewhere, another tab's month switch) also writes to. Both tests build
+    // the same interleaving: the row is already on the server, this sheet's
+    // own reload is still in flight, and an unrelated newer reload fails
+    // first. Reading `status` there says "save failed" about money that is
+    // saved, and the user presses Save again.
+    testWidgets(
+      'a recorded transaction closes the sheet even though a concurrent '
+      'background reload failed first',
+      (tester) async {
+        final repo = FakeFinanceRepository();
+        final controller = await pumpSheet(
+          tester,
+          repo: repo,
+          today: '2026-07-15',
+        );
+        // Asserted, not assumed: a summary fetch added ahead of this would
+        // gate the wrong call and the interleaving would never be built.
+        expect(repo.summaryTokens, hasLength(1));
+        repo.summaryGates[2] = Completer<void>();
+
+        await tester.enterText(find.byKey(const Key('amount-field')), '250');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('finance-category-cat-food')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        // The server has the row; only the reload behind it is outstanding.
+        expect(repo.byMonth['2026-07'], hasLength(1));
+
+        // A split write elsewhere reloads the ledger, and *that* reload fails.
+        repo.failNext = const FinanceFetchFailure('offline');
+        await controller.load('tok', '2026-07', background: true);
+        await tester.pump();
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.reloadFailed, isTrue);
+
+        // This sheet's own reload lands last, superseded and with nothing to
+        // say about the write that already succeeded.
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsNothing,
+          reason:
+              'the transaction was recorded, so the sheet must close — left '
+              'open under "save failed" the user records the same money twice',
+        );
+        expect(find.text(_en.financeSaveFailed), findsNothing);
+        expect(repo.byMonth['2026-07'], hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'a deleted transaction closes the sheet even though a concurrent '
+      'background reload failed first',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_selfRecorded];
+        final controller = await pumpSheet(
+          tester,
+          repo: repo,
+          editing: _selfRecorded,
+        );
+        expect(repo.summaryTokens, hasLength(1));
+        repo.summaryGates[2] = Completer<void>();
+
+        await tester.tap(find.byKey(const Key('finance-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-delete-confirm')));
+        await tester.pump();
+
+        expect(repo.byMonth['2026-07'], isEmpty);
+
+        repo.failNext = const FinanceFetchFailure('offline');
+        await controller.load('tok', '2026-07', background: true);
+        await tester.pump();
+        expect(controller.status, FinanceStatus.error);
+
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsNothing,
+          reason:
+              'the row is gone from the server; a sheet left open over it '
+              'sends the user to delete a transaction that no longer exists',
+        );
+        expect(find.text(_en.financeSaveFailed), findsNothing);
+      },
+    );
+
     testWidgets(
       'saving records the fast-default-path transaction (TWD expense, today) and closes',
       (tester) async {
@@ -271,6 +370,27 @@ void main() {
         expect(repo.byMonth['2026-07'], isNull);
         // A snackbar surfaces the failure.
         expect(find.byType(SnackBar), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a save hitting a reauth error shows the sign-in-again message, not '
+      'the generic save-failed copy',
+      (tester) async {
+        final repo = FakeFinanceRepository();
+        await pumpSheet(tester, repo: repo);
+
+        await tester.enterText(find.byKey(const Key('amount-field')), '250');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('finance-category-cat-food')));
+        await tester.pump();
+        repo.failNext = const FinanceReauthenticationRequired();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.pleaseSignInAgain), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsNothing);
       },
     );
 
@@ -327,6 +447,63 @@ void main() {
       expect(find.byKey(const Key('save-transaction-button')), findsNothing);
       expect(repo.byMonth['2026-07'], isEmpty);
     });
+
+    testWidgets(
+      'a delete the server refuses keeps the sheet open, says so, and leaves '
+      'the row where it was',
+      (tester) async {
+        // Every other delete test in this file is a success case, so
+        // `_delete`'s `if (result == FinanceWriteResult.saved)` was free to be
+        // `if (true)`: the sheet would pop over a row the server still has,
+        // with no message, and nothing would go red. This is the other half.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_selfRecorded];
+        await pumpSheet(tester, repo: repo, editing: _selfRecorded);
+
+        repo.failNext = const FinanceFetchFailure('offline');
+        await tester.tap(find.byKey(const Key('finance-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-delete-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsOneWidget,
+          reason:
+              'the delete was refused, so the row is still on the server — a '
+              'sheet that pops here tells the user it is gone when it is not',
+        );
+        expect(find.text(_en.financeSaveFailed), findsOneWidget);
+        expect(repo.byMonth['2026-07'], hasLength(1));
+        // And the sheet is usable again: `_saving` is set before the await, so
+        // a failure that forgot to clear it would latch both buttons off with
+        // the row undeletable.
+        final deleteButton = tester.widget<OutlinedButton>(
+          find.byKey(const Key('finance-delete-button')),
+        );
+        expect(deleteButton.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'a delete hitting a reauth error shows the sign-in-again message, not '
+      'the generic save-failed copy',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_selfRecorded];
+        await pumpSheet(tester, repo: repo, editing: _selfRecorded);
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        await tester.tap(find.byKey(const Key('finance-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-delete-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.pleaseSignInAgain), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsNothing);
+      },
+    );
   });
 
   group('AddTransactionSheet — a mirrored transaction', () {
@@ -701,6 +878,101 @@ void main() {
     );
 
     testWidgets(
+      "a 409 whose own reload itself fails to fetch must not be read as "
+      '"the reload found nothing" or "the reload found the current facts" — '
+      'both would tell the user something about the server that this '
+      "sheet never actually learned. The sheet stays open on the generic "
+      "retryable message, with what they typed untouched.",
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        // The user's unsaved edits, made before the refusal — must survive.
+        await tester.tap(find.byKey(const Key('finance-category-cat-transport')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const Key('finance-note-field')), 'my own note');
+        await tester.pump();
+
+        // Hold this sheet's own post-409 reload (the 2nd `getSummary` of the
+        // test: the 1st was `pumpSheet`'s setup load) so the fetch failure
+        // can be set up for it specifically, after the write's own
+        // `failNext` (the conflict) has already been consumed.
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        repo.failNext = const FinanceFetchFailure('offline');
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(controller.reloadFailed, isTrue);
+        // Still open, still typed-in, told the generic retryable failure —
+        // NOT that the split changed (nothing was actually re-fetched) and
+        // NOT that it moved out of the month (the reload never found out).
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsNothing);
+        expect(find.text(_en.financeSplitMovedOutOfMonth), findsNothing);
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.selected, isTrue);
+        expect(find.text('my own note'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "a 409 whose own reload itself 401s must not be read off "
+      '`reloadFailed` — `load` leaves that field false for a non-background '
+      '401 (round 5 blocker) — but must still be caught, not re-seeded from '
+      "the pre-save stale amount and not reported as the split having "
+      'moved out of the month.',
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        await tester.tap(find.byKey(const Key('finance-category-cat-transport')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const Key('finance-note-field')), 'my own note');
+        await tester.pump();
+
+        // Hold this sheet's own post-409 reload so the 401 can be set up for
+        // it specifically, after the write's own `failNext` (the conflict)
+        // has already been consumed.
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        // The bug this pins: a non-background 401 leaves `reloadFailed`
+        // false (`load`'s `needsReauth` branch), so a sheet gated on that
+        // field alone would wrongly fall through to re-seeding from the
+        // stale, pre-save `controller.transactions`.
+        expect(controller.reloadFailed, isFalse);
+        expect(
+          controller.transactions.firstWhere((t) => t.id == _mirror.id).amount,
+          900,
+        );
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsNothing);
+        expect(find.text(_en.financeSplitMovedOutOfMonth), findsNothing);
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.selected, isTrue);
+        expect(find.text('my own note'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'a reload that lands in another month closes the sheet with its own '
       'message',
       (tester) async {
@@ -729,6 +1001,112 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byKey(const Key('save-transaction-button')), findsNothing);
         expect(find.text(_en.financeSplitMovedOutOfMonth), findsOneWidget);
+      },
+    );
+
+    // The two tests below pin what the 409 branch does when **its own** reload
+    // was superseded by a newer, concurrent `load`. The branch re-seeds from
+    // `controller.transactions`, a field every concurrent call writes to and
+    // that `_reportRefusedWrite` deliberately leaves alone when superseded —
+    // so what it reads there may have been fetched by somebody else's call.
+    // The decision (see the comment on that branch in
+    // `add_transaction_sheet.dart`) is to keep reading it and let the id gate
+    // decide, which gives exactly these two outcomes. Neither was covered
+    // before, and the second one is a behaviour change nothing was holding.
+    testWidgets(
+      "a 409 whose own reload was superseded re-seeds from the newer call's "
+      'row, because the id still identifies this very split',
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        // Hold this sheet's own post-409 reload (the 2nd `getSummary` of the
+        // test: the 1st was `pumpSheet`'s setup load).
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        // A newer, concurrent same-month reload — a split write elsewhere —
+        // lands first with the split's raised amount, superseding this
+        // sheet's own reload before it ever applies.
+        repo.byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 'mirror-1',
+            type: FinanceType.expense,
+            amount: 1200,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-15',
+            note: '晚餐',
+            splitExpenseId: 'exp-1',
+          ),
+        ];
+        await controller.load('tok', '2026-07', background: true);
+        await tester.pump();
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsOneWidget);
+        final facts = tester.widget<Text>(
+          find.byKey(const Key('finance-mirror-facts')),
+        );
+        expect(
+          facts.data,
+          contains('1,200'),
+          reason:
+              'the row came from a call this sheet did not make, but it is '
+              'keyed by the id of the very row being edited, so the figures '
+              "on it are the server's current facts about this split",
+        );
+      },
+    );
+
+    testWidgets(
+      'a 409 whose own reload was superseded by a month switch closes the '
+      'sheet rather than re-seeding from a month that is not its own',
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        // The reader switches to August behind the sheet. That call is newer,
+        // so this sheet's own July reload is superseded and never applies —
+        // leaving `controller.transactions` holding **August's** rows, which
+        // have nothing to do with the row this sheet is editing.
+        repo.byMonth['2026-08'] = [
+          const FinanceTransaction(
+            id: 'other-1',
+            type: FinanceType.expense,
+            amount: 4200,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-08-03',
+          ),
+        ];
+        await controller.load('tok', '2026-08', notifyOnStart: true);
+        await tester.pump();
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.byKey(const Key('save-transaction-button')),
+          findsNothing,
+          reason:
+              'the id gate found nothing to re-seed from, so the sheet takes '
+              'the conservative exit and closes — it must never fall through '
+              "to re-seeding the sheet's locked facts from a row belonging to "
+              'another month',
+        );
+        expect(find.text(_en.financeSplitMovedOutOfMonth), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsNothing);
       },
     );
   });

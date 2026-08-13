@@ -5,6 +5,7 @@ import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/finance_transaction.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
+import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -14,6 +15,7 @@ import 'package:life_os/shared/widgets/ledge_card.dart';
 import 'package:intl/intl.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
 
@@ -287,6 +289,177 @@ void main() {
     );
 
     testWidgets(
+      'a failed WRITE does not raise the reload notice — the figures on '
+      'screen are not stale',
+      (tester) async {
+        // `status` goes to `error` for a rejected write too, with the month's
+        // figures untouched. Keying the notice off that pair puts a permanent
+        // "could not refresh" row over data that is perfectly current, right
+        // after the sheet has already said what went wrong.
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+
+        repo.failNext = const FinanceValidationFailure();
+        await controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 0,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-06',
+        );
+        expect(controller.error, isNotNull, reason: 'the write did fail');
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('tok', m),
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                  onSignInAgain: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'stays visible after the reader scrolls the overview away from the top '
+      '— pinned above the ListView, not row 0 of it',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            for (var i = 0; i < 40; i++)
+              FinanceTransaction(
+                id: 't$i',
+                type: FinanceType.expense,
+                amount: 100 + i,
+                currency: 'TWD',
+                categoryId: 'cat-food',
+                date: '2026-07-${(i % 27 + 1).toString().padLeft(2, '0')}',
+              ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        controller.markReloadFailed();
+
+        await tester.binding.setSurfaceSize(const Size(390, 640));
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: FinanceOverviewTab(
+                controller: controller,
+                onSwitchMonth: (m) => controller.load('tok', m),
+                onAdd: () {},
+                onEditBudgets: () {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+
+        await tester.drag(find.byType(ListView), const Offset(0, -1200));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        final rect = tester.getRect(find.byKey(const Key('stale-notice-row')));
+        final viewport = tester.getRect(find.byType(Scaffold));
+        expect(
+          rect.overlaps(viewport),
+          isTrue,
+          reason: 'the notice must stay pinned in view after a scroll, not '
+              'ride away with row 0 of the list',
+        );
+      },
+    );
+
+    testWidgets(
+      "a stale notice's own retry, while its reload is still in flight, keeps "
+      'the row mounted with a disabled spinner — StaleNotice must not read as '
+      '"refreshed" mid-flight (see its class doc)',
+      (tester) async {
+        final repo = _GatedFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't1',
+              type: FinanceType.expense,
+              amount: 300,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-05',
+            ),
+          ];
+        final controller = testFinanceController(repo);
+        await controller.load('tok', '2026-07');
+        // The background reload that put the notice up in the first place
+        // already failed and settled — only the retry itself is gated.
+        controller.markReloadFailed();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => Scaffold(
+                body: FinanceOverviewTab(
+                  controller: controller,
+                  onSwitchMonth: (m) => controller.load('tok', m),
+                  onAdd: () {},
+                  onEditBudgets: () {},
+                  onSignInAgain: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+
+        repo.gate = Completer<void>();
+        await tester.tap(find.byKey(const Key('stale-notice-retry')));
+        await tester.pump();
+
+        // Still mounted, and the button reads as an in-flight spinner, not
+        // a pressable "Retry" — a `loading: false` wiring would already show
+        // the row as gone or the button as pressable again here.
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('stale-notice-retry')),
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsOneWidget,
+        );
+
+        repo.gate!.complete();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+      },
+    );
+
+    testWidgets(
       'tapping the month label jumps to a month picked two years back, '
       'through the same month-change path the arrows use',
       (tester) async {
@@ -419,6 +592,80 @@ void main() {
           },
         );
       }
+    }
+
+    // The notice moved out of the `ListView` and into a `Column` above it,
+    // which is a *layout* change and not only a visibility one: it now takes
+    // height off the scrollable instead of scrolling with it. At 320dp and
+    // textScale 2.0 the notice wraps to several lines, which is where that
+    // costs the most.
+    //
+    // Two assertions, because one of them alone is a guard that cannot fail.
+    // Not overflowing is satisfied by a notice that has pushed the whole list
+    // off the bottom; and the notice being on screen is satisfied by a notice
+    // that has taken the screen. What the change actually promises is that
+    // the reader can see the warning *and* the month it is about at the same
+    // time.
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the notice and the first row are both visible at 320dp, '
+        'textScale 2.0, locale=$locale',
+        (tester) async {
+          useTextScaleFactor(tester, 2.0);
+          await tester.binding.setSurfaceSize(const Size(320, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+
+          final controller = testFinanceController(FakeFinanceRepository());
+          await controller.load('tok', '2026-07');
+          controller.markReloadFailed();
+          expect(controller.reloadFailed, isTrue);
+
+          await expectNoLayoutErrors(() async {
+            await tester.pumpWidget(
+              l10nTestApp(
+                locale: locale,
+                home: Scaffold(
+                  body: FinanceOverviewTab(
+                    controller: controller,
+                    onSwitchMonth: (m) async {},
+                    onAdd: () {},
+                    onEditBudgets: () {},
+                    onSignInAgain: () {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+          });
+
+          final notice = find.byKey(const Key('stale-notice-row'));
+          expect(notice, findsOneWidget);
+          final noticeRect = tester.getRect(notice);
+          expect(noticeRect.top, greaterThanOrEqualTo(0));
+          expect(
+            noticeRect.bottom,
+            lessThanOrEqualTo(640),
+            reason: 'the notice itself was cut off at the bottom of the tab',
+          );
+
+          final firstRow = find.byKey(const Key('finance-month-label'));
+          expect(firstRow, findsOneWidget);
+          final firstRowRect = tester.getRect(firstRow);
+          expect(
+            firstRowRect.top,
+            greaterThanOrEqualTo(noticeRect.bottom),
+            reason: 'the list must start below the pinned notice',
+          );
+          expect(
+            firstRowRect.bottom,
+            lessThanOrEqualTo(640),
+            reason:
+                'the notice pushed the month header off the bottom — the '
+                'reader is told the figures are stale without being shown '
+                'which month they belong to',
+          );
+        },
+      );
     }
   });
 
@@ -881,4 +1128,19 @@ void main() {
       );
     }
   });
+}
+
+/// A [FakeFinanceRepository] whose `getSummary` awaits [gate] (once set)
+/// before resolving — lets a test hold a reload open to observe the
+/// in-flight `loading: true` state of [StaleNotice]'s retry, which
+/// [FakeFinanceRepository] alone has no way to pause mid-flight for.
+class _GatedFinanceRepository extends FakeFinanceRepository {
+  Completer<void>? gate;
+
+  @override
+  Future<MonthlySummary> getSummary(String idToken, String month) async {
+    final g = gate;
+    if (g != null) await g.future;
+    return super.getSummary(idToken, month);
+  }
 }

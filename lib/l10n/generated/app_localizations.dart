@@ -609,6 +609,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t refresh'**
   String get cardRefreshFailed;
 
+  /// Accessible label for a card's stale-content notice while its retry is in flight, replacing the failure label so a screen reader announces progress instead of repeating the same failure message.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing'**
+  String get cardRefreshing;
+
   /// Tooltip/accessible label for the language switcher control.
   ///
   /// In en, this message translates to:
@@ -3367,6 +3373,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load your finance data.'**
   String get financeLoadFailed;
+
+  /// Snackbar shown when a background reload of the ledger (triggered by a split write or returning from group detail) fails, on a screen other than the two ledger tabs that already carry their own stale notice.
+  ///
+  /// In en, this message translates to:
+  /// **'The ledger didn\'t update.'**
+  String get financeLedgerNotUpdated;
 
   /// Empty-state guide shown on the overview and transactions tabs when the selected month has no transactions.
   ///

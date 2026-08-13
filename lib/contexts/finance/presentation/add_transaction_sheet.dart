@@ -182,9 +182,16 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     // `_saving` is deliberately left set.
     final controller = widget.controller;
     final editing = widget.editing;
+    // This write's own outcome, read instead of `controller.status` (#165):
+    // `status` is the screen, and any concurrent call — a background reload
+    // fired by a split write elsewhere, a month switch — moves it while this
+    // save is in flight. Reading it here reported other calls' failures as
+    // this save's, leaving the sheet open over a transaction the server had
+    // already accepted and inviting the user to record it twice.
+    final FinanceWriteResult result;
     try {
       if (editing == null) {
-        await controller.addTransaction(
+        result = await controller.addTransaction(
           await widget.idToken(),
           type: _type,
           amount: amount,
@@ -194,7 +201,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
           note: _note,
         );
       } else {
-        await controller.updateTransaction(
+        result = await controller.updateTransaction(
           await widget.idToken(),
           editing.id,
           type: _type,
@@ -219,7 +226,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       return;
     }
     if (!mounted) return;
-    if (controller.status == FinanceStatus.loaded) {
+    if (result == FinanceWriteResult.saved) {
       Navigator.of(context).pop();
       return;
     }
@@ -232,7 +239,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
     if (editing != null &&
         _isMirror &&
-        controller.error == FinanceError.conflict) {
+        result == FinanceWriteResult.conflict) {
       // `_isMirror`, not `editing != null`: 409 is the split-moved-underneath
       // answer and the backend returns it from exactly one place, so a
       // non-mirror cannot get here today. If one ever did, the re-seed below
@@ -250,6 +257,32 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // `where`/`isEmpty`, not `firstWhere`: the row genuinely may not be in
       // the reloaded month (see below), and `firstWhere` would answer that
       // with a `StateError` out of a save handler.
+      //
+      // **`controller.transactions` is shared, and this deliberately still
+      // reads it.** `result == FinanceWriteResult.conflict` (as opposed to
+      // `conflictReloadFailed`) is `_mutate`'s own guarantee — computed and
+      // returned from `_reportRefusedWrite` as this write's `Future` value,
+      // never read off a controller field a concurrent call could since have
+      // overwritten (#165, round 5) — that this write's own post-refusal
+      // reload either landed loaded, or was itself superseded by a *newer*
+      // concurrent `load` whose data fields are a valid current answer. So
+      // the list read here was fetched by this call or a fresher one, never
+      // by a reload that ran and failed. The id gate below is what makes
+      // reading a possibly-newer-call's list safe, and it leaves exactly two
+      // outcomes, both pinned by tests in `add_transaction_sheet_test.dart`:
+      //
+      // * a row with this id is present — then whichever call fetched it, it
+      //   is the server's current facts *about this very row*, which is all
+      //   the re-seed claims; and
+      // * no such row — then the sheet closes with "the split moved out of
+      //   this month" instead of re-seeding, i.e. it degrades by giving up,
+      //   never by showing figures that belong to something else.
+      //
+      // A reload that ran and did not land (a fetch failure, a 401) reports
+      // `conflictReloadFailed` instead and never reaches this branch — see
+      // the fall-through to the generic retryable message below, which
+      // leaves the sheet (and what the user typed) open without touching
+      // `controller.transactions` at all.
       final reloaded = controller.transactions.where((t) => t.id == editing.id);
       final fresh = reloaded.isEmpty ? null : reloaded.first;
       if (fresh == null) {
@@ -273,7 +306,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       );
       return;
     }
-    if (controller.error == FinanceError.notFound) {
+    if (result == FinanceWriteResult.notFound) {
       // For a mirror: the payer deleted the split and the cascade took this row
       // with it. For a row the user recorded themselves: it was deleted on
       // another device. Either way `_mutate`'s reload has already dropped it
@@ -293,7 +326,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       navigator.pop();
       return;
     }
-    messenger.showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result == FinanceWriteResult.needsReauth ? loc.pleaseSignInAgain : loc.financeSaveFailed,
+        ),
+      ),
+    );
   }
 
   Future<void> _delete() async {
@@ -322,19 +361,24 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    await widget.controller.deleteTransaction(
+    // The delete's own outcome, not `controller.status` — see `_save`.
+    final result = await widget.controller.deleteTransaction(
       await widget.idToken(),
       editing.id,
     );
     if (!mounted) return;
-    if (widget.controller.status == FinanceStatus.loaded) {
+    if (result == FinanceWriteResult.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() => _saving = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result == FinanceWriteResult.needsReauth ? loc.pleaseSignInAgain : loc.financeSaveFailed,
+        ),
+      ),
+    );
   }
 
   /// The mirrored sheet's top half (design D2): what the split owns, as a

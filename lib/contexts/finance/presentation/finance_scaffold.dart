@@ -208,7 +208,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     if (_splitController.writeSeq != _splitWriteSeq) {
       _splitWriteSeq = _splitController.writeSeq;
       unawaited(_splitActivityController.refreshIfLoaded());
-      unawaited(_reloadLedger());
+      unawaited(_reloadLedgerWithFeedback());
     }
     _onChanged();
   }
@@ -236,13 +236,66 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   /// controller's own stale guard discards the response for the month they
   /// actually asked for, and their month switch silently undoes itself. Same
   /// order as `_openPlanScreen` and `_openInstallmentPlanSheet` in this file.
-  Future<void> _reloadLedger() async {
+  ///
+  /// Returns whether *this call's own* reload attempt is known to have
+  /// failed (`true`), known to have succeeded (`false`), or left ambiguous
+  /// (`null`) because a newer, still-current call superseded this one's
+  /// response before it landed (`FinanceController.load`'s return value —
+  /// see its doc). `null` deliberately means "say nothing": the newer call
+  /// owns the outcome and, if it also fails, will report it through its own
+  /// `_reloadLedger` call. Reading the controller's global `reloadFailed`
+  /// after the fact (the previous version of this method) cannot tell "my
+  /// own attempt failed" apart from "a *different*, unrelated attempt left
+  /// it `true`" — two quick split writes each fire this, and whichever one's
+  /// continuation runs second would see whatever the *other* one's outcome
+  /// left behind, showing a duplicate snackbar for one failure or none for a
+  /// second one that actually did fail.
+  Future<bool?> _reloadLedger() async {
     final token = await _idToken();
-    if (!mounted) return;
+    if (!mounted) return null;
+    // `_idToken` resolves to `''` on both "signed out" and "renewal failed"
+    // (see `guardedIdToken`'s doc) rather than throwing — calling `load` with
+    // it anyway would send this unrequested reload out unauthenticated,
+    // fail with a genuine 401, and only get treated as a reload failure via
+    // `background: true` below. This just skips the pointless round trip and
+    // goes straight to the same failure path.
+    if (token.isEmpty) {
+      widget.controller.markReloadFailed();
+      return true;
+    }
     final month = widget.controller.selectedMonth.isEmpty
         ? monthOf(_todayDate)
         : widget.controller.selectedMonth;
-    await widget.controller.load(token, month);
+    // `background: true`: this reload is not something the reader asked for
+    // right now (it fires off a split write or a group-detail return), so a
+    // 401 here must not flip the whole ledger to the full-page "sign in
+    // again" exit — that reads as "your account broke" over a write that
+    // just succeeded. See `FinanceController.load`'s doc.
+    final applied = await widget.controller.load(token, month, background: true);
+    if (!applied) return null;
+    return widget.controller.reloadFailed;
+  }
+
+  /// [_reloadLedger], plus feedback on the screen the reader is actually
+  /// standing on. `_reloadLedger` alone leaves both ledger tabs' own
+  /// [StaleNotice] as the only sign anything went wrong — invisible to a
+  /// reader on 分帳 or group detail who never happens to switch to 總覽/明細.
+  /// Both call sites below fire this reload from a screen that isn't either
+  /// tab, so a snackbar here is the only feedback reachable from where the
+  /// reader actually is.
+  Future<void> _reloadLedgerWithFeedback() async {
+    final failed = await _reloadLedger();
+    if (!mounted || failed != true) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(loc.financeLedgerNotUpdated),
+        action: SnackBarAction(
+          label: loc.retry,
+          onPressed: () => unawaited(_reloadLedgerWithFeedback()),
+        ),
+      ),
+    );
   }
 
   String get _todayDate => dayString(widget.clock());
@@ -432,7 +485,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     // way one added here does (see [_reloadLedger]), and for the same reason
     // as the line above — `writeSeq` never moves for group detail's writes,
     // so [_onSplitChanged]'s reload never fires for them.
-    unawaited(_reloadLedger());
+    unawaited(_reloadLedgerWithFeedback());
     await _retrySplit();
   }
 

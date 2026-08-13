@@ -11,6 +11,14 @@ import '../../l10n/generated/app_localizations.dart';
 /// differ wildly (a two-line card, a whole-month calendar) and the end is the
 /// one place that takes an extra row without touching any of them.
 ///
+/// The finance tabs (`FinanceOverviewTab`, `FinanceTransactionsTab`) instead
+/// pin one of these above the whole tab's scrollable content — there the
+/// "card" is the entire month, not any one of the four boxes below it, so
+/// there is no single card-end to append to. The [InkWell]'s bottom-only
+/// corner radius below is tuned for the end-of-card placement; pinned at the
+/// top of a tab it sits on a plain background rather than a card, so the
+/// mismatched corner only ever shows in the (rare) pressed state.
+///
 /// Carries its own padding rather than taking a layout parameter: cards that
 /// each passed their own would drift apart, which is the inconsistency this
 /// exists to remove. A card whose own padding sits on its outer surface must
@@ -96,7 +104,24 @@ class _StaleNoticeState extends State<StaleNotice> {
       container: true,
       button: true,
       enabled: !retrying,
-      label: '${widget.subject}: ${loc.cardRefreshFailed}. ${loc.retry}',
+      // While a retry this row itself started is in flight, the label
+      // switches to a distinct "refreshing" announcement rather than
+      // repeating the failure copy — some callers (e.g. the finance tabs)
+      // key [failed] off a flag that only clears on the *next* success, so
+      // without this the node would re-announce "Couldn't refresh" the
+      // moment the reader presses Retry, with no indication anything is
+      // happening.
+      label: retrying
+          ? '${widget.subject}: ${loc.cardRefreshing}'
+          : '${widget.subject}: ${loc.cardRefreshFailed}. ${loc.retry}',
+      // This row can appear with no gesture from the reader at all — a
+      // background reload elsewhere failing while they're mid-scroll — so a
+      // screen-reader user needs to be told, not left to stumble onto it.
+      // Not while `retrying`: the label above already changed to announce
+      // that, and re-triggering the live region on the same failure copy
+      // right after the reader pressed Retry would read as the retry having
+      // already failed again.
+      liveRegion: widget.failed && !retrying,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(

@@ -296,6 +296,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardRefreshFailed => 'Couldn\'t refresh';
 
   @override
+  String get cardRefreshing => 'Refreshing';
+
+  @override
   String get switchLanguage => 'Switch language';
 
   @override
@@ -1835,6 +1838,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get financeLoadFailed => 'Couldn\'t load your finance data.';
+
+  @override
+  String get financeLedgerNotUpdated => 'The ledger didn\'t update.';
 
   @override
   String get financeEmptyTitle => 'No transactions yet this month';

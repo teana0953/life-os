@@ -150,18 +150,25 @@ class _BudgetSheetState extends State<BudgetSheet> {
       );
     }
 
-    await widget.controller.saveBudgets(await widget.idToken(), desired);
+    // This save's own outcome, not `controller.status` (#165): `status` is the
+    // screen, and a concurrent background reload (a split write elsewhere)
+    // moving it to its own failure used to read here as "your budget did not
+    // save" about budgets the server had already applied.
+    final result = await widget.controller.saveBudgets(
+      await widget.idToken(),
+      desired,
+    );
     if (!mounted) return;
-    if (widget.controller.status == FinanceStatus.loaded) {
+    if (result == FinanceWriteResult.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() => _saving = false);
     final loc = AppLocalizations.of(context)!;
-    // Map the controller's typed failure to actionable copy: a rejected token
+    // Map the write's typed failure to actionable copy: a rejected token
     // asks the user to sign in again; everything else stays the generic
     // retryable message (i18n rule: error copy is mapped in presentation).
-    final message = widget.controller.status == FinanceStatus.needsReauth
+    final message = result == FinanceWriteResult.needsReauth
         ? loc.pleaseSignInAgain
         : loc.financeSaveFailed;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
