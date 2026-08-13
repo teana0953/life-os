@@ -1548,6 +1548,69 @@ void main() {
       },
     );
 
+    testWidgets(
+      "a background reload that can't even get a token (renewal failed) "
+      'says so with the same snackbar+retry as a reload that reached the '
+      'network and failed — `_reloadLedger` skips the pointless round trip '
+      'via `markReloadFailed`, but the reader must not be able to tell the '
+      'difference',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [
+            const FinanceTransaction(
+              id: 't-existing',
+              type: FinanceType.expense,
+              amount: 700,
+              currency: 'TWD',
+              categoryId: 'cat-food',
+              date: '2026-07-10',
+            ),
+          ];
+        final splitRepo = FakeSplitRepository()
+          ..groupsToReturn = const [
+            SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+          ];
+        final returned = Completer<void>();
+        final authRepo = _FakeAuthRepository();
+
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: FinanceScaffold(
+              authRepository: authRepo,
+              controller: testFinanceController(repo),
+              netWorthController: testNetWorthController(repo),
+              financeRepository: repo,
+              split: _splitDeps(
+                splitRepo,
+                onOpenGroup: (_, __) {
+                  // Token renewal fails once the group screen is opened — the
+                  // reload fired on return has nothing to authenticate with.
+                  authRepo.token = '';
+                  return returned.future;
+                },
+              ),
+              clock: () => DateTime(2026, 7, 15),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-tab')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('split-group-row-g1')));
+        await tester.pump();
+        returned.complete();
+        await tester.pumpAndSettle();
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.financeLedgerNotUpdated), findsOneWidget);
+        expect(find.text(loc.retry), findsOneWidget);
+
+        await tester.tap(find.text(loc.financeTabOverview));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+      },
+    );
+
     testWidgets('a failed reload after a split write says so on both tabs, '
         'with a retry', (tester) async {
       // The failure mode this refresh introduced: `load` keeps the month's

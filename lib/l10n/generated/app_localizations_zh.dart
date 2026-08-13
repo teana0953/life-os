@@ -291,7 +291,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cardRefreshFailed => '沒有更新到';
 
   @override
-  String get cardRefreshing => 'Refreshing';
+  String get cardRefreshing => '更新中';
 
   @override
   String get switchLanguage => '切換語言';
@@ -1780,7 +1780,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get financeLoadFailed => '財務資料載入失敗。';
 
   @override
-  String get financeLedgerNotUpdated => 'The ledger didn\'t update.';
+  String get financeLedgerNotUpdated => '帳本沒有更新到。';
 
   @override
   String get financeEmptyTitle => '這個月還沒有紀錄';

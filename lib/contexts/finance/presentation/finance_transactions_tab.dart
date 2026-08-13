@@ -91,22 +91,29 @@ class FinanceTransactionsTab extends StatelessWidget {
           // is exactly the "guard that cannot fail" this repo keeps hitting.
           // If an action is ever added here, the narrow-screen test in this
           // tab's suite is what will say so.
-          return Column(
-            children: [
-              staleNotice,
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: EmptyStateGuide(
-                      stateKey: const Key('finance-transactions-empty'),
-                      icon: Icons.receipt_long_outlined,
-                      title: loc.financeEmptyTitle,
+          return SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  children: [
+                    staleNotice,
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: EmptyStateGuide(
+                            stateKey: const Key('finance-transactions-empty'),
+                            icon: Icons.receipt_long_outlined,
+                            title: loc.financeEmptyTitle,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           );
         }
 

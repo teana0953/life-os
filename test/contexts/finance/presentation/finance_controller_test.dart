@@ -97,8 +97,14 @@ class FakeFinanceRepository implements FinanceRepository {
     return List.of(_byMonth[month] ?? const []);
   }
 
+  /// How many times [getSummary] has been called — lets a test assert that
+  /// a guarded path never issued a `load` at all, not just that its result
+  /// didn't land.
+  int getSummaryCallCount = 0;
+
   @override
   Future<MonthlySummary> getSummary(String idToken, String month) async {
+    getSummaryCallCount++;
     final gate = gates[month];
     if (gate != null) await gate.future;
     if (failNext != null) {
@@ -1334,6 +1340,93 @@ void main() {
           controller.status,
           FinanceStatus.needsReauth,
           reason: 'a stale write failure must not paint over a newer call\'s settled status',
+        );
+      },
+    );
+  });
+
+  group('_reportRefusedWrite guards', () {
+    test(
+      "reset() while a refused write's own network call is still in flight "
+      'must stop that write from reporting its refusal at all — its '
+      "captured epoch is stale by the time the refusal reaches "
+      '`_reportRefusedWrite`, so this must not call `load` with the '
+      "signed-out session's token or repaint the screen `reset()` already "
+      'cleared (the #156/#157 shape, reached through a *refused* write '
+      'this time, mirroring the existing reset test for a write that '
+      'succeeds)',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        repo.addFailNext = const FinanceConflict();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        final loadCallsBeforeReset = repo.getSummaryCallCount;
+        controller.reset();
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.selectedMonth, '');
+
+        repo.addGate.complete();
+        final result = await write;
+
+        expect(result, FinanceWriteResult.conflict);
+        expect(
+          repo.getSummaryCallCount,
+          loadCallsBeforeReset,
+          reason: "a refused write whose session ended must not issue a load with the signed-out token",
+        );
+        expect(controller.status, FinanceStatus.loading);
+        expect(controller.selectedMonth, '');
+      },
+    );
+
+    test(
+      "a refused write's own reload landing on a needsReauth exit must not "
+      'be overwritten by the refusal it is reporting — the sign-in exit is '
+      "the more important fact for the reader than the write's own 409, and "
+      'painting the refusal over it would strand them on a retry that can '
+      'never succeed',
+      () async {
+        final repo = _GatedAddFake();
+        final controller = _controller(repo);
+        await controller.load('tok', '2026-07');
+        expect(controller.status, FinanceStatus.loaded);
+
+        repo.addFailNext = const FinanceConflict();
+        final write = controller.addTransaction(
+          'tok',
+          type: FinanceType.expense,
+          amount: 500,
+          currency: 'TWD',
+          categoryId: 'cat-food',
+          date: '2026-07-20',
+        );
+        await repo.addStarted.future;
+
+        // The refused write's own reload (issued by `_reportRefusedWrite`
+        // once the conflict lands) hits a 401 instead of succeeding.
+        repo.failNext = const FinanceReauthenticationRequired();
+        repo.addGate.complete();
+        final result = await write;
+
+        expect(result, FinanceWriteResult.conflict);
+        expect(
+          controller.status,
+          FinanceStatus.needsReauth,
+          reason: "the write's own reload's 401 must win over the conflict it was reporting — "
+              'painting `error`/conflict here would hide a real sign-in exit behind '
+              'a retry that can never succeed',
         );
       },
     );

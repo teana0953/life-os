@@ -837,6 +837,52 @@ void main() {
     );
 
     testWidgets(
+      "a 409 whose own reload itself fails to fetch must not be read as "
+      '"the reload found nothing" or "the reload found the current facts" — '
+      'both would tell the user something about the server that this '
+      "sheet never actually learned. The sheet stays open on the generic "
+      "retryable message, with what they typed untouched.",
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        // The user's unsaved edits, made before the refusal — must survive.
+        await tester.tap(find.byKey(const Key('finance-category-cat-transport')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const Key('finance-note-field')), 'my own note');
+        await tester.pump();
+
+        // Hold this sheet's own post-409 reload (the 2nd `getSummary` of the
+        // test: the 1st was `pumpSheet`'s setup load) so the fetch failure
+        // can be set up for it specifically, after the write's own
+        // `failNext` (the conflict) has already been consumed.
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        repo.failNext = const FinanceFetchFailure('offline');
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(controller.reloadFailed, isTrue);
+        // Still open, still typed-in, told the generic retryable failure —
+        // NOT that the split changed (nothing was actually re-fetched) and
+        // NOT that it moved out of the month (the reload never found out).
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsNothing);
+        expect(find.text(_en.financeSplitMovedOutOfMonth), findsNothing);
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.selected, isTrue);
+        expect(find.text('my own note'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'a reload that lands in another month closes the sheet with its own '
       'message',
       (tester) async {

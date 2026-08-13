@@ -11,6 +11,14 @@ import '../../l10n/generated/app_localizations.dart';
 /// differ wildly (a two-line card, a whole-month calendar) and the end is the
 /// one place that takes an extra row without touching any of them.
 ///
+/// The finance tabs (`FinanceOverviewTab`, `FinanceTransactionsTab`) instead
+/// pin one of these above the whole tab's scrollable content — there the
+/// "card" is the entire month, not any one of the four boxes below it, so
+/// there is no single card-end to append to. The [InkWell]'s bottom-only
+/// corner radius below is tuned for the end-of-card placement; pinned at the
+/// top of a tab it sits on a plain background rather than a card, so the
+/// mismatched corner only ever shows in the (rare) pressed state.
+///
 /// Carries its own padding rather than taking a layout parameter: cards that
 /// each passed their own would drift apart, which is the inconsistency this
 /// exists to remove. A card whose own padding sits on its outer surface must

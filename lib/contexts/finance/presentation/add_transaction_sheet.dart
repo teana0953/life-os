@@ -280,6 +280,20 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // server, the user is being asked to re-confirm and press Save again,
       // and that Save re-validates against the server — a re-seed from a list
       // that had not refreshed yet simply earns a second 409, not wrong data.
+      // `controller.reloadFailed`: `_reportRefusedWrite` only re-paints the
+      // screen when *this write's own* reload actually landed — when it
+      // doesn't (a fetch failure, a 401), `controller.transactions` is left
+      // holding whatever was on screen *before* this save, i.e. stale data,
+      // not the server's current facts. Reading that as "fresh" here would
+      // tell the user their unsaved edits were replaced by a reload that
+      // never happened, and — worse — that a row genuinely still on the
+      // server "moved out of the month" just because the refresh that would
+      // have found it failed. Fall through to the generic retryable message
+      // instead, with the sheet (and what the user typed) left open.
+      if (controller.reloadFailed) {
+        messenger.showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+        return;
+      }
       final reloaded = controller.transactions.where((t) => t.id == editing.id);
       final fresh = reloaded.isEmpty ? null : reloaded.first;
       if (fresh == null) {
@@ -323,7 +337,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       navigator.pop();
       return;
     }
-    messenger.showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result == FinanceWriteResult.needsReauth ? loc.pleaseSignInAgain : loc.financeSaveFailed,
+        ),
+      ),
+    );
   }
 
   Future<void> _delete() async {
@@ -363,9 +383,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       return;
     }
     setState(() => _saving = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result == FinanceWriteResult.needsReauth ? loc.pleaseSignInAgain : loc.financeSaveFailed,
+        ),
+      ),
+    );
   }
 
   /// The mirrored sheet's top half (design D2): what the split owns, as a
