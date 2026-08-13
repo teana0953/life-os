@@ -63,6 +63,22 @@ enum FinanceWriteResult {
   validation,
   notFound,
   conflict,
+  /// Same 409 as [conflict], but *this write's own* post-refusal reload ran
+  /// to completion and did not land `FinanceStatus.loaded` — a fetch failure
+  /// or a (non-background) 401 from this call specifically, not merely
+  /// superseded by a fresher concurrent call (#165, round 5: the record
+  /// sheet used to read [FinanceController.reloadFailed] for this, a field
+  /// any unrelated concurrent load can also flip, which both missed this
+  /// call's own 401 — [load] leaves `reloadFailed` false there — and let a
+  /// background reload's *unrelated* failure land on a write whose own
+  /// reload had already succeeded). [FinanceController.transactions] cannot
+  /// be trusted as an answer about this write in that case: the record sheet
+  /// must not re-seed from it, and must not say the split "moved out of the
+  /// month" either — both would report something this call never actually
+  /// learned. A *superseded* own reload is NOT this case: a fresher call's
+  /// data is a valid current answer, identified by the row's id — see
+  /// [conflict]'s doc and the sheet's own comment.
+  conflictReloadFailed,
   fetchFailed,
   unknown,
 }
@@ -392,18 +408,32 @@ class FinanceController extends ChangeNotifier {
   /// network call — same reasoning as [_reloadAfterWrite]: if [reset] ran
   /// since, this must not call [load] (or paint anything) with the
   /// signed-out session's token at all.
-  Future<void> _reportRefusedWrite(
+  ///
+  /// Returns whether **this call's own reload ran to completion and did not
+  /// land loaded** (`applied && status != FinanceStatus.loaded`) — the one
+  /// case in which [transactions]/[summary] must not be trusted as an answer
+  /// about this write, because they were left exactly as they were before
+  /// this write's own reload. A *superseded* reload (`!applied`) is
+  /// deliberately reported as `false` here, not this case: the fields then
+  /// belong to a fresher call, which is a valid current answer. This is
+  /// computed and returned as the resolved value of this call's own
+  /// `Future` — never stashed on a controller field — so a concurrent,
+  /// unrelated call cannot overwrite it out from under a caller still
+  /// holding the result (#165, round 5).
+  Future<bool> _reportRefusedWrite(
     String idToken, {
     required FinanceStatus refusedStatus,
     FinanceError? refusal,
     required int epoch,
   }) async {
-    if (epoch != _sessionEpoch) return;
+    if (epoch != _sessionEpoch) return false;
     final applied = await load(idToken, selectedMonth);
-    if (!applied || status != FinanceStatus.loaded) return;
+    if (!applied) return false;
+    if (status != FinanceStatus.loaded) return true;
     status = refusedStatus;
     error = refusal;
     notifyListeners();
+    return false;
   }
 
   /// Loads [month]'s split-spending totals (design D6) — see [load]'s doc
@@ -613,13 +643,15 @@ class FinanceController extends ChangeNotifier {
       }
       result = FinanceWriteResult.validation;
     } on FinanceConflict {
-      await _reportRefusedWrite(
+      final ownReloadFailed = await _reportRefusedWrite(
         idToken,
         refusedStatus: FinanceStatus.error,
         refusal: FinanceError.conflict,
         epoch: epoch,
       );
-      result = FinanceWriteResult.conflict;
+      result = ownReloadFailed
+          ? FinanceWriteResult.conflictReloadFailed
+          : FinanceWriteResult.conflict;
     } on FinanceNotFound {
       await _reportRefusedWrite(
         idToken,

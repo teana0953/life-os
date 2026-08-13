@@ -374,6 +374,27 @@ void main() {
     );
 
     testWidgets(
+      'a save hitting a reauth error shows the sign-in-again message, not '
+      'the generic save-failed copy',
+      (tester) async {
+        final repo = FakeFinanceRepository();
+        await pumpSheet(tester, repo: repo);
+
+        await tester.enterText(find.byKey(const Key('amount-field')), '250');
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('finance-category-cat-food')));
+        await tester.pump();
+        repo.failNext = const FinanceReauthenticationRequired();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.pleaseSignInAgain), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsNothing);
+      },
+    );
+
+    testWidgets(
       'editing an existing transaction pre-fills its fields and shows delete',
       (tester) async {
         final repo = FakeFinanceRepository();
@@ -461,6 +482,26 @@ void main() {
           find.byKey(const Key('finance-delete-button')),
         );
         expect(deleteButton.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'a delete hitting a reauth error shows the sign-in-again message, not '
+      'the generic save-failed copy',
+      (tester) async {
+        final repo = FakeFinanceRepository()
+          ..byMonth['2026-07'] = [_selfRecorded];
+        await pumpSheet(tester, repo: repo, editing: _selfRecorded);
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        await tester.tap(find.byKey(const Key('finance-delete-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('finance-delete-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.pleaseSignInAgain), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsNothing);
       },
     );
   });
@@ -870,6 +911,55 @@ void main() {
         // Still open, still typed-in, told the generic retryable failure —
         // NOT that the split changed (nothing was actually re-fetched) and
         // NOT that it moved out of the month (the reload never found out).
+        expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
+        expect(find.text(_en.financeSaveFailed), findsOneWidget);
+        expect(find.text(_en.financeSplitChangedReloaded), findsNothing);
+        expect(find.text(_en.financeSplitMovedOutOfMonth), findsNothing);
+        final chip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('finance-category-cat-transport')),
+        );
+        expect(chip.selected, isTrue);
+        expect(find.text('my own note'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "a 409 whose own reload itself 401s must not be read off "
+      '`reloadFailed` — `load` leaves that field false for a non-background '
+      '401 (round 5 blocker) — but must still be caught, not re-seeded from '
+      "the pre-save stale amount and not reported as the split having "
+      'moved out of the month.',
+      (tester) async {
+        final repo = seeded();
+        final controller = await pumpSheet(tester, repo: repo, editing: _mirror);
+
+        await tester.tap(find.byKey(const Key('finance-category-cat-transport')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const Key('finance-note-field')), 'my own note');
+        await tester.pump();
+
+        // Hold this sheet's own post-409 reload so the 401 can be set up for
+        // it specifically, after the write's own `failNext` (the conflict)
+        // has already been consumed.
+        repo.summaryGates[2] = Completer<void>();
+        repo.failNext = const FinanceConflict();
+        await tester.tap(find.byKey(const Key('save-transaction-button')));
+        await tester.pump();
+
+        repo.failNext = const FinanceReauthenticationRequired();
+        repo.summaryGates[2]!.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        // The bug this pins: a non-background 401 leaves `reloadFailed`
+        // false (`load`'s `needsReauth` branch), so a sheet gated on that
+        // field alone would wrongly fall through to re-seeding from the
+        // stale, pre-save `controller.transactions`.
+        expect(controller.reloadFailed, isFalse);
+        expect(
+          controller.transactions.firstWhere((t) => t.id == _mirror.id).amount,
+          900,
+        );
         expect(find.byKey(const Key('save-transaction-button')), findsOneWidget);
         expect(find.text(_en.financeSaveFailed), findsOneWidget);
         expect(find.text(_en.financeSplitChangedReloaded), findsNothing);

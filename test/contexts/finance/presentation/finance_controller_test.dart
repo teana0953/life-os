@@ -1420,7 +1420,12 @@ void main() {
         repo.addGate.complete();
         final result = await write;
 
-        expect(result, FinanceWriteResult.conflict);
+        // `conflictReloadFailed`, not `conflict`: this write's own reload ran
+        // to completion and did not land loaded (round 5 — #165's earlier
+        // design collapsed both into `conflict` and made a caller read
+        // `status`/`reloadFailed` to tell them apart, a shared field a
+        // concurrent call can also touch; the returned value now carries it).
+        expect(result, FinanceWriteResult.conflictReloadFailed);
         expect(
           controller.status,
           FinanceStatus.needsReauth,

@@ -259,12 +259,17 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       // with a `StateError` out of a save handler.
       //
       // **`controller.transactions` is shared, and this deliberately still
-      // reads it.** `_reportRefusedWrite` runs this write's own reload but,
-      // when a newer concurrent `load` supersedes it, leaves the data fields
-      // to that newer call (#165) — so the list read here may have been
-      // fetched by somebody else's call, for another month. The id gate below
-      // is what makes that safe, and it leaves exactly two outcomes, both
-      // pinned by tests in `add_transaction_sheet_test.dart`:
+      // reads it.** `result == FinanceWriteResult.conflict` (as opposed to
+      // `conflictReloadFailed`) is `_mutate`'s own guarantee — computed and
+      // returned from `_reportRefusedWrite` as this write's `Future` value,
+      // never read off a controller field a concurrent call could since have
+      // overwritten (#165, round 5) — that this write's own post-refusal
+      // reload either landed loaded, or was itself superseded by a *newer*
+      // concurrent `load` whose data fields are a valid current answer. So
+      // the list read here was fetched by this call or a fresher one, never
+      // by a reload that ran and failed. The id gate below is what makes
+      // reading a possibly-newer-call's list safe, and it leaves exactly two
+      // outcomes, both pinned by tests in `add_transaction_sheet_test.dart`:
       //
       // * a row with this id is present — then whichever call fetched it, it
       //   is the server's current facts *about this very row*, which is all
@@ -273,27 +278,11 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       //   this month" instead of re-seeding, i.e. it degrades by giving up,
       //   never by showing figures that belong to something else.
       //
-      // The alternative — re-seeding only when this write's *own* reload
-      // landed — needs a new controller→sheet channel saying so, which is a
-      // wider interface than #165's fix and would need invariants of its own.
-      // The cost of not having it is bounded: nothing here is written to the
-      // server, the user is being asked to re-confirm and press Save again,
-      // and that Save re-validates against the server — a re-seed from a list
-      // that had not refreshed yet simply earns a second 409, not wrong data.
-      // `controller.reloadFailed`: `_reportRefusedWrite` only re-paints the
-      // screen when *this write's own* reload actually landed — when it
-      // doesn't (a fetch failure, a 401), `controller.transactions` is left
-      // holding whatever was on screen *before* this save, i.e. stale data,
-      // not the server's current facts. Reading that as "fresh" here would
-      // tell the user their unsaved edits were replaced by a reload that
-      // never happened, and — worse — that a row genuinely still on the
-      // server "moved out of the month" just because the refresh that would
-      // have found it failed. Fall through to the generic retryable message
-      // instead, with the sheet (and what the user typed) left open.
-      if (controller.reloadFailed) {
-        messenger.showSnackBar(SnackBar(content: Text(loc.financeSaveFailed)));
-        return;
-      }
+      // A reload that ran and did not land (a fetch failure, a 401) reports
+      // `conflictReloadFailed` instead and never reaches this branch — see
+      // the fall-through to the generic retryable message below, which
+      // leaves the sheet (and what the user typed) open without touching
+      // `controller.transactions` at all.
       final reloaded = controller.transactions.where((t) => t.id == editing.id);
       final fresh = reloaded.isEmpty ? null : reloaded.first;
       if (fresh == null) {
