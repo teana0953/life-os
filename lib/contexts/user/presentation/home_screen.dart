@@ -21,8 +21,13 @@ const _contentMaxWidth = 960.0;
 
 /// The `_DashboardSection` `LayoutBuilder`'s **inner** width (screen width
 /// minus 20+20 page padding, 2+2 `LedgeCard` border, 14+14 `LedgeCard`
-/// padding = 72) below which the dashboard tiles stack into a single column
-/// instead of two.
+/// padding = 72) below which the **health** section's tiles stack into a
+/// single column instead of two.
+///
+/// Health-only: its tile labels/values are short (a weight, a blood
+/// pressure pair), so there is nothing in them that a hard line break can
+/// corrupt — see `_financeTwoColumnMinWidth` for why the finance section
+/// does not share this value.
 ///
 /// Measured (not guessed): at inner 258, the zh-Hant tile labels (e.g.
 /// 最新體重, 本月預算 — 4 CJK glyphs beside the 44pt privacy eye) still fit on
@@ -32,7 +37,21 @@ const _contentMaxWidth = 960.0;
 /// itself cannot overflow until inner ≈150, far narrower, so this is a
 /// readability threshold, not an overflow threshold. +2px margin for
 /// font-metric drift across Flutter/Quicksand versions.
-const _twoColumnMinWidth = 260.0;
+const _healthTwoColumnMinWidth = 260.0;
+
+/// The finance section's own version of `_healthTwoColumnMinWidth` — kept at
+/// the original, higher threshold instead of following health's drop to 260.
+///
+/// Finance tiles print money (e.g. 456,700 / 9,999,999), and a narrow
+/// two-column tile forces `Text` to hard-wrap a thousands-grouped number
+/// mid-digit (`456,70` / `0` on its own line) — a wrap that turns the figure
+/// into a different, misread number rather than merely a cramped one. That
+/// is a materially worse failure than a label breaking to a second line, so
+/// this section deliberately does not follow health's threshold down; at the
+/// widths this matters for (e.g. 360/361dp), the finance section simply
+/// stays a single, full-width column, which never needs to break a number at
+/// all.
+const _financeTwoColumnMinWidth = 330.0;
 
 enum GreetingPeriod { morning, afternoon, evening }
 
@@ -449,6 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceHealth,
             openLabel: loc.homeOpenHealth,
             onOpen: _openHealth,
+            twoColumnMinWidth: _healthTwoColumnMinWidth,
             children: [
               _maskableTile(
                 tileKey: const Key('home-latest-weight'),
@@ -485,6 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceFinance,
             openLabel: loc.homeOpenFinance,
             onOpen: _openFinance,
+            twoColumnMinWidth: _financeTwoColumnMinWidth,
             children: [
               // The destination is part of the tuple, not a shared `_openFinance`
               // for the whole loop: this placeholder block is the state a
@@ -575,6 +596,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceHealth,
           openLabel: loc.homeOpenHealth,
           onOpen: _openHealth,
+          twoColumnMinWidth: _healthTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-latest-weight'),
@@ -618,6 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceFinance,
           openLabel: loc.homeOpenFinance,
           onOpen: _openFinance,
+          twoColumnMinWidth: _financeTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-budget'),
@@ -772,6 +795,12 @@ class _DashboardSection extends StatelessWidget {
   final VoidCallback onOpen;
   final List<Widget> children;
 
+  /// Inner-width breakpoint below which this section's tiles stack into a
+  /// single column. Caller-supplied (not a shared file-level constant) so
+  /// each call site names which threshold it wants — see
+  /// `_healthTwoColumnMinWidth`/`_financeTwoColumnMinWidth`.
+  final double twoColumnMinWidth;
+
   const _DashboardSection({
     required this.sectionKey,
     required this.openKey,
@@ -779,6 +808,7 @@ class _DashboardSection extends StatelessWidget {
     required this.openLabel,
     required this.onOpen,
     required this.children,
+    required this.twoColumnMinWidth,
   });
 
   @override
@@ -803,7 +833,7 @@ class _DashboardSection extends StatelessWidget {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
-              final singleColumn = constraints.maxWidth < _twoColumnMinWidth;
+              final singleColumn = constraints.maxWidth < twoColumnMinWidth;
               final tileWidth = singleColumn
                   ? constraints.maxWidth
                   : (constraints.maxWidth - 10) / 2;

@@ -20,6 +20,16 @@ import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
 import 'home_screen_test.dart' show loadedDashboardFixture, testPrivacyMaskController;
 
+/// TWD amount used to build the "not split mid-digit" fixture below —
+/// spelled out here so both the fixture and its assertions read the same
+/// literal instead of two independently-typed copies of "456700".
+const _budgetRemainingMinorUnits = 456700;
+
+/// TWD amount for the same fixture's net-worth tile — a different value from
+/// [_budgetRemainingMinorUnits] on purpose, so a `find.text` lookup for
+/// either printed string can never match both tiles.
+const _netWorthMinorUnits = 9999999;
+
 class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile> getProfile(String idToken) async => UserProfile(
@@ -182,6 +192,44 @@ HomeDashboardController _evenValuesFixture() =>
         splitBalances: [],
       );
 
+/// A loaded dashboard whose finance figures are two concrete, human-scale
+/// amounts — `456,700` (behind 本月預算's "剩餘 …" wrapper) and `9,999,999`
+/// (printed bare on 淨值) — the pair the Samsung Flip7 regression (issue
+/// #189) was actually about: at 360/361dp a thousands-grouped number used to
+/// get hard-wrapped mid-digit (`456,70` / `0`). Neither figure needs to be
+/// the *longest* the screen can print (that's `_longestRealisticFixture` /
+/// `_longestValuesFixture`, which guard illegibility from length) — this
+/// fixture exists only to pin two exact, greppable strings a
+/// `paintedLineCountOfPart` check can look for.
+HomeDashboardController _financeAmountsFixture() =>
+    loadedDashboardFixture()
+      ..data = const HomeDashboardData(
+        weightGoal: WeightGoal(currentWeightKg: 62.5),
+        bloodPressure: null,
+        menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
+        overallBudget: FinanceBudget(
+          id: 'b1',
+          categoryId: null,
+          amount: 500000,
+          spent: 43300,
+          remaining: _budgetRemainingMinorUnits,
+          percent: 9,
+        ),
+        netWorth: MonthlyNetWorth(
+          month: '2026-01',
+          accounts: [],
+          totalAsset: _netWorthMinorUnits,
+          // Deliberately not equal to `_netWorthMinorUnits`: 總負債 prints the
+          // same bare-number format as 淨值, and an identical value would
+          // make `find.text('9,999,999')` match two tiles instead of one.
+          totalLiability: 8765432,
+          netWorth: _netWorthMinorUnits,
+          prevNetWorth: null,
+          growthRate: null,
+        ),
+        splitBalances: [],
+      );
+
 class _Pumped {
   final HomeController controller;
   final PrivacyMaskController mask;
@@ -320,12 +368,17 @@ void main() {
         );
         expect(find.byKey(const Key('primary-navigation-bar')), findsNothing);
 
-        // 360dp crossed the breakpoint (plan §0/§3: was single column below
-        // ~402dp, now two above ~332dp) — name and assert it, so a future
-        // threshold move that puts 360dp back on the single-column side
-        // fails loudly here instead of silently changing what this test
+        // 360dp crossed the HEALTH breakpoint (plan §0/§3: was single column
+        // below ~402dp, now two above ~332dp) — name and assert it, so a
+        // future threshold move that puts 360dp back on the single-column
+        // side fails loudly here instead of silently changing what this test
         // covers.
         expect(_isTwoColumns(tester, _healthTiles), isTrue);
+        // Finance did NOT move — it keeps the original, higher threshold
+        // (issue #189: a two-column finance tile at this width hard-wraps a
+        // money value mid-digit). See the "Samsung Flip7 breakpoint" group
+        // below for the dedicated regression coverage.
+        expect(_isTwoColumns(tester, _financeTiles), isFalse);
       },
     );
 
@@ -339,6 +392,103 @@ void main() {
         find.byKey(const Key('finance-dashboard-section')),
         findsOneWidget,
       );
+    });
+  });
+
+  group('Samsung Flip7 breakpoint (issue #189)', () {
+    // The user's two actually-measured real-device widths: outer screen
+    // 361px, inner screen 360px. Each gets its own test (not a loop) so a
+    // regression on just one of the two fails with that width in the test
+    // name, not buried inside a shared failure message.
+    for (final width in [360.0, 361.0]) {
+      testWidgets(
+        '${width.toInt()}dp: health section is two columns, '
+        'finance section stays one column',
+        (tester) async {
+          await _pumpAt(
+            tester,
+            Size(width, 900),
+            dashboardController: _financeAmountsFixture(),
+            locale: _zhHant,
+            strict: true,
+          );
+
+          expect(
+            _isTwoColumns(tester, _healthTiles),
+            isTrue,
+            reason: 'health section should be two columns at ${width}dp',
+          );
+          expect(
+            _isTwoColumns(tester, _financeTiles),
+            isFalse,
+            reason: 'finance section should stay one column at ${width}dp',
+          );
+        },
+      );
+
+      testWidgets(
+        '${width.toInt()}dp LINCHPIN: finance amounts are not split mid-digit',
+        (tester) async {
+          await _pumpAt(
+            tester,
+            Size(width, 900),
+            dashboardController: _financeAmountsFixture(),
+            locale: _zhHant,
+            strict: true,
+          );
+
+          // "456,700" lives inside 本月預算's "剩餘 456,700" wrapper —
+          // `find.text` needs the substring form, not an exact match.
+          final budgetValue = find.descendant(
+            of: find.byKey(const Key('home-budget')),
+            matching: find.textContaining('456,700'),
+          );
+          expect(
+            paintedLineCountOfPart(tester, budgetValue, '456,700'),
+            1,
+            reason: '本月預算 value at ${width}dp',
+          );
+
+          final netWorthValue = find.descendant(
+            of: find.byKey(const Key('home-net-worth')),
+            matching: find.textContaining('9,999,999'),
+          );
+          expect(
+            paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
+            1,
+            reason: '淨值 value at ${width}dp',
+          );
+        },
+      );
+    }
+
+    testWidgets('320dp: both sections stay one column', (tester) async {
+      // Default (English) locale, matching every other 320dp test in this
+      // file — the pre-existing known section-header overflow `_pumpAt`
+      // tolerates is measured against that locale, and this boolean
+      // one-column-vs-two check does not depend on locale anyway (it is
+      // purely a width-vs-threshold comparison).
+      await _pumpAt(
+        tester,
+        _narrow,
+        dashboardController: loadedDashboardFixture(),
+      );
+
+      expect(_isTwoColumns(tester, _healthTiles), isFalse);
+      expect(_isTwoColumns(tester, _financeTiles), isFalse);
+    });
+
+    testWidgets('420dp: both sections go two columns', (tester) async {
+      await _pumpAt(
+        tester,
+        const Size(420, 900),
+        dashboardController: loadedDashboardFixture(),
+        locale: _zhHant,
+        strict: true,
+      );
+
+      expect(_isTwoColumns(tester, _healthTiles), isTrue);
+      expect(_isTwoColumns(tester, _financeTiles), isTrue);
     });
   });
 
@@ -554,16 +704,20 @@ void main() {
     );
   });
 
-  group('dashboard two-column breakpoint', () {
+  group('health section two-column breakpoint (260)', () {
     // Inner-width (LayoutBuilder's `constraints.maxWidth`) is
     // `screenWidth − 72` (plan §0: 20+20 page padding, 2+2 LedgeCard border,
     // 14+14 LedgeCard padding). 332 → inner 260 (two columns), 330 → inner
-    // 258 (single column, measured floor — plan §2b).
+    // 258 (single column, measured floor — plan §2b). This pair only crosses
+    // the HEALTH threshold (`_healthTwoColumnMinWidth` = 260) — the finance
+    // section's own threshold is 330, so finance stays single column at both
+    // of these widths and every assertion below that names a specific tile
+    // deliberately reads a health tile, not a finance one.
     const aboveSize = Size(332, 2000);
     const belowSize = Size(330, 2000);
 
     testWidgets(
-      'B1 LINCHPIN: the breakpoint sits where measured, with a fixture on each side',
+      'B1 LINCHPIN: the health breakpoint sits where measured, with a fixture on each side',
       (tester) async {
         await _pumpAt(
           tester,
@@ -583,7 +737,7 @@ void main() {
     );
 
     testWidgets(
-      'B1 LINCHPIN: just below the breakpoint stays single column',
+      'B1 LINCHPIN: just below the health breakpoint stays single column',
       (tester) async {
         await _pumpAt(
           tester,
@@ -604,7 +758,7 @@ void main() {
     );
 
     testWidgets(
-      'B2 LINCHPIN: the threshold is the measured legibility floor, not an arbitrary number',
+      'B2 LINCHPIN: the health threshold is the measured legibility floor, not an arbitrary number',
       (tester) async {
         await _pumpAt(
           tester,
@@ -630,8 +784,12 @@ void main() {
         }
 
         // Every tile label sits on exactly one line and every value on at
-        // most two, at the measured floor (plan §2b: inner 258 → labels 1
-        // line, values ≤2 lines, 0 layout errors).
+        // most two. For health this is exactly the measured floor (plan
+        // §2b: inner 258 → labels 1 line, values ≤2 lines, 0 layout errors);
+        // finance is single-column at inner 258 too (its own, higher
+        // threshold), which gives it a whole 258px-wide tile — an easier
+        // case, but still worth asserting so a regression there doesn't slip
+        // through unnoticed.
         for (final label in const [
           '最新體重',
           '食物份量工具',
@@ -654,7 +812,10 @@ void main() {
     );
 
     testWidgets(
-      'B3: the finance section sits higher on screen once two columns kick in',
+      'B3: the finance section sits higher on screen once the health section '
+      'goes two columns (the whole reason for the split threshold: a shorter '
+      'health section pulls finance up instead of leaving it stranded below '
+      'the fold)',
       (tester) async {
         await _pumpAt(
           tester,
