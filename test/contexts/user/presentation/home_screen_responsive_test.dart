@@ -478,18 +478,58 @@ void main() {
       expect(_isTwoColumns(tester, _financeTiles), isFalse);
     });
 
-    testWidgets('420dp: both sections go two columns', (tester) async {
-      await _pumpAt(
-        tester,
-        const Size(420, 900),
-        dashboardController: loadedDashboardFixture(),
-        locale: _zhHant,
-        strict: true,
-      );
+    testWidgets(
+      '420dp: health is two columns, finance stays one '
+      '(too narrow for a 2-column finance tile to hold 9,999,999 on one line)',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          const Size(420, 900),
+          dashboardController: _financeAmountsFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
 
-      expect(_isTwoColumns(tester, _healthTiles), isTrue);
-      expect(_isTwoColumns(tester, _financeTiles), isTrue);
-    });
+        expect(_isTwoColumns(tester, _healthTiles), isTrue);
+        expect(_isTwoColumns(tester, _financeTiles), isFalse);
+      },
+    );
+
+    testWidgets(
+      '430dp LINCHPIN: both sections go two columns without splitting money',
+      (tester) async {
+        await _pumpAt(
+          tester,
+          const Size(430, 900),
+          dashboardController: _financeAmountsFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+
+        expect(_isTwoColumns(tester, _healthTiles), isTrue);
+        expect(_isTwoColumns(tester, _financeTiles), isTrue);
+
+        final budgetValue = find.descendant(
+          of: find.byKey(const Key('home-budget')),
+          matching: find.textContaining('456,700'),
+        );
+        expect(
+          paintedLineCountOfPart(tester, budgetValue, '456,700'),
+          1,
+          reason: '本月預算 value at 430dp',
+        );
+
+        final netWorthValue = find.descendant(
+          of: find.byKey(const Key('home-net-worth')),
+          matching: find.textContaining('9,999,999'),
+        );
+        expect(
+          paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
+          1,
+          reason: '淨值 value at 430dp',
+        );
+      },
+    );
   });
 
   group('HomeScreen privacy eye at 320dp', () {
@@ -758,7 +798,11 @@ void main() {
     );
 
     testWidgets(
-      'B2 LINCHPIN: the health threshold is the measured legibility floor, not an arbitrary number',
+      'B2: at the two-column tile width, no health/finance label wraps '
+      '(a font/label-change guard — NOT a threshold guard: it renders only '
+      'at 332dp and is insensitive to `_healthTwoColumnMinWidth`\'s value; '
+      'the threshold itself is pinned by B1 above and by the 320dp guard in '
+      'the privacy-eye group)',
       (tester) async {
         await _pumpAt(
           tester,
@@ -790,7 +834,7 @@ void main() {
         // threshold), which gives it a whole 258px-wide tile — an easier
         // case, but still worth asserting so a regression there doesn't slip
         // through unnoticed.
-        for (final label in const [
+        const labels = [
           '最新體重',
           '食物份量工具',
           '上次血壓',
@@ -799,15 +843,21 @@ void main() {
           '淨值',
           '總負債',
           '分帳總覽',
-        ]) {
+        ];
+        final found = <String>[];
+        for (final label in labels) {
           final finder = find.text(label);
           if (finder.evaluate().isEmpty) continue;
+          found.add(label);
           expect(
             paintedTextLineCount(tester, finder),
             equals(1),
             reason: label,
           );
         }
+        // A renamed/removed l10n string must fail loudly here, not silently
+        // shrink the loop above to fewer assertions.
+        expect(found, labels, reason: 'every expected label must be found');
       },
     );
 
@@ -852,7 +902,8 @@ void main() {
     testWidgets(
       'B4: no overflow, no truncation, at and just below the threshold '
       '(NOTE: does not fail if the threshold is lowered — the tile cannot '
-      'overflow until inner ≈150, plan §2a; B2/B3 guard the threshold itself)',
+      'overflow until inner ≈150, plan §2a; B1 pins the threshold itself, '
+      'B2 only guards label wrapping at the resulting tile width)',
       (tester) async {
         for (final locale in [const Locale('en'), _zhHant]) {
           for (final size in [aboveSize, belowSize]) {

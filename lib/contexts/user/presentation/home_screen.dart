@@ -30,8 +30,8 @@ const _contentMaxWidth = 960.0;
 /// does not share this value.
 ///
 /// Measured (not guessed): at inner 258, the zh-Hant tile labels (e.g.
-/// 最新體重, 本月預算 — 4 CJK glyphs beside the 44pt privacy eye) still fit on
-/// one line and the money value on at most two, with zero layout errors. At
+/// 最新體重, 生理週期預測 — CJK glyphs beside the 44pt privacy eye) still fit on
+/// one line and the value on at most two, with zero layout errors. At
 /// inner 256 the labels break to two lines; at inner 254 the value also
 /// breaks to three. So 258 is the measured legibility floor — the tile
 /// itself cannot overflow until inner ≈150, far narrower, so this is a
@@ -39,19 +39,27 @@ const _contentMaxWidth = 960.0;
 /// font-metric drift across Flutter/Quicksand versions.
 const _healthTwoColumnMinWidth = 260.0;
 
-/// The finance section's own version of `_healthTwoColumnMinWidth` — kept at
-/// the original, higher threshold instead of following health's drop to 260.
+/// The finance section's own version of `_healthTwoColumnMinWidth` — kept far
+/// above health's 260, because a narrow finance tile doesn't just cramp, it
+/// corrupts.
 ///
-/// Finance tiles print money (e.g. 456,700 / 9,999,999), and a narrow
-/// two-column tile forces `Text` to hard-wrap a thousands-grouped number
-/// mid-digit (`456,70` / `0` on its own line) — a wrap that turns the figure
-/// into a different, misread number rather than merely a cramped one. That
-/// is a materially worse failure than a label breaking to a second line, so
-/// this section deliberately does not follow health's threshold down; at the
-/// widths this matters for (e.g. 360/361dp), the finance section simply
-/// stays a single, full-width column, which never needs to break a number at
-/// all.
-const _financeTwoColumnMinWidth = 330.0;
+/// Finance tiles print money (e.g. 456,700 / 9,999,999), and a two-column
+/// tile that's too narrow forces `Text` to hard-wrap a thousands-grouped
+/// number mid-digit (`456,70` / `0` on its own line) — a wrap that turns the
+/// figure into a different, misread number rather than merely a cramped one.
+/// An earlier version of this constant (330) only pushed that failure out to
+/// a different width instead of removing it: at inner 330–355 (screen
+/// 402–427dp — ordinary widths, e.g. iPhone 16 Pro at 402 and Pixel 8/9 at
+/// 412) the section *did* go two columns, at a tile width too narrow for a
+/// 7-digit amount, and `9,999,999` split exactly as above.
+///
+/// Measured (not guessed): a two-column finance tile only holds `9,999,999`
+/// on one line, at every width tested, from tile width 171.5 up (170.75
+/// still splits it). That puts the floor at inner 353 (tileWidth =
+/// (inner-10)/2 = 171.5). This constant adds a margin on top of that floor,
+/// the same way `_healthTwoColumnMinWidth` does, rather than sitting exactly
+/// on the measured edge.
+const _financeTwoColumnMinWidth = 356.0;
 
 enum GreetingPeriod { morning, afternoon, evening }
 
