@@ -47,19 +47,26 @@ const _healthTwoColumnMinWidth = 260.0;
 /// tile that's too narrow forces `Text` to hard-wrap a thousands-grouped
 /// number mid-digit (`456,70` / `0` on its own line) — a wrap that turns the
 /// figure into a different, misread number rather than merely a cramped one.
-/// An earlier version of this constant (330) only pushed that failure out to
-/// a different width instead of removing it: at inner 330–355 (screen
-/// 402–427dp — ordinary widths, e.g. iPhone 16 Pro at 402 and Pixel 8/9 at
-/// 412) the section *did* go two columns, at a tile width too narrow for a
-/// 7-digit amount, and `9,999,999` split exactly as above.
+/// This constant (330) removes that failure for the Samsung Flip7 width the
+/// bug was actually filed against (issue #189: inner 288–359, screen
+/// 360–431dp) *only up to where the section goes two columns* — inner 330
+/// keeps the section single-column through screen 332–401dp, so there is no
+/// two-column tile at those widths to split anything.
 ///
-/// Measured (not guessed): a two-column finance tile only holds `9,999,999`
-/// on one line, at every width tested, from tile width 171.5 up (170.75
-/// still splits it). That puts the floor at inner 353 (tileWidth =
-/// (inner-10)/2 = 171.5). This constant adds a margin on top of that floor,
-/// the same way `_healthTwoColumnMinWidth` does, rather than sitting exactly
-/// on the measured edge.
-const _financeTwoColumnMinWidth = 356.0;
+/// It does **not** hold once the section actually goes two columns. Measured
+/// (not guessed): a two-column finance tile only holds `9,999,999` on one
+/// line from tile width 171.5 up (170.75 still splits it) — tileWidth =
+/// (inner-10)/2, inner = screenWidth-72. At screen 402–427dp (inner
+/// 330–355, tileWidth 160–171 — ordinary widths: iPhone 16 Pro at 402,
+/// Pixel 8/9 at 412) the section is two columns *and* the tile is narrower
+/// than that floor, so `9,999,999` splits mid-digit again. The floor isn't
+/// reached until inner 353 (tileWidth 171.5), i.e. screen ≈430dp. Raising
+/// this constant to 356 would close that gap by keeping finance
+/// single-column through it, but at the cost of losing two-column finance
+/// entirely on 402–427dp phones — out of scope for #189 (which is about the
+/// 360/361dp regression, not density on other widths) and tracked
+/// separately as **issue #190**.
+const _financeTwoColumnMinWidth = 330.0;
 
 enum GreetingPeriod { morning, afternoon, evening }
 
