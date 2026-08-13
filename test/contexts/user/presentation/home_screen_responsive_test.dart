@@ -506,7 +506,10 @@ void main() {
           expect(
             _isTwoColumns(tester, _financeTiles),
             isTrue,
-            reason: 'finance section should be two columns at ${width}dp',
+            reason:
+                'characterization only (issue #190): today finance is two '
+                'columns at ${width}dp. If this is RED because you FIXED '
+                '#190, update this expectation — do not revert your fix.',
           );
 
           final netWorthValue = find.descendant(
@@ -519,7 +522,10 @@ void main() {
           expect(
             paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
             2,
-            reason: '淨值 value at ${width}dp splits mid-digit (issue #190)',
+            reason:
+                'characterization only (issue #190): today 9,999,999 spans '
+                '2 lines at ${width}dp. If this is RED because you FIXED '
+                '#190, update this expectation — do not revert your fix.',
           );
         },
       );

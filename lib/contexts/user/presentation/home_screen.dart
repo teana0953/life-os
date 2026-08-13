@@ -56,14 +56,14 @@ const _healthTwoColumnMinWidth = 260.0;
 /// It does **not** hold once the section actually goes two columns. Measured
 /// (not guessed): a two-column finance tile only holds `9,999,999` on one
 /// line from tile width 171.5 up (170.75 still splits it) — tileWidth =
-/// (inner-10)/2, inner = screenWidth-72. At screen 402–427dp (inner
-/// 330–355, tileWidth 160–171 — ordinary widths: iPhone 16 Pro at 402,
+/// (inner-10)/2, inner = screenWidth-72. At screen 402–424dp (inner
+/// 330–352, tileWidth 160–171 — ordinary widths: iPhone 16 Pro at 402,
 /// Pixel 8/9 at 412) the section is two columns *and* the tile is narrower
 /// than that floor, so `9,999,999` splits mid-digit again. The floor isn't
-/// reached until inner 353 (tileWidth 171.5), i.e. screen ≈430dp. Raising
-/// this constant to 356 would close that gap by keeping finance
+/// reached until inner 353 (tileWidth 171.5), i.e. screen 425dp (inner 353).
+/// Raising this constant to 356 would close that gap by keeping finance
 /// single-column through it, but at the cost of losing two-column finance
-/// entirely on 402–427dp phones — out of scope for #189 (which is about the
+/// entirely on 402–424dp phones — out of scope for #189 (which is about the
 /// 360/361dp regression, not density on other widths) and tracked
 /// separately as **issue #190**.
 const _financeTwoColumnMinWidth = 330.0;
