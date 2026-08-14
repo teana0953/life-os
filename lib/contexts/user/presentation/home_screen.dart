@@ -33,7 +33,7 @@ const _contentMaxWidth = 960.0;
 /// breaks to three. So 258 is the measured legibility floor — the tile
 /// itself cannot overflow until inner ≈150, far narrower, so this is a
 /// readability threshold, not an overflow threshold. +2px margin for
-/// font-metric drift across Flutter/Quicksand versions.
+/// font-metric drift across Flutter/Noto Sans versions.
 ///
 /// **Why finance no longer has its own, higher threshold.** It used to be
 /// 330, on the reasoning that a narrow finance tile doesn't just cramp, it

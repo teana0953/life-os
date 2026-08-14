@@ -14,7 +14,7 @@ const _cardRadius = 22.0;
 const _inputRadius = 14.0;
 const _pillRadius = 999.0;
 const _borderWidth = 2.0;
-const _fontFamily = 'Quicksand';
+const _fontFamily = 'NotoSans';
 
 /// Per-food-group colors for the diet module (staple/meat/fruit/veg),
 /// registered as a `ThemeData.extensions` entry on both themes. Screens read

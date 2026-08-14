@@ -86,13 +86,18 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # Design-system rounded font: Quicksand (SIL OFL 1.1), bundled offline for
-  # test reliability. License: assets/fonts/OFL.txt.
+  # Design-system font: Noto Sans (SIL OFL 1.1), bundled offline for test
+  # reliability. License: assets/fonts/OFL.txt. The bundled file is a SUBSET
+  # of the upstream variable font (182 KB raw / 122 KB gzip, vs 2.0 MB / 1.2 MB
+  # for the full one) — see CLAUDE.md "Design system" for the exact
+  # regeneration command and the covered Unicode ranges. It keeps both `fvar`
+  # axes (wght 100–900, wdth 62.5–100), so the `weight: 700` registration
+  # below is real.
   fonts:
-    - family: Quicksand
+    - family: NotoSans
       fonts:
-        - asset: assets/fonts/Quicksand-VariableFont_wght.ttf
-        - asset: assets/fonts/Quicksand-VariableFont_wght.ttf
+        - asset: assets/fonts/NotoSans-Subset-VariableFont.ttf
+        - asset: assets/fonts/NotoSans-Subset-VariableFont.ttf
           weight: 700
 
   # To add custom fonts to your application, add a fonts section here,

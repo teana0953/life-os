@@ -186,11 +186,67 @@ rationale.
   `CustomPaint` round face (not a reproduction of any existing
   character), themed from `Theme.of(context).colorScheme`. Sized via
   the `size` constructor parameter.
-- **Font**: Quicksand (SIL OFL 1.1), bundled offline at
-  `assets/fonts/Quicksand-VariableFont_wght.ttf` and registered as the
-  `Quicksand` family in `pubspec.yaml` (license: `assets/fonts/OFL.txt`).
+- **Design-language note**: this is a change of visual tone, not just a
+  token swap. The original design spec
+  (`openspec/changes/archive/2026-07-17-add-design-system/design.md`,
+  now archived) named an OFL **rounded** sans (Baloo 2 or Quicksand) as
+  the font carrier of the "Chiikawa-inspired cute pastel" language.
+  Issue #194 supersedes that one line: Noto Sans is a neutral humanist
+  grotesque, not rounded. The cute/pastel tone is still carried by the
+  rest of the system unchanged — the 20–22px corner radius, the 2px
+  outline border, the toy-ledge shadow, the pastel token palette and the
+  mascot — the font's role in it is deliberately retired, not an
+  oversight.
+- **Font**: Noto Sans (SIL OFL 1.1), bundled offline at
+  `assets/fonts/NotoSans-Subset-VariableFont.ttf` and registered as the
+  `NotoSans` family in `pubspec.yaml` (license: `assets/fonts/OFL.txt`).
   Bundled rather than fetched at runtime so it works offline and in
-  tests. Applied via `ThemeData.fontFamily`, not per-widget.
+  tests. Applied via `ThemeData.fontFamily`, not per-widget. The same
+  family name is repeated in `web/index.html`'s pre-Flutter splash CSS —
+  change both together, or the splash silently falls back to a system
+  font (unverified whether Flutter web's CanvasKit/skwasm renderers
+  actually expose the bundled text font as a CSS `@font-face` the splash
+  can pick up — confirm in a browser via
+  `Array.from(document.fonts).map(f => f.family)` before relying on the
+  stated mechanism).
+  - **The bundled file is a subset**, not the upstream variable font:
+    232,860 B raw / 149,373 B gzip, against 2,049,096 B / 1,192,786 B for
+    the full one. Flutter web tree-shakes *icon* fonts only, never text
+    fonts, so the whole file ships — the subset is what keeps this a
+    +83 KB (gzip) change over the Quicksand it replaced (124,824 B /
+    66,113 B).
+  - **Regenerate it with exactly this command** (source font:
+    google/fonts `ofl/notosans/NotoSans[wdth,wght].ttf`), or nobody can
+    reproduce the shipped file:
+
+    ```
+    python3 -m fontTools.subset NotoSans.ttf --unicodes="U+0000-00FF,U+0100-017F,U+2000-206F,U+2070-209F,U+20A0-20BF" --layout-features="*" --output-file=NotoSans-subset.ttf
+    ```
+
+    That is Latin-1 + Latin Extended-A (for names like Łukasz/Ćwik) +
+    general punctuation + super/subscripts (needed for `vitalsSpo2Label`'s
+    "SpO₂") + currency: 506 codepoints / 769 glyphs. **The upstream font
+    has no arrow, math-operator or misc-symbol glyphs at all** (checked
+    directly against its cmap) — the `→` used in `homeOpenHealth` /
+    `settingsInstallIosHint` / `splitScheduleAdjusted` /
+    `splitActivityAmountChange` is drawn by the platform fallback font,
+    not this one, regardless of unicode range requested. Both `fvar` axes
+    survive (wght 100–900 default 400, wdth 62.5–100 default 100); the
+    `weight: 700` registration in `pubspec.yaml` selects that axis on
+    platforms that render variable fonts by weight, but this has **not**
+    been confirmed on-device or in a web build — a `FontLoader` in a
+    widget test only ever renders the default (400) instance, so nothing
+    in this repo's test suite can tell 700 apart from 400 (see caveat 1 in
+    `real_font_metrics_test.dart`). There is **no** CJK, Greek, Cyrillic
+    or Vietnamese in it — Chinese has always come from the platform
+    fallback font and still does.
+  - **Widget tests cannot see the font family.** `flutter_test` paints one
+    `fontSize`-sized square per glyph whatever the family is, so every
+    layout guard in `test/` is byte-identical under any font. A green
+    `flutter test` means the logic still works, never that the layout
+    still fits. `test/shared/theme/real_font_metrics_test.dart` is the one
+    file that loads the real `.ttf` (via `FontLoader`) before pumping —
+    extend it, not the ordinary guards, when a change is about metrics.
 - **Screens**: derive all colors, shapes, and text styles from
   `Theme.of(context)` — never hard-code a `Color(...)` or use
   `Colors.*` in presentation code.

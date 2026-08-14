@@ -220,7 +220,7 @@ class AssistantMarkdown extends StatelessWidget {
     // ambient DefaultTextStyle onto whatever it's given, and measuring the
     // raw `style` instead silently under-sizes the gutter whenever the
     // caller passes a style with gaps (assistant_screen.dart only sets
-    // `color`, so it merges up to the theme's Quicksand body style).
+    // `color`, so it merges up to the theme's Noto Sans body style).
     final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
     final effectiveBold = DefaultTextStyle.of(context).style.merge(bold);
     final scaler = MediaQuery.textScalerOf(context);
