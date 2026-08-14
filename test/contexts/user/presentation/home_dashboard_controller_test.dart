@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
 import 'package:life_os/contexts/finance/application/list_finance_budgets.dart';
 import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
+import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
 import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
@@ -20,6 +21,7 @@ void main() {
         ListFinanceBudgets(repos),
         GetMonthlyNetWorth(repos),
         GetBalances(repos),
+        GetDailyTargetWithRemaining(repos),
       );
 
   test('a successful load stamps lastLoadedAt with the `now` it was given', () async {
@@ -30,6 +32,86 @@ void main() {
 
     expect(controller.status, HomeDashboardStatus.loaded);
     expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 9, 30));
+  });
+
+  test(
+    'the fan-out asks the daily-target arm for the calendar day of the `now` '
+    'it was handed, and keeps the answer',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+
+      // Just after local midnight, so that in a UTC+n zone `now.toUtc()`
+      // falls on the PREVIOUS calendar day: the arm must be asked for the
+      // day the screen is showing, which is the local date.
+      //
+      // Honest caveat: that half of it is only observable where local time
+      // is not UTC. Measured — replacing `dayString(now)` with
+      // `dayString(now.toUtc())` fails this test at the machine's UTC+8 but
+      // survives under `TZ=UTC`, where the two are the same string. What
+      // fails in BOTH is asking for any other day at all (measured with
+      // `now.subtract(const Duration(days: 1))`).
+      await controller.load('tok', DateTime(2026, 3, 1, 0, 30));
+
+      expect(repos.targetDays, ['2026-03-01']);
+      expect(controller.data!.dailyTarget!.effective.staple, 10);
+      expect(controller.data!.dailyTarget!.effective.veg, 2);
+    },
+  );
+
+  // ---- the daily-target arm is the ONLY one allowed to fail on its own.
+  //
+  // These two are a pair and have to stay one: the first says a failing
+  // target arm does not take the dashboard down, the second says a failing
+  // *dashboard* still does. They are deliberately on opposite sides of the
+  // same seam.
+  //
+  // Measured by mutation, and one result is an honest caveat:
+  //
+  // | mutation | result |
+  // | --- | --- |
+  // | drop the target arm's `onError` | RED — `Expected: loaded / Actual: error` |
+  // | catch block sets `loaded` instead of `error` | RED — `Expected: error / Actual: loaded` |
+  // | give the other six arms an `onError => null` too | **GREEN** |
+  //
+  // That last one survives, and not because the second test is vacuous: with
+  // the six arms nulled, `results[0] as WeightGoal` throws on the null and
+  // the catch below still reports `error`. So the mutant is not the
+  // regression it looks like, and the assertion this file *can* make about
+  // "only one arm degrades" is the field-by-field check in the first test —
+  // not a claim that the other six could never be given their own fallback.
+  test(
+    'the daily-target arm failing alone degrades that one field to null and '
+    'leaves the other six loaded',
+    () async {
+      final repos = FakeDashboardRepositories();
+      repos.failingArms.add('target');
+      final controller = controllerFor(repos);
+
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+      expect(controller.status, HomeDashboardStatus.loaded);
+      expect(controller.data!.dailyTarget, isNull);
+      // The six that must have survived — named individually, so a future
+      // blanket `onError` on another arm cannot hide behind this one.
+      expect(controller.data!.weightGoal.currentWeightKg, 62.5);
+      expect(controller.data!.bloodPressure, isNull);
+      expect(controller.data!.menstrualStatus, isNotNull);
+      expect(controller.data!.overallBudget, isNotNull);
+      expect(controller.data!.netWorth.netWorth, 530900);
+      expect(controller.data!.splitBalances, hasLength(1));
+    },
+  );
+
+  test('a whole-fan-out failure is still the error state, not a blank load', () async {
+    final repos = FakeDashboardRepositories();
+    repos.fail = true;
+    final controller = controllerFor(repos);
+
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+    expect(controller.status, HomeDashboardStatus.error);
+    expect(controller.data, isNull);
   });
 
   test('a failed load leaves lastLoadedAt exactly where it was', () async {

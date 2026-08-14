@@ -148,10 +148,46 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeFoodPortionTool => 'Food portion tool';
+  String get homeFoodPortion => 'Portions';
 
   @override
-  String get homeFoodPortionButton => 'Look up portion guide';
+  String homeFoodPortionTargetFull(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+    String veg,
+    String vegIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon $veg$vegIcon';
+  }
+
+  @override
+  String homeFoodPortionTargetShort(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon…';
+  }
+
+  @override
+  String homeFoodPortionTargetSemantics(
+    String staple,
+    String meat,
+    String fruit,
+    String veg,
+  ) {
+    return 'Today\'s target: staple $staple, meat $meat, fruit $fruit, vegetable $veg servings';
+  }
+
+  @override
+  String get homeFoodPortionButton => 'Open Portions';
 
   @override
   String get homeLatestBloodPressure => 'Latest blood pressure';
@@ -508,10 +544,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dietDictionaryTitle => 'Food portion tool';
+  String get dietDictionaryTitle => 'Portions';
 
   @override
-  String get dietOpenDictionaryTooltip => 'Open the portion tool';
+  String get dietOpenDictionaryTooltip => 'Open Portions';
 
   @override
   String get dietChooseMealSheetTitle => 'Add to which meal?';

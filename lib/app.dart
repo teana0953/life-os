@@ -1434,7 +1434,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
 
   /// Fetches the favourite foods when nobody else is going to. The health
   /// shell loads them on mount, which is why this screen never had to — but it
-  /// is now reachable straight from the home grid (the 食物份量工具 tile), with
+  /// is now reachable straight from the home grid (the 食物份量 tile), with
   /// no shell in the stack, and the favourites list would otherwise sit on its
   /// initial spinner forever.
   ///
@@ -1468,7 +1468,7 @@ class _UrlDictionaryScreenState extends State<_UrlDictionaryScreen> {
     // this controller's INITIAL value, so the status read could not tell "the
     // shell is fetching" from "nobody has fetched at all". That was harmless
     // while the shell was always below this screen, and stopped being harmless
-    // when the home grid's 食物份量工具 tile started pushing straight here —
+    // when the home grid's 食物份量 tile started pushing straight here —
     // with no shell in the stack, this screen waited forever for a load nobody
     // had started.
     //

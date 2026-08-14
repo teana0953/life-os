@@ -13,6 +13,8 @@ import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../../finance/domain/finance_money.dart';
+import '../../health/domain/daily_target.dart';
+import '../../health/domain/portions.dart';
 import '../../menstrual/domain/next_period_status.dart';
 import 'home_controller.dart';
 import 'home_dashboard_controller.dart';
@@ -460,6 +462,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// The 食物份量 tile of the *loaded* dashboard.
+  ///
+  /// [target] is nullable because the daily-target arm is the one arm of the
+  /// fan-out allowed to fail on its own (see `HomeDashboardData.dailyTarget`).
+  /// When it did, this tile degrades to exactly the placeholder branch's
+  /// shape — 無資料, no `shorterValue`, no `valueSemanticLabel` — rather than
+  /// taking the whole dashboard down with it.
+  Widget _foodPortionTile(AppLocalizations loc, DailyTargetWithRemaining? target) {
+    final full = target == null
+        ? null
+        : _portionTargetValue(loc, target.effective, withVeg: true);
+    return _SnapshotTile(
+      tileKey: const Key('home-food-dictionary'),
+      label: loc.homeFoodPortion,
+      value: full ?? loc.homeNoData,
+      shorterValue: target == null
+          ? null
+          : _portionTargetValue(loc, target.effective, withVeg: false),
+      // Whatever the tile ends up *painting*, assistive tech is told the
+      // whole figure, spelled out with each group's NAME rather than its
+      // one-glyph icon — the painted string's own icons (in English, bare
+      // letters S/M/F/V) don't decode when read aloud, so re-using `full`
+      // here would not actually compensate for the visual elision.
+      valueSemanticLabel: target == null
+          ? null
+          : loc.homeFoodPortionTargetSemantics(
+              _compactNumber(target.effective.staple),
+              _compactNumber(target.effective.meat),
+              _compactNumber(target.effective.fruit),
+              _compactNumber(target.effective.veg),
+            ),
+      actionIconKey: const Key('home-food-portion-search'),
+      actionIcon: Icons.search,
+      actionIconTooltip: loc.homeFoodPortionButton,
+      onActionIcon: _openFoodDictionary,
+      onTap: _openFoodDictionary,
+    );
+  }
+
   Widget _buildDashboard() {
     final loc = AppLocalizations.of(context)!;
     final dashboard = widget.dashboardController;
@@ -492,8 +533,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _SnapshotTile(
                 tileKey: const Key('home-food-dictionary'),
-                label: loc.homeFoodPortionTool,
-                actionLabel: loc.homeFoodPortionButton,
+                label: loc.homeFoodPortion,
+                // No `shorterValue`: 無資料 has only one rendering, and
+                // handing the tile a fallback it can never need would make
+                // the placeholder measure text for nothing.
+                value: loc.homeNoData,
+                actionIconKey: const Key('home-food-portion-search'),
+                actionIcon: Icons.search,
+                actionIconTooltip: loc.homeFoodPortionButton,
+                onActionIcon: _openFoodDictionary,
                 onTap: _openFoodDictionary,
               ),
               _SnapshotTile(
@@ -622,12 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
               onTap: _openVitals,
             ),
-            _SnapshotTile(
-              tileKey: const Key('home-food-dictionary'),
-              label: loc.homeFoodPortionTool,
-              actionLabel: loc.homeFoodPortionButton,
-              onTap: _openFoodDictionary,
-            ),
+            _foodPortionTile(loc, data.dailyTarget),
             _SnapshotTile(
               tileKey: const Key('home-latest-blood-pressure'),
               label: loc.homeLatestBloodPressure,
@@ -722,6 +765,67 @@ String _greeting(AppLocalizations loc, DateTime now, String name) {
 
 String _compactNumber(num value) =>
     value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
+
+/// Today's effective portion target as count + one-glyph icon per food group
+/// — all four groups, or the first three when [withVeg] is false. The
+/// separators and the group order live in the ARB, not here.
+///
+/// Each count binds to its own group glyph with no space (`10主`), and only
+/// the group-to-group gap is a space. That is not cosmetic: it is what takes
+/// the four-group string's natural width from 258.40 to 193.80 on this build
+/// and so moves the width at which 菜 survives from 470dp to 386dp — but
+/// 332–385.5dp, which includes ordinary widths like 360dp and 375dp, still
+/// elides it. See the measured tables in `home_screen_responsive_test.dart`'s
+/// 食物份量 group.
+///
+/// **Known, not fixed here: fractional (half-portion) targets.** `Portions`
+/// fields are `double` and the portion stepper's step is 0.5, so
+/// `_compactNumber` can print e.g. `10.5` instead of `10`. A string with even
+/// one `.5` group is wider than this doc's integer-only measurements assume,
+/// and can paint below `_portionValueMinScale` — even below
+/// `_minValueScaleAtNarrowestTile` in `home_screen_responsive_test.dart` — on
+/// ordinary phone widths. See the characterization test for it in the
+/// 食物份量 group. Redesigning the candidate strings (or the boundary
+/// numbers this file documents) to also hold that floor for fractional
+/// targets is out of scope for issue #196.
+///
+/// The short rendering carries a bare trailing `…` (no leading space) as a
+/// visible elision marker, so "today has no 菜 target" and "菜 was dropped
+/// for space" don't look identical. Remeasured after the tightening: the
+/// short string is 161.50 natural with the marker and 145.35 without, and at
+/// the narrowest two-column tile (332dp, value box 99.00) it paints at
+/// 0.6130× — above the 0.45 floor that corner is held to. The full figure
+/// also reaches assistive tech through the tile's semantics label — see
+/// `_SnapshotTile.valueSemanticLabel`.
+String _portionTargetValue(
+  AppLocalizations loc,
+  Portions portions, {
+  required bool withVeg,
+}) {
+  final staple = _compactNumber(portions.staple);
+  final meat = _compactNumber(portions.meat);
+  final fruit = _compactNumber(portions.fruit);
+  if (!withVeg) {
+    return loc.homeFoodPortionTargetShort(
+      staple,
+      loc.dietCategoryIconStaple,
+      meat,
+      loc.dietCategoryIconMeat,
+      fruit,
+      loc.dietCategoryIconFruit,
+    );
+  }
+  return loc.homeFoodPortionTargetFull(
+    staple,
+    loc.dietCategoryIconStaple,
+    meat,
+    loc.dietCategoryIconMeat,
+    fruit,
+    loc.dietCategoryIconFruit,
+    _compactNumber(portions.veg),
+    loc.dietCategoryIconVeg,
+  );
+}
 
 String _menstrualValue(
   BuildContext context,
@@ -872,8 +976,29 @@ class _SnapshotTile extends StatelessWidget {
   final Key tileKey;
   final String label;
   final String? value;
-  final String? actionLabel;
+
+  /// A shorter rendering of the same figure, printed instead of [value] when
+  /// [value] would have to shrink below [_portionValueMinScale] to fit.
+  /// `null` on every tile that has only one rendering — and then the tile
+  /// measures nothing and behaves exactly as it did before this existed.
+  final String? shorterValue;
+
+  /// What assistive tech is told the value is, when that must not depend on
+  /// which rendering happened to fit. `null` leaves the painted text to speak
+  /// for itself, which is right for every tile whose value has one rendering.
+  final String? valueSemanticLabel;
+
   final VoidCallback onTap;
+
+  /// An optional action button on the label row (today: the portion-guide
+  /// search icon). Mutually exclusive with the privacy eye in practice — the
+  /// tile that has one is not maskable — but written as two independent
+  /// `if`s rather than an either/or, so adding a second one is a layout
+  /// question, not a silently-dropped widget.
+  final Key? actionIconKey;
+  final IconData? actionIcon;
+  final String? actionIconTooltip;
+  final VoidCallback? onActionIcon;
 
   /// Non-null on the tiles the user is allowed to hide — and the only thing
   /// that puts an eye on a tile.
@@ -892,7 +1017,12 @@ class _SnapshotTile extends StatelessWidget {
     required this.tileKey,
     required this.label,
     this.value,
-    this.actionLabel,
+    this.shorterValue,
+    this.valueSemanticLabel,
+    this.actionIconKey,
+    this.actionIcon,
+    this.actionIconTooltip,
+    this.onActionIcon,
     required this.onTap,
     this.maskItem,
     this.isHidden = false,
@@ -949,15 +1079,23 @@ class _SnapshotTile extends StatelessWidget {
                     tooltip: isHidden ? showLabel : hideLabel,
                     onPressed: onToggleMask,
                   ),
+                if (actionIcon case final icon?)
+                  IconButton(
+                    key: actionIconKey,
+                    icon: Icon(icon),
+                    iconSize: 18,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 44,
+                      height: 44,
+                    ),
+                    tooltip: actionIconTooltip,
+                    onPressed: onActionIcon,
+                  ),
               ],
             ),
             const SizedBox(height: 10),
-            if (actionLabel != null)
-              // Not shrink-to-fit: this is a button caption, not a figure —
-              // wrapping it costs nothing, and a shrunk caption beside a
-              // full-size one in the neighbouring tile looks broken.
-              Text(actionLabel!, style: theme.textTheme.labelLarge)
-            else if (isHidden)
+            if (isHidden)
               // A screen reader hears "Hidden", not four bullet characters
               // read out one by one — and, more importantly, never the figure
               // itself, which is still in the widget tree of a naive
@@ -965,11 +1103,31 @@ class _SnapshotTile extends StatelessWidget {
               Semantics(
                 label: hiddenSemanticLabel,
                 child: ExcludeSemantics(
-                  child: _tileValue(theme, maskedValue),
+                  child: _tileValue(context, theme, maskedValue),
+                ),
+              )
+            else if (valueSemanticLabel != null)
+              // Deliberately the same shape as the masked branch above: what
+              // is painted may be a shortened rendering, so assistive tech is
+              // handed the whole figure instead of whichever candidate fit.
+              Semantics(
+                label: valueSemanticLabel,
+                child: ExcludeSemantics(
+                  child: _tileValue(
+                    context,
+                    theme,
+                    value ?? '',
+                    shorterText: shorterValue,
+                  ),
                 ),
               )
             else
-              _tileValue(theme, value ?? ''),
+              _tileValue(
+                context,
+                theme,
+                value ?? '',
+                shorterText: shorterValue,
+              ),
           ],
         ),
       ),
@@ -1008,16 +1166,103 @@ class _SnapshotTile extends StatelessWidget {
   /// observable once a `FittedBox` is stretched to fill a wider box than its
   /// child. It is documentation of intent for whoever changes that
   /// surrounding layout, not a guarded property today.
-  Widget _tileValue(ThemeData theme, String text) => FittedBox(
+  ///
+  /// Known and deliberately not fixed here: because `BoxFit.scaleDown` shrinks
+  /// whatever the text scaler grew, a user at 2× text scale can end up with a
+  /// *smaller* painted figure than at 1×. That is the existing behaviour of
+  /// all eight snapshot tiles, recorded on PR #197; undoing it means
+  /// re-laying-out the whole row, which is out of scope for #196.
+  ///
+  /// [shorterText], when given, is a shorter rendering of the same figure to
+  /// fall back to. The choice is made by **measuring** the candidates, not by
+  /// letting the `FittedBox` decide: under `BoxFit.scaleDown` every string
+  /// "fits" — it just gets smaller — so a fallback conditioned on the
+  /// `FittedBox` giving up would never fire, and an unconditional fallback
+  /// would throw away a group on screens wide enough to show it. See
+  /// [_portionValueMinScale].
+  Widget _tileValue(
+    BuildContext context,
+    ThemeData theme,
+    String text, {
+    String? shorterText,
+  }) {
+    final style = theme.textTheme.titleMedium;
+    if (shorterText == null) return _fittedValue(text, style);
+    return LayoutBuilder(
+      builder: (context, constraints) => _fittedValue(
+        _widestFitting(context, style, constraints.maxWidth, [
+          text,
+          shorterText,
+        ]),
+        style,
+      ),
+    );
+  }
+
+  Widget _fittedValue(String text, TextStyle? style) => FittedBox(
     fit: BoxFit.scaleDown,
     alignment: AlignmentDirectional.centerStart,
-    child: Text(
-      text,
-      maxLines: 1,
-      softWrap: false,
-      style: theme.textTheme.titleMedium,
-    ),
+    child: Text(text, maxLines: 1, softWrap: false, style: style),
   );
+}
+
+/// The smallest scale the shrink-to-fit snapshot value may be painted at
+/// before a tile with a shorter rendering of the same figure switches to it.
+///
+/// Deliberately the same number as `_minValueScale` in
+/// `home_screen_responsive_test.dart`, which is the measured legibility floor
+/// the finance figures are held to — "too small to read" should not mean two
+/// different things on two tiles of the same row. Change one and the other
+/// has to move with it.
+///
+/// **A known, accepted consequence.** The tile
+/// is (screen − 82) / 2 wide in the two-column layout and the whole width in
+/// the single-column one, so the seam at 332dp *inverts*: 331dp is
+/// single-column and wide enough for all four groups, 332dp is two-column and
+/// is not. Widening a phone by one logical pixel therefore elides 菜. This is
+/// the user's decision after seeing it — guaranteeing 主/肉/果 on one line is
+/// worth 菜 being elided — and it is pinned by a characterization test
+/// (`CHARACTERIZATION: widening the phone from 331dp to 332dp REMOVES 菜`) in
+/// `home_screen_responsive_test.dart`, not left to be re-discovered as a bug.
+///
+/// Measured on this build after the separator tightening: 菜 comes back at
+/// **386dp** and stays for every wider screen, so the elision band is
+/// 332–385.5dp. It is *not* "essentially every phone" any more — that wording
+/// described the pre-tightening 470dp threshold and would be wrong now — but
+/// the band still contains 360dp and 375dp, two ordinary phone widths, not
+/// only small-screen edge cases.
+const _portionValueMinScale = 0.65;
+
+/// The first of [candidates] whose text, laid out at its natural width, still
+/// fits [maxWidth] without being shrunk below [_portionValueMinScale] — or the
+/// last one when none does (it is then handed to the `FittedBox`, which
+/// shrinks it the rest of the way; the candidate list is ordered longest
+/// first and deliberately has no third, even shorter, entry).
+///
+/// The [TextPainter] carries this context's [TextScaler] and text direction:
+/// without them a user at 200% text scale would be measured as if at 100% and
+/// keep a rendering that no longer fits.
+String _widestFitting(
+  BuildContext context,
+  TextStyle? style,
+  double maxWidth,
+  List<String> candidates,
+) {
+  final budget = maxWidth / _portionValueMinScale;
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  for (final candidate in candidates) {
+    final painter = TextPainter(
+      text: TextSpan(text: candidate, style: style),
+      maxLines: 1,
+      textScaler: scaler,
+      textDirection: direction,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    if (width <= budget) return candidate;
+  }
+  return candidates.last;
 }
 
 class _FutureEntry extends StatelessWidget {

@@ -17,10 +17,13 @@ import 'package:life_os/contexts/health/presentation/health_scaffold.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
+import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/contexts/vitals/presentation/vitals_screen.dart';
 
 import 'app_test.dart';
+import 'contexts/user/presentation/home_screen_test.dart'
+    show loadedDashboardFixture;
 
 /// The two page-stack shapes a signed-in destination can be reached in, and
 /// what each one owes the back button.
@@ -52,6 +55,13 @@ void main() {
     WidgetTester tester, {
     FoodDictionaryRepository? foodDictionaryRepository,
     MealRepository? mealRepository,
+    // Home renders two different dashboards — a placeholder one when it has
+    // no controller at all, and the loaded one — and each builds its own
+    // copy of every tile. A tile guard that only ever sees the default
+    // (placeholder) branch says nothing about the loaded branch: measured by
+    // mutation, sending the loaded branch's search icon to `/health` leaves
+    // the placeholder-branch test green.
+    HomeDashboardController? homeDashboardController,
   }) async {
     final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
     await pumpApp(
@@ -59,6 +69,7 @@ void main() {
       authRepository: authRepository,
       foodDictionaryRepository: foodDictionaryRepository,
       mealRepository: mealRepository,
+      homeDashboardController: homeDashboardController,
       loginController: LoginController(SignIn(authRepository)),
       homeController: HomeController(
         GetProfile(FakeProfileRepository(testProfile)),
@@ -177,6 +188,44 @@ void main() {
           findsNothing,
           reason: 'landing on the record hub is exactly the old bug',
         );
+      },
+    );
+
+    testWidgets(
+      'the food portion tile\'s search icon opens the portion tool too',
+      (tester) async {
+        // Two separate paths to the same screen since issue #196: the tile
+        // body (above) now carries the day's target and the search icon is
+        // what is left of the old "查詢份量對照表" caption. An `IconButton`
+        // inside the tile's `InkWell` swallows the tap it handles, so the
+        // tile's own `onTap` cannot stand in for this one.
+        final router = await pumpSignedIn(tester);
+
+        await tester.tap(find.byKey(const Key('home-food-portion-search')));
+        await tester.pumpAndSettle();
+
+        expect(topMatch(router), '/health/diet/dictionary');
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'the search icon on the LOADED dashboard opens the portion tool too',
+      (tester) async {
+        // The same icon, in the other of home's two dashboard branches — the
+        // one a real signed-in user with data sees. Without this the loaded
+        // branch's wiring is unguarded (mutation: pointing only that branch's
+        // `onActionIcon` at `/health` left the placeholder test above green).
+        final router = await pumpSignedIn(
+          tester,
+          homeDashboardController: loadedDashboardFixture(),
+        );
+
+        await tester.tap(find.byKey(const Key('home-food-portion-search')));
+        await tester.pumpAndSettle();
+
+        expect(topMatch(router), '/health/diet/dictionary');
+        expect(find.byType(FoodSearchScreen), findsOneWidget);
       },
     );
 

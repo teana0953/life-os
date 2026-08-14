@@ -351,16 +351,55 @@ abstract class AppLocalizations {
   /// **'{value} kg'**
   String homeWeightValue(String value);
 
-  /// Label for the food portion lookup shortcut.
+  /// Label for the daily food-portion target home snapshot. Kept to a single short word: on a 332dp phone the label column is ~51px wide after the 44pt action icon, and 'Food portions' broke to three lines there.
   ///
   /// In en, this message translates to:
-  /// **'Food portion tool'**
-  String get homeFoodPortionTool;
+  /// **'Portions'**
+  String get homeFoodPortion;
 
-  /// Action text for the food portion lookup shortcut.
+  /// Today's effective portion target on the home snapshot, all four food groups. Each count binds directly to its own one-glyph food-group icon with NO space between them, and only the group-to-group gap is a space — that tightening is the whole of issue #196's round-3 fix: it takes the string's natural width from 258.40 to 193.80 (widget-test font, titleMedium, measured — a real device render is expected to be narrower still, since the test font's fixed-width space measures the same as a digit), which moves the width at which all four groups survive from 470dp down to 386dp. That still leaves 332-385.5dp eliding the vegetable group, and that band includes 360dp and 375dp — both common phone widths, not edge cases — so this is not yet 'every mainstream phone'.
   ///
   /// In en, this message translates to:
-  /// **'Look up portion guide'**
+  /// **'{staple}{stapleIcon} {meat}{meatIcon} {fruit}{fruitIcon} {veg}{vegIcon}'**
+  String homeFoodPortionTargetFull(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+    String veg,
+    String vegIcon,
+  );
+
+  /// The same target with the vegetable group dropped, used when the tile is too narrow for all four groups to stay legible — which after the round-3 tightening is only below 386dp. Carries a bare trailing ellipsis (U+2026, no leading space) as a visible elision marker, so three groups and 'today genuinely has no vegetable target' do not look identical. Remeasured on this build: the short string's natural width is 161.50 with the marker and 145.35 without it, so the marker costs 16.15px; at the narrowest two-column tile (332dp, value box 99.00) it paints at 0.6130x, well above the 0.45 legibility floor that corner is held to. Assistive tech is also given the full four-group figure, via the tile's semantics label.
+  ///
+  /// In en, this message translates to:
+  /// **'{staple}{stapleIcon} {meat}{meatIcon} {fruit}{fruitIcon}…'**
+  String homeFoodPortionTargetShort(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+  );
+
+  /// The value semantics label for the food-portion home snapshot: the full four-group figure spelled out with the group NAME rather than its one-glyph icon (which in English is a bare letter — S/M/F/V — that does not decode when read aloud). Used regardless of whether the tile paints three groups or four.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s target: staple {staple}, meat {meat}, fruit {fruit}, vegetable {veg} servings'**
+  String homeFoodPortionTargetSemantics(
+    String staple,
+    String meat,
+    String fruit,
+    String veg,
+  );
+
+  /// Tooltip/semantic label for the search icon on the home Portions snapshot; opens the same destination as dietOpenDictionaryTooltip, so the two share one name.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Portions'**
   String get homeFoodPortionButton;
 
   /// Label for the latest blood-pressure home snapshot.
@@ -984,13 +1023,13 @@ abstract class AppLocalizations {
   /// Title of the full-screen food search when it is opened as the portion tool — with no target meal — instead of to add food to a specific meal.
   ///
   /// In en, this message translates to:
-  /// **'Food portion tool'**
+  /// **'Portions'**
   String get dietDictionaryTitle;
 
-  /// Tooltip/accessible label for the diet screen's icon-only action that opens the portion tool without first choosing a meal.
+  /// Tooltip/accessible label for the diet screen's icon-only action that opens Portions without first choosing a meal. Named after the destination screen (dietDictionaryTitle) rather than a separate 'portion tool' term.
   ///
   /// In en, this message translates to:
-  /// **'Open the portion tool'**
+  /// **'Open Portions'**
   String get dietOpenDictionaryTooltip;
 
   /// Title of the bottom sheet that asks which meal the dictionary tray should be saved to, shown when completing a tray built in the dictionary.
