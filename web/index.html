@@ -55,7 +55,10 @@
     html, body { margin: 0; padding: 0; height: 100%; }
     body {
       background-color: var(--lifeos-cream);
-      font-family: "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      /* Must stay the family name `pubspec.yaml` registers: Flutter web
+         injects its @font-face under that name, so the splash and the app
+         share one font once the engine boots. */
+      font-family: "NotoSans", -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
     }
     @media (prefers-color-scheme: dark) {
