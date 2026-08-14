@@ -19,6 +19,55 @@ import 'home_dashboard_controller.dart';
 
 const _contentMaxWidth = 960.0;
 
+/// The `_DashboardSection` `LayoutBuilder`'s **inner** width (screen width
+/// minus 20+20 page padding, 2+2 `LedgeCard` border, 14+14 `LedgeCard`
+/// padding = 72) below which the **health** section's tiles stack into a
+/// single column instead of two.
+///
+/// Health-only: its tile labels/values are short (a weight, a blood
+/// pressure pair), so there is nothing in them that a hard line break can
+/// corrupt — see `_financeTwoColumnMinWidth` for why the finance section
+/// does not share this value.
+///
+/// Measured (not guessed): at inner 258, the zh-Hant tile labels (e.g.
+/// 最新體重, 生理週期預測 — CJK glyphs beside the 44pt privacy eye) still fit on
+/// one line and the value on at most two, with zero layout errors. At
+/// inner 256 the labels break to two lines; at inner 254 the value also
+/// breaks to three. So 258 is the measured legibility floor — the tile
+/// itself cannot overflow until inner ≈150, far narrower, so this is a
+/// readability threshold, not an overflow threshold. +2px margin for
+/// font-metric drift across Flutter/Quicksand versions.
+const _healthTwoColumnMinWidth = 260.0;
+
+/// The finance section's own version of `_healthTwoColumnMinWidth` — kept far
+/// above health's 260, because a narrow finance tile doesn't just cramp, it
+/// corrupts.
+///
+/// Finance tiles print money (e.g. 456,700 / 9,999,999), and a two-column
+/// tile that's too narrow forces `Text` to hard-wrap a thousands-grouped
+/// number mid-digit (`456,70` / `0` on its own line) — a wrap that turns the
+/// figure into a different, misread number rather than merely a cramped one.
+/// This constant (330) removes that failure for the Samsung Flip7 width the
+/// bug was actually filed against (issue #189: inner 288–359, screen
+/// 360–431dp) *only up to where the section goes two columns* — inner 330
+/// keeps the section single-column through screen 332–401dp, so there is no
+/// two-column tile at those widths to split anything.
+///
+/// It does **not** hold once the section actually goes two columns. Measured
+/// (not guessed): a two-column finance tile only holds `9,999,999` on one
+/// line from tile width 171.5 up (170.75 still splits it) — tileWidth =
+/// (inner-10)/2, inner = screenWidth-72. At screen 402–424dp (inner
+/// 330–352, tileWidth 160–171 — ordinary widths: iPhone 16 Pro at 402,
+/// Pixel 8/9 at 412) the section is two columns *and* the tile is narrower
+/// than that floor, so `9,999,999` splits mid-digit again. The floor isn't
+/// reached until inner 353 (tileWidth 171.5), i.e. screen 425dp (inner 353).
+/// Raising this constant to 356 would close that gap by keeping finance
+/// single-column through it, but at the cost of losing two-column finance
+/// entirely on 402–424dp phones — out of scope for #189 (which is about the
+/// 360/361dp regression, not density on other widths) and tracked
+/// separately as **issue #190**.
+const _financeTwoColumnMinWidth = 330.0;
+
 enum GreetingPeriod { morning, afternoon, evening }
 
 GreetingPeriod greetingPeriodFor(DateTime time) {
@@ -434,6 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceHealth,
             openLabel: loc.homeOpenHealth,
             onOpen: _openHealth,
+            twoColumnMinWidth: _healthTwoColumnMinWidth,
             children: [
               _maskableTile(
                 tileKey: const Key('home-latest-weight'),
@@ -470,6 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceFinance,
             openLabel: loc.homeOpenFinance,
             onOpen: _openFinance,
+            twoColumnMinWidth: _financeTwoColumnMinWidth,
             children: [
               // The destination is part of the tuple, not a shared `_openFinance`
               // for the whole loop: this placeholder block is the state a
@@ -560,6 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceHealth,
           openLabel: loc.homeOpenHealth,
           onOpen: _openHealth,
+          twoColumnMinWidth: _healthTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-latest-weight'),
@@ -603,6 +655,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceFinance,
           openLabel: loc.homeOpenFinance,
           onOpen: _openFinance,
+          twoColumnMinWidth: _financeTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-budget'),
@@ -757,6 +810,12 @@ class _DashboardSection extends StatelessWidget {
   final VoidCallback onOpen;
   final List<Widget> children;
 
+  /// Inner-width breakpoint below which this section's tiles stack into a
+  /// single column. Caller-supplied (not a shared file-level constant) so
+  /// each call site names which threshold it wants — see
+  /// `_healthTwoColumnMinWidth`/`_financeTwoColumnMinWidth`.
+  final double twoColumnMinWidth;
+
   const _DashboardSection({
     required this.sectionKey,
     required this.openKey,
@@ -764,6 +823,7 @@ class _DashboardSection extends StatelessWidget {
     required this.openLabel,
     required this.onOpen,
     required this.children,
+    required this.twoColumnMinWidth,
   });
 
   @override
@@ -788,7 +848,7 @@ class _DashboardSection extends StatelessWidget {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
-              final singleColumn = constraints.maxWidth < 330;
+              final singleColumn = constraints.maxWidth < twoColumnMinWidth;
               final tileWidth = singleColumn
                   ? constraints.maxWidth
                   : (constraints.maxWidth - 10) / 2;
