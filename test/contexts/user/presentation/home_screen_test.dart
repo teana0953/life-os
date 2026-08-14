@@ -841,6 +841,94 @@ void main() {
     });
   });
 
+  // --------------------------------------------------- 生理週期預測 tile, upcoming
+  //
+  // LINCHPIN: the expected strings below are written out literally — deriving
+  // them from `shortYearDateLabel` would make this guard agree with whatever
+  // the formatter does, so a regression in the printed year format (dropping
+  // the apostrophe, falling back to four digits, mis-escaping the ICU literal)
+  // would keep it green.
+  group('the 生理週期預測 tile for an upcoming period', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    // A fixed date, never `DateTime.now()`: the whole point of the tile is
+    // which year it prints.
+    HomeDashboardController dashboardExpecting(DateTime predicted) {
+      final dashboard = loadedDashboardFixture();
+      final data = dashboard.data!;
+      dashboard.data = HomeDashboardData(
+        weightGoal: data.weightGoal,
+        bloodPressure: data.bloodPressure,
+        menstrualStatus: NextPeriodStatus(
+          state: NextPeriodState.upcoming,
+          days: 5,
+          predictedNextStart: predicted,
+        ),
+        overallBudget: data.overallBudget,
+        netWorth: data.netWorth,
+        splitBalances: data.splitBalances,
+        dailyTarget: data.dailyTarget,
+      );
+      return dashboard;
+    }
+
+    testWidgets('prints the predicted date with its year (en)', (tester) async {
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboardExpecting(DateTime(2026, 8, 14)),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('home-menstrual-prediction')),
+          matching: find.text(loc.homeMenstrualExpected("Aug 14, 26'")),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('prints the predicted date with its year (zh-Hant)', (
+      tester,
+    ) async {
+      const zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
+      final loc = lookupAppLocalizations(zhHant);
+
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        locale: zhHant,
+        dashboardController: dashboardExpecting(DateTime(2026, 8, 14)),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('home-menstrual-prediction')),
+          matching: find.text(loc.homeMenstrualExpected("26'年8月14日")),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
   // ---------------------------------------------------- 食物份量 tile, no target
   //
   // LINCHPIN: the daily-target arm is the one arm of the loaded-dashboard

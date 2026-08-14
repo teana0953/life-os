@@ -95,6 +95,21 @@ String mediumDateLabel(BuildContext context, DateTime date) {
   return DateFormat.yMMMd(languageTag).format(date);
 }
 
+/// A short date carrying a two-digit, apostrophe-marked year (e.g. "26'年8月
+/// 14日" for Chinese, "Aug 14, 26'" otherwise) — the requested abbreviation for
+/// the dashboard's menstrual prediction tile, where the four-digit year printed
+/// by the full-date formats is more width than that 125–320dp tile can spend on
+/// the century. Purely a presentation choice, not a fix for a missing year:
+/// `MaterialLocalizations.formatShortDate` does print the year (measured:
+/// "Aug 14, 2026" / "2026年8月14日"). Screens with room keep [mediumDateLabel].
+/// The apostrophe is a literal inside the ICU pattern (`''` is how ICU escapes
+/// one), not a post-hoc string edit.
+String shortYearDateLabel(BuildContext context, DateTime date) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  final pattern = languageTag.startsWith('zh') ? "yy''年M月d日" : "MMM d, yy''";
+  return DateFormat(pattern, languageTag).format(date);
+}
+
 /// A single narrow weekday abbreviation for [date] (e.g. "S" for Sunday in
 /// English, the CLDR narrow form for Chinese), formatted per the active
 /// locale — used by the care adherence heatmap's weekday header, where a

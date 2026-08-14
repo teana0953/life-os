@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/build_info.dart';
+import '../../../shared/date/day_format.dart';
 import '../../../shared/privacy/privacy_mask_controller.dart';
 import '../../../shared/routing/finance_tab.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
@@ -841,9 +842,7 @@ String _menstrualValue(
       return loc.homeMenstrualNeedsMore;
     case NextPeriodState.upcoming:
       return loc.homeMenstrualExpected(
-        MaterialLocalizations.of(
-          context,
-        ).formatShortDate(status.predictedNextStart!),
+        shortYearDateLabel(context, status.predictedNextStart!),
       );
     case NextPeriodState.today:
       return loc.homeMenstrualToday;
@@ -1060,6 +1059,15 @@ class _SnapshotTile extends StatelessWidget {
             // "剩餘 NT$123,456" — an eye beside that is the first thing to
             // overflow in the 320dp single-column layout.
             Row(
+              // Top-aligned so the title sits at the same offset in every
+              // tile: the eye makes this row 48dp tall (its 44pt tap target
+              // plus Material's tap-target padding), far taller than the
+              // `bodySmall` title, and centering pushed the titles of the
+              // tiles that have an eye 8–16dp down from the ones that don't
+              // (16 for a one-line title, 8 once it wraps to two). The icons
+              // themselves keep their full row height and tap area — only the
+              // title moves.
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
                 if (maskItem != null)

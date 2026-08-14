@@ -135,6 +135,42 @@ void main() {
     });
   });
 
+  group('shortYearDateLabel', () {
+    const zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
+
+    testWidgets('carries a two-digit year with an apostrophe (en)', (
+      tester,
+    ) async {
+      final context = await _localizedContext(tester);
+      expect(shortYearDateLabel(context, DateTime(2026, 8, 14)), "Aug 14, 26'");
+    });
+
+    testWidgets('carries a two-digit year with an apostrophe (zh-Hant)', (
+      tester,
+    ) async {
+      final context = await _localizedContext(tester, locale: zhHant);
+      expect(shortYearDateLabel(context, DateTime(2026, 8, 14)), "26'年8月14日");
+    });
+
+    testWidgets('zero-pads a single-digit year (en)', (tester) async {
+      final context = await _localizedContext(tester);
+      expect(shortYearDateLabel(context, DateTime(2007, 3, 5)), "Mar 5, 07'");
+    });
+
+    testWidgets('zero-pads a single-digit year (zh-Hant)', (tester) async {
+      final context = await _localizedContext(tester, locale: zhHant);
+      expect(shortYearDateLabel(context, DateTime(2007, 3, 5)), "07'年3月5日");
+    });
+
+    // The four assertions above are exact equalities in both locales, which
+    // is what pins the ICU escaping: measured, `'` alone renders "98" (zh —
+    // the rest of the pattern is swallowed) and "Dec 31, 98" (en — the
+    // apostrophe is silently dropped), and `'''` renders "98'" (zh), so the
+    // zh equality catches every mis-escaping. An apostrophe-counting test was
+    // dropped from here: `'''` renders "Dec 31, 98'" on en — byte-identical
+    // to the correct output — so counting adds nothing the equalities miss.
+  });
+
   group('narrowWeekdayLabel', () {
     testWidgets('returns the locale\'s narrow weekday form', (tester) async {
       final context = await _localizedContext(tester);
