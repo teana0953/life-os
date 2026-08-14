@@ -410,6 +410,7 @@ Future<void> main() async {
     ListFinanceBudgets(financeRepository),
     GetMonthlyNetWorth(financeRepository),
     splitGetBalances,
+    GetDailyTargetWithRemaining(dailyTargetRepository),
   );
   final splitListGroups = ListGroups(splitRepository);
   final splitCreateGroup = CreateGroup(splitRepository);

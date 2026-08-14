@@ -5,6 +5,9 @@ import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/health/domain/daily_target.dart';
+import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
 import 'package:life_os/contexts/split/domain/balance.dart';
@@ -12,8 +15,8 @@ import 'package:life_os/contexts/split/domain/split_repository.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_repository.dart';
 import 'package:life_os/contexts/vitals/domain/vitals_series.dart';
 
-/// The six sources behind `HomeDashboardController.load`, faked so a test can
-/// drive a *real* fan-out: hold it open ([gate]), make it fail ([fail]), count
+/// The seven sources behind `HomeDashboardController.load`, faked so a test can
+/// drive a *real* fan-out: hold it open ([gate]), make it fail ([fail], or one arm at a time with [failingArms]), count
 /// the rounds it ran ([rounds]), and read back the token each round was
 /// actually handed ([goalTokens] — asserting on the token the use case
 /// RECEIVED, not on the provider having been called).
@@ -27,7 +30,8 @@ class FakeDashboardRepositories
         VitalsRepository,
         MenstrualRepository,
         FinanceRepository,
-        SplitRepository {
+        SplitRepository,
+        DailyTargetRepository {
   /// The id token each fan-out round handed to the weight-goal arm, in order.
   final List<String> goalTokens = <String>[];
 
@@ -38,27 +42,34 @@ class FakeDashboardRepositories
   /// Every arm throws while set — the "the whole refresh failed" case.
   bool fail = false;
 
+  /// Only the *named* arms throw — the "one source is down, the rest are
+  /// fine" case that [fail] cannot express. Names: `weightGoal`, `vitals`,
+  /// `menstrual`, `budgets`, `networth`, `balances`, `target`.
+  final Set<String> failingArms = <String>{};
+
   /// Every arm parks on this until it completes — the "reload still in
   /// flight" case.
   Completer<void>? gate;
 
-  Future<void> _arm() async {
+  Future<void> _arm(String name) async {
     final gate = this.gate;
     if (gate != null) await gate.future;
-    if (fail) throw StateError('dashboard fetch failed');
+    if (fail || failingArms.contains(name)) {
+      throw StateError('dashboard fetch failed: $name');
+    }
   }
 
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
     goalTokens.add(idToken);
     rounds++;
-    await _arm();
+    await _arm('weightGoal');
     return const WeightGoal(currentWeightKg: 62.5);
   }
 
   @override
   Future<VitalsRange> getRange(String idToken, DateTime from, DateTime to) async {
-    await _arm();
+    await _arm('vitals');
     return VitalsRange(
       from: from,
       to: to,
@@ -77,13 +88,13 @@ class FakeDashboardRepositories
 
   @override
   Future<MenstrualOverview> getOverview(String idToken) async {
-    await _arm();
+    await _arm('menstrual');
     return const MenstrualOverview(periods: [], stats: MenstrualStats());
   }
 
   @override
   Future<List<FinanceBudget>> listBudgets(String idToken, String month) async {
-    await _arm();
+    await _arm('budgets');
     return const [
       FinanceBudget(
         id: 'b1',
@@ -98,7 +109,7 @@ class FakeDashboardRepositories
 
   @override
   Future<MonthlyNetWorth> getMonthlyNetWorth(String idToken, String month) async {
-    await _arm();
+    await _arm('networth');
     return const MonthlyNetWorth(
       month: '2026-01',
       accounts: [],
@@ -112,7 +123,7 @@ class FakeDashboardRepositories
 
   @override
   Future<List<Balance>> getBalances(String idToken) async {
-    await _arm();
+    await _arm('balances');
     return const [
       Balance(
         userId: 'friend-1',
@@ -120,6 +131,31 @@ class FakeDashboardRepositories
         balances: [CurrencyBalance(currency: 'TWD', amount: 55500)],
       ),
     ];
+  }
+
+  /// The `day` string each fan-out round handed the daily-target arm, in
+  /// order — asserted on directly, because "the fan-out asks for TODAY" is
+  /// only observable in the argument the use case RECEIVED.
+  final List<String> targetDays = <String>[];
+
+  @override
+  Future<DailyTargetWithRemaining> getTarget(String idToken, String day) async {
+    targetDays.add(day);
+    await _arm('target');
+    return DailyTargetWithRemaining(
+      day: day,
+      // base/bonus/logged/remaining are deliberately NOT all equal to
+      // effective: a fixture where every Portions field carries the same
+      // numbers can't tell `target.effective` from `target.base` or
+      // `target.remaining` apart, which is exactly the distinction a past
+      // regression got wrong (the tile must print effective, not
+      // remaining).
+      base: const Portions(staple: 8, meat: 6, fruit: 2, veg: 2),
+      bonus: const Portions(staple: 2, meat: 1, fruit: 0, veg: 0),
+      effective: const Portions(staple: 10, meat: 7, fruit: 2, veg: 2),
+      logged: const Portions(staple: 3, meat: 2, fruit: 1, veg: 0),
+      remaining: const Portions(staple: 7, meat: 5, fruit: 1, veg: 2),
+    );
   }
 
   /// Anything the dashboard fan-out does not call is a mistake, not an empty.

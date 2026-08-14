@@ -146,10 +146,46 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get homeFoodPortionTool => '食物份量工具';
+  String get homeFoodPortion => '食物份量';
 
   @override
-  String get homeFoodPortionButton => '查詢份量對照表';
+  String homeFoodPortionTargetFull(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+    String veg,
+    String vegIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon $veg$vegIcon';
+  }
+
+  @override
+  String homeFoodPortionTargetShort(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon…';
+  }
+
+  @override
+  String homeFoodPortionTargetSemantics(
+    String staple,
+    String meat,
+    String fruit,
+    String veg,
+  ) {
+    return '今日目標：主食 $staple 份、肉類 $meat 份、水果 $fruit 份、蔬菜 $veg 份';
+  }
+
+  @override
+  String get homeFoodPortionButton => '開啟食物份量';
 
   @override
   String get homeLatestBloodPressure => '上次血壓';
@@ -498,10 +534,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get dietDictionaryTitle => '食物份量工具';
+  String get dietDictionaryTitle => '食物份量';
 
   @override
-  String get dietOpenDictionaryTooltip => '開啟份量工具';
+  String get dietOpenDictionaryTooltip => '開啟食物份量';
 
   @override
   String get dietChooseMealSheetTitle => '要加到哪一餐？';
@@ -3111,10 +3147,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get homeFoodPortionTool => '食物份量工具';
+  String get homeFoodPortion => '食物份量';
 
   @override
-  String get homeFoodPortionButton => '查詢份量對照表';
+  String homeFoodPortionTargetFull(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+    String veg,
+    String vegIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon $veg$vegIcon';
+  }
+
+  @override
+  String homeFoodPortionTargetShort(
+    String staple,
+    String stapleIcon,
+    String meat,
+    String meatIcon,
+    String fruit,
+    String fruitIcon,
+  ) {
+    return '$staple$stapleIcon $meat$meatIcon $fruit$fruitIcon…';
+  }
+
+  @override
+  String homeFoodPortionTargetSemantics(
+    String staple,
+    String meat,
+    String fruit,
+    String veg,
+  ) {
+    return '今日目標：主食 $staple 份、肉類 $meat 份、水果 $fruit 份、蔬菜 $veg 份';
+  }
+
+  @override
+  String get homeFoodPortionButton => '開啟食物份量';
 
   @override
   String get homeLatestBloodPressure => '上次血壓';
@@ -3463,10 +3535,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get dietDictionaryTitle => '食物份量工具';
+  String get dietDictionaryTitle => '食物份量';
 
   @override
-  String get dietOpenDictionaryTooltip => '開啟份量工具';
+  String get dietOpenDictionaryTooltip => '開啟食物份量';
 
   @override
   String get dietChooseMealSheetTitle => '要加到哪一餐？';

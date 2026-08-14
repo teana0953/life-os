@@ -79,6 +79,13 @@ void main() {
         // The tiles that must NOT get one. 分帳總覽 is in this list on
         // purpose: it prints money like the three above it, so "money tiles
         // get an eye" would wrongly include it.
+        //
+        // Judged by the eye's KEY, not by "this tile has no `IconButton` at
+        // all": 食物份量 now carries a search icon (issue #196), which is an
+        // `IconButton` and not an eye. Widened by exactly that much — an
+        // `IconButton` whose key starts with `home-mask-toggle-` under any of
+        // these four tiles still fails. Mutation-checked: forcing the eye
+        // onto 食物份量 (giving it a `maskItem`) turns this red.
         for (final tile in const [
           'home-latest-blood-pressure',
           'home-menstrual-prediction',
@@ -88,7 +95,11 @@ void main() {
           expect(
             find.descendant(
               of: find.byKey(Key(tile)),
-              matching: find.byType(IconButton),
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is IconButton &&
+                    w.key.toString().contains('home-mask-toggle-'),
+              ),
             ),
             findsNothing,
             reason: tile,

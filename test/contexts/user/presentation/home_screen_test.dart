@@ -18,6 +18,10 @@ import 'package:life_os/contexts/finance/application/networth_use_cases.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/finance_repository.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
+import 'package:life_os/contexts/health/domain/daily_target.dart';
+import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
+import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/menstrual/application/get_menstrual_overview.dart';
 import 'package:life_os/contexts/menstrual/domain/menstrual_repository.dart';
 import 'package:life_os/contexts/menstrual/domain/next_period_status.dart';
@@ -165,6 +169,11 @@ Future<HomeHarness> pumpHomeScreen(
         builder: (context, state) =>
             const Scaffold(body: Text('SETTINGS-ROUTE')),
       ),
+      GoRoute(
+        path: '/health/diet/dictionary',
+        builder: (context, state) =>
+            const Scaffold(body: Text('DIET-DICTIONARY-ROUTE')),
+      ),
     ],
   );
   await tester.pumpWidget(
@@ -259,10 +268,35 @@ void main() {
         SignOut(FakeAuthRepository()),
       );
       await controller.load('token-123');
-      await pumpHomeScreen(tester, controller);
+      // A pinned clock, not `DateTime.now()`: the greeting text (and so the
+      // header's height, and so how much of the 800×600 viewport the tiles
+      // below it get) varies with the time of day. Without pinning it, the
+      // viewport-bound assertion below would be flaky depending on when the
+      // suite runs.
+      await pumpHomeScreen(
+        tester,
+        controller,
+        clock: () => DateTime(2026, 1, 1, 8),
+      );
 
       expect(find.text('FINANCE-ROUTE'), findsNothing);
 
+      // No `ensureVisible` on purpose: this tap is a second, incidental
+      // reading of `_SnapshotTile`'s `minHeight` — and it is an **upper**
+      // bound, not the floor. Measured: 110 passes and 111 already fails, so
+      // there is zero margin, and *any* layout growth above the finance tile
+      // (a taller header, an extra row, a bigger value font) pushes it below
+      // the fold and turns this red with `Found 0 widgets with text
+      // "FINANCE-ROUTE"` — a message that points at navigation when the
+      // cause was layout. Read a failure here as "something above the finance
+      // tile got taller", not as "minHeight is wrong".
+      //
+      // The floor's own reason for existing — a 44pt eye fitting without
+      // making its tile taller than its neighbours — is guarded directly, as
+      // an equality *and* a `>= 110` lower bound with a height-shaped failure
+      // message, by `home_screen_responsive_test.dart`'s `R2 LINCHPIN`.
+      // Scrolling first here would make this test stop noticing the
+      // regression at all.
       await tester.tap(find.byKey(const Key('finance-tile')));
       await tester.pumpAndSettle();
 
@@ -794,6 +828,7 @@ void main() {
           growthRate: null,
         ),
         splitBalances: data.splitBalances,
+        dailyTarget: data.dailyTarget,
       );
 
       await pumpHomeScreen(
@@ -806,10 +841,101 @@ void main() {
     });
   });
 
+  // ---------------------------------------------------- 食物份量 tile, no target
+  //
+  // LINCHPIN: the daily-target arm is the one arm of the loaded-dashboard
+  // fan-out allowed to fail on its own (`HomeDashboardData.dailyTarget` is
+  // nullable). `_foodPortionTile`'s doc comment asserts an exact degraded
+  // shape for that case — 無資料, no `shorterValue`, no `valueSemanticLabel`
+  // — but nothing joined that doc to a fixture that actually loads with
+  // `dailyTarget: null`, so the branch had zero coverage: mutating its
+  // ternary left the whole suite green.
+  group('the 食物份量 tile when the daily-target arm failed', () {
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    HomeDashboardController dashboardWithNoTarget() {
+      final dashboard = loadedDashboardFixture();
+      final data = dashboard.data!;
+      dashboard.data = HomeDashboardData(
+        weightGoal: data.weightGoal,
+        bloodPressure: data.bloodPressure,
+        menstrualStatus: data.menstrualStatus,
+        overallBudget: data.overallBudget,
+        netWorth: data.netWorth,
+        splitBalances: data.splitBalances,
+        dailyTarget: null,
+      );
+      return dashboard;
+    }
+
+    testWidgets(
+      'shows the no-data placeholder instead of the effective figure',
+      (tester) async {
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboardWithNoTarget(),
+        );
+
+        // None of testDailyTarget's effective figures (10 staple, 7 meat)
+        // leak through — only the shared placeholder does.
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('home-food-dictionary')),
+            matching: find.text(loc.homeNoData),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('10主'), findsNothing);
+        expect(find.textContaining('10S'), findsNothing);
+
+        // No `valueSemanticLabel`: the placeholder speaks for itself, so
+        // nothing announces the (nonexistent) full figure.
+        expect(
+          find.bySemanticsLabel(RegExp('staple 10')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('still routes to the food dictionary on tap', (tester) async {
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboardWithNoTarget(),
+      );
+
+      expect(find.text('DIET-DICTIONARY-ROUTE'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('home-food-dictionary')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('DIET-DICTIONARY-ROUTE'), findsOneWidget);
+    });
+  });
+
   // ------------------------------------------------------------ pull-to-refresh
   //
   // Unlike `loadedDashboardFixture()` above, this group drives the real
-  // six-request fan-out through `FakeDashboardRepositories`, because what is
+  // seven-request fan-out through `FakeDashboardRepositories`, because what is
   // under test *is* the reload: which token it carries, when its future
   // settles, and what the screen shows while and after it runs.
   group('HomeScreen pull-to-refresh', () {
@@ -841,6 +967,7 @@ void main() {
           ListFinanceBudgets(repos),
           GetMonthlyNetWorth(repos),
           GetBalances(repos),
+          GetDailyTargetWithRemaining(repos),
         );
 
     RefreshIndicator indicator(WidgetTester tester) =>
@@ -1389,12 +1516,32 @@ List<String> _captureAnnouncements(WidgetTester tester) {
   return announced;
 }
 
+/// The portion target every dashboard fixture in the home tests carries:
+/// effective 10 staple / 7 meat / 2 fruit / 2 veg. Four distinct-enough
+/// counts (10 is two digits, 7 one, and the two 2s are the pair the "drop
+/// the vegetable group" rule removes one of) so a printed string can be told
+/// apart from any other tile's.
+///
+/// base/bonus/logged/remaining are deliberately NOT all equal to effective:
+/// a fixture where every `Portions` field is the same numbers can't tell
+/// `target.effective` apart from `target.base` or `target.remaining`, which
+/// is exactly the distinction a past regression got wrong (the tile must
+/// print effective, not remaining).
+const testDailyTarget = DailyTargetWithRemaining(
+  day: '2026-01-01',
+  base: Portions(staple: 8, meat: 6, fruit: 2, veg: 2),
+  bonus: Portions(staple: 2, meat: 1, fruit: 0, veg: 0),
+  effective: Portions(staple: 10, meat: 7, fruit: 2, veg: 2),
+  logged: Portions(staple: 3, meat: 2, fruit: 1, veg: 0),
+  remaining: Portions(staple: 7, meat: 5, fruit: 1, veg: 2),
+);
+
 /// A [HomeDashboardController] already in its loaded state, with figures the
 /// tiles actually print — so a tile that renders is distinguishable from the
 /// 無資料 placeholder wearing the same key.
 ///
-/// Assigned rather than loaded: `load` is a six-request fan-out and none of
-/// those six requests is what these tests are about.
+/// Assigned rather than loaded: `load` is a seven-request fan-out and none of
+/// those seven requests is what these tests are about.
 HomeDashboardController loadedDashboardFixture() {
   final unused = _UnusedRepositories();
   return HomeDashboardController(
@@ -1404,6 +1551,7 @@ HomeDashboardController loadedDashboardFixture() {
       ListFinanceBudgets(unused),
       GetMonthlyNetWorth(unused),
       GetBalances(unused),
+      GetDailyTargetWithRemaining(unused),
     )
     ..status = HomeDashboardStatus.loaded
     ..data = const HomeDashboardData(
@@ -1434,6 +1582,7 @@ HomeDashboardController loadedDashboardFixture() {
           balances: [CurrencyBalance(currency: 'TWD', amount: 55500)],
         ),
       ],
+      dailyTarget: testDailyTarget,
     );
 }
 
@@ -1446,7 +1595,8 @@ class _UnusedRepositories
         VitalsRepository,
         MenstrualRepository,
         FinanceRepository,
-        SplitRepository {
+        SplitRepository,
+        DailyTargetRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => throw StateError(
     'the loaded dashboard fixture is assigned directly, never fetched',

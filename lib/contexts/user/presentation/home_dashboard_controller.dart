@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/date/day_format.dart';
 import '../../body_profile/application/get_weight_goal.dart';
 import '../../body_profile/domain/weight_goal.dart';
 import '../../finance/application/list_finance_budgets.dart';
@@ -7,6 +8,8 @@ import '../../finance/application/networth_use_cases.dart';
 import '../../finance/domain/finance_budget.dart';
 import '../../finance/domain/finance_month.dart';
 import '../../finance/domain/networth_snapshot.dart';
+import '../../health/application/get_daily_target_with_remaining.dart';
+import '../../health/domain/daily_target.dart';
 import '../../menstrual/application/get_menstrual_overview.dart';
 import '../../menstrual/domain/menstrual_period.dart';
 import '../../menstrual/domain/next_period_status.dart';
@@ -39,6 +42,20 @@ class HomeDashboardData {
   final MonthlyNetWorth netWorth;
   final List<Balance> splitBalances;
 
+  /// Today's effective portion target (and what is left of it), or `null`
+  /// when **that one request** failed.
+  ///
+  /// Nullable, unlike every sibling above, and the asymmetry is the point.
+  /// "The backend always answers with a default target" only rules out an
+  /// *empty* answer; it says nothing about a 4xx/5xx/timeout, and under a
+  /// plain `Future.wait` one such failure takes the whole dashboard to the
+  /// error state — six healthy snapshots lost to the least important arm. So
+  /// this arm alone swallows its own error and degrades to `null` here (the
+  /// tile then prints 無資料, exactly like the placeholder branch); the other
+  /// six stay all-or-nothing, because they *are* the screen and quietly
+  /// blanking them would be worse than an error the user can retry.
+  final DailyTargetWithRemaining? dailyTarget;
+
   const HomeDashboardData({
     required this.weightGoal,
     required this.bloodPressure,
@@ -46,6 +63,7 @@ class HomeDashboardData {
     required this.overallBudget,
     required this.netWorth,
     required this.splitBalances,
+    required this.dailyTarget,
   });
 }
 
@@ -57,6 +75,7 @@ class HomeDashboardController extends ChangeNotifier {
   final ListFinanceBudgets _listFinanceBudgets;
   final GetMonthlyNetWorth _getMonthlyNetWorth;
   final GetBalances _getBalances;
+  final GetDailyTargetWithRemaining _getDailyTarget;
 
   HomeDashboardController(
     this._getWeightGoal,
@@ -65,6 +84,7 @@ class HomeDashboardController extends ChangeNotifier {
     this._listFinanceBudgets,
     this._getMonthlyNetWorth,
     this._getBalances,
+    this._getDailyTarget,
   );
 
   HomeDashboardStatus status = HomeDashboardStatus.idle;
@@ -88,7 +108,7 @@ class HomeDashboardController extends ChangeNotifier {
 
   /// Loads the dashboard, or — if a round is already running — returns that
   /// round's future rather than starting a second fan-out. The retry button
-  /// and a pull-to-refresh can otherwise overlap into twelve concurrent
+  /// and a pull-to-refresh can otherwise overlap into fourteen concurrent
   /// requests whose two writes land in an unknown order.
   Future<void> load(String idToken, DateTime now) {
     final inFlight = _inFlight;
@@ -112,13 +132,20 @@ class HomeDashboardController extends ChangeNotifier {
     final to = DateTime(now.year, now.month, now.day);
     final from = to.subtract(const Duration(days: 365));
     try {
-      final results = await Future.wait<Object>([
+      // `Object?`, not `Object`: the daily-target arm below resolves to
+      // `null` when it fails.
+      final results = await Future.wait<Object?>([
         _getWeightGoal(idToken),
         _getVitalsTrends(idToken, from, to),
         _getMenstrualOverview(idToken),
         _listFinanceBudgets(idToken, month),
         _getMonthlyNetWorth(idToken, month),
         _getBalances(idToken),
+        // The one arm allowed to fail alone — see `HomeDashboardData
+        // .dailyTarget` for why this one and not the others.
+        _getDailyTarget(idToken, dayString(now))
+            .then<DailyTargetWithRemaining?>((target) => target)
+            .onError((_, __) => null),
       ]);
       if (generation != _generation) return;
       final vitals = results[1] as VitalsRange;
@@ -131,6 +158,7 @@ class HomeDashboardController extends ChangeNotifier {
         overallBudget: budgets.where((budget) => budget.categoryId == null).firstOrNull,
         netWorth: results[4] as MonthlyNetWorth,
         splitBalances: results[5] as List<Balance>,
+        dailyTarget: results[6] as DailyTargetWithRemaining?,
       );
       status = HomeDashboardStatus.loaded;
       lastLoadedAt = now;

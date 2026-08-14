@@ -1094,8 +1094,8 @@ class _FakeSocialRepository implements SocialRepository {
 }
 
 /// Builds a [HomeDashboardController] wired to the inert fakes in this file,
-/// so a test that cares only about WHEN its six-request fan-out goes out does
-/// not have to stand up six repositories of its own. Pass
+/// so a test that cares only about WHEN its seven-request fan-out goes out does
+/// not have to stand up seven repositories of its own. Pass
 /// [bodyProfileRepository] to count one arm of the batch.
 HomeDashboardController testHomeDashboardController({
   BodyProfileRepository? bodyProfileRepository,
@@ -1108,6 +1108,7 @@ HomeDashboardController testHomeDashboardController({
     ListFinanceBudgets(finance),
     GetMonthlyNetWorth(finance),
     GetBalances(FakeSplitRepository()),
+    GetDailyTargetWithRemaining(_FakeDailyTargetRepository()),
   );
 }
 
@@ -1250,6 +1251,7 @@ HomeDashboardController _dashboardControllerFor(
   ListFinanceBudgets(repos),
   GetMonthlyNetWorth(repos),
   GetBalances(repos),
+  GetDailyTargetWithRemaining(repos),
 );
 
 /// Builds a fresh [ThemeController] backed by an empty, mocked
@@ -1293,7 +1295,7 @@ Future<LocaleController> pumpApp(
 
   /// The home hub's cross-context dashboard. `null` (the default) leaves
   /// `App` without one, exactly as before this parameter existed — pass one
-  /// to observe WHEN its six-request fan-out goes out.
+  /// to observe WHEN its seven-request fan-out goes out.
   HomeDashboardController? homeDashboardController,
 
   /// Backs `/assistant` and the settings key section — a fresh, keyless
