@@ -351,6 +351,116 @@ bool _isTwoColumns(WidgetTester tester, List<String> tileKeys) {
   return first.top == second.top && first.left != second.left;
 }
 
+/// `_SnapshotTile`'s own padding (12 each side). Its 1px border is *not*
+/// subtracted here on purpose: leaving those 2px in makes the "the value fits
+/// inside the tile" assertion below slightly lenient rather than
+/// off-by-one-brittle, and every real failure mode (a value painted at full
+/// size in a tile too narrow for it) misses by tens of pixels, not by two.
+const _tilePadding = 24.0;
+
+/// The floor `_financeAmountsFixture`'s amounts stay above in the two-column
+/// layouts these guards render, at the widths issues #189/#190 named — not a
+/// universal floor over every string the app can print (a longer real
+/// balance shrinks further still; see `home_screen.dart`'s
+/// `_sectionTwoColumnMinWidth` doc for the narrowest-tile numbers, which do
+/// dip below this).
+///
+/// Measured on this build (zh-Hant, `_financeAmountsFixture`, painted scale of
+/// the value `Text` under `_SnapshotTile`'s `FittedBox`):
+///
+/// | screen | tile | 剩餘 456,700 | 9,999,999 |
+/// | --- | --- | --- | --- |
+/// | 360dp | 139 | 0.700 | 0.777 |
+/// | 361dp | 139.5 | 0.703 | 0.781 |
+/// | 402dp | 160 | 0.830 | 0.922 |
+/// | 412dp | 165 | 0.861 | 0.956 |
+/// | 420dp | 169 | 0.885 | 0.984 |
+/// | 430dp | 174 | 0.916 | 1.000 |
+///
+/// So the worst case at these widths is 0.700 and the floor sits below it
+/// with room for font-metric drift. It is not a re-statement of the
+/// implementation: shrink-to-fit alone would happily paint a figure at 0.2×
+/// and still be "one line, not truncated" — this is the assertion that says
+/// the fix has to stay *readable*, and the one that goes red if a tile gets
+/// narrower or the value font bigger.
+const _minValueScale = 0.65;
+
+/// The same floor for the single narrowest two-column tile that exists
+/// (screen 332dp → inner 260 → tile 125), measured with the deliberately
+/// over-long `_longestRealisticFixture`: `剩餘 9,999,999` paints at 0.511
+/// there, `9,999,999` and the health prose value `再記錄一次即可預測` at 0.681.
+/// Lower than [_minValueScale] because this is the extreme corner (widest
+/// realistic string × narrowest tile), not a width a real figure is expected
+/// to be read at.
+const _minValueScaleAtNarrowestTile = 0.45;
+
+/// Asserts the snapshot value containing [part] inside tile [tileKey] is
+/// painted as **one un-truncated line that fits its tile and is still
+/// legible**.
+///
+/// All three parts are needed, and the first one alone is a guard that cannot
+/// fail. `_SnapshotTile` wraps its value in a `FittedBox`, which lays the
+/// paragraph out at its natural width and *then* scales it — so under it
+/// `paintedLineCountOfPart` is 1 at every screen width whatever the tile does,
+/// and `BoxFit.scaleDown` can never raise an overflow either. The falsifiable
+/// halves are the painted rect (proves the figure fits the tile: red if the
+/// `FittedBox` stops scaling) and the painted scale (proves it was not
+/// "fixed" by shrinking it into unreadability).
+///
+/// Verified by mutation, one at a time, against this file:
+///
+/// | mutation | result |
+/// | --- | --- |
+/// | `BoxFit.scaleDown` → `BoxFit.none` | RED — rect: `161.50px wide inside a 174.00px tile` |
+/// | value style `titleMedium` → `headlineMedium` | RED — scale: `shrunk to 0.529×, below … 0.65` |
+/// | `_tileValue` → plain `Text` (no `FittedBox`) | RED — line count: `Expected: <1> Actual: <2>` |
+/// | drop `maxLines: 1` | **GREEN** — see below |
+/// | drop `maxLines: 1` *and* `softWrap: false` | **GREEN** — see below |
+///
+/// The last two are the honest caveat: while the `FittedBox` is there, the
+/// paragraph is laid out at unbounded width, so nothing wraps whatever those
+/// two properties say, and no assertion here can see them go. They are kept
+/// in the implementation as protection for a future edit that removes the
+/// `FittedBox` — but nothing in this file guards them, and adding an
+/// assertion that "checks" them would be a guard that cannot fail.
+void _expectValueFitsOneLine(
+  WidgetTester tester,
+  String tileKey,
+  String part, {
+  required double minScale,
+  required String reason,
+}) {
+  final value = find.descendant(
+    of: find.byKey(Key(tileKey)),
+    matching: find.textContaining(part),
+  );
+  expect(value, findsOneWidget, reason: '$reason: value not found');
+  expect(
+    paintedLineCountOfPart(tester, value, part),
+    1,
+    reason: '$reason: painted line count',
+  );
+
+  final tile = tester.getRect(find.byKey(Key(tileKey)));
+  final painted = tester.getRect(value);
+  expect(
+    painted.width,
+    lessThanOrEqualTo(tile.width - _tilePadding),
+    reason:
+        '$reason: painted ${painted.width.toStringAsFixed(2)}px wide inside a '
+        '${tile.width.toStringAsFixed(2)}px tile',
+  );
+
+  final scale = paintedScaleOf(tester, value);
+  expect(
+    scale,
+    greaterThanOrEqualTo(minScale),
+    reason:
+        '$reason: shrunk to ${scale.toStringAsFixed(3)}×, below the legibility '
+        'floor of $minScale',
+  );
+}
+
 void main() {
   group('HomeScreen responsive layout', () {
     testWidgets(
@@ -374,11 +484,13 @@ void main() {
         // side fails loudly here instead of silently changing what this test
         // covers.
         expect(_isTwoColumns(tester, _healthTiles), isTrue);
-        // Finance did NOT move — it keeps the original, higher threshold
-        // (issue #189: a two-column finance tile at this width hard-wraps a
-        // money value mid-digit). See the "Samsung Flip7 breakpoint" group
-        // below for the dedicated regression coverage.
-        expect(_isTwoColumns(tester, _financeTiles), isFalse);
+        // Finance now moves with it. It used to keep its own, higher
+        // threshold (330) so that a money value could never land in a tile
+        // narrow enough to hard-wrap mid-digit (issue #189) — but the value
+        // is shrink-to-fit now, so there is no wrap left to dodge and both
+        // sections share one breakpoint. The "Samsung Flip7 breakpoint"
+        // group below is what pins the figures themselves.
+        expect(_isTwoColumns(tester, _financeTiles), isTrue);
       },
     );
 
@@ -402,8 +514,7 @@ void main() {
     // name, not buried inside a shared failure message.
     for (final width in [360.0, 361.0]) {
       testWidgets(
-        '${width.toInt()}dp: health section is two columns, '
-        'finance section stays one column',
+        '${width.toInt()}dp: both sections are two columns',
         (tester) async {
           await _pumpAt(
             tester,
@@ -418,10 +529,14 @@ void main() {
             isTrue,
             reason: 'health section should be two columns at ${width}dp',
           );
+          // Was `isFalse`: #189 was originally fixed by keeping finance
+          // single-column at these widths. The tile now shrinks the figure
+          // instead, so finance follows the same breakpoint as health — the
+          // LINCHPIN below is what proves the figures survive it.
           expect(
             _isTwoColumns(tester, _financeTiles),
-            isFalse,
-            reason: 'finance section should stay one column at ${width}dp',
+            isTrue,
+            reason: 'finance section should be two columns at ${width}dp',
           );
         },
       );
@@ -438,24 +553,19 @@ void main() {
           );
 
           // "456,700" lives inside 本月預算's "剩餘 456,700" wrapper —
-          // `find.text` needs the substring form, not an exact match.
-          final budgetValue = find.descendant(
-            of: find.byKey(const Key('home-budget')),
-            matching: find.textContaining('456,700'),
-          );
-          expect(
-            paintedLineCountOfPart(tester, budgetValue, '456,700'),
-            1,
+          // `find.textContaining` is the substring form this needs.
+          _expectValueFitsOneLine(
+            tester,
+            'home-budget',
+            '456,700',
+            minScale: _minValueScale,
             reason: '本月預算 value at ${width}dp',
           );
-
-          final netWorthValue = find.descendant(
-            of: find.byKey(const Key('home-net-worth')),
-            matching: find.textContaining('9,999,999'),
-          );
-          expect(
-            paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
-            1,
+          _expectValueFitsOneLine(
+            tester,
+            'home-net-worth',
+            '9,999,999',
+            minScale: _minValueScale,
             reason: '淨值 value at ${width}dp',
           );
         },
@@ -478,21 +588,18 @@ void main() {
       expect(_isTwoColumns(tester, _financeTiles), isFalse);
     });
 
-    // 402/412/420dp: `_financeTwoColumnMinWidth` = 330 (inner) means every
-    // screen width from 402dp up is already two-column finance (inner =
-    // screenWidth-72 >= 330), but the two-column tile at these widths
-    // (tileWidth 160/165/169) is still narrower than the 171.5 floor a
-    // 7-digit amount needs to stay on one line (see the constant's doc
-    // comment). So `9,999,999` **does** split at all three of these widths
-    // today — this is a known, tracked gap (issue #190), not something
-    // #189 fixed. These three tests pin that actual behaviour as a
-    // characterization test: if #190 ever gets fixed (e.g. by widening the
-    // tile or raising the finance breakpoint for this narrow band), these
-    // three assertions should go RED and get flipped from `2` to `1`.
+    // 402/412/420dp (iPhone 16 Pro, Pixel 8/9): these three used to be
+    // *characterization* tests for issue #190 — finance was two columns here
+    // (inner >= the old 330 threshold) with a tile (160/165/169px) below the
+    // 171.5px a 7-digit amount needed, so `9,999,999` split mid-digit and the
+    // assertion below read `2`. #190 is fixed: the value shrinks to fit
+    // instead of wrapping, so it is `1` at all three widths, and the measured
+    // scale (0.92/0.96/0.98 for 淨值) says it did not have to shrink much to
+    // get there.
     for (final width in [402.0, 412.0, 420.0]) {
       testWidgets(
-        '${width.toInt()}dp KNOWN GAP (issue #190): finance is two columns, '
-        'but 9,999,999 still splits mid-digit',
+        '${width.toInt()}dp (issue #190): finance is two columns and '
+        '9,999,999 stays whole',
         (tester) async {
           await _pumpAt(
             tester,
@@ -506,26 +613,22 @@ void main() {
           expect(
             _isTwoColumns(tester, _financeTiles),
             isTrue,
-            reason:
-                'characterization only (issue #190): today finance is two '
-                'columns at ${width}dp. If this is RED because you FIXED '
-                '#190, update this expectation — do not revert your fix.',
+            reason: 'finance section should be two columns at ${width}dp',
           );
 
-          final netWorthValue = find.descendant(
-            of: find.byKey(const Key('home-net-worth')),
-            matching: find.textContaining('9,999,999'),
+          _expectValueFitsOneLine(
+            tester,
+            'home-net-worth',
+            '9,999,999',
+            minScale: _minValueScale,
+            reason: '淨值 value at ${width}dp (issue #190)',
           );
-          // NOT fixed yet: tileWidth at ${width}dp is below the 171.5
-          // floor, so this is 2, not 1. See issue #190 — when it's fixed,
-          // this assertion should become 1.
-          expect(
-            paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
-            2,
-            reason:
-                'characterization only (issue #190): today 9,999,999 spans '
-                '2 lines at ${width}dp. If this is RED because you FIXED '
-                '#190, update this expectation — do not revert your fix.',
+          _expectValueFitsOneLine(
+            tester,
+            'home-budget',
+            '456,700',
+            minScale: _minValueScale,
+            reason: '本月預算 value at ${width}dp (issue #190)',
           );
         },
       );
@@ -545,23 +648,18 @@ void main() {
         expect(_isTwoColumns(tester, _healthTiles), isTrue);
         expect(_isTwoColumns(tester, _financeTiles), isTrue);
 
-        final budgetValue = find.descendant(
-          of: find.byKey(const Key('home-budget')),
-          matching: find.textContaining('456,700'),
-        );
-        expect(
-          paintedLineCountOfPart(tester, budgetValue, '456,700'),
-          1,
+        _expectValueFitsOneLine(
+          tester,
+          'home-budget',
+          '456,700',
+          minScale: _minValueScale,
           reason: '本月預算 value at 430dp',
         );
-
-        final netWorthValue = find.descendant(
-          of: find.byKey(const Key('home-net-worth')),
-          matching: find.textContaining('9,999,999'),
-        );
-        expect(
-          paintedLineCountOfPart(tester, netWorthValue, '9,999,999'),
-          1,
+        _expectValueFitsOneLine(
+          tester,
+          'home-net-worth',
+          '9,999,999',
+          minScale: _minValueScale,
           reason: '淨值 value at 430dp',
         );
       },
@@ -638,10 +736,19 @@ void main() {
           find.text(widestValue),
           reason: 'net worth value',
         );
-        expect(
-          paintedTextLineCount(tester, find.text(widestValue)),
-          lessThanOrEqualTo(2),
-          reason: 'net worth value',
+        // Was `paintedTextLineCount(...) <= 2`. That reading is now
+        // structurally 1 — the value sits under a `FittedBox`, which lays the
+        // paragraph out at unbounded width — so "at most 2 lines" could not
+        // fail whatever the layout did. What is still falsifiable at this
+        // width is that the figure fits the tile and is not shrunk into
+        // illegibility (measured here: 0.916×, 222px painted inside a 248px
+        // tile).
+        _expectValueFitsOneLine(
+          tester,
+          'home-net-worth',
+          widestValue,
+          minScale: _minValueScale,
+          reason: 'net worth value at 320dp',
         );
       },
     );
@@ -780,15 +887,15 @@ void main() {
     );
   });
 
-  group('health section two-column breakpoint (260)', () {
+  group('section two-column breakpoint (260)', () {
     // Inner-width (LayoutBuilder's `constraints.maxWidth`) is
     // `screenWidth − 72` (plan §0: 20+20 page padding, 2+2 LedgeCard border,
     // 14+14 LedgeCard padding). 332 → inner 260 (two columns), 330 → inner
-    // 258 (single column, measured floor — plan §2b). This pair only crosses
-    // the HEALTH threshold (`_healthTwoColumnMinWidth` = 260) — the finance
-    // section's own threshold is 330, so finance stays single column at both
-    // of these widths and every assertion below that names a specific tile
-    // deliberately reads a health tile, not a finance one.
+    // 258 (single column, measured floor — plan §2b). Both sections now share
+    // that one threshold (`_sectionTwoColumnMinWidth`), so 332dp is where the
+    // narrowest two-column tile in the app exists — 125px, for finance as
+    // well as health. B2 below is the only place a two-column *finance* tile
+    // that narrow gets measured.
     const aboveSize = Size(332, 2000);
     const belowSize = Size(330, 2000);
 
@@ -834,11 +941,10 @@ void main() {
     );
 
     testWidgets(
-      'B2: at the two-column tile width, no health/finance label wraps '
-      '(a font/label-change guard — NOT a threshold guard: it renders only '
-      'at 332dp and is insensitive to `_healthTwoColumnMinWidth`\'s value; '
-      'the threshold itself is pinned by B1 above and by the 320dp guard in '
-      'the privacy-eye group)',
+      'B2: at the two-column tile width, no health/finance label wraps and '
+      'the narrowest finance value still fits and is legible (renders only '
+      'at 332dp; the threshold itself is pinned by B1 above and by the '
+      '320dp guard in the privacy-eye group)',
       (tester) async {
         await _pumpAt(
           tester,
@@ -863,13 +969,13 @@ void main() {
           }
         }
 
-        // Every tile label sits on exactly one line and every value on at
-        // most two. For health this is exactly the measured floor (plan
-        // §2b: inner 258 → labels 1 line, values ≤2 lines, 0 layout errors);
-        // finance is single-column at inner 258 too (its own, higher
-        // threshold), which gives it a whole 258px-wide tile — an easier
-        // case, but still worth asserting so a regression there doesn't slip
-        // through unnoticed.
+        // Every tile label sits on exactly one line. This is exactly the
+        // measured floor (plan §2b: inner 258 → labels 1 line, 0 layout
+        // errors), and since both sections share the 260 threshold it is now
+        // asserted for the finance labels in a 125px two-column tile too —
+        // measured: 本月預算/淨值/總負債/分帳總覽 all still 1 line there. Labels
+        // are NOT shrink-to-fit (only values are), so unlike the value
+        // assertions below this one can fail by wrapping.
         const labels = [
           '最新體重',
           '食物份量工具',
@@ -894,15 +1000,83 @@ void main() {
         // A renamed/removed l10n string must fail loudly here, not silently
         // shrink the loop above to fewer assertions.
         expect(found, labels, reason: 'every expected label must be found');
+
+        // The narrowest two-column tile in the app (125px) with the widest
+        // realistic figures in it — the corner the shrink-to-fit value has to
+        // survive. Measured on this build: 剩餘 9,999,999 at 0.511×,
+        // -9,999,999 at 0.613×, both painted 99px wide inside the 125px tile.
+        expect(
+          tester.getSize(find.byKey(const Key('home-budget'))).width,
+          closeTo(125, 0.5),
+          reason: 'finance is two columns at 332dp too',
+        );
+        _expectValueFitsOneLine(
+          tester,
+          'home-budget',
+          '9,999,999',
+          minScale: _minValueScaleAtNarrowestTile,
+          reason: '本月預算 value in the narrowest two-column tile',
+        );
+        _expectValueFitsOneLine(
+          tester,
+          'home-net-worth',
+          '-9,999,999',
+          minScale: _minValueScaleAtNarrowestTile,
+          reason: '淨值 value in the narrowest two-column tile',
+        );
       },
     );
 
     testWidgets(
-      'B3: the finance section sits higher on screen once the health section '
-      'goes two columns (the whole reason for the split threshold: a shorter '
-      'health section pulls finance up instead of leaving it stranded below '
-      'the fold)',
+      'B3: crossing the threshold pulls finance above the fold and makes '
+      'both sections shorter (the whole reason for the breakpoint: two '
+      'columns pull the dashboard up instead of stranding the lower half '
+      'below the fold)',
       (tester) async {
+        // The `top`-of-finance comparison needs a realistic phone height to
+        // show anything: at `aboveSize`/`belowSize` below (2000px tall, used
+        // for the height comparison so nothing is clipped) the whole
+        // dashboard fits and the page centres its content vertically, so the
+        // block above finance shrinks by exactly as much as the centring
+        // offset grows and finance's `top` ties at 1070.0 either width. A
+        // real phone viewport scrolls instead of centring, so the pull-up is
+        // visible there.
+        const realisticAbove = Size(332, 740);
+        const realisticBelow = Size(330, 740);
+
+        await _pumpAt(
+          tester,
+          realisticAbove,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        final financeTopAbove = tester
+            .getRect(find.byKey(const Key('finance-dashboard-section')))
+            .top;
+
+        await _pumpAt(
+          tester,
+          realisticBelow,
+          dashboardController: _longestRealisticFixture(),
+          locale: _zhHant,
+          strict: true,
+        );
+        final financeTopBelow = tester
+            .getRect(find.byKey(const Key('finance-dashboard-section')))
+            .top;
+
+        expect(
+          financeTopAbove,
+          lessThan(financeTopBelow),
+          reason:
+              'two columns should pull the finance section higher '
+              '($financeTopAbove vs $financeTopBelow)',
+        );
+
+        double heightOf(String key) =>
+            tester.getSize(find.byKey(Key(key))).height;
+
         await _pumpAt(
           tester,
           aboveSize,
@@ -910,9 +1084,8 @@ void main() {
           locale: _zhHant,
           strict: true,
         );
-        final financeAbove = tester
-            .getTopLeft(find.byKey(const Key('finance-dashboard-section')))
-            .dy;
+        final healthAbove = heightOf('health-dashboard-section');
+        final financeAbove = heightOf('finance-dashboard-section');
 
         await _pumpAt(
           tester,
@@ -921,16 +1094,22 @@ void main() {
           locale: _zhHant,
           strict: true,
         );
-        final financeBelow = tester
-            .getTopLeft(find.byKey(const Key('finance-dashboard-section')))
-            .dy;
+        final healthBelow = heightOf('health-dashboard-section');
+        final financeBelow = heightOf('finance-dashboard-section');
 
+        expect(
+          healthAbove,
+          lessThan(healthBelow),
+          reason:
+              'two columns should make the health section shorter '
+              '($healthAbove vs $healthBelow)',
+        );
         expect(
           financeAbove,
           lessThan(financeBelow),
           reason:
-              'two columns should push the finance section up, not leave it '
-              'as far down as single column',
+              'two columns should make the finance section shorter '
+              '($financeAbove vs $financeBelow)',
         );
       },
     );

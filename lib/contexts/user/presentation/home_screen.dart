@@ -21,13 +21,8 @@ const _contentMaxWidth = 960.0;
 
 /// The `_DashboardSection` `LayoutBuilder`'s **inner** width (screen width
 /// minus 20+20 page padding, 2+2 `LedgeCard` border, 14+14 `LedgeCard`
-/// padding = 72) below which the **health** section's tiles stack into a
-/// single column instead of two.
-///
-/// Health-only: its tile labels/values are short (a weight, a blood
-/// pressure pair), so there is nothing in them that a hard line break can
-/// corrupt — see `_financeTwoColumnMinWidth` for why the finance section
-/// does not share this value.
+/// padding = 72) below which a section's tiles stack into a single column
+/// instead of two. **Both** sections use it.
 ///
 /// Measured (not guessed): at inner 258, the zh-Hant tile labels (e.g.
 /// 最新體重, 生理週期預測 — CJK glyphs beside the 44pt privacy eye) still fit on
@@ -37,36 +32,38 @@ const _contentMaxWidth = 960.0;
 /// itself cannot overflow until inner ≈150, far narrower, so this is a
 /// readability threshold, not an overflow threshold. +2px margin for
 /// font-metric drift across Flutter/Quicksand versions.
-const _healthTwoColumnMinWidth = 260.0;
-
-/// The finance section's own version of `_healthTwoColumnMinWidth` — kept far
-/// above health's 260, because a narrow finance tile doesn't just cramp, it
-/// corrupts.
 ///
-/// Finance tiles print money (e.g. 456,700 / 9,999,999), and a two-column
-/// tile that's too narrow forces `Text` to hard-wrap a thousands-grouped
-/// number mid-digit (`456,70` / `0` on its own line) — a wrap that turns the
-/// figure into a different, misread number rather than merely a cramped one.
-/// This constant (330) removes that failure for the Samsung Flip7 width the
-/// bug was actually filed against (issue #189: inner 288–359, screen
-/// 360–431dp) *only up to where the section goes two columns* — inner 330
-/// keeps the section single-column through screen 332–401dp, so there is no
-/// two-column tile at those widths to split anything.
+/// **Why finance no longer has its own, higher threshold.** It used to be
+/// 330, on the reasoning that a narrow finance tile doesn't just cramp, it
+/// corrupts: a `Text` too narrow for a thousands-grouped amount hard-wraps
+/// it mid-digit (`456,70` / `0` on its own line), which reads as a
+/// *different* number (issue #189). Keeping the section single-column was
+/// only ever a way to avoid ever producing such a tile — and it did not
+/// hold: from screen 402dp up (inner ≥ 330) the section went two columns
+/// anyway, with tiles (160–171px) below the 171.5px a 7-digit amount needs,
+/// so `9,999,999` split again on iPhone 16 Pro and Pixel 8/9 widths (issue
+/// #190). The gap could only be closed by pushing the threshold to 356 and
+/// giving up two-column finance on ordinary phones.
 ///
-/// It does **not** hold once the section actually goes two columns. Measured
-/// (not guessed): a two-column finance tile only holds `9,999,999` on one
-/// line from tile width 171.5 up (170.75 still splits it) — tileWidth =
-/// (inner-10)/2, inner = screenWidth-72. At screen 402–424dp (inner
-/// 330–352, tileWidth 160–171 — ordinary widths: iPhone 16 Pro at 402,
-/// Pixel 8/9 at 412) the section is two columns *and* the tile is narrower
-/// than that floor, so `9,999,999` splits mid-digit again. The floor isn't
-/// reached until inner 353 (tileWidth 171.5), i.e. screen 425dp (inner 353).
-/// Raising this constant to 356 would close that gap by keeping finance
-/// single-column through it, but at the cost of losing two-column finance
-/// entirely on 402–424dp phones — out of scope for #189 (which is about the
-/// 360/361dp regression, not density on other widths) and tracked
-/// separately as **issue #190**.
-const _financeTwoColumnMinWidth = 330.0;
+/// `_SnapshotTile._tileValue` removes the failure at its source instead:
+/// the figure is one line that shrinks to fit, at any tile width. With no
+/// wrap left to avoid, finance has no reason to hold a different breakpoint
+/// from health, so both now use this one legibility floor.
+///
+/// Measured shrink (painted scale of the value `Text`, zh-Hant) at the
+/// tightest layout this produces — screen 332dp, inner 260, tileWidth 125,
+/// the narrowest two-column tile that exists:
+///
+/// - `剩餘 456,700` 0.613×, `9,999,999` 0.681×, `-9,999,999` 0.613×
+/// - the deliberately over-long `剩餘 9,999,999` 0.511× — the worst case
+///   among these fixture amounts, not a claim about every string the app can
+///   print (a longer real balance shrinks further still)
+/// - the health prose value `再記錄一次即可預測` 0.681×
+///
+/// At the widths the two issues actually named it is far milder for these
+/// same fixture amounts: the worst of them is 0.700× at 360dp, 0.830× at
+/// 402dp, 0.916× at 430dp.
+const _sectionTwoColumnMinWidth = 260.0;
 
 enum GreetingPeriod { morning, afternoon, evening }
 
@@ -483,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceHealth,
             openLabel: loc.homeOpenHealth,
             onOpen: _openHealth,
-            twoColumnMinWidth: _healthTwoColumnMinWidth,
+            twoColumnMinWidth: _sectionTwoColumnMinWidth,
             children: [
               _maskableTile(
                 tileKey: const Key('home-latest-weight'),
@@ -520,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title: loc.spaceFinance,
             openLabel: loc.homeOpenFinance,
             onOpen: _openFinance,
-            twoColumnMinWidth: _financeTwoColumnMinWidth,
+            twoColumnMinWidth: _sectionTwoColumnMinWidth,
             children: [
               // The destination is part of the tuple, not a shared `_openFinance`
               // for the whole loop: this placeholder block is the state a
@@ -611,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceHealth,
           openLabel: loc.homeOpenHealth,
           onOpen: _openHealth,
-          twoColumnMinWidth: _healthTwoColumnMinWidth,
+          twoColumnMinWidth: _sectionTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-latest-weight'),
@@ -655,7 +652,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: loc.spaceFinance,
           openLabel: loc.homeOpenFinance,
           onOpen: _openFinance,
-          twoColumnMinWidth: _financeTwoColumnMinWidth,
+          twoColumnMinWidth: _sectionTwoColumnMinWidth,
           children: [
             _maskableTile(
               tileKey: const Key('home-budget'),
@@ -811,9 +808,12 @@ class _DashboardSection extends StatelessWidget {
   final List<Widget> children;
 
   /// Inner-width breakpoint below which this section's tiles stack into a
-  /// single column. Caller-supplied (not a shared file-level constant) so
-  /// each call site names which threshold it wants — see
-  /// `_healthTwoColumnMinWidth`/`_financeTwoColumnMinWidth`.
+  /// single column. Caller-supplied rather than read from the file-level
+  /// constant directly, so each call site still names the threshold it wants
+  /// — today every one of them passes `_sectionTwoColumnMinWidth`, but the
+  /// parameter is what let health and finance hold different values while
+  /// #189/#190 were open, and what keeps this widget reusable by a section
+  /// with different content.
   final double twoColumnMinWidth;
 
   const _DashboardSection({
@@ -953,6 +953,9 @@ class _SnapshotTile extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             if (actionLabel != null)
+              // Not shrink-to-fit: this is a button caption, not a figure —
+              // wrapping it costs nothing, and a shrunk caption beside a
+              // full-size one in the neighbouring tile looks broken.
               Text(actionLabel!, style: theme.textTheme.labelLarge)
             else if (isHidden)
               // A screen reader hears "Hidden", not four bullet characters
@@ -962,16 +965,59 @@ class _SnapshotTile extends StatelessWidget {
               Semantics(
                 label: hiddenSemanticLabel,
                 child: ExcludeSemantics(
-                  child: Text(maskedValue, style: theme.textTheme.titleMedium),
+                  child: _tileValue(theme, maskedValue),
                 ),
               )
             else
-              Text(value ?? '', style: theme.textTheme.titleMedium),
+              _tileValue(theme, value ?? ''),
           ],
         ),
       ),
     );
   }
+
+  /// A snapshot figure: **one line, never wrapped, never truncated**, shrunk
+  /// to fit the tile when it is too narrow for the figure at full size.
+  ///
+  /// This is what replaced the two-column breakpoint as the answer to
+  /// issues #189/#190. A plain `Text` hard-wraps a thousands-grouped amount
+  /// mid-digit (`456,70` / `0` on the next line), and a wrap inside a number
+  /// does not merely cramp it — it reads as a *different* number. Keeping
+  /// the section single-column until the tile is wide enough only postponed
+  /// that (it re-appeared as soon as two columns kicked in, #190); shrinking
+  /// the glyphs removes it at every width.
+  ///
+  /// Two details that are load-bearing, not style:
+  ///
+  /// - `maxLines: 1` **and** `softWrap: false`. Both are belt-and-braces for
+  ///   whoever later removes the `FittedBox`: measured by mutation, deleting
+  ///   either one — or both — leaves every test in
+  ///   `home_screen_responsive_test.dart` green, because a `FittedBox` lays
+  ///   its child out at unbounded width and nothing can wrap there anyway.
+  ///   Deleting the `FittedBox` too is what turns the line-count assertions
+  ///   red. Kept, but do not read them as guarded.
+  /// - No `overflow: TextOverflow.ellipsis`. The requirement is "not
+  ///   truncated"; an ellipsis would satisfy the layout and corrupt the
+  ///   figure exactly like the wrap did.
+  ///
+  /// `alignment: AlignmentDirectional.centerStart` below is kept for the
+  /// same reason but is currently *not* load-bearing: measured by mutation,
+  /// removing it leaves every test green, because the enclosing `Column`
+  /// (`CrossAxisAlignment.start`) gives the `FittedBox` a loose constraint
+  /// that shrink-wraps to its scaled child — `alignment` only becomes
+  /// observable once a `FittedBox` is stretched to fill a wider box than its
+  /// child. It is documentation of intent for whoever changes that
+  /// surrounding layout, not a guarded property today.
+  Widget _tileValue(ThemeData theme, String text) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: AlignmentDirectional.centerStart,
+    child: Text(
+      text,
+      maxLines: 1,
+      softWrap: false,
+      style: theme.textTheme.titleMedium,
+    ),
+  );
 }
 
 class _FutureEntry extends StatelessWidget {

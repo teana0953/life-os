@@ -137,6 +137,34 @@ int paintedLineCountOfPart(WidgetTester tester, Finder finder, String part) {
   return boxes.map((b) => b.top.roundToDouble()).toSet().length;
 }
 
+/// The factor a `FittedBox` ancestor is shrinking the `Text` [finder] matches
+/// by — `1.0` when nothing scales it, `0.5` when it is painted at half size.
+///
+/// **Why this exists.** `FittedBox` lays its child out at its *natural* width
+/// and then paints it through a scale transform. So a `RenderParagraph` under
+/// one always reports unscaled geometry, and `maxLines: 1` makes
+/// [paintedTextLineCount]/[paintedLineCountOfPart] return `1` at **every**
+/// width — a "the number never wraps" assertion under a `FittedBox` is a guard
+/// that cannot fail. Same for `expectNoLayoutErrors`: `BoxFit.scaleDown` never
+/// overflows.
+///
+/// What is still falsifiable is *how much* it had to shrink, which is what
+/// this reads: `tester.getRect` goes through `localToGlobal`, so it carries
+/// the ancestor transform, while `RenderParagraph.size` does not. Their ratio
+/// is the applied scale. Pair it with a rect-vs-content-width comparison
+/// (nothing clipped, nothing spilling) and the trio "1 line + fits + still
+/// legible" becomes a guard that a removed `FittedBox` or a too-narrow tile
+/// each turn red. It does **not** catch a removed `maxLines: 1` — under a
+/// `FittedBox` the paragraph lays out at unbounded width regardless, so that
+/// property has no test coverage here (see `_expectValueFitsOneLine` in
+/// `home_screen_responsive_test.dart` for the verified mutation table).
+double paintedScaleOf(WidgetTester tester, Finder finder) {
+  final paragraph = finder.evaluate().single.renderObject! as RenderParagraph;
+  final natural = paragraph.size.width;
+  if (natural <= 0) fail('$finder laid out to zero width; nothing to scale');
+  return tester.getRect(finder).width / natural;
+}
+
 /// Asserts every non-whitespace character of the `Text` [finder] matches
 /// actually painted a glyph.
 ///
