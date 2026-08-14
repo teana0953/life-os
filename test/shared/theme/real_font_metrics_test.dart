@@ -22,7 +22,7 @@ import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
 
 import '../../contexts/user/presentation/home_screen_test.dart'
-    show loadedDashboardFixture, testPrivacyMaskController;
+    show loadedDashboardFixture, testDailyTarget, testPrivacyMaskController;
 import '../../support/l10n_test_app.dart';
 import '../../support/layout_guard.dart';
 
@@ -388,6 +388,20 @@ HomeDashboardController _financeAmountsFixture() =>
           growthRate: null,
         ),
         splitBalances: [],
+        // A real target, not `null`. `null` is the degraded shape — it means
+        // the daily-target arm of the fan-out failed — and it makes 食物份量
+        // print 尚無資料, three Han glyphs that this file's font does not
+        // contain (caveat 2 above) and that therefore measure the *host's*
+        // fallback font. Since this is the only test in the repo that can see
+        // the real .ttf, degrading that tile would silently exclude the newest
+        // and most font-sensitive string on the dashboard — `10主 7肉 2果 2菜`,
+        // whose digits and spaces are exactly the Latin half this file can
+        // falsify — from the one place able to measure it. It matters most
+        // here: this is the fixture the textScale-2.0 case pumps, and #196's
+        // `_widestFitting` decides whether the 菜 group survives by laying the
+        // candidates out with a `TextPainter` under the ambient `textScaler`,
+        // i.e. a real-font-width decision taken at the scale under test.
+        dailyTarget: testDailyTarget,
       );
 
 /// A dashboard printing the widest figures the finance tiles can ever hold —
@@ -417,6 +431,20 @@ HomeDashboardController _longestValuesFixture() =>
           growthRate: null,
         ),
         splitBalances: [],
+        // Same target as the other fixture, for the same reason: `null` is the
+        // failed-arm shape, and pumping a screen with one tile degraded would
+        // measure the easy case. It is deliberately *not* inflated to make
+        // this fixture "longest" on the 食物份量 tile too — the case below
+        // asserts on 本月預算 only, so this value has to be realistic, not
+        // extremal. Worth recording what it renders, because it is a real-font
+        // *difference*: at 360dp this tile paints all four groups
+        // (`10主 7肉 2果 2菜`), while `home_screen_responsive_test.dart` pins
+        // 332–385.5dp as the band where the 菜 group is dropped. Both are
+        // right — that band was measured under the placeholder font, whose
+        // glyphs are fontSize squares and so wider than real Noto's, and
+        // `_widestFitting` re-decides per font. Nothing to reconcile; it is
+        // the same font-blindness this file exists to expose.
+        dailyTarget: testDailyTarget,
       );
 
 Future<void> _pumpHome(
