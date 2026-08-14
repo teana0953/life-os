@@ -1850,4 +1850,101 @@ void main() {
       });
     }
   });
+
+  // Its own group because it deliberately runs at two widths — the
+  // single-column 320dp case and the two-column 360dp one.
+  group('HomeScreen snapshot tile title alignment', () {
+    // The invariant is the title's offset INSIDE its tile, never an absolute
+    // y: at 320dp the sections are single-column, so each tile is its own
+    // `Wrap` row and the tile tops legitimately differ. 5 of the 8 tiles
+    // carry an eye in the title row, which makes that row 48dp tall (the
+    // 44pt target plus Material's tap-target padding) instead of the
+    // 16–32dp the `bodySmall` title needs on its own. Measured with the
+    // alignment removed, centring therefore put the titles at three
+    // different offsets — 29 (icon, one-line title), 21 (icon, wrapped
+    // two-line title) and 13 (no icon) — i.e. 8–16dp of drift depending on
+    // whether the title wraps.
+    Future<void> expectTitlesAlignedWithinTiles(
+      WidgetTester tester,
+      Size size, {
+      required bool twoColumns,
+      required bool strict,
+    }) async {
+      await _pumpAt(
+        tester,
+        size,
+        dashboardController: _evenValuesFixture(),
+        // Passed separately from `twoColumns` on purpose: 320dp has a
+        // known, pre-existing sub-pixel overflow allowance, so tying
+        // strictness to the column count would make a width change fail on
+        // the overflow check before it ever reached the column pin below.
+        strict: strict,
+      );
+
+      // Pin which layout was actually exercised — otherwise both cases could
+      // silently be the same single-column one.
+      expect(_isTwoColumns(tester, _healthTiles), twoColumns);
+      expect(_isTwoColumns(tester, _financeTiles), twoColumns);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final titles = {
+        'home-latest-weight': loc.homeLatestWeight,
+        'home-food-dictionary': loc.homeFoodPortion,
+        'home-latest-blood-pressure': loc.homeLatestBloodPressure,
+        'home-menstrual-prediction': loc.homeMenstrualPrediction,
+        'home-budget': loc.homeBudget,
+        'home-net-worth': loc.homeNetWorth,
+        'home-total-liabilities': loc.homeTotalLiabilities,
+        'home-split-overview': loc.homeSplitOverview,
+      };
+
+      final offsets = <String, double>{};
+      for (final entry in titles.entries) {
+        final tile = find.byKey(Key(entry.key));
+        final label = find.descendant(of: tile, matching: find.text(entry.value));
+        expect(
+          label,
+          findsOneWidget,
+          reason: '${entry.key} must print its title "${entry.value}"',
+        );
+        offsets[entry.key] =
+            tester.getRect(label).top - tester.getRect(tile).top;
+      }
+
+      expect(
+        offsets.values.toSet(),
+        hasLength(1),
+        reason:
+            'every snapshot tile title must start at the same offset inside '
+            'its own tile, whether or not the tile has an icon. Offsets at '
+            '${size.width}dp: $offsets',
+      );
+    }
+
+    testWidgets(
+      'R2b: tile titles start at the same offset with and without an icon '
+      '(single column, 320dp)',
+      (tester) async {
+        await expectTitlesAlignedWithinTiles(
+          tester,
+          _narrow,
+          twoColumns: false,
+          strict: false,
+        );
+      },
+    );
+
+    testWidgets(
+      'R2b: tile titles start at the same offset with and without an icon '
+      '(two columns, 360dp)',
+      (tester) async {
+        await expectTitlesAlignedWithinTiles(
+          tester,
+          const Size(360, 800),
+          twoColumns: true,
+          strict: true,
+        );
+      },
+    );
+  });
 }
