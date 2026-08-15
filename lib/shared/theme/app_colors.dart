@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Chiikawa-inspired pastel design tokens (see
-/// `openspec/changes/add-design-system/design.md` for the source of truth).
+/// `openspec/changes/archive/2026-07-17-add-design-system/design.md` for the source of truth).
 /// Text/backgrounds never use pure black or pure white.
 
 // Primary — Hachiware pale blue. Same hue in light and dark; only the

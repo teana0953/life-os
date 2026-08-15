@@ -21,7 +21,7 @@ import '../../l10n/generated/app_localizations.dart';
 /// [onSignInAgain] is `required`, not optional: making it optional would let
 /// "this screen has no way out of reauth" and "this screen doesn't need one"
 /// look identical in code, which is exactly the silent dead end this
-/// parameter exists to close (see `openspec/changes/add-reauth-exit`). The
+/// parameter exists to close (see `openspec/changes/archive/2026-08-04-add-reauth-exit`). The
 /// control invokes exactly this callback and does no navigation of its own —
 /// what happens to the route stack afterwards is the caller's job.
 ///

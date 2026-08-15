@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 /// Chiikawa-inspired pastel Material 3 theme. See
-/// `openspec/changes/add-design-system/design.md` for the design tokens.
+/// `openspec/changes/archive/2026-07-17-add-design-system/design.md` for the design tokens.
 ///
 /// Component themes use the `*ThemeData` types (`CardThemeData`,
 /// `InputDecorationTheme`, ...) rather than the deprecated non-`Data`

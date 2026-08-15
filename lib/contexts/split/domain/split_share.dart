@@ -3,7 +3,7 @@ import 'split_exceptions.dart';
 /// One participant's share of a [SplitExpense]. `displayName` comes from
 /// the server (backend PR #67) — the client does not build a name table.
 /// Design D1: the naive "group members + friends" name source is wrong,
-/// because the backend only checks the *creator's* friendship, so a share
+/// because the backend only checks the *caller's* friendship, so a share
 /// holder can see a co-participant who is neither their friend nor a
 /// member of any group they share. Null only in the genuine edge case
 /// where the server has no name to give.
