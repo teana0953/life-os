@@ -1,6 +1,5 @@
 import '../domain/auth_repository.dart';
 
-/// Use case: sign out the current user.
 class SignOut {
   final AuthRepository _repository;
 

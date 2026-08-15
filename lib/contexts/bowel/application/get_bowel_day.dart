@@ -1,7 +1,6 @@
 import '../domain/bowel_day.dart';
 import '../domain/bowel_repository.dart';
 
-/// Use case: fetch a day's bowel record.
 class GetBowelDay {
   final BowelRepository _repository;
 

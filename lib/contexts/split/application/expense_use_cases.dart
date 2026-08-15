@@ -12,7 +12,6 @@ class ListExpenses {
       _repository.listExpenses(idToken, groupId: groupId, withUserId: withUserId);
 }
 
-/// Use case: record a new split expense.
 class CreateExpense {
   final SplitRepository _repository;
 

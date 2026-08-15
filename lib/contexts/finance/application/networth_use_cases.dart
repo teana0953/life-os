@@ -53,7 +53,6 @@ class UpdateNetWorthAccount {
   );
 }
 
-/// Use case: upsert one account-month market-value snapshot.
 class ReorderNetWorthAccounts {
   final FinanceRepository _repository;
 

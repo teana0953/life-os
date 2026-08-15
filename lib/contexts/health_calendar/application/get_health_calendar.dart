@@ -1,7 +1,6 @@
 import '../domain/health_calendar.dart';
 import '../domain/health_calendar_repository.dart';
 
-/// Use case: fetch a month's health-calendar summary.
 class GetHealthCalendar {
   final HealthCalendarRepository repository;
 

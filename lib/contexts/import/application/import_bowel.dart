@@ -1,7 +1,6 @@
 import '../domain/chaodays_import_summary.dart';
 import '../domain/import_repository.dart';
 
-/// Use case: import a date range of bowel data from chaodays.
 class ImportBowel {
   final ImportRepository _repository;
 

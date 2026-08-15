@@ -2,7 +2,6 @@ import '../domain/finance_repository.dart';
 import '../domain/finance_transaction.dart';
 import '../domain/finance_type.dart';
 
-/// Use case: record a new transaction.
 class AddTransaction {
   final FinanceRepository _repository;
 

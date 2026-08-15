@@ -1,6 +1,5 @@
 import '../domain/finance_repository.dart';
 
-/// Use case: delete a budget.
 class DeleteBudget {
   final FinanceRepository _repository;
 

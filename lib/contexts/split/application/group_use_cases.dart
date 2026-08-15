@@ -21,7 +21,6 @@ class CreateGroup {
   Future<SplitGroup> call(String idToken, String name) => _repository.createGroup(idToken, name);
 }
 
-/// Use case: fetch a group's details and membership.
 class GetGroup {
   final SplitRepository _repository;
 

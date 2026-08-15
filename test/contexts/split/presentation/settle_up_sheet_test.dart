@@ -295,7 +295,6 @@ void main() {
       await tester.pump();
 
       expect(find.text(_loc.settleUpOverpayWarningTheyWillOwe('Bo', '150')), findsOneWidget);
-      // Still permitted, not blocked.
       final button = tester.widget<FilledButton>(find.byKey(const Key('settle-up-confirm-button')));
       expect(button.onPressed, isNotNull);
     });

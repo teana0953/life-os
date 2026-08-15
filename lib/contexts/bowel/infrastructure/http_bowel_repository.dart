@@ -6,7 +6,6 @@ import '../domain/bowel_day.dart';
 import '../domain/bowel_exceptions.dart';
 import '../domain/bowel_repository.dart';
 
-/// [BowelRepository] driven adapter backed by the `/api/bowel` HTTP endpoints.
 class HttpBowelRepository implements BowelRepository {
   final String baseUrl;
   final http.Client client;

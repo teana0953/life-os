@@ -1,7 +1,6 @@
 import '../domain/water_day.dart';
 import '../domain/water_repository.dart';
 
-/// Use case: fetch a day's water intake, target, and remaining.
 class GetWaterDay {
   final WaterRepository _repository;
 

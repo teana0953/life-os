@@ -1,6 +1,5 @@
 import '../domain/auth_repository.dart';
 
-/// Use case: sign in with email and password.
 class SignIn {
   final AuthRepository _repository;
 

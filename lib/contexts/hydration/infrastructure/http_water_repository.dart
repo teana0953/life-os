@@ -6,8 +6,6 @@ import '../domain/water_day.dart';
 import '../domain/water_exceptions.dart';
 import '../domain/water_repository.dart';
 
-/// [WaterRepository] driven adapter backed by the `/api/water` HTTP
-/// endpoints.
 class HttpWaterRepository implements WaterRepository {
   final String baseUrl;
   final http.Client client;

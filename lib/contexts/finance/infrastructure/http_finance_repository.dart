@@ -428,8 +428,6 @@ class HttpFinanceRepository implements FinanceRepository {
     );
   }
 
-  // ------------------------------------------------------------ installments
-
   @override
   Future<InstallmentPlan> createInstallmentPlan(
     String idToken, {

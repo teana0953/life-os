@@ -29,7 +29,6 @@ class AuthRouterNotifier extends ChangeNotifier {
   /// Whether the auth stream errored (show a retry screen).
   bool get error => _error;
 
-  /// Whether there is an authenticated user.
   bool get signedIn => _signedIn;
 
   AuthRouterNotifier(this._authRepository) {

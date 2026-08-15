@@ -1,7 +1,6 @@
 import '../domain/menstrual_period.dart';
 import '../domain/menstrual_repository.dart';
 
-/// Use case: record a new menstrual period.
 class AddPeriod {
   final MenstrualRepository _repository;
 

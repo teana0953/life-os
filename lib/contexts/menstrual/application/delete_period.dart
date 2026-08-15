@@ -1,6 +1,5 @@
 import '../domain/menstrual_repository.dart';
 
-/// Use case: delete a menstrual period.
 class DeletePeriod {
   final MenstrualRepository _repository;
 
