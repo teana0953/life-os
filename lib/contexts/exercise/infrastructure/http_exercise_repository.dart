@@ -6,8 +6,6 @@ import '../domain/exercise_day.dart';
 import '../domain/exercise_exceptions.dart';
 import '../domain/exercise_repository.dart';
 
-/// [ExerciseRepository] driven adapter backed by the `/api/exercise` HTTP
-/// endpoints.
 class HttpExerciseRepository implements ExerciseRepository {
   final String baseUrl;
   final http.Client client;

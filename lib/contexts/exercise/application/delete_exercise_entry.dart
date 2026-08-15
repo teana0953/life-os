@@ -1,6 +1,5 @@
 import '../domain/exercise_repository.dart';
 
-/// Use case: remove an exercise entry.
 class DeleteExerciseEntry {
   final ExerciseRepository _repository;
 

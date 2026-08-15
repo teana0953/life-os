@@ -1,7 +1,6 @@
 import '../domain/day_meals_log.dart';
 import '../domain/meal_repository.dart';
 
-/// Use case: fetch a day's meals log.
 class GetDayMeals {
   final MealRepository _repository;
 

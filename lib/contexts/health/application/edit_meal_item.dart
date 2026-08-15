@@ -1,8 +1,6 @@
 import '../domain/meal_repository.dart';
 import '../domain/portions.dart';
 
-/// Use case: update one meal item's amount via
-/// [MealRepository.patchMealItem].
 class EditMealItem {
   final MealRepository _repository;
 

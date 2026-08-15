@@ -109,7 +109,6 @@ void main() {
 
       expect(find.byKey(const Key('split-participant-u2')), findsOneWidget);
       expect(find.byKey(const Key('split-participant-f-not-in-group')), findsNothing);
-      // No group selector while locked.
       expect(find.byKey(const Key('split-group-field')), findsNothing);
     });
 
@@ -179,7 +178,6 @@ void main() {
       await tester.enterText(find.byKey(const Key('split-description-field')), 'Lunch');
       await tester.pumpAndSettle();
 
-      // Make the friend the payer and drop self from participants.
       await tester.tap(find.byKey(const Key('split-payer-field')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Friend One').last);
@@ -325,7 +323,6 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('split-mode-toggle')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('split-mode-toggle')).hitTestable().first);
-      // Select the exact segment specifically.
       await tester.tap(find.text(_loc.splitModeExact));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('split-amount-field')), '100');

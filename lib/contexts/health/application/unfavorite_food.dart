@@ -1,6 +1,5 @@
 import '../domain/food_dictionary_repository.dart';
 
-/// Use case: unmark a dictionary item as a favorite.
 class UnfavoriteFood {
   final FoodDictionaryRepository _repository;
 

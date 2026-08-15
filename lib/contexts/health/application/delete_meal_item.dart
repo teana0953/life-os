@@ -1,6 +1,5 @@
 import '../domain/meal_repository.dart';
 
-/// Use case: delete one meal item via [MealRepository.deleteMealItem].
 class DeleteMealItem {
   final MealRepository _repository;
 

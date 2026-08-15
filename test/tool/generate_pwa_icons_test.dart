@@ -89,7 +89,6 @@ void main() {
           mascotFraction: 0.80,
           path: 'web/icons/Icon-maskable-512.png');
 
-      // Favicon.
       await _renderIcon(tester,
           sizePx: 64, mascotFraction: 0.76, path: 'web/favicon.png');
 

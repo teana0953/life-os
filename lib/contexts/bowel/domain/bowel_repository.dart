@@ -1,6 +1,5 @@
 import 'bowel_day.dart';
 
-/// Port for reading and upserting a day's bowel record.
 abstract class BowelRepository {
   Future<BowelDay> getDay(String idToken, String day);
 

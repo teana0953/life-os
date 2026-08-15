@@ -1,7 +1,6 @@
 import '../domain/food_dictionary_repository.dart';
 import '../domain/food_item.dart';
 
-/// Use case: search the food dictionary.
 class SearchDictionary {
   final FoodDictionaryRepository _repository;
 

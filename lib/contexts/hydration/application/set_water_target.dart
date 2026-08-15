@@ -1,6 +1,5 @@
 import '../domain/water_repository.dart';
 
-/// Use case: set a day's water target. Returns the updated target.
 class SetWaterTarget {
   final WaterRepository _repository;
 

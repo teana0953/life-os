@@ -1,7 +1,5 @@
 import '../domain/meal_repository.dart';
 
-/// Use case: change a meal's eaten-at time via
-/// [MealRepository.patchMealTime].
 class ChangeMealTime {
   final MealRepository _repository;
 

@@ -362,7 +362,6 @@ void main() {
         expect(find.text(loc.waterTotalOfTarget(500, 2000)), findsOneWidget);
         expect(find.byKey(const Key('water-add-250')), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
-        // A subtle busy indicator is shown instead.
         expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
         repository.getGate!.complete();

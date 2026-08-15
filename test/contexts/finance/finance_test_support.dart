@@ -354,8 +354,6 @@ class FakeFinanceRepository implements FinanceRepository {
     _budgetDefs.removeWhere((d) => d.id == id);
   }
 
-  // ---------------------------------------------------------------- networth
-
   /// The net worth accounts this fake returns, mutated by create/update.
   List<NetWorthAccount> accounts = [
     const NetWorthAccount(
@@ -596,8 +594,6 @@ class FakeFinanceRepository implements FinanceRepository {
     ];
   }
 
-  // -------------------------------------------------------------- split spending
-
   /// `month -> totals`, for the overview's split-spending line. Empty for
   /// any month not seeded here.
   final Map<String, List<SplitSpending>> splitSpendingByMonth = {};
@@ -615,8 +611,6 @@ class FakeFinanceRepository implements FinanceRepository {
   /// test in this repo that sets [failNext] expecting it to fail the *main*
   /// fetch.
   Object? splitSpendingFailNext;
-
-  // ------------------------------------------------------------ installments
 
   /// Plans the viewer owns. `getInstallmentPlan` for an id not in here
   /// throws [FinanceNotFound] — the backend's answer for somebody else's

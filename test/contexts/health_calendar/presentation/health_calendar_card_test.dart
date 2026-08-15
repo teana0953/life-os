@@ -86,12 +86,10 @@ void main() {
   testWidgets('shows three rings, the month dots, and a legend', (tester) async {
     await _pump(tester, _FakeRepository());
 
-    // Three adherence rings.
     expect(find.byKey(const Key('health-calendar-ring-logging')), findsOneWidget);
     expect(find.byKey(const Key('health-calendar-ring-diet')), findsOneWidget);
     expect(find.byKey(const Key('health-calendar-ring-weight')), findsOneWidget);
 
-    // The month rates + the reused weight-goal rate are shown.
     expect(find.text('20%'), findsOneWidget); // logging rate
     expect(find.text('40%'), findsOneWidget); // diet adherence
     expect(find.text('75%'), findsOneWidget); // weight achievement (reused)

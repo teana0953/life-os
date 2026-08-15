@@ -1,7 +1,6 @@
 import '../domain/exercise_day.dart';
 import '../domain/exercise_repository.dart';
 
-/// Use case: append an exercise entry to a day.
 class AddExerciseEntry {
   final ExerciseRepository _repository;
 
