@@ -2351,6 +2351,12 @@ abstract class AppLocalizations {
   /// **'chaodays is temporarily unavailable. Please try again later.'**
   String get importErrorUnavailable;
 
+  /// Error banner shown when a chaodays import request times out client-side. Unlike importErrorUnavailable, a timeout does not mean the import failed to reach the backend, so the copy warns against blindly re-running the same range.
+  ///
+  /// In en, this message translates to:
+  /// **'The request took too long. It may have already gone through — check your data before importing this range again.'**
+  String get importErrorTimedOut;
+
   /// Title for the reminder/notification settings screen, and the label for its entry card in the More tab.
   ///
   /// In en, this message translates to:
@@ -4786,6 +4792,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Try again.'**
   String get splitErrorGeneric;
+
+  /// Shown when a split mutation (create/update expense, settle up) times out client-side. Unlike other failures, a timeout does not mean the server rejected the request — it may have gone through — so the copy asks the user to check before resubmitting rather than implying it is safe to just retry.
+  ///
+  /// In en, this message translates to:
+  /// **'We didn\'t get a confirmation. Check your split activity before trying again.'**
+  String get splitErrorTimeout;
 
   /// Badge shown on the group detail screen when the group is archived.
   ///

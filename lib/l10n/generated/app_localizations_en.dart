@@ -1282,6 +1282,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'chaodays is temporarily unavailable. Please try again later.';
 
   @override
+  String get importErrorTimedOut =>
+      'The request took too long. It may have already gone through — check your data before importing this range again.';
+
+  @override
   String get reminderTitle => 'Reminders';
 
   @override
@@ -2671,6 +2675,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get splitErrorGeneric => 'Something went wrong. Try again.';
+
+  @override
+  String get splitErrorTimeout =>
+      'We didn\'t get a confirmation. Check your split activity before trying again.';
 
   @override
   String get splitGroupArchivedBadge => 'Archived';

@@ -1,3 +1,5 @@
+import 'dart:async' show TimeoutException;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/split/domain/split_exceptions.dart';
@@ -60,6 +62,19 @@ void main() {
 
     test('an unmapped error falls back to the generic message', () {
       expect(splitErrorText(loc, Exception('anything')), loc.splitErrorGeneric);
+    });
+
+    // A client-side timeout means the request may or may not have reached
+    // the server — the generic/backend-typed copy above all imply the
+    // server responded and rejected it, which would wrongly invite a
+    // duplicate submission.
+    test('a client-side timeout gets its own copy, not the generic message', () {
+      final text = splitErrorText(
+        loc,
+        TimeoutException('HTTP request timed out', const Duration(seconds: 15)),
+      );
+      expect(text, loc.splitErrorTimeout);
+      expect(text, isNot(loc.splitErrorGeneric));
     });
   });
 }

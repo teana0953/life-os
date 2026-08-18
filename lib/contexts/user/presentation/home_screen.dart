@@ -214,6 +214,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Retries the profile load — the error state's primary action. A profile
+  /// fetch failure is often a transient timeout (backend merely slow, not
+  /// down), not proof the account/token is broken, so sign-out must not be
+  /// the only exit offered.
+  Future<void> _retryProfile() async {
+    final token = widget.idToken;
+    if (token == null) return;
+    await widget.controller.load(await token());
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -410,7 +420,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
               const SizedBox(height: 16),
-              FilledButton(
+              // Primary action is retry, not sign-out: a failed profile
+              // fetch is often a transient timeout, and sign-out (which
+              // wipes per-user state, e.g. #156) must not be the only exit
+              // from a slow backend.
+              if (widget.idToken != null) ...[
+                FilledButton(
+                  key: const Key('profile-retry-button'),
+                  onPressed: _retryProfile,
+                  child: Text(loc.retry),
+                ),
+                const SizedBox(height: 8),
+              ],
+              TextButton(
                 key: const Key('sign-out-button'),
                 onPressed: controller.signOut,
                 child: Text(loc.signOut),

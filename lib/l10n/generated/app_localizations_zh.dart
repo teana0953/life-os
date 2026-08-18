@@ -1242,6 +1242,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
 
   @override
+  String get importErrorTimedOut =>
+      'The request took too long. It may have already gone through — check your data before importing this range again.';
+
+  @override
   String get reminderTitle => '提醒通知';
 
   @override
@@ -2568,6 +2572,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get splitErrorGeneric => '發生錯誤,請再試一次。';
+
+  @override
+  String get splitErrorTimeout =>
+      'We didn\'t get a confirmation. Check your split activity before trying again.';
 
   @override
   String get splitGroupArchivedBadge => '已封存';
@@ -4243,6 +4251,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get importErrorUnavailable => 'chaodays 暫時無法連線,請稍後再試。';
 
   @override
+  String get importErrorTimedOut =>
+      '請求花了太久時間,資料可能已經匯入成功——請先確認資料,再決定是否重新匯入這個範圍。';
+
+  @override
   String get reminderTitle => '提醒通知';
 
   @override
@@ -5569,6 +5581,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get splitErrorGeneric => '發生錯誤,請再試一次。';
+
+  @override
+  String get splitErrorTimeout => '沒有收到確認。請先確認分帳動態,再決定是否重新送出。';
 
   @override
   String get splitGroupArchivedBadge => '已封存';

@@ -123,6 +123,7 @@ class _ChaodaysImportScreenState extends State<ChaodaysImportScreen> {
     return switch (widget.controller.status) {
       ImportStatus.authFailed => loc.importErrorAuthFailed,
       ImportStatus.unavailable => loc.importErrorUnavailable,
+      ImportStatus.timedOut => loc.importErrorTimedOut,
       _ => null,
     };
   }
