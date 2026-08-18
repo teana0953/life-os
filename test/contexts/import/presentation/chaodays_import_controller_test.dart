@@ -1,3 +1,5 @@
+import 'dart:async' show TimeoutException;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/import/application/import_bowel.dart';
 import 'package:life_os/contexts/import/application/import_diet.dart';
@@ -244,6 +246,29 @@ void main() {
 
         expect(repository.calls, ['weight', 'diet', 'water']);
         expect(controller.status, ImportStatus.unavailable);
+        expect(controller.typeStates[ImportType.water]!.status, TypeStatus.failed);
+        expect(controller.typeStates[ImportType.bowel]!.status, TypeStatus.notAttempted);
+      },
+    );
+
+    // Distinct from the ImportChaodaysUnavailable case above: a client-side
+    // timeout does not mean the request failed to reach the backend, so it
+    // gets its own status rather than folding into `unavailable` (whose copy
+    // implies a plain failure the user could just retry).
+    test(
+      'a client-side timeout aborts with status timedOut, not unavailable',
+      () async {
+        final repository = FakeImportRepository()
+          ..waterError = TimeoutException(
+            'HTTP request timed out',
+            const Duration(seconds: 15),
+          );
+        final controller = _controller(repository);
+
+        await _import(controller);
+
+        expect(repository.calls, ['weight', 'diet', 'water']);
+        expect(controller.status, ImportStatus.timedOut);
         expect(controller.typeStates[ImportType.water]!.status, TypeStatus.failed);
         expect(controller.typeStates[ImportType.bowel]!.status, TypeStatus.notAttempted);
       },

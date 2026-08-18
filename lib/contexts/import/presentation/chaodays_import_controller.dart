@@ -1,3 +1,5 @@
+import 'dart:async' show TimeoutException;
+
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/data_revision.dart';
@@ -38,7 +40,15 @@ class TypeState {
   const TypeState.failed() : this._(TypeStatus.failed, null);
 }
 
-enum ImportStatus { idle, importing, done, authFailed, unavailable, needsReauth }
+enum ImportStatus {
+  idle,
+  importing,
+  done,
+  authFailed,
+  unavailable,
+  timedOut,
+  needsReauth,
+}
 
 Map<ImportType, TypeState> _freshTypeStates() => {
   for (final type in ImportType.values) type: const TypeState.pristine(),
@@ -155,6 +165,10 @@ class ChaodaysImportController extends ChangeNotifier {
   ///   would fail identically) → [ImportStatus.authFailed]; the remaining
   ///   types are left [TypeStatus.notAttempted] rather than marked failed.
   /// - A lifeos 401 → [ImportStatus.needsReauth].
+  /// - The request timed out client-side (`TimeoutClient`) → [ImportStatus.timedOut]
+  ///   — unlike [ImportStatus.unavailable], the request may already have
+  ///   reached and been applied by the backend, so the screen must not tell
+  ///   the user this type simply "failed".
   /// - chaodays unreachable, or any other failure → [ImportStatus.unavailable]
   ///   with that type marked [TypeStatus.failed].
   ///
@@ -223,6 +237,11 @@ class ChaodaysImportController extends ChangeNotifier {
           return;
         } on ImportReauthenticationRequired {
           status = ImportStatus.needsReauth;
+          notifyListeners();
+          return;
+        } on TimeoutException {
+          typeStates = {...typeStates, type: const TypeState.failed()};
+          status = ImportStatus.timedOut;
           notifyListeners();
           return;
         } catch (_) {

@@ -1615,6 +1615,10 @@
   "@importErrorUnavailable": {
     "description": "Error banner shown when chaodays can't be reached (backend 502, or any other unexpected import failure)."
   },
+  "importErrorTimedOut": "The request took too long. It may have already gone through — check your data before importing this range again.",
+  "@importErrorTimedOut": {
+    "description": "Error banner shown when a chaodays import request times out client-side. Unlike importErrorUnavailable, a timeout does not mean the import failed to reach the backend, so the copy warns against blindly re-running the same range."
+  },
   "reminderTitle": "Reminders",
   "@reminderTitle": {
     "description": "Title for the reminder/notification settings screen, and the label for its entry card in the More tab."
@@ -3523,6 +3527,10 @@
   "splitErrorGeneric": "Something went wrong. Try again.",
   "@splitErrorGeneric": {
     "description": "Fallback message for a split failure with no more specific mapping."
+  },
+  "splitErrorTimeout": "We didn't get a confirmation. Check your split activity before trying again.",
+  "@splitErrorTimeout": {
+    "description": "Shown when a split mutation (create/update expense, settle up) times out client-side. Unlike other failures, a timeout does not mean the server rejected the request — it may have gone through — so the copy asks the user to check before resubmitting rather than implying it is safe to just retry."
   },
   "splitGroupArchivedBadge": "Archived",
   "@splitGroupArchivedBadge": {

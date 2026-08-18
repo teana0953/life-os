@@ -126,6 +126,7 @@ import 'contexts/vitals/presentation/vitals_controller.dart';
 import 'firebase_options.dart';
 import 'shared/assistant/gemini_key_controller.dart';
 import 'shared/config.dart';
+import 'shared/http/timeout_client.dart';
 import 'shared/data_revision.dart';
 import 'shared/i18n/locale_controller.dart';
 import 'shared/privacy/privacy_mask_controller.dart';
@@ -143,7 +144,7 @@ Future<void> main() async {
   );
   final profileRepository = HttpProfileRepository(
     baseUrl: apiBaseUrl,
-    client: http.Client(),
+    client: TimeoutClient(http.Client(), httpRequestTimeout),
   );
 
   final signOut = SignOut(authRepository);
@@ -160,7 +161,14 @@ Future<void> main() async {
   final geminiKeyController = GeminiKeyController(prefs);
   final privacyMaskController = PrivacyMaskController(prefs);
 
-  final httpClient = http.Client();
+  final httpClient = TimeoutClient(http.Client(), httpRequestTimeout);
+  // The assistant (a Gemini generation) and the chaodays bulk import are the
+  // only calls whose duration the backend does not control, so they get the
+  // longer bound instead of the default one.
+  final longRunningClient = TimeoutClient(
+    http.Client(),
+    longRunningHttpTimeout,
+  );
   final foodDictionaryRepository = HttpFoodDictionaryRepository(
     baseUrl: apiBaseUrl,
     client: httpClient,
@@ -275,7 +283,7 @@ Future<void> main() async {
   // precedent) — fresh stateless instances over the same repository.
   final assistantController = AssistantController(
     SendAssistantMessage(
-      HttpAssistantRepository(baseUrl: apiBaseUrl, client: httpClient),
+      HttpAssistantRepository(baseUrl: apiBaseUrl, client: longRunningClient),
     ),
     AddTransaction(financeRepository),
     ListFinanceCategories(financeRepository),
@@ -299,7 +307,7 @@ Future<void> main() async {
   final dataRevision = DataRevision();
   final importRepository = HttpImportRepository(
     baseUrl: apiBaseUrl,
-    client: httpClient,
+    client: longRunningClient,
   );
   final chaodaysImportController = ChaodaysImportController(
     ImportWeight(importRepository),

@@ -355,6 +355,68 @@ void main() {
     );
 
     testWidgets(
+      'retry on the error state reloads the profile without signing out '
+      '(e.g. a transient timeout)',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..errorToThrow = const ProfileFetchFailure('server error');
+        final authRepository = FakeAuthRepository();
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(authRepository),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(
+          tester,
+          controller,
+          idToken: () async => 'token-123',
+        );
+
+        expect(find.byKey(const Key('error-message')), findsOneWidget);
+        final retryButton = find.byKey(const Key('profile-retry-button'));
+        expect(retryButton, findsOneWidget);
+
+        profileRepository
+          ..errorToThrow = null
+          ..profileToReturn = UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'test@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            isAdmin: false,
+          );
+
+        await tester.tap(retryButton);
+        await tester.pumpAndSettle();
+
+        expect(controller.status, HomeStatus.loaded);
+        expect(authRepository.signOutCalled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'omits the retry button on the error state when no token provider is '
+      'wired (nothing for it to call)',
+      (tester) async {
+        final profileRepository = FakeProfileRepository()
+          ..errorToThrow = const ProfileFetchFailure('server error');
+        final controller = HomeController(
+          GetProfile(profileRepository),
+          SignOut(FakeAuthRepository()),
+        );
+        await controller.load('token-123');
+        await pumpHomeScreen(tester, controller, omitIdToken: true);
+
+        expect(
+          find.byKey(const Key('profile-retry-button')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('sign-out-button')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'shows the profile-load error message in Traditional Chinese when '
       'that is the active locale',
       (tester) async {

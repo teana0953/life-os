@@ -1,3 +1,5 @@
+import 'dart:async' show TimeoutException;
+
 import '../../../l10n/generated/app_localizations.dart';
 import '../domain/split_exceptions.dart';
 
@@ -7,6 +9,11 @@ import '../domain/split_exceptions.dart';
 /// (create/update/delete expense, create group, add member, archive) can
 /// fail: the expense sheet, the split tab, and the group detail screen.
 String splitErrorText(AppLocalizations loc, Object error) {
+  // Checked first, ahead of the backend-typed cases below: a client-side
+  // timeout (`TimeoutClient`) means the request may or may not have reached
+  // the server, unlike every other case here where the server did respond.
+  // Generic "try again" copy would invite a duplicate submission.
+  if (error is TimeoutException) return loc.splitErrorTimeout;
   if (error is NotFriends) return loc.splitErrorNotFriends;
   if (error is NotAGroupMember) return loc.splitErrorNotAGroupMember;
   if (error is GroupArchived) return loc.splitErrorGroupArchived;
