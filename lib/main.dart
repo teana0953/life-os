@@ -322,7 +322,7 @@ Future<void> main() async {
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
-  const webPushGateway = BrowserWebPushGateway();
+  const webPushGateway = BrowserWebPushGateway(apiBaseUrl: apiBaseUrl);
   // One instance, shared with the push-health controller below: both re-run
   // the same idempotent grant → subscribe → save flow.
   final enableReminders = EnableReminders(pushRepository, webPushGateway);

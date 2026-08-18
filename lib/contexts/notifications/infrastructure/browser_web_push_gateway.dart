@@ -8,6 +8,7 @@ import 'package:web/web.dart' as web;
 
 import '../domain/push_subscription.dart';
 import '../domain/web_push_gateway.dart';
+import 'push_sw_url.dart';
 
 /// The `window.pwaInstall` bridge object defined in `web/index.html`
 /// (mirrors `PwaInstallImpl`'s binding), read directly here because
@@ -23,8 +24,35 @@ extension type _PwaInstallBridge(JSObject _) implements JSObject {
 /// registration at the scoped `/push/` path (design D2), Notification
 /// permission, and `pushManager.subscribe`. NOT exercised by `flutter test`;
 /// kept deliberately thin, with no business logic (design D1).
+///
+/// Why a NULL `acked_at` on the backend is ambiguous. It means "nobody
+/// reported delivery", which is NOT the same as "the push was not delivered",
+/// and two windows in this file produce NULLs for pushes that did arrive:
+///
+///  - The dominant one, for days after this ships: a registration created
+///    before the `?api=` query existed keeps its query-less script URL, and
+///    the browser's periodic update refetches THAT url — so such an install
+///    picks up the new worker CODE while `ackEndpoint()` still returns null.
+///    The URL only changes when `register()` below runs again, i.e. on the
+///    next `enableAndSubscribe`. `PushHealthController.check()` suppresses
+///    that while health is ok and inside its in-memory suppress window, so in
+///    practice each device stops emitting NULLs from its next COLD open
+///    onward, one device at a time.
+///  - The narrow one, per update: `_whenActivated` returns as soon as an
+///    active worker exists, and on an update that is still the old, ack-less
+///    worker while `skipWaiting`/`clients.claim()` are in flight. A push
+///    arriving in that window is handled by the old worker and never acked.
+///    Not fixable here: the browser dispatches a push to whichever worker is
+///    active at dispatch time, which the page cannot influence — waiting
+///    longer would only delay `subscribe()`.
 class BrowserWebPushGateway implements WebPushGateway {
-  const BrowserWebPushGateway();
+  const BrowserWebPushGateway({required this.apiBaseUrl});
+
+  /// Handed to the service worker through its registration script URL — see
+  /// [pushSwScriptUrl]. Passed in rather than read from `config.dart` here so
+  /// this adapter, which `flutter test` cannot reach, holds no constant of its
+  /// own.
+  final String apiBaseUrl;
 
   @override
   PushEnvironment describeEnvironment() {
@@ -66,8 +94,16 @@ class BrowserWebPushGateway implements WebPushGateway {
     // independent registration that never controls `/`-scoped app pages, so
     // it can't clobber Flutter's own service worker (design D2). The
     // subscription is created on this registration.
+    //
+    // The script URL carries a query (the API base URL). That is not a new
+    // registration: the registration map is keyed by (storage key, scope), so
+    // an existing `/push/` registration is UPDATED and its push subscription
+    // survives.
     final registration = await web.window.navigator.serviceWorker
-        .register('push_sw.js'.toJS, web.RegistrationOptions(scope: '/push/'))
+        .register(
+          pushSwScriptUrl(apiBaseUrl).toJS,
+          web.RegistrationOptions(scope: '/push/'),
+        )
         .toDart;
 
     // First-run race: register() resolves while the worker is still installing,

@@ -17,6 +17,32 @@ self.addEventListener('activate', function (event) {
 var PENDING_CACHE_NAME = 'lifeos-deeplink';
 var PENDING_CACHE_KEY = '/pending';
 
+// The backend origin is not knowable from inside this file: it is served from
+// the Pages origin while the API lives on another, and a static worker has no
+// build-time substitution. It arrives as a query on the registration script
+// URL, written by `pushSwScriptUrl` in
+// lib/contexts/notifications/infrastructure/push_sw_url.dart — the parameter
+// name is a two-language contract, guarded by push_sw_ack_contract_test.dart.
+//
+// Registering a *different script URL* at the same scope neither creates a
+// second registration nor invalidates the existing push subscription: the
+// registration map is keyed by (storage key, scope url), so Register falls
+// through to Update on the existing registration (ServiceWorker spec), and a
+// subscription is bound to the registration's scope (Push API spec). Only
+// `unregister()` destroys it — see web/index.html.
+//
+// Returns null when the query is absent (an app version registered before this
+// existed): the push handler then shows the notification and sends nothing.
+function ackEndpoint() {
+  try {
+    var base = new URL(self.location.href).searchParams.get('api');
+    if (!base) return null;
+    return base + '/api/push/ack';
+  } catch (e) {
+    return null;
+  }
+}
+
 self.addEventListener('push', function (event) {
   var data = {};
   try {
@@ -33,9 +59,54 @@ self.addEventListener('push', function (event) {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
+      // The ack token must NEVER be copied in here. This object is persisted with
+      // the notification and read back by `notificationclick` long after this
+      // handler is gone, while the ack token is a bearer capability the
+      // backend deliberately keeps out of URLs and logs (backend design D1).
       data: { path: data.path || '/care-today' },
     })
   );
+
+  // Delivery receipt (backend design D1/D2), in its own `waitUntil` AFTER the
+  // notification: a failed ack must never cost the user the notification. A
+  // payload with no `ack` is normal, not an error — test pushes and budget
+  // alerts carry none (design D6).
+  // The wire payload is `{title, body, data: {ack}}` (backend design D2,
+  // web-push-sender.ts) — the token sits one level in, NOT beside `title`.
+  var ackToken = data.data && data.data.ack;
+  var endpoint = ackEndpoint();
+  if (ackToken && endpoint) {
+    event.waitUntil(
+      // `Promise.resolve().then` so a *synchronous* throw from fetch becomes a
+      // rejection the `catch` below absorbs, instead of escaping the handler
+      // after the notification was already queued.
+      Promise.resolve()
+        .then(function () {
+          return fetch(endpoint, {
+            method: 'POST',
+            // `text/plain`, not the contract's `application/json`: it is
+            // CORS-safelisted (Fetch 2.2.2), so this stays a *simple* request
+            // and no preflight is sent. The bytes on the wire are unchanged —
+            // the handler never reads Content-Type — but the ack stops
+            // depending on the backend's ALLOWED_WEB_ORIGIN listing whichever
+            // origin this build is served from. Measured: from a
+            // non-allowlisted origin (every Pages preview deployment is one) a
+            // preflight returns no ACAO and the POST never leaves the browser,
+            // while a simple POST still reaches the handler.
+            // No `Authorization` header, per design D1 — and it is not
+            // safelisted either, so adding one would bring the preflight back.
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ ack: ackToken }),
+          });
+        })
+        // The response is always 204 with an empty body, so there is nothing
+        // to branch on, and nothing is retried: `expires_at` has no grace
+        // (design D4), so a queued retry would land outside the window the
+        // backend accepts. The catch exists only so a rejection is not an
+        // unhandled one.
+        .catch(function () {})
+    );
+  }
 });
 
 self.addEventListener('notificationclick', function (event) {
