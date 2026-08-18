@@ -35,6 +35,15 @@ jobs:
           flutter-version: 3.35.4
           channel: stable
 
+      # `test/shared/pwa/push_sw_ack_contract_test.dart` executes the real
+      # `web/push_sw.js` under `node`. ubuntu-latest ships one already, but
+      # pinning it means the guard's runtime is reproducible rather than
+      # whatever the runner image happens to carry. The test FAILS (never
+      # skips) if node is missing, so this step is load-bearing.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - run: flutter pub get
 
       - run: flutter analyze
