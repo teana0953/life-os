@@ -19,6 +19,7 @@ import 'package:life_os/contexts/user/domain/user_profile.dart';
 import 'package:life_os/contexts/user/presentation/home_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
+import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
 
 import '../../contexts/user/presentation/home_screen_test.dart'
@@ -172,6 +173,95 @@ void main() {
         reason: '本月預算 at 360dp',
       );
     });
+
+    testWidgets(
+      'a failed tile\'s copy is never painted smaller than the figure it '
+      'replaces (360dp, textScale 2.0, English)',
+      (tester) async {
+        // The one width/scale where this is close, measured with the real
+        // font on this build. `Couldn't load` inside the tile's `FittedBox`
+        // (English; 載入失敗 is four characters and never shrinks at all):
+        //
+        // |        | 320dp | 360dp | 375dp | 600dp |
+        // | ---    | ---   | ---   | ---   | ---   |
+        // | 1×     | 1.000 | 0.900 | 0.960 | 1.000 |
+        // | 2×     | 0.987 | 0.502 | 0.536 | 1.000 |
+        //
+        // So the copy is **not** "shorter than every figure it replaces" — it
+        // is 13 characters against `62.5 kg`'s 7, plus an 18px icon and a 6px
+        // gap — and at two columns with large text it does get shrunk. What
+        // holds, and what is asserted here, is comparative: swapping a figure
+        // for the failure notice never makes that tile's text smaller than it
+        // already was. An absolute 0.65 floor (the bar `_expectValueLegible`
+        // holds figures to at 1×) is deliberately NOT asserted: this tile's
+        // own loaded figure is painted at 0.399 here, so a 0.65 assertion
+        // would be a guard on a bar the shipped screen does not clear and
+        // would fail for a reason that has nothing to do with this state.
+        const size = Size(360, 640);
+        await _pumpHome(
+          tester,
+          size,
+          locale: const Locale('en'),
+          textScale: 2.0,
+          dashboard: loadedDashboardFixture(),
+        );
+        // `_pumpHome` builds its own `MediaQuery`, so setting
+        // `textScaleFactorTestValue` instead of passing `textScale` here
+        // renders at 1.0 whatever the platform value says, and every number
+        // above stops applying. Measured, not assumed: the first draft of
+        // this test did exactly that, and the copy-lengthening mutation below
+        // stayed green through it.
+        //
+        // | mutation | result |
+        // | --- | --- |
+        // | `homeTileLoadFailed` → `Couldn't load this right now` | RED — painted at 0.255× against the 0.399× figure |
+        // | `_statusLine`'s `FittedBox` removed | RED — the copy spills past its tile |
+        // | `_statusLine` icon 18 → 60 | GREEN, and correctly so: the icon sits INSIDE the `FittedBox`, so growing it shrinks the whole row proportionally and the copy stays above the figure it replaced. The width budget is what this measures, not the icon. |
+        _expectTextScaleReached(tester, find.byType(HomeScreen), 2.0);
+        final figure = find.descendant(
+          of: find.byKey(const Key('home-budget')),
+          matching: find.textContaining('123,400'),
+        );
+        expect(figure, findsOneWidget);
+        final figureScale = paintedScaleOf(tester, figure);
+
+        await _pumpHome(
+          tester,
+          size,
+          locale: const Locale('en'),
+          textScale: 2.0,
+          dashboard: loadedDashboardFixture()..data = _allFailedCold(),
+        );
+        final copy = find.descendant(
+          of: find.byKey(const Key('home-budget')),
+          matching: find.text(
+            lookupAppLocalizations(const Locale('en')).homeTileLoadFailed,
+          ),
+        );
+        expect(
+          copy,
+          findsOneWidget,
+          reason: 'the failed tile printed something else entirely',
+        );
+        expectPaintedInFull(tester, copy);
+        final copyScale = paintedScaleOf(tester, copy);
+        expect(
+          copyScale,
+          greaterThanOrEqualTo(figureScale),
+          reason:
+              'the failure copy is painted at ${copyScale.toStringAsFixed(3)}×, '
+              'smaller than the ${figureScale.toStringAsFixed(3)}× figure it '
+              'replaced — a message the user cannot read is worse than the '
+              'number it stands in for',
+        );
+        final tile = tester.getRect(find.byKey(const Key('home-budget')));
+        expect(
+          paintedTextRight(tester, copy),
+          lessThanOrEqualTo(tile.right - _tilePadding / 2),
+          reason: 'the failure copy spills past its tile',
+        );
+      },
+    );
 
     testWidgets('320dp at textScale 2.0: no layout error', (tester) async {
       // The narrowest phone at the largest accessibility text size — every
@@ -358,13 +448,28 @@ void _expectValueLegible(
   );
 }
 
+/// Every arm failed with nothing this session ever fetched — the rendering
+/// where the tile has no figure to keep and prints what happened instead.
+HomeDashboardData _allFailedCold() {
+  const from = HomeDashboardData.allLoading();
+  return HomeDashboardData(
+    weightGoal: ArmSlot.failedAfter(from.weightGoal),
+    bloodPressure: ArmSlot.failedAfter(from.bloodPressure),
+    menstrualStatus: ArmSlot.failedAfter(from.menstrualStatus),
+    overallBudget: ArmSlot.failedAfter(from.overallBudget),
+    netWorth: ArmSlot.failedAfter(from.netWorth),
+    splitBalances: ArmSlot.failedAfter(from.splitBalances),
+    dailyTarget: ArmSlot.failedAfter(from.dailyTarget),
+  );
+}
+
 /// A dashboard carrying the two figures the #189 regression was about —
 /// `456,700` behind 本月預算's "剩餘 …" wrapper and `9,999,999` bare on 淨值.
 /// Both are thousands-grouped, which is where Noto's much wider comma
 /// (+60% over Quicksand's) actually lands.
 HomeDashboardController _financeAmountsFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 62.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
@@ -409,7 +514,7 @@ HomeDashboardController _financeAmountsFixture() =>
 /// need the `FittedBox` at a two-column tile width.
 HomeDashboardController _longestValuesFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 102.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),

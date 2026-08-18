@@ -248,6 +248,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeNoData => '尚無資料';
 
   @override
+  String get homeTileLoadFailed => 'Couldn\'t load this right now';
+
+  @override
+  String get homeTileRefreshed => 'Refreshed';
+
+  @override
+  String get homeRefreshPartial => 'Refreshed, but some items couldn\'t load';
+
+  @override
   String get homeMaskedValue => '••••';
 
   @override
@@ -3255,6 +3264,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get homeNoData => '尚無資料';
+
+  @override
+  String get homeTileLoadFailed => '載入失敗';
+
+  @override
+  String get homeTileRefreshed => '已更新';
+
+  @override
+  String get homeRefreshPartial => '已更新，部分項目載入失敗';
 
   @override
   String get homeMaskedValue => '••••';

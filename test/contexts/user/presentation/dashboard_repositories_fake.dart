@@ -37,6 +37,12 @@ class FakeDashboardRepositories
 
   /// How many fan-out rounds started (one per `load`, counted on the arm that
   /// records the token).
+  ///
+  /// Caveat now that single arms can be refetched on their own: a
+  /// `retryArm(DashboardArm.weightGoal, …)` runs this same arm and so bumps
+  /// this too. Assert on [calls] when the question is which arm ran; `rounds`
+  /// only means "a whole fan-out started" while no weight-goal retry is in
+  /// play.
   int rounds = 0;
 
   /// Every arm throws while set — the "the whole refresh failed" case.
@@ -51,20 +57,51 @@ class FakeDashboardRepositories
   /// flight" case.
   Completer<void>? gate;
 
-  Future<void> _arm(String name) async {
+  /// How many times each arm has been called, by the same names as
+  /// [failingArms]. A per-tile retry's whole claim is "ONE request, on THAT
+  /// arm", and that is only observable as a per-arm count — a total, or a
+  /// spy on the controller, would pass a `retryArm` that quietly ran `load`.
+  final Map<String, int> calls = <String, int>{};
+
+  /// Parks the *n*th call of one arm until completed, keyed `'weightGoal#2'`
+  /// (1-based). Unlike [gate], which holds every arm of every round at once,
+  /// this lets a test hold one fetch of one arm open while a second fetch of
+  /// the SAME arm completes — the interleaving the write rule is about.
+  final Map<String, Completer<void>> callGates = <String, Completer<void>>{};
+
+  /// The weight successive `getWeightGoal` calls resolve to, in call order;
+  /// past the end of the list (and by default) every call answers 62.5.
+  ///
+  /// Distinct values on purpose: "the slot holds the result of the
+  /// last-STARTED fetch" is unfalsifiable while two fetches of the same arm
+  /// return the same number.
+  final List<double> weightGoalSequence = <double>[];
+
+  /// Returns this call's 1-based index for the arm, so a caller can pick its
+  /// scripted answer from the same numbering [callGates] uses.
+  Future<int> _arm(String name) async {
+    final n = (calls[name] ?? 0) + 1;
+    calls[name] = n;
     final gate = this.gate;
     if (gate != null) await gate.future;
+    final callGate = callGates['$name#$n'];
+    if (callGate != null) await callGate.future;
     if (fail || failingArms.contains(name)) {
       throw StateError('dashboard fetch failed: $name');
     }
+    return n;
   }
 
   @override
   Future<WeightGoal> getWeightGoal(String idToken) async {
     goalTokens.add(idToken);
     rounds++;
-    await _arm('weightGoal');
-    return const WeightGoal(currentWeightKg: 62.5);
+    final n = await _arm('weightGoal');
+    return WeightGoal(
+      currentWeightKg: n <= weightGoalSequence.length
+          ? weightGoalSequence[n - 1]
+          : 62.5,
+    );
   }
 
   @override

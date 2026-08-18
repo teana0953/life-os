@@ -96,7 +96,7 @@ Key _eyeKey(PrivacyMaskItem item) => Key('home-mask-toggle-${item.name}');
 /// eye. Unmasked, because a masked tile is the *easy* case: `••••` is short.
 HomeDashboardController _longestValuesFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 102.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
@@ -138,7 +138,7 @@ HomeDashboardController _longestValuesFixture() =>
 /// same-side fixture that would pass whether or not the threshold moved.
 HomeDashboardController _longestRealisticFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 102.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
@@ -175,7 +175,7 @@ HomeDashboardController _longestRealisticFixture() =>
 /// sets its own tile's height and hides the effect.
 HomeDashboardController _evenValuesFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 62.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
@@ -211,7 +211,7 @@ HomeDashboardController _evenValuesFixture() =>
 /// `paintedLineCountOfPart` check can look for.
 HomeDashboardController _financeAmountsFixture() =>
     loadedDashboardFixture()
-      ..data = const HomeDashboardData(
+      ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 62.5),
         bloodPressure: null,
         menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
@@ -297,6 +297,10 @@ Future<_Pumped> _pumpAt(
   Size size, {
   HomeDashboardController? dashboardController,
   PrivacyMaskController? privacyMaskController,
+  /// Wired only by the per-tile failure guards: without a token provider the
+  /// screen offers no retry at all, so the shape they measure would not be
+  /// the shipped one.
+  Future<String> Function()? idToken,
   // 360dp/1200dp have no known pre-existing overflow (that's only
   // reproduced at 320dp — see `_knownSectionHeaderOverflow`), so those two
   // callers pass `strict: true` to demand zero layout errors instead of
@@ -308,6 +312,11 @@ Future<_Pumped> _pumpAt(
   // languageCode: 'zh', scriptCode: 'Hant')`: English labels wrap 3–6 lines
   // on both sides of the threshold and cannot falsify it (see plan §2d).
   Locale locale = const Locale('en'),
+  /// `false` leaves layout errors to the CALLER to collect and judge. Nesting
+  /// this helper inside `collectLayoutErrors` instead does not work: its own
+  /// assertions then run against a swallowed error list and report the
+  /// *absence* of the known 320dp overflow.
+  bool guard = true,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -330,13 +339,16 @@ Future<_Pumped> _pumpAt(
           controller: controller,
           privacyMaskController: mask,
           dashboardController: dashboardController,
+          idToken: idToken,
         ),
       ),
     );
     await tester.pump();
   }
 
-  if (strict) {
+  if (!guard) {
+    await pump();
+  } else if (strict) {
     await expectNoLayoutErrors(pump);
   } else {
     await _guarded(pump, expectKnown: true);
@@ -896,6 +908,128 @@ void main() {
         );
       }
     });
+
+    testWidgets(
+      'R3b: the retry marker is a 32×24 target inside its own tile — the '
+      'deviation from R3, pinned so it cannot drift either way',
+      (tester) async {
+        // Deliberately NOT the 44pt R3 holds the eye to, and deliberately
+        // asserted as an exact size rather than a floor. Both directions are
+        // regressions: smaller is a target nobody can hit, and taller pushes
+        // a failed tile past the height of the same tile loaded (28 was
+        // already enough, measured) — the height-change false green the
+        // sibling group below exists to catch. Whoever wants the full 44
+        // has to move the value row's line-height pin first, which is what
+        // makes this a design change rather than a one-line edit.
+        final dashboard = loadedDashboardFixture();
+        final from = dashboard.data!;
+        dashboard.data = HomeDashboardData(
+          weightGoal: ArmSlot.failedAfter(from.weightGoal),
+          bloodPressure: ArmSlot.failedAfter(from.bloodPressure),
+          menstrualStatus: ArmSlot.failedAfter(from.menstrualStatus),
+          overallBudget: ArmSlot.failedAfter(from.overallBudget),
+          netWorth: ArmSlot.failedAfter(from.netWorth),
+          splitBalances: ArmSlot.failedAfter(from.splitBalances),
+          dailyTarget: ArmSlot.failedAfter(from.dailyTarget),
+        );
+        // Errors collected and dropped: this width already carries
+        // `_knownSectionHeaderOverflow` whatever this state does, and the
+        // per-tile group below is what judges the list. What is under test
+        // here is the marker's geometry.
+        await collectLayoutErrors(
+          () => _pumpAt(
+            tester,
+            _narrow,
+            dashboardController: dashboard,
+            idToken: () async => 'tok',
+            guard: false,
+          ),
+        );
+
+        for (final tileId in const [
+          'home-latest-weight',
+          'home-budget',
+          'home-net-worth',
+        ]) {
+          final marker = find.byKey(Key('$tileId-retry'));
+          expect(marker, findsOneWidget, reason: tileId);
+          expect(tester.getSize(marker), const Size(32, 24), reason: tileId);
+
+          final tile = tester.getRect(find.byKey(Key(tileId)));
+          final rect = tester.getRect(marker);
+          expect(
+            tile.contains(rect.topLeft) && tile.contains(rect.bottomRight),
+            isTrue,
+            reason: '$tileId marker $rect escapes its tile $tile',
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'R3c: the retry marker grows with the text scaler — 32×36 at 2×, still '
+      'inside its own tile',
+      (tester) async {
+        // R3b pins the 1× size, which a marker frozen at a constant height
+        // also satisfies: reverting the height to a literal 24 leaves R3b and
+        // every other test in this file green. This is the guard that fails
+        // for that revert.
+        //
+        // The scale provably reaches the widget: `_pumpAt` builds through
+        // `l10nTestApp`, which wraps only `MaterialApp` and inserts no
+        // `MediaQuery` of its own, so nothing shadows the test value — a
+        // marker ignoring the scaler measures 24 here and reds immediately.
+        //
+        // Exact, not `greaterThan(24)`: overshooting is the same regression
+        // in the other direction. 24 × 1.5 = 36 has to stay under the value
+        // row's own `titleMedium` line box (39 at this scale), and a marker
+        // that grew past it would make a failed tile taller than the same
+        // tile loaded.
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final dashboard = loadedDashboardFixture();
+        final from = dashboard.data!;
+        dashboard.data = HomeDashboardData(
+          weightGoal: ArmSlot.failedAfter(from.weightGoal),
+          bloodPressure: ArmSlot.failedAfter(from.bloodPressure),
+          menstrualStatus: ArmSlot.failedAfter(from.menstrualStatus),
+          overallBudget: ArmSlot.failedAfter(from.overallBudget),
+          netWorth: ArmSlot.failedAfter(from.netWorth),
+          splitBalances: ArmSlot.failedAfter(from.splitBalances),
+          dailyTarget: ArmSlot.failedAfter(from.dailyTarget),
+        );
+        // Same reason as R3b: this width carries the known section-header
+        // overflow regardless, and the marker's geometry is what is on trial.
+        await collectLayoutErrors(
+          () => _pumpAt(
+            tester,
+            _narrow,
+            dashboardController: dashboard,
+            idToken: () async => 'tok',
+            guard: false,
+          ),
+        );
+
+        for (final tileId in const [
+          'home-latest-weight',
+          'home-budget',
+          'home-net-worth',
+        ]) {
+          final marker = find.byKey(Key('$tileId-retry'));
+          expect(marker, findsOneWidget, reason: tileId);
+          expect(tester.getSize(marker), const Size(32, 36), reason: tileId);
+
+          final tile = tester.getRect(find.byKey(Key(tileId)));
+          final rect = tester.getRect(marker);
+          expect(
+            tile.contains(rect.topLeft) && tile.contains(rect.bottomRight),
+            isTrue,
+            reason: '$tileId marker $rect escapes its tile $tile at 2×',
+          );
+        }
+      },
+    );
 
     testWidgets('R4: a real tap at 320dp actually flips the mask', (
       tester,
@@ -1739,20 +1873,16 @@ void main() {
         // regression is visible instead of silent.
         final dashboard = loadedDashboardFixture();
         final data = dashboard.data!;
-        dashboard.data = HomeDashboardData(
-          weightGoal: data.weightGoal,
-          bloodPressure: data.bloodPressure,
-          menstrualStatus: data.menstrualStatus,
-          overallBudget: data.overallBudget,
-          netWorth: data.netWorth,
-          splitBalances: data.splitBalances,
-          dailyTarget: const DailyTargetWithRemaining(
-            day: '2026-01-01',
-            base: Portions(staple: 8.5, meat: 6.5, fruit: 2.5, veg: 2.5),
-            bonus: Portions(staple: 2, meat: 1, fruit: 0, veg: 0),
-            effective: Portions(staple: 10.5, meat: 7.5, fruit: 2.5, veg: 2.5),
-            logged: Portions(staple: 3, meat: 2, fruit: 1, veg: 0),
-            remaining: Portions(staple: 7.5, meat: 5.5, fruit: 1.5, veg: 2.5),
+        dashboard.data = data.copyWith(
+          dailyTarget: const ArmSlot.loaded(
+            DailyTargetWithRemaining(
+              day: '2026-01-01',
+              base: Portions(staple: 8.5, meat: 6.5, fruit: 2.5, veg: 2.5),
+              bonus: Portions(staple: 2, meat: 1, fruit: 0, veg: 0),
+              effective: Portions(staple: 10.5, meat: 7.5, fruit: 2.5, veg: 2.5),
+              logged: Portions(staple: 3, meat: 2, fruit: 1, veg: 0),
+              remaining: Portions(staple: 7.5, meat: 5.5, fruit: 1.5, veg: 2.5),
+            ),
           ),
         );
 
@@ -1946,5 +2076,168 @@ void main() {
         );
       },
     );
+  });
+
+  // ------------------------------------------- per-tile failure / loading states
+  //
+  // What these can and cannot say: widget tests are font-blind (see
+  // CLAUDE.md — `flutter_test` paints one fontSize-sized square per glyph),
+  // so green here means the LAYOUT LOGIC holds, never that the real Noto Sans
+  // string fits. The failure copy is **not** short — `Couldn't load` is 13
+  // characters against `62.5 kg`'s 7, plus an 18px icon and a 6px gap — and
+  // measured with the real font it does get shrunk by its `FittedBox`: 0.900
+  // at 360dp/1×, 0.502 at 360dp/2×, against 1.000 in zh-Hant everywhere. The
+  // real-font guard for it therefore lives where it can measure that
+  // (`real_font_metrics_test.dart`, "a failed tile's copy is never painted
+  // smaller than the figure it replaces"), and this file's own numbers below
+  // remain placeholder-font numbers.
+  //
+  // Each width/scale is measured against the SAME screen in its loaded state
+  // rather than against zero: at 320dp and at 2× text scale this page already
+  // produces layout errors that have nothing to do with this change (see
+  // `_knownSectionHeaderOverflow`), and a bare "no errors" assertion would
+  // either fail for a pre-existing reason or be relaxed into one that cannot
+  // fail.
+  group('a tile whose own arm is loading or failed', () {
+    HomeDashboardData allFailed(HomeDashboardData from) => HomeDashboardData(
+      weightGoal: ArmSlot.failedAfter(from.weightGoal),
+      bloodPressure: ArmSlot.failedAfter(from.bloodPressure),
+      menstrualStatus: ArmSlot.failedAfter(from.menstrualStatus),
+      overallBudget: ArmSlot.failedAfter(from.overallBudget),
+      netWorth: ArmSlot.failedAfter(from.netWorth),
+      splitBalances: ArmSlot.failedAfter(from.splitBalances),
+      dailyTarget: ArmSlot.failedAfter(from.dailyTarget),
+    );
+
+    HomeDashboardController fixtureWith(HomeDashboardData Function(HomeDashboardData) map) {
+      final dashboard = loadedDashboardFixture();
+      dashboard.data = map(dashboard.data!);
+      return dashboard;
+    }
+
+    /// The four renderings a tile can be in, all from the same figures.
+    Map<String, HomeDashboardController> statesOf() => {
+      'loaded': loadedDashboardFixture(),
+      // Cold: nothing fetched yet, so no figure to keep.
+      'loading': fixtureWith((_) => const HomeDashboardData.allLoading()),
+      'cold failure': fixtureWith(
+        (_) => allFailed(const HomeDashboardData.allLoading()),
+      ),
+      // Stale: this session already had the figures, so they stay on screen
+      // with a marker beside them.
+      'stale failure': fixtureWith(allFailed),
+    };
+
+    Future<List<String>> layoutErrorsAt(
+      WidgetTester tester,
+      Size size,
+      HomeDashboardController dashboard,
+    ) async {
+      // A `RenderFlex` reports each overflow ONCE per render object, so a
+      // second pump in the same test reuses the same objects and reports
+      // nothing — every state after the first would look clean whatever it
+      // did. Dropping the tree first forces fresh render objects.
+      await tester.pumpWidget(const SizedBox.shrink());
+      final errors = await collectLayoutErrors(
+        () => _pumpAt(
+          tester,
+          size,
+          dashboardController: dashboard,
+          idToken: () async => 'tok',
+          guard: false,
+        ),
+      );
+      return errors
+          .map((e) => e.exception.toString().split('\n').first)
+          .toList()
+        ..sort();
+    }
+
+    for (final width in const [320.0, 375.0, 600.0]) {
+      for (final scale in const [1.0, 2.0]) {
+        testWidgets(
+          'at ${width.toInt()}dp / $scale× text scale, neither state adds a '
+          'layout error the loaded state does not already have',
+          (tester) async {
+            if (scale != 1.0) {
+              tester.platformDispatcher.textScaleFactorTestValue = scale;
+              addTearDown(
+                tester.platformDispatcher.clearTextScaleFactorTestValue,
+              );
+            }
+            final size = Size(width, 900);
+            final states = statesOf();
+            final baseline = await layoutErrorsAt(
+              tester,
+              size,
+              states['loaded']!,
+            );
+            for (final entry in states.entries) {
+              if (entry.key == 'loaded') continue;
+              expect(
+                await layoutErrorsAt(tester, size, entry.value),
+                baseline,
+                reason: '${entry.key} at ${width}dp / ${scale}x',
+              );
+            }
+          },
+        );
+
+        testWidgets(
+          'at ${width.toInt()}dp / $scale× text scale, a tile is exactly as '
+          'tall loading or failed as it is loaded',
+          (tester) async {
+            // The documented false green this exists for: a page that grows
+            // between states, so a tap measured in one state lands somewhere
+            // else in the other. The value area is pinned to one line of its
+            // own text style precisely so this holds at every scale.
+            if (scale != 1.0) {
+              tester.platformDispatcher.textScaleFactorTestValue = scale;
+              addTearDown(
+                tester.platformDispatcher.clearTextScaleFactorTestValue,
+              );
+            }
+            final size = Size(width, 900);
+            final states = statesOf();
+            // Layout errors are collected and DROPPED here on purpose: this
+            // page already overflows at 320dp and at 2x whatever this change
+            // does (see `_knownSectionHeaderOverflow`), and the sibling test
+            // above is the one that judges them. What is under test here is
+            // only the height.
+            Future<void> pumpQuiet(HomeDashboardController dashboard) async {
+              await tester.pumpWidget(const SizedBox.shrink());
+              await collectLayoutErrors(
+                () => _pumpAt(
+                  tester,
+                  size,
+                  dashboardController: dashboard,
+                  idToken: () async => 'tok',
+                  guard: false,
+                ),
+              );
+            }
+
+            await pumpQuiet(states['loaded']!);
+            final loadedHealth = _heightsOf(tester, _healthTiles);
+            final loadedFinance = _heightsOf(tester, _financeTiles);
+
+            for (final entry in states.entries) {
+              if (entry.key == 'loaded') continue;
+              await pumpQuiet(entry.value);
+              expect(
+                _heightsOf(tester, _healthTiles),
+                loadedHealth,
+                reason: 'health tiles, ${entry.key}',
+              );
+              expect(
+                _heightsOf(tester, _financeTiles),
+                loadedFinance,
+                reason: 'finance tiles, ${entry.key}',
+              );
+            }
+          },
+        );
+      }
+    }
   });
 }
