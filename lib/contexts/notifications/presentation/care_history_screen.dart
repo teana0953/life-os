@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/widgets/app_sheet.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
@@ -51,25 +52,25 @@ String _slotCompositeKey(CareTodaySlot slot) =>
 /// the care context.
 enum _HistoryMenuOption { todayCare, careManagement }
 
-/// The period selector's three rolling-span segments. Custom is a date pair
-/// rather than a length, so it isn't a value here — it gets its own button
-/// next to the segmented control instead (see [_pickCustomRange] and its
-/// call site in `build`); a segment that can't be re-pressed to reopen the
-/// picker once it's already the current selection (`SegmentedButton` only
-/// calls `onSelectionChanged` on a selection *change* — re-pressing the
-/// sole selected segment is a no-op) would leave the user unable to adjust
-/// an already-picked custom range at all. Public only so tests can name the
-/// selector's type argument.
-enum CareHistoryPeriodChoice { d7, d30, d90 }
+/// The three rolling-span options the period picker offers. Custom is a date
+/// pair rather than a length, so it isn't a value here — it is the picker's
+/// fourth row (see [_pickCustomRange] and [_openPeriodSheet]).
+///
+/// The picker is a sheet of tappable rows rather than a `SegmentedButton`:
+/// that control only calls `onSelectionChanged` on a selection *change*, so
+/// re-pressing the row for the period already in effect is a no-op — which
+/// on the custom row would leave the user unable to adjust an
+/// already-picked range at all. Every row here reopens/reapplies on tap.
+enum _CareHistoryPeriodChoice { d7, d30, d90 }
 
-/// The segment [period] is currently on; `null` for a span the selector
-/// doesn't offer (including a custom period), which leaves no segment
-/// selected rather than selecting the wrong one.
-CareHistoryPeriodChoice? _periodChoice(CareHistoryPeriod period) =>
+/// The rolling span [period] is currently on; `null` for anything the picker
+/// doesn't offer as a span — which is what puts the check mark on its custom
+/// row instead.
+_CareHistoryPeriodChoice? _periodChoice(CareHistoryPeriod period) =>
     switch (period.spanDays) {
-      7 => CareHistoryPeriodChoice.d7,
-      30 => CareHistoryPeriodChoice.d30,
-      90 => CareHistoryPeriodChoice.d90,
+      7 => _CareHistoryPeriodChoice.d7,
+      30 => _CareHistoryPeriodChoice.d30,
+      90 => _CareHistoryPeriodChoice.d90,
       _ => null,
     };
 
@@ -79,8 +80,8 @@ CareHistoryPeriodChoice? _periodChoice(CareHistoryPeriod period) =>
 int _nextSpanDays(int spanDays) => spanDays < 30 ? 30 : 90;
 
 /// The care history screen (route `/care-history`): a pure record list +
-/// edit screen — a 7/30/90-day period picker (design mirrors [TrendCard])
-/// above a list of the period's slots grouped by day (newest first,
+/// edit screen — one time-range control (7/30/90 days or a custom range,
+/// picked in a sheet) above a list of the period's slots grouped by day (newest first,
 /// skipping days with nothing scheduled — the backend's `days` array is
 /// dense, so an empty slot list per day is normal, not an absent day);
 /// tapping a slot (each tile carries a trailing edit-icon affordance) opens
@@ -168,13 +169,13 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   Future<void> _setSpan(int spanDays) async =>
       widget.controller.setSpan(await _idToken(), spanDays);
 
-  Future<void> _onPeriodChoice(CareHistoryPeriodChoice choice) async {
+  Future<void> _onPeriodChoice(_CareHistoryPeriodChoice choice) async {
     switch (choice) {
-      case CareHistoryPeriodChoice.d7:
+      case _CareHistoryPeriodChoice.d7:
         await _setSpan(7);
-      case CareHistoryPeriodChoice.d30:
+      case _CareHistoryPeriodChoice.d30:
         await _setSpan(30);
-      case CareHistoryPeriodChoice.d90:
+      case _CareHistoryPeriodChoice.d90:
         await _setSpan(90);
     }
   }
@@ -216,6 +217,77 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
       CareHistoryPeriod.custom(dayString(picked.start), dayString(picked.end)),
     );
   }
+
+  /// The time-range picker: one row per option, exactly one of them checked.
+  ///
+  /// Each row pops the sheet *before* acting, so the date-range picker the
+  /// custom row opens isn't stacked on top of a sheet it would outlive.
+  Future<void> _openPeriodSheet() => showAppSheet<void>(
+    context,
+    builder: (sheetContext) {
+      final loc = AppLocalizations.of(sheetContext)!;
+      final period = widget.controller.period;
+      final choice = _periodChoice(period);
+      final theme = Theme.of(sheetContext);
+      Widget selectionIcon(bool selected) => Icon(
+        selected ? Icons.check_circle : Icons.circle_outlined,
+        key: selected ? const Key('care-history-period-option-selected') : null,
+        color: selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outline,
+      );
+      return SafeArea(
+        top: false,
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 8),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                loc.careHistoryPeriodPickerTitle,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+            for (final option in const [
+              (days: 7, choice: _CareHistoryPeriodChoice.d7),
+              (days: 30, choice: _CareHistoryPeriodChoice.d30),
+              (days: 90, choice: _CareHistoryPeriodChoice.d90),
+            ])
+              ListTile(
+                key: Key('care-history-period-option-${option.days}'),
+                selected: choice == option.choice,
+                leading: selectionIcon(choice == option.choice),
+                title: Text(loc.careHistoryPeriodSpanLabel(option.days)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _onPeriodChoice(option.choice);
+                },
+              ),
+            ListTile(
+              key: const Key('care-history-period-option-custom'),
+              selected: choice == null,
+              leading: selectionIcon(choice == null),
+              title: Text(loc.careHistoryPeriodCustom),
+              subtitle: switch (period) {
+                CareHistoryCustomPeriod(:final from, :final to) => Text(
+                  loc.careHistoryPeriodCustomLabel(
+                    monthDayLabel(sheetContext, parseDayString(from)),
+                    monthDayLabel(sheetContext, parseDayString(to)),
+                  ),
+                ),
+                CareHistorySpanPeriod() => null,
+              },
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickCustomRange();
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   Future<void> _openFilterSheet() => showCareHistoryFilterSheet(
     context,
@@ -454,121 +526,49 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: Row(
                     children: [
+                      // Expanded + Align rather than Flexible + Spacer: the
+                      // button takes only the width its label needs (up to
+                      // what is left beside the filter button) while the
+                      // filter button still sits at the row's end. Two
+                      // flexible children would split the free space and
+                      // squeeze this one to half a row.
                       Expanded(
-                        // The custom button comes *first* and sits outside
-                        // the scroll — at 320dp and a large text scale the
-                        // segmented control alone is wider than the row, so
-                        // something has to scroll, but putting the custom
-                        // button after it inside the same scrollable (the
-                        // previous shape) left it off-screen with no
-                        // affordance to reach it (blocker). Leading with
-                        // custom, itself `Flexible` rather than scrollable,
-                        // keeps it hit-testable at every width — the
-                        // 7/30/90 segments are the ones that may need a
-                        // scroll to reach at this width.
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Tooltip(
-                                // At 320dp × textScale 2.0 the widest
-                                // possible label (an actual custom date
-                                // range) does not fit next to the segmented
-                                // control and the filter button no matter
-                                // how the space is split — the button's own
-                                // text ellipsizes rather than overflowing
-                                // the row, and the tooltip carries the full
-                                // range for anyone who needs it.
-                                message: _customButtonLabel(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Tooltip(
+                            // At 320dp × textScale 2.0 the widest possible
+                            // label (an actual custom date range) does not
+                            // fit next to the filter button — the button's
+                            // own text ellipsizes rather than overflowing
+                            // the row, and the tooltip carries the full
+                            // range for anyone who needs it.
+                            message: _periodButtonLabel(
+                              context,
+                              loc,
+                              controller.period,
+                            ),
+                            child: OutlinedButton.icon(
+                              key: const Key('care-history-period-button'),
+                              onPressed: _tokenReady ? _openPeriodSheet : null,
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(Icons.arrow_drop_down),
+                              label: Text(
+                                _periodButtonLabel(
                                   context,
                                   loc,
                                   controller.period,
                                 ),
-                                child: OutlinedButton(
-                                  key: const Key('care-history-custom-button'),
-                                  style:
-                                      _periodChoice(controller.period) == null
-                                      ? OutlinedButton.styleFrom(
-                                          backgroundColor: Theme.of(
-                                            context,
-                                          ).colorScheme.secondaryContainer,
-                                          // `SegmentedButton`'s selected
-                                          // segments pair `secondaryContainer`
-                                          // with `onSecondaryContainer` — this
-                                          // button needs the same pairing, or
-                                          // it inherits `OutlinedButtonTheme`'s
-                                          // ink-on-cream foreground, which
-                                          // fails contrast against the pink
-                                          // container in dark mode (1.74:1).
-                                          foregroundColor: Theme.of(
-                                            context,
-                                          ).colorScheme.onSecondaryContainer,
-                                        )
-                                      : null,
-                                  onPressed: _tokenReady
-                                      ? _pickCustomRange
-                                      : null,
-                                  child: Text(
-                                    _customButtonLabel(
-                                      context,
-                                      loc,
-                                      controller.period,
-                                    ),
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SegmentedButton<CareHistoryPeriodChoice>(
-                                  key: const Key('care-history-range-selector'),
-                                  showSelectedIcon: false,
-                                  // A custom period leaves none of these
-                                  // three segments selected —
-                                  // `SegmentedButton` otherwise requires at
-                                  // least one.
-                                  emptySelectionAllowed: true,
-                                  segments: [
-                                    ButtonSegment(
-                                      value: CareHistoryPeriodChoice.d7,
-                                      label: Text(loc.trendRange7),
-                                    ),
-                                    ButtonSegment(
-                                      value: CareHistoryPeriodChoice.d30,
-                                      label: Text(loc.trendRange30),
-                                    ),
-                                    ButtonSegment(
-                                      value: CareHistoryPeriodChoice.d90,
-                                      label: Text(loc.trendRange90),
-                                    ),
-                                  ],
-                                  selected: {?_periodChoice(controller.period)},
-                                  onSelectionChanged: _tokenReady
-                                      ? (selection) {
-                                          // With `emptySelectionAllowed`, a
-                                          // re-press of the sole selected
-                                          // segment toggles it *off* rather
-                                          // than being a no-op — ignored
-                                          // here rather than sent as a
-                                          // choice `_onPeriodChoice` has no
-                                          // case for.
-                                          if (selection.isEmpty) return;
-                                          _onPeriodChoice(selection.first);
-                                        }
-                                      : null,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                       CareHistoryFilterButton(
                         filter: controller.filter,
-                        // Purely client-side, so unlike the period selector
+                        // Purely client-side, so unlike the period control
                         // it needs no token — but an empty range has nothing
                         // to filter and no options to offer.
                         onPressed: empty ? null : _openFilterSheet,
@@ -600,15 +600,16 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   }
 }
 
-/// The custom button's label: the word "Custom" until a range is picked,
-/// then the dates actually in effect — otherwise a selected custom button
-/// says nothing about which period is on screen.
-String _customButtonLabel(
+/// The period button's label: the period actually in effect, since it is now
+/// the only thing on screen saying which one that is. A rolling span names
+/// its length ("Last 30 days", not the bare "30 days" the trend cards use
+/// beside a heading), a custom period names its dates.
+String _periodButtonLabel(
   BuildContext context,
   AppLocalizations loc,
   CareHistoryPeriod period,
 ) => switch (period) {
-  CareHistorySpanPeriod() => loc.careHistoryPeriodCustom,
+  CareHistorySpanPeriod(:final days) => loc.careHistoryPeriodSpanLabel(days),
   CareHistoryCustomPeriod(:final from, :final to) =>
     loc.careHistoryPeriodCustomLabel(
       monthDayLabel(context, parseDayString(from)),
@@ -687,10 +688,34 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Value first and dominant, label second and quiet: the two used to be
+    // the same size in reading order label→value, which across three
+    // metrics read as one run-on sentence. The number is what is being
+    // looked up, so it leads, bigger and heavier than the word naming it.
+    //
+    // Two measured limits shape this, both at 320dp × textScale 2.0 (the
+    // narrow-screen guards in `care_history_screen_test.dart`):
+    //
+    // - Still *one line* per metric. Stacking the value above its label
+    //   costs one extra text line per metric, and three of them take the
+    //   record list — the thing this screen exists to show — from 208dp
+    //   down to 40dp.
+    // - `titleMedium`, not `titleLarge`. The value sits before the label on
+    //   the same line, so every point it grows is a point the label loses:
+    //   at `titleLarge` the labels wrap one line deeper and the list falls
+    //   to 176dp, under the 200dp floor that guard has held since the
+    //   filter row landed.
     return Row(
       key: metricKey,
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text(
+          value,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 6),
         // Flexible, not a bare Text: inside the Wrap each metric is offered
         // the full row width, and at 320dp with a large text scale a label
         // like "Days with care done" is wider than that — it has to wrap
@@ -703,8 +728,6 @@ class _SummaryMetric extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 4),
-        Text(value, style: theme.textTheme.titleMedium),
       ],
     );
   }

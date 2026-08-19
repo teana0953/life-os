@@ -2797,7 +2797,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.byKey(const Key('care-history-range-selector')),
+          find.byKey(const Key('care-history-period-button')),
           findsOneWidget,
         );
       },

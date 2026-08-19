@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
@@ -277,6 +278,43 @@ Future<void> _pumpScreen(
   await tester.pumpAndSettle();
 }
 
+/// Settles the tree, or — when a request is deliberately held in flight —
+/// advances it by fixed durations instead. `pumpAndSettle` never returns
+/// while the reload's thin progress bar is animating, so a test that holds a
+/// GET open has to pump by hand; 400ms clears the sheet's own 250ms
+/// open/close animation either way.
+Future<void> _settleOrPump(WidgetTester tester, bool settle) async {
+  if (settle) {
+    await tester.pumpAndSettle();
+    return;
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// Switches to the [days]-day rolling span the way a user does: open the
+/// period control, tap that option in the sheet. The 7/30/90 spans are no
+/// longer buttons on the screen itself, so no test can tap them directly.
+Future<void> selectSpan(
+  WidgetTester tester,
+  int days, {
+  bool settle = true,
+}) async {
+  await tester.tap(find.byKey(const Key('care-history-period-button')));
+  await _settleOrPump(tester, settle);
+  await tester.tap(find.byKey(Key('care-history-period-option-$days')));
+  await _settleOrPump(tester, settle);
+}
+
+/// Opens the date-range picker the way a user does: period control → the
+/// sheet's custom row.
+Future<void> openCustomPicker(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('care-history-period-button')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('care-history-period-option-custom')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('CareHistoryScreen', () {
     // This screen used to fetch one token in `_load` and cache it in a field,
@@ -302,9 +340,7 @@ void main() {
         // Firebase renewed the token while the history stayed open.
         auth.token = 'token-2';
 
-        final loc = lookupAppLocalizations(const Locale('en'));
-        await tester.tap(find.text(loc.trendRange90));
-        await tester.pumpAndSettle();
+        await selectSpan(tester, 90);
 
         expect(repository.getRangeTokens, ['token-1', 'token-2']);
       },
@@ -500,9 +536,7 @@ void main() {
         final completer = Completer<void>();
         repository.getRangeCompleter = completer;
 
-        final loc = lookupAppLocalizations(const Locale('en'));
-        await tester.tap(find.text(loc.trendRange30));
-        await tester.pump();
+        await selectSpan(tester, 30, settle: false);
 
         // Mid-reload: previous content ("Today dose") is still visible, and
         // a thin progress indicator is shown instead of a full-page spinner.
@@ -941,8 +975,7 @@ void main() {
         // superseded load to repair.
         final switching = Completer<void>();
         repository.getRangeCompleter = switching;
-        await tester.tap(find.text(loc.trendRange30));
-        await tester.pump();
+        await selectSpan(tester, 30, settle: false);
 
         repository.editError = const CareRequestFailed();
         await tester.tap(
@@ -959,8 +992,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         // The concurrent load: it clears editError on the controller.
-        await tester.tap(find.text(loc.trendRange90));
-        await tester.pump();
+        await selectSpan(tester, 90, settle: false);
         expect(controller.editError, isNull, reason: 'load clears it by design');
 
         repair.complete();
@@ -994,10 +1026,7 @@ void main() {
         // blank during one, so its tiles stay tappable.
         final switching = Completer<void>();
         repository.getRangeCompleter = switching;
-        await tester.tap(find.text(lookupAppLocalizations(
-          const Locale('en'),
-        ).trendRange30));
-        await tester.pump();
+        await selectSpan(tester, 30, settle: false);
 
         repository.editError = const CareRequestFailed();
         await tester.tap(
@@ -1161,7 +1190,7 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.byKey(const Key('care-history-range-selector')),
+          find.byKey(const Key('care-history-period-button')),
           findsOneWidget,
         );
 
@@ -1169,9 +1198,7 @@ void main() {
         repository.days = _sevenDayRange(
           onJul22: [_slot(title: 'Today dose', status: CareTodayStatus.done)],
         );
-        final loc = lookupAppLocalizations(const Locale('en'));
-        await tester.tap(find.text(loc.trendRange7));
-        await tester.pumpAndSettle();
+        await selectSpan(tester, 7);
 
         expect(controller.spanDays, 7);
         expect(
@@ -1212,7 +1239,7 @@ void main() {
         await tester.pump();
 
         expect(
-          find.byKey(const Key('care-history-range-selector')),
+          find.byKey(const Key('care-history-period-button')),
           findsOneWidget,
         );
         expect(
@@ -1223,7 +1250,7 @@ void main() {
         completer.complete();
         await tester.pumpAndSettle();
         expect(
-          find.byKey(const Key('care-history-range-selector')),
+          find.byKey(const Key('care-history-period-button')),
           findsOneWidget,
         );
         expect(find.text('Today dose'), findsOneWidget);
@@ -1531,10 +1558,10 @@ void main() {
         );
         expect(
           tester
-              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
-                find.byKey(const Key('care-history-range-selector')),
+              .widget<OutlinedButton>(
+                find.byKey(const Key('care-history-period-button')),
               )
-              .onSelectionChanged,
+              .onPressed,
           isNull,
         );
         expect(
@@ -1553,10 +1580,10 @@ void main() {
 
         expect(
           tester
-              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
-                find.byKey(const Key('care-history-range-selector')),
+              .widget<OutlinedButton>(
+                find.byKey(const Key('care-history-period-button')),
               )
-              .onSelectionChanged,
+              .onPressed,
           isNotNull,
         );
         expect(
@@ -1609,10 +1636,10 @@ void main() {
         );
         expect(
           tester
-              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
-                find.byKey(const Key('care-history-range-selector')),
+              .widget<OutlinedButton>(
+                find.byKey(const Key('care-history-period-button')),
               )
-              .onSelectionChanged,
+              .onPressed,
           isNull,
         );
         expect(
@@ -1807,6 +1834,8 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // `.first`, not `.last`: the metric now reads value-then-label, so the
+    // number is the leading Text.
     String summaryValue(WidgetTester tester, String key) => tester
         .widgetList<Text>(
           find.descendant(
@@ -1814,7 +1843,7 @@ void main() {
             matching: find.byType(Text),
           ),
         )
-        .last
+        .first
         .data!;
 
     // LINCHPIN. The list, the headline numbers and the empty state all read
@@ -1958,10 +1987,7 @@ void main() {
       final controller = _controller(repository: repository);
       await _pumpScreen(tester, controller);
 
-      await tester.tap(find.text(lookupAppLocalizations(
-        const Locale('en'),
-      ).careHistoryPeriodCustom));
-      await tester.pumpAndSettle();
+      await openCustomPicker(tester);
 
       // July 2026 is the last month the picker shows (lastDate is the pinned
       // "today", 2026-07-22), so its day cells are the ones on screen.
@@ -1991,8 +2017,21 @@ void main() {
       await tester.pumpAndSettle();
 
       final loc = lookupAppLocalizations(const Locale('en'));
+      // The control names the period in effect, so the generic word
+      // "Custom" (which says nothing about which dates are on screen) is
+      // only ever seen inside the picker sheet, not on the screen.
       expect(find.text(loc.careHistoryPeriodCustom), findsNothing);
-      expect(find.text('Mar 1 – May 20'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('care-history-period-button')),
+                matching: find.byType(Text),
+              ),
+            )
+            .data,
+        'Mar 1 – May 20',
+      );
     });
 
     testWidgets('a failed custom-range load names the dates, not a day count',
@@ -2017,13 +2056,13 @@ void main() {
       );
     });
 
-    // A `SegmentedButton` only calls `onSelectionChanged` on a selection
-    // *change* — pressing the sole already-selected segment again is a
-    // no-op. Custom is deliberately its own button, not a fourth segment,
-    // so this always reopens the picker regardless of whether custom is
-    // already the active period.
+    // The reason the picker is a sheet of rows and not a `SegmentedButton`:
+    // that control only calls `onSelectionChanged` on a selection *change*,
+    // so the already-selected segment cannot be re-pressed — and the custom
+    // row is the only way to adjust an already-picked range. Tapping it
+    // while custom is already active must still reopen the date picker.
     testWidgets(
-      'pressing the custom button again while custom is already active '
+      'tapping the custom row again while custom is already active '
       'reopens the picker',
       (tester) async {
         final controller = _controller(
@@ -2036,8 +2075,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Jul 10 – Jul 15'));
-        await tester.pumpAndSettle();
+        await openCustomPicker(tester);
 
         expect(find.text('Save'), findsOneWidget);
       },
@@ -2065,8 +2103,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Jan 1 – Jan 10'));
-        await tester.pumpAndSettle();
+        await openCustomPicker(tester);
 
         expect(tester.takeException(), isNull);
         expect(find.text('Save'), findsOneWidget);
@@ -2172,13 +2209,13 @@ void main() {
     }
   });
 
-  // task R4/blocker: the custom button carries the actual picked dates
+  // task R4/blocker: the period control carries the actual picked dates
   // (its longest label) once a custom range is active — the case most
   // likely to get squeezed off-screen at the narrowest supported width.
   group('the period selector at 320dp, textScale 2.0', () {
     for (final locale in testSupportedLocales) {
       testWidgets(
-        'the custom button stays reachable and its full label is at least '
+        'the period control stays reachable and its full label is at least '
         'available via its tooltip, locale=$locale',
         (tester) async {
           final controller = _controller(
@@ -2197,7 +2234,7 @@ void main() {
             isEmpty,
           );
 
-          const key = Key('care-history-custom-button');
+          const key = Key('care-history-period-button');
           // Deliberately *not* scrolled into view first: the button sits
           // outside any scrollable (see `care_history_screen.dart`), so it
           // must already be hit-testable in the very first frame — a prior
@@ -2207,16 +2244,15 @@ void main() {
           expect(
             find.byKey(key).hitTestable(),
             findsOneWidget,
-            reason: 'the custom button could not be hit-tested at 320dp × 2.0',
+            reason: 'the period control could not be hit-tested at 320dp × 2.0',
           );
 
           // The picked dates are the widest label this button ever shows,
-          // and at this width they do not fit next to the segmented
-          // control and the filter button no matter how the space is
-          // split — the button's own text ellipsizes, but its `Tooltip`
-          // still carries the un-truncated range (never just the button's
-          // own visible text, which mutation confirmed can silently
-          // ellipsize without failing this check).
+          // and at this width they do not fit next to the filter button —
+          // the button's own text ellipsizes, but its `Tooltip` still
+          // carries the un-truncated range (never just the button's own
+          // visible text, which mutation confirmed can silently ellipsize
+          // without failing this check).
           final loc = lookupAppLocalizations(locale);
           final fullLabel = loc.careHistoryPeriodCustomLabel(
             monthDayLabel(tester.element(find.byKey(key)), DateTime(2026, 3, 1)),
@@ -2236,5 +2272,371 @@ void main() {
         },
       );
     }
+  });
+
+  // The period control replaced a custom button sitting beside a
+  // horizontally scrolling `SegmentedButton`. These guard what that shape
+  // cost and what the single control must keep doing at the narrowest
+  // supported width.
+  group('the period control at 320dp, textScale 2.0', () {
+    Finder periodButton() => find.byKey(const Key('care-history-period-button'));
+    Finder periodLabel() => find.descendant(
+      of: periodButton(),
+      matching: find.byType(Text),
+    );
+
+    for (final locale in testSupportedLocales) {
+      for (final days in [7, 30, 90]) {
+        testWidgets(
+          'names the whole span it is showing, on one line and inside its '
+          'own box, span=$days locale=$locale',
+          (tester) async {
+            final controller = _controller(
+              repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+              spanDays: days,
+            );
+            final errors = await collectLayoutErrors(
+              () => _pumpNarrow(tester, controller, locale),
+            );
+            expect(
+              errors.map((e) => e.exception.toString().split('\n').first).toList(),
+              isEmpty,
+            );
+
+            final loc = lookupAppLocalizations(locale);
+            final expected = loc.careHistoryPeriodSpanLabel(days);
+            // The control is the only thing on screen saying which period
+            // is in effect, so a bare "7 days" (`trendRange7`, which reads
+            // as a fragment away from a heading) is not enough.
+            expect(tester.widget<Text>(periodLabel()).data, expected);
+            expect(
+              tester
+                  .widget<Tooltip>(
+                    find.ancestor(
+                      of: periodButton(),
+                      matching: find.byType(Tooltip),
+                    ),
+                  )
+                  .message,
+              expected,
+            );
+
+            // Not `expectPaintedInFull`: the widget tests run in a
+            // placeholder font whose every glyph is one em wide, so an
+            // English label here is about twice the width a real font gives
+            // it and ellipsizes at 320dp × 2.0 even though it fits on a real
+            // device (see `real_font_metrics_test.dart`). What holds in
+            // either font is that the label stays on one line inside the
+            // button — a wrap or a spill is a layout bug at any font width.
+            expect(
+              paintedTextLineCount(tester, periodLabel()),
+              1,
+              reason: 'the period label wrapped at 320dp × 2.0',
+            );
+            final labelRect = tester.getRect(periodLabel());
+            final buttonRect = tester.getRect(periodButton());
+            expect(
+              labelRect.left >= buttonRect.left - 0.5 &&
+                  labelRect.right <= buttonRect.right + 0.5,
+              isTrue,
+              reason: 'the period label ($labelRect) spilled out of its '
+                  'button ($buttonRect)',
+            );
+          },
+        );
+      }
+
+      testWidgets(
+        'is hit-testable on the very first frame, locale=$locale',
+        (tester) async {
+          await _pumpNarrow(
+            tester,
+            _controller(
+              repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+            ),
+            locale,
+          );
+
+          // Deliberately *not* scrolled into view first: nothing on this
+          // screen may put the only period control inside a scrollable the
+          // user has no affordance to discover — the shape this control
+          // replaced did exactly that to its 7/30/90 segments.
+          expect(
+            periodButton().hitTestable(),
+            findsOneWidget,
+            reason: 'the period control could not be hit-tested at 320dp × 2.0',
+          );
+        },
+      );
+
+      testWidgets(
+        'the picker checks exactly one row, and it is the row for the period '
+        'in effect, locale=$locale',
+        (tester) async {
+          final semantics = tester.ensureSemantics();
+          final controller = _controller(
+            repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+            spanDays: 30,
+          );
+          await _pumpNarrow(tester, controller, locale);
+
+          await tester.tap(periodButton());
+          await tester.pumpAndSettle();
+
+          final loc = lookupAppLocalizations(locale);
+          expect(
+            find.text(loc.careHistoryPeriodPickerTitle),
+            findsOneWidget,
+            reason: 'the sheet must be headed with its own title',
+          );
+          // Each row must actually say which span it is — a placeholder
+          // string here would pass every other assertion in this test.
+          for (final rowDays in [7, 30, 90]) {
+            expect(
+              find.descendant(
+                of: find.byKey(Key('care-history-period-option-$rowDays')),
+                matching: find.text(loc.careHistoryPeriodSpanLabel(rowDays)),
+              ),
+              findsOneWidget,
+              reason: 'the $rowDays-day row does not show its span label',
+            );
+          }
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('care-history-period-option-custom')),
+              matching: find.text(loc.careHistoryPeriodCustom),
+            ),
+            findsOneWidget,
+            reason: 'the custom row does not show its label',
+          );
+
+          // One check mark on the whole sheet — the shape this replaced
+          // could show a selected custom button *and* a selected segment at
+          // the same time.
+          expect(
+            find.byKey(const Key('care-history-period-option-selected')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('care-history-period-option-30')),
+              matching: find.byKey(
+                const Key('care-history-period-option-selected'),
+              ),
+            ),
+            findsOneWidget,
+            reason: 'the 30-day row is the period in effect',
+          );
+          // The visual check mark alone doesn't put "selected" into the
+          // semantics tree — that comes from `ListTile.selected`. Without
+          // it a screen reader announces every row identically regardless
+          // of which period is actually in effect.
+          expect(
+            tester.getSemantics(
+              find.byKey(const Key('care-history-period-option-30')),
+            ),
+            containsSemantics(isSelected: true),
+          );
+          expect(
+            tester.getSemantics(
+              find.byKey(const Key('care-history-period-option-7')),
+            ),
+            containsSemantics(isSelected: false),
+          );
+
+          await tester.tap(find.byKey(const Key('care-history-period-option-30')));
+          await tester.pumpAndSettle();
+          // Set directly rather than through the custom row: at 320dp ×
+          // 2.0 `showDateRangePicker`'s own dialog overflows, which would
+          // fail this guard for a reason that has nothing to do with the
+          // check mark it is about.
+          await controller.setPeriod(
+            'token-123',
+            const CareHistoryPeriod.custom('2026-07-10', '2026-07-15'),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(periodButton());
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const Key('care-history-period-option-selected')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('care-history-period-option-custom')),
+              matching: find.byKey(
+                const Key('care-history-period-option-selected'),
+              ),
+            ),
+            findsOneWidget,
+            reason: 'a custom period checks the custom row, not a span row',
+          );
+          expect(
+            tester.getSemantics(
+              find.byKey(const Key('care-history-period-option-custom')),
+            ),
+            containsSemantics(isSelected: true),
+          );
+          // The custom row's subtitle is the only place in the sheet that
+          // says which dates the active custom period actually covers.
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('care-history-period-option-custom')),
+              matching: find.text(
+                loc.careHistoryPeriodCustomLabel(
+                  monthDayLabel(
+                    tester.element(periodButton()),
+                    DateTime(2026, 7, 10),
+                  ),
+                  monthDayLabel(
+                    tester.element(periodButton()),
+                    DateTime(2026, 7, 15),
+                  ),
+                ),
+              ),
+            ),
+            findsOneWidget,
+            reason: 'the custom row does not show the dates it is covering',
+          );
+          semantics.dispose();
+        },
+      );
+
+      testWidgets(
+        'the summary reads value-first, bigger and heavier than its label, '
+        'locale=$locale',
+        (tester) async {
+          await _pumpNarrow(
+            tester,
+            _controller(
+              repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+            ),
+            locale,
+          );
+
+          for (final key in [
+            'care-history-summary-rate',
+            'care-history-summary-days-with-dose',
+            'care-history-summary-missed-count',
+          ]) {
+            final texts = find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byType(Text),
+            );
+            expect(texts, findsNWidgets(2), reason: '$key: value + label');
+            // Resolved styles, not the raw `TextStyle`s: `titleMedium` and
+            // `bodySmall` both leave `fontSize`/`fontWeight` to the theme on
+            // some platforms, and a null size compares equal to a null size.
+            final value = tester
+                .renderObject<RenderParagraph>(texts.first)
+                .text
+                .style!;
+            final label = tester
+                .renderObject<RenderParagraph>(texts.last)
+                .text
+                .style!;
+            expect(value.fontSize, isNotNull);
+            expect(label.fontSize, isNotNull);
+            expect(
+              value.fontSize!,
+              greaterThanOrEqualTo(label.fontSize! * 1.25),
+              reason: '$key: the number must read as the headline, not as '
+                  'another word in the sentence',
+            );
+            expect(
+              (value.fontWeight ?? FontWeight.normal).index,
+              greaterThan((label.fontWeight ?? FontWeight.normal).index),
+              reason: '$key: the number must be the heavier of the two',
+            );
+            for (final text in texts.evaluate()) {
+              expectPaintedInFull(
+                tester,
+                find.byWidget(text.widget),
+                reason: '$key was cut off at 320dp × 2.0',
+              );
+            }
+          }
+        },
+      );
+
+      testWidgets(
+        'costs the record list no height compared with the selector it '
+        'replaced, locale=$locale',
+        (tester) async {
+          // Measured on this same fixture *before* the change (the custom
+          // button + `SegmentedButton` row, label-then-value summary), in
+          // the placeholder test font. The control row is 48dp tall either
+          // way, so every dp the summary spends comes straight out of the
+          // list: the stacked value-over-label summary that was drafted for
+          // this change put these at 40 (en) / 136 (zh_Hant).
+          const before = {'en': 208.0, 'zh_Hant': 256.0};
+          final controller = _controller(
+            repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+          );
+          controller.setFilter(
+            const CareHistoryFilter(
+              categories: {CareCategory.medication, CareCategory.rehab},
+              statuses: {CareTodayStatus.done, CareTodayStatus.missed},
+              careItemId: 'care-2',
+            ),
+          );
+          await _pumpNarrow(tester, controller, locale);
+
+          expect(
+            tester.getSize(find.byKey(const Key('care-history-list'))).height,
+            greaterThanOrEqualTo(before[locale.toString()]!),
+            reason: 'the header grew: the record list is now smaller than it '
+                'was before the period control and summary were reworked',
+          );
+        },
+      );
+    }
+  });
+
+  // The dead end this whole control exists to avoid: `SegmentedButton` only
+  // calls `onSelectionChanged` on a selection *change*, so the row for the
+  // period already in effect has to keep working. Run at the default test
+  // surface, not 320dp × 2.0 — `showDateRangePicker`'s own dialog does not
+  // lay out at that size, which would fail these for a reason that has
+  // nothing to do with the control under test.
+  group('re-picking the period already in effect', () {
+    testWidgets('the custom row reopens the date picker', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-07-10', '2026-07-15'),
+      );
+      await tester.pumpAndSettle();
+
+      await openCustomPicker(tester);
+
+      expect(find.byType(DateRangePickerDialog), findsOneWidget);
+    });
+
+    testWidgets('the row for the current span closes the picker and keeps '
+        'the span', (tester) async {
+      final repository = _FakeCareHistoryRepository(days: _twoItemRange());
+      final controller = _controller(repository: repository, spanDays: 7);
+      await _pumpScreen(tester, controller);
+
+      await selectSpan(tester, 7);
+
+      expect(tester.takeException(), isNull);
+      expect(controller.spanDays, 7);
+      expect(
+        find.byKey(const Key('care-history-period-option-7')),
+        findsNothing,
+        reason: 'the sheet closes on any row, including the current one',
+      );
+      expect(
+        repository.getRangeCalls.last,
+        (from: '2026-07-16', to: '2026-07-22'),
+      );
+    });
   });
 }
