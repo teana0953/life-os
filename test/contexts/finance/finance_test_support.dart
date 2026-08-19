@@ -115,6 +115,12 @@ class FakeFinanceRepository implements FinanceRepository {
   /// was sent*, which is what the token-freshness tests assert on.
   final List<String> summaryTokens = [];
 
+  /// Every month [getSummary] was called with, in order (parallel to
+  /// [summaryTokens]) — a pull-to-refresh test needs this to tell "re-fetched
+  /// the month on screen" apart from "silently moved to an adjacent month";
+  /// a call *count* alone cannot.
+  final List<String> summaryMonths = [];
+
   /// Holds the *n*th `getSummary` call (1-indexed, matching
   /// [summaryTokens]`.length` after the call has arrived) until the completer
   /// is completed. Keyed by call number rather than by month so two reloads
@@ -129,6 +135,7 @@ class FakeFinanceRepository implements FinanceRepository {
   @override
   Future<MonthlySummary> getSummary(String idToken, String month) async {
     summaryTokens.add(idToken);
+    summaryMonths.add(month);
     final gate = summaryGates[summaryTokens.length];
     if (gate != null) await gate.future;
     if (failNext != null) {
@@ -753,8 +760,10 @@ class FakeFinanceRepository implements FinanceRepository {
   }
 }
 
-NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
-    NetWorthController(
+NetWorthController testNetWorthController(
+  FakeFinanceRepository repo, {
+  DateTime Function()? clock,
+}) => NetWorthController(
       ListNetWorthAccounts(repo),
       CreateNetWorthAccount(repo),
       UpdateNetWorthAccount(repo),
@@ -762,10 +771,13 @@ NetWorthController testNetWorthController(FakeFinanceRepository repo) =>
       UpsertSnapshot(repo),
       GetMonthlyNetWorth(repo),
       GetNetWorthTrend(repo),
+      clock: clock ?? DateTime.now,
     );
 
-FinanceController testFinanceController(FakeFinanceRepository repo) =>
-    FinanceController(
+FinanceController testFinanceController(
+  FakeFinanceRepository repo, {
+  DateTime Function()? clock,
+}) => FinanceController(
       GetFinanceMonth(repo),
       AddTransaction(repo),
       UpdateTransaction(repo),
@@ -773,6 +785,7 @@ FinanceController testFinanceController(FakeFinanceRepository repo) =>
       UpsertBudget(repo),
       DeleteBudget(repo),
       GetSplitSpending(repo),
+      clock: clock ?? DateTime.now,
     );
 
 /// Two thin subclasses rather than wrappers: `FinanceRepository` has a wide

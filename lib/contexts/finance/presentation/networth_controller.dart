@@ -32,6 +32,10 @@ class NetWorthController extends ChangeNotifier {
   final GetMonthlyNetWorth _getMonthlyNetWorth;
   final GetNetWorthTrend _getTrend;
 
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load —
+  /// the tracker controllers' convention, so tests can pin the stamp.
+  final DateTime Function() _clock;
+
   NetWorthController(
     this._listAccounts,
     this._createAccount,
@@ -39,8 +43,9 @@ class NetWorthController extends ChangeNotifier {
     this._reorderAccounts,
     this._upsertSnapshot,
     this._getMonthlyNetWorth,
-    this._getTrend,
-  );
+    this._getTrend, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   /// `YYYY-MM`. Empty until the first [load] — the caller supplies the
   /// initial month from its own clock, mirroring [FinanceController].
@@ -52,6 +57,17 @@ class NetWorthController extends ChangeNotifier {
   MonthlyNetWorth? monthly;
   List<NetWorthTrendPoint> trend = [];
 
+  /// When this month's figures last landed successfully, or `null` before the
+  /// first success — shown by the tab's pull-to-refresh "last updated" label.
+  DateTime? lastLoadedAt;
+
+  /// Set when a same-month reload (pull-to-refresh) fails while [monthly] is
+  /// already on screen — mirrors [FinanceController.reloadFailed]. Without
+  /// this, a same-month failure leaves [monthly] non-null, so the tab's error
+  /// page (gated on `monthly == null`) never shows and the failure is
+  /// otherwise silent.
+  bool reloadFailed = false;
+
   /// Clears every loaded figure on sign-out so a subsequently signed-in user
   /// never sees the previous user's accounts or net worth. This controller is
   /// an app-lifetime singleton (main.dart), so nothing else would clear it.
@@ -59,9 +75,11 @@ class NetWorthController extends ChangeNotifier {
     selectedMonth = '';
     status = FinanceStatus.loading;
     error = null;
+    reloadFailed = false;
     accounts = [];
     monthly = null;
     trend = [];
+    lastLoadedAt = null;
   }
 
   /// Loads [month]'s accounts, figures, and trend in one batch. The trend
@@ -97,6 +115,8 @@ class NetWorthController extends ChangeNotifier {
       monthly = results[1] as MonthlyNetWorth;
       trend = results[2] as List<NetWorthTrendPoint>;
       status = FinanceStatus.loaded;
+      reloadFailed = false;
+      lastLoadedAt = _clock();
     } on FinanceReauthenticationRequired {
       if (selectedMonth != month) return;
       status = FinanceStatus.needsReauth;
@@ -104,10 +124,12 @@ class NetWorthController extends ChangeNotifier {
       if (selectedMonth != month) return;
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
+      reloadFailed = true;
     } catch (_) {
       if (selectedMonth != month) return;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
+      reloadFailed = true;
     }
     notifyListeners();
   }

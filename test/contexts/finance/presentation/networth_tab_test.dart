@@ -9,6 +9,7 @@ import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
 import 'package:life_os/shared/widgets/month_nav_header.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import 'package:intl/intl.dart';
 
@@ -31,13 +32,15 @@ Future<NetWorthController> _pumpTab(
   FakeFinanceRepository repo, {
   String month = '2026-07',
   List<NetWorthAccount>? tapped,
+  DateTime Function()? clock,
+  Future<void> Function()? onRefresh,
 }) async {
   // Tall enough that the whole tab — including the trend section at the
   // bottom — is laid out, since a ListView doesn't build off-screen children.
   await tester.binding.setSurfaceSize(const Size(600, 2400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
-  final controller = testNetWorthController(repo);
+  final controller = testNetWorthController(repo, clock: clock);
   await controller.load('token', month);
   await tester.pumpWidget(
     l10nTestApp(
@@ -49,6 +52,7 @@ Future<NetWorthController> _pumpTab(
             onSwitchMonth: (m) => controller.load('token', m),
             onEditAccountValue: (a) => tapped?.add(a),
             onManageAccounts: () {},
+            onRefresh: onRefresh ?? () async {},
             onSignInAgain: () {},
           ),
         ),
@@ -61,6 +65,69 @@ Future<NetWorthController> _pumpTab(
 
 void main() {
   group('NetWorthTab', () {
+    group('pull to refresh (#198)', () {
+      testWidgets('pulling the list runs onRefresh once', (tester) async {
+        var refreshes = 0;
+        await _pumpTab(
+          tester,
+          FakeFinanceRepository(),
+          onRefresh: () async => refreshes++,
+        );
+
+        // 800, not the 300 the other tabs' tests use: this helper pumps a
+        // 2400dp-tall surface so the whole tab lays out, and
+        // `RefreshIndicator` only fires past a quarter of the viewport
+        // height.
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 800),
+          1000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(refreshes, 1);
+      });
+
+      testWidgets(
+        'the last-updated label is the first row, above the month header',
+        (tester) async {
+          await _pumpTab(
+            tester,
+            FakeFinanceRepository(),
+            clock: () => DateTime(2026, 8, 19, 9, 30),
+          );
+
+          expect(find.text(_loc.lastUpdatedAt('09:30')), findsOneWidget);
+          expect(
+            tester.getRect(find.byType(LastLoadedLabel)).top,
+            lessThan(tester.getRect(find.byType(MonthNavHeader)).top),
+          );
+        },
+      );
+
+      testWidgets(
+        'a same-month reload failure surfaces a stale notice instead of '
+        'silently keeping the old figures on screen',
+        (tester) async {
+          final repo = FakeFinanceRepository();
+          final controller = await _pumpTab(tester, repo);
+
+          repo.failNext = FinanceFetchFailure('boom');
+          await controller.load('token', controller.selectedMonth);
+          await tester.pumpAndSettle();
+
+          // The failure must not be dropped on the floor: `monthly` survives
+          // a same-month reload (so the retry FilledButton page never gates
+          // it in), which means the stale notice is the only remaining place
+          // a failed pull-to-refresh can be seen at all.
+          expect(controller.monthly, isNotNull);
+          expect(controller.reloadFailed, isTrue);
+          expect(find.byKey(const Key('networth-retry')), findsNothing);
+          expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        },
+      );
+    });
+
     testWidgets('shows the net worth and a rising growth indicator', (tester) async {
       final repo = FakeFinanceRepository()
         ..seedSnapshot('acc-cash', '2026-06', 460181)
@@ -271,6 +338,7 @@ void main() {
                   onSwitchMonth: (m) => controller.load('token', m),
                   onEditAccountValue: (_) {},
                   onManageAccounts: () => managed = true,
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -369,6 +437,7 @@ void main() {
                 onSwitchMonth: (m) => controller.load('token', m),
                 onEditAccountValue: (_) {},
                 onManageAccounts: () {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -455,6 +524,7 @@ void main() {
                     onSwitchMonth: (m) async {},
                     onEditAccountValue: (a) {},
                     onManageAccounts: () {},
+                    onRefresh: () async {},
                     onSignInAgain: () {},
                   ),
                 ),
@@ -516,6 +586,7 @@ void main() {
                         onSwitchMonth: (m) async {},
                         onEditAccountValue: (a) {},
                         onManageAccounts: () {},
+                        onRefresh: () async {},
                         onSignInAgain: () {},
                       ),
                     ),
@@ -580,6 +651,7 @@ void main() {
                 onSwitchMonth: (m) async {},
                 onEditAccountValue: (a) {},
                 onManageAccounts: () {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -679,6 +751,7 @@ void main() {
               onSwitchMonth: (m) async {},
               onEditAccountValue: (a) {},
               onManageAccounts: () {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -769,6 +842,7 @@ void main() {
                 onSwitchMonth: (m) async {},
                 onEditAccountValue: (a) {},
                 onManageAccounts: () {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),

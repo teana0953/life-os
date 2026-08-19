@@ -6,10 +6,12 @@ import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/label_value_row.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
 import '../../../shared/widgets/month_picker_dialog.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../domain/finance_month.dart';
 import '../domain/finance_money.dart';
 import '../domain/networth_account.dart';
@@ -28,6 +30,10 @@ class NetWorthTab extends StatelessWidget {
   final void Function(NetWorthAccount account) onEditAccountValue;
   final VoidCallback onManageAccounts;
 
+  /// Pull-to-refresh. The returned future is what the spinner waits on, so it
+  /// must not resolve before the reload has actually settled.
+  final Future<void> Function() onRefresh;
+
   /// Invoked when the user taps the reauth state's sign-in-again control
   /// (see [AsyncStateScaffold]).
   final VoidCallback onSignInAgain;
@@ -38,6 +44,7 @@ class NetWorthTab extends StatelessWidget {
     required this.onSwitchMonth,
     required this.onEditAccountValue,
     required this.onManageAccounts,
+    required this.onRefresh,
     required this.onSignInAgain,
   });
 
@@ -104,87 +111,118 @@ class NetWorthTab extends StatelessWidget {
             .where((v) => v.kind == kind && !activeIds.contains(v.accountId))
             .fold(0, (sum, v) => sum + v.value);
 
+        // A same-month pull-to-refresh can fail while this month's figures
+        // are already on screen — `reloadFailed` flips to `true` but
+        // `monthly` is kept (the error page above is gated on `monthly ==
+        // null`), so without this the failure was entirely silent. Mirrors
+        // `FinanceOverviewTab`'s identical notice/placement.
+        final staleNotice = StaleNotice(
+          failed: controller.reloadFailed,
+          loading:
+              controller.status == FinanceStatus.loading && controller.monthly != null,
+          subject: loc.financeTabNetWorth,
+          onRetry: () => onSwitchMonth(controller.selectedMonth),
+        );
+
         return SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: ListView(
-                padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
-                  MonthNavHeader(
-                    monthLabel: monthYearLabel(
-                      context,
-                      monthDateTime(controller.selectedMonth),
-                    ),
-                    keyPrefix: 'networth-month',
-                    onPickMonth: () => _pickMonth(context),
-                    onPrevious: () =>
-                        onSwitchMonth(previousMonth(controller.selectedMonth)),
-                    onNext: () => onSwitchMonth(nextMonth(controller.selectedMonth)),
-                  ),
-                  const SizedBox(height: 16),
-                  _NetWorthCard(monthly: monthly),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          loc.networthManageAccounts,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                  staleNotice,
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: onRefresh,
+                      child: ListView(
+                        // Always scrollable so a month with little content still
+                        // takes the overscroll the refresh gesture needs.
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          LastLoadedLabel(lastLoadedAt: controller.lastLoadedAt),
+                          MonthNavHeader(
+                            monthLabel: monthYearLabel(
+                              context,
+                              monthDateTime(controller.selectedMonth),
+                            ),
+                            keyPrefix: 'networth-month',
+                            onPickMonth: () => _pickMonth(context),
+                            onPrevious: () => onSwitchMonth(
+                              previousMonth(controller.selectedMonth),
+                            ),
+                            onNext: () =>
+                                onSwitchMonth(nextMonth(controller.selectedMonth)),
+                          ),
+                          const SizedBox(height: 16),
+                          _NetWorthCard(monthly: monthly),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  loc.networthManageAccounts,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                              ),
+                              IconButton(
+                                key: const Key('account-manage-button'),
+                                tooltip: loc.networthManageAccounts,
+                                icon: const Icon(Icons.tune),
+                                onPressed: onManageAccounts,
+                              ),
+                            ],
+                          ),
+                          if (monthly.accounts.isEmpty)
+                            // With no account to record against, "record a value" has
+                            // nowhere to go — so the CTA points at the step that is
+                            // actually missing (create an account) instead of being a
+                            // dead button whose only escape is the tune icon.
+                            _EmptyState(
+                              ctaLabel: active.isEmpty
+                                  ? loc.networthManageAccounts
+                                  : loc.networthEmptyCta,
+                              onCta: active.isEmpty
+                                  ? onManageAccounts
+                                  : () => onEditAccountValue(active.first),
+                            ),
+                          const SizedBox(height: 8),
+                          _AccountGroup(
+                            title: loc.networthAssetsTitle,
+                            totalLabel: loc.networthTotalAssets,
+                            total: monthly.totalAsset,
+                            archivedTotal: archivedTotal(NetWorthKind.asset),
+                            archivedKey: const Key('networth-archived-asset'),
+                            accounts: active
+                                .where((a) => a.kind == NetWorthKind.asset)
+                                .toList(),
+                            valueByAccount: valueByAccount,
+                            onTap: onEditAccountValue,
+                          ),
+                          const SizedBox(height: 16),
+                          _AccountGroup(
+                            title: loc.networthLiabilitiesTitle,
+                            totalLabel: loc.networthTotalLiabilities,
+                            total: monthly.totalLiability,
+                            archivedTotal: archivedTotal(NetWorthKind.liability),
+                            archivedKey: const Key('networth-archived-liability'),
+                            accounts: active
+                                .where((a) => a.kind == NetWorthKind.liability)
+                                .toList(),
+                            valueByAccount: valueByAccount,
+                            onTap: onEditAccountValue,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            loc.networthTrendTitle,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          _TrendSection(points: controller.trend),
+                        ],
                       ),
-                      IconButton(
-                        key: const Key('account-manage-button'),
-                        tooltip: loc.networthManageAccounts,
-                        icon: const Icon(Icons.tune),
-                        onPressed: onManageAccounts,
-                      ),
-                    ],
-                  ),
-                  if (monthly.accounts.isEmpty)
-                    // With no account to record against, "record a value" has
-                    // nowhere to go — so the CTA points at the step that is
-                    // actually missing (create an account) instead of being a
-                    // dead button whose only escape is the tune icon.
-                    _EmptyState(
-                      ctaLabel: active.isEmpty
-                          ? loc.networthManageAccounts
-                          : loc.networthEmptyCta,
-                      onCta: active.isEmpty
-                          ? onManageAccounts
-                          : () => onEditAccountValue(active.first),
                     ),
-                  const SizedBox(height: 8),
-                  _AccountGroup(
-                    title: loc.networthAssetsTitle,
-                    totalLabel: loc.networthTotalAssets,
-                    total: monthly.totalAsset,
-                    archivedTotal: archivedTotal(NetWorthKind.asset),
-                    archivedKey: const Key('networth-archived-asset'),
-                    accounts: active.where((a) => a.kind == NetWorthKind.asset).toList(),
-                    valueByAccount: valueByAccount,
-                    onTap: onEditAccountValue,
                   ),
-                  const SizedBox(height: 16),
-                  _AccountGroup(
-                    title: loc.networthLiabilitiesTitle,
-                    totalLabel: loc.networthTotalLiabilities,
-                    total: monthly.totalLiability,
-                    archivedTotal: archivedTotal(NetWorthKind.liability),
-                    archivedKey: const Key('networth-archived-liability'),
-                    accounts: active
-                        .where((a) => a.kind == NetWorthKind.liability)
-                        .toList(),
-                    valueByAccount: valueByAccount,
-                    onTap: onEditAccountValue,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    loc.networthTrendTitle,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  _TrendSection(points: controller.trend),
                 ],
               ),
             ),

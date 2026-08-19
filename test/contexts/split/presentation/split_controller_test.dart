@@ -22,8 +22,9 @@ import '../support/split_presentation_fakes.dart';
 SplitController _controller(
   FakeSplitRepository repo,
   FakeProfileRepository profileRepo,
-  FakeSocialRepositoryForSplit socialRepo,
-) => SplitController(
+  FakeSocialRepositoryForSplit socialRepo, {
+  DateTime Function()? clock,
+}) => SplitController(
   GetBalances(repo),
   ListGroups(repo),
   ListExpenses(repo),
@@ -36,6 +37,7 @@ SplitController _controller(
   ListSettlements(repo),
   CreateSettlement(repo),
   DeleteSettlement(repo),
+  clock: clock ?? DateTime.now,
 );
 
 void main() {
@@ -126,6 +128,154 @@ void main() {
       await controller.load('tok');
 
       expect(controller.status, SplitStatus.needsReauth);
+    });
+
+    group('lastLoadedAt (#198)', () {
+      test('a successful load stamps the injected clock', () async {
+        final profileRepo = FakeProfileRepository()..profileToReturn = testProfile();
+        final controller = _controller(
+          FakeSplitRepository(),
+          profileRepo,
+          FakeSocialRepositoryForSplit(),
+          clock: () => DateTime(2026, 8, 19, 9, 30),
+        );
+
+        await controller.load('tok');
+
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+      });
+
+      test('a profile failure does not stamp — nothing was loaded', () async {
+        final profileRepo = FakeProfileRepository()
+          ..failNext = const ProfileFetchFailure('boom');
+        final controller = _controller(
+          FakeSplitRepository(),
+          profileRepo,
+          FakeSocialRepositoryForSplit(),
+          clock: () => DateTime(2026, 8, 19, 9, 30),
+        );
+
+        await controller.load('tok');
+
+        expect(controller.error, SplitError.profileFailed);
+        expect(controller.lastLoadedAt, isNull);
+      });
+
+      test(
+        'a split-data fetch failure leaves the previous stamp untouched — the '
+        'label describes the data still on screen, which the failure did not '
+        'change',
+        () async {
+          final repo = FakeSplitRepository();
+          final profileRepo = FakeProfileRepository()..profileToReturn = testProfile();
+          var now = DateTime(2026, 8, 19, 9, 30);
+          final controller = _controller(
+            repo,
+            profileRepo,
+            FakeSocialRepositoryForSplit(),
+            clock: () => now,
+          );
+          await controller.load('tok');
+
+          now = DateTime(2026, 8, 19, 10, 0);
+          repo.failNext = const SplitFetchFailure();
+          await controller.load('tok');
+
+          expect(controller.status, SplitStatus.error);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+        },
+      );
+
+      // `reloadFailed` drives the [StaleNotice] over content that is still on
+      // screen, so it has to be asserted on the *real* load path, not by
+      // hand-setting the field: the widget-level guard in `split_tab_test`
+      // pumps a controller whose fields were assigned directly, which cannot
+      // tell whether `load` ever reaches those assignments.
+      test(
+        'a split-data fetch failure flips reloadFailed while leaving the data '
+        'and stamp in place, and the next successful load clears it',
+        () async {
+          final repo = FakeSplitRepository()
+            ..balancesToReturn = [
+              const Balance(
+                userId: 'u2',
+                displayName: 'Bo',
+                balances: [CurrencyBalance(currency: 'TWD', amount: 500)],
+              ),
+            ]
+            ..groupsToReturn = const [
+              SplitGroup(id: 'g1', name: 'Trip', createdByUserId: 'self-1', archivedAt: null),
+            ];
+          final profileRepo = FakeProfileRepository()..profileToReturn = testProfile();
+          var now = DateTime(2026, 8, 19, 9, 30);
+          final controller = _controller(
+            repo,
+            profileRepo,
+            FakeSocialRepositoryForSplit(),
+            clock: () => now,
+          );
+          await controller.load('tok');
+          expect(controller.reloadFailed, isFalse);
+
+          now = DateTime(2026, 8, 19, 10, 0);
+          repo.failNext = const SplitFetchFailure();
+          await controller.load('tok');
+
+          expect(controller.reloadFailed, isTrue);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+          expect(controller.balances.single.displayName, 'Bo');
+          expect(controller.groups.single.name, 'Trip');
+
+          repo.failNext = null;
+          now = DateTime(2026, 8, 19, 10, 30);
+          await controller.load('tok');
+
+          expect(controller.reloadFailed, isFalse);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 30));
+        },
+      );
+
+      // The profile gate is the *other* way a pull-to-refresh fails with data
+      // still on screen; covering only the fetch path leaves this one unguarded.
+      test(
+        'a profile failure on a reload flips reloadFailed too, and the next '
+        'successful load clears it',
+        () async {
+          final repo = FakeSplitRepository()
+            ..balancesToReturn = [
+              const Balance(
+                userId: 'u2',
+                displayName: 'Bo',
+                balances: [CurrencyBalance(currency: 'TWD', amount: 500)],
+              ),
+            ];
+          final profileRepo = FakeProfileRepository()..profileToReturn = testProfile();
+          var now = DateTime(2026, 8, 19, 9, 30);
+          final controller = _controller(
+            repo,
+            profileRepo,
+            FakeSocialRepositoryForSplit(),
+            clock: () => now,
+          );
+          await controller.load('tok');
+          expect(controller.reloadFailed, isFalse);
+
+          now = DateTime(2026, 8, 19, 10, 0);
+          profileRepo.failNext = const ProfileFetchFailure('boom');
+          await controller.load('tok');
+
+          expect(controller.error, SplitError.profileFailed);
+          expect(controller.reloadFailed, isTrue);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+          expect(controller.balances.single.displayName, 'Bo');
+
+          now = DateTime(2026, 8, 19, 10, 30);
+          await controller.load('tok');
+
+          expect(controller.reloadFailed, isFalse);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 30));
+        },
+      );
     });
   });
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/stale_notice.dart';
@@ -17,6 +18,10 @@ class FinanceTransactionsTab extends StatelessWidget {
   final ValueChanged<FinanceTransaction> onEdit;
   final Future<void> Function(String month) onSwitchMonth;
 
+  /// Pull-to-refresh. The returned future is what the spinner waits on, so it
+  /// must not resolve before the reload has actually settled.
+  final Future<void> Function() onRefresh;
+
   /// Invoked when the user taps the reauth state's sign-in-again control
   /// (see [AsyncStateScaffold]).
   final VoidCallback onSignInAgain;
@@ -26,6 +31,7 @@ class FinanceTransactionsTab extends StatelessWidget {
     required this.controller,
     required this.onEdit,
     required this.onSwitchMonth,
+    required this.onRefresh,
     required this.onSignInAgain,
   });
 
@@ -83,14 +89,14 @@ class FinanceTransactionsTab extends StatelessWidget {
           // would be a different change. The overview tab, which does have
           // one, shows the same title with its CTA.
           //
-          // No scroll wrapper, unlike the care-history guide: `Center`
-          // bounds the height, so an overflow here *does* throw — and with
-          // one short title and no actions this guide fits 320dp at text
-          // scale 2.0 in both locales with room to spare. Wrapping it would
-          // only disarm that guard (a scroll view can never overflow), which
-          // is exactly the "guard that cannot fail" this repo keeps hitting.
-          // If an action is ever added here, the narrow-screen test in this
-          // tab's suite is what will say so.
+          // Scrollable, so an empty month can still be pulled to refresh —
+          // but deliberately **not** a scroll view the guide is free to grow
+          // inside: the inner box is pinned to exactly the viewport height,
+          // so a guide that outgrows 320dp at text scale 2.0 still throws a
+          // RenderFlex overflow instead of quietly scrolling. Handing it an
+          // unbounded height would disarm that guard (a scroll view can never
+          // overflow), which is exactly the "guard that cannot fail" this repo
+          // keeps hitting.
           return SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -99,13 +105,35 @@ class FinanceTransactionsTab extends StatelessWidget {
                   children: [
                     staleNotice,
                     Expanded(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: EmptyStateGuide(
-                            stateKey: const Key('finance-transactions-empty'),
-                            icon: Icons.receipt_long_outlined,
-                            title: loc.financeEmptyTitle,
+                      child: RefreshIndicator(
+                        onRefresh: onRefresh,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: constraints.maxHeight,
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  children: [
+                                    LastLoadedLabel(
+                                      lastLoadedAt: controller.lastLoadedAt,
+                                    ),
+                                    Expanded(
+                                      child: Center(
+                                        child: EmptyStateGuide(
+                                          stateKey: const Key(
+                                            'finance-transactions-empty',
+                                          ),
+                                          icon: Icons.receipt_long_outlined,
+                                          title: loc.financeEmptyTitle,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -131,42 +159,49 @@ class FinanceTransactionsTab extends StatelessWidget {
                 children: [
                   staleNotice,
                   Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        for (final day in days) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8, top: 8),
-                            child: Text(
-                              day,
-                              style: Theme.of(context).textTheme.titleMedium,
+                    child: RefreshIndicator(
+                      onRefresh: onRefresh,
+                      child: ListView(
+                        // Always scrollable so a month with few rows still
+                        // takes the overscroll the refresh gesture needs.
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          LastLoadedLabel(lastLoadedAt: controller.lastLoadedAt),
+                          for (final day in days) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8, top: 8),
+                              child: Text(
+                                day,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
                             ),
-                          ),
-                          LedgeCard(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Column(
-                              children: [
-                                for (final txn in byDay[day]!)
-                                  FinanceTransactionRow(
-                                    key: Key('finance-transaction-${txn.id}'),
-                                    transaction: txn,
-                                    category: _categoryFor(txn.categoryId),
-                                    mirrorKeyPrefix:
-                                        'finance-transaction-mirror',
-                                    installmentKeyPrefix:
-                                        'finance-transaction-installment',
-                                    plan: txn.planId == null
-                                        ? null
-                                        : controller.installmentPlans[txn
-                                              .planId],
-                                    onTap: () => onEdit(txn),
-                                  ),
-                              ],
+                            LedgeCard(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Column(
+                                children: [
+                                  for (final txn in byDay[day]!)
+                                    FinanceTransactionRow(
+                                      key: Key('finance-transaction-${txn.id}'),
+                                      transaction: txn,
+                                      category: _categoryFor(txn.categoryId),
+                                      mirrorKeyPrefix:
+                                          'finance-transaction-mirror',
+                                      installmentKeyPrefix:
+                                          'finance-transaction-installment',
+                                      plan: txn.planId == null
+                                          ? null
+                                          : controller.installmentPlans[txn
+                                                .planId],
+                                      onTap: () => onEdit(txn),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],

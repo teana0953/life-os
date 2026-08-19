@@ -6,6 +6,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
 import '../../../shared/widgets/fractional_progress_bar.dart';
 import '../../../shared/widgets/label_value_row.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/month_nav_header.dart';
@@ -35,6 +36,10 @@ class FinanceOverviewTab extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onEditBudgets;
 
+  /// Pull-to-refresh. The returned future is what the spinner waits on, so it
+  /// must not resolve before the reload has actually settled.
+  final Future<void> Function() onRefresh;
+
   /// Invoked when the user taps the reauth state's sign-in-again control
   /// (see [AsyncStateScaffold]).
   final VoidCallback onSignInAgain;
@@ -45,6 +50,7 @@ class FinanceOverviewTab extends StatelessWidget {
     required this.onSwitchMonth,
     required this.onAdd,
     required this.onEditBudgets,
+    required this.onRefresh,
     required this.onSignInAgain,
   });
 
@@ -129,88 +135,95 @@ class FinanceOverviewTab extends StatelessWidget {
                 children: [
                   staleNotice,
                   Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        MonthNavHeader(
-                          monthLabel: monthYearLabel(
-                            context,
-                            monthDateTime(controller.selectedMonth),
-                          ),
-                          keyPrefix: 'finance-month',
-                          onPickMonth: () => _pickMonth(context),
-                          onPrevious: () => onSwitchMonth(
-                            previousMonth(controller.selectedMonth),
-                          ),
-                          onNext: () => onSwitchMonth(
-                            nextMonth(controller.selectedMonth),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        BudgetCard(
-                          controller: controller,
-                          onEdit: onEditBudgets,
-                        ),
-                        const SizedBox(height: 16),
-                        if (isEmpty)
-                          _EmptyState(onAdd: onAdd)
-                        else
-                          for (final total in summary.totals) ...[
-                            _CurrencyTotalsCard(total: total),
-                            const SizedBox(height: 12),
-                          ],
-                        // Rendered unconditionally, outside the isEmpty/non-empty
-                        // branch above (design D7/task 6.3): a month can have split
-                        // shares but no recorded transactions, and that branch
-                        // replaces the whole totals area with a call-to-action — the
-                        // split-spending line must survive that swap rather than be
-                        // hidden along with it.
-                        //
-                        // Placed *after* the recorded totals rather than between the
-                        // budget card and them (the spec's "beside the recorded
-                        // expense totals"): read top-to-bottom from the budget card
-                        // it looked like part of either figure, and it is part of
-                        // neither — the double-count design D6 exists to prevent.
-                        if (controller.splitSpendingStatus ==
-                            SplitSpendingStatus.error) ...[
-                          Text(
-                            loc.financeSplitSpendingLoadFailed,
-                            key: const Key('finance-split-spending-error'),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
+                    child: RefreshIndicator(
+                      onRefresh: onRefresh,
+                      child: ListView(
+                        // Always scrollable so a month with little content still
+                        // takes the overscroll the refresh gesture needs.
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          LastLoadedLabel(lastLoadedAt: controller.lastLoadedAt),
+                          MonthNavHeader(
+                            monthLabel: monthYearLabel(
+                              context,
+                              monthDateTime(controller.selectedMonth),
+                            ),
+                            keyPrefix: 'finance-month',
+                            onPickMonth: () => _pickMonth(context),
+                            onPrevious: () => onSwitchMonth(
+                              previousMonth(controller.selectedMonth),
+                            ),
+                            onNext: () => onSwitchMonth(
+                              nextMonth(controller.selectedMonth),
                             ),
                           ),
                           const SizedBox(height: 16),
-                        ] else if (controller.splitSpending.isNotEmpty) ...[
-                          _SplitSpendingCard(totals: controller.splitSpending),
+                          BudgetCard(
+                            controller: controller,
+                            onEdit: onEditBudgets,
+                          ),
                           const SizedBox(height: 16),
-                        ],
-                        if (!isEmpty) ...[
-                          const SizedBox(height: 8),
-                          if (summary.byCategory.isNotEmpty) ...[
+                          if (isEmpty)
+                            _EmptyState(onAdd: onAdd)
+                          else
+                            for (final total in summary.totals) ...[
+                              _CurrencyTotalsCard(total: total),
+                              const SizedBox(height: 12),
+                            ],
+                          // Rendered unconditionally, outside the isEmpty/non-empty
+                          // branch above (design D7/task 6.3): a month can have split
+                          // shares but no recorded transactions, and that branch
+                          // replaces the whole totals area with a call-to-action — the
+                          // split-spending line must survive that swap rather than be
+                          // hidden along with it.
+                          //
+                          // Placed *after* the recorded totals rather than between the
+                          // budget card and them (the spec's "beside the recorded
+                          // expense totals"): read top-to-bottom from the budget card
+                          // it looked like part of either figure, and it is part of
+                          // neither — the double-count design D6 exists to prevent.
+                          if (controller.splitSpendingStatus ==
+                              SplitSpendingStatus.error) ...[
                             Text(
-                              loc.financeCategoryBreakdown,
+                              loc.financeSplitSpendingLoadFailed,
+                              key: const Key('finance-split-spending-error'),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ] else if (controller.splitSpending.isNotEmpty) ...[
+                            _SplitSpendingCard(totals: controller.splitSpending),
+                            const SizedBox(height: 16),
+                          ],
+                          if (!isEmpty) ...[
+                            const SizedBox(height: 8),
+                            if (summary.byCategory.isNotEmpty) ...[
+                              Text(
+                                loc.financeCategoryBreakdown,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 12),
+                              _CategoryBreakdown(
+                                byCategory: summary.byCategory,
+                                categories: controller.categories,
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                            Text(
+                              loc.financeRecentTransactions,
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 12),
-                            _CategoryBreakdown(
-                              byCategory: summary.byCategory,
+                            _RecentTransactions(
+                              transactions: controller.transactions,
                               categories: controller.categories,
+                              plans: controller.installmentPlans,
                             ),
-                            const SizedBox(height: 20),
                           ],
-                          Text(
-                            loc.financeRecentTransactions,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 12),
-                          _RecentTransactions(
-                            transactions: controller.transactions,
-                            categories: controller.categories,
-                            plans: controller.installmentPlans,
-                          ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],

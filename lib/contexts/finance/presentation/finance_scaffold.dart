@@ -156,6 +156,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
       widget.split.listSettlements,
       widget.split.createSettlement,
       widget.split.deleteSettlement,
+      clock: widget.clock,
     )..addListener(_onSplitChanged);
     _splitActivityController = SplitActivityController(
       listActivity: widget.split.listActivity,
@@ -524,6 +525,40 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
     await widget.controller.load(await _idToken(), month, notifyOnStart: true);
   }
 
+  /// The app bar's refresh button (issue #198): pull-to-refresh has no
+  /// keyboard/mouse equivalent (Flutter's default `ScrollBehavior` doesn't
+  /// drag on mouse input), and this app is used mostly as a web PWA — see
+  /// `home_screen.dart`'s identical button. Dispatches to the same reload
+  /// each tab's own `onRefresh` uses, so it and the pull gesture always agree
+  /// on what "refresh" means for the tab currently on screen.
+  Future<void> _refreshCurrentTab() {
+    switch (FinanceTab.values[_index]) {
+      case FinanceTab.overview:
+      case FinanceTab.transactions:
+        return _switchMonth(widget.controller.selectedMonth);
+      case FinanceTab.networth:
+        return _switchNetWorthMonth(widget.netWorthController.selectedMonth);
+      case FinanceTab.split:
+        return _retrySplit();
+    }
+  }
+
+  /// Whether the tab currently on screen is mid-reload — swaps the refresh
+  /// button's icon for a spinner (kept enabled throughout, `home_screen.dart`'s
+  /// convention: nulling `onPressed` mid-round would drop a keyboard user's
+  /// focus, and nothing here is protected by disabling it).
+  bool get _currentTabRefreshing {
+    switch (FinanceTab.values[_index]) {
+      case FinanceTab.overview:
+      case FinanceTab.transactions:
+        return widget.controller.status == FinanceStatus.loading;
+      case FinanceTab.networth:
+        return widget.netWorthController.status == FinanceStatus.loading;
+      case FinanceTab.split:
+        return _splitController.status == SplitStatus.loading;
+    }
+  }
+
   /// Selects the 分帳 destination, with the same side effects tapping it in
   /// the nav bar has (the lazy build gate and the first-open load) — the only
   /// destination this scaffold switches to from anywhere but that bar.
@@ -704,6 +739,20 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           ][_index],
         ),
         actions: [
+          // See `_refreshCurrentTab`'s doc — the reachable refresh path for
+          // mouse/keyboard input, which the four tabs' `RefreshIndicator`s
+          // don't offer on their own.
+          IconButton(
+            key: const Key('finance-refresh-button'),
+            tooltip: loc.homeRefreshTooltip,
+            onPressed: () => unawaited(_refreshCurrentTab()),
+            icon: _currentTabRefreshing
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+          ),
           // Labelled, not an icon-only `IconButton`: its tooltip is the only
           // thing that named it, and a tooltip needs a hover or a long-press
           // — on the phone/PWA this app is used on, that left a bare robot
@@ -731,12 +780,17 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
             onSwitchMonth: _switchMonth,
             onAdd: () => _openSheet(),
             onEditBudgets: _openBudgetSheet,
+            // The month already on screen, reloaded — `notifyOnStart: true`
+            // does not clear a same-month reload's data, so the content stays
+            // put under the refresh spinner.
+            onRefresh: () => _switchMonth(controller.selectedMonth),
             onSignInAgain: () => unawaited(widget.authRepository.signOut()),
           ),
           FinanceTransactionsTab(
             controller: controller,
             onEdit: (txn) => _openSheet(editing: txn),
             onSwitchMonth: _switchMonth,
+            onRefresh: () => _switchMonth(controller.selectedMonth),
             onSignInAgain: () => unawaited(widget.authRepository.signOut()),
           ),
           // Built only once the 淨值 tab has actually been opened: an
@@ -749,6 +803,8 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
               onSwitchMonth: _switchNetWorthMonth,
               onEditAccountValue: _openSnapshotSheet,
               onManageAccounts: _openAccountManageSheet,
+              onRefresh: () =>
+                  _switchNetWorthMonth(widget.netWorthController.selectedMonth),
               onSignInAgain: () => unawaited(widget.authRepository.signOut()),
             )
           else
@@ -761,6 +817,10 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
               controller: _splitController,
               activityController: _splitActivityController,
               onRetry: () => unawaited(_retrySplit()),
+              // `_retrySplit`, not `_loadSplit`: a pull is an explicit ask to
+              // refetch, so it must bypass the once-per-State `_splitLoaded`
+              // gate.
+              onRefresh: _retrySplit,
               onRecordExpense: () => _openSplitExpenseSheet(),
               onOpenGroup: _openGroupDetail,
               onCreateGroup: _openCreateGroupDialog,

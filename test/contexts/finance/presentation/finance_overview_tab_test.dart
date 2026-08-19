@@ -7,9 +7,12 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
+import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/finance/presentation/finance_overview_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
+import 'package:life_os/shared/widgets/month_nav_header.dart';
 import 'package:life_os/shared/widgets/ledge_card.dart';
 
 import 'package:intl/intl.dart';
@@ -23,12 +26,14 @@ import '../finance_test_support.dart';
 String _monthLabel(int year, int month) =>
     DateFormat.yMMM('en').format(DateTime(year, month));
 
-Future<void> pumpOverview(
+Future<FinanceController> pumpOverview(
   WidgetTester tester,
   FakeFinanceRepository repo, {
   String month = '2026-07',
+  DateTime Function()? clock,
+  Future<void> Function()? onRefresh,
 }) async {
-  final controller = testFinanceController(repo);
+  final controller = testFinanceController(repo, clock: clock);
   await controller.load('tok', month);
 
   await tester.pumpWidget(
@@ -39,16 +44,56 @@ Future<void> pumpOverview(
           onSwitchMonth: (m) async {},
           onAdd: () {},
           onEditBudgets: () {},
+          onRefresh: onRefresh ?? () async {},
           onSignInAgain: () {},
         ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+  return controller;
 }
 
 void main() {
   group('FinanceOverviewTab', () {
+    group('pull to refresh (#198)', () {
+      testWidgets('pulling the list runs onRefresh once', (tester) async {
+        var refreshes = 0;
+        await pumpOverview(
+          tester,
+          FakeFinanceRepository(),
+          onRefresh: () async => refreshes++,
+        );
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(refreshes, 1);
+      });
+
+      testWidgets(
+        'the last-updated label is the first row, above the month header',
+        (tester) async {
+          await pumpOverview(
+            tester,
+            FakeFinanceRepository(),
+            clock: () => DateTime(2026, 8, 19, 9, 30),
+          );
+          final loc = lookupAppLocalizations(const Locale('en'));
+
+          expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+          expect(
+            tester.getRect(find.byType(LastLoadedLabel)).top,
+            lessThan(tester.getRect(find.byType(MonthNavHeader)).top),
+          );
+        },
+      );
+    });
+
     testWidgets('empty month shows the empty-state CTA', (tester) async {
       await pumpOverview(tester, FakeFinanceRepository());
 
@@ -123,6 +168,7 @@ void main() {
               onSwitchMonth: (m) async {},
               onAdd: () => tapped = true,
               onEditBudgets: () {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -213,6 +259,7 @@ void main() {
                   onSwitchMonth: (m) => controller.load('tok', m),
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -265,6 +312,7 @@ void main() {
                   },
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -331,6 +379,7 @@ void main() {
                   onSwitchMonth: (m) => controller.load('tok', m),
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -373,6 +422,7 @@ void main() {
                 onSwitchMonth: (m) => controller.load('tok', m),
                 onAdd: () {},
                 onEditBudgets: () {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -428,6 +478,7 @@ void main() {
                   onSwitchMonth: (m) => controller.load('tok', m),
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -490,6 +541,7 @@ void main() {
                   },
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -536,6 +588,7 @@ void main() {
                 },
                 onAdd: () {},
                 onEditBudgets: () {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -576,6 +629,7 @@ void main() {
                     onSwitchMonth: (m) async {},
                     onAdd: () {},
                     onEditBudgets: () {},
+                    onRefresh: () async {},
                     onSignInAgain: () {},
                   ),
                 ),
@@ -630,6 +684,7 @@ void main() {
                     onSwitchMonth: (m) async {},
                     onAdd: () {},
                     onEditBudgets: () {},
+                    onRefresh: () async {},
                     onSignInAgain: () {},
                   ),
                 ),
@@ -1029,6 +1084,7 @@ void main() {
                   onSwitchMonth: (m) async {},
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -1109,6 +1165,7 @@ void main() {
                   onSwitchMonth: (m) async {},
                   onAdd: () {},
                   onEditBudgets: () {},
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),

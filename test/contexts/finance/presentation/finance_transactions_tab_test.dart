@@ -9,7 +9,9 @@ import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/presentation/finance_transactions_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
+import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../../../support/layout_guard.dart';
@@ -18,6 +20,118 @@ import '../finance_test_support.dart';
 
 void main() {
   group('FinanceTransactionsTab', () {
+    group('pull to refresh (#198)', () {
+      Future<FinanceController> pump(
+        WidgetTester tester,
+        FakeFinanceRepository repo, {
+        DateTime Function()? clock,
+        Future<void> Function()? onRefresh,
+      }) async {
+        final controller = testFinanceController(repo, clock: clock);
+        await controller.load('tok', '2026-07');
+        await tester.pumpWidget(
+          l10nTestApp(
+            home: Scaffold(
+              body: FinanceTransactionsTab(
+                controller: controller,
+                onEdit: (_) {},
+                onSwitchMonth: (m) async {},
+                onRefresh: onRefresh ?? () async {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return controller;
+      }
+
+      FakeFinanceRepository withRows() => FakeFinanceRepository()
+        ..byMonth['2026-07'] = [
+          const FinanceTransaction(
+            id: 't1',
+            type: FinanceType.expense,
+            amount: 300,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+            date: '2026-07-05',
+          ),
+        ];
+
+      testWidgets('pulling the list runs onRefresh once', (tester) async {
+        var refreshes = 0;
+        await pump(tester, withRows(), onRefresh: () async => refreshes++);
+
+        await tester.fling(
+          find.byType(RefreshIndicator),
+          const Offset(0, 300),
+          1000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(refreshes, 1);
+      });
+
+      testWidgets(
+        'an EMPTY month can be pulled too — the state a user most wants to '
+        'retry from is the one with nothing in it',
+        (tester) async {
+          var refreshes = 0;
+          await pump(
+            tester,
+            FakeFinanceRepository(),
+            onRefresh: () async => refreshes++,
+          );
+          expect(find.byKey(const Key('finance-transactions-empty')), findsOneWidget);
+
+          await tester.fling(
+            find.byType(RefreshIndicator),
+            const Offset(0, 300),
+            1000,
+          );
+          await tester.pumpAndSettle();
+
+          expect(refreshes, 1);
+        },
+      );
+
+      // Only the empty branch is asserted, and deliberately so: it is a
+      // `SingleChildScrollView`, whose physics really do default to
+      // non-overscrollable when the content fits. A `ListView` with no
+      // controller is `primary`, which already means
+      // `AlwaysScrollableScrollPhysics` — the same assertion over the
+      // populated branch stayed green with the `physics:` argument deleted,
+      // i.e. it was a guard that could not fail.
+      testWidgets(
+        'the EMPTY month stays scrollable when the guide does not fill the '
+        'viewport — otherwise the overscroll the gesture needs never happens',
+        (tester) async {
+          await pump(tester, FakeFinanceRepository());
+
+          final scrollable = tester.widget<Scrollable>(
+            find.descendant(
+              of: find.byType(RefreshIndicator),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          expect(scrollable.physics, isA<AlwaysScrollableScrollPhysics>());
+        },
+      );
+
+      testWidgets('the last-updated label is the list\'s first row', (
+        tester,
+      ) async {
+        await pump(tester, withRows(), clock: () => DateTime(2026, 8, 19, 9, 30));
+        final loc = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+        expect(
+          tester.getRect(find.byType(LastLoadedLabel)).top,
+          lessThan(tester.getRect(find.text('2026-07-05')).top),
+        );
+      });
+    });
+
     testWidgets('a failed WRITE does not raise the reload notice — the rows '
         'on screen are not stale', (tester) async {
       // A rejected write leaves `status == error` with the list untouched.
@@ -55,6 +169,7 @@ void main() {
               controller: controller,
               onEdit: (_) {},
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -98,6 +213,7 @@ void main() {
                 controller: controller,
                 onEdit: (_) {},
                 onSwitchMonth: (m) async {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -132,6 +248,7 @@ void main() {
               controller: controller,
               onEdit: (_) {},
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -190,6 +307,7 @@ void main() {
               controller: controller,
               onEdit: (_) {},
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -234,6 +352,7 @@ void main() {
               controller: controller,
               onEdit: (t) => edited = t,
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -278,6 +397,7 @@ void main() {
                   controller: controller,
                   onEdit: (_) {},
                   onSwitchMonth: (m) => controller.load('tok', m),
+                  onRefresh: () async {},
                   onSignInAgain: () {},
                 ),
               ),
@@ -321,6 +441,7 @@ void main() {
               controller: controller,
               onEdit: (_) {},
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -354,6 +475,7 @@ void main() {
               controller: controller,
               onEdit: (_) {},
               onSwitchMonth: (m) async {},
+              onRefresh: () async {},
               onSignInAgain: () {},
             ),
           ),
@@ -385,6 +507,7 @@ void main() {
                 controller: controller,
                 onEdit: (_) {},
                 onSwitchMonth: (m) async {},
+                onRefresh: () async {},
                 onSignInAgain: () {},
               ),
             ),
@@ -413,12 +536,15 @@ void main() {
     });
   });
 
-  // Narrow screen (task 4). Re-derived after the change: the guide replaced
-  // a bare `Text`, but it is still inside a `Center` — a *bounded* box — so
-  // an overflow here really does throw and `expectNoLayoutErrors` is not a
-  // guard that cannot fail. (Deliberately left unwrapped for that reason;
-  // see the note at the call site.) The measurement below covers the other
-  // half: fitting the box is not the same as painting every glyph.
+  // Narrow screen (task 4). Re-derived again for #198: the guide now sits in
+  // a scroll view so an empty month can be pulled to refresh, but inside a
+  // `SizedBox` pinned to exactly the viewport height — still a *bounded* box,
+  // so an overflow really does throw and `expectNoLayoutErrors` is not a
+  // guard that cannot fail. The scroll view alone would have made it one,
+  // which is why `maxScrollExtent` is asserted below: that is the assertion
+  // that would go red if the guide ever outgrew 320dp × 2.0 and quietly
+  // started scrolling instead. The paint measurement covers the other half:
+  // fitting the box is not the same as painting every glyph.
   //
   // Run on **both** sides of `reloadFailed`, not just the default one: the
   // empty branch is now `Column[staleNotice, Expanded(Center(...))]`, so with
@@ -452,6 +578,7 @@ void main() {
                       controller: controller,
                       onEdit: (_) {},
                       onSwitchMonth: (m) async {},
+                      onRefresh: () async {},
                       onSignInAgain: () {},
                     ),
                   ),
@@ -480,6 +607,27 @@ void main() {
             expect(rect.top, greaterThanOrEqualTo(0));
             expect(rect.bottom, lessThanOrEqualTo(640));
 
+            // The explicit height assertion the scroll wrapper made
+            // necessary: nothing here may be reachable only by scrolling.
+            // Without it, a guide that outgrew the viewport would simply
+            // scroll and every other check in this test would stay green.
+            final position = tester
+                .widget<Scrollable>(
+                  find.descendant(
+                    of: find.byType(RefreshIndicator),
+                    matching: find.byType(Scrollable),
+                  ),
+                )
+                .controller!
+                .position;
+            expect(
+              position.maxScrollExtent,
+              0,
+              reason:
+                  'the empty guide must fit 320dp × 2.0 outright, not by '
+                  'becoming scrollable',
+            );
+
             if (!reloadFailed) return;
             // Fitting is not the whole guarantee. The guide is this tab's
             // screen-level emptiness, so it stays centred in whatever the
@@ -492,15 +640,23 @@ void main() {
             final notice = tester.getRect(
               find.byKey(const Key('stale-notice-row')),
             );
-            expect(notice.bottom, lessThanOrEqualTo(guide.top));
+            final label = tester.getRect(find.byType(LastLoadedLabel));
+            expect(notice.bottom, lessThanOrEqualTo(label.top));
+            expect(label.bottom, lessThanOrEqualTo(guide.top));
+            // 20 = the body's bottom padding. The guide must stay centred in
+            // whatever the notice and the last-updated label leave behind —
+            // that is what the `Expanded` around it is for. Dropped to a bare
+            // `Center`, the column shrinks to its contents and the guide hugs
+            // the underside of the label instead, which still fits at 640dp
+            // and so passes every overflow check on its own.
             expect(
-              guide.top - notice.bottom,
-              closeTo(640 - guide.bottom, 1.0),
+              guide.top - label.bottom,
+              closeTo(640 - 20 - guide.bottom, 1.0),
               reason:
-                  'the empty guide must stay centred in the space under the '
-                  'notice (top gap ${guide.top - notice.bottom}, bottom gap '
-                  '${640 - guide.bottom}) — hugging the notice means it is no '
-                  'longer filling the body',
+                  'the empty guide must stay centred under the label (top gap '
+                  '${guide.top - label.bottom}, bottom gap '
+                  '${640 - 20 - guide.bottom}) — hugging the label means it '
+                  'is no longer filling the body',
             );
           },
         );

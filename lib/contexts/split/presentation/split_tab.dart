@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
+import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/stale_notice.dart';
 import '../../finance/domain/finance_money.dart';
 import '../domain/balance.dart';
 import '../domain/settlement.dart';
@@ -57,6 +59,13 @@ class SplitTab extends StatefulWidget {
   /// branches. A failed overview must not take the change log down with it.
   final SplitActivityController activityController;
   final VoidCallback onRetry;
+
+  /// Pull-to-refresh for the 總覽 section only — the 變更紀錄 section keeps
+  /// its own (design D1): they are two independently fetched views, and
+  /// pulling one must not silently refetch the other. The returned future is
+  /// what the spinner waits on, so it must not resolve before the reload has
+  /// actually settled.
+  final Future<void> Function() onRefresh;
   final VoidCallback onRecordExpense;
   final void Function(String groupId) onOpenGroup;
   final VoidCallback onCreateGroup;
@@ -91,6 +100,7 @@ class SplitTab extends StatefulWidget {
     required this.controller,
     required this.activityController,
     required this.onRetry,
+    required this.onRefresh,
     required this.onRecordExpense,
     required this.onOpenGroup,
     required this.onCreateGroup,
@@ -168,12 +178,25 @@ class _SplitTabState extends State<SplitTab> {
     final loc = AppLocalizations.of(context)!;
 
     return AsyncStateScaffold(
-      isLoading: widget.controller.status == SplitStatus.loading,
+      // `lastLoadedAt == null` is "has never loaded successfully", the same
+      // gate the finance tabs express as `summary == null`. Plain `status ==
+      // loading` would swap the whole section out for a spinner on every
+      // pull-to-refresh — and the spinner does not contain the
+      // [RefreshIndicator], so the gesture would be unmounted mid-pull.
+      isLoading:
+          widget.controller.status == SplitStatus.loading &&
+          widget.controller.lastLoadedAt == null,
       isReauth: widget.controller.status == SplitStatus.needsReauth,
       reauthMessage: loc.pleaseSignInAgain,
       onSignInAgain: widget.onSignInAgain,
       builder: (context) {
-        if (widget.controller.status == SplitStatus.error) {
+        // `lastLoadedAt == null` guard mirrors the `isLoading` gate above and
+        // `NetWorthTab`'s error branch: a same-load failure while balances/
+        // groups/expenses are already on screen must not swap them out for
+        // this full-page exit (that data is still good) — it surfaces as a
+        // [StaleNotice] over the still-live content below instead.
+        if (widget.controller.status == SplitStatus.error &&
+            widget.controller.lastLoadedAt == null) {
           final message = widget.controller.error == SplitError.profileFailed
               ? loc.splitProfileFailedMessage
               : loc.splitLoadFailedMessage;
@@ -223,147 +246,218 @@ class _SplitTabState extends State<SplitTab> {
             widget.controller.expenses.isEmpty &&
             widget.controller.settlements.isEmpty;
 
+        // A failed refresh over kept data is exactly `NetWorthTab`'s
+        // `reloadFailed`/[StaleNotice] case: the content on screen is still
+        // good, only older than the reader thinks. Pinned above the
+        // [RefreshIndicator], not inside the [ListView], so it stays visible
+        // regardless of scroll position (mirrors `SplitActivitySection`'s
+        // placement of its own [StaleNotice]).
+        final staleNotice = StaleNotice(
+          failed: widget.controller.reloadFailed,
+          loading:
+              widget.controller.status == SplitStatus.loading &&
+              widget.controller.lastLoadedAt != null,
+          subject: loc.splitSectionOverview,
+          onRetry: widget.onRefresh,
+        );
+
         return SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: ListView(
-                padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
-                  if (isEmpty)
-                    _EmptyState(
-                      onCta: widget.onRecordExpense,
-                      onCreateGroup: widget.onCreateGroup,
-                      onAddFriend: widget.onAddFriend,
-                      // A first-time user typically has no friends yet, and
-                      // then every route out of this empty state leads to a
-                      // sheet whose participant list is just them and whose
-                      // Save can never be enabled. The prerequisite lives on
-                      // another page, so the empty state has to say so.
-                      needsFriends: widget.controller.friends.isEmpty,
-                    )
-                  else ...[
-                    // Nothing owed either way is a statement, not an absence:
-                    // without it the tab silently opens on "Groups" and the
-                    // user cannot tell settled from not-yet-loaded.
-                    if (owedToMe.isEmpty && owedByMe.isEmpty) ...[
-                      LedgeCard(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(loc.splitAllSettledUp, key: const Key('split-all-settled')),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (owedToMe.isNotEmpty) ...[
-                      Text(loc.splitSectionOwedToMe, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 8),
-                      _BalanceCard(
-                        rows: owedToMe,
-                        keyPrefix: 'split-owed-to-me',
-                        rowText: (r) => loc.splitOwedToMeRow(
-                          r.name,
-                          formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
-                        ),
-                        onSettleUp: widget.onSettleUp,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (owedByMe.isNotEmpty) ...[
-                      Text(loc.splitSectionOwedByMe, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 8),
-                      _BalanceCard(
-                        rows: owedByMe,
-                        keyPrefix: 'split-owed-by-me',
-                        rowText: (r) => loc.splitOwedByMeRow(
-                          r.name,
-                          formatMinorUnitsForDisplay(r.amount.abs(), r.currency),
-                        ),
-                        onSettleUp: widget.onSettleUp,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            loc.splitSectionGroups,
-                            style: Theme.of(context).textTheme.titleLarge,
+                  staleNotice,
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: widget.onRefresh,
+                      child: ListView(
+                        // Always scrollable so a near-empty overview still
+                        // takes the overscroll the refresh gesture needs.
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          LastLoadedLabel(
+                            lastLoadedAt: widget.controller.lastLoadedAt,
                           ),
-                        ),
-                        TextButton(
-                          key: const Key('split-add-group-button'),
-                          onPressed: widget.onCreateGroup,
-                          child: Text(loc.splitAddGroupButton),
-                        ),
-                      ],
-                    ),
-                    if (widget.controller.groups.isEmpty)
-                      // Tier 2: the Groups *section* of a populated tab is
-                      // empty, not the tab. Gains the muted colour and the
-                      // centring. (Missed by the change's own inventory.)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: EmptyStateNote(
-                          stateKey: const Key('split-no-groups'),
-                          text: loc.splitNoGroupsYet,
-                        ),
-                      )
-                    else
-                      LedgeCard(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          children: [
-                            for (final group in widget.controller.groups)
-                              ListTile(
-                                key: Key('split-group-row-${group.id}'),
-                                title: Text(group.name),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => widget.onOpenGroup(group.id),
+                          if (isEmpty)
+                            _EmptyState(
+                              onCta: widget.onRecordExpense,
+                              onCreateGroup: widget.onCreateGroup,
+                              onAddFriend: widget.onAddFriend,
+                              // A first-time user typically has no friends yet, and
+                              // then every route out of this empty state leads to a
+                              // sheet whose participant list is just them and whose
+                              // Save can never be enabled. The prerequisite lives on
+                              // another page, so the empty state has to say so.
+                              needsFriends: widget.controller.friends.isEmpty,
+                            )
+                          else ...[
+                            // Nothing owed either way is a statement, not an absence:
+                            // without it the tab silently opens on "Groups" and the
+                            // user cannot tell settled from not-yet-loaded.
+                            if (owedToMe.isEmpty && owedByMe.isEmpty) ...[
+                              LedgeCard(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                  horizontal: 16,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    loc.splitAllSettledUp,
+                                    key: const Key('split-all-settled'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (owedToMe.isNotEmpty) ...[
+                              Text(
+                                loc.splitSectionOwedToMe,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              _BalanceCard(
+                                rows: owedToMe,
+                                keyPrefix: 'split-owed-to-me',
+                                rowText: (r) => loc.splitOwedToMeRow(
+                                  r.name,
+                                  formatMinorUnitsForDisplay(
+                                    r.amount.abs(),
+                                    r.currency,
+                                  ),
+                                ),
+                                onSettleUp: widget.onSettleUp,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (owedByMe.isNotEmpty) ...[
+                              Text(
+                                loc.splitSectionOwedByMe,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              _BalanceCard(
+                                rows: owedByMe,
+                                keyPrefix: 'split-owed-by-me',
+                                rowText: (r) => loc.splitOwedByMeRow(
+                                  r.name,
+                                  formatMinorUnitsForDisplay(
+                                    r.amount.abs(),
+                                    r.currency,
+                                  ),
+                                ),
+                                onSettleUp: widget.onSettleUp,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    loc.splitSectionGroups,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                ),
+                                TextButton(
+                                  key: const Key('split-add-group-button'),
+                                  onPressed: widget.onCreateGroup,
+                                  child: Text(loc.splitAddGroupButton),
+                                ),
+                              ],
+                            ),
+                            if (widget.controller.groups.isEmpty)
+                              // Tier 2: the Groups *section* of a populated tab is
+                              // empty, not the tab. Gains the muted colour and the
+                              // centring. (Missed by the change's own inventory.)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: EmptyStateNote(
+                                  stateKey: const Key('split-no-groups'),
+                                  text: loc.splitNoGroupsYet,
+                                ),
+                              )
+                            else
+                              LedgeCard(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (final group
+                                        in widget.controller.groups)
+                                      ListTile(
+                                        key: Key('split-group-row-${group.id}'),
+                                        title: Text(group.name),
+                                        trailing: const Icon(
+                                          Icons.chevron_right,
+                                        ),
+                                        onTap: () =>
+                                            widget.onOpenGroup(group.id),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 20),
+                            Text(
+                              loc.splitSectionRecentActivity,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            if (activity.isEmpty)
+                              // Tier 2: the Recent activity section, same reasoning
+                              // as Groups above. (Also missed by the inventory.)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: EmptyStateNote(
+                                  stateKey: const Key('split-no-activity'),
+                                  text: loc.splitNoActivityYet,
+                                ),
+                              )
+                            else
+                              LedgeCard(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (final entry in activity)
+                                      entry.expense != null
+                                          ? SplitExpenseRow(
+                                              expense: entry.expense!,
+                                              selfUserId:
+                                                  widget.controller.selfUserId,
+                                              keyPrefix: 'split-expense',
+                                              onEdit: () =>
+                                                  widget.onEditExpense(
+                                                    entry.expense!,
+                                                  ),
+                                            )
+                                          : SettlementRow(
+                                              settlement: entry.settlement!,
+                                              selfUserId:
+                                                  widget.controller.selfUserId,
+                                              keyPrefix: 'split-settlement',
+                                              onDelete: () =>
+                                                  widget.onDeleteSettlement(
+                                                    entry.settlement!,
+                                                  ),
+                                            ),
+                                  ],
+                                ),
                               ),
                           ],
-                        ),
+                        ],
                       ),
-                    const SizedBox(height: 20),
-                    Text(
-                      loc.splitSectionRecentActivity,
-                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 8),
-                    if (activity.isEmpty)
-                      // Tier 2: the Recent activity section, same reasoning
-                      // as Groups above. (Also missed by the inventory.)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: EmptyStateNote(
-                          stateKey: const Key('split-no-activity'),
-                          text: loc.splitNoActivityYet,
-                        ),
-                      )
-                    else
-                      LedgeCard(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          children: [
-                            for (final entry in activity)
-                              entry.expense != null
-                                  ? SplitExpenseRow(
-                                      expense: entry.expense!,
-                                      selfUserId: widget.controller.selfUserId,
-                                      keyPrefix: 'split-expense',
-                                      onEdit: () => widget.onEditExpense(entry.expense!),
-                                    )
-                                  : SettlementRow(
-                                      settlement: entry.settlement!,
-                                      selfUserId: widget.controller.selfUserId,
-                                      keyPrefix: 'split-settlement',
-                                      onDelete: () => widget.onDeleteSettlement(entry.settlement!),
-                                    ),
-                          ],
-                        ),
-                      ),
-                  ],
+                  ),
                 ],
               ),
             ),
