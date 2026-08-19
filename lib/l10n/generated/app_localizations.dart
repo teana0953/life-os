@@ -501,7 +501,7 @@ abstract class AppLocalizations {
   /// Shown in place of (or beside) one home snapshot tile's figure when that tile's own request failed. Deliberately NOT homeNoData: a failed fetch must not read as 'you have no record'.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t load this right now'**
+  /// **'Couldn\'t load'**
   String get homeTileLoadFailed;
 
   /// Announced to assistive tech after one home snapshot tile's own retry succeeds, prefixed with that tile's name. Not the page-wide lastUpdatedAt: a single-tile retry deliberately does not move the dashboard's 'updated HH:mm'.
@@ -5498,6 +5498,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This proposal is incomplete and can\'t be shown.'**
   String get assistantProposalUnrenderable;
+
+  /// Heading of the care history screen's filter bottom sheet, and the tooltip of the toolbar button that opens it.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get careHistoryFilterTitle;
+
+  /// Group heading in the care history filter sheet above the single-select list of care items that occur in the loaded period.
+  ///
+  /// In en, this message translates to:
+  /// **'Care item'**
+  String get careHistoryFilterItemLabel;
+
+  /// The care-item filter option that selects no particular item, i.e. shows records for every item.
+  ///
+  /// In en, this message translates to:
+  /// **'All items'**
+  String get careHistoryFilterAllItems;
+
+  /// Group heading in the care history filter sheet above the multi-select slot statuses (done, skipped, missed, overdue, pending).
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get careHistoryFilterStatusLabel;
+
+  /// Button that removes every active care history filter at once — shown at the end of the applied-filter chip row and in the filtered-empty state.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get careHistoryFilterClearButton;
+
+  /// Title of the care history empty state shown when the period does contain records but the active filters exclude all of them — distinct from careHistoryEmptyTitle ('No care records'), which means the period itself is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No records match'**
+  String get careHistoryFilteredEmptyTitle;
+
+  /// Body copy paired with careHistoryFilteredEmptyTitle. It does not suggest widening the period: the records are filtered out, not out of range, so a longer period would not bring them back.
+  ///
+  /// In en, this message translates to:
+  /// **'This period has records, but none of them match the current filters.'**
+  String get careHistoryFilteredEmptyBody;
+
+  /// Fourth segment of the care history period selector (after 7/30/90 days), which opens a date range picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get careHistoryPeriodCustom;
+
+  /// Label of the care history period selector's custom segment once a range is picked, replacing the word 'Custom' with the dates actually in effect so the current period is readable at a glance. Both values are already locale-formatted dates.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} – {to}'**
+  String careHistoryPeriodCustomLabel(String from, String to);
+
+  /// Care history load-failure message for a custom date range, naming the dates that failed. The counterpart of careErrorForPeriod, which names a length in days and so cannot describe a custom range. Both values are already locale-formatted dates.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load {from} – {to}. Please try again.'**
+  String careHistoryErrorForCustomRange(String from, String to);
 }
 
 class _AppLocalizationsDelegate

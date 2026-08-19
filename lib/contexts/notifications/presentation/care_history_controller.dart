@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/data_revision.dart';
-import '../../../shared/date/day_format.dart';
 import '../application/edit_care_slot.dart';
 import '../application/get_care_history.dart';
 import '../domain/care_history.dart';
+import '../domain/care_history_filter.dart';
+import '../domain/care_history_period.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
+import '../infrastructure/care_history_filter_store.dart';
 
 enum CareHistoryLoadStatus { loading, loaded, error, reauth }
 
@@ -40,13 +42,13 @@ enum CareEditOutcome {
 }
 
 /// Drives [CareHistoryScreen] (and the trend tab's care-adherence card):
-/// [load] fetches the range for the self-held [spanDays], ending today per
+/// [load] fetches the range for the self-held [period], ending today per
 /// the injected clock (design mirrors [TrendController] — [status] flips to
 /// `loading` on every call including a period-switch reload, but [days] is
 /// only overwritten on success, so the caller can keep showing the previous
-/// content with a thin progress indicator instead of blanking). [setSpan]
-/// changes [spanDays] and reloads. [edit] PUTs a slot's new outcome then
-/// quietly re-fetches the range for the current [spanDays] (design mirrors
+/// content with a thin progress indicator instead of blanking).
+/// [setPeriod] changes [period] and reloads. [edit] PUTs a slot's new outcome then
+/// quietly re-fetches the range for the current [period] (design mirrors
 /// [CareTodayController]'s marking mechanism: the [editing] flag, never
 /// dropping [status] back to `loading`). A PUT failure keeps the existing
 /// [days] and surfaces the typed error via [editError] — the edit did not
@@ -58,7 +60,7 @@ enum CareEditOutcome {
 /// post-edit refresh routes [status] to [CareHistoryLoadStatus.reauth]. A
 /// Concurrent [load]s are resolved by a generation ticket (see
 /// [_loadGeneration]) so an out-of-order response can't leave [days] and
-/// [spanDays] describing different periods. A
+/// [period] describing different periods. A
 /// successful edit bumps the injected [DataRevision] once — the record
 /// changed server-side, so other screens/cards depending on care data (e.g.
 /// the trend tab's own [CareHistoryController] instance) know to reload
@@ -73,35 +75,66 @@ class CareHistoryController extends ChangeNotifier {
   /// the date component is used.
   final DateTime Function() _clock;
 
-  /// The active period length (7/30/90) — [load] computes its range from
-  /// this and the injected clock; [setSpan] changes it and reloads.
-  int spanDays;
+  /// Persists (and restored, at construction) the chosen period. `null` for
+  /// an instance whose period is nobody's saved preference — the trend tab's
+  /// card owns its own period selector, and sharing the store with it would
+  /// let its selection overwrite the history screen's.
+  final CareHistoryFilterStore? _filterStore;
+
+  /// The active period — [load] computes its range from this and the
+  /// injected clock; [setPeriod] changes it and reloads.
+  CareHistoryPeriod period;
+
+  /// Which of the loaded [days]' slots the screen shows ([filteredDays]).
+  /// Memory-only by design: see [CareHistoryFilterStore] for why a restored
+  /// filter would read as lost data.
+  CareHistoryFilter filter = const CareHistoryFilter();
 
   CareHistoryController(
     this._getHistory,
     this._editSlot,
     this._dataRevision, {
-    required this.spanDays,
+    required CareHistoryPeriod period,
+    CareHistoryFilterStore? filterStore,
     DateTime Function() clock = DateTime.now,
-  }) : _clock = clock;
+  }) : _clock = clock,
+       _filterStore = filterStore,
+       period = filterStore?.readPeriod() ?? period;
+
+  /// The rolling span's length (7/30/90), or `null` while a custom date
+  /// range is active.
+  int? get spanDays => period.spanDays;
 
   CareHistoryLoadStatus status = CareHistoryLoadStatus.loading;
   List<CareHistoryDay> days = const [];
   Object? error;
 
-  /// The [spanDays] the current [days] were fetched for — `null` until a
+  /// The [period] the current [days] were fetched for — `null` until a
   /// fetch has succeeded. Lets the edit-failure paths tell whether their own
   /// generation bump left [days] describing a different period than
-  /// [spanDays] (see [edit]).
-  int? _daysSpanDays;
+  /// [period] (see [edit]).
+  CareHistoryPeriod? _daysPeriod;
 
-  /// Public read of [_daysSpanDays] — the period [days] actually describes,
-  /// as opposed to [spanDays] (design §C): [setSpan] writes [spanDays]
+  /// Public read of [_daysPeriod] — the period [days] actually describes,
+  /// as opposed to [period] (design §C): [setPeriod] writes [period]
   /// *before* awaiting the reload, so a caller keying its copy off
-  /// [spanDays] mid-reload would describe the just-selected, still
+  /// [period] mid-reload would describe the just-selected, still
   /// unconfirmed period rather than what's actually on screen. `null` only
   /// before any load has ever settled.
-  int? get daysSpanDays => _daysSpanDays;
+  CareHistoryPeriod? get daysPeriod => _daysPeriod;
+
+  /// [days] narrowed by [filter] — what the screen's list, summary and empty
+  /// state all read, so the three can never disagree about which records are
+  /// on screen.
+  List<CareHistoryDay> get filteredDays =>
+      applyCareHistoryFilter(days, filter);
+
+  /// Replaces the filter. Purely a client-side slice of the days already
+  /// loaded — never a re-query, and never persisted.
+  void setFilter(CareHistoryFilter newFilter) {
+    filter = newFilter;
+    notifyListeners();
+  }
 
   /// Whether a load has ever settled — succeeded *or* failed. The screen's
   /// full-page spinner (which has no period selector) is for the very first
@@ -124,27 +157,27 @@ class CareHistoryController extends ChangeNotifier {
   /// `HealthScaffold._load`'s `Future.wait`, re-run on every [DataRevision]
   /// bump (i.e. after every `/care-history` edit) — so without this the last
   /// response to *arrive* would win, leaving [days] holding one period's
-  /// records while [spanDays] (and the selector) says another, with
+  /// records while [period] (and the selector) says another, with
   /// `status == loaded` and nothing indicating the mismatch.
   int _loadGeneration = 0;
 
-  /// Loads the range for the current [spanDays], ending today (per the
+  /// Loads the range for the current [period], ending today (per the
   /// injected clock). A response from a superseded call is discarded (see
   /// [_loadGeneration]).
   Future<void> load(String idToken) {
     // A user-initiated load supersedes whatever the last edit reported.
     editError = null;
     refreshError = null;
-    return _fetchCurrentSpan(idToken);
+    return _fetchCurrentPeriod(idToken);
   }
 
   /// The fetch half of [load], without clearing [editError]/[refreshError] —
   /// [edit]'s failure paths re-issue it to repair the period mismatch their
   /// own generation bump creates, and must not erase the error they are
   /// about to report.
-  Future<void> _fetchCurrentSpan(String idToken) async {
-    final span = spanDays;
-    final range = dayRangeEndingOn(span, _clock());
+  Future<void> _fetchCurrentPeriod(String idToken) async {
+    final requestedPeriod = period;
+    final range = requestedPeriod.resolve(_clock());
     final generation = ++_loadGeneration;
     status = CareHistoryLoadStatus.loading;
     notifyListeners();
@@ -152,7 +185,7 @@ class CareHistoryController extends ChangeNotifier {
       final fetched = await _getHistory(idToken, range.from, range.to);
       if (generation != _loadGeneration) return;
       days = fetched;
-      _daysSpanDays = span;
+      _daysPeriod = requestedPeriod;
       status = CareHistoryLoadStatus.loaded;
       error = null;
     } catch (e) {
@@ -170,15 +203,26 @@ class CareHistoryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Switches the period (7/30/90) and reloads.
-  Future<void> setSpan(String idToken, int newSpanDays) async {
-    spanDays = newSpanDays;
+  /// Switches the period and reloads, persisting the choice when this
+  /// instance was given a store.
+  Future<void> setPeriod(String idToken, CareHistoryPeriod newPeriod) async {
+    period = newPeriod;
+    // Spelled out rather than `await _filterStore?.writePeriod(...)`: that
+    // awaits `null` for a store-less instance, which yields to the event
+    // loop before the reload even starts and would let a caller observe the
+    // controller between the two.
+    final store = _filterStore;
+    if (store != null) await store.writePeriod(newPeriod);
     await load(idToken);
   }
 
+  /// Switches to a rolling span (7/30/90) and reloads.
+  Future<void> setSpan(String idToken, int newSpanDays) =>
+      setPeriod(idToken, CareHistoryPeriod.span(newSpanDays));
+
   /// Sets the outcome of the slot identified by ([careScheduleId],
   /// [localDate], [timeOfDay]) to [status], then quietly re-fetches the
-  /// range for the current [spanDays] (design — [CareHistoryLoadStatus] stays `loaded`
+  /// range for the current [period] (design — [CareHistoryLoadStatus] stays `loaded`
   /// throughout, never dropping to `loading`). Guarded against
   /// re-entrancy — a second call while one is in flight is ignored. A PUT
   /// failure surfaces via [editError]; a PUT success whose refresh fails
@@ -233,20 +277,20 @@ class CareHistoryController extends ChangeNotifier {
       // forever on a failed edit that happened during a period switch.
       this.status = CareHistoryLoadStatus.loaded;
       // If the load just superseded was a period switch, those kept days
-      // belong to the *previous* period while `spanDays` (and the selector
+      // belong to the *previous* period while `period` (and the selector
       // built from it) already says the new one — the exact mismatch
       // [_loadGeneration] exists to prevent, made permanent by stopping at
       // `loaded` with nothing in flight to repair it. Re-fetch the current
       // span in that case only, so an ordinary edit failure still just
       // keeps the list. [editError] survives the re-fetch (that's why this
-      // is [_fetchCurrentSpan], not [load]).
+      // is [_fetchCurrentPeriod], not [load]).
       //
       // [editing] is released only *after* that repair, never before: it is
       // this method's re-entrancy guard, and releasing it early lets a
       // second edit start mid-repair and clear [editError] on entry — so the
       // caller awaiting this one reads a null error and reports a PUT that
       // failed as saved.
-      if (_daysSpanDays != spanDays) await _fetchCurrentSpan(idToken);
+      if (_daysPeriod != period) await _fetchCurrentPeriod(idToken);
       editing = false;
       notifyListeners();
       return CareEditOutcome.editFailed;
@@ -257,23 +301,23 @@ class CareHistoryController extends ChangeNotifier {
     // changed (design §D).
     _dataRevision.bump();
 
-    // Re-derive the range from the *current* [spanDays] rather than reusing
+    // Re-derive the range from the *current* [period] rather than reusing
     // the one the last [load] fetched, and take a generation ticket like
     // [load] does: the screen doesn't blank during a period switch, so its
     // tiles stay tappable while that switch's GET is still in flight, and
     // that GET's period is the one now on screen. Without both halves the
     // quiet reload would fetch the *previous* period and could land under
-    // the switch's older response — leaving [days] and [spanDays]
+    // the switch's older response — leaving [days] and [period]
     // describing different periods with `status == loaded` and nothing
     // indicating the mismatch.
-    final span = spanDays;
-    final range = dayRangeEndingOn(span, _clock());
+    final requestedPeriod = period;
+    final range = requestedPeriod.resolve(_clock());
     final generation = ++_loadGeneration;
     try {
       final fetched = await _getHistory(idToken, range.from, range.to);
       if (generation == _loadGeneration) {
         days = fetched;
-        _daysSpanDays = span;
+        _daysPeriod = requestedPeriod;
         error = null;
         // This reload superseded any load that was in flight, so it is now
         // the one that has to settle the `loading` that load left behind.
@@ -293,10 +337,10 @@ class CareHistoryController extends ChangeNotifier {
           // Same repair as the failed-PUT branch above, on the same
           // condition: this reload's generation ticket discarded any period
           // switch still in flight, so the kept days can describe a
-          // different period than [spanDays]. [editing] is likewise released
+          // different period than [period]. [editing] is likewise released
           // only after the repair — see that branch for why an early release
           // makes the caller misreport the outcome.
-          if (_daysSpanDays != spanDays) await _fetchCurrentSpan(idToken);
+          if (_daysPeriod != period) await _fetchCurrentPeriod(idToken);
           editing = false;
           notifyListeners();
           return CareEditOutcome.refreshFailed;

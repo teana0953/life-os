@@ -248,7 +248,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeNoData => '尚無資料';
 
   @override
-  String get homeTileLoadFailed => 'Couldn\'t load this right now';
+  String get homeTileLoadFailed => 'Couldn\'t load';
 
   @override
   String get homeTileRefreshed => 'Refreshed';
@@ -3022,6 +3022,40 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get assistantProposalUnrenderable =>
       'This proposal is incomplete and can\'t be shown.';
+
+  @override
+  String get careHistoryFilterTitle => '篩選';
+
+  @override
+  String get careHistoryFilterItemLabel => '照護項目';
+
+  @override
+  String get careHistoryFilterAllItems => '全部項目';
+
+  @override
+  String get careHistoryFilterStatusLabel => '狀態';
+
+  @override
+  String get careHistoryFilterClearButton => '清除篩選';
+
+  @override
+  String get careHistoryFilteredEmptyTitle => '沒有符合的紀錄';
+
+  @override
+  String get careHistoryFilteredEmptyBody => '這段期間有紀錄,但沒有符合目前篩選條件的。';
+
+  @override
+  String get careHistoryPeriodCustom => '自訂';
+
+  @override
+  String careHistoryPeriodCustomLabel(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careHistoryErrorForCustomRange(String from, String to) {
+    return '無法載入 $from – $to 的紀錄,請再試一次。';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6031,4 +6065,38 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get assistantProposalUnrenderable => '這個提議不完整,無法呈現。';
+
+  @override
+  String get careHistoryFilterTitle => '篩選';
+
+  @override
+  String get careHistoryFilterItemLabel => '照護項目';
+
+  @override
+  String get careHistoryFilterAllItems => '全部項目';
+
+  @override
+  String get careHistoryFilterStatusLabel => '狀態';
+
+  @override
+  String get careHistoryFilterClearButton => '清除篩選';
+
+  @override
+  String get careHistoryFilteredEmptyTitle => '沒有符合的紀錄';
+
+  @override
+  String get careHistoryFilteredEmptyBody => '這段期間有紀錄,但沒有符合目前篩選條件的。';
+
+  @override
+  String get careHistoryPeriodCustom => '自訂';
+
+  @override
+  String careHistoryPeriodCustomLabel(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careHistoryErrorForCustomRange(String from, String to) {
+    return '無法載入 $from – $to 的紀錄,請再試一次。';
+  }
 }

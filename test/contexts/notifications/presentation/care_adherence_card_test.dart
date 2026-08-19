@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_adherence_card.dart';
@@ -206,7 +207,7 @@ CareHistoryController _controller({
     GetCareHistory(repo),
     EditCareSlot(repo),
     DataRevision(),
-    spanDays: spanDays,
+    period: CareHistoryPeriod.span(spanDays),
     clock: () => DateTime(2026, 7, 22),
   );
 }

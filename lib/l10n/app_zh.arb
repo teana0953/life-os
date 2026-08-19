@@ -795,5 +795,15 @@
   "splitDeleteSettlementConfirmMessage": "這會刪除與 {name} 的 {amount} 還款紀錄,無法復原。",
   "splitDeleteSettlementConfirmButton": "刪除",
   "splitGroupPersonalBalancesTitle": "我與各成員的往來",
-  "splitGroupPersonalBalancesNote": "涵蓋你們所有的共同紀錄,不只這個群組。"
+  "splitGroupPersonalBalancesNote": "涵蓋你們所有的共同紀錄,不只這個群組。",
+  "careHistoryFilterTitle": "篩選",
+  "careHistoryFilterItemLabel": "照護項目",
+  "careHistoryFilterAllItems": "全部項目",
+  "careHistoryFilterStatusLabel": "狀態",
+  "careHistoryFilterClearButton": "清除篩選",
+  "careHistoryFilteredEmptyTitle": "沒有符合的紀錄",
+  "careHistoryFilteredEmptyBody": "這段期間有紀錄,但沒有符合目前篩選條件的。",
+  "careHistoryPeriodCustom": "自訂",
+  "careHistoryPeriodCustomLabel": "{from} – {to}",
+  "careHistoryErrorForCustomRange": "無法載入 {from} – {to} 的紀錄,請再試一次。"
 }

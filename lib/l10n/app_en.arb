@@ -4260,5 +4260,61 @@
   "assistantProposalUnrenderable": "This proposal is incomplete and can't be shown.",
   "@assistantProposalUnrenderable": {
     "description": "Shown in place of a proposal confirmation card whose fields could not be normalized (bad type or amount); it has no accept button."
+  },
+  "careHistoryFilterTitle": "Filter",
+  "@careHistoryFilterTitle": {
+    "description": "Heading of the care history screen's filter bottom sheet, and the tooltip of the toolbar button that opens it."
+  },
+  "careHistoryFilterItemLabel": "Care item",
+  "@careHistoryFilterItemLabel": {
+    "description": "Group heading in the care history filter sheet above the single-select list of care items that occur in the loaded period."
+  },
+  "careHistoryFilterAllItems": "All items",
+  "@careHistoryFilterAllItems": {
+    "description": "The care-item filter option that selects no particular item, i.e. shows records for every item."
+  },
+  "careHistoryFilterStatusLabel": "Status",
+  "@careHistoryFilterStatusLabel": {
+    "description": "Group heading in the care history filter sheet above the multi-select slot statuses (done, skipped, missed, overdue, pending)."
+  },
+  "careHistoryFilterClearButton": "Clear filters",
+  "@careHistoryFilterClearButton": {
+    "description": "Button that removes every active care history filter at once — shown at the end of the applied-filter chip row and in the filtered-empty state."
+  },
+  "careHistoryFilteredEmptyTitle": "No records match",
+  "@careHistoryFilteredEmptyTitle": {
+    "description": "Title of the care history empty state shown when the period does contain records but the active filters exclude all of them — distinct from careHistoryEmptyTitle ('No care records'), which means the period itself is empty."
+  },
+  "careHistoryFilteredEmptyBody": "This period has records, but none of them match the current filters.",
+  "@careHistoryFilteredEmptyBody": {
+    "description": "Body copy paired with careHistoryFilteredEmptyTitle. It does not suggest widening the period: the records are filtered out, not out of range, so a longer period would not bring them back."
+  },
+  "careHistoryPeriodCustom": "Custom",
+  "@careHistoryPeriodCustom": {
+    "description": "Fourth segment of the care history period selector (after 7/30/90 days), which opens a date range picker."
+  },
+  "careHistoryPeriodCustomLabel": "{from} – {to}",
+  "@careHistoryPeriodCustomLabel": {
+    "description": "Label of the care history period selector's custom segment once a range is picked, replacing the word 'Custom' with the dates actually in effect so the current period is readable at a glance. Both values are already locale-formatted dates.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "careHistoryErrorForCustomRange": "Couldn't load {from} – {to}. Please try again.",
+  "@careHistoryErrorForCustomRange": {
+    "description": "Care history load-failure message for a custom date range, naming the dates that failed. The counterpart of careErrorForPeriod, which names a length in days and so cannot describe a custom range. Both values are already locale-formatted dates.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
   }
 }

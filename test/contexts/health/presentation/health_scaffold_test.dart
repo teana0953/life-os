@@ -77,6 +77,7 @@ import 'package:life_os/contexts/notifications/application/care_today.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_adherence_card.dart';
@@ -677,7 +678,7 @@ Widget _buildScaffold({
     GetCareHistory(resolvedCareHistoryRepository),
     EditCareSlot(resolvedCareHistoryRepository),
     resolvedDataRevision,
-    spanDays: 30,
+    period: const CareHistoryPeriod.span(30),
   );
 
   return HealthScaffold(

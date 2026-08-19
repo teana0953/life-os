@@ -6,6 +6,8 @@ import 'package:life_os/contexts/auth/domain/auth_repository.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_filter.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
@@ -146,20 +148,52 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
 }
 
 CareTodaySlot _slot({
+  String careItemId = 'care-1',
   String careScheduleId = 'sch-1',
   String title = 'Metformin',
+  CareCategory category = CareCategory.medication,
   CareTodayStatus status = CareTodayStatus.done,
   String timeOfDay = '08:00',
   String localDate = '2026-07-22',
 }) => CareTodaySlot(
-  careItemId: 'care-1',
+  careItemId: careItemId,
   careScheduleId: careScheduleId,
-  category: CareCategory.medication,
+  category: category,
   title: title,
   timeOfDay: timeOfDay,
   localDate: localDate,
   status: status,
   doseQuantity: 1,
+);
+
+/// A two-item, two-category range: Metformin (medication) done on both days,
+/// Walk (rehab) missed on the 21st and done on the 22nd. Deliberately not
+/// symmetric — every headline number differs between the unfiltered range
+/// and the rehab-only slice, so a summary that ignored the filter would show
+/// up in all three of them rather than in none.
+List<CareHistoryDay> _twoItemRange() => _sevenDayRange(
+  onJul21: [
+    _slot(localDate: '2026-07-21'),
+    _slot(
+      careItemId: 'care-2',
+      careScheduleId: 'sch-2',
+      title: 'Walk',
+      category: CareCategory.rehab,
+      status: CareTodayStatus.missed,
+      timeOfDay: '18:00',
+      localDate: '2026-07-21',
+    ),
+  ],
+  onJul22: [
+    _slot(),
+    _slot(
+      careItemId: 'care-2',
+      careScheduleId: 'sch-2',
+      title: 'Walk',
+      category: CareCategory.rehab,
+      timeOfDay: '18:00',
+    ),
+  ],
 );
 
 /// A dense 7-day range ending 2026-07-22 (matching the fixed test clock),
@@ -192,7 +226,7 @@ CareHistoryController _controller({
     GetCareHistory(repo),
     EditCareSlot(repo),
     DataRevision(),
-    spanDays: spanDays,
+    period: CareHistoryPeriod.span(spanDays),
     clock: () => DateTime(2026, 7, 22),
   );
 }
@@ -1497,7 +1531,7 @@ void main() {
         );
         expect(
           tester
-              .widget<SegmentedButton<int>>(
+              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
                 find.byKey(const Key('care-history-range-selector')),
               )
               .onSelectionChanged,
@@ -1519,7 +1553,7 @@ void main() {
 
         expect(
           tester
-              .widget<SegmentedButton<int>>(
+              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
                 find.byKey(const Key('care-history-range-selector')),
               )
               .onSelectionChanged,
@@ -1575,7 +1609,7 @@ void main() {
         );
         expect(
           tester
-              .widget<SegmentedButton<int>>(
+              .widget<SegmentedButton<CareHistoryPeriodChoice>>(
                 find.byKey(const Key('care-history-range-selector')),
               )
               .onSelectionChanged,
@@ -1727,7 +1761,17 @@ void main() {
             'care-history-widen-button',
             'care-history-empty-manage-button',
           ]) {
-            await tester.scrollUntilVisible(find.byKey(Key(key)), 100);
+            await tester.scrollUntilVisible(
+              find.byKey(Key(key)),
+              100,
+              // The screen has two scrollables at this width (the period
+              // selector scrolls horizontally), so the guide's own has to be
+              // named or `scrollUntilVisible` cannot pick one.
+              scrollable: find.descendant(
+                of: find.byKey(const Key('care-history-empty-scroll')),
+                matching: find.byType(Scrollable),
+              ),
+            );
             await tester.ensureVisible(find.byKey(Key(key)));
             await tester.pumpAndSettle();
             expect(
@@ -1745,6 +1789,450 @@ void main() {
               reason: "$key's label was cut off at 320dp × 2.0",
             );
           }
+        },
+      );
+    }
+  });
+
+  group('filtering', () {
+    Future<void> openFilterSheet(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('care-history-filter-button')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> closeSheet(WidgetTester tester) async {
+      // The scrim above the sheet — dismisses it without depending on the
+      // drag handle's gesture.
+      await tester.tapAt(const Offset(400, 20));
+      await tester.pumpAndSettle();
+    }
+
+    String summaryValue(WidgetTester tester, String key) => tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(Key('care-history-summary-$key')),
+            matching: find.byType(Text),
+          ),
+        )
+        .last
+        .data!;
+
+    // LINCHPIN. The list, the headline numbers and the empty state all read
+    // one filtered value; a summary computed from the unfiltered days would
+    // keep reporting the whole period under a list showing a slice of it.
+    testWidgets('the list and the summary describe the same filtered records',
+        (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+
+      expect(find.text('Metformin'), findsNWidgets(2));
+      expect(find.text('Walk'), findsNWidgets(2));
+      expect(summaryValue(tester, 'rate'), '75%');
+      expect(summaryValue(tester, 'days-with-dose'), '2');
+      expect(summaryValue(tester, 'missed-count'), '1');
+
+      await openFilterSheet(tester);
+      await tester.tap(
+        find.byKey(const Key('care-history-filter-category-rehab')),
+      );
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(find.text('Metformin'), findsNothing);
+      expect(find.text('Walk'), findsNWidgets(2));
+      expect(summaryValue(tester, 'rate'), '50%');
+      expect(summaryValue(tester, 'days-with-dose'), '1');
+      expect(summaryValue(tester, 'missed-count'), '1');
+    });
+
+    testWidgets('filtering by care item keeps only that item, and the applied '
+        'chip removes the filter again', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+      expect(find.byKey(const Key('care-history-applied-filters')), findsNothing);
+
+      await openFilterSheet(tester);
+      await tester.tap(find.byKey(const Key('care-history-filter-item-care-2')));
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(find.text('Metformin'), findsNothing);
+      expect(find.byKey(const Key('care-history-applied-item')), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('care-history-applied-item')),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Metformin'), findsNWidgets(2));
+      expect(find.byKey(const Key('care-history-applied-filters')), findsNothing);
+    });
+
+    testWidgets('a filter that matches nothing shows the filtered-empty state '
+        '(never the widen-the-period one), and clearing it restores the list',
+        (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+
+      await openFilterSheet(tester);
+      await tester.tap(
+        find.byKey(const Key('care-history-filter-status-skipped')),
+      );
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(
+        find.byKey(const Key('care-history-filtered-empty-state')),
+        findsOneWidget,
+      );
+      // The records are filtered out, not out of range: offering to widen
+      // the period here would send the user after records already in it.
+      expect(find.byKey(const Key('care-history-empty-state')), findsNothing);
+      expect(find.byKey(const Key('care-history-widen-button')), findsNothing);
+
+      await tester.tap(
+        find.byKey(const Key('care-history-clear-filter-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('care-history-filtered-empty-state')),
+        findsNothing,
+      );
+      expect(find.text('Metformin'), findsNWidgets(2));
+    });
+
+    // A period with no records at all keeps its own empty state — the two
+    // are different situations with different ways out.
+    testWidgets('an empty period still shows the widen-the-period empty state',
+        (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _sevenDayRange()),
+      );
+      await _pumpScreen(tester, controller);
+
+      expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+      expect(
+        find.byKey(const Key('care-history-filtered-empty-state')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const Key('care-history-filter-button')),
+            )
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('changing the filter issues no request', (tester) async {
+      final repository = _FakeCareHistoryRepository(days: _twoItemRange());
+      final controller = _controller(repository: repository);
+      await _pumpScreen(tester, controller);
+      expect(repository.getRangeCalls, hasLength(1));
+
+      await openFilterSheet(tester);
+      await tester.tap(
+        find.byKey(const Key('care-history-filter-category-rehab')),
+      );
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(repository.getRangeCalls, hasLength(1));
+    });
+  });
+
+  group('the custom date range', () {
+    testWidgets('picking one loads exactly the picked dates', (tester) async {
+      final repository = _FakeCareHistoryRepository(days: _twoItemRange());
+      final controller = _controller(repository: repository);
+      await _pumpScreen(tester, controller);
+
+      await tester.tap(find.text(lookupAppLocalizations(
+        const Locale('en'),
+      ).careHistoryPeriodCustom));
+      await tester.pumpAndSettle();
+
+      // July 2026 is the last month the picker shows (lastDate is the pinned
+      // "today", 2026-07-22), so its day cells are the ones on screen.
+      await tester.tap(find.text('10').last);
+      await tester.pump();
+      await tester.tap(find.text('15').last);
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(
+        repository.getRangeCalls.last,
+        (from: '2026-07-10', to: '2026-07-15'),
+      );
+    });
+
+    testWidgets('the selector shows the picked dates instead of the word '
+        '"Custom"', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careHistoryPeriodCustom), findsNothing);
+      expect(find.text('Mar 1 – May 20'), findsOneWidget);
+    });
+
+    testWidgets('a failed custom-range load names the dates, not a day count',
+        (tester) async {
+      final repository = _FakeCareHistoryRepository(days: _twoItemRange());
+      final controller = _controller(repository: repository);
+      await _pumpScreen(tester, controller);
+
+      repository.getError = Exception('boom');
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.text(
+          loc.careHistoryErrorForCustomRange('Mar 1, 2026', 'May 20, 2026'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    // A `SegmentedButton` only calls `onSelectionChanged` on a selection
+    // *change* — pressing the sole already-selected segment again is a
+    // no-op. Custom is deliberately its own button, not a fourth segment,
+    // so this always reopens the picker regardless of whether custom is
+    // already the active period.
+    testWidgets(
+      'pressing the custom button again while custom is already active '
+      'reopens the picker',
+      (tester) async {
+        final controller = _controller(
+          repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+        );
+        await _pumpScreen(tester, controller);
+        await controller.setPeriod(
+          'token-123',
+          const CareHistoryPeriod.custom('2026-07-10', '2026-07-15'),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Jul 10 – Jul 15'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Save'), findsOneWidget);
+      },
+    );
+
+    // The period on screen can be a *persisted* custom range from a
+    // previous day (`CareHistoryFilterStore` only validates its length, not
+    // its age against "today") — by the time it's reopened it can start
+    // before the picker's `firstDate` (`today - 365 days`). An unclamped
+    // `initialDateRange` trips `showDateRangePicker`'s own assert; this
+    // reopens without throwing.
+    testWidgets(
+      'reopening the picker on a persisted custom range that now starts '
+      "before the picker's firstDate does not throw",
+      (tester) async {
+        final controller = _controller(
+          repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+        );
+        await _pumpScreen(tester, controller);
+        // clock is pinned to 2026-07-22, so firstDate is 2025-07-22 —
+        // this range starts well before that.
+        await controller.setPeriod(
+          'token-123',
+          const CareHistoryPeriod.custom('2025-01-01', '2025-01-10'),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Jan 1 – Jan 10'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Save'), findsOneWidget);
+      },
+    );
+  });
+
+  // The filter row and the summary sit above the record list, which is the
+  // screen. Both have to survive the narrowest supported width at double text
+  // scale *without* pushing the list out of the viewport — a guard that only
+  // checked for overflow errors would pass on a layout that left the list two
+  // rows tall.
+  group('the filter row and summary at 320dp, textScale 2.0', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets('stay laid out with the list still visible, locale=$locale',
+          (tester) async {
+        final controller = _controller(
+          repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+        );
+        controller.setFilter(
+          const CareHistoryFilter(
+            categories: {CareCategory.medication, CareCategory.rehab},
+            statuses: {CareTodayStatus.done, CareTodayStatus.missed},
+            careItemId: 'care-2',
+          ),
+        );
+
+        final errors = await collectLayoutErrors(
+          () => _pumpNarrow(tester, controller, locale),
+        );
+        expect(
+          errors.map((e) => e.exception.toString().split('\n').first).toList(),
+          isEmpty,
+        );
+
+        expect(
+          find.byKey(const Key('care-history-applied-filters')),
+          findsOneWidget,
+        );
+        // Pins the chip row's own height (`CareHistoryAppliedFilters`
+        // scales it with the text scaler). `expectPaintedInFull` is the
+        // wrong tool here — its own doc says it "does not catch text ...
+        // clipped by an ancestor `ClipRect`", which is exactly how a
+        // too-short `SizedBox` cross-axis extent hides a chip inside the
+        // row's horizontal `ListView` (confirmed: it stayed green when
+        // this height was reverted to a bare `48`). A rect containment
+        // check does fail on that, because `getRect` reports each chip's
+        // true painted position regardless of what clips it.
+        final rowRect = tester.getRect(
+          find.byKey(const Key('care-history-applied-filters')),
+        );
+        for (final key in [
+          'care-history-applied-item',
+          'care-history-applied-category-medication',
+        ]) {
+          // The chip *container*'s own rect isn't enough — it reports a
+          // rect clamped to fit, while its label `Text` — the thing that
+          // actually gets clipped by the row's `ListView` — can still
+          // extend a pixel past the bottom (confirmed by measurement:
+          // container bottom 164.0, its Text's bottom 165.0, at a fixed
+          // `height: 48`).
+          final finder = find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(Text),
+          );
+          expect(finder, findsOneWidget, reason: '$key is missing');
+          final textRect = tester.getRect(finder);
+          expect(
+            textRect.top >= rowRect.top - 0.5 &&
+                textRect.bottom <= rowRect.bottom + 0.5,
+            isTrue,
+            reason: '$key\'s label ($textRect) was clipped by the '
+                'applied-filters row ($rowRect) at 320dp × 2.0',
+          );
+        }
+        for (final key in [
+          'care-history-summary-rate',
+          'care-history-summary-days-with-dose',
+          'care-history-summary-missed-count',
+        ]) {
+          for (final text in find
+              .descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(Text),
+              )
+              .evaluate()) {
+            expectPaintedInFull(
+              tester,
+              find.byWidget(text.widget),
+              reason: '$key was cut off at 320dp × 2.0',
+            );
+          }
+        }
+
+        // The point of the screen: whatever the controls above it cost, the
+        // record list still gets usable height.
+        expect(
+          tester.getSize(find.byKey(const Key('care-history-list'))).height,
+          greaterThan(200),
+          reason: 'the record list was squeezed out at 320dp × 2.0',
+        );
+      });
+    }
+  });
+
+  // task R4/blocker: the custom button carries the actual picked dates
+  // (its longest label) once a custom range is active — the case most
+  // likely to get squeezed off-screen at the narrowest supported width.
+  group('the period selector at 320dp, textScale 2.0', () {
+    for (final locale in testSupportedLocales) {
+      testWidgets(
+        'the custom button stays reachable and its full label is at least '
+        'available via its tooltip, locale=$locale',
+        (tester) async {
+          final controller = _controller(
+            repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+          );
+          await controller.setPeriod(
+            'token-123',
+            const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+          );
+
+          final errors = await collectLayoutErrors(
+            () => _pumpNarrow(tester, controller, locale),
+          );
+          expect(
+            errors.map((e) => e.exception.toString().split('\n').first).toList(),
+            isEmpty,
+          );
+
+          const key = Key('care-history-custom-button');
+          // Deliberately *not* scrolled into view first: the button sits
+          // outside any scrollable (see `care_history_screen.dart`), so it
+          // must already be hit-testable in the very first frame — a prior
+          // version of this test called `scrollUntilVisible`/`ensureVisible`
+          // here, which made it pass even when the button was scrolled
+          // off-screen with no way for a real user to discover it.
+          expect(
+            find.byKey(key).hitTestable(),
+            findsOneWidget,
+            reason: 'the custom button could not be hit-tested at 320dp × 2.0',
+          );
+
+          // The picked dates are the widest label this button ever shows,
+          // and at this width they do not fit next to the segmented
+          // control and the filter button no matter how the space is
+          // split — the button's own text ellipsizes, but its `Tooltip`
+          // still carries the un-truncated range (never just the button's
+          // own visible text, which mutation confirmed can silently
+          // ellipsize without failing this check).
+          final loc = lookupAppLocalizations(locale);
+          final fullLabel = loc.careHistoryPeriodCustomLabel(
+            monthDayLabel(tester.element(find.byKey(key)), DateTime(2026, 3, 1)),
+            monthDayLabel(tester.element(find.byKey(key)), DateTime(2026, 5, 20)),
+          );
+          expect(
+            tester.widget<Tooltip>(
+              find.ancestor(
+                of: find.byKey(key),
+                matching: find.byType(Tooltip),
+              ),
+            ).message,
+            fullLabel,
+            reason: 'the full custom range must survive somewhere even when '
+                "the button's own label is too narrow to show it in full",
+          );
         },
       );
     }

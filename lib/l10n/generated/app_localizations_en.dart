@@ -3130,4 +3130,39 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get assistantProposalUnrenderable =>
       'This proposal is incomplete and can\'t be shown.';
+
+  @override
+  String get careHistoryFilterTitle => 'Filter';
+
+  @override
+  String get careHistoryFilterItemLabel => 'Care item';
+
+  @override
+  String get careHistoryFilterAllItems => 'All items';
+
+  @override
+  String get careHistoryFilterStatusLabel => 'Status';
+
+  @override
+  String get careHistoryFilterClearButton => 'Clear filters';
+
+  @override
+  String get careHistoryFilteredEmptyTitle => 'No records match';
+
+  @override
+  String get careHistoryFilteredEmptyBody =>
+      'This period has records, but none of them match the current filters.';
+
+  @override
+  String get careHistoryPeriodCustom => 'Custom';
+
+  @override
+  String careHistoryPeriodCustomLabel(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String careHistoryErrorForCustomRange(String from, String to) {
+    return 'Couldn\'t load $from – $to. Please try again.';
+  }
 }
