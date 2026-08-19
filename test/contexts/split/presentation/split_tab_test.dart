@@ -19,12 +19,13 @@ import 'package:life_os/contexts/split/presentation/split_tab.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/widgets/empty_state.dart';
+import 'package:life_os/shared/widgets/last_loaded_label.dart';
 
 import '../../../support/l10n_test_app.dart';
 import '../support/fake_split_repository.dart';
 import '../support/split_presentation_fakes.dart';
 
-SplitController _controller() {
+SplitController _controller({DateTime Function()? clock}) {
   final repo = FakeSplitRepository();
   final profileRepo = FakeProfileRepository();
   final socialRepo = FakeSocialRepositoryForSplit();
@@ -41,6 +42,7 @@ SplitController _controller() {
     ListSettlements(repo),
     CreateSettlement(repo),
     DeleteSettlement(repo),
+    clock: clock ?? DateTime.now,
   );
 }
 
@@ -114,6 +116,7 @@ SplitTab _tab(SplitController controller) => SplitTab(
   controller: controller,
   activityController: testSplitActivityController(),
   onRetry: () {},
+  onRefresh: () async {},
   onRecordExpense: () {},
   onOpenGroup: (_) {},
   onCreateGroup: () {},
@@ -129,6 +132,155 @@ SplitTab _tab(SplitController controller) => SplitTab(
 );
 
 void main() {
+  group('SplitTab — 總覽 pull to refresh (#198)', () {
+    SplitController loaded({DateTime? at}) => _controller()
+      ..status = SplitStatus.loaded
+      ..lastLoadedAt = at ?? DateTime(2026, 8, 19, 9, 30)
+      ..selfUserId = 'self-1'
+      ..balances = const [
+        Balance(
+          userId: 'u2',
+          displayName: 'Bo',
+          balances: [CurrencyBalance(currency: 'TWD', amount: 500)],
+        ),
+      ];
+
+    // Rebuilt from the controller, the way `FinanceScaffold` does it: this
+    // tab does not listen to the controller itself, so without the
+    // AnimatedBuilder a mid-flight status change never reaches `build` and
+    // the loading-gate test below cannot fail.
+    Widget tabWith(SplitController controller, Future<void> Function() onRefresh) =>
+        l10nTestApp(
+          home: Scaffold(
+            body: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => SplitTab(
+            onAddFriend: () {},
+            controller: controller,
+            activityController: testSplitActivityController(),
+            onRetry: () {},
+            onRefresh: onRefresh,
+            onRecordExpense: () {},
+            onOpenGroup: (_) {},
+            onCreateGroup: () {},
+            onEditExpense: (_) {},
+            onSettleUp: ({
+              required otherUserId,
+              required otherDisplayName,
+              required balanceAmount,
+              required currency,
+            }) {},
+                onDeleteSettlement: (_) {},
+                onSignInAgain: () {},
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('pulling the 總覽 list runs onRefresh once', (tester) async {
+      var refreshes = 0;
+      await tester.pumpWidget(tabWith(loaded(), () async => refreshes++));
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(RefreshIndicator),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(refreshes, 1);
+    });
+
+    testWidgets(
+      'a refresh already in flight keeps the balances on screen instead of '
+      'swapping the section for a spinner — the spinner does not contain the '
+      'RefreshIndicator, so that swap unmounts the gesture mid-pull',
+      (tester) async {
+        final controller = loaded();
+        await tester.pumpWidget(
+          tabWith(controller, () async {}),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Bo owes you'), findsOneWidget);
+
+        // Exactly what `SplitController.load` does on its first line.
+        controller.status = SplitStatus.loading;
+        controller.notifyListeners();
+        await tester.pump();
+
+        expect(find.textContaining('Bo owes you'), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a same-load failure after data is already on screen keeps the '
+      'balances visible under a StaleNotice instead of blanking them for the '
+      'full-page load-failed exit',
+      (tester) async {
+        final controller = loaded();
+        await tester.pumpWidget(tabWith(controller, () async {}));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Bo owes you'), findsOneWidget);
+        expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+
+        // Exactly what `SplitController.load`'s second try/catch leaves
+        // behind on a same-load failure: `status == error`, but `balances`
+        // and `lastLoadedAt` are untouched (mirrors `reloadFailed` on
+        // `NetWorthController`).
+        controller.status = SplitStatus.error;
+        controller.reloadFailed = true;
+        controller.notifyListeners();
+        await tester.pump();
+
+        expect(
+          find.textContaining('Bo owes you'),
+          findsOneWidget,
+          reason: 'a failed refresh must not discard balances that are still good',
+        );
+        expect(find.byKey(const Key('split-load-error')), findsNothing);
+        expect(find.byKey(const Key('split-retry')), findsNothing);
+        expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+        expect(
+          find.byType(RefreshIndicator),
+          findsOneWidget,
+          reason: 'the reader must still be able to pull to try again',
+        );
+      },
+    );
+
+    testWidgets(
+      'before the first successful load, loading still shows the spinner — '
+      'the gate must not turn the entry load into a blank section',
+      (tester) async {
+        final controller = _controller()..status = SplitStatus.loading;
+        expect(controller.lastLoadedAt, isNull);
+
+        await tester.pumpWidget(tabWith(controller, () async {}));
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      },
+    );
+
+    testWidgets('the last-updated label is the list\'s first row', (
+      tester,
+    ) async {
+      await tester.pumpWidget(tabWith(loaded(), () async {}));
+      await tester.pumpAndSettle();
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(loc.lastUpdatedAt('09:30')), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(LastLoadedLabel)).top,
+        lessThan(tester.getRect(find.textContaining('Bo owes you')).top),
+      );
+    });
+
+  });
+
   group('SplitTab — repayment schedules', () {
     testWidgets('two schedules with one person stay two lines', (tester) async {
       // The server returns them per expense precisely because merging them
@@ -213,6 +365,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -269,6 +422,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () => tapped = true,
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -324,6 +478,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -380,6 +535,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -427,6 +583,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () => retried = true,
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -460,6 +617,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -490,6 +648,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -526,6 +685,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (id) => opened = id,
             onCreateGroup: () {},
@@ -573,6 +733,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -618,6 +779,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -656,6 +818,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -704,6 +867,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () => createGroupTapped = true,
@@ -740,6 +904,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -787,6 +952,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -844,6 +1010,7 @@ void main() {
               controller: controller,
               activityController: testSplitActivityController(),
               onRetry: () {},
+              onRefresh: () async {},
               onRecordExpense: () {},
               onOpenGroup: (_) {},
               onCreateGroup: () {},
@@ -893,6 +1060,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -955,6 +1123,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -989,6 +1158,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -1021,6 +1191,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -1055,6 +1226,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -1091,6 +1263,7 @@ void main() {
             controller: controller,
             activityController: testSplitActivityController(),
             onRetry: () {},
+            onRefresh: () async {},
             onRecordExpense: () {},
             onOpenGroup: (_) {},
             onCreateGroup: () {},
@@ -1118,6 +1291,7 @@ void main() {
       controller: controller,
       activityController: activity,
       onRetry: () {},
+      onRefresh: () async {},
       onRecordExpense: () {},
       onOpenGroup: (_) {},
       onCreateGroup: () {},

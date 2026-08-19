@@ -387,7 +387,10 @@ class _BudgetDef {
   const _BudgetDef({required this.id, required this.categoryId, required this.amount});
 }
 
-FinanceController _controller(FakeFinanceRepository repo) => FinanceController(
+FinanceController _controller(
+  FakeFinanceRepository repo, {
+  DateTime Function()? clock,
+}) => FinanceController(
   GetFinanceMonth(repo),
   AddTransaction(repo),
   UpdateTransaction(repo),
@@ -395,6 +398,7 @@ FinanceController _controller(FakeFinanceRepository repo) => FinanceController(
   UpsertBudget(repo),
   DeleteBudget(repo),
   GetSplitSpending(repo),
+  clock: clock ?? DateTime.now,
 );
 
 void main() {
@@ -1197,6 +1201,99 @@ void main() {
       expect(notified, isFalse);
       expect(controller.reloadFailed, isFalse);
     });
+  });
+
+  group('lastLoadedAt (#198 — the pull-to-refresh "last updated" stamp)', () {
+    test('a successful load stamps the injected clock', () async {
+      final controller = _controller(
+        FakeFinanceRepository(),
+        clock: () => DateTime(2026, 8, 19, 9, 30),
+      );
+
+      await controller.load('tok', '2026-07');
+
+      expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+    });
+
+    test('is null before the first successful load', () {
+      expect(_controller(FakeFinanceRepository()).lastLoadedAt, isNull);
+    });
+
+    test(
+      'a failed load leaves the previous stamp untouched — the label must '
+      'describe the data actually on screen, which a failure did not change',
+      () async {
+        final repo = FakeFinanceRepository();
+        var now = DateTime(2026, 8, 19, 9, 30);
+        final controller = _controller(repo, clock: () => now);
+        await controller.load('tok', '2026-07');
+
+        now = DateTime(2026, 8, 19, 10, 0);
+        repo.failNext = const FinanceFetchFailure('boom');
+        await controller.load('tok', '2026-07');
+
+        expect(controller.status, FinanceStatus.error);
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+      },
+    );
+
+    test(
+      'a superseded response does not stamp: the data it carried was '
+      'discarded, so claiming the screen refreshed at its arrival time '
+      'would date a newer call\'s data by an older call\'s clock',
+      () async {
+        final repo = FakeFinanceRepository();
+        var now = DateTime(2026, 8, 19, 9, 30);
+        final controller = _controller(repo, clock: () => now);
+
+        final gateA = Completer<void>();
+        repo.gates['2026-07'] = gateA;
+        final callA = controller.load('tok', '2026-07');
+
+        repo.gates.remove('2026-07');
+        now = DateTime(2026, 8, 19, 10, 0);
+        await controller.load('tok', '2026-07');
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 0));
+
+        now = DateTime(2026, 8, 19, 11, 0);
+        gateA.complete();
+        await callA;
+
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 0));
+      },
+    );
+
+    test(
+      'a split-spending failure still stamps: that leg is independent of the '
+      'main fetch (design D6/D9) and never blanks the overview',
+      () async {
+        final repo = FakeFinanceRepository()
+          ..splitSpendingFailNext = const FinanceFetchFailure('boom');
+        final controller = _controller(repo, clock: () => DateTime(2026, 8, 19, 9, 30));
+
+        await controller.load('tok', '2026-07');
+
+        expect(controller.splitSpendingStatus, SplitSpendingStatus.error);
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+      },
+    );
+
+    test(
+      'reset() clears it — an app-lifetime singleton would otherwise show the '
+      "previous account's load time above the next account's screen (#156)",
+      () async {
+        final controller = _controller(
+          FakeFinanceRepository(),
+          clock: () => DateTime(2026, 8, 19, 9, 30),
+        );
+        await controller.load('tok', '2026-07');
+        expect(controller.lastLoadedAt, isNotNull);
+
+        controller.reset();
+
+        expect(controller.lastLoadedAt, isNull);
+      },
+    );
   });
 
   group('reset', () {

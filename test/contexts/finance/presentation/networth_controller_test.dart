@@ -210,5 +210,77 @@ void main() {
       expect(controller.error, FinanceError.fetchFailed);
       expect(controller.monthly, isNull);
     });
+
+    group('lastLoadedAt (#198)', () {
+      test('a successful load stamps the injected clock', () async {
+        final controller = testNetWorthController(
+          FakeFinanceRepository(),
+          clock: () => DateTime(2026, 8, 19, 9, 30),
+        );
+
+        await controller.load('token', '2026-07');
+
+        expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+      });
+
+      test(
+        'a failed load leaves the previous stamp untouched — the label must '
+        'describe the data on screen, which a failure did not change',
+        () async {
+          final repo = FakeFinanceRepository();
+          var now = DateTime(2026, 8, 19, 9, 30);
+          final controller = testNetWorthController(repo, clock: () => now);
+          await controller.load('token', '2026-07');
+
+          now = DateTime(2026, 8, 19, 10, 0);
+          repo.failNext = const FinanceFetchFailure('offline');
+          await controller.load('token', '2026-07');
+
+          expect(controller.status, FinanceStatus.error);
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 9, 30));
+        },
+      );
+
+      test(
+        'a response for a month the user has switched away from does not '
+        'stamp: its data was discarded, so it never refreshed anything',
+        () async {
+          final repo = FakeFinanceRepository();
+          var now = DateTime(2026, 8, 19, 9, 30);
+          final controller = testNetWorthController(repo, clock: () => now);
+
+          final gate = Completer<void>();
+          repo.monthlyGates['2026-07'] = gate;
+          final stale = controller.load('token', '2026-07');
+
+          now = DateTime(2026, 8, 19, 10, 0);
+          await controller.load('token', '2026-08');
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 0));
+
+          now = DateTime(2026, 8, 19, 11, 0);
+          gate.complete();
+          await stale;
+
+          expect(controller.lastLoadedAt, DateTime(2026, 8, 19, 10, 0));
+        },
+      );
+
+      test(
+        'reset() clears it — this app-lifetime singleton would otherwise show '
+        "the previous account's load time to the next one (#156)",
+        () async {
+          final controller = testNetWorthController(
+            FakeFinanceRepository(),
+            clock: () => DateTime(2026, 8, 19, 9, 30),
+          );
+          await controller.load('token', '2026-07');
+          expect(controller.lastLoadedAt, isNotNull);
+
+          controller.reset();
+
+          expect(controller.lastLoadedAt, isNull);
+        },
+      );
+    });
   });
 }

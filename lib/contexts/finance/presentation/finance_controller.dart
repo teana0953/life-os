@@ -106,6 +106,10 @@ class FinanceController extends ChangeNotifier {
   final DeleteBudget _deleteBudget;
   final GetSplitSpending _getSplitSpending;
 
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load —
+  /// the tracker controllers' convention, so tests can pin the stamp.
+  final DateTime Function() _clock;
+
   FinanceController(
     this._getFinanceMonth,
     this._addTransaction,
@@ -113,8 +117,9 @@ class FinanceController extends ChangeNotifier {
     this._deleteTransaction,
     this._upsertBudget,
     this._deleteBudget,
-    this._getSplitSpending,
-  );
+    this._getSplitSpending, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   /// `YYYY-MM`. Empty until the first [load] call — callers compute the
   /// initial month (from their own clock) and pass it explicitly, mirroring
@@ -171,6 +176,14 @@ class FinanceController extends ChangeNotifier {
   SplitSpendingStatus splitSpendingStatus = SplitSpendingStatus.loading;
   List<SplitSpending> splitSpending = [];
 
+  /// When the main fetch last landed successfully, or `null` before the first
+  /// success — shown by the tabs' pull-to-refresh "last updated" label.
+  /// Deliberately independent of [splitSpendingStatus]: that leg is a
+  /// separate request (design D9) whose failure never blanks the overview, so
+  /// gating the stamp on it would leave the label empty on a screen that is
+  /// in fact showing freshly loaded figures.
+  DateTime? lastLoadedAt;
+
   /// Drops everything a signed-in user's session put here, so the next user
   /// to sign in inherits none of it (`app.dart`'s
   /// `_resetControllersOnSignOut`, mirroring [NetWorthController.reset]).
@@ -204,6 +217,7 @@ class FinanceController extends ChangeNotifier {
     installmentPlans = {};
     splitSpendingStatus = SplitSpendingStatus.loading;
     splitSpending = [];
+    lastLoadedAt = null;
   }
 
   /// Loads [month]'s categories, summary, and transactions. Sets
@@ -297,6 +311,7 @@ class FinanceController extends ChangeNotifier {
       installmentPlans = data.installmentPlans;
       status = FinanceStatus.loaded;
       reloadFailed = false;
+      lastLoadedAt = _clock();
     } on FinanceReauthenticationRequired {
       if (seq != _loadSeq) return _superseded(splitSpendingFuture);
       // `background && summary != null`: the downgrade only makes sense when

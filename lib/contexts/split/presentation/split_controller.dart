@@ -55,6 +55,10 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
   final CreateSettlement _createSettlement;
   final DeleteSettlement _deleteSettlement;
 
+  /// Injectable clock used to stamp [lastLoadedAt] on a successful load —
+  /// the tracker controllers' convention, so tests can pin the stamp.
+  final DateTime Function() _clock;
+
   SplitController(
     this._getBalances,
     this._listGroups,
@@ -67,11 +71,27 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
     this._getProfile,
     this._listSettlements,
     this._createSettlement,
-    this._deleteSettlement,
-  );
+    this._deleteSettlement, {
+    DateTime Function() clock = DateTime.now,
+  }) : _clock = clock;
 
   SplitStatus status = SplitStatus.loading;
   SplitError? error;
+
+  /// When the split data last landed successfully, or `null` before the first
+  /// success — shown by the overview section's pull-to-refresh "last updated"
+  /// label. No `reset()` counterpart, unlike the two finance controllers:
+  /// this controller is owned by `FinanceScaffold`'s `State`, so leaving
+  /// finance discards it along with everything else on it.
+  DateTime? lastLoadedAt;
+
+  /// Set when a reload (pull-to-refresh) fails while [lastLoadedAt] is
+  /// already non-null — mirrors [NetWorthController.reloadFailed]. Without
+  /// this, the overview section's error branch (gated on `status == error`
+  /// alone, with no `lastLoadedAt == null` guard) would swap the already-
+  /// loaded balances/groups/expenses out for the full-page "load failed"
+  /// exit on every failed refresh, discarding data that was still good.
+  bool reloadFailed = false;
 
   /// The caller's own user id (design D5c). Resolved by [load]; `null`
   /// until then or if resolving it failed (in which case [status] is
@@ -137,6 +157,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
     } catch (_) {
       status = SplitStatus.error;
       error = SplitError.profileFailed;
+      reloadFailed = true;
       _notify();
       return;
     }
@@ -155,6 +176,8 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
       friends = results[3] as List<Friend>;
       settlements = results[4] as List<Settlement>;
       status = SplitStatus.loaded;
+      reloadFailed = false;
+      lastLoadedAt = _clock();
     } on SplitReauthenticationRequired {
       status = SplitStatus.needsReauth;
     } on SocialReauthenticationRequired {
@@ -162,6 +185,7 @@ class SplitController extends ChangeNotifier implements SplitExpenseWriter, Sett
     } catch (_) {
       status = SplitStatus.error;
       error = SplitError.fetchFailed;
+      reloadFailed = true;
     }
     _notify();
   }
