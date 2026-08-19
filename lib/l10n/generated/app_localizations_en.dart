@@ -3154,6 +3154,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'This period has records, but none of them match the current filters.';
 
   @override
+  String careHistoryPeriodSpanLabel(int days) {
+    return 'Last $days days';
+  }
+
+  @override
+  String get careHistoryPeriodPickerTitle => 'Time range';
+
+  @override
   String get careHistoryPeriodCustom => 'Custom';
 
   @override

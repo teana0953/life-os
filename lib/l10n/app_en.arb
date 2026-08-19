@@ -4289,9 +4289,22 @@
   "@careHistoryFilteredEmptyBody": {
     "description": "Body copy paired with careHistoryFilteredEmptyTitle. It does not suggest widening the period: the records are filtered out, not out of range, so a longer period would not bring them back."
   },
+  "careHistoryPeriodSpanLabel": "Last {days} days",
+  "@careHistoryPeriodSpanLabel": {
+    "description": "Label of the care history time-range control (and of its picker's rolling-span options) for a rolling span: 'Last 7 days'. Deliberately not the bare trendRange7/30/90 strings ('7 days'), which read as a fragment on a standalone control that has to say what the number means on its own.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "careHistoryPeriodPickerTitle": "Time range",
+  "@careHistoryPeriodPickerTitle": {
+    "description": "Heading of the care history time-range picker sheet, opened from the period control."
+  },
   "careHistoryPeriodCustom": "Custom",
   "@careHistoryPeriodCustom": {
-    "description": "Fourth segment of the care history period selector (after 7/30/90 days), which opens a date range picker."
+    "description": "Fourth row of the care history time-range picker sheet (after 7/30/90 days), which opens a date range picker."
   },
   "careHistoryPeriodCustomLabel": "{from} – {to}",
   "@careHistoryPeriodCustomLabel": {
