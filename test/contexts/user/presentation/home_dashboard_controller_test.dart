@@ -54,35 +54,24 @@ void main() {
       await controller.load('tok', DateTime(2026, 3, 1, 0, 30));
 
       expect(repos.targetDays, ['2026-03-01']);
-      expect(controller.data!.dailyTarget!.effective.staple, 10);
-      expect(controller.data!.dailyTarget!.effective.veg, 2);
+      expect(controller.data!.dailyTarget.value!.effective.staple, 10);
+      expect(controller.data!.dailyTarget.value!.effective.veg, 2);
     },
   );
 
-  // ---- the daily-target arm is the ONLY one allowed to fail on its own.
+  // ---- ANY one arm may fail on its own, and the tile says so.
   //
-  // These two are a pair and have to stay one: the first says a failing
-  // target arm does not take the dashboard down, the second says a failing
-  // *dashboard* still does. They are deliberately on opposite sides of the
-  // same seam.
+  // These two are a pair and have to stay one: the first says one failing arm
+  // does not take the dashboard down, the second says a failing *dashboard*
+  // still does. They are deliberately on opposite sides of the same seam.
   //
-  // Measured by mutation, and one result is an honest caveat:
-  //
-  // | mutation | result |
-  // | --- | --- |
-  // | drop the target arm's `onError` | RED — `Expected: loaded / Actual: error` |
-  // | catch block sets `loaded` instead of `error` | RED — `Expected: error / Actual: loaded` |
-  // | give the other six arms an `onError => null` too | **GREEN** |
-  //
-  // That last one survives, and not because the second test is vacuous: with
-  // the six arms nulled, `results[0] as WeightGoal` throws on the null and
-  // the catch below still reports `error`. So the mutant is not the
-  // regression it looks like, and the assertion this file *can* make about
-  // "only one arm degrades" is the field-by-field check in the first test —
-  // not a claim that the other six could never be given their own fallback.
+  // The daily-target arm is the fixture here because it is where the bug was:
+  // it used to swallow its own error into `dailyTarget: null`, which the tile
+  // painted as 無資料 — the identical string an empty record prints. Asserting
+  // the failed STATUS, not a null value, is what makes those two
+  // distinguishable, and is the assertion that must not be softened back.
   test(
-    'the daily-target arm failing alone degrades that one field to null and '
-    'leaves the other six loaded',
+    'one arm failing marks that arm failed and leaves the other six loaded',
     () async {
       final repos = FakeDashboardRepositories();
       repos.failingArms.add('target');
@@ -91,15 +80,59 @@ void main() {
       await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
 
       expect(controller.status, HomeDashboardStatus.loaded);
-      expect(controller.data!.dailyTarget, isNull);
-      // The six that must have survived — named individually, so a future
-      // blanket `onError` on another arm cannot hide behind this one.
-      expect(controller.data!.weightGoal.currentWeightKg, 62.5);
-      expect(controller.data!.bloodPressure, isNull);
-      expect(controller.data!.menstrualStatus, isNotNull);
-      expect(controller.data!.overallBudget, isNotNull);
-      expect(controller.data!.netWorth.netWorth, 530900);
-      expect(controller.data!.splitBalances, hasLength(1));
+      expect(controller.data!.dailyTarget.status, ArmStatus.failed);
+      // Cold failure: nothing was ever fetched for this arm, so there is no
+      // figure to keep — and `hasValue` false is how the tile knows to
+      // replace the value rather than annotate it.
+      expect(controller.data!.dailyTarget.hasValue, isFalse);
+      // The six that must have survived — named individually, and by STATUS
+      // as well as by value, so an arm that quietly degraded to a failed slot
+      // holding a stale figure cannot hide behind a value assertion.
+      expect(controller.data!.weightGoal.status, ArmStatus.loaded);
+      expect(controller.data!.weightGoal.value!.currentWeightKg, 62.5);
+      expect(controller.data!.bloodPressure.status, ArmStatus.loaded);
+      expect(controller.data!.bloodPressure.value, isNull);
+      expect(controller.data!.menstrualStatus.status, ArmStatus.loaded);
+      expect(controller.data!.overallBudget.status, ArmStatus.loaded);
+      expect(controller.data!.netWorth.status, ArmStatus.loaded);
+      expect(controller.data!.netWorth.value!.netWorth, 530900);
+      expect(controller.data!.splitBalances.status, ArmStatus.loaded);
+      expect(controller.data!.splitBalances.value, hasLength(1));
+    },
+  );
+
+  test(
+    'a partially successful round still advances lastLoadedAt — six of the '
+    'figures really were refreshed, and the seventh tile says it was not',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+      repos.failingArms.add('networth');
+      await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
+
+      expect(controller.status, HomeDashboardStatus.loaded);
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 11, 45));
+      expect(controller.data!.netWorth.status, ArmStatus.failed);
+    },
+  );
+
+  test(
+    'an arm that failed after a successful fetch keeps the figure it already '
+    'had, so the tile can mark it stale instead of blanking it',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+      repos.failingArms.add('networth');
+      await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
+
+      final slot = controller.data!.netWorth;
+      expect(slot.status, ArmStatus.failed);
+      expect(slot.hasValue, isTrue);
+      expect(slot.value!.netWorth, 530900);
     },
   );
 
@@ -130,16 +163,23 @@ void main() {
     );
   });
 
-  test('a failed load keeps the data already on hand', () async {
+  test('a failed load keeps the figures already on hand', () async {
     final repos = FakeDashboardRepositories();
     final controller = controllerFor(repos);
     await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
-    final loaded = controller.data;
 
     repos.fail = true;
     await controller.load('tok', DateTime(2026, 1, 1, 11, 45));
 
-    expect(controller.data, same(loaded));
+    // Not `same(loaded)` any more, and the difference is the feature: the
+    // slots are rebuilt so that every tile now says it wasn't refreshed. What
+    // must survive is the FIGURES, which is what "keeps the data on hand"
+    // always meant — the object identity was only ever how it was measured.
+    expect(controller.data, isNotNull);
+    expect(controller.data!.netWorth.value!.netWorth, 530900);
+    expect(controller.data!.weightGoal.value!.currentWeightKg, 62.5);
+    expect(controller.data!.hasAnyFailure, isTrue);
+    expect(controller.status, HomeDashboardStatus.error);
   });
 
   test(
@@ -361,5 +401,251 @@ void main() {
 
     expect(repos.rounds, 2);
     expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 11, 45));
+  });
+
+  // ------------------------------------------------------------- retryArm
+  //
+  // Invariant P: a single-tile retry writes that arm's slot and NOTHING else.
+  test(
+    'retrying one tile issues exactly one request, on that arm, and leaves '
+    'the page-level state alone',
+    () async {
+      final repos = FakeDashboardRepositories();
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+      final before = Map<String, int>.from(repos.calls);
+
+      await controller.retryArm(
+        DashboardArm.netWorth,
+        'tok',
+        DateTime(2026, 1, 1, 11, 45),
+      );
+
+      expect(repos.calls['networth'], before['networth']! + 1);
+      // Named one by one rather than as a total: a `retryArm` that quietly
+      // ran the whole `load` would still add "one request" to a total that
+      // was never broken down.
+      for (final arm in const [
+        'weightGoal',
+        'vitals',
+        'menstrual',
+        'budgets',
+        'balances',
+        'target',
+      ]) {
+        expect(repos.calls[arm], before[arm], reason: arm);
+      }
+      // Invariant P — the tile reloaded, the page did not.
+      expect(controller.status, HomeDashboardStatus.loaded);
+      expect(controller.lastLoadedAt, DateTime(2026, 1, 1, 9, 30));
+    },
+  );
+
+  test('retrying a failed arm clears that tile alone', () async {
+    final repos = FakeDashboardRepositories();
+    repos.failingArms.add('networth');
+    final controller = controllerFor(repos);
+    await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+    expect(controller.data!.netWorth.status, ArmStatus.failed);
+
+    repos.failingArms.remove('networth');
+    await controller.retryArm(
+      DashboardArm.netWorth,
+      'tok',
+      DateTime(2026, 1, 1, 11, 45),
+    );
+
+    expect(controller.data!.netWorth.status, ArmStatus.loaded);
+    expect(controller.data!.netWorth.value!.netWorth, 530900);
+    expect(controller.data!.weightGoal.status, ArmStatus.loaded);
+  });
+
+  // ------------------------------------------------- Invariant W (the write rule)
+  //
+  // Every fetch of an arm takes a ticket at START; only the fetch still
+  // holding the arm's latest ticket may write. The property under test is
+  // therefore NOT a list of orderings — it is one predicate, asserted in
+  // every interleaving below:
+  //
+  //   the arm's slot holds the value produced by the LAST-STARTED fetch of
+  //   that arm, whatever order they complete in, whoever started them,
+  //
+  // and, separately, that the round's OTHER six arms still land — which is
+  // exactly what a whole-controller guard cannot express.
+  //
+  // The scripted weights are monotonic (1, 2, 3) so that two fetches of the
+  // same arm are distinguishable at all; with the fake's constant 62.5 every
+  // assertion below would be green whichever write won.
+  group('Invariant W: an arm reflects its last-started fetch', () {
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    /// A full round is in flight with its weight-goal arm still open when a
+    /// single-tile retry of the same arm starts.
+    Future<void> roundThenRetry({required bool retryCompletesFirst}) async {
+      final repos = FakeDashboardRepositories()
+        ..weightGoalSequence.addAll([1, 2]);
+      final first = Completer<void>();
+      final second = Completer<void>();
+      repos.callGates['weightGoal#1'] = first;
+      repos.callGates['weightGoal#2'] = second;
+      final controller = controllerFor(repos);
+
+      final round = controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+      // The six ungated arms land, so `data` exists and a tile retry is
+      // something the screen could actually offer.
+      await settle();
+      final retry = controller.retryArm(
+        DashboardArm.weightGoal,
+        'tok',
+        DateTime(2026, 1, 1, 9, 31),
+      );
+      await settle();
+
+      if (retryCompletesFirst) {
+        second.complete();
+        await settle();
+        first.complete();
+      } else {
+        first.complete();
+        await settle();
+        second.complete();
+      }
+      await round;
+      await retry;
+      await settle();
+
+      expect(
+        controller.data!.weightGoal.value!.currentWeightKg,
+        2,
+        reason: 'the retry started last, so its answer is the arm\'s answer',
+      );
+      expect(
+        controller.data!.netWorth.value!.netWorth,
+        530900,
+        reason: "the round's other arms land even when its weight arm's "
+            'write is dropped',
+      );
+    }
+
+    test('round then retry, round completes first', () async {
+      await roundThenRetry(retryCompletesFirst: false);
+    });
+
+    test('round then retry, retry completes first', () async {
+      await roundThenRetry(retryCompletesFirst: true);
+    });
+
+    /// A single-tile retry is in flight when a whole round starts.
+    Future<void> retryThenRound({required bool roundCompletesFirst}) async {
+      final repos = FakeDashboardRepositories()
+        ..weightGoalSequence.addAll([1, 2, 3]);
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+      final retryGate = Completer<void>();
+      final roundGate = Completer<void>();
+      repos.callGates['weightGoal#2'] = retryGate;
+      repos.callGates['weightGoal#3'] = roundGate;
+
+      final retry = controller.retryArm(
+        DashboardArm.weightGoal,
+        'tok',
+        DateTime(2026, 1, 1, 11, 45),
+      );
+      await settle();
+      final round = controller.load('tok', DateTime(2026, 1, 1, 11, 46));
+      await settle();
+
+      if (roundCompletesFirst) {
+        roundGate.complete();
+        await settle();
+        retryGate.complete();
+      } else {
+        retryGate.complete();
+        await settle();
+        roundGate.complete();
+      }
+      await retry;
+      await round;
+      await settle();
+
+      expect(
+        controller.data!.weightGoal.value!.currentWeightKg,
+        3,
+        reason: "the round started last, so the retry's older answer is "
+            'dropped even when it lands afterwards',
+      );
+    }
+
+    test('retry then round, retry completes first', () async {
+      await retryThenRound(roundCompletesFirst: false);
+    });
+
+    test('retry then round, round completes first', () async {
+      await retryThenRound(roundCompletesFirst: true);
+    });
+
+    /// Two presses on the same tile — no dedupe exists, and none is needed.
+    Future<void> retryTwice({required bool firstCompletesFirst}) async {
+      final repos = FakeDashboardRepositories()
+        ..weightGoalSequence.addAll([1, 2, 3]);
+      final controller = controllerFor(repos);
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 30));
+
+      final firstPress = Completer<void>();
+      final secondPress = Completer<void>();
+      repos.callGates['weightGoal#2'] = firstPress;
+      repos.callGates['weightGoal#3'] = secondPress;
+
+      final one = controller.retryArm(
+        DashboardArm.weightGoal,
+        'tok',
+        DateTime(2026, 1, 1, 11, 45),
+      );
+      await settle();
+      final two = controller.retryArm(
+        DashboardArm.weightGoal,
+        'tok',
+        DateTime(2026, 1, 1, 11, 46),
+      );
+      await settle();
+
+      if (firstCompletesFirst) {
+        firstPress.complete();
+        await settle();
+        secondPress.complete();
+      } else {
+        secondPress.complete();
+        await settle();
+        firstPress.complete();
+      }
+      await one;
+      await two;
+      await settle();
+
+      expect(
+        controller.data!.weightGoal.value!.currentWeightKg,
+        3,
+        reason: 'the second press started last',
+      );
+      expect(
+        repos.calls['weightGoal'],
+        3,
+        reason: 'both presses really did fire — there is no dedupe to hide '
+            'behind, so the ordering above was actually exercised',
+      );
+    }
+
+    test('two presses on one tile, first completes first', () async {
+      await retryTwice(firstCompletesFirst: true);
+    });
+
+    test('two presses on one tile, second completes first', () async {
+      await retryTwice(firstCompletesFirst: false);
+    });
   });
 }

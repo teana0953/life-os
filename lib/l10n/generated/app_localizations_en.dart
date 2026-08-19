@@ -250,6 +250,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeNoData => 'No data yet';
 
   @override
+  String get homeTileLoadFailed => 'Couldn\'t load';
+
+  @override
+  String get homeTileRefreshed => 'Refreshed';
+
+  @override
+  String get homeRefreshPartial => 'Refreshed, but some items couldn\'t load';
+
+  @override
   String get homeMaskedValue => '••••';
 
   @override

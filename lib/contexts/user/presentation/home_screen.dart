@@ -17,6 +17,7 @@ import '../../finance/domain/finance_money.dart';
 import '../../health/domain/daily_target.dart';
 import '../../health/domain/portions.dart';
 import '../../menstrual/domain/next_period_status.dart';
+import '../../split/domain/balance.dart';
 import 'home_controller.dart';
 import 'home_dashboard_controller.dart';
 
@@ -170,10 +171,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  /// Reloads the dashboard — the pull-to-refresh handler and the error card's
-  /// retry, which are the same request. Only the dashboard: the profile is a
-  /// name and an admin flag, and reloading it would add a seventh request and
-  /// another failure mode to the gesture.
+  /// Reloads the **whole** dashboard — the pull-to-refresh handler, the app
+  /// bar's refresh button, the page-level `StaleNotice` and the
+  /// whole-dashboard error card, which are all the same seven-arm round. Only
+  /// the dashboard: the profile is a name and an admin flag, and reloading it
+  /// would add another request and another failure mode to the gesture.
+  ///
+  /// Not this path: a single tile's retry marker, which refetches one arm via
+  /// [_retryArm] and deliberately leaves the page-level state (spinner,
+  /// "updated HH:mm", stale notice) alone.
   ///
   /// A fresh token per reload (issue #106): home stays mounted for the whole
   /// session, so a token captured at mount goes stale under it.
@@ -205,6 +211,12 @@ class _HomeScreenState extends State<HomeScreen> {
         dashboard.status == HomeDashboardStatus.error ||
         lastLoadedAt == null) {
       SemanticsService.announce(loc.cardRefreshFailed, direction);
+    } else if (dashboard.data?.hasAnyFailure ?? false) {
+      // A round that lands six figures and loses one is neither outcome the
+      // page had words for. "Couldn't refresh" is the same lie in the audio
+      // channel that a failed tile painting 無資料 was in the visual one —
+      // the timestamp moved and six numbers changed while it was spoken.
+      SemanticsService.announce(loc.homeRefreshPartial, direction);
     } else {
       // Same 24-hour rendering as the `LastLoadedLabel` this repeats aloud.
       SemanticsService.announce(
@@ -331,6 +343,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 // at the top of the page, so a failed refresh reads as
                 // silence instead of a failure. `dashboard.data != null` only:
                 // the no-data-yet case already shows `_DashboardUnavailable`.
+                //
+                // It is keyed off the PAGE status, which now means "the last
+                // round lost every arm" — a round that lost only some arms
+                // leaves this row quiet and is reported by the markers on the
+                // tiles that actually failed. Deliberate: a page-wide "not
+                // updated" over seven figures that were updated says the
+                // wrong thing, and the per-arm truth is not expressible here.
+                // The two notices also do different work — this one's retry
+                // reloads all seven arms, a tile's reloads one.
                 if (widget.dashboardController != null &&
                     widget.dashboardController!.data != null)
                   StaleNotice(
@@ -458,56 +479,152 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// A snapshot tile the user is allowed to hide. One builder for all four
-  /// maskable tiles in both dashboard branches (eight call sites), so the
-  /// masking wiring cannot be right in one branch and missing in the other.
-  Widget _maskableTile({
-    required Key tileKey,
+  /// Refetches the one arm behind a single tile, from that tile's own retry
+  /// marker. Not [_refreshDashboard]: the other seven tiles keep their
+  /// figures, no page-level spinner turns and "updated HH:mm" does not move —
+  /// see `HomeDashboardController`'s Invariant P.
+  ///
+  /// A fresh token per press, for the same reason [_refreshDashboard] takes
+  /// one (issue #106).
+  ///
+  /// [label] is the pressed tile's own name, and the announcement is prefixed
+  /// with it for the same reason the marker's semantics label is: on a screen
+  /// where eight tiles can each fail, "Couldn't refresh" alone does not say
+  /// which one just answered.
+  Future<void> _retryArm(DashboardArm arm, String label) async {
+    final dashboard = widget.dashboardController;
+    final token = widget.idToken;
+    if (dashboard == null || token == null) return;
+    final loc = AppLocalizations.of(context)!;
+    final direction = Directionality.of(context);
+    try {
+      await dashboard.retryArm(arm, await token(), widget.clock());
+    } catch (_) {
+      // `retryArm` swallows the arm's own error (it becomes the tile's failed
+      // state), so this only catches a token renewal that throws — and the
+      // tile is already showing the previous failure, which is the honest
+      // rendering of "still not loaded".
+    }
+    if (!mounted) return;
+    // A retry that fails again repaints *nothing*: same figure, same marker,
+    // same semantics label. Without this a screen-reader user presses the
+    // button and cannot tell a slow request from a finished one, and pressing
+    // it a second time is indistinguishable from the first.
+    // ...and the same is true with the sound off. A sighted user pressing a
+    // marker that fails again sees *no* pixel change at all, so the SnackBar
+    // is the visible half of the announcement below, not a second feature:
+    // the same two outcomes, the same two strings, the same tile prefix. It
+    // floats above the page, so it cannot move a tile's height — the
+    // invariant that rules out saying this inside the tile itself.
+    //
+    // Seven markers pressed in a row overwrite one another rather than queue.
+    // `_refreshDashboard` deliberately has no SnackBar of its own, so nothing
+    // else on this page competes for the slot.
+    void say(String message) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('$label: $message')));
+    }
+
+    final slot = dashboard.data?.slotOf(arm);
+    if (slot == null || slot.status == ArmStatus.failed) {
+      SemanticsService.announce('$label: ${loc.cardRefreshFailed}', direction);
+      say(loc.cardRefreshFailed);
+    } else if (slot.status == ArmStatus.loaded) {
+      SemanticsService.announce('$label: ${loc.homeTileRefreshed}', direction);
+      say(loc.homeTileRefreshed);
+    }
+    // Still loading: a newer request for the same arm is in flight and will
+    // make its own announcement. Two would race and the loser would be the
+    // one describing the state actually on screen.
+  }
+
+  /// The one builder behind every snapshot tile, in both dashboard branches
+  /// (eleven call sites), so the masking wiring — and now the per-arm
+  /// status/retry wiring — cannot be right in one branch and missing in the
+  /// other.
+  ///
+  /// [arm] and [slot] travel together: the slot says what to paint, and the
+  /// arm is what a retry from this tile refetches.
+  Widget _snapshotTile({
+    required String tileId,
     required AppLocalizations loc,
-    required PrivacyMaskItem item,
+    required DashboardArm arm,
+    required ArmSlot<Object?> slot,
     required String label,
     required String value,
     required VoidCallback onTap,
+    String? shorterValue,
+    String? valueSemanticLabel,
+    Key? actionIconKey,
+    IconData? actionIcon,
+    String? actionIconTooltip,
+    VoidCallback? onActionIcon,
+    PrivacyMaskItem? maskItem,
   }) {
     final mask = widget.privacyMaskController;
     return _SnapshotTile(
-      tileKey: tileKey,
+      tileKey: Key(tileId),
       label: label,
       value: value,
+      shorterValue: shorterValue,
+      valueSemanticLabel: valueSemanticLabel,
+      actionIconKey: actionIconKey,
+      actionIcon: actionIcon,
+      actionIconTooltip: actionIconTooltip,
+      onActionIcon: onActionIcon,
       onTap: onTap,
-      maskItem: item,
-      isHidden: mask.isHidden(item),
-      onToggleMask: () => unawaited(mask.toggle(item)),
+      armStatus: slot.status,
+      hasValue: slot.hasValue,
+      retryKey: Key('$tileId-retry'),
+      // Offered on exactly the condition `_retryArm` acts on, for the same
+      // reason the app bar's refresh button is: a marker the guard turns into
+      // a no-op is a control that can never respond to a press.
+      onRetry: _canRefresh ? () => unawaited(_retryArm(arm, label)) : null,
+      loadFailedLabel: loc.homeTileLoadFailed,
+      retryLabel: loc.retry,
+      refreshingLabel: loc.cardRefreshing,
+      maskItem: maskItem,
+      isHidden: maskItem != null && mask.isHidden(maskItem),
+      onToggleMask: maskItem == null
+          ? null
+          : () => unawaited(mask.toggle(maskItem)),
       maskedValue: loc.homeMaskedValue,
       hiddenSemanticLabel: loc.homeValueHidden,
-      hideLabel: loc.homeMaskHide(label),
-      showLabel: loc.homeMaskShow(label),
+      hideLabel: maskItem == null ? '' : loc.homeMaskHide(label),
+      showLabel: maskItem == null ? '' : loc.homeMaskShow(label),
     );
   }
 
-  /// The 食物份量 tile of the *loaded* dashboard.
+  /// The 食物份量 tile.
   ///
-  /// [target] is nullable because the daily-target arm is the one arm of the
-  /// fan-out allowed to fail on its own (see `HomeDashboardData.dailyTarget`).
-  /// When it did, this tile degrades to exactly the placeholder branch's
-  /// shape — 無資料, no `shorterValue`, no `valueSemanticLabel` — rather than
-  /// taking the whole dashboard down with it.
-  Widget _foodPortionTile(AppLocalizations loc, DailyTargetWithRemaining? target) {
-    final full = target == null
-        ? null
-        : _portionTargetValue(loc, target.effective, withVeg: true);
-    return _SnapshotTile(
-      tileKey: const Key('home-food-dictionary'),
+  /// It has no "no data" rendering at all, and that absence is the fix for the
+  /// bug this whole model exists for: the backend always answers with a
+  /// default target, so an empty figure here was never an empty *record* —
+  /// it was a failed request printing 無資料. See
+  /// `HomeDashboardData.dailyTarget`.
+  Widget _foodPortionTile(
+    AppLocalizations loc,
+    ArmSlot<DailyTargetWithRemaining> slot,
+  ) {
+    final target = slot.value;
+    return _snapshotTile(
+      tileId: 'home-food-dictionary',
+      loc: loc,
+      arm: DashboardArm.dailyTarget,
+      slot: slot,
       label: loc.homeFoodPortion,
-      value: full ?? loc.homeNoData,
+      value: target == null
+          ? ''
+          : _portionTargetValue(loc, target.effective, withVeg: true),
       shorterValue: target == null
           ? null
           : _portionTargetValue(loc, target.effective, withVeg: false),
       // Whatever the tile ends up *painting*, assistive tech is told the
       // whole figure, spelled out with each group's NAME rather than its
       // one-glyph icon — the painted string's own icons (in English, bare
-      // letters S/M/F/V) don't decode when read aloud, so re-using `full`
-      // here would not actually compensate for the visual elision.
+      // letters S/M/F/V) don't decode when read aloud, so re-using the full
+      // string here would not actually compensate for the visual elision.
       valueSemanticLabel: target == null
           ? null
           : loc.homeFoodPortionTargetSemantics(
@@ -533,127 +650,28 @@ class _HomeScreenState extends State<HomeScreen> {
     // outlives the first frame of every return to home: the listener fires,
     // then waits on `idToken()` (which reaches the network whenever the token
     // is close to expiring). Painting the no-data layout during that gap tells
-    // a user who has records that they have none. It gets the same placeholder
-    // as `loading` below, because that is exactly what it is.
+    // a user who has records that they have none.
+    //
+    // Fed all-loading slots rather than 無資料, for exactly that reason: "not
+    // fetched yet" and "you have no record" are two different things, and this
+    // branch is the first one. It is the same tile code as every other branch,
+    // so a destination, a privacy eye or an arm wired on one path cannot be
+    // missing on the other.
     if (dashboard == null) {
-      return Column(
-        children: [
-          _DashboardSection(
-            sectionKey: const Key('health-dashboard-section'),
-            openKey: const Key('health-tile'),
-            title: loc.spaceHealth,
-            openLabel: loc.homeOpenHealth,
-            onOpen: _openHealth,
-            twoColumnMinWidth: _sectionTwoColumnMinWidth,
-            children: [
-              _maskableTile(
-                tileKey: const Key('home-latest-weight'),
-                loc: loc,
-                item: PrivacyMaskItem.latestWeight,
-                label: loc.homeLatestWeight,
-                value: loc.homeNoData,
-                onTap: _openVitals,
-              ),
-              _SnapshotTile(
-                tileKey: const Key('home-food-dictionary'),
-                label: loc.homeFoodPortion,
-                // No `shorterValue`: 無資料 has only one rendering, and
-                // handing the tile a fallback it can never need would make
-                // the placeholder measure text for nothing.
-                value: loc.homeNoData,
-                actionIconKey: const Key('home-food-portion-search'),
-                actionIcon: Icons.search,
-                actionIconTooltip: loc.homeFoodPortionButton,
-                onActionIcon: _openFoodDictionary,
-                onTap: _openFoodDictionary,
-              ),
-              _SnapshotTile(
-                tileKey: const Key('home-latest-blood-pressure'),
-                label: loc.homeLatestBloodPressure,
-                value: loc.homeNoData,
-                onTap: _openVitals,
-              ),
-              _SnapshotTile(
-                tileKey: const Key('home-menstrual-prediction'),
-                label: loc.homeMenstrualPrediction,
-                value: loc.homeNoData,
-                onTap: _openMenstrual,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _DashboardSection(
-            sectionKey: const Key('finance-dashboard-section'),
-            openKey: const Key('finance-tile'),
-            title: loc.spaceFinance,
-            openLabel: loc.homeOpenFinance,
-            onOpen: _openFinance,
-            twoColumnMinWidth: _sectionTwoColumnMinWidth,
-            children: [
-              // The destination is part of the tuple, not a shared `_openFinance`
-              // for the whole loop: this placeholder block is the state a
-              // cold-start user actually taps, so it has to send each tile to
-              // the same tab the loaded block does.
-              // The maskable item is part of the tuple for the same reason the
-              // destination is: 分帳總覽 prints money too but is deliberately
-              // NOT maskable, so a shared value for the whole loop would give
-              // it an eye.
-              for (final entry
-                  in <(Key, String, void Function(), PrivacyMaskItem?)>[
-                (
-                  const Key('home-budget'),
-                  loc.homeBudget,
-                  _openFinance,
-                  PrivacyMaskItem.budget,
-                ),
-                (
-                  const Key('home-net-worth'),
-                  loc.homeNetWorth,
-                  () => _openFinanceTab(FinanceTab.networth),
-                  PrivacyMaskItem.netWorth,
-                ),
-                (
-                  const Key('home-total-liabilities'),
-                  loc.homeTotalLiabilities,
-                  () => _openFinanceTab(FinanceTab.networth),
-                  PrivacyMaskItem.totalLiabilities,
-                ),
-                (
-                  const Key('home-split-overview'),
-                  loc.homeSplitOverview,
-                  () => _openFinanceTab(FinanceTab.split),
-                  null,
-                ),
-              ])
-                if (entry.$4 case final item?)
-                  _maskableTile(
-                    tileKey: entry.$1,
-                    loc: loc,
-                    item: item,
-                    label: entry.$2,
-                    value: loc.homeNoData,
-                    onTap: entry.$3,
-                  )
-                else
-                  _SnapshotTile(
-                    tileKey: entry.$1,
-                    label: entry.$2,
-                    value: loc.homeNoData,
-                    onTap: entry.$3,
-                  ),
-            ],
-          ),
-        ],
-      );
+      return _dashboardTiles(loc, const HomeDashboardData.allLoading());
     }
-    // Both placeholders are gated on `data == null`, i.e. on there being
+    // Both fallbacks below are gated on `data == null`, i.e. on there being
     // nothing to show — never on the status alone. A pull-to-refresh sets
     // `loading` and then possibly `error` with the previous figures still
     // held, and swapping the whole dashboard for a spinner (which also
     // shrinks the scrollable under the user's finger mid-gesture) or for the
     // "couldn't load" card would throw away data that is still perfectly
-    // displayable. A failed reload keeps the figures and marks them stale
-    // below instead.
+    // displayable. A failed reload keeps the figures, marks the arms that
+    // failed on their own tiles, and marks the page stale below.
+    //
+    // `data == null` after a round now means all seven arms failed with
+    // nothing to fall back on — total failure, which is the one case the
+    // single whole-dashboard card with a single retry was always right for.
     final data = dashboard.data;
     if (data == null) {
       if (dashboard.status == HomeDashboardStatus.idle ||
@@ -671,6 +689,31 @@ class _HomeScreenState extends State<HomeScreen> {
         onRetry: _refreshDashboard,
       );
     }
+    return _dashboardTiles(loc, data);
+  }
+
+  /// The eight tiles, for any [data] — including the all-loading placeholder.
+  ///
+  /// Each tile is handed the slot of the arm that feeds it, so "this figure"
+  /// and "how that figure's request went" arrive together and cannot disagree.
+  /// 淨值 and 總負債 share `netWorth`: one request answers both, so they fail
+  /// and retry together.
+  ///
+  /// The `loc.homeNoData` fallbacks below are still evaluated for a slot with
+  /// no value — that is the cold-failure case — but never *painted* in it:
+  /// `_SnapshotTile._valueArea` swaps the whole value area for the status
+  /// line whenever `hasValue` is false, which is what stops a failed fetch
+  /// from reading as an empty record. Do not "simplify" them into `!`: for
+  /// the non-nullable arms (`netWorth`, `menstrualStatus`, `splitBalances`,
+  /// `dailyTarget`) the value really is null while nothing has been fetched,
+  /// and the unwrap would throw on exactly the state this change is about.
+  Widget _dashboardTiles(AppLocalizations loc, HomeDashboardData data) {
+    final weightKg = data.weightGoal.value?.currentWeightKg;
+    final bloodPressure = data.bloodPressure.value;
+    final menstrualStatus = data.menstrualStatus.value;
+    final overallBudget = data.overallBudget.value;
+    final netWorth = data.netWorth.value;
+    final splitBalances = data.splitBalances.value;
     return Column(
       children: [
         _DashboardSection(
@@ -681,32 +724,40 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpen: _openHealth,
           twoColumnMinWidth: _sectionTwoColumnMinWidth,
           children: [
-            _maskableTile(
-              tileKey: const Key('home-latest-weight'),
+            _snapshotTile(
+              tileId: 'home-latest-weight',
               loc: loc,
-              item: PrivacyMaskItem.latestWeight,
+              arm: DashboardArm.weightGoal,
+              slot: data.weightGoal,
+              maskItem: PrivacyMaskItem.latestWeight,
               label: loc.homeLatestWeight,
-              value: data.weightGoal.currentWeightKg == null
+              value: weightKg == null
                   ? loc.homeNoData
-                  : loc.homeWeightValue(
-                      _compactNumber(data.weightGoal.currentWeightKg!),
-                    ),
+                  : loc.homeWeightValue(_compactNumber(weightKg)),
               onTap: _openVitals,
             ),
             _foodPortionTile(loc, data.dailyTarget),
-            _SnapshotTile(
-              tileKey: const Key('home-latest-blood-pressure'),
+            _snapshotTile(
+              tileId: 'home-latest-blood-pressure',
+              loc: loc,
+              arm: DashboardArm.vitals,
+              slot: data.bloodPressure,
               label: loc.homeLatestBloodPressure,
-              value: data.bloodPressure == null
+              value: bloodPressure == null
                   ? loc.homeNoData
-                  : '${_compactNumber(data.bloodPressure!.systolic)} / '
-                        '${_compactNumber(data.bloodPressure!.diastolic)}',
+                  : '${_compactNumber(bloodPressure.systolic)} / '
+                        '${_compactNumber(bloodPressure.diastolic)}',
               onTap: _openVitals,
             ),
-            _SnapshotTile(
-              tileKey: const Key('home-menstrual-prediction'),
+            _snapshotTile(
+              tileId: 'home-menstrual-prediction',
+              loc: loc,
+              arm: DashboardArm.menstrual,
+              slot: data.menstrualStatus,
               label: loc.homeMenstrualPrediction,
-              value: _menstrualValue(context, loc, data.menstrualStatus),
+              value: menstrualStatus == null
+                  ? loc.homeNoData
+                  : _menstrualValue(context, loc, menstrualStatus),
               onTap: _openMenstrual,
             ),
           ],
@@ -720,47 +771,62 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpen: _openFinance,
           twoColumnMinWidth: _sectionTwoColumnMinWidth,
           children: [
-            _maskableTile(
-              tileKey: const Key('home-budget'),
+            _snapshotTile(
+              tileId: 'home-budget',
               loc: loc,
-              item: PrivacyMaskItem.budget,
+              arm: DashboardArm.budgets,
+              slot: data.overallBudget,
+              maskItem: PrivacyMaskItem.budget,
               label: loc.homeBudget,
-              value: data.overallBudget == null
+              value: overallBudget == null
                   ? loc.homeNoData
                   : loc.homeBudgetRemaining(
                       formatMinorUnitsForDisplay(
-                        data.overallBudget!.remaining,
+                        overallBudget.remaining,
                         defaultCurrency,
                       ),
                     ),
               onTap: _openFinance,
             ),
-            _maskableTile(
-              tileKey: const Key('home-net-worth'),
+            _snapshotTile(
+              tileId: 'home-net-worth',
               loc: loc,
-              item: PrivacyMaskItem.netWorth,
+              arm: DashboardArm.netWorth,
+              slot: data.netWorth,
+              maskItem: PrivacyMaskItem.netWorth,
               label: loc.homeNetWorth,
-              value: formatNetMinorUnitsForDisplay(
-                data.netWorth.netWorth,
-                defaultCurrency,
-              ),
+              value: netWorth == null
+                  ? loc.homeNoData
+                  : formatNetMinorUnitsForDisplay(
+                      netWorth.netWorth,
+                      defaultCurrency,
+                    ),
               onTap: () => _openFinanceTab(FinanceTab.networth),
             ),
-            _maskableTile(
-              tileKey: const Key('home-total-liabilities'),
+            _snapshotTile(
+              tileId: 'home-total-liabilities',
               loc: loc,
-              item: PrivacyMaskItem.totalLiabilities,
+              arm: DashboardArm.netWorth,
+              slot: data.netWorth,
+              maskItem: PrivacyMaskItem.totalLiabilities,
               label: loc.homeTotalLiabilities,
-              value: formatMinorUnitsForDisplay(
-                data.netWorth.totalLiability,
-                defaultCurrency,
-              ),
+              value: netWorth == null
+                  ? loc.homeNoData
+                  : formatMinorUnitsForDisplay(
+                      netWorth.totalLiability,
+                      defaultCurrency,
+                    ),
               onTap: () => _openFinanceTab(FinanceTab.networth),
             ),
-            _SnapshotTile(
-              tileKey: const Key('home-split-overview'),
+            _snapshotTile(
+              tileId: 'home-split-overview',
+              loc: loc,
+              arm: DashboardArm.balances,
+              slot: data.splitBalances,
               label: loc.homeSplitOverview,
-              value: _splitValue(loc, data),
+              value: splitBalances == null
+                  ? loc.homeNoData
+                  : _splitValue(loc, splitBalances),
               onTap: () => _openFinanceTab(FinanceTab.split),
             ),
           ],
@@ -873,10 +939,10 @@ String _menstrualValue(
   }
 }
 
-String _splitValue(AppLocalizations loc, HomeDashboardData data) {
+String _splitValue(AppLocalizations loc, List<Balance> splitBalances) {
   var receivable = 0;
   var payable = 0;
-  for (final person in data.splitBalances) {
+  for (final person in splitBalances) {
     for (final balance in person.balances) {
       if (balance.currency != defaultCurrency) continue;
       if (balance.amount > 0) receivable += balance.amount;
@@ -1027,12 +1093,32 @@ class _SnapshotTile extends StatelessWidget {
   final bool isHidden;
   final VoidCallback? onToggleMask;
 
+  /// How the request behind **this tile's** figure went.
+  ///
+  /// [ArmStatus.failed] is never rendered as [value]: a failed fetch that
+  /// paints the same 無資料 as an empty record is the bug this whole state
+  /// exists to remove.
+  final ArmStatus armStatus;
+
+  /// Whether [value] is a real figure. False while nothing has been fetched
+  /// yet and after a failure with nothing to fall back on — the two cases
+  /// where the value area is replaced rather than annotated.
+  final bool hasValue;
+
+  /// Refetches this tile's arm alone. `null` where no reload is possible at
+  /// all, and then no retry affordance is drawn.
+  final VoidCallback? onRetry;
+  final Key? retryKey;
+
   /// Already-localized strings. The tile never looks up [AppLocalizations]
   /// itself, matching every other string it is handed.
   final String maskedValue;
   final String hiddenSemanticLabel;
   final String hideLabel;
   final String showLabel;
+  final String loadFailedLabel;
+  final String retryLabel;
+  final String refreshingLabel;
 
   const _SnapshotTile({
     required this.tileKey,
@@ -1052,6 +1138,13 @@ class _SnapshotTile extends StatelessWidget {
     this.hiddenSemanticLabel = '',
     this.hideLabel = '',
     this.showLabel = '',
+    this.armStatus = ArmStatus.loaded,
+    this.hasValue = true,
+    this.onRetry,
+    this.retryKey,
+    this.loadFailedLabel = '',
+    this.retryLabel = '',
+    this.refreshingLabel = '',
   });
 
   @override
@@ -1125,42 +1218,248 @@ class _SnapshotTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            if (isHidden)
-              // A screen reader hears "Hidden", not four bullet characters
-              // read out one by one — and, more importantly, never the figure
-              // itself, which is still in the widget tree of a naive
-              // implementation that only repaints.
-              Semantics(
-                label: hiddenSemanticLabel,
-                child: ExcludeSemantics(
-                  child: _tileValue(context, theme, maskedValue),
-                ),
-              )
-            else if (valueSemanticLabel != null)
-              // Deliberately the same shape as the masked branch above: what
-              // is painted may be a shortened rendering, so assistive tech is
-              // handed the whole figure instead of whichever candidate fit.
-              Semantics(
-                label: valueSemanticLabel,
-                child: ExcludeSemantics(
-                  child: _tileValue(
-                    context,
-                    theme,
-                    value ?? '',
-                    shorterText: shorterValue,
-                  ),
-                ),
-              )
-            else
-              _tileValue(
-                context,
-                theme,
-                value ?? '',
-                shorterText: shorterValue,
-              ),
+            _valueArea(context, theme),
           ],
         ),
       ),
+    );
+  }
+
+  /// The bottom half of the tile: the figure, or — when this tile's own
+  /// request is in flight or failed with nothing to show — what happened to
+  /// it instead, plus the retry that refetches this arm alone.
+  ///
+  /// The empty [Text] leading the row is a **line-height pin**, not a stray
+  /// widget: everything else here sits under a `BoxFit.scaleDown` `FittedBox`
+  /// and so is painted *shorter* the more it has to shrink, which would make
+  /// a tile change height between loaded / loading / failed — and this repo's
+  /// record is that a page that grows or shrinks under the user is how a tap
+  /// silently lands on the wrong thing. Pinned to one line of the value's own
+  /// style, the row is the same height in all three states at every text
+  /// scale.
+  ///
+  /// No `CircularProgressIndicator` anywhere in here, deliberately: an
+  /// animation that never settles turns every `pumpAndSettle` on a screen
+  /// holding one of these tiles into a hang, and eight of them ship in the
+  /// placeholder branch. The page-level spinner (app bar, pull-to-refresh)
+  /// stays where it is.
+  Widget _valueArea(BuildContext context, ThemeData theme) {
+    final showFigure = armStatus == ArmStatus.loaded || hasValue;
+    final marker = showFigure ? _valueMarker(context, theme) : null;
+    return Row(
+      children: [
+        ExcludeSemantics(child: Text('', style: theme.textTheme.titleMedium)),
+        Flexible(
+          child: showFigure
+              ? _figure(context, theme)
+              : _statusLine(
+                  theme,
+                  armStatus == ArmStatus.failed
+                      ? loadFailedLabel
+                      : refreshingLabel,
+                  failed: armStatus == ArmStatus.failed,
+                ),
+        ),
+        if (marker != null) marker,
+      ],
+    );
+  }
+
+  Widget _figure(BuildContext context, ThemeData theme) {
+    if (isHidden) {
+      // A screen reader hears "Hidden", not four bullet characters read out
+      // one by one — and, more importantly, never the figure itself, which is
+      // still in the widget tree of a naive implementation that only
+      // repaints.
+      return Semantics(
+        label: hiddenSemanticLabel,
+        child: ExcludeSemantics(
+          child: _tileValue(context, theme, maskedValue),
+        ),
+      );
+    }
+    if (valueSemanticLabel != null) {
+      // Deliberately the same shape as the masked branch above: what is
+      // painted may be a shortened rendering, so assistive tech is handed the
+      // whole figure instead of whichever candidate fit.
+      return Semantics(
+        label: valueSemanticLabel,
+        child: ExcludeSemantics(
+          child: _tileValue(
+            context,
+            theme,
+            value ?? '',
+            shorterText: shorterValue,
+          ),
+        ),
+      );
+    }
+    return _tileValue(context, theme, value ?? '', shorterText: shorterValue);
+  }
+
+  /// The small badge beside a figure that is on screen but *not* the result of
+  /// this tile's latest request — the whole point of keeping the figure at
+  /// all. Tappable only when failed **and** a reload is possible: while one is
+  /// in flight there is nothing to ask for again, and with [onRetry] `null`
+  /// there is nothing to ask at all. The reloading rendering comes only from a
+  /// single-arm retry: a page-wide round deliberately leaves every arm's
+  /// status alone (see `HomeDashboardController._load`), so a tile never shows
+  /// it during a refresh.
+  ///
+  /// Drawn whether or not it can be tapped. A stale figure with no marker is
+  /// pixel-identical to a fresh one, which is the "user reads the old number
+  /// as the current one" failure this state exists to prevent — losing the
+  /// *retry* because the screen has no token must not also lose the *notice*.
+  ///
+  /// Two things carry that notice, because one of them is nearly free and the
+  /// other is not:
+  ///
+  /// - `colorScheme.error`, not the `onSurfaceVariant` of the rest of the
+  ///   tile chrome. Colour costs no pixels, and a neutral 16px icon beside a
+  ///   full-strength figure is the weakest signal available. This is louder
+  ///   than the *colder* start failure in [_statusLine], on purpose — see the
+  ///   note there for why the more severe state is drawn the quieter one.
+  /// - The icon grows with the text scaler (capped at 1.5×, i.e. 16→24). At a
+  ///   fixed 16px the one cue separating stale from current gets *relatively
+  ///   smaller* exactly for the users who asked for larger text. The box
+  ///   below shares that cap, so the two grow together.
+  ///
+  /// 32 wide × 24 tall **at 1×**, not the 44×44 a primary control (the privacy
+  /// eye, and `home_screen_responsive_test.dart`'s R3 guard) gets — a
+  /// deliberate deviation. The width stays fixed (R3b pins it, and 320dp has
+  /// no horizontal room to gamble with); the height rides the text scaler on
+  /// the same 1.5× cap as the icon inside it.
+  ///
+  /// What makes growing the height safe is a *ratio*, not the constant 24.
+  /// What sets a tile's height is the empty `Text(style: titleMedium)` in
+  /// [_valueArea], and that line box grows with the text scaler itself, so the
+  /// marker can ride along without ever becoming the tallest thing in the row.
+  /// Measured by forcing an oversized marker and reading the tile back (test
+  /// font, so these are placeholder-font numbers): the row is **26** at 1× and
+  /// **48** at 2×, against a marker of 24 and 36 — 2px and 12px of headroom.
+  /// A marker pinned to a constant instead would shrink *relative* to the row
+  /// exactly for the users who asked for larger text, which is the same reason
+  /// the icon inside it scales.
+  ///
+  /// That 2px at 1× is why this is a ratio to preserve and not slack to
+  /// spend, and it has been overspent once already: a flat 28 was measured
+  /// pushing a tile from 110 to 112, i.e. making a failed tile taller than the
+  /// same tile loaded — the height-change false green this value area exists
+  /// to avoid.
+  ///
+  /// Do not lean on the equal-height guards in
+  /// `home_screen_responsive_test.dart` to catch a regression here. Dropping
+  /// the 1.5× cap makes this 48 at 2×, which is *exactly* the row height, so
+  /// the tile does not move and those guards stay green — 49 is the first
+  /// value that reds them. R3c asserts the marker's size directly, which is
+  /// the reason it exists.
+  ///
+  /// A full-size retry stays available for the whole dashboard (`StaleNotice`,
+  /// the app bar), so what this smaller target costs is convenience on one
+  /// arm, not the ability to reload.
+  Widget? _valueMarker(BuildContext context, ThemeData theme) {
+    if (armStatus == ArmStatus.loaded) return null;
+    final failed = armStatus == ArmStatus.failed;
+    final tappable = failed && onRetry != null;
+    return Semantics(
+      container: true,
+      button: tappable,
+      enabled: tappable,
+      // Named after the tile: eight tiles failing at once otherwise offer a
+      // screen-reader user eight identically labelled "Retry" buttons with
+      // nothing to tell them apart. Same composition as `StaleNotice`, whose
+      // vocabulary this reuses rather than inventing a second one. The retry
+      // half is dropped when there is nothing to press, rather than promising
+      // an action that is not there.
+      label: failed
+          ? (tappable
+                ? '$label: $loadFailedLabel. $retryLabel'
+                : '$label: $loadFailedLabel')
+          : '$label: $refreshingLabel',
+      onTap: tappable ? onRetry : null,
+      // The tile is itself an `InkWell` that navigates: without this the
+      // marker's node merges into it and the reader is offered one node that
+      // does two different things.
+      excludeSemantics: true,
+      // The only words a *sighted* user can get out of this state. The cold
+      // start failure below is an icon **plus** "Couldn't load"; here the same
+      // condition is an icon alone, so a user who has only ever hit the
+      // partial case never meets the sentence that teaches the icon.
+      //
+      // Known gap, not a fix: Flutter shows this on hover, and on touch only
+      // on long-press. On a 32-wide target that reads as "tap to retry",
+      // long-press discovery is ~0 — so on phones this buys nothing on its
+      // own, and the tap path is answered by the SnackBar in
+      // `_HomeScreenState._retryArm` instead. Inside `excludeSemantics` on
+      // purpose: the hand-written label above already says this, and letting
+      // `Tooltip` add its own would say it twice.
+      child: Tooltip(
+        message: failed ? loadFailedLabel : refreshingLabel,
+        child: InkWell(
+          key: retryKey,
+          onTap: tappable ? onRetry : null,
+          child: SizedBox(
+            width: 32,
+            height: MediaQuery.textScalerOf(
+              context,
+            ).clamp(maxScaleFactor: 1.5).scale(24),
+            child: Icon(
+              failed ? Icons.cloud_off_outlined : Icons.sync,
+              size: MediaQuery.textScalerOf(
+                context,
+              ).clamp(maxScaleFactor: 1.5).scale(16),
+              color: failed
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// What a tile with no figure at all says instead of one. When it says the
+  /// request failed, the line **is** the retry — there is nothing else in the
+  /// value area to compete with the tap.
+  ///
+  /// This icon is drawn `onSurfaceVariant` while [_valueMarker], the *more*
+  /// serious state, is drawn `colorScheme.error`. Painting the worse state
+  /// quieter is deliberate: this line **has words**, so colour has nothing
+  /// left to say; the marker is **an icon alone**, so colour is the entire
+  /// signal. The rule is to spend colour where text does not fit. Both were
+  /// measured against their backgrounds (5.07–6.22:1, AA).
+  Widget _statusLine(ThemeData theme, String text, {required bool failed}) {
+    final line = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            failed ? Icons.cloud_off_outlined : Icons.hourglass_empty,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            maxLines: 1,
+            softWrap: false,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!failed || onRetry == null) return line;
+    return Semantics(
+      container: true,
+      button: true,
+      label: '$label: $loadFailedLabel. $retryLabel',
+      onTap: onRetry,
+      excludeSemantics: true,
+      child: InkWell(key: retryKey, onTap: onRetry, child: line),
     );
   }
 
@@ -1216,7 +1515,16 @@ class _SnapshotTile extends StatelessWidget {
     String text, {
     String? shorterText,
   }) {
-    final style = theme.textTheme.titleMedium;
+    // A figure left over from an earlier request is printed in the muted ink
+    // the rest of the tile chrome uses, not the full-strength `onSurface` a
+    // current one gets. The marker beside it is 24 logical pixels at most;
+    // the figure is the whole width of the tile, so it is the larger half of
+    // "this number is not the answer to the request you are looking at".
+    final style = armStatus == ArmStatus.loaded
+        ? theme.textTheme.titleMedium
+        : theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          );
     if (shorterText == null) return _fittedValue(text, style);
     return LayoutBuilder(
       builder: (context, constraints) => _fittedValue(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -873,24 +874,20 @@ void main() {
     ) async {
       final dashboard = loadedDashboardFixture();
       final data = dashboard.data!;
-      dashboard.data = HomeDashboardData(
-        weightGoal: data.weightGoal,
-        bloodPressure: data.bloodPressure,
-        menstrualStatus: data.menstrualStatus,
-        overallBudget: data.overallBudget,
+      dashboard.data = data.copyWith(
         // Six digits on purpose: only a digit count divisible by three catches
         // a negative fed straight into formatMinorUnitsForDisplay ("-,356,700").
-        netWorth: const MonthlyNetWorth(
-          month: '2026-01',
-          accounts: [],
-          totalAsset: 100000,
-          totalLiability: 456700,
-          netWorth: -356700,
-          prevNetWorth: null,
-          growthRate: null,
+        netWorth: const ArmSlot.loaded(
+          MonthlyNetWorth(
+            month: '2026-01',
+            accounts: [],
+            totalAsset: 100000,
+            totalLiability: 456700,
+            netWorth: -356700,
+            prevNetWorth: null,
+            growthRate: null,
+          ),
         ),
-        splitBalances: data.splitBalances,
-        dailyTarget: data.dailyTarget,
       );
 
       await pumpHomeScreen(
@@ -934,18 +931,14 @@ void main() {
     HomeDashboardController dashboardExpecting(DateTime predicted) {
       final dashboard = loadedDashboardFixture();
       final data = dashboard.data!;
-      dashboard.data = HomeDashboardData(
-        weightGoal: data.weightGoal,
-        bloodPressure: data.bloodPressure,
-        menstrualStatus: NextPeriodStatus(
-          state: NextPeriodState.upcoming,
-          days: 5,
-          predictedNextStart: predicted,
+      dashboard.data = data.copyWith(
+        menstrualStatus: ArmSlot.loaded(
+          NextPeriodStatus(
+            state: NextPeriodState.upcoming,
+            days: 5,
+            predictedNextStart: predicted,
+          ),
         ),
-        overallBudget: data.overallBudget,
-        netWorth: data.netWorth,
-        splitBalances: data.splitBalances,
-        dailyTarget: data.dailyTarget,
       );
       return dashboard;
     }
@@ -991,15 +984,18 @@ void main() {
     });
   });
 
-  // ---------------------------------------------------- 食物份量 tile, no target
+  // ---------------------------------------------------- 食物份量 tile, arm failed
   //
-  // LINCHPIN: the daily-target arm is the one arm of the loaded-dashboard
-  // fan-out allowed to fail on its own (`HomeDashboardData.dailyTarget` is
-  // nullable). `_foodPortionTile`'s doc comment asserts an exact degraded
-  // shape for that case — 無資料, no `shorterValue`, no `valueSemanticLabel`
-  // — but nothing joined that doc to a fixture that actually loads with
-  // `dailyTarget: null`, so the branch had zero coverage: mutating its
-  // ternary left the whole suite green.
+  // LINCHPIN, and it used to assert the bug. The daily-target arm swallowed
+  // its own error into `dailyTarget: null`, and this group pinned the result:
+  // the tile printed `homeNoData` — the identical string an empty record
+  // prints. That is exactly the confusion the ArmSlot model removes, so the
+  // assertion is INVERTED here on purpose: a failed arm must read as failed.
+  // If this ever goes back to expecting `homeNoData`, the bug is back.
+  //
+  // The backend always answers with a default target, so this tile has no
+  // "no data" rendering at all any more — every blank it could ever show was
+  // a failed request.
   group('the 食物份量 tile when the daily-target arm failed', () {
     Future<HomeController> loadedController() async {
       final profileRepository = FakeProfileRepository()
@@ -1019,58 +1015,72 @@ void main() {
       return controller;
     }
 
-    HomeDashboardController dashboardWithNoTarget() {
+    /// A cold failure of the target arm: it failed and this session never had
+    /// a figure for it, so there is nothing to keep on screen.
+    HomeDashboardController dashboardWithFailedTarget() {
       final dashboard = loadedDashboardFixture();
-      final data = dashboard.data!;
-      dashboard.data = HomeDashboardData(
-        weightGoal: data.weightGoal,
-        bloodPressure: data.bloodPressure,
-        menstrualStatus: data.menstrualStatus,
-        overallBudget: data.overallBudget,
-        netWorth: data.netWorth,
-        splitBalances: data.splitBalances,
-        dailyTarget: null,
+      dashboard.data = dashboard.data!.copyWith(
+        dailyTarget: ArmSlot.failedAfter(
+          const ArmSlot<DailyTargetWithRemaining>.loading(),
+        ),
       );
       return dashboard;
     }
 
     testWidgets(
-      'shows the no-data placeholder instead of the effective figure',
+      'says the tile failed to load — NOT the 無資料 an empty record prints',
       (tester) async {
         final loc = lookupAppLocalizations(const Locale('en'));
 
         await pumpHomeScreen(
           tester,
           await loadedController(),
-          dashboardController: dashboardWithNoTarget(),
+          dashboardController: dashboardWithFailedTarget(),
         );
 
-        // None of testDailyTarget's effective figures (10 staple, 7 meat)
-        // leak through — only the shared placeholder does.
+        final tile = find.byKey(const Key('home-food-dictionary'));
         expect(
-          find.descendant(
-            of: find.byKey(const Key('home-food-dictionary')),
-            matching: find.text(loc.homeNoData),
-          ),
+          find.descendant(of: tile, matching: find.text(loc.homeTileLoadFailed)),
           findsOneWidget,
         );
+        // The pair, not just the line above: a failure rendering that ALSO
+        // printed 無資料 would be just as indistinguishable as the bug was.
+        expect(
+          find.descendant(of: tile, matching: find.text(loc.homeNoData)),
+          findsNothing,
+        );
+        // None of testDailyTarget's effective figures (10 staple, 7 meat)
+        // leak through either.
         expect(find.textContaining('10主'), findsNothing);
         expect(find.textContaining('10S'), findsNothing);
 
-        // No `valueSemanticLabel`: the placeholder speaks for itself, so
-        // nothing announces the (nonexistent) full figure.
-        expect(
-          find.bySemanticsLabel(RegExp('staple 10')),
-          findsNothing,
-        );
+        // No `valueSemanticLabel`: nothing announces the (nonexistent) full
+        // figure.
+        expect(find.bySemanticsLabel(RegExp('staple 10')), findsNothing);
       },
     );
+
+    testWidgets('no other tile is marked failed by it', (tester) async {
+      final loc = lookupAppLocalizations(const Locale('en'));
+
+      await pumpHomeScreen(
+        tester,
+        await loadedController(),
+        dashboardController: dashboardWithFailedTarget(),
+      );
+
+      // The seven other tiles still print their figures — the whole point of
+      // per-arm failure — so the failure copy appears exactly once.
+      expect(find.text(loc.homeTileLoadFailed), findsOneWidget);
+      expect(find.text('530,900'), findsOneWidget);
+      expect(find.text(loc.homeWeightValue('62.5')), findsOneWidget);
+    });
 
     testWidgets('still routes to the food dictionary on tap', (tester) async {
       await pumpHomeScreen(
         tester,
         await loadedController(),
-        dashboardController: dashboardWithNoTarget(),
+        dashboardController: dashboardWithFailedTarget(),
       );
 
       expect(find.text('DIET-DICTIONARY-ROUTE'), findsNothing);
@@ -1517,8 +1527,16 @@ void main() {
         await indicator(tester).onRefresh();
         await tester.pumpAndSettle();
 
+        // Scoped to the notice row: every snapshot tile now carries its own
+        // cloud_off retry marker, and after a whole-round failure all eight
+        // of them are on screen beside this one.
         final noticeLeft = tester
-            .getTopLeft(find.byIcon(Icons.cloud_off_outlined))
+            .getTopLeft(
+              find.descendant(
+                of: find.byKey(const Key('stale-notice-row')),
+                matching: find.byIcon(Icons.cloud_off_outlined),
+              ),
+            )
             .dx;
         final greetingLeft = tester
             .getTopLeft(find.byKey(const Key('home-greeting')))
@@ -1637,7 +1655,463 @@ void main() {
         expect(announced, [loc.cardRefreshFailed]);
       },
     );
+
+    testWidgets(
+      'LINCHPIN: a round that lands six figures and loses one announces '
+      'exactly that — not the unqualified failure the screen contradicts',
+      (tester) async {
+        final announced = _captureAnnouncements(tester);
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = dashboardFor(repos);
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        repos.failingArms.add('networth');
+        await indicator(tester).onRefresh();
+        await tester.pumpAndSettle();
+
+        expect(announced, [loc.homeRefreshPartial]);
+        // The pair is the point: announcing "couldn't refresh" here is the
+        // same lie in the audio channel that a failed tile painting 無資料
+        // was in the visual one, because the screen simultaneously shows a
+        // timestamp that moved.
+        expect(find.text(loc.lastUpdatedAt('11:45')), findsOneWidget);
+        expect(announced, isNot(contains(loc.cardRefreshFailed)));
+      },
+    );
   });
+
+  // ---------------------------------------------------- per-tile retry
+  //
+  // Drives the real fan-out through `FakeDashboardRepositories`, because what
+  // is under test is which REQUEST a press makes — countable only per arm.
+  group('a snapshot tile whose own arm failed', () {
+    final loc = lookupAppLocalizations(const Locale('en'));
+
+    Future<HomeController> loadedController() async {
+      final profileRepository = FakeProfileRepository()
+        ..profileToReturn = UserProfile(
+          id: 'user-1',
+          firebaseUid: 'firebase-abc',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          isAdmin: false,
+        );
+      final controller = HomeController(
+        GetProfile(profileRepository),
+        SignOut(FakeAuthRepository()),
+      );
+      await controller.load('token-123');
+      return controller;
+    }
+
+    HomeDashboardController dashboardFor(FakeDashboardRepositories repos) =>
+        HomeDashboardController(
+          GetWeightGoal(repos),
+          GetVitalsTrends(repos),
+          GetMenstrualOverview(repos),
+          ListFinanceBudgets(repos),
+          GetMonthlyNetWorth(repos),
+          GetBalances(repos),
+          GetDailyTargetWithRemaining(repos),
+        );
+
+    /// A dashboard whose net-worth arm is down: [afterASuccess] chooses
+    /// between the two renderings — a stale figure with a marker beside it,
+    /// and a cold failure with no figure at all.
+    Future<HomeDashboardController> netWorthDown(
+      FakeDashboardRepositories repos, {
+      required bool afterASuccess,
+    }) async {
+      final dashboard = dashboardFor(repos);
+      if (afterASuccess) {
+        await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 0));
+      }
+      repos.failingArms.add('networth');
+      await dashboard.load('token-1', DateTime(2026, 1, 1, 9, 30));
+      return dashboard;
+    }
+
+    testWidgets(
+      'LINCHPIN: a real tap at the retry marker\'s own coordinates refetches '
+      'that ONE arm — and does not navigate instead',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: false);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        final before = Map<String, int>.from(repos.calls);
+
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        expect(marker, findsOneWidget);
+        // The finance section sits below the fold on the default test
+        // surface, and a coordinate tap outside the viewport hits nothing at
+        // all — which would make the assertions below fail for a reason that
+        // has nothing to do with the marker.
+        await tester.ensureVisible(marker);
+        await tester.pumpAndSettle();
+        // `tapAt(getCenter(...))`, not `tap(marker)`: this repo's documented
+        // false green is a page that grew and a tap that silently lands on
+        // something else, and only a coordinate tap can see that.
+        await tester.tapAt(tester.getCenter(marker));
+        await tester.pumpAndSettle();
+
+        expect(repos.calls['networth'], before['networth']! + 1);
+        for (final arm in const [
+          'weightGoal',
+          'vitals',
+          'menstrual',
+          'budgets',
+          'balances',
+          'target',
+        ]) {
+          expect(repos.calls[arm], before[arm], reason: arm);
+        }
+        // The tile itself is an InkWell that opens finance. If the press had
+        // fallen through to it, the counts above could still be right for a
+        // reason that has nothing to do with the marker.
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a stale figure stays on screen with a marker beside it, rather than '
+      'being blanked',
+      (tester) async {
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        // The figure from the earlier successful round is still painted...
+        expect(find.text('530,900'), findsOneWidget);
+        // ...and the tile carries its own retry marker to say so.
+        expect(find.byKey(const Key('home-net-worth-retry')), findsOneWidget);
+        final before = Map<String, int>.from(repos.calls);
+
+        await tester.ensureVisible(find.byKey(const Key('home-net-worth-retry')));
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          tester.getCenter(find.byKey(const Key('home-net-worth-retry'))),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repos.calls['networth'], before['networth']! + 1);
+        expect(find.text('FINANCE-ROUTE'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: the retry reaches the platform semantics tree as a button '
+      'with a real rect, and its semantic tap refetches that one arm',
+      (tester) async {
+        // `ensureSemantics` + a walk of the LIVE tree: `getSemantics` and
+        // `bySemanticsLabel` read a cache, so neither can prove a node was
+        // ever handed to the platform — and a Semantics node with an empty
+        // rect is dropped before it gets there.
+        final handle = tester.ensureSemantics();
+
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: false);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        await tester.ensureVisible(find.byKey(const Key('home-net-worth-retry')));
+        await tester.pumpAndSettle();
+
+        // Deprecated in favour of `rootPipelineOwner`, which is NOT a
+        // substitute here: its own `semanticsOwner` is null (the owner lives
+        // on the child pipeline owner this getter still returns), so the
+        // replacement would make this guard throw rather than read the live
+        // tree.
+        // ignore: deprecated_member_use
+        final owner = tester.binding.pipelineOwner.semanticsOwner!;
+        final label =
+            '${loc.homeNetWorth}: ${loc.homeTileLoadFailed}. ${loc.retry}';
+        final node = _findSemanticsNode(owner.rootSemanticsNode!, label);
+        expect(node, isNotNull, reason: 'no live node labelled "$label"');
+        expect(node!.getSemanticsData().flagsCollection.isButton, isTrue);
+        expect(
+          node.rect.isEmpty,
+          isFalse,
+          reason: 'an empty-rect node never reaches the platform at all',
+        );
+        // Named after its own tile: eight failing tiles must not offer eight
+        // identical "Retry" buttons.
+        expect(node.label.startsWith(loc.homeNetWorth), isTrue);
+
+        final before = Map<String, int>.from(repos.calls);
+        owner.performAction(node.id, SemanticsAction.tap);
+        await tester.pumpAndSettle();
+
+        expect(repos.calls['networth'], before['networth']! + 1);
+        expect(repos.calls['weightGoal'], before['weightGoal']);
+        // Disposed here rather than in a tearDown: the framework's
+        // "handle still active" check runs BEFORE tearDowns.
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: with no token to reload with, a stale tile still SAYS it is '
+      'stale — only the retry goes, not the notice',
+      (tester) async {
+        // The user's own stated risk when choosing this design: mistaking a
+        // figure left over from an earlier request for the current one. A
+        // tile that drops its marker whenever no reload is possible is
+        // pixel-identical to a freshly loaded one, which is that risk with
+        // the one cue against it removed.
+        final handle = tester.ensureSemantics();
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          omitIdToken: true,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        expect(find.text('530,900'), findsOneWidget, reason: 'stale figure');
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        expect(marker, findsOneWidget, reason: 'the notice went with the retry');
+
+        await tester.ensureVisible(marker);
+        await tester.pumpAndSettle();
+        // ignore: deprecated_member_use
+        final owner = tester.binding.pipelineOwner.semanticsOwner!;
+        // The label drops its "Retry" half rather than promising an action
+        // that is not there — and still names the failure and the tile.
+        final node = _findSemanticsNode(
+          owner.rootSemanticsNode!,
+          '${loc.homeNetWorth}: ${loc.homeTileLoadFailed}',
+        );
+        expect(node, isNotNull, reason: 'no live node for the untappable marker');
+        expect(node!.getSemanticsData().flagsCollection.isButton, isFalse);
+        expect(
+          _findSemanticsNode(
+            owner.rootSemanticsNode!,
+            '${loc.homeNetWorth}: ${loc.homeTileLoadFailed}. ${loc.retry}',
+          ),
+          isNull,
+          reason: 'a retry was offered with nothing behind it',
+        );
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: a stale figure is painted in muted ink beside an '
+      'error-coloured marker whose icon grows with the text scale',
+      (tester) async {
+        // Both halves of the "is this number current?" cue, measured against
+        // the SAME tile loaded rather than against a hard-coded colour: what
+        // has to hold is that the two states differ, which is what a reader
+        // glancing at one tile can act on.
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final repos = FakeDashboardRepositories();
+        final loaded = dashboardFor(repos);
+        await loaded.load('token-1', DateTime(2026, 1, 1, 9, 0));
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: loaded,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        final freshColor = tester.widget<Text>(find.text('530,900')).style?.color;
+        expect(freshColor, isNotNull);
+
+        final stale = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: stale,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        await tester.ensureVisible(marker);
+        await tester.pumpAndSettle();
+
+        final scheme = Theme.of(tester.element(marker)).colorScheme;
+        final staleColor = tester.widget<Text>(find.text('530,900')).style?.color;
+        expect(staleColor, isNot(freshColor));
+        expect(staleColor, scheme.onSurfaceVariant);
+
+        final icon = tester.widget<Icon>(
+          find.descendant(of: marker, matching: find.byType(Icon)),
+        );
+        // Not `onSurfaceVariant`: at that neutral the badge is the same ink
+        // as the tile chrome around it.
+        expect(icon.color, scheme.error);
+        // 16 at 1x, capped at 1.5x — a fixed 16 would make the one cue that
+        // separates stale from current relatively SMALLER for the users who
+        // asked for larger text, and anything past the cap would push the
+        // failed tile taller than the loaded one.
+        expect(icon.size, 24.0);
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: a retry says how it went — a second failure otherwise '
+      'repaints nothing at all',
+      (tester) async {
+        final announced = _captureAnnouncements(tester);
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        await tester.ensureVisible(marker);
+        await tester.pumpAndSettle();
+        expect(announced, isEmpty, reason: 'nothing was pressed yet');
+
+        await tester.tapAt(tester.getCenter(marker));
+        await tester.pumpAndSettle();
+        // Same figure, same marker, same label as before the press: without
+        // the announcement the press produces no observable outcome at all.
+        expect(announced, ['${loc.homeNetWorth}: ${loc.cardRefreshFailed}']);
+
+        repos.failingArms.remove('networth');
+        await tester.tapAt(tester.getCenter(marker));
+        await tester.pumpAndSettle();
+        expect(announced, [
+          '${loc.homeNetWorth}: ${loc.cardRefreshFailed}',
+          '${loc.homeNetWorth}: ${loc.homeTileRefreshed}',
+        ]);
+        // Named after the tile for the same reason the marker is: eight
+        // tiles can be failing, and "Couldn't refresh" alone does not say
+        // which one just answered.
+        expect(find.byKey(const Key('home-net-worth-retry')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'LINCHPIN: a retry says how it went to a user who cannot hear it '
+      'either — the visible half of the announcement above',
+      (tester) async {
+        // The sighted counterpart of the announcement test above, and the
+        // same reasoning: a retry that fails again repaints nothing, so
+        // without this the press has no observable outcome for a user who is
+        // not running a screen reader. Deliberately asserts BOTH branches —
+        // a fix that only speaks on failure would leave a successful retry
+        // of an already-stale figure looking identical to a lost press.
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        await tester.ensureVisible(marker);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(SnackBar),
+          findsNothing,
+          reason: 'nothing was pressed yet',
+        );
+
+        await tester.tapAt(tester.getCenter(marker));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('${loc.homeNetWorth}: ${loc.cardRefreshFailed}'),
+          findsOneWidget,
+        );
+
+        repos.failingArms.remove('networth');
+        await tester.tapAt(tester.getCenter(marker));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('${loc.homeNetWorth}: ${loc.homeTileRefreshed}'),
+          findsOneWidget,
+        );
+        // Replaced, not stacked: seven markers pressed in a row must not
+        // bury the page under seven overlapping bars.
+        expect(
+          find.text('${loc.homeNetWorth}: ${loc.cardRefreshFailed}'),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'the marker carries its meaning in words for a pointer user — the icon '
+      'alone is the only thing this state paints',
+      (tester) async {
+        // The cold-start failure is an icon PLUS "Couldn't load"; the stale
+        // rendering is the icon on its own, so a user who only ever meets
+        // the partial case never sees the sentence that teaches it.
+        //
+        // This covers hover only. On touch Flutter gates tooltips behind a
+        // long press, which on a 32-wide target reading as "tap to retry" is
+        // effectively undiscoverable — that path is answered by the SnackBar
+        // guard above, not by this.
+        final repos = FakeDashboardRepositories();
+        final dashboard = await netWorthDown(repos, afterASuccess: true);
+        await pumpHomeScreen(
+          tester,
+          await loadedController(),
+          dashboardController: dashboard,
+          clock: () => DateTime(2026, 1, 1, 11, 45),
+        );
+
+        final marker = find.byKey(const Key('home-net-worth-retry'));
+        expect(marker, findsOneWidget);
+        expect(
+          find.ancestor(
+            of: marker,
+            matching: find.byTooltip(loc.homeTileLoadFailed),
+          ),
+          findsOneWidget,
+          reason: 'the stale marker explains itself to a pointer user',
+        );
+      },
+    );
+  });
+}
+
+/// The first node in the LIVE semantics tree carrying [label], or `null`.
+SemanticsNode? _findSemanticsNode(SemanticsNode root, String label) {
+  SemanticsNode? found;
+  void visit(SemanticsNode node) {
+    if (node.label == label) {
+      found = node;
+      return;
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return found == null;
+    });
+  }
+
+  visit(root);
+  return found;
 }
 
 /// Collects what the screen sends to the platform's accessibility channel —
@@ -1704,7 +2178,7 @@ HomeDashboardController loadedDashboardFixture() {
       GetDailyTargetWithRemaining(unused),
     )
     ..status = HomeDashboardStatus.loaded
-    ..data = const HomeDashboardData(
+    ..data = HomeDashboardData.allLoaded(
       weightGoal: WeightGoal(currentWeightKg: 62.5),
       bloodPressure: null,
       menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),

@@ -498,6 +498,24 @@ abstract class AppLocalizations {
   /// **'No data yet'**
   String get homeNoData;
 
+  /// Shown in place of (or beside) one home snapshot tile's figure when that tile's own request failed. Deliberately NOT homeNoData: a failed fetch must not read as 'you have no record'.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this right now'**
+  String get homeTileLoadFailed;
+
+  /// Announced to assistive tech after one home snapshot tile's own retry succeeds, prefixed with that tile's name. Not the page-wide lastUpdatedAt: a single-tile retry deliberately does not move the dashboard's 'updated HH:mm'.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshed'**
+  String get homeTileRefreshed;
+
+  /// Announced after a whole-dashboard refresh that landed some figures and lost others. Neither cardRefreshFailed (the screen does show newer data) nor lastUpdatedAt (some tiles are stale) is true of that round.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshed, but some items couldn\'t load'**
+  String get homeRefreshPartial;
+
   /// Visual stand-in painted over a home snapshot figure the user chose to hide. Lives in the ARB so presentation code never hard-codes it; screen readers get homeValueHidden instead.
   ///
   /// In en, this message translates to:
