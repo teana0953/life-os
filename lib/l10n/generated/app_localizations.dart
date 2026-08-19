@@ -5541,7 +5541,19 @@ abstract class AppLocalizations {
   /// **'This period has records, but none of them match the current filters.'**
   String get careHistoryFilteredEmptyBody;
 
-  /// Fourth segment of the care history period selector (after 7/30/90 days), which opens a date range picker.
+  /// Label of the care history time-range control (and of its picker's rolling-span options) for a rolling span: 'Last 7 days'. Deliberately not the bare trendRange7/30/90 strings ('7 days'), which read as a fragment on a standalone control that has to say what the number means on its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Last {days} days'**
+  String careHistoryPeriodSpanLabel(int days);
+
+  /// Heading of the care history time-range picker sheet, opened from the period control.
+  ///
+  /// In en, this message translates to:
+  /// **'Time range'**
+  String get careHistoryPeriodPickerTitle;
+
+  /// Fourth row of the care history time-range picker sheet (after 7/30/90 days), which opens a date range picker.
   ///
   /// In en, this message translates to:
   /// **'Custom'**

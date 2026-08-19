@@ -803,6 +803,8 @@
   "careHistoryFilterClearButton": "清除篩選",
   "careHistoryFilteredEmptyTitle": "沒有符合的紀錄",
   "careHistoryFilteredEmptyBody": "這段期間有紀錄,但沒有符合目前篩選條件的。",
+  "careHistoryPeriodSpanLabel": "近 {days} 天",
+  "careHistoryPeriodPickerTitle": "時間範圍",
   "careHistoryPeriodCustom": "自訂",
   "careHistoryPeriodCustomLabel": "{from} – {to}",
   "careHistoryErrorForCustomRange": "無法載入 {from} – {to} 的紀錄,請再試一次。"
