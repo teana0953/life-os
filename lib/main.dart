@@ -93,7 +93,9 @@ import 'contexts/notifications/application/edit_care_slot.dart';
 import 'contexts/notifications/application/enable_reminders.dart';
 import 'contexts/notifications/application/get_care_history.dart';
 import 'contexts/notifications/application/send_test_push.dart';
+import 'contexts/notifications/domain/care_history_period.dart';
 import 'contexts/notifications/infrastructure/browser_web_push_gateway.dart';
+import 'contexts/notifications/infrastructure/care_history_filter_store.dart';
 import 'contexts/notifications/infrastructure/http_care_history_repository.dart';
 import 'contexts/notifications/infrastructure/http_care_repository.dart';
 import 'contexts/notifications/infrastructure/http_care_today_repository.dart';
@@ -371,7 +373,10 @@ Future<void> main() async {
     GetCareHistory(careHistoryRepository),
     EditCareSlot(careHistoryRepository),
     dataRevision,
-    spanDays: 30,
+    period: const CareHistoryPeriod.span(30),
+    // Only this instance persists its period: it is the one whose selector
+    // the user thinks of as "my" period.
+    filterStore: CareHistoryFilterStore(prefs),
   );
   // The trend tab's care adherence card gets its own controller instance
   // (design §B) — sharing the same (stateless) HttpCareHistoryRepository and
@@ -382,7 +387,10 @@ Future<void> main() async {
     GetCareHistory(careHistoryRepository),
     EditCareSlot(careHistoryRepository),
     dataRevision,
-    spanDays: 30,
+    period: const CareHistoryPeriod.span(30),
+    // Deliberately no filterStore: sharing one with the history screen would
+    // let the card's own period selector overwrite the screen's saved period
+    // (and restore the screen's on top of the card's 30-day default).
   );
 
   // Stateless only (design D9): `/friends`/`/invite` build their own

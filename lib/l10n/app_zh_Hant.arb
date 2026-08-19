@@ -894,5 +894,15 @@
   "assistantProposalSaved": "已記錄 ✓",
   "assistantProposalSaveFailed": "儲存失敗,請再試一次。",
   "assistantProposalCategoryNotFound": "找不到分類「{name}」,請先到記帳建立。",
-  "assistantProposalUnrenderable": "這個提議不完整,無法呈現。"
+  "assistantProposalUnrenderable": "這個提議不完整,無法呈現。",
+  "careHistoryFilterTitle": "篩選",
+  "careHistoryFilterItemLabel": "照護項目",
+  "careHistoryFilterAllItems": "全部項目",
+  "careHistoryFilterStatusLabel": "狀態",
+  "careHistoryFilterClearButton": "清除篩選",
+  "careHistoryFilteredEmptyTitle": "沒有符合的紀錄",
+  "careHistoryFilteredEmptyBody": "這段期間有紀錄,但沒有符合目前篩選條件的。",
+  "careHistoryPeriodCustom": "自訂",
+  "careHistoryPeriodCustomLabel": "{from} – {to}",
+  "careHistoryErrorForCustomRange": "無法載入 {from} – {to} 的紀錄,請再試一次。"
 }

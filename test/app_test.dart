@@ -75,6 +75,7 @@ import 'package:life_os/contexts/notifications/application/enable_reminders.dart
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/application/send_test_push.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/domain/push_repository.dart';
@@ -1468,7 +1469,7 @@ Future<LocaleController> pumpApp(
           GetCareHistory(repository),
           EditCareSlot(repository),
           resolvedDataRevision,
-          spanDays: 7,
+          period: const CareHistoryPeriod.span(7),
         );
       }();
   final resolvedCareAdherenceController =
@@ -1479,7 +1480,7 @@ Future<LocaleController> pumpApp(
           GetCareHistory(repository),
           EditCareSlot(repository),
           resolvedDataRevision,
-          spanDays: 30,
+          period: const CareHistoryPeriod.span(30),
         );
       }();
   await tester.pumpWidget(
@@ -2834,7 +2835,7 @@ void main() {
               GetCareHistory(careHistoryRepository),
               EditCareSlot(careHistoryRepository),
               dataRevision,
-              spanDays: spanDays,
+              period: CareHistoryPeriod.span(spanDays),
               clock: () => now,
             );
 

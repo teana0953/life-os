@@ -4,10 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/domain/care_history_filter.dart';
+import 'package:life_os/contexts/notifications/infrastructure/care_history_filter_store.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/shared/data_revision.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeCareHistoryRepository implements CareHistoryRepository {
   List<CareHistoryDay> days;
@@ -76,18 +80,33 @@ CareHistoryController _controller({
   int spanDays = 7,
   DateTime Function() clock = DateTime.now,
   DataRevision? dataRevision,
+  CareHistoryFilterStore? filterStore,
 }) {
   final repo = repository ?? _FakeCareHistoryRepository(days: const []);
   return CareHistoryController(
     GetCareHistory(repo),
     EditCareSlot(repo),
     dataRevision ?? DataRevision(),
-    spanDays: spanDays,
+    period: CareHistoryPeriod.span(spanDays),
+    filterStore: filterStore,
     clock: clock,
   );
 }
 
+CareTodaySlot _rehabSlot() => CareTodaySlot(
+  careItemId: 'care-2',
+  careScheduleId: 'sch-2',
+  category: CareCategory.rehab,
+  title: 'Walk',
+  timeOfDay: '18:00',
+  localDate: '2026-07-22',
+  status: CareTodayStatus.done,
+  doseQuantity: 1,
+);
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('CareHistoryController.load', () {
     test('uses the self-held spanDays and injected clock to compute the '
         'range (not a caller-supplied from/to)', () async {
@@ -975,6 +994,239 @@ void main() {
       );
 
       expect(dataRevision.revision, 0);
+    });
+  });
+
+  group('CareHistoryController.setFilter', () {
+    // LINCHPIN. The filter is a slice of what is already loaded; issuing a
+    // GET for it would both be wasted and re-open every out-of-order-response
+    // race the generation ticket exists to close.
+    test('narrows filteredDays without issuing any request', () async {
+      final repository = _FakeCareHistoryRepository(
+        days: [
+          CareHistoryDay(date: '2026-07-22', slots: [_slot(), _rehabSlot()]),
+        ],
+      );
+      final controller = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      await controller.load('token-123');
+      expect(repository.getRangeCalls, hasLength(1));
+
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.setFilter(
+        const CareHistoryFilter(categories: {CareCategory.rehab}),
+      );
+
+      expect(repository.getRangeCalls, hasLength(1));
+      expect(notifications, 1);
+      expect(controller.days.single.slots, hasLength(2));
+      expect(controller.filteredDays.single.slots.single.careItemId, 'care-2');
+    });
+
+    test('an untouched controller filters nothing', () async {
+      final repository = _FakeCareHistoryRepository(
+        days: [
+          CareHistoryDay(date: '2026-07-22', slots: [_slot(), _rehabSlot()]),
+        ],
+      );
+      final controller = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      await controller.load('token-123');
+
+      expect(controller.filter.isEmpty, isTrue);
+      expect(identical(controller.filteredDays, controller.days), isTrue);
+    });
+
+    // Two instances exist (this screen's and the trend card's) and only the
+    // filter's owner may be narrowed — a shared filter would silently change
+    // the numbers on the trend card.
+    test('does not leak into another controller instance', () async {
+      final repository = _FakeCareHistoryRepository(
+        days: [
+          CareHistoryDay(date: '2026-07-22', slots: [_slot(), _rehabSlot()]),
+        ],
+      );
+      final screenController = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      final cardController = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      await screenController.load('token-123');
+      await cardController.load('token-123');
+
+      screenController.setFilter(
+        const CareHistoryFilter(categories: {CareCategory.rehab}),
+      );
+
+      expect(cardController.filter.isEmpty, isTrue);
+      expect(cardController.filteredDays.single.slots, hasLength(2));
+    });
+  });
+
+  group('CareHistoryController.setPeriod', () {
+    test('a custom range is requested verbatim, not derived from the clock',
+        () async {
+      final repository = _FakeCareHistoryRepository(days: const []);
+      final controller = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      await controller.load('token-123');
+
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+
+      expect(
+        repository.getRangeCalls.last,
+        (from: '2026-03-01', to: '2026-05-20'),
+      );
+      expect(controller.spanDays, isNull);
+      expect(
+        controller.daysPeriod,
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+    });
+
+    // The edit-failure repair compares the period `days` describe against the
+    // selected one. Comparing periods by identity (or only by span length)
+    // would leave the list showing the previous period's records under a
+    // selector that already says the new one.
+    test('a failed edit during a switch to a custom range re-fetches that '
+        'range', () async {
+      final repository = _FakeCareHistoryRepository(
+        days: [
+          CareHistoryDay(date: '2026-07-22', slots: [_slot()]),
+        ],
+      )..editError = Exception('boom');
+      final controller = _controller(
+        repository: repository,
+        clock: () => DateTime(2026, 7, 22),
+      );
+      await controller.load('token-123');
+
+      final held = Completer<List<CareHistoryDay>>();
+      repository.getRangeOverrides.add(() => held.future);
+      final switching = controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+
+      await controller.edit(
+        'token-123',
+        careScheduleId: 'sch-1',
+        localDate: '2026-07-22',
+        timeOfDay: '08:00',
+        status: CareLogStatus.done,
+      );
+
+      held.complete(const []);
+      await switching;
+
+      expect(controller.editError, isNotNull);
+      expect(
+        controller.daysPeriod,
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+      expect(
+        repository.getRangeCalls.last,
+        (from: '2026-03-01', to: '2026-05-20'),
+      );
+    });
+  });
+
+  group('CareHistoryController period persistence', () {
+    test('restores the stored period at construction, over the passed default',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'care_history_period_span': 90,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final repository = _FakeCareHistoryRepository(days: const []);
+      final controller = _controller(
+        repository: repository,
+        spanDays: 30,
+        clock: () => DateTime(2026, 7, 22),
+        filterStore: CareHistoryFilterStore(prefs),
+      );
+
+      expect(controller.spanDays, 90);
+      await controller.load('token-123');
+      expect(
+        repository.getRangeCalls.single,
+        (from: '2026-04-24', to: '2026-07-22'),
+      );
+    });
+
+    test('persists a newly chosen period', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = CareHistoryFilterStore(prefs);
+      final controller = _controller(
+        spanDays: 30,
+        clock: () => DateTime(2026, 7, 22),
+        filterStore: store,
+      );
+
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+
+      expect(
+        store.readPeriod(),
+        const CareHistoryPeriod.custom('2026-03-01', '2026-05-20'),
+      );
+    });
+
+    // The trend card's instance is built without a store (main.dart) — if it
+    // shared one, its own period selector would overwrite the history
+    // screen's saved period behind the user's back.
+    test('a controller without a store writes no period preference',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _controller(
+        spanDays: 30,
+        clock: () => DateTime(2026, 7, 22),
+      );
+
+      await controller.setSpan('token-123', 90);
+
+      expect(prefs.getKeys(), isEmpty);
+      expect(CareHistoryFilterStore(prefs).readPeriod(), isNull);
+    });
+
+    // The filter is deliberately not persisted: a filter restored days later
+    // hides most of the list for a user who no longer remembers setting it.
+    test('the filter is never written to preferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _controller(
+        spanDays: 30,
+        clock: () => DateTime(2026, 7, 22),
+        filterStore: CareHistoryFilterStore(prefs),
+      );
+
+      controller.setFilter(
+        const CareHistoryFilter(
+          categories: {CareCategory.rehab},
+          statuses: {CareTodayStatus.missed},
+          careItemId: 'care-2',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(prefs.getKeys(), isEmpty);
     });
   });
 }

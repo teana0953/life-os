@@ -204,6 +204,11 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
         ],
       ),
       const SizedBox(height: 12),
+      // `period.lengthInDays`, not `spanDays`, in both places below: this
+      // card's controller instance is only ever given a rolling span (it has
+      // no custom-range picker and no persisted period), so the two are the
+      // same number here — but this one is non-null, which keeps the card
+      // free of a branch for a state it cannot reach.
       SegmentedButton<int>(
         key: const Key('care-adherence-range-selector'),
         showSelectedIcon: false,
@@ -212,7 +217,7 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
           ButtonSegment(value: 30, label: Text(loc.trendRange30)),
           ButtonSegment(value: 90, label: Text(loc.trendRange90)),
         ],
-        selected: {controller.spanDays},
+        selected: {controller.period.lengthInDays},
         onSelectionChanged: (selection) async =>
             controller.setSpan(await widget.idToken(), selection.first),
       ),
@@ -222,7 +227,7 @@ class _CareAdherenceCardState extends State<CareAdherenceCard> {
       return LedgeCard(
         padding: const EdgeInsets.all(20),
         child: CardErrorRetry(
-          message: loc.careErrorForPeriod(controller.spanDays),
+          message: loc.careErrorForPeriod(controller.period.lengthInDays),
           messageKey: const Key('care-adherence-card-error'),
           retryKey: const Key('care-adherence-card-retry'),
           onRetry: () async => controller.load(await widget.idToken()),

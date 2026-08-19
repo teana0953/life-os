@@ -95,6 +95,14 @@ String mediumDateLabel(BuildContext context, DateTime date) {
   return DateFormat.yMMMd(languageTag).format(date);
 }
 
+/// A month-and-day date without the year (e.g. "Mar 1" for English, "3月1日"
+/// for Chinese) — for the care history period selector's custom segment,
+/// which has to fit two dates plus a dash inside one button segment.
+String monthDayLabel(BuildContext context, DateTime date) {
+  final languageTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat.MMMd(languageTag).format(date);
+}
+
 /// A short date carrying a two-digit, apostrophe-marked year (e.g. "26'年8月
 /// 14日" for Chinese, "Aug 14, 26'" otherwise) — the requested abbreviation for
 /// the dashboard's menstrual prediction tile, where the four-digit year printed
