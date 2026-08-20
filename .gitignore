@@ -10,4 +10,4 @@ android/app/google-services.json
 # config (apiKey, appId, ...) is a public client identifier, not a secret.
 .wrangler/
 
-.graphflow/
+.graphflow/runs/
