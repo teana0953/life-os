@@ -1,0 +1,18 @@
+version: 1
+name: review-only
+budget: 200k
+defaults:
+  tier: standard
+
+inputs: [goal]
+
+nodes:
+  code-review:
+    kind: check
+    role: code-reviewer
+    prompt: "{{ inputs.goal }}"
+
+  ship:
+    kind: gate
+    after: [code-review]
+    when: all-pass
