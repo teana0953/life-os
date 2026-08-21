@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/config.dart';
 import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/care_today.dart';
 import '../application/edit_care_slot.dart';
@@ -134,8 +137,18 @@ class CareTodayController extends ChangeNotifier {
     this._getToday,
     this._markDone,
     this._markSkipped,
-    this._editSlot,
-  );
+    this._editSlot, {
+    Duration loadTimeout = careTodayLoadTimeout,
+  }) : _loadTimeout = loadTimeout;
+
+  /// Wall-clock bound on one checklist fetch. The transport already has
+  /// [httpRequestTimeout], but a stall measured in the wild sat *outside* it
+  /// (issue #193: the screen opened from a notification span forever with no
+  /// error and no retry), so the state machine needs its own end — otherwise
+  /// a single unanswerable request is a screen with nothing on it to act on.
+  /// Longer than the transport's bound on purpose: when the transport does
+  /// answer, its own error must be the one the user sees.
+  final Duration _loadTimeout;
 
   CareTodayLoadStatus status = CareTodayLoadStatus.loading;
   String date = '';
@@ -164,7 +177,7 @@ class CareTodayController extends ChangeNotifier {
 
   Future<void> _fetch(String idToken) async {
     try {
-      final today = await _getToday(idToken);
+      final today = await _getToday(idToken).timeout(_loadTimeout);
       date = today.date;
       slots = today.slots;
       status = CareTodayLoadStatus.loaded;
@@ -179,22 +192,47 @@ class CareTodayController extends ChangeNotifier {
     }
   }
 
-  /// Set while [load] or [reloadQuietly] is fetching. Both entry points can
-  /// now be driven by the user in quick succession (a reload follows every
-  /// care notification tapped while 今日照護 is already open), and two
-  /// overlapping GETs would land in completion order — the older response
-  /// last, showing a staler list than the one already fetched.
-  bool _fetching = false;
+  /// The fetch currently in flight, or `null` when none is. Both [load] and
+  /// [reloadQuietly] can be driven by the user in quick succession (a reload
+  /// follows every care notification tapped while 今日照護 is already open),
+  /// and two overlapping GETs would land in completion order — the older
+  /// response last, showing a staler list than the one already fetched.
+  ///
+  /// The *future*, not a `bool`: a caller that arrives during a fetch has to
+  /// end up with that round's answer. Returning early instead left it looking
+  /// at whatever state the other caller had set — a `loading` that nothing
+  /// would ever clear, which is the permanent spinner in issue #193. Bounded
+  /// by [_loadTimeout], so a stalled round always releases and a later tap
+  /// starts a fresh one rather than joining a round that never returns.
+  Future<void>? _inFlight;
 
-  Future<void> load(String idToken) async {
-    if (_fetching) return;
-    _fetching = true;
+  Future<void> load(String idToken) {
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
     status = CareTodayLoadStatus.loading;
     markError = null;
     notifyListeners();
-    await _fetch(idToken);
-    _fetching = false;
-    notifyListeners();
+    return _startFetch(() => _fetch(idToken));
+  }
+
+  Future<void> _startFetch(Future<void> Function() body) {
+    final completer = Completer<void>();
+    _inFlight = completer.future;
+    unawaited(_runFetch(body, completer));
+    return completer.future;
+  }
+
+  Future<void> _runFetch(
+    Future<void> Function() body,
+    Completer<void> completer,
+  ) async {
+    try {
+      await body();
+    } finally {
+      _inFlight = null;
+      notifyListeners();
+      completer.complete();
+    }
   }
 
   /// Applies the health screen's batched `care_today` section, leaving this
@@ -229,11 +267,15 @@ class CareTodayController extends ChangeNotifier {
   /// the same reason: losing a rendered list because a background refresh
   /// failed would be misleading. Only a 401 still routes to
   /// [CareTodayLoadStatus.reauth]. Ignored while another fetch is in flight.
-  Future<void> reloadQuietly(String idToken) async {
-    if (_fetching) return;
-    _fetching = true;
+  Future<void> reloadQuietly(String idToken) {
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    return _startFetch(() => _reloadQuietly(idToken));
+  }
+
+  Future<void> _reloadQuietly(String idToken) async {
     try {
-      final today = await _getToday(idToken);
+      final today = await _getToday(idToken).timeout(_loadTimeout);
       date = today.date;
       slots = today.slots;
       error = null;
@@ -258,8 +300,6 @@ class CareTodayController extends ChangeNotifier {
       // Any other failure stays silent — the user did not ask for this
       // reload, so it must not take the list away from them.
     }
-    _fetching = false;
-    notifyListeners();
   }
 
   /// Runs [action] (a mark call) for ([careScheduleId], [localDate],

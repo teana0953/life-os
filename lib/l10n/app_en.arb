@@ -4329,5 +4329,13 @@
         "type": "String"
       }
     }
+  },
+  "routeNotFound": "This page does not exist.",
+  "@routeNotFound": {
+    "description": "Shown when a URL or a handed-over destination matches no screen in this app version."
+  },
+  "routeNotFoundGoHome": "Go to home",
+  "@routeNotFoundGoHome": {
+    "description": "Label of the control on the not-found screen that returns to the home screen."
   }
 }

@@ -1,4 +1,5 @@
 import '../../contexts/auth/domain/auth_repository.dart';
+import '../config.dart';
 
 /// Resolves the current auth ID token **at the moment of the call**.
 ///
@@ -51,7 +52,14 @@ typedef IdTokenProvider = Future<String> Function();
 /// (the retryable error state).
 Future<String> guardedIdToken(AuthRepository repository) async {
   try {
-    return await repository.idToken() ?? '';
+    // Bounded, not just guarded: `idToken()` goes to the network near expiry,
+    // and a *hung* renewal is not a throw — it is silence. Every screen awaits
+    // this before entering any controller, so an unbounded wait here is a
+    // screen frozen on its initial spinner with no controller state to show an
+    // error from (issue #193). Timing out resolves to `''` like every other
+    // failure: the request goes out unauthenticated and the 401 path takes
+    // over, which is an exit the user can act on.
+    return await repository.idToken().timeout(httpRequestTimeout) ?? '';
   } catch (_) {
     return '';
   }

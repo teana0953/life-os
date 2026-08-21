@@ -3173,4 +3173,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String careHistoryErrorForCustomRange(String from, String to) {
     return 'Couldn\'t load $from – $to. Please try again.';
   }
+
+  @override
+  String get routeNotFound => 'This page does not exist.';
+
+  @override
+  String get routeNotFoundGoHome => 'Go to home';
 }

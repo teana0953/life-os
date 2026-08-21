@@ -5570,6 +5570,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load {from} – {to}. Please try again.'**
   String careHistoryErrorForCustomRange(String from, String to);
+
+  /// Shown when a URL or a handed-over destination matches no screen in this app version.
+  ///
+  /// In en, this message translates to:
+  /// **'This page does not exist.'**
+  String get routeNotFound;
+
+  /// Label of the control on the not-found screen that returns to the home screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to home'**
+  String get routeNotFoundGoHome;
 }
 
 class _AppLocalizationsDelegate

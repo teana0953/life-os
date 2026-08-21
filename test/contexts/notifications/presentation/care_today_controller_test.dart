@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:life_os/shared/screen_batch/section_outcome.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
@@ -8,6 +9,7 @@ import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
+import 'package:life_os/shared/config.dart';
 
 class _FakeCareTodayRepository implements CareTodayRepository {
   CareToday today;
@@ -102,6 +104,7 @@ CareTodaySlot _slot({
 CareTodayController _controller({
   CareTodayRepository? repository,
   CareHistoryRepository? historyRepository,
+  Duration? loadTimeout,
 }) {
   final repo =
       repository ?? _FakeCareTodayRepository(today: const CareToday(date: '2026-07-22', slots: []));
@@ -110,6 +113,7 @@ CareTodayController _controller({
     MarkCareDone(repo),
     MarkCareSkipped(repo),
     EditCareSlot(historyRepository ?? _FakeCareHistoryRepository()),
+    loadTimeout: loadTimeout ?? careTodayLoadTimeout,
   );
 }
 
@@ -797,5 +801,133 @@ void main() {
       expect(controller.status, CareTodayLoadStatus.reauth);
       expect(controller.markError, isNull);
     });
+  });
+
+  group('a load that never returns', () {
+    /// A repository whose `getToday` never settles: the shape a stalled
+    /// Workers/Neon request has (accepted, never answered). Deliberately not
+    /// "throws immediately" — a fake that settles cannot reproduce the state
+    /// the screen was actually stuck in.
+    _FakeCareTodayRepository stalling() => _FakeCareTodayRepository(
+      today: const CareToday(date: '2026-07-22', slots: []),
+    )..getCompleter = Completer<void>();
+
+    test('load() ends on the retryable error state once the bound elapses', () {
+      fakeAsync((async) {
+        final repository = stalling();
+        final controller = _controller(repository: repository);
+
+        controller.load('token-123');
+        async.flushMicrotasks();
+        expect(controller.status, CareTodayLoadStatus.loading);
+
+        // Just inside the bound nothing has given up yet — the half that goes
+        // red if the timeout is shortened to near zero and slow-but-working
+        // networks start being called failures.
+        async.elapse(careTodayLoadTimeout - const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(controller.status, CareTodayLoadStatus.loading);
+
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(controller.status, CareTodayLoadStatus.error);
+        // Retryable, not a dead end: the screen renders its retry from this.
+        expect(controller.error, isNotNull);
+        expect(controller.status, isNot(CareTodayLoadStatus.reauth));
+      });
+    });
+
+    test('reloadQuietly() with nothing loaded also ends on that state', () {
+      fakeAsync((async) {
+        final repository = stalling();
+        final controller = _controller(repository: repository);
+
+        controller.reloadQuietly('token-123');
+        async.elapse(careTodayLoadTimeout + const Duration(seconds: 1));
+        async.flushMicrotasks();
+
+        expect(controller.status, CareTodayLoadStatus.error);
+      });
+    });
+
+    test(
+      'a later load() issues a fresh request rather than joining the round '
+      'that never returned',
+      () {
+        fakeAsync((async) {
+          final repository = stalling();
+          final controller = _controller(repository: repository);
+
+          controller.load('token-123');
+          async.elapse(careTodayLoadTimeout + const Duration(seconds: 1));
+          async.flushMicrotasks();
+          expect(repository.getCalls, 1);
+
+          // The user taps retry (or taps the notification again).
+          controller.load('token-123');
+          async.flushMicrotasks();
+
+          expect(
+            repository.getCalls,
+            2,
+            reason: 'the retry must send a request, not be discarded',
+          );
+        });
+      },
+    );
+  });
+
+  group('overlapping loads', () {
+    test(
+      'a load() that arrives during another one ends with that round\'s '
+      'answer instead of being left on loading',
+      () async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        repository.getCompleter = Completer<void>();
+        final controller = _controller(repository: repository);
+
+        final first = controller.load('token-123');
+        // The second caller is collapsed into the round already in flight.
+        // Returning early instead handed it a future that was already done,
+        // leaving it looking at the `loading` the first caller set with
+        // nothing to clear it — the permanent spinner in issue #193.
+        final second = controller.load('token-123');
+        repository.getCompleter!.complete();
+
+        // ONLY the second is awaited: awaiting the first as well would make
+        // this pass either way, since the first always ends on `loaded`.
+        await second;
+
+        expect(repository.getCalls, 1);
+        expect(controller.status, CareTodayLoadStatus.loaded);
+        expect(controller.slots, hasLength(1));
+        await first;
+      },
+    );
+
+    test(
+      'a reloadQuietly() that arrives during a load() waits for it rather '
+      'than issuing a second overlapping GET',
+      () async {
+        final repository = _FakeCareTodayRepository(
+          today: CareToday(date: '2026-07-22', slots: [_slot()]),
+        );
+        repository.getCompleter = Completer<void>();
+        final controller = _controller(repository: repository);
+
+        final load = controller.load('token-123');
+        final reload = controller.reloadQuietly('token-123');
+        repository.getCompleter!.complete();
+
+        // Only the reload is awaited, for the same reason as above.
+        await reload;
+
+        expect(repository.getCalls, 1);
+        expect(controller.status, CareTodayLoadStatus.loaded);
+        await load;
+      },
+    );
   });
 }

@@ -27,6 +27,17 @@ const httpRequestTimeout = Duration(seconds: 15);
 /// an unbounded wait. Nothing is meant to run anywhere near it.
 const longRunningHttpTimeout = Duration(seconds: 120);
 
+/// Wall-clock bound on one 今日照護 checklist load, applied in the controller
+/// rather than the transport.
+///
+/// Longer than [httpRequestTimeout] deliberately: when the transport answers,
+/// its own error is the one the user should see, and this is only the backstop
+/// for a wait that never ends at all. Modeled, not measured — the one
+/// requirement it has to meet is that its end is *recoverable* (the screen
+/// lands on a retry, not a dead end), so mistaking a very slow success for a
+/// failure costs the user one extra tap.
+const careTodayLoadTimeout = Duration(seconds: 20);
+
 /// Origin of the deployed web app, used to build links that are meant to be
 /// opened in a browser (the friends invite link). On the web the running
 /// origin is authoritative and this is only the non-web fallback: on the Dart
