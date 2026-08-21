@@ -13,6 +13,12 @@ class _FakeStore implements PendingDeepLinkStore {
   final List<PendingDeepLink?> _queue = [];
   int takeCallCount = 0;
   Completer<void>? holdUntil;
+
+  /// When true, [take] never returns at all — Cache Storage blocked (private
+  /// mode, blocked site data) answers neither with a value nor with an error.
+  /// A fake that *throws* instead would exercise the wrong seam: throwing
+  /// already reaches the `finally` that releases the single-flight guard.
+  bool neverSettles = false;
   final _signals = StreamController<void>.broadcast();
 
   void enqueue(PendingDeepLink? value) => _queue.add(value);
@@ -27,6 +33,7 @@ class _FakeStore implements PendingDeepLinkStore {
     // hand-over and navigate by itself — hiding the dropped trigger that the
     // re-check guard exists to fix.
     final snapshot = _queue.isEmpty ? null : _queue.removeAt(0);
+    if (neverSettles) await Completer<void>().future;
     if (holdUntil != null) await holdUntil!.future;
     return snapshot;
   }
@@ -46,15 +53,29 @@ void main() {
   late bool canNavigateValue;
   late String currentPathValue;
   late List<String> navigated;
-  late int refreshes;
+  late List<String> refreshes;
+
+  /// Paths this fake "app version" has a screen for — the composition root
+  /// answers this from the router's own configuration (design D2), so a
+  /// path outside this set must be treated as no hand-over at all.
+  late Set<String> recognized;
+
+  /// Destinations the fake navigator reports as *already on the stack*, so
+  /// navigating returns to them instead of building a new screen — the
+  /// signal the controller uses to decide it must reload that screen.
+  late Set<String> alreadyShowing;
 
   PendingDeepLinkController buildController() => PendingDeepLinkController(
     store,
     now: () => fixedNow,
     canNavigate: () => canNavigateValue,
     currentPath: () => currentPathValue,
-    navigate: (path) => navigated.add(path),
-    refresh: () async => refreshes++,
+    recognizes: (path) => recognized.contains(path),
+    navigate: (path) async {
+      navigated.add(path);
+      return alreadyShowing.contains(path);
+    },
+    refresh: (path) async => refreshes.add(path),
   );
 
   setUp(() {
@@ -62,7 +83,9 @@ void main() {
     canNavigateValue = true;
     currentPathValue = '/';
     navigated = [];
-    refreshes = 0;
+    refreshes = [];
+    recognized = {'/care-today', '/care-history', '/'};
+    alreadyShowing = {};
   });
 
   group('check', () {
@@ -77,7 +100,7 @@ void main() {
       await buildController().check();
 
       expect(navigated, ['/care-today']);
-      expect(refreshes, 0);
+      expect(refreshes, isEmpty);
     });
 
     test(
@@ -143,14 +166,15 @@ void main() {
       'navigating (the shown screen must not be left stale)',
       () async {
         currentPathValue = '/care-today';
+        alreadyShowing.add('/care-today');
         store.enqueue(
           PendingDeepLink(path: '/care-today', savedAt: fixedNow),
         );
 
         await buildController().check();
 
-        expect(navigated, isEmpty);
-        expect(refreshes, 1);
+        expect(navigated, ['/care-today']);
+        expect(refreshes, ['/care-today']);
       },
     );
 
@@ -166,7 +190,7 @@ void main() {
       await buildController().check();
 
       expect(navigated, isEmpty);
-      expect(refreshes, 0);
+      expect(refreshes, isEmpty);
     });
 
     test('a null result from the store does not navigate or throw', () async {
@@ -231,6 +255,107 @@ void main() {
       },
     );
 
+
+    test(
+      'a take() that never answers does not disable every later tap for the '
+      'rest of the session',
+      () async {
+        store.neverSettles = true;
+        final controller = PendingDeepLinkController(
+          store,
+          now: () => fixedNow,
+          storeTimeout: const Duration(milliseconds: 10),
+          canNavigate: () => canNavigateValue,
+          currentPath: () => currentPathValue,
+          recognizes: (path) => recognized.contains(path),
+          navigate: (path) async {
+            navigated.add(path);
+            return alreadyShowing.contains(path);
+          },
+          refresh: (path) async => refreshes.add(path),
+        );
+
+        // The first tap's read is swallowed by blocked Cache Storage.
+        unawaited(controller.check());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        // The user taps a second notification.
+        store.neverSettles = false;
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+        await controller.check();
+
+        expect(store.takeCallCount, 2);
+        expect(navigated, ['/care-today']);
+      },
+    );
+
+    test(
+      'a path this app version does not recognize is consumed but never '
+      'navigated (design D2)',
+      () async {
+        store.enqueue(
+          PendingDeepLink(path: '/no-such-route', savedAt: fixedNow),
+        );
+
+        await buildController().check();
+
+        expect(store.takeCallCount, 1);
+        expect(navigated, isEmpty);
+        expect(refreshes, isEmpty);
+      },
+    );
+
+    for (final malformed in [
+      '',
+      'care-today',
+      'https://evil.example/x',
+      '//evil.example/care-today',
+    ]) {
+      test('a malformed path (${malformed.isEmpty ? '<empty>' : malformed}) '
+          'is consumed but never navigated', () async {
+        // recognizes: (_) => true mimics the real router — GoRouter's
+        // findMatch parses `//evil.example/care-today` as path
+        // `/care-today` and would match it (Uri.parse strips the
+        // protocol-relative authority). Using the default `recognized`
+        // set here would let this case pass for the wrong reason: it
+        // would be rejected by "not recognized", not by the malformed-path
+        // guard this test exists to cover, so removing that guard would
+        // not turn this test red.
+        final controller = PendingDeepLinkController(
+          store,
+          now: () => fixedNow,
+          canNavigate: () => canNavigateValue,
+          currentPath: () => currentPathValue,
+          recognizes: (_) => true,
+          navigate: (path) async {
+            navigated.add(path);
+            return alreadyShowing.contains(path);
+          },
+          refresh: (path) async => refreshes.add(path),
+        );
+        store.enqueue(PendingDeepLink(path: malformed, savedAt: fixedNow));
+
+        await controller.check();
+
+        expect(store.takeCallCount, 1);
+        expect(navigated, isEmpty);
+      });
+    }
+
+    test(
+      'a destination already somewhere in the stack is returned to and '
+      'reloaded rather than pushed again',
+      () async {
+        alreadyShowing.add('/care-today');
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+
+        await buildController().check();
+
+        expect(navigated, ['/care-today']);
+        expect(refreshes, ['/care-today']);
+      },
+    );
+
     test(
       'a controller disposed while the store read is in flight does not '
       'navigate',
@@ -245,7 +370,7 @@ void main() {
         await pending;
 
         expect(navigated, isEmpty);
-        expect(refreshes, 0);
+        expect(refreshes, isEmpty);
       },
     );
 
@@ -275,6 +400,33 @@ void main() {
   });
 
   group('triggers', () {
+    test(
+      'every signal triggers its own check, and one with nothing pending is '
+      'harmless (design D7 feeds visibility and focus into this same stream, '
+      'so the extra signals must cost nothing)',
+      () async {
+        final controller = buildController();
+        controller.start();
+        addTearDown(controller.dispose);
+        await Future<void>.delayed(Duration.zero);
+        final afterStart = store.takeCallCount;
+
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(store.takeCallCount, afterStart + 2);
+        expect(navigated, isEmpty);
+
+        store.enqueue(PendingDeepLink(path: '/care-today', savedAt: fixedNow));
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(navigated, ['/care-today']);
+      },
+    );
+
     test('a handoverSignals event triggers a check', () async {
       final controller = buildController();
       controller.start();

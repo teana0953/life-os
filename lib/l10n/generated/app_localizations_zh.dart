@@ -3064,6 +3064,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String careHistoryErrorForCustomRange(String from, String to) {
     return '無法載入 $from – $to 的紀錄,請再試一次。';
   }
+
+  @override
+  String get routeNotFound => '這個頁面不存在。';
+
+  @override
+  String get routeNotFoundGoHome => '回到首頁';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6115,4 +6121,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String careHistoryErrorForCustomRange(String from, String to) {
     return '無法載入 $from – $to 的紀錄,請再試一次。';
   }
+
+  @override
+  String get routeNotFound => '這個頁面不存在。';
+
+  @override
+  String get routeNotFoundGoHome => '回到首頁';
 }

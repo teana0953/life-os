@@ -56,6 +56,8 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
     // again if it is listened to after every subscriber has cancelled, which
     // would re-assign a `late final` and throw.
     JSFunction? listener;
+    JSFunction? visibilityListener;
+    JSFunction? focusListener;
     controller = StreamController<void>.broadcast(
       onListen: () {
         final serviceWorker = web.window.navigator.serviceWorker;
@@ -65,6 +67,27 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
         // default — a plain addEventListener alone silently queues messages
         // forever (design.md D4).
         serviceWorker.startMessages();
+
+        // `postMessage` is NOT enough on its own, and neither is the app
+        // lifecycle (design D7). The worker only messages a window whose
+        // `focus()` resolved; when it falls back to `openWindow` there is no
+        // message at all, and an Android WebAPK brings an existing window to
+        // the front without reloading it or firing a foreground lifecycle
+        // transition — leaving the user in front of the app on whatever page
+        // was already open, which is the "unexpected page" half of issue
+        // #193. Becoming visible is the signal that always happens.
+        //
+        // Extra signals are harmless: they carry no destination, so a check
+        // they trigger reads the store, finds nothing, and stops.
+        visibilityListener =
+            ((web.Event _) {
+              if (web.document.visibilityState == 'visible') {
+                controller.add(null);
+              }
+            }).toJS;
+        web.document.addEventListener('visibilitychange', visibilityListener);
+        focusListener = ((web.Event _) => controller.add(null)).toJS;
+        web.window.addEventListener('focus', focusListener);
       },
       onCancel: () {
         web.window.navigator.serviceWorker.removeEventListener(
@@ -72,6 +95,13 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
           listener,
         );
         listener = null;
+        web.document.removeEventListener(
+          'visibilitychange',
+          visibilityListener,
+        );
+        visibilityListener = null;
+        web.window.removeEventListener('focus', focusListener);
+        focusListener = null;
       },
     );
     return controller.stream;

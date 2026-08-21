@@ -410,14 +410,21 @@ class _AppState extends State<App> {
           final m = _router.routerDelegate.currentConfiguration.matches;
           return m.isEmpty ? '' : m.last.matchedLocation;
         },
-        navigate: (path) => _router.push(path),
-        // Already on the destination: nothing to push, but the checklist it
-        // is showing was loaded when the screen opened, so a reminder tapped
-        // from 今日照護 itself would otherwise change nothing on screen — and
-        // across midnight would leave yesterday's list up (design.md D9).
-        // Only `/care-today` can be handed over today, so this reloads that
-        // one screen unconditionally; a second destination would need to
-        // dispatch on the pending path instead.
+        // Asked of the router itself rather than a second list of allowed
+        // paths kept here (design.md D2): a hand-written list and the
+        // `GoRoute` declarations are two facts that drift, and a new route
+        // would silently not be reachable from a notification. `isError` is
+        // exactly "no route matches this location".
+        recognizes: (path) =>
+            !_router.configuration.findMatch(Uri.parse(path)).isError,
+        navigate: _navigateToHandover,
+        // Nothing was built because the app was already showing the
+        // destination, but the checklist it shows was loaded when the screen
+        // opened — so a reminder tapped from 今日照護 itself would otherwise
+        // change nothing on screen, and across midnight would leave
+        // yesterday's list up (design.md D9). 今日照護 is the only handed-over
+        // destination that loads day-keyed content, so it is the only one with
+        // anything to reload.
         //
         // A *quiet* reload: the user is looking at that list, so it must not
         // be replaced by a spinner — nor by an error screen if the reload
@@ -426,11 +433,66 @@ class _AppState extends State<App> {
         // the app now follows (`IdTokenProvider`): a token resolved any
         // earlier can be past its one-hour life by the time this runs, and the
         // overnight tap this reload exists for is exactly that case.
-        refresh: () async {
-          final token = await widget.authRepository.idToken() ?? '';
-          await widget.careTodayController.reloadQuietly(token);
+        refresh: (path) async {
+          if (path != careDestination) return;
+          await widget.careTodayController.reloadQuietly(
+            await guardedIdToken(widget.authRepository),
+          );
         },
       );
+
+  /// The destination the last hand-over pushed. Without it, notifications for
+  /// *different* destinations stack one screen per tap and the user has to
+  /// walk back out of the pile (issue #193: eight taps measured as eight
+  /// backs). With it, a differing destination replaces that one layer, so one
+  /// back always returns to the screen the user was on before the first tap.
+  String? _lastHandoverPush;
+
+  /// Navigates to a handed-over destination, returning whether the app was
+  /// already showing it (design.md D4) — in which case nothing was built and
+  /// the caller reloads it instead.
+  Future<bool> _navigateToHandover(String path) async {
+    if (_popTo(path)) return true;
+    final previous = _lastHandoverPush;
+    _lastHandoverPush = path;
+    if (previous != null && previous != path && _popTo(previous)) {
+      _router.pushReplacement(path);
+      return false;
+    }
+    _router.push(path);
+    return false;
+  }
+
+  /// Pops back to [location] when it is anywhere in the current stack,
+  /// reporting whether it was found (already on top counts, and pops
+  /// nothing). Everything opened above it goes — which is the point: the user
+  /// tapped a notification to get *there*.
+  bool _popTo(String location) {
+    final matches = _router.routerDelegate.currentConfiguration.matches;
+    final index = matches.lastIndexWhere((m) => m.matchedLocation == location);
+    if (index < 0) return false;
+    // A dialog/bottom sheet (`PopupRoute`) sits on top of whichever GoRoute
+    // page was showing when it opened without adding to `matches` — so when
+    // the destination is *already* the topmost page, the length-based loop
+    // below would never run and the modal would be left covering it. Closing
+    // popup routes first, before comparing depths, handles that case too.
+    _router.routerDelegate.navigatorKey.currentState?.popUntil(
+      (route) => route is! PopupRoute,
+    );
+    // `GoRouter.pop()` pops whatever the platform Navigator has on top —
+    // if that is a dialog/bottom sheet rather than a GoRoute, the matched
+    // route count does not shrink. Re-reading `matches.length` after every
+    // pop (rather than counting down a fixed number of iterations) means a
+    // modal above the destination costs an extra pop rather than one being
+    // left un-popped or the loop stopping short of the destination.
+    final targetDepth = index + 1;
+    while (_router.routerDelegate.currentConfiguration.matches.length >
+            targetDepth &&
+        _router.canPop()) {
+      _router.pop();
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -1104,6 +1166,13 @@ class _AppState extends State<App> {
           ],
         ),
       ],
+      // A location no `GoRoute` matches — a stale bookmark, a hand-typed
+      // URL, a deep link to a screen an older app version had and this one
+      // doesn't. go_router's own default error page is untranslated and has
+      // no way out other than the platform back gesture; this one explains
+      // itself in the user's language and always has a working exit
+      // (issue #193 / design.md D3).
+      errorBuilder: (context, state) => const _RouteErrorScreen(),
     );
   }
 
@@ -1168,6 +1237,49 @@ class _AuthErrorScreen extends StatelessWidget {
               child: Text(loc.retry),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown by the router's `errorBuilder` for a location no `GoRoute` matches
+/// (issue #193 / design.md D3). Its only exit is `go('/')`, not `push`: the
+/// unmatched location must not stay in the stack the back affordance walks —
+/// there is nothing meaningful to go "back" to from a route that never
+/// existed.
+class _RouteErrorScreen extends StatelessWidget {
+  const _RouteErrorScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Scaffold(
+      key: const Key('route-error-screen'),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  header: true,
+                  liveRegion: true,
+                  child: Text(
+                    loc.routeNotFound,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const Key('route-error-home-button'),
+                  onPressed: () => GoRouter.of(context).go('/'),
+                  child: Text(loc.routeNotFoundGoHome),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

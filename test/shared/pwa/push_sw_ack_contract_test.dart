@@ -104,7 +104,10 @@ void main() {
       final options = result.of('showNotification').single['options'] as Map;
       // The token is a bearer capability, and this object outlives the handler
       // — it is persisted with the notification and read back by
-      // `notificationclick` (design D1).
+      // `notificationclick` (design D1). Only the *destination* it implies is
+      // carried: a care reminder is the one push type that carries an ack, so
+      // that is how the transitional mapping recognizes it (design D1) until
+      // the backend sends `path` itself.
       expect(options['data'], {'path': '/care-today'});
       expect(jsonEncode(options), isNot(contains(_token)));
     });
@@ -168,7 +171,11 @@ void main() {
       final shown = result.of('showNotification');
       expect(shown, hasLength(1));
       expect(shown.single['title'], 'LifeOS');
-      expect((shown.single['options'] as Map)['data'], {'path': '/care-today'});
+      // Nothing decodable came out of the payload, so nothing identifies what
+      // this notification is about — and no destination is invented for it
+      // (design D1). Tapping it brings the app to the foreground and leaves
+      // it where it normally opens.
+      expect((shown.single['options'] as Map)['data'], isEmpty);
       expect(result.of('fetch'), isEmpty);
       expect(result.of('waitUntil'), hasLength(1));
     });

@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/auth/application/sign_in.dart';
 import 'package:life_os/contexts/auth/application/sign_out.dart';
 import 'package:life_os/contexts/auth/domain/auth_repository.dart';
+import 'package:life_os/contexts/notifications/presentation/care_history_screen.dart';
+import 'package:life_os/contexts/notifications/presentation/care_items_screen.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_screen.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -110,6 +112,43 @@ class _RotatingTokenAuthRepository implements AuthRepository {
   Future<void> signOut() async {}
 }
 
+/// A care-today backend whose one slot is already `done` (in the Done
+/// group, editable) from the first read, and whose `getCount` still counts
+/// every read — so a test can open the edit sheet without a mark step and
+/// still tell a reload from a no-op.
+class _DoneCareTodayRepository implements CareTodayRepository {
+  int getCount = 0;
+
+  @override
+  Future<CareToday> getToday(String idToken) async {
+    getCount++;
+    return CareToday(
+      date: '2026-07-27',
+      slots: [
+        CareTodaySlot(
+          careItemId: 'item-1',
+          careScheduleId: 'sched-1',
+          category: CareCategory.medication,
+          title: '藥',
+          timeOfDay: '08:00',
+          localDate: '2026-07-27',
+          status: CareTodayStatus.done,
+          doseQuantity: 1,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> logSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
+}
+
 /// A care-today backend whose checklist *changes* between reads: each
 /// `getToday` returns a differently-titled slot, so a test can tell a real
 /// reload from a stale screen (the cross-day symptom: yesterday's list still
@@ -179,6 +218,51 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
   }) async {}
 }
 
+
+/// A care-today backend whose `getToday` **never settles** — the shape a
+/// Workers/Neon stall actually has on the wire (the request is accepted and
+/// no response ever comes), and the one that leaves a screen on a spinner.
+///
+/// Deliberately not "throws immediately": a zero-latency fake settles before
+/// the first pump, so the window this guard has to observe would already be
+/// closed and the test would pass without the fix.
+class _StallingCareTodayRepository implements CareTodayRepository {
+  /// How many requests were actually issued. The second hand-over's whole
+  /// point is that it issues another one; counting is the only way to tell a
+  /// re-request from a silently dropped call.
+  int getCount = 0;
+
+  final _never = Completer<CareToday>();
+
+  @override
+  Future<CareToday> getToday(String idToken) {
+    getCount++;
+    return _never.future;
+  }
+
+  @override
+  Future<void> logSlot(
+    String idToken, {
+    required String careScheduleId,
+    required String localDate,
+    required String timeOfDay,
+    required CareLogStatus status,
+  }) async {}
+}
+
+/// Drives frames without `pumpAndSettle`, which cannot be used while a
+/// spinner is on screen: its animation never quiesces, so `pumpAndSettle`
+/// would fail with a timeout instead of the assertion under test.
+Future<void> _pumpFrames(
+  WidgetTester tester, [
+  Duration step = const Duration(milliseconds: 20),
+  int frames = 12,
+]) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(step);
+  }
+}
+
 final _testProfile = UserProfile(
   id: 'user-1',
   firebaseUid: 'firebase-abc',
@@ -190,6 +274,327 @@ final _testProfile = UserProfile(
 
 void main() {
   group('App pending deep-link hand-over', () {
+
+    testWidgets(
+      'a hand-over this app version cannot match leaves the app on home — no '
+      'not-found page, no error, nothing navigated',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        // The service worker that writes a hand-over outlives app updates
+        // (design D6b), so the writer and the reader can be different
+        // versions: a path one knows and the other does not is the normal
+        // case, not a corner one.
+        final store = _FakeStore(
+          PendingDeepLink(path: '/no-such-route', savedAt: DateTime.now()),
+        );
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+
+        // go_router's untranslated default, which currently replaces the
+        // whole app when the hand-over path matches nothing.
+        expect(find.text('Page Not Found'), findsNothing);
+        // …and not our own localized one either: an unrecognized hand-over is
+        // "no hand-over at all", so nothing navigates in the first place.
+        expect(find.byKey(const Key('route-error-screen')), findsNothing);
+        expect(tester.takeException(), isNull);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
+        // Consumed anyway (read-and-delete), so it cannot come back.
+        expect(store.taken, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a Today load that never returns ends as a retryable error, not an '
+      'endless spinner',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _StallingCareTodayRepository();
+        final store = _FakeStore(
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        );
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
+          ),
+          careTodayRepository: careRepository,
+          pendingDeepLinkStore: store,
+        );
+        await _pumpFrames(tester);
+
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsWidgets);
+
+        // Past any bound a user would wait through.
+        await tester.pump(const Duration(seconds: 45));
+        await _pumpFrames(tester);
+
+        expect(find.byKey(const Key('care-today-load-error')), findsOneWidget);
+        expect(
+          find.byKey(const Key('care-today-retry-button')),
+          findsOneWidget,
+        );
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'tapping the notification again after a stalled load issues a fresh '
+      'request instead of being swallowed by the in-flight guard',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _StallingCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
+          ),
+          careTodayRepository: careRepository,
+          pendingDeepLinkStore: store,
+        );
+        await _pumpFrames(tester);
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 45));
+        await _pumpFrames(tester);
+        final afterTimeout = careRepository.getCount;
+
+        // The user taps the notification a second time to get out of the
+        // stuck screen.
+        store.fireHandover();
+        await _pumpFrames(tester);
+
+        expect(store.takes, greaterThan(1));
+        expect(
+          careRepository.getCount,
+          greaterThan(afterTimeout),
+          reason: 'the second tap must send a request, not be discarded',
+        );
+
+        // The second request stalls too; let its bound elapse so the test does
+        // not end with that timer still pending.
+        await tester.pump(const Duration(seconds: 45));
+        await _pumpFrames(tester);
+      },
+    );
+
+    testWidgets(
+      'eight hand-overs with alternating destinations still take a single '
+      'back to return to the screen the user was on',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _ChangingCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          for (var i = 0; i < 8; i++)
+            PendingDeepLink(
+              path: i.isEven ? '/care-today' : '/care-history',
+              savedAt: DateTime.now(),
+            ),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
+          ),
+          careTodayRepository: careRepository,
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        for (var i = 1; i < 8; i++) {
+          store.fireHandover();
+          await tester.pumpAndSettle();
+        }
+        expect(store.takes, 8);
+        expect(find.byType(CareHistoryScreen), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+          reason: 'one back must return to the screen before the first tap',
+        );
+      },
+    );
+
+    testWidgets(
+      'a hand-over destination sitting below the top of the stack (not just '
+      'one below it) is popped down to, past a screen the user opened '
+      'themselves',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-history', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // The user opens 照護項目 themselves — not a hand-over, so
+        // `_lastHandoverPush` still names 今日照護. Stack is now
+        // [home, 今日照護, 照護項目].
+        await tester.tap(find.byKey(const Key('care-today-empty-manage-button')));
+        await tester.pumpAndSettle();
+        expect(find.byType(CareItemsScreen), findsOneWidget);
+
+        // A hand-over for 照護歷史 arrives: `_lastHandoverPush` (今日照護) is
+        // still on the stack but not on top, so it is popped to first, then
+        // replaced. Stack becomes [home, 照護歷史].
+        store.fireHandover();
+        await tester.pumpAndSettle();
+        expect(find.byType(CareHistoryScreen), findsOneWidget);
+        expect(find.byType(CareItemsScreen), findsNothing);
+
+        // A second hand-over for 今日照護 arrives while the stack is only
+        // [home, 照護歷史] — 今日照護 isn't on the stack at all here, so this
+        // pushes rather than pops. What this test guards is the *previous*
+        // step: that popping past a self-opened screen (照護項目) that sits
+        // below the hand-over's own last destination actually happens,
+        // rather than `_popTo` only ever finding a match one below the top.
+        store.fireHandover();
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+        expect(store.takes, 3);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+          reason: 'one back must return to home, not to 照護項目',
+        );
+      },
+    );
+
+    testWidgets(
+      'a hand-over to the destination already on top of the stack still '
+      'closes a bottom sheet the user had open over it',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _DoneCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
+          ),
+          careTodayRepository: careRepository,
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // Expand the Done group, then open its edit sheet — a `PopupRoute`
+        // on the same Navigator, not a GoRoute, so it does not change
+        // `matches`. Stack (declarative) is still just [home, 今日照護]; the
+        // sheet sits on top of it outside that list.
+        await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('care-today-row-sched-1-2026-07-27-08:00')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-today-edit-sheet-title')), findsOneWidget);
+
+        // A second hand-over for 今日照護 arrives while it is already the
+        // topmost *page*. `_popTo`'s length-based loop alone would never
+        // run here (matches.length already equals targetDepth), leaving the
+        // sheet open over a screen the controller believes it just quietly
+        // reloaded — this is the regression this test guards.
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('care-today-edit-sheet-title')),
+          findsNothing,
+          reason: 'the hand-over must close the sheet sitting over the '
+              'destination, not leave it covering the reloaded screen',
+        );
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+        expect(
+          careRepository.getCount,
+          greaterThan(1),
+          reason: 'the destination was already showing, so this must be a '
+              'reload, not a no-op',
+        );
+      },
+    );
+
     testWidgets('a fresh pending deep link pushes 今日照護 over the home screen '
         '(push, not go: the home screen is still beneath it)', (tester) async {
       final authRepository = FakeAuthRepository(initiallyAuthenticated: true);

@@ -1,5 +1,6 @@
 // Runs the REAL web/push_sw.js inside a faked service worker global and
-// dispatches one synthetic `push` event, reporting every observed call.
+// dispatches one synthetic `push` (or `notificationclick`) event, reporting
+// every observed call.
 //
 // Why a harness at all: the properties that matter here are runtime
 // behaviours — "the notification still shows when the ack fetch throws", "no
@@ -16,6 +17,11 @@
 //   payload     object returned by event.data.json(), or null for no data
 //   payloadThrows  make event.data.json() throw (undecodable payload)
 //   fetchMode   "success" | "throw" | "reject" | "pending"
+//   dispatch    "push" (default) | "notificationclick"
+//   notification  for dispatch "notificationclick": the `data` object the
+//               notification was shown with (what the push handler stored)
+//   windows     for dispatch "notificationclick": number of existing app
+//               windows visible to clients.matchAll
 //
 // Output: { calls: [{seq, kind, ...}], waitUntilStates: [...], escaped }
 // `seq` is a single monotonic counter across ALL call kinds, so it pins the
@@ -36,6 +42,38 @@ const listeners = {};
 const waitUntilPromises = [];
 const search = scenario.search ?? '';
 
+const openWindows = [];
+for (let i = 0; i < (scenario.windows ?? 0); i++) {
+  openWindows.push({
+    focused: i === 0,
+    focus() {
+      record('focus', {});
+      return Promise.resolve();
+    },
+    postMessage(message) {
+      record('postMessage', { message });
+    },
+  });
+}
+
+const cacheStore = {
+  put(key, response) {
+    record('cachePut', { key, body: response.body });
+    return Promise.resolve();
+  },
+};
+
+// The worker wraps its hand-over in `new Response(...)`; `Response` is a host
+// API a fresh vm realm does not have, and its absence would surface as the
+// worker's own best-effort catch swallowing the write — a cachePut that
+// silently never happens, which is exactly what these tests must be able to
+// see.
+class FakeResponse {
+  constructor(body) {
+    this.body = body;
+  }
+}
+
 const self = {
   location: {
     href: 'https://app.example/push_sw.js' + search,
@@ -54,8 +92,11 @@ const self = {
   },
   clients: {
     claim: () => Promise.resolve(),
-    matchAll: () => Promise.resolve([]),
-    openWindow: () => Promise.resolve(null),
+    matchAll: () => Promise.resolve(openWindows),
+    openWindow: (url) => {
+      record('openWindow', { url });
+      return Promise.resolve(null);
+    },
   },
 };
 
@@ -85,14 +126,20 @@ function fetchStub(url, init) {
 const sandbox = {
   self,
   URL,
+  Response: FakeResponse,
   fetch: fetchStub,
   clients: self.clients,
-  caches: { open: () => Promise.reject(new Error('unused')) },
+  caches: {
+    open: (name) => {
+      record('cacheOpen', { name });
+      return Promise.resolve(cacheStore);
+    },
+  },
 };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox, { filename: swPath });
 
-const event = {
+const pushEvent = {
   data: (scenario.payload === undefined || scenario.payload === null) &&
     !scenario.payloadThrows
     ? null
@@ -108,12 +155,37 @@ const event = {
   },
 };
 
+const clickEvent = {
+  notification: {
+    data: scenario.notification ?? {},
+    close() {
+      record('close', {});
+    },
+  },
+  waitUntil: pushEvent.waitUntil,
+};
+
 let escaped = null;
 try {
-  listeners.push(event);
+  if (scenario.dispatch === 'notificationclick') {
+    listeners.notificationclick(clickEvent);
+  } else {
+    listeners.push(pushEvent);
+  }
 } catch (error) {
   escaped = String(error?.message ?? error);
 }
+
+// The click handler's work is all inside its `waitUntil` promise, so the
+// observations below only exist once it has settled.
+await Promise.all(
+  waitUntilPromises.map((promise) =>
+    Promise.race([
+      Promise.resolve(promise).catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, 50)),
+    ]),
+  ),
+);
 
 // "pending" never settles by design, so each promise races a short timer:
 // the state itself is the observation.

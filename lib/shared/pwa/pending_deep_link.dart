@@ -9,6 +9,17 @@ library;
 export 'pending_deep_link_stub.dart'
     if (dart.library.js_interop) 'pending_deep_link_web.dart';
 
+/// TRANSITIONAL (design D1), and the Dart half of a two-language constant:
+/// until the backend sends an explicit `path` on every push, `web/push_sw.js`
+/// maps a push it can recognize as a care reminder to this destination — the
+/// one hard-coded destination left in the worker, pinned from this side by
+/// `push_sw_handover_contract_test.dart` (which also asserts the worker has no
+/// *unconditional* default any more; that default is issue #193). Read here by
+/// the composition root, which reloads 今日照護 when a hand-over lands on a
+/// 今日照護 already on screen. Delete both halves once the backend sends
+/// `path`.
+const careDestination = '/care-today';
+
 /// A pending navigation target plus when it was written, so the consumer can
 /// judge staleness (see [PendingDeepLinkStore.take]).
 class PendingDeepLink {
@@ -19,15 +30,25 @@ class PendingDeepLink {
 }
 
 /// Injectable read side of the SW → app hand-over.
+///
+/// The worker writes `{path, savedAt}` (see the contract block at the top of
+/// `web/push_sw.js`) only for a notification that carried a destination of its
+/// own. [path] is a router path this *worker* version knew; whether the
+/// running app version has a screen for it is the consumer's judgement, not
+/// this store's.
 abstract class PendingDeepLinkStore {
   /// Reads the pending entry, **deletes it, then** returns it — consumed
-  /// exactly once even when the caller decides not to act on it (TTL/dedupe
-  /// are the caller's judgement, not the store's). The caller must not call
-  /// this while auth is unresolved (see `PendingDeepLinkController`).
+  /// exactly once even when the caller decides not to act on it (TTL, dedupe
+  /// and "does this version know this path" are the caller's judgement, not
+  /// the store's). The caller must not call this while auth is unresolved
+  /// (see `PendingDeepLinkController`). May never answer at all — blocked
+  /// site data is silence, not an error — so the caller bounds the wait.
   Future<PendingDeepLink?> take();
 
-  /// Fires when the service worker says "there may be something to read".
-  /// Carries no destination — the store stays the single source of truth
-  /// (design.md D4).
+  /// Fires whenever there may be something to read: the worker's own message,
+  /// and — because that message is not delivered on every path the app can be
+  /// brought to the foreground by (design.md D7) — the page becoming visible.
+  /// Carries no destination; the store stays the single source of truth
+  /// (design.md D4), so a redundant signal costs one empty read.
   Stream<void> get handoverSignals;
 }

@@ -14,6 +14,20 @@ self.addEventListener('activate', function (event) {
 // Cache Storage hand-over contract (design D2) — SINGLE source of truth
 // shared with lib/shared/pwa/pending_deep_link_web.dart. Do not change one
 // side without the other.
+//
+// The chain, end to end:
+//   push               → showNotification(title, { data: { path } })
+//                        `data` has NO `path` when the payload carried no
+//                        destination — see destinationOf() below.
+//   notificationclick  → reads that notification's own `data.path`, and only
+//                        when there is one writes
+//                        {path, savedAt} to PENDING_CACHE_KEY; then focuses an
+//                        existing window (or opens one) either way.
+//   the app            → reads and deletes the entry, and navigates only if
+//                        the running version has a screen for that path.
+// The app deliberately outlives this worker's updates in both directions, so
+// a path written by one version may be unknown to the other: that is ignored,
+// never an error page.
 var PENDING_CACHE_NAME = 'lifeos-deeplink';
 var PENDING_CACHE_KEY = '/pending';
 
@@ -43,6 +57,30 @@ function ackEndpoint() {
   }
 }
 
+// The destination a notification carries, or null when it carries none.
+//
+// A router *path* (design D2), never a hash URL: `notificationclick` writes
+// this straight into the Cache hand-over, and a hash form there would match
+// no route (design D9). Anything that is not a root-relative path is treated
+// as no destination — the app would refuse it anyway.
+//
+// TRANSITIONAL (design D1): the backend does not send `path` yet, so care
+// reminders are recognized by the field it *does* send — only they carry an
+// `ack` token (backend design D6; test pushes and budget alerts carry none),
+// which is exactly the distinction this needs. Delete this branch, its
+// constant, and the contract assertion pinning it once the backend sends
+// `path`. The token itself is only read here, never copied into the
+// notification.
+var CARE_DESTINATION = '/care-today';
+
+function destinationOf(data) {
+  if (typeof data.path === 'string' && data.path.charAt(0) === '/') {
+    return data.path;
+  }
+  if (data.data && data.data.ack) return CARE_DESTINATION;
+  return null;
+}
+
 self.addEventListener('push', function (event) {
   var data = {};
   try {
@@ -51,11 +89,7 @@ self.addEventListener('push', function (event) {
     data = {};
   }
   var title = data.title || 'LifeOS';
-  // No explicit path from the backend yet (reminders are all care reminders
-  // today), so default to the Today care checklist — the place to act on it,
-  // not the app root. A router *path* (design D2), never a hash URL: the
-  // notificationclick handler writes this straight into the Cache hand-over,
-  // and a hash form there would match no route (design D9).
+  var path = destinationOf(data);
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
@@ -63,7 +97,13 @@ self.addEventListener('push', function (event) {
       // the notification and read back by `notificationclick` long after this
       // handler is gone, while the ack token is a bearer capability the
       // backend deliberately keeps out of URLs and logs (backend design D1).
-      data: { path: data.path || '/care-today' },
+      //
+      // No `path` key at all when this notification has no destination of its
+      // own. This worker serves EVERY push type — care reminders, budget
+      // alerts, test pushes — so a blanket default sent all of them to the
+      // care checklist, a page unrelated to what most of them said
+      // (issue #193). Absent means absent.
+      data: path ? { path: path } : {},
     })
   );
 
@@ -111,7 +151,7 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var path = (event.notification.data && event.notification.data.path) || '/care-today';
+  var path = event.notification.data && event.notification.data.path;
 
   event.waitUntil(
     (async function () {
@@ -122,14 +162,22 @@ self.addEventListener('notificationclick', function (event) {
       // open anything. Falling through leaves the app to open with nothing
       // pending — the documented degradation, "stops at the home screen"
       // (design D9) — instead of doing nothing at all.
-      try {
-        var cache = await caches.open(PENDING_CACHE_NAME);
-        await cache.put(
-          PENDING_CACHE_KEY,
-          new Response(JSON.stringify({ path: path, savedAt: Date.now() }))
-        );
-      } catch (e) {
-        // Ignored on purpose; see above.
+      //
+      // Nothing is written when this notification carried no destination
+      // (design D1): the tap still brings the app to the foreground below,
+      // and the app stays wherever it normally opens. Guessing one here would
+      // put the knowledge of "what this notification is about" in a second
+      // place — the payload is the only source of it.
+      if (typeof path === 'string' && path) {
+        try {
+          var cache = await caches.open(PENDING_CACHE_NAME);
+          await cache.put(
+            PENDING_CACHE_KEY,
+            new Response(JSON.stringify({ path: path, savedAt: Date.now() }))
+          );
+        } catch (e) {
+          // Ignored on purpose; see above.
+        }
       }
 
       // `includeUncontrolled: true` makes this visible by *origin*, not

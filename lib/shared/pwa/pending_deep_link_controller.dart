@@ -15,9 +15,10 @@ bool _isTransitionScreen(String loc) =>
 
 /// Holds all the judgement for consuming a [PendingDeepLinkStore] entry:
 /// 5-minute TTL, clear-on-read, never read while auth is unresolved or the
-/// app sits on a transition screen, skip when already on the target route,
-/// single-flight guard, and re-checks on resume / auth transition / worker
-/// signal (design.md D6-D8).
+/// app sits on a transition screen, ignore a destination this app version
+/// does not recognize, reload rather than stack when the app is already
+/// showing it, a bounded single-flight guard, and re-checks on resume / auth
+/// transition / worker signal (design.md D2/D4/D6-D8).
 ///
 /// [start] wires the lifecycle observer + signal subscription and is called
 /// once from the composition root; tests instead drive [check] directly so
@@ -26,33 +27,59 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   PendingDeepLinkController(
     this._store, {
     Duration ttl = const Duration(minutes: 5),
+    Duration storeTimeout = const Duration(seconds: 5),
     DateTime Function() now = DateTime.now,
     required bool Function() canNavigate,
     required String Function() currentPath,
-    required void Function(String path) navigate,
-    required Future<void> Function() refresh,
+    required bool Function(String path) recognizes,
+    required Future<bool> Function(String path) navigate,
+    required Future<void> Function(String path) refresh,
   }) : _ttl = ttl,
+       _storeTimeout = storeTimeout,
        _now = now,
        _canNavigate = canNavigate,
        _currentPath = currentPath,
+       _recognizes = recognizes,
        _navigate = navigate,
        _refresh = refresh;
 
   final PendingDeepLinkStore _store;
   final Duration _ttl;
+
+  /// Bound on the store read (design.md D6). Cache Storage can answer neither
+  /// with a value nor with an error — blocked site data, private mode — and
+  /// an unbounded `await` there never reaches the `finally` that releases the
+  /// single-flight guard, so ONE such read would silently drop every
+  /// notification tap for the rest of the session (issue #193).
+  final Duration _storeTimeout;
   final DateTime Function() _now;
   final bool Function() _canNavigate;
   final String Function() _currentPath;
-  final void Function(String path) _navigate;
 
-  /// Reloads what the destination screen is showing, for the one case where
-  /// there is nothing to navigate to because the app is *already* there. The
-  /// screen loads once on `initState`, so without this a reminder tapped from
-  /// 今日照護 itself would leave the user staring at the list as it was when
-  /// they last opened it — across midnight, at yesterday's date, where Done
-  /// records against the wrong day. Awaited, so the reload it runs stays
-  /// inside this check's in-flight window.
-  final Future<void> Function() _refresh;
+  /// Whether the *running app version* has a screen for this path, answered
+  /// by the router's own configuration (design.md D2). The worker that writes
+  /// a hand-over deliberately outlives app updates, so the writer and the
+  /// reader can be different versions; a path this version cannot match must
+  /// be treated as no hand-over at all rather than navigated to, which would
+  /// replace the user's screen with a not-found page.
+  final bool Function(String path) _recognizes;
+
+  /// Navigates to the destination, reporting whether the app was **already
+  /// showing it somewhere in its stack** and was returned to it rather than
+  /// having a new screen built (design.md D4). That answer is what decides
+  /// whether the destination needs reloading: nothing was built, so nothing
+  /// loaded.
+  final Future<bool> Function(String path) _navigate;
+
+  /// Reloads what the destination screen is showing, for the case where no
+  /// screen was built because the app was already on it. The screen loads
+  /// once on `initState`, so without this a reminder tapped from 今日照護
+  /// itself would leave the user staring at the list as it was when they last
+  /// opened it — across midnight, at yesterday's date, where Done records
+  /// against the wrong day. Takes the destination: more than one path can be
+  /// handed over, and only the one arrived at may be reloaded. Awaited, so
+  /// the reload it runs stays inside this check's in-flight window.
+  final Future<void> Function(String path) _refresh;
 
   bool _checking = false;
 
@@ -102,25 +129,35 @@ class PendingDeepLinkController with WidgetsBindingObserver {
 
     final PendingDeepLink? pending;
     try {
-      pending = await _store.take();
+      pending = await _store.take().timeout(_storeTimeout);
     } catch (_) {
-      // A broken hand-over must not surface as an error (design.md D2).
+      // A broken — or unanswerable — hand-over must not surface as an error
+      // (design.md D2/D6). The TimeoutException lands here too, which is the
+      // point: it is what lets the `finally` above release the guard.
       return;
     }
     if (pending == null) return;
     if (_now().difference(pending.savedAt) > _ttl) return;
     if (_disposed) return;
-    if (_currentPath() == pending.path) {
-      try {
-        await _refresh();
-      } catch (_) {
-        // Every trigger is fire-and-forget, so a throw here (fetching a fresh
-        // id token, say) would escape as an unhandled async error. A failed
-        // hand-over is silent by design — the screen keeps what it has.
-      }
+    // Consumed (take() already deleted it) but not acted on: a destination
+    // this app version cannot navigate by, or has no screen for, is no
+    // hand-over at all (design.md D2). Malformed is checked here rather than
+    // left to the router: a relative or absolute-URL string is not the form
+    // the app navigates by, whatever a matcher would make of it.
+    if (!pending.path.startsWith('/') || pending.path.startsWith('//')) {
       return;
     }
-    _navigate(pending.path);
+    if (!_recognizes(pending.path)) return;
+
+    final alreadyShowing = await _navigate(pending.path);
+    if (!alreadyShowing) return;
+    try {
+      await _refresh(pending.path);
+    } catch (_) {
+      // Every trigger is fire-and-forget, so a throw here (fetching a fresh
+      // id token, say) would escape as an unhandled async error. A failed
+      // hand-over is silent by design — the screen keeps what it has.
+    }
   }
 
   @override
