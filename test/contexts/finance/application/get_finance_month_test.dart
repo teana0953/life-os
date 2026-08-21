@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
 import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
@@ -69,7 +70,9 @@ void main() {
   test('plans are fetched concurrently, not one round trip each', () async {
     // Sequentially, load time grows with the number of distinct plans. The
     // fake records the maximum overlap; with three plans a serial loop peaks
-    // at 1.
+    // at 1. This is NOT the cap guard — its fake completes on its own and it
+    // asserts only `> 1`, so it cannot tell 4 in flight from 9. The bound is
+    // pinned by 'never more than four plan fetches in flight at once' below.
     final repo = FinanceRepositoryCountingPlans()
       ..byMonth['2026-07'] = [
         _period('t1', 'plan-1'),
@@ -81,5 +84,54 @@ void main() {
 
     expect(repo.calls, 3);
     expect(repo.maxInFlight, greaterThan(1));
+  });
+
+  test('never more than four plan fetches in flight at once', () async {
+    // A month with more distinct plans than twice the cap: 9 plans, two
+    // periods each, so the fixture also pins that the fan-out is over
+    // *distinct* plan ids (18 transactions must still be 9 calls) and forces
+    // the "release one, another starts" refill behaviour that a single batch
+    // of exactly `cap` would never exercise.
+    //
+    // The bound is written out as a literal 4 on purpose: importing the
+    // implementation's constant would move this guard whenever the constant
+    // moves, and a raised cap would silently stay green.
+    final repo = FinanceRepositoryGatedPlans()
+      ..byMonth['2026-07'] = [
+        for (var i = 1; i <= 9; i++) ...[
+          _period('t$i-a', 'plan-$i'),
+          _period('t$i-b', 'plan-$i'),
+        ],
+      ];
+
+    var done = false;
+    final future = GetFinanceMonth(repo)('tok', '2026-07');
+    unawaited(future.then((_) => done = true));
+
+    await pumpEventQueue();
+    // Before anything has been allowed to complete: proves the observation
+    // window is open while the fan-out is at its peak, so a green
+    // `maxInFlight` cannot come from measuring an already-drained batch.
+    expect(repo.pending, hasLength(4));
+    expect(repo.maxInFlight, 4);
+
+    // Equality, not `lessThanOrEqualTo`: this single assertion has to fail
+    // both when the cap is removed (peaks at 9) and when it collapses to a
+    // serial loop (peaks at 1).
+    for (var i = 0; i < 100 && !done; i++) {
+      repo.releaseOne();
+      await pumpEventQueue();
+      expect(repo.maxInFlight, 4);
+    }
+    // Bounded loop rather than an unbounded wait: a pool that drops its tail
+    // must turn red here, not hang (a hung test is not a failing test).
+    expect(done, isTrue, reason: 'the month never finished loading');
+
+    final data = await future;
+    expect(repo.maxInFlight, 4);
+    // Fetching fewer plans is the cheap way to fake a low peak; these pin that
+    // every plan was still fetched exactly once and ended up in the bundle.
+    expect(repo.calls, 9);
+    expect(data.installmentPlans, hasLength(9));
   });
 }
