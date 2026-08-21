@@ -1745,7 +1745,7 @@
   },
   "careScheduleFrom": "from {date}",
   "@careScheduleFrom": {
-    "description": "Appended to a schedule's summary when weekInterval > 1, since the start (anchor) date then matters for figuring out which weeks it falls on.",
+    "description": "Appended to every schedule's summary, whatever its weekInterval: the start date is when the schedule begins firing at all, not just the anchor an every-N-weeks interval counts from.",
     "placeholders": {
       "date": {
         "type": "String"

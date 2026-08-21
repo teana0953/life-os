@@ -240,8 +240,12 @@ void main() {
       );
     });
 
+    // Deliberate pair with the interval-1 case below. The start date gates
+    // every schedule (the backend's `isActiveOn` rejects any date before it
+    // regardless of `weekInterval`), and the form lets it be set on every
+    // schedule, so the summary has to show it on every schedule too.
     testWidgets(
-      "includes the schedule's start date in the summary once weekInterval "
+      "includes the schedule's start date in the summary when weekInterval "
       'is above 1',
       (tester) async {
         final repository = _FakeCareItemRepository(items: [_biweeklyItem]);
@@ -254,6 +258,28 @@ void main() {
           mediumDateLabel(context, DateTime(2026, 7, 6)),
         );
         expect(find.textContaining(expectedFrom), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "includes the schedule's start date in the summary at weekInterval == 1",
+      (tester) async {
+        final repository = _FakeCareItemRepository(items: [_medicationItem]);
+        final controller = _controller(repository: repository);
+        await _pumpScreen(tester, controller);
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        final context = tester.element(find.byType(Scaffold).first);
+        final expectedFrom = loc.careScheduleFrom(
+          mediumDateLabel(context, DateTime(2026, 7, 20)),
+        );
+        expect(find.textContaining(expectedFrom), findsOneWidget);
+        // The every-N-weeks suffix stays interval-gated: unwrapping the start
+        // date must not drag it out of its condition.
+        expect(
+          find.textContaining(loc.careWeekIntervalSuffix(1)),
+          findsNothing,
+        );
       },
     );
 

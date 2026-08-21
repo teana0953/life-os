@@ -55,8 +55,7 @@ String _weekdaysLabel(AppLocalizations loc, List<int> days) {
 }
 
 /// A single schedule's one-line summary: time · weekdays[empty=每天] ·
-/// every-N-weeks · start date (when the interval makes it meaningful) ·
-/// optional end date.
+/// every-N-weeks (only above 1) · start date · optional end date.
 String _scheduleSummary(
   BuildContext context,
   AppLocalizations loc,
@@ -67,13 +66,16 @@ String _scheduleSummary(
   buffer.write(_weekdaysLabel(loc, schedule.repeatDays));
   if (schedule.weekInterval > 1) {
     buffer.write(' ${loc.careWeekIntervalSuffix(schedule.weekInterval)}');
-    // The start (anchor) date only matters once weekInterval > 1 — it's
-    // what determines which weeks the schedule falls on (mirrors the form's
-    // own start-date visibility rule).
-    buffer.write(
-      ' · ${loc.careScheduleFrom(mediumDateLabel(context, schedule.startDate))}',
-    );
   }
+  // Written for every schedule, whatever the week interval: the backend's
+  // `isActiveOn` returns false for any date before `startDate` *before* it
+  // looks at `weekInterval`, so the start date gates a plain daily/weekly
+  // schedule just as much as a longer-interval one. The form lets it be set
+  // on every schedule, so hiding it here would make a date the user just
+  // chose invisible in the list they chose it from.
+  buffer.write(
+    ' · ${loc.careScheduleFrom(mediumDateLabel(context, schedule.startDate))}',
+  );
   if (schedule.endDate != null) {
     buffer.write(
       ' · ${loc.careScheduleUntil(mediumDateLabel(context, schedule.endDate!))}',
