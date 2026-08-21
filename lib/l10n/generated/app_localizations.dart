@@ -2525,7 +2525,7 @@ abstract class AppLocalizations {
   /// **'until {date}'**
   String careScheduleUntil(String date);
 
-  /// Appended to a schedule's summary when weekInterval > 1, since the start (anchor) date then matters for figuring out which weeks it falls on.
+  /// Appended to every schedule's summary, whatever its weekInterval: the start date is when the schedule begins firing at all, not just the anchor an every-N-weeks interval counts from.
   ///
   /// In en, this message translates to:
   /// **'from {date}'**

@@ -103,7 +103,7 @@ class _ScheduleDraft {
 /// Add/edit form for a [CareItem]: a category selector, a title, a
 /// multi-line note, medication-only dose/stock/low-stock fields, and an
 /// add/remove list of schedules (time, weekday chips, week-interval
-/// stepper, a start date shown once the interval > 1, an optional end date,
+/// stepper, a start date, an optional end date,
 /// a nag-interval dropdown, and — medication only — a per-schedule dose
 /// quantity). Submit is blocked until the title is non-empty and at least
 /// one schedule is present (every schedule always has a time — adding one
@@ -417,22 +417,24 @@ class _CareItemFormState extends State<CareItemForm> {
                 ),
               ],
             ),
-            // The start date only matters once weekInterval > 1 — a plain
-            // weekly schedule doesn't need an irrelevant start date shown
-            // (still always sent, defaulting to today; design D3).
-            if (schedule.weekInterval > 1) ...[
-              const SizedBox(height: 8),
-              Text(loc.careStartDateLabel, style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              OutlinedButton(
-                key: Key('care-item-schedule-start-date-$index'),
-                onPressed: _saving ? null : () => _pickStartDate(index),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(mediumDateLabel(context, schedule.startDate)),
-                ),
+            // Shown for every schedule, whatever the week interval: the
+            // backend's `isActiveOn` returns false for any date before
+            // `startDate` *before* it looks at `weekInterval`, so the start
+            // date gates a plain daily/weekly schedule just as much as a
+            // longer-interval one. Hiding it at weekInterval == 1 (the
+            // original design D3) pinned that gate to the day the schedule
+            // was added, with no way to move it.
+            const SizedBox(height: 8),
+            Text(loc.careStartDateLabel, style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            OutlinedButton(
+              key: Key('care-item-schedule-start-date-$index'),
+              onPressed: _saving ? null : () => _pickStartDate(index),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(mediumDateLabel(context, schedule.startDate)),
               ),
-            ],
+            ),
             const SizedBox(height: 8),
             Text(loc.careEndDateLabel, style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),

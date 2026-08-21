@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:life_os/contexts/notifications/application/care_items.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/presentation/care_item_form.dart';
@@ -123,6 +124,36 @@ Future<void> _addSchedule(WidgetTester tester) async {
   await tester.pumpAndSettle();
   // The Material time picker's OK button.
   await tester.tap(find.text('OK'));
+  await tester.pumpAndSettle();
+}
+
+/// Mirrors `mediumDateLabel` under the `en` locale the form is pumped in.
+String _enMediumDate(DateTime date) => DateFormat.yMMMd('en').format(date);
+
+/// Drives the schedule-0 start-date picker from the injected clock's day
+/// (2026-07-22) to 2026-08-03 — a different month, so the assertion it feeds
+/// cannot be satisfied by the defaulted-to-today value.
+Future<void> _pickStartDateAug3(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('care-item-schedule-start-date-0')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byIcon(Icons.chevron_right));
+  await tester.pumpAndSettle();
+  // Scoped to the dialog: unscoped `find.text('3')` would also match the
+  // form behind the modal barrier if some other control ever rendered a
+  // bare '3' (e.g. a week-interval value).
+  await tester.tap(
+    find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.text('3'),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.text('OK'),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -317,17 +348,31 @@ void main() {
       expect(updatedChip.selected, isFalse);
     });
 
+    // The backend's `isActiveOn` rejects any date before `startDate` before
+    // it looks at `weekInterval`, so the start date gates an interval-1
+    // schedule too. This test used to assert the opposite (the picker hidden
+    // until the interval was raised) — it is inverted, not deleted, so the
+    // removed condition cannot come back unnoticed.
     testWidgets(
-      'hides the start-date picker while weekInterval == 1, and shows it '
-      'once the interval is raised above 1',
+      'shows the start-date picker at weekInterval == 1, and keeps showing '
+      'it once the interval is raised above 1',
       (tester) async {
         final controller = _controller();
         await _pumpForm(tester, controller);
         await _addSchedule(tester);
 
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text(loc.careStartDateLabel), findsOneWidget);
         expect(
           find.byKey(const Key('care-item-schedule-start-date-0')),
-          findsNothing,
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('care-item-schedule-start-date-0')),
+            matching: find.text(_enMediumDate(DateTime(2026, 7, 22))),
+          ),
+          findsOneWidget,
         );
 
         await tester.tap(
@@ -344,17 +389,92 @@ void main() {
       },
     );
 
-    testWidgets('edit mode with an existing weekInterval > 1 shows the start-date picker', (
-      tester,
-    ) async {
-      final controller = _controller();
-      await _pumpForm(tester, controller, existing: _medicationItem);
+    testWidgets(
+      'the start date is editable at weekInterval == 1',
+      (tester) async {
+        final controller = _controller();
+        await _pumpForm(tester, controller);
+        await _addSchedule(tester);
 
-      expect(
-        find.byKey(const Key('care-item-schedule-start-date-0')),
-        findsOneWidget,
-      );
-    });
+        await _pickStartDateAug3(tester);
+
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('care-item-schedule-start-date-0')),
+            matching: find.text(_enMediumDate(DateTime(2026, 8, 3))),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // Deliberate pair with the editability guard above: a visible, editable
+    // control can still submit today's date if `_submit` recomputes it. The
+    // picked day is in a different month from the injected clock
+    // (2026-07-22) so the defaulted value cannot satisfy the assertion.
+    testWidgets(
+      'a start date picked at weekInterval == 1 is what gets submitted',
+      (tester) async {
+        final repository = _FakeCareItemRepository();
+        final controller = _controller(repository: repository);
+        await _pumpForm(tester, controller);
+        await _addSchedule(tester);
+
+        await _pickStartDateAug3(tester);
+
+        await tester.enterText(
+          find.byKey(const Key('care-item-title-field')),
+          'Metformin',
+        );
+        await tester.pump();
+
+        await tester.ensureVisible(
+          find.byKey(const Key('care-item-form-submit')),
+        );
+        await tester.tap(find.byKey(const Key('care-item-form-submit')));
+        await tester.pumpAndSettle();
+
+        expect(repository.lastDraft, isNotNull);
+        expect(repository.lastDraft!.schedules, hasLength(1));
+        expect(
+          repository.lastDraft!.schedules.single.startDate,
+          DateTime(2026, 8, 3),
+        );
+        expect(
+          repository.lastDraft!.schedules.single.startDate,
+          isNot(DateTime(2026, 7, 22)),
+        );
+      },
+    );
+
+    testWidgets(
+      'edit mode shows the existing schedule\'s stored start date, and '
+      'leaves it unchanged on submit',
+      (tester) async {
+        final repository = _FakeCareItemRepository(items: [_medicationItem]);
+        final controller = _controller(repository: repository);
+        await _pumpForm(tester, controller, existing: _medicationItem);
+
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('care-item-schedule-start-date-0')),
+            matching: find.text(_enMediumDate(DateTime(2026, 7, 6))),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(
+          find.byKey(const Key('care-item-form-submit')),
+        );
+        await tester.tap(find.byKey(const Key('care-item-form-submit')));
+        await tester.pumpAndSettle();
+
+        expect(
+          repository.lastUpdate!.schedules.single.startDate,
+          DateTime(2026, 7, 6),
+        );
+      },
+    );
 
     testWidgets('adding then removing an end date clears it', (tester) async {
       final controller = _controller();
