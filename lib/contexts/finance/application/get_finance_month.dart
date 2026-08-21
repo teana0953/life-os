@@ -30,6 +30,11 @@ class FinanceMonthData {
   });
 }
 
+/// Kept private so the guard in `get_finance_month_test.dart` has to write the
+/// bound out itself — a test importing this constant would move with it and a
+/// raised cap would stay green.
+const _maxConcurrentPlanFetches = 4;
+
 /// Use case: fetch a month's categories, summary, transactions, and budgets
 /// together (`from`/`to` span the whole month) — budgets ride the same
 /// `Future.wait` batch as the rest so [FinanceController]'s existing
@@ -67,21 +72,39 @@ class GetFinanceMonth {
     // fetched successfully — would be thrown away and the user shown an error
     // screen over a ledger that was fine. A plan that cannot be read is a
     // period rendered without its "of M", not a month that failed to load.
+    //
+    // Concurrent but bounded: unbounded, a month is one simultaneous request
+    // per distinct plan, and a heavy ledger opens dozens at once against a
+    // backend whose real ceiling is per-request subrequests and compute, not
+    // wall time. A small pool keeps the round trips overlapping — the whole
+    // point above — while capping how wide the burst can get.
     final installmentPlans = <String, InstallmentPlan>{};
-    await Future.wait(
-      planIds.map((planId) async {
-        try {
-          installmentPlans[planId] = await _repository.getInstallmentPlan(
-            idToken,
-            planId,
-          );
-        } catch (_) {
-          // A 404 is the ownership signal (tasks 2.1/2.2 — the API has no
-          // other); anything else is a plan we could not read this time.
-          // Neither is worth failing the month over.
-        }
-      }),
-    );
+    final queue = planIds.iterator;
+    await Future.wait([
+      for (
+        var worker = 0;
+        worker < _maxConcurrentPlanFetches && worker < planIds.length;
+        worker++
+      )
+        () async {
+          // A worker pool rather than fixed-size batches: a batch runs at the
+          // speed of its slowest plan, leaving the rest of the pool idle.
+          while (true) {
+            if (!queue.moveNext()) return;
+            final planId = queue.current;
+            try {
+              installmentPlans[planId] = await _repository.getInstallmentPlan(
+                idToken,
+                planId,
+              );
+            } catch (_) {
+              // A 404 is the ownership signal (tasks 2.1/2.2 — the API has no
+              // other); anything else is a plan we could not read this time.
+              // Neither is worth failing the month over.
+            }
+          }
+        }(),
+    ]);
     return FinanceMonthData(
       categories: results[0] as List<FinanceCategory>,
       summary: results[1] as MonthlySummary,

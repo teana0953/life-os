@@ -825,3 +825,44 @@ class FinanceRepositoryCountingPlans extends FakeFinanceRepository {
     throw const FinanceNotFound();
   }
 }
+
+/// Holds every `getInstallmentPlan` open until the test releases it, so the
+/// peak overlap can be observed while it is still at its peak. A fake that
+/// completes on its own — even after `await Future.delayed(Duration.zero)`,
+/// which is what [FinanceRepositoryCountingPlans] does — can drain a whole
+/// batch before the test's first pump, which makes any concurrency cap look
+/// satisfied whether or not one exists.
+class FinanceRepositoryGatedPlans extends FakeFinanceRepository {
+  int calls = 0;
+  int inFlight = 0;
+  int maxInFlight = 0;
+  final List<MapEntry<String, Completer<InstallmentPlan>>> pending = [];
+
+  @override
+  Future<InstallmentPlan> getInstallmentPlan(String idToken, String id) {
+    calls++;
+    inFlight++;
+    if (inFlight > maxInFlight) maxInFlight = inFlight;
+    final completer = Completer<InstallmentPlan>();
+    pending.add(MapEntry(id, completer));
+    return completer.future;
+  }
+
+  void releaseOne() {
+    if (pending.isEmpty) return;
+    final entry = pending.removeAt(0);
+    inFlight--;
+    entry.value.complete(
+      plansById[entry.key] ??
+          InstallmentPlan(
+            id: entry.key,
+            mode: InstallmentMode.total,
+            periods: 12,
+            startDay: '2026-05-15',
+            amount: 60000,
+            currency: 'TWD',
+            categoryId: 'cat-food',
+          ),
+    );
+  }
+}
