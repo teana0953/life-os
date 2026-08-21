@@ -10,11 +10,13 @@ import 'package:life_os/contexts/split/application/balance_use_cases.dart';
 import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_trends.dart';
 
+import '../../../support/repository_backed_screen_batch.dart';
 import 'dashboard_repositories_fake.dart';
 
 void main() {
   HomeDashboardController controllerFor(FakeDashboardRepositories repos) =>
       HomeDashboardController(
+        HomeSummaryFromRepositories.combined(repos),
         GetWeightGoal(repos),
         GetVitalsTrends(repos),
         GetMenstrualOverview(repos),
@@ -483,20 +485,26 @@ void main() {
       }
     }
 
-    /// A full round is in flight with its weight-goal arm still open when a
-    /// single-tile retry of the same arm starts.
+    /// A full round is in flight with its weight-goal section still open when
+    /// a single-tile retry of the same arm starts.
     Future<void> roundThenRetry({required bool retryCompletesFirst}) async {
       final repos = FakeDashboardRepositories()
-        ..weightGoalSequence.addAll([1, 2]);
+        ..weightGoalSequence.addAll([0, 1, 2]);
+      final controller = controllerFor(repos);
+      // A completed round first: a whole round is now ONE request, so a
+      // section held open holds the whole response — and with no `data` at
+      // all the screen would be showing its whole-dashboard card, whose retry
+      // is `load`, not a tile retry. This is the state a tile retry is
+      // actually offered from.
+      await controller.load('tok', DateTime(2026, 1, 1, 9, 29));
+      await settle();
+
       final first = Completer<void>();
       final second = Completer<void>();
-      repos.callGates['weightGoal#1'] = first;
-      repos.callGates['weightGoal#2'] = second;
-      final controller = controllerFor(repos);
+      repos.callGates['weightGoal#2'] = first;
+      repos.callGates['weightGoal#3'] = second;
 
       final round = controller.load('tok', DateTime(2026, 1, 1, 9, 30));
-      // The six ungated arms land, so `data` exists and a tile retry is
-      // something the screen could actually offer.
       await settle();
       final retry = controller.retryArm(
         DashboardArm.weightGoal,

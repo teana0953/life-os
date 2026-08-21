@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/favorite_food.dart';
 import '../application/list_favorites.dart';
 import '../application/search_dictionary.dart';
@@ -68,6 +69,25 @@ class DictionaryController extends ChangeNotifier {
     } catch (_) {
       status = DictionaryStatus.error;
       error = DictionaryError.unknown;
+    }
+    notifyListeners();
+  }
+
+  /// Applies the batched `favorite_food_items` section, leaving this
+  /// controller in the state [load] would have left it in for the same
+  /// payload. The search state ([query]/[results]) is untouched — [load] does
+  /// not write it either.
+  void applyBatchSection(SectionOutcome<List<FoodItem>> section) {
+    error = null;
+    switch (section) {
+      case SectionOk<List<FoodItem>>(:final value):
+        favorites = value;
+        status = DictionaryStatus.loaded;
+      case SectionUnavailable<List<FoodItem>>():
+        status = DictionaryStatus.error;
+        error = DictionaryError.fetchFailed;
+      case SectionReauth<List<FoodItem>>():
+        status = DictionaryStatus.needsReauth;
     }
     notifyListeners();
   }

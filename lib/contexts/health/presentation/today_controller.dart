@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/change_meal_time.dart';
 import '../application/delete_meal.dart';
 import '../application/delete_meal_item.dart';
@@ -78,6 +79,26 @@ class TodayController extends ChangeNotifier {
   /// Whether the controller currently HOLDS [day]'s meals log.
   bool holdsDay(String day) => dayMealsLog?.day == day;
 
+  /// The generation a whole-screen batch round has claimed, via
+  /// [claimBatchRound]. Compared against [_nextRequestId] (already bumped
+  /// synchronously by every [load], before its first `await`) in
+  /// [applyBatchSection] instead of comparing days: a day comparison strands
+  /// this controller on whatever day it already holds whenever a round's day
+  /// differs from it — including ordinary cases where nothing has navigated
+  /// at all, e.g. the day rolling over at midnight. The generation only
+  /// moves on an explicit [load], so a round claimed after the last one is
+  /// authoritative for whatever day it computed, whatever this controller
+  /// currently holds — and a round claimed BEFORE a [load] that has since
+  /// started or already landed is correctly refused. `null` (no round has
+  /// claimed one yet) reads as "not claimed", so an unclaimed section is
+  /// refused rather than accepted by accident.
+  int? _claimedGeneration;
+
+  /// Records the generation a whole-screen batch round is about to fetch
+  /// for. Call synchronously, before the round's request goes out — mirrors
+  /// [HealthCalendarController.claimBatchMonth].
+  void claimBatchRound() => _claimedGeneration = _nextRequestId;
+
   DayMealsLog? dayMealsLog;
   DailyTargetWithRemaining? target;
   TodayError? error;
@@ -109,11 +130,55 @@ class TodayController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Applies the health screen's batched `meals` + `daily_target` sections
+  /// for [day], leaving this controller in the state [load] would have left
+  /// it in for the same payload.
+  ///
+  /// Both sections land here because [load] fetches both: the day's meals and
+  /// then its target, and the order matters — a run whose meals read
+  /// succeeded and whose target read failed assigns [dayMealsLog] and *then*
+  /// ends on [TodayStatus.error]. Reproduced rather than tidied up, so the
+  /// batch path cannot leave a state the granular one never produces.
+  ///
+  /// Dropped when a [load] has started — or already landed — since the round
+  /// that produced this section was claimed via [claimBatchRound]: either
+  /// way the diet day has explicitly navigated since, and writing this
+  /// round's figures over that navigation is precisely the mismatch this
+  /// module keeps producing. See [_claimedGeneration] for why this compares
+  /// generations rather than days.
+  void applyBatchSection({
+    required SectionOutcome<DayMealsLog> meals,
+    required SectionOutcome<DailyTargetWithRemaining> dailyTarget,
+  }) {
+    if (_claimedGeneration != _nextRequestId) return;
+    error = null;
+    if (meals is SectionReauth<DayMealsLog> ||
+        dailyTarget is SectionReauth<DailyTargetWithRemaining>) {
+      status = TodayStatus.needsReauth;
+      notifyListeners();
+      return;
+    }
+    if (meals is SectionOk<DayMealsLog>) dayMealsLog = meals.value;
+    if (meals is SectionOk<DayMealsLog> &&
+        dailyTarget is SectionOk<DailyTargetWithRemaining>) {
+      target = dailyTarget.value;
+      status = TodayStatus.loaded;
+    } else {
+      status = TodayStatus.error;
+      error = TodayError.fetchFailed;
+    }
+    notifyListeners();
+  }
+
   /// Runs a mutation [action], then refreshes [day] from the backend on
   /// success (the backend is authoritative for recomputed portions/totals —
   /// no optimistic local mutation). Maps reauth/not-found/failure to the
   /// controller's typed state, which the screen already renders.
-  Future<void> _mutate(String idToken, String day, Future<void> Function() action) async {
+  Future<void> _mutate(
+    String idToken,
+    String day,
+    Future<void> Function() action,
+  ) async {
     try {
       await action();
       await load(idToken, day);
@@ -148,7 +213,13 @@ class TodayController extends ChangeNotifier {
     return _mutate(
       idToken,
       day,
-      () => _editMealItem(idToken, itemId, quantity: quantity, measure: measure, portions: portions),
+      () => _editMealItem(
+        idToken,
+        itemId,
+        quantity: quantity,
+        measure: measure,
+        portions: portions,
+      ),
     );
   }
 
@@ -156,7 +227,12 @@ class TodayController extends ChangeNotifier {
     return _mutate(idToken, day, () => _deleteMealItem(idToken, itemId));
   }
 
-  Future<void> changeMealTime(String idToken, String day, String mealId, DateTime time) {
+  Future<void> changeMealTime(
+    String idToken,
+    String day,
+    String mealId,
+    DateTime time,
+  ) {
     return _mutate(idToken, day, () => _changeMealTime(idToken, mealId, time));
   }
 

@@ -4,6 +4,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:life_os/shared/screen_batch/screen_batch_repository.dart';
 import 'package:life_os/contexts/body_profile/application/get_weight_goal.dart';
 import 'package:life_os/contexts/body_profile/infrastructure/http_body_profile_repository.dart';
 import 'package:life_os/contexts/finance/application/list_finance_budgets.dart';
@@ -30,6 +31,7 @@ HomeDashboardController _dashboardOver(http.Client client) {
   const baseUrl = 'https://example.test';
   final finance = HttpFinanceRepository(baseUrl: baseUrl, client: client);
   return HomeDashboardController(
+    HttpScreenBatchRepository(baseUrl: baseUrl, client: client),
     GetWeightGoal(HttpBodyProfileRepository(baseUrl: baseUrl, client: client)),
     GetVitalsTrends(HttpVitalsRepository(baseUrl: baseUrl, client: client)),
     GetMenstrualOverview(

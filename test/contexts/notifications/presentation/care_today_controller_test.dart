@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/care_today.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
@@ -113,6 +114,54 @@ CareTodayController _controller({
 }
 
 void main() {
+
+  group('CareTodayController.applyBatchSection', () {
+    CareToday today() => CareToday(
+      date: '2026-07-22',
+      slots: [_slot(status: CareTodayStatus.overdue)],
+    );
+
+    test('ok lands the identical state load() lands for the same payload', () async {
+      final viaLoad = _controller(
+        repository: _FakeCareTodayRepository(today: today()),
+      );
+      await viaLoad.load('token');
+
+      final viaBatch = _controller();
+      viaBatch.applyBatchSection(SectionOk(today()));
+
+      expect(viaBatch.status, viaLoad.status);
+      expect(viaBatch.error, viaLoad.error);
+      expect(viaBatch.date, viaLoad.date);
+      expect(
+        viaBatch.slots.map((s) => s.careScheduleId),
+        viaLoad.slots.map((s) => s.careScheduleId),
+      );
+      expect(viaBatch.focusSlot?.timeOfDay, viaLoad.focusSlot?.timeOfDay);
+    });
+
+    // The card renders a setup prompt for an empty checklist, so a failed
+    // section must reach `error`, never "you have no reminders".
+    test('unavailable reaches the fetch-failed state, not an empty checklist', () {
+      final controller = _controller();
+
+      controller.applyBatchSection(const SectionUnavailable<CareToday>());
+
+      expect(controller.status, CareTodayLoadStatus.error);
+      expect(controller.error, isNotNull);
+      expect(controller.slots, isEmpty);
+    });
+
+    test('reauth reaches the re-auth state', () {
+      final controller = _controller();
+
+      controller.applyBatchSection(const SectionReauth<CareToday>());
+
+      expect(controller.status, CareTodayLoadStatus.reauth);
+    });
+  });
+
+
   group('deriveFocusSlot', () {
     test('picks the earliest overdue slot over any pending slot', () {
       final slots = [

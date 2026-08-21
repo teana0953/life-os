@@ -5,11 +5,30 @@ import 'package:http/http.dart' as http;
 import '../domain/care_item.dart';
 import '../domain/care_history.dart';
 import '../domain/care_today.dart';
+import 'http_care_today_repository.dart';
+
+/// Decodes one `{date, items:[...]}` day of `/api/care/range` — the same
+/// per-slot shape as `/api/care/today`. Public and top-level so the
+/// screen-batch decoder shares this one definition with the granular
+/// repository below.
+CareHistoryDay careHistoryDayFromJson(Map<String, dynamic> json) =>
+    CareHistoryDay(
+      date: json['date'] as String,
+      slots: (json['items'] as List)
+          .map((e) => careTodaySlotFromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+/// Decodes the `{from, to, days:[...]}` envelope of `/api/care/range`.
+List<CareHistoryDay> careHistoryDaysFromJson(Map<String, dynamic> envelope) =>
+    (envelope['days'] as List)
+        .map((e) => careHistoryDayFromJson(e as Map<String, dynamic>))
+        .toList();
 
 /// [CareHistoryRepository] driven adapter backed by `/api/care/range` (GET)
 /// and `/api/care/log` (PUT). `getRange` parses the
 /// `{from,to,days:[{date,items:[...]}]}` envelope — the same per-slot shape
-/// as `/api/care/today` (mirrors `HttpCareTodayRepository`'s `_parseSlot`);
+/// as `/api/care/today` (it reuses [careTodaySlotFromJson]);
 /// `editSlot` PUTs a snake_case body to overwrite a slot's outcome.
 class HttpCareHistoryRepository implements CareHistoryRepository {
   final String baseUrl;
@@ -29,20 +48,6 @@ class HttpCareHistoryRepository implements CareHistoryRepository {
     }
   }
 
-  CareTodaySlot _parseSlot(Map<String, dynamic> json) => CareTodaySlot(
-    careItemId: json['care_item_id'] as String,
-    careScheduleId: json['care_schedule_id'] as String,
-    category: careCategoryFromWire(json['category'] as String),
-    title: json['title'] as String,
-    note: json['note'] as String?,
-    dose: json['dose'] as String?,
-    timeOfDay: json['time_of_day'] as String,
-    localDate: json['local_date'] as String,
-    status: careTodayStatusFromWire(json['status'] as String),
-    doneTime: json['done_time'] as String?,
-    doseQuantity: (json['dose_quantity'] as num).toDouble(),
-  );
-
   @override
   Future<List<CareHistoryDay>> getRange(
     String idToken,
@@ -60,24 +65,12 @@ class HttpCareHistoryRepository implements CareHistoryRepository {
     }
     _checkStatus(response);
     try {
-      final envelope = jsonDecode(response.body) as Map<String, dynamic>;
-      final days = envelope['days'] as List;
-      return days
-          .map(
-            (e) => _parseDay(e as Map<String, dynamic>),
-          )
-          .toList();
+      return careHistoryDaysFromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     } catch (_) {
       throw const CareRequestFailed();
     }
-  }
-
-  CareHistoryDay _parseDay(Map<String, dynamic> json) {
-    final items = json['items'] as List;
-    return CareHistoryDay(
-      date: json['date'] as String,
-      slots: items.map((e) => _parseSlot(e as Map<String, dynamic>)).toList(),
-    );
   }
 
   @override

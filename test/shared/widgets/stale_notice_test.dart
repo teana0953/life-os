@@ -127,6 +127,82 @@ void main() {
     expect(retries, 1);
   });
 
+  // The four `(failed, loading)` corners, pinned as a table. `loading` is not
+  // this row's own retry any more: a whole-screen batch round sets it on every
+  // card at once, and this widget is the only place that decides what a card
+  // shows for each combination — for the health overview, but equally for
+  // `FinanceOverviewTab`, `FinanceTransactionsTab`, `NetworthTab`, `SplitTab`
+  // and `HomeScreen`, none of which have a test of their own for the
+  // failed-and-reloading corner.
+  group('the (failed, loading) table', () {
+    testWidgets('failed, nothing in flight — a pressable retry', (
+      tester,
+    ) async {
+      await _pump(tester, initial: (failed: true, loading: false));
+
+      expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
+      expect(_retryButton(tester).onPressed, isNotNull);
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('stale-notice-row'))).onTap,
+        isNotNull,
+      );
+      expect(_spinner(), findsNothing);
+    });
+
+    // The corner no caller had a test for, and the one this expression was
+    // changed to serve: a reload somebody ELSE started (a batch round) over an
+    // already-failed card. Nothing was pressed here, so a `_retried && loading`
+    // rule would leave the row pressable and let the tap fire a second,
+    // redundant request for data the round is already fetching.
+    testWidgets('failed with a reload in flight nobody pressed for — a '
+        'disabled spinner, not a second request', (tester) async {
+      var retries = 0;
+      await _pump(
+        tester,
+        initial: (failed: true, loading: true),
+        onRetry: (_) => retries++,
+      );
+
+      expect(find.text(_loc.cardRefreshFailed), findsOneWidget);
+      expect(_spinner(), findsOneWidget);
+      expect(_retryButton(tester).onPressed, isNull);
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('stale-notice-row'))).onTap,
+        isNull,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('stale-notice-row')),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(retries, 0);
+    });
+
+    testWidgets('healthy with a reload in flight — nothing at all', (
+      tester,
+    ) async {
+      await _pump(tester, initial: (failed: false, loading: true));
+
+      expect(find.byKey(const Key('stale-notice-row')), findsNothing);
+      expect(find.text(_loc.cardRefreshFailed), findsNothing);
+      expect(_spinner(), findsNothing);
+    });
+
+    // Same two flags as the row above — the only difference is that THIS row
+    // asked for the reload, which is what it remembers `_retried` for.
+    testWidgets('healthy with a reload in flight this row asked for — the '
+        'row stays, spinning', (tester) async {
+      await _pump(tester, initial: (failed: true, loading: false));
+      await tester.tap(find.byKey(const Key('stale-notice-retry')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('stale-notice-row')), findsOneWidget);
+      expect(_spinner(), findsOneWidget);
+      expect(_retryButton(tester).onPressed, isNull);
+    });
+  });
+
   group('the retry it started, while that retry is in flight', () {
     testWidgets(
       'keeps the row rather than letting it vanish as if the card had '

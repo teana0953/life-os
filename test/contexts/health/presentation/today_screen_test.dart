@@ -9,6 +9,7 @@ import 'package:life_os/contexts/health/application/edit_meal_item.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/get_day_meals.dart';
 import 'package:life_os/contexts/health/domain/daily_target.dart';
+import 'package:life_os/contexts/health/domain/diet_exceptions.dart';
 import 'package:life_os/contexts/health/domain/daily_target_repository.dart';
 import 'package:life_os/contexts/health/domain/day_meals_log.dart';
 import 'package:life_os/contexts/health/domain/meal_entry.dart';
@@ -51,8 +52,19 @@ class FakeMealRepository implements MealRepository {
   DateTime? patchedTime;
   String? deletedMealId;
 
+  /// When set, every fetch throws it — drives the controller into its error
+  /// state.
+  Object? fetchError;
+
+  /// Every day fetched, in order, so a retry is visible as a second fetch.
+  final List<String> fetchedDays = [];
+
   @override
-  Future<DayMealsLog> getDayMeals(String idToken, String day) async => logToReturn!;
+  Future<DayMealsLog> getDayMeals(String idToken, String day) async {
+    fetchedDays.add(day);
+    if (fetchError != null) throw fetchError!;
+    return logToReturn!;
+  }
 
   @override
   Future<MealEntry> createMeal(
@@ -1290,5 +1302,57 @@ void main() {
         }
       }
     }
+  });
+
+  // The screen is reached far more often than it used to be: with the health
+  // screen batched, ANY request-level failure of `/api/health-overview` (a
+  // 500, a timeout, an undecodable body) lands the diet day in `error`,
+  // where before it took `/api/meals` or `/api/daily-target` failing on its
+  // own. Sign out is not an answer to a transient network error.
+  group('TodayScreen error state', () {
+    testWidgets('offers a retry that reloads the displayed day', (
+      tester,
+    ) async {
+      final mealRepository = FakeMealRepository()
+        ..fetchError = const DietFetchFailure('boom');
+      final controller = _controllerWith(
+        dayLog: DayMealsLog.fromJson({
+          'day': '2026-07-18',
+          'meals': <dynamic>[],
+          'totals': {
+            'carb_g': 0, 'protein_g': 0, 'fat_g': 0, 'sugar_g': 0,
+            'fiber_g': 0, 'kcal': 0,
+            'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0,
+          },
+        }),
+        mealRepository: mealRepository,
+      );
+      await controller.load('token-123', '2026-07-18');
+      expect(controller.status, TodayStatus.error);
+
+      await tester.pumpWidget(
+        l10nTestApp(
+          home: TodayScreen(
+            controller: controller,
+            signOut: SignOut(FakeAuthRepository()),
+            idToken: () async => 'token-123',
+            day: '2026-07-18',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('today-error-message')), findsOneWidget);
+      expect(find.byKey(const Key('today-retry-button')), findsOneWidget);
+
+      final before = mealRepository.fetchedDays.length;
+      await tester.tap(find.byKey(const Key('today-retry-button')));
+      await tester.pumpAndSettle();
+
+      // The day on screen, through the granular repository — not the shell's
+      // whole-screen batch, which this screen does not own.
+      expect(mealRepository.fetchedDays.length, before + 1);
+      expect(mealRepository.fetchedDays.last, '2026-07-18');
+    });
   });
 }

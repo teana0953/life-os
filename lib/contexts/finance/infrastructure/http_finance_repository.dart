@@ -14,6 +14,14 @@ import '../domain/networth_account.dart';
 import '../domain/networth_snapshot.dart';
 import '../domain/split_spending.dart';
 
+/// Decodes the `{month, budgets:[...]}` envelope of
+/// `/api/finance/budgets?month=`. Public and top-level so the screen-batch
+/// decoder shares this one definition with the granular repository below.
+List<FinanceBudget> financeBudgetsFromJson(Map<String, dynamic> json) =>
+    (json['budgets'] as List)
+        .map((e) => FinanceBudget.fromJson(e as Map<String, dynamic>))
+        .toList();
+
 /// [FinanceRepository] driven adapter backed by the `/api/finance/*` HTTP
 /// endpoints (contract frozen in design.md).
 class HttpFinanceRepository implements FinanceRepository {
@@ -229,10 +237,9 @@ class HttpFinanceRepository implements FinanceRepository {
     );
     if (response.statusCode != 200) _throwForStatus(response.statusCode);
     try {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return (json['budgets'] as List)
-          .map((e) => FinanceBudget.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return financeBudgetsFromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     } catch (_) {
       throw const FinanceFetchFailure(_genericFailureMessage);
     }

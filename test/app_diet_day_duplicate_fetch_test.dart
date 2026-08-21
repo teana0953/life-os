@@ -15,6 +15,8 @@ import 'package:life_os/contexts/health/domain/meal_entry.dart';
 import 'package:life_os/contexts/health/domain/meal_repository.dart';
 import 'package:life_os/contexts/health/domain/portions.dart';
 import 'package:life_os/contexts/health/presentation/diet_day_screen.dart';
+import 'package:life_os/contexts/health/presentation/daily_target_controller.dart';
+import 'package:life_os/contexts/health/presentation/today_controller.dart';
 import 'package:life_os/contexts/hydration/domain/water_day.dart';
 import 'package:life_os/contexts/hydration/domain/water_repository.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
@@ -78,12 +80,16 @@ void main() {
     AuthRepository? authRepository,
     DataRevision? dataRevision,
     DateTime Function()? clock,
+    void Function(TodayController)? onTodayController,
+    void Function(DailyTargetController)? onDailyTargetController,
   }) async {
     final auth =
         authRepository ?? FakeAuthRepository(initiallyAuthenticated: true);
     await pumpApp(
       tester,
       authRepository: auth,
+      onTodayController: onTodayController,
+      onDailyTargetController: onDailyTargetController,
       mealRepository: mealRepository,
       dailyTargetRepository: dailyTargetRepository,
       waterRepository: waterRepository,
@@ -150,38 +156,42 @@ void main() {
       '/health/diet/target',
       '/health/diet/food-search',
     ]) {
-      testWidgets('$entry sends one meals read and two target reads', (
+      testWidgets('$entry does not overwrite the diet day\'s own fetch', (
         tester,
       ) async {
         final trace = <String>[];
         final meals = TracingMealRepository(trace);
         final target = TracingDailyTargetRepository(trace);
+        late final TodayController todayController;
         final router = await pumpSignedIn(
           tester,
           mealRepository: meals,
           dailyTargetRepository: target,
+          onTodayController: (c) => todayController = c,
         );
         trace.clear();
 
         router.go(entry);
         await tester.pumpAndSettle();
 
+        // The shell issues ONE request for the whole screen, and the backend
+        // computes the day's meals inside it whether the shell wants that
+        // section or not — so the second read here is the batch's section,
+        // not a second client request (design D8). What issue #171 is about
+        // is the WRITE, and that is what the assertion below pins.
+        expect(meals.reads, [today, today]);
         expect(
-          meals.reads,
-          [today],
+          todayController.dayMealsLog!.meals.single.id,
+          'meal-$today#0',
           reason:
-              'the shell and the diet day below it must not both fetch the '
-              'same day (issue #171)',
+              'the diet day fetched this day; the shell must stand down from '
+              'writing its own copy over it (issue #171)',
         );
-        // 2, not 1, and it is NOT this change's duplicate: `TodayController.load`
-        // fetches the daily target itself (today_controller.dart, right after
-        // the meals log) ON TOP OF `DailyTargetController.load`. That is a
-        // different duplication one layer down — two controllers each own a
-        // copy of the target — and collapsing it means moving target ownership,
-        // which is tracked separately (issue #176). If that lands, this number
-        // becomes 1: change the number, do not restore a duplicate to keep it
-        // green.
-        expect(target.reads, [today, today]);
+        // Three: `TodayController.load` fetches the target itself right after
+        // its meals log, ON TOP OF `DailyTargetController.load` — a different
+        // duplication one layer down, tracked separately (issue #176) — plus
+        // the batch's own `daily_target` section.
+        expect(target.reads, [today, today, today]);
       });
     }
 
@@ -192,11 +202,13 @@ void main() {
         final gate = Completer<void>();
         final meals = TracingMealRepository(trace, holdFirstReadUntil: gate);
         final target = TracingDailyTargetRepository(trace);
+        late final TodayController todayController;
         final router = await pumpSignedIn(
           tester,
           mealRepository: meals,
           dailyTargetRepository: target,
           waterRepository: TracingWaterRepository(trace),
+          onTodayController: (c) => todayController = c,
         );
         trace.clear();
 
@@ -232,7 +244,10 @@ void main() {
         gate.complete();
         await tester.pumpAndSettle();
 
-        expect(meals.reads, [today]);
+        // Two reads, one request: the second is the batch's own `meals`
+        // section, which the shell fetched and then did not write.
+        expect(meals.reads, [today, today]);
+        expect(todayController.dayMealsLog!.meals.single.id, 'meal-$today#0');
       },
     );
 
@@ -351,7 +366,9 @@ void main() {
 
       router.go('/health/diet');
       await tester.pumpAndSettle();
-      expect(meals.reads, [today], reason: 'the mount round stands down');
+      // Two reads, one request: the diet day's, plus the batch's own section
+      // — which the mount round stands down from writing.
+      expect(meals.reads, [today, today], reason: 'the mount round stands down');
 
       // Bumped WITHOUT leaving `/health/diet`, and that placement is the
       // point: the diet day is still in the stack and the controllers still
@@ -362,11 +379,11 @@ void main() {
       // refresh short of restarting the app.
       revision.bump();
       await tester.pumpAndSettle();
-      expect(meals.reads, [today, today]);
+      expect(meals.reads, [today, today, today]);
 
       revision.bump();
       await tester.pumpAndSettle();
-      expect(meals.reads, [today, today, today]);
+      expect(meals.reads, [today, today, today, today]);
     });
 
     testWidgets('pull-to-refresh on the overview refetches the day', (
@@ -383,7 +400,7 @@ void main() {
 
       router.go('/health/diet');
       await tester.pumpAndSettle();
-      expect(meals.reads, [today]);
+      expect(meals.reads, [today, today]);
 
       // Back onto the shell's overview and pull down: an explicit user request
       // for fresh data, which "we already have this day" must never swallow.
@@ -400,7 +417,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(meals.reads, [today, today]);
+      expect(meals.reads, [today, today, today]);
     });
   });
 
@@ -477,12 +494,11 @@ void main() {
         'water:2026-03-11',
       ]);
       expect(meals.reads, ['2026-03-10', '2026-03-11']);
-      expect(target.reads, [
-        '2026-03-10',
-        '2026-03-10',
-        '2026-03-11',
-        '2026-03-11',
-      ]);
+      // THREE, not four: the shell's round reads the 11th's target once and
+      // applies that one section to both `TodayController` and
+      // `DailyTargetController` — the duplicate per-load target fetch is gone.
+      // The two 10th reads are the diet day's own pair (issue #176).
+      expect(target.reads, ['2026-03-10', '2026-03-10', '2026-03-11']);
     });
   });
 
@@ -536,27 +552,30 @@ void main() {
         'when its reload fails: the shell reloads it', (tester) async {
       final trace = <String>[];
       final meals = TracingMealRepository(trace);
-      // Reads 0/1 are the first visit (both healthy). On the second visit read
-      // 2 is `TodayController`'s (healthy — so the meals half stands down and
-      // cannot mask this) and read 3 is `DailyTargetController`'s, which
+      // Reads 0/1 are the first visit's diet-day pair and read 2 is that
+      // round's batch section (all healthy). On the second visit read 3 is
+      // `TodayController`'s (healthy — so the meals half stands down and
+      // cannot mask this) and read 4 is `DailyTargetController`'s, which
       // fails. Failing does NOT clear the target it loaded on the first visit,
       // so the controller reaches the shell's decision holding today on
       // `DailyTargetStatus.error`.
       final target = TracingDailyTargetRepository(
         trace,
-        failReadIndexes: const {3},
+        failReadIndexes: const {4},
       );
+      late final DailyTargetController dailyTargetController;
       final router = await pumpSignedIn(
         tester,
         mealRepository: meals,
         dailyTargetRepository: target,
+        onDailyTargetController: (c) => dailyTargetController = c,
       );
       trace.clear();
 
       router.go('/health/diet');
       await tester.pumpAndSettle();
-      expect(meals.reads, [today]);
-      expect(target.reads, [today, today]);
+      expect(meals.reads, [today, today]);
+      expect(target.reads, [today, today, today]);
 
       // Out of the health module and back in, so the shell MOUNTS again and
       // takes a fresh first-round decision.
@@ -565,12 +584,21 @@ void main() {
       router.go('/health/diet');
       await tester.pumpAndSettle();
 
-      // Meals: one read for this visit only — that half legitimately stood
-      // down, and it staying at 2 is what keeps this test about the target.
-      expect(meals.reads, [today, today]);
-      // Target: the diet day's two reads (the second of which failed) plus the
-      // shell's own, because a held-but-failed day must not count as loaded.
-      expect(target.reads, [today, today, today, today, today]);
+      // Meals: the diet day's read plus this round's batch section — that
+      // half legitimately stood down from WRITING, and it not growing beyond
+      // those two is what keeps this test about the target.
+      expect(meals.reads, [today, today, today, today]);
+      // Target: two visits of the diet day's pair plus each round's batch
+      // section. No extra read for the repair — a held-but-failed day does
+      // not count as loaded, so the shell writes the section it already has
+      // onto `DailyTargetController` instead of standing down.
+      expect(target.reads, [today, today, today, today, today, today]);
+      expect(
+        dailyTargetController.target!.day,
+        today,
+        reason: 'the failed reload must not leave the card holding nothing',
+      );
+      expect(dailyTargetController.status, DailyTargetStatus.loaded);
     });
 
     testWidgets('meals landed and its target read needs REAUTH: the shell '
@@ -651,8 +679,10 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      // Two reads: the diet day's (failed) and the shell's cover.
-      expect(meals.reads, [today, today]);
+      // Three: the diet day's (failed), the batch's own section (fetched but
+      // not written, because the shell had already stood down), and the
+      // shell's cover once that claim settled as a failure.
+      expect(meals.reads, [today, today, today]);
       // And the cover is only worth having if it reaches the USER: the point
       // is a screen with the day on it, not a request count.
       expect(find.byKey(const Key('today-error-message')), findsNothing);
@@ -694,10 +724,11 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      // Meals stood down and stays at the diet day's single read; the target
-      // gets the diet day's two (the second of which failed) plus the cover.
-      expect(meals.reads, [today]);
-      expect(target.reads, [today, today, today]);
+      // Meals: the diet day's read plus the batch's section, which the
+      // stand-down refused to write. Target: the diet day's two (the second
+      // of which failed), the batch's section, and the cover.
+      expect(meals.reads, [today, today]);
+      expect(target.reads, [today, today, today, today]);
     });
   });
 }
@@ -719,6 +750,7 @@ class TracingMealRepository implements MealRepository {
   /// the thing the shell deferred to did not land".
   final bool failHeldRead;
   bool _held = false;
+  int _reads = 0;
 
   TracingMealRepository(
     this.trace, {
@@ -734,6 +766,13 @@ class TracingMealRepository implements MealRepository {
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     trace.add('meals:$day');
+    // The meal id carries the read index, so a test can tell WHICH read's
+    // answer is on the controller. The batch endpoint computes the day's
+    // meals whether or not the shell applies the section (design D8 — the
+    // stand-down became a decision about applying, not about requesting), so
+    // a read count alone can no longer say whether the shell overwrote the
+    // diet day's own fetch.
+    final readIndex = _reads++;
     if (holdFirstReadUntil != null && !_held) {
       _held = true;
       await holdFirstReadUntil!.future;
@@ -745,7 +784,7 @@ class TracingMealRepository implements MealRepository {
       'day': day,
       'meals': [
         {
-          'id': 'meal-$day',
+          'id': 'meal-$day#$readIndex',
           'meal': 'lunch',
           'time': '2026-01-01T12:00:00.000Z',
           'items': [

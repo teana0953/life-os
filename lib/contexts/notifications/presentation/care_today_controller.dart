@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/care_today.dart';
 import '../application/edit_care_slot.dart';
 import '../domain/care_item.dart';
@@ -193,6 +194,30 @@ class CareTodayController extends ChangeNotifier {
     notifyListeners();
     await _fetch(idToken);
     _fetching = false;
+    notifyListeners();
+  }
+
+  /// Applies the health screen's batched `care_today` section, leaving this
+  /// controller in the state [load] would have left it in for the same
+  /// payload.
+  ///
+  /// A failed section carries [CareRequestFailed] into [error] — the very
+  /// exception the granular repository throws — so the screen's error copy
+  /// cannot tell a batched failure from a granular one.
+  void applyBatchSection(SectionOutcome<CareToday> section) {
+    markError = null;
+    switch (section) {
+      case SectionOk<CareToday>(:final value):
+        date = value.date;
+        slots = value.slots;
+        error = null;
+        status = CareTodayLoadStatus.loaded;
+      case SectionUnavailable<CareToday>():
+        error = const CareRequestFailed();
+        status = CareTodayLoadStatus.error;
+      case SectionReauth<CareToday>():
+        status = CareTodayLoadStatus.reauth;
+    }
     notifyListeners();
   }
 

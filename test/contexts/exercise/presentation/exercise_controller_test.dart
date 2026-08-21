@@ -1,3 +1,4 @@
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/exercise/application/add_exercise_entry.dart';
 import 'package:life_os/contexts/exercise/application/delete_exercise_entry.dart';
@@ -84,6 +85,203 @@ class FakeExerciseRepository implements ExerciseRepository {
 }
 
 void main() {
+  group('ExerciseController.applyBatchSection', () {
+    const activities = [
+      ExerciseActivity(
+        id: 'jogging',
+        name: '慢跑',
+        category: 'aerobic',
+        intensity: '8km/hr',
+      ),
+      ExerciseActivity(
+        id: 'squats',
+        name: '深蹲',
+        category: 'anaerobic',
+        intensity: '',
+      ),
+    ];
+
+    test(
+      'ok lands the identical state load() lands for the same payloads',
+      () async {
+        final at = DateTime(2026, 7, 18, 9, 30);
+        final viaLoad = ExerciseController(
+          ListExerciseActivities(FakeExerciseRepository()),
+          GetExerciseDay(FakeExerciseRepository()),
+          AddExerciseEntry(FakeExerciseRepository()),
+          DeleteExerciseEntry(FakeExerciseRepository()),
+          clock: () => at,
+        );
+        await viaLoad.load('token', '2026-07-18');
+
+        final viaBatch = ExerciseController(
+          ListExerciseActivities(FakeExerciseRepository()),
+          GetExerciseDay(FakeExerciseRepository()),
+          AddExerciseEntry(FakeExerciseRepository()),
+          DeleteExerciseEntry(FakeExerciseRepository()),
+          clock: () => at,
+        );
+        viaBatch.claimBatchRound();
+        viaBatch.applyBatchSection(
+          activities: const SectionOk(activities),
+          exercise: SectionOk(viaLoad.day!),
+        );
+
+        expect(viaBatch.status, viaLoad.status);
+        expect(viaBatch.error, viaLoad.error);
+        expect(viaBatch.lastLoadedAt, viaLoad.lastLoadedAt);
+        expect(
+          viaBatch.activities.map((a) => a.id),
+          viaLoad.activities.map((a) => a.id),
+        );
+        expect(viaBatch.day!.totalMinutes, viaLoad.day!.totalMinutes);
+      },
+    );
+
+    test('an unavailable exercise section reaches the fetch-failed state', () {
+      final controller = _controller(FakeExerciseRepository());
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        activities: const SectionOk(activities),
+        exercise: const SectionUnavailable<ExerciseDay>(),
+      );
+
+      expect(controller.status, ExerciseStatus.error);
+      expect(controller.error, ExerciseError.fetchFailed);
+      expect(controller.day, isNull);
+      expect(controller.lastLoadedAt, isNull);
+    });
+
+    test('reauth on either section reaches needsReauth', () {
+      final controller = _controller(FakeExerciseRepository());
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        activities: const SectionOk(activities),
+        exercise: const SectionReauth<ExerciseDay>(),
+      );
+
+      expect(controller.status, ExerciseStatus.needsReauth);
+    });
+
+    // load() only reads the library when it has none — so a failed library
+    // section is only a failure when the library was going to be read.
+    test(
+      'a failed activities section is ignored once the library is held',
+      () async {
+        final controller = _controller(FakeExerciseRepository());
+        await controller.load('token', '2026-07-18');
+        final day = controller.day!;
+
+        controller.claimBatchRound();
+        controller.applyBatchSection(
+          activities: const SectionUnavailable<List<ExerciseActivity>>(),
+          exercise: SectionOk(day),
+        );
+
+        expect(controller.status, ExerciseStatus.loaded);
+        expect(controller.activities, isNotEmpty);
+      },
+    );
+
+    test('a failed activities section fails the card when none is held', () {
+      final controller = _controller(FakeExerciseRepository());
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        activities: const SectionUnavailable<List<ExerciseActivity>>(),
+        exercise: SectionOk(
+          const ExerciseDay(day: '2026-07-18', entries: [], totalMinutes: 0),
+        ),
+      );
+
+      expect(controller.status, ExerciseStatus.error);
+      expect(controller.error, ExerciseError.fetchFailed);
+      expect(controller.day, isNull);
+    });
+
+    // A section with no claim at all (nobody called `claimBatchRound`) must
+    // never apply by accident.
+    test('a section nobody claimed a round for is dropped', () {
+      final controller = _controller(FakeExerciseRepository());
+
+      controller.applyBatchSection(
+        activities: const SectionOk(activities),
+        exercise: SectionOk(
+          const ExerciseDay(day: '2026-07-18', entries: [], totalMinutes: 0),
+        ),
+      );
+
+      expect(controller.day, isNull);
+    });
+
+    test(
+      'a section is dropped when a load starts after the round was claimed',
+      () async {
+        final controller = _controller(FakeExerciseRepository());
+        controller.claimBatchRound();
+        final other = controller.load('token', '2026-07-19');
+
+        controller.applyBatchSection(
+          activities: const SectionOk(activities),
+          exercise: SectionOk(
+            const ExerciseDay(day: '2026-07-18', entries: [], totalMinutes: 0),
+          ),
+        );
+        expect(controller.day, isNull);
+
+        await other;
+        expect(controller.day!.day, '2026-07-19');
+      },
+    );
+
+    test(
+      'a section is dropped when a load already landed after the round was claimed',
+      () async {
+        final controller = _controller(FakeExerciseRepository());
+        controller.claimBatchRound();
+        await controller.load('token', '2026-07-19');
+        expect(controller.day!.day, '2026-07-19');
+
+        controller.applyBatchSection(
+          activities: const SectionOk(activities),
+          exercise: SectionOk(
+            const ExerciseDay(day: '2026-07-18', entries: [], totalMinutes: 0),
+          ),
+        );
+
+        expect(controller.day!.day, '2026-07-19');
+      },
+    );
+
+    // The over-correction a day comparison would cause: a round whose day
+    // simply differs from whatever day the controller already holds must
+    // still apply, as long as nothing navigated since the round was claimed.
+    test(
+      'a section applies even when its day differs from the day already held, '
+      'as long as nothing navigated since the round was claimed',
+      () async {
+        final controller = _controller(FakeExerciseRepository());
+        await controller.load('token', '2026-07-17');
+        expect(controller.day!.day, '2026-07-17');
+
+        controller.claimBatchRound();
+        const freshDay = ExerciseDay(
+          day: '2026-07-18',
+          entries: [],
+          totalMinutes: 0,
+        );
+        controller.applyBatchSection(
+          activities: const SectionOk(activities),
+          exercise: const SectionOk(freshDay),
+        );
+
+        expect(controller.day!.day, '2026-07-18');
+      },
+    );
+  });
+
   const day = '2026-07-18';
 
   test('load fetches the day and the activity library', () async {
@@ -213,9 +411,10 @@ void main() {
   });
 }
 
-ExerciseController _controller(FakeExerciseRepository repo) => ExerciseController(
-  ListExerciseActivities(repo),
-  GetExerciseDay(repo),
-  AddExerciseEntry(repo),
-  DeleteExerciseEntry(repo),
-);
+ExerciseController _controller(FakeExerciseRepository repo) =>
+    ExerciseController(
+      ListExerciseActivities(repo),
+      GetExerciseDay(repo),
+      AddExerciseEntry(repo),
+      DeleteExerciseEntry(repo),
+    );

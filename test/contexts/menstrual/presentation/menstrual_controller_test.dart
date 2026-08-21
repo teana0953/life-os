@@ -1,3 +1,4 @@
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/menstrual/application/add_period.dart';
 import 'package:life_os/contexts/menstrual/application/delete_period.dart';
@@ -75,6 +76,48 @@ MenstrualController _controller(FakeMenstrualRepository repo) =>
     );
 
 void main() {
+
+  group('MenstrualController.applyBatchSection', () {
+    test('ok lands the identical state load() lands for the same payload', () async {
+      final repo = FakeMenstrualRepository();
+      await repo.addPeriod('t', startDate: DateTime(2026, 7, 1));
+      final viaLoad = _controller(repo);
+      await viaLoad.load('token');
+
+      final viaBatch = _controller(FakeMenstrualRepository());
+      viaBatch.applyBatchSection(SectionOk(viaLoad.overview!));
+
+      expect(viaBatch.status, viaLoad.status);
+      expect(viaBatch.error, viaLoad.error);
+      expect(
+        viaBatch.overview!.periods.map((p) => p.id),
+        viaLoad.overview!.periods.map((p) => p.id),
+      );
+      expect(viaBatch.overview!.lastPeriod?.id, viaLoad.overview!.lastPeriod?.id);
+    });
+
+    // The next-period card renders "no data" for an empty overview, so a
+    // failed section must not arrive as one.
+    test('unavailable reaches the fetch-failed state, not an empty overview', () {
+      final controller = _controller(FakeMenstrualRepository());
+
+      controller.applyBatchSection(const SectionUnavailable<MenstrualOverview>());
+
+      expect(controller.status, MenstrualStatus.error);
+      expect(controller.error, MenstrualError.fetchFailed);
+      expect(controller.overview, isNull);
+    });
+
+    test('reauth reaches needsReauth', () {
+      final controller = _controller(FakeMenstrualRepository());
+
+      controller.applyBatchSection(const SectionReauth<MenstrualOverview>());
+
+      expect(controller.status, MenstrualStatus.needsReauth);
+    });
+  });
+
+
   test('load fetches the overview', () async {
     final controller = _controller(FakeMenstrualRepository());
 

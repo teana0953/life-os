@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/get_health_calendar.dart';
 import '../domain/health_calendar.dart';
 import '../domain/health_calendar_exceptions.dart';
@@ -58,6 +59,7 @@ class HealthCalendarController extends ChangeNotifier {
   /// month, so the card and [load] open on it as before.
   void reset() {
     _selectedMonth = null;
+    _batchMonthClaim = null;
     calendar = null;
     status = HealthCalendarStatus.loading;
   }
@@ -67,6 +69,62 @@ class HealthCalendarController extends ChangeNotifier {
   /// when the app started.)
   Future<void> load(String idToken) =>
       loadMonth(idToken, selectedMonth.year, selectedMonth.month);
+
+  /// Records the month a whole-screen batch round is about to request.
+  /// Mirrors what [loadMonth] does with its own month — set synchronously,
+  /// before the request goes out — so [applyBatchSection] can compare the
+  /// response against a snapshot rather than against a value that moves
+  /// under it. A *separate* field from [_selectedMonth], which belongs to
+  /// the user: a round must never move the month they paged to.
+  ///
+  /// Without it the apply could only compare against [selectedMonth], which
+  /// falls back to the clock's current month — so after [reset] cleared the
+  /// signed-out user's month, that user's in-flight response would match the
+  /// fallback and land in the next user's card.
+  void claimBatchMonth(int year, int month) {
+    _batchMonthClaim = DateTime(year, month);
+  }
+
+  DateTime? _batchMonthClaim;
+
+  /// Applies the batched `health_calendar` section, but only when it is the
+  /// month this card is showing — returns whether it did.
+  ///
+  /// The section is always computed for the round's `day`, so a card the user
+  /// has paged to another month must not be overwritten by it; the caller
+  /// leaves that one card alone.
+  ///
+  /// The claim is checked against the same nullable-sentinel rule
+  /// [loadMonth]'s own staleness check uses: [reset] clears it, so *every*
+  /// response in flight across a sign-out is stale — including one for what
+  /// [selectedMonth] would still call the current month.
+  bool applyBatchSection(
+    SectionOutcome<HealthCalendar> section, {
+    required int requestedYear,
+    required int requestedMonth,
+  }) {
+    final claim = _batchMonthClaim;
+    if (claim == null ||
+        requestedYear != claim.year ||
+        requestedMonth != claim.month) {
+      return false;
+    }
+    if (requestedYear != selectedMonth.year ||
+        requestedMonth != selectedMonth.month) {
+      return false;
+    }
+    switch (section) {
+      case SectionOk<HealthCalendar>(:final value):
+        calendar = value;
+        status = HealthCalendarStatus.loaded;
+      case SectionUnavailable<HealthCalendar>():
+        status = HealthCalendarStatus.error;
+      case SectionReauth<HealthCalendar>():
+        status = HealthCalendarStatus.needsReauth;
+    }
+    notifyListeners();
+    return true;
+  }
 
   /// Switches to [year]/[month] and loads its summary, passing the local
   /// `today` — which stays the real today whichever month is being viewed, so

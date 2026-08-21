@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/date/day_format.dart';
+import '../../../shared/screen_batch/home_summary_batch.dart';
+import '../../../shared/screen_batch/screen_batch_repository.dart';
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../../body_profile/application/get_weight_goal.dart';
 import '../../body_profile/domain/weight_goal.dart';
 import '../../finance/application/list_finance_budgets.dart';
@@ -220,8 +223,17 @@ class HomeDashboardData {
       dailyTarget.hasValue;
 }
 
+/// The home tile shows the *most recent* blood-pressure sample, so its
+/// lookback is a year rather than the health screen's month — a shorter one
+/// would blank the tile for anyone who has not measured lately. Matches the
+/// endpoint's own default, and is sent explicitly all the same: the two
+/// endpoints' defaults differ (30 vs 366) and a default changed on either
+/// side would move the window silently.
+const int homeTrendDays = 366;
+
 /// Loads the lightweight cross-context snapshots shown by the home hub.
 class HomeDashboardController extends ChangeNotifier {
+  final ScreenBatchRepository _screenBatch;
   final GetWeightGoal _getWeightGoal;
   final GetVitalsTrends _getVitalsTrends;
   final GetMenstrualOverview _getMenstrualOverview;
@@ -231,6 +243,7 @@ class HomeDashboardController extends ChangeNotifier {
   final GetDailyTargetWithRemaining _getDailyTarget;
 
   HomeDashboardController(
+    this._screenBatch,
     this._getWeightGoal,
     this._getVitalsTrends,
     this._getMenstrualOverview,
@@ -338,9 +351,98 @@ class HomeDashboardController extends ChangeNotifier {
     // *second* fetch of that arm. Invariant W makes the result correct
     // whichever lands first; what it costs is one redundant request, against
     // a tile that would otherwise look inert while the page refreshes.
-    final outcomes = await Future.wait([
-      for (final arm in DashboardArm.values) _runArm(arm, idToken, now, generation),
-    ]);
+
+    // One ticket per arm, taken at the START of the round — exactly as if
+    // seven fetches had been started here, which is what this used to do.
+    // Invariant W then decides every write as before: a per-tile retry
+    // started after this point still wins its arm whichever order the two
+    // land in, and `reset()` still stops the whole round from landing.
+    final tickets = {
+      for (final arm in DashboardArm.values) arm: _takeTicket(arm),
+    };
+
+    HomeSummaryBatch batch;
+    try {
+      // ONE request for the seven arms. `day` is the same `now` the round was
+      // handed, formatted once — never a second clock read, which is how a
+      // round that straddles midnight ends up requesting one day and labelling
+      // another.
+      batch = await _screenBatch.getHomeSummary(
+        idToken,
+        day: dayString(now),
+        trendDays: homeTrendDays,
+      );
+    } catch (_) {
+      // Every request-level fault is seven failed arms, including a 401: no
+      // arm here has a re-authentication state, and the whole-dashboard card
+      // below is what a total failure already showed.
+      batch = HomeSummaryBatch.requestFailed(reauth: false);
+    }
+
+    final outcomes = [
+      _applyArm<WeightGoal>(
+        DashboardArm.weightGoal,
+        generation,
+        tickets[DashboardArm.weightGoal]!,
+        batch.weightGoal,
+        (data) => data.weightGoal,
+        (data, slot) => data.copyWith(weightGoal: slot),
+      ),
+      _applyArm<BloodPressureSnapshot?>(
+        DashboardArm.vitals,
+        generation,
+        tickets[DashboardArm.vitals]!,
+        _reduce(
+          batch.vitalsTrend,
+          (range) => _latestBloodPressure(range.series),
+        ),
+        (data) => data.bloodPressure,
+        (data, slot) => data.copyWith(bloodPressure: slot),
+      ),
+      _applyArm<NextPeriodStatus>(
+        DashboardArm.menstrual,
+        generation,
+        tickets[DashboardArm.menstrual]!,
+        _reduce(
+          batch.menstrual,
+          (overview) => computeNextPeriodStatus(overview, now),
+        ),
+        (data) => data.menstrualStatus,
+        (data, slot) => data.copyWith(menstrualStatus: slot),
+      ),
+      _applyArm<FinanceBudget?>(
+        DashboardArm.budgets,
+        generation,
+        tickets[DashboardArm.budgets]!,
+        batch.overallBudget,
+        (data) => data.overallBudget,
+        (data, slot) => data.copyWith(overallBudget: slot),
+      ),
+      _applyArm<MonthlyNetWorth>(
+        DashboardArm.netWorth,
+        generation,
+        tickets[DashboardArm.netWorth]!,
+        batch.netWorth,
+        (data) => data.netWorth,
+        (data, slot) => data.copyWith(netWorth: slot),
+      ),
+      _applyArm<List<Balance>>(
+        DashboardArm.balances,
+        generation,
+        tickets[DashboardArm.balances]!,
+        batch.splitBalances,
+        (data) => data.splitBalances,
+        (data, slot) => data.copyWith(splitBalances: slot),
+      ),
+      _applyArm<DailyTargetWithRemaining>(
+        DashboardArm.dailyTarget,
+        generation,
+        tickets[DashboardArm.dailyTarget]!,
+        batch.dailyTarget,
+        (data) => data.dailyTarget,
+        (data, slot) => data.copyWith(dailyTarget: slot),
+      ),
+    ];
     if (generation != _generation) return;
     if (outcomes.contains(true)) {
       status = HomeDashboardStatus.loaded;
@@ -355,7 +457,50 @@ class HomeDashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Runs one arm under Invariant W. Returns whether the fetch itself
+  /// Reduces one section to the value its arm holds, keeping a failure a
+  /// failure. The home tiles show derived figures (the latest blood pressure,
+  /// the next predicted period), never the whole section.
+  SectionOutcome<R> _reduce<T, R>(
+    SectionOutcome<T> section,
+    R Function(T) reduce,
+  ) => section is SectionOk<T>
+      ? SectionOk<R>(reduce(section.value))
+      : SectionUnavailable<R>();
+
+  /// Writes one arm from an already-resolved section, under Invariant W with
+  /// the ticket the round took at its start. Returns whether the section
+  /// carried a value — the round's question is "did this refresh anything",
+  /// and a write dropped in favour of a newer retry of the same arm is not a
+  /// failed round.
+  bool _applyArm<T>(
+    DashboardArm arm,
+    int generation,
+    int ticket,
+    SectionOutcome<T> section,
+    ArmSlot<T> Function(HomeDashboardData) read,
+    HomeDashboardData Function(HomeDashboardData, ArmSlot<T>) write,
+  ) {
+    final ok = section is SectionOk<T>;
+    if (!_mayWrite(arm, generation, ticket)) return ok;
+    final current = data ?? const HomeDashboardData.allLoading();
+    data = write(
+      current,
+      ok
+          ? ArmSlot<T>.loaded(section.value)
+          : ArmSlot<T>.failedAfter(read(current)),
+    );
+    return ok;
+  }
+
+  int _takeTicket(DashboardArm arm) {
+    final ticket = (_seq[arm] ?? 0) + 1;
+    _seq[arm] = ticket;
+    return ticket;
+  }
+
+  /// Runs one arm's own granular fetch under Invariant W — the per-tile
+  /// [retryArm] path, which stays granular; a whole round goes through the
+  /// batch endpoint instead. Returns whether the fetch itself
   /// succeeded (not whether the write was allowed — the caller's question is
   /// "did this round refresh anything", and a write dropped in favour of a
   /// *newer* fetch of the same arm is not a failed round).
@@ -440,8 +585,7 @@ class HomeDashboardController extends ChangeNotifier {
     ArmSlot<T> Function(HomeDashboardData) read,
     HomeDashboardData Function(HomeDashboardData, ArmSlot<T>) write,
   ) async {
-    final ticket = (_seq[arm] ?? 0) + 1;
-    _seq[arm] = ticket;
+    final ticket = _takeTicket(arm);
     if (markLoading) {
       final current = data ?? const HomeDashboardData.allLoading();
       data = write(current, ArmSlot.loadingAfter(read(current)));

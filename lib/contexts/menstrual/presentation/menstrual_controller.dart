@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/add_period.dart';
 import '../application/delete_period.dart';
 import '../application/get_menstrual_overview.dart';
@@ -51,6 +52,23 @@ class MenstrualController extends ChangeNotifier {
     } catch (_) {
       status = MenstrualStatus.error;
       error = MenstrualError.unknown;
+    }
+    notifyListeners();
+  }
+
+  /// Applies the batched `menstrual` section, leaving this controller in the
+  /// state [load] would have left it in for the same payload.
+  void applyBatchSection(SectionOutcome<MenstrualOverview> section) {
+    error = null;
+    switch (section) {
+      case SectionOk<MenstrualOverview>(:final value):
+        overview = value;
+        status = MenstrualStatus.loaded;
+      case SectionUnavailable<MenstrualOverview>():
+        status = MenstrualStatus.error;
+        error = MenstrualError.fetchFailed;
+      case SectionReauth<MenstrualOverview>():
+        status = MenstrualStatus.needsReauth;
     }
     notifyListeners();
   }

@@ -27,12 +27,20 @@ class NextPeriodCard extends StatefulWidget {
   final VoidCallback onOpen;
   final DateTime Function() clock;
 
+  /// A whole-screen batch round is in flight, so this card is being reloaded
+  /// by somebody else — no `load()` of its own runs during a round, so its
+  /// controller's status cannot report it. Folded into the reload the
+  /// [StaleNotice] is told about, which is what stops a card that failed in
+  /// the previous round offering a retry for data already on its way.
+  final bool refreshing;
+
   const NextPeriodCard({
     super.key,
     required this.controller,
     required this.idToken,
     required this.onOpen,
     this.clock = DateTime.now,
+    this.refreshing = false,
   });
 
   @override
@@ -185,10 +193,13 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
           // remembers whether the reload in flight is the one it started, and
           // unmounting it mid-retry would throw that away.
           if (controller.status == MenstrualStatus.error ||
-              controller.status == MenstrualStatus.loading)
+              controller.status == MenstrualStatus.loading ||
+              widget.refreshing)
             StaleNotice(
               failed: controller.status == MenstrualStatus.error,
-              loading: controller.status == MenstrualStatus.loading,
+              loading:
+                  controller.status == MenstrualStatus.loading ||
+                  widget.refreshing,
               subject: loc.nextPeriodTitle,
               onRetry: () async => controller.load(await widget.idToken()),
             ),

@@ -8,6 +8,12 @@ import '../domain/food_item.dart';
 import '../domain/shared_food_item_input.dart';
 import '../domain/shared_food_item_patch.dart';
 
+/// Decodes the bare `[...]` array of `/api/food-items` and
+/// `/api/food-items/favorites`. Public and top-level so the screen-batch
+/// decoder shares this one definition with the granular repository below.
+List<FoodItem> foodItemsFromJson(List<dynamic> json) =>
+    json.map((e) => FoodItem.fromJson(e as Map<String, dynamic>)).toList();
+
 /// [FoodDictionaryRepository] driven adapter backed by the
 /// `/api/food-items` HTTP endpoints.
 class HttpFoodDictionaryRepository implements FoodDictionaryRepository {
@@ -43,9 +49,7 @@ class HttpFoodDictionaryRepository implements FoodDictionaryRepository {
       );
     }
     try {
-      return (jsonDecode(response.body) as List)
-          .map((e) => FoodItem.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return foodItemsFromJson(jsonDecode(response.body) as List);
     } catch (_) {
       throw const DietFetchFailure(_genericFailureMessage);
     }

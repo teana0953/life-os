@@ -169,6 +169,7 @@ import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pwa_update.dart';
 import 'package:life_os/shared/pwa/pwa_update_controller.dart';
 import 'package:life_os/shared/theme/app_colors.dart';
+import 'package:life_os/shared/screen_batch/screen_batch_repository.dart';
 import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -180,6 +181,7 @@ import 'package:life_os/contexts/finance/application/list_finance_categories.dar
 import 'contexts/finance/finance_test_support.dart';
 import 'contexts/split/support/fake_split_repository.dart';
 import 'support/l10n_test_app.dart';
+import 'support/repository_backed_screen_batch.dart';
 import 'support/push_health.dart';
 
 FoodItem _riceItem() => FoodItem.fromJson({
@@ -249,6 +251,10 @@ class _GateOneDayMealRepository extends _FakeMealRepository {
 class _FailAfterFirstDaysMealRepository extends _FakeMealRepository {
   bool failFromNowOn = false;
 
+  /// What a fetch throws once [failFromNowOn] is set — a plain failure, or a
+  /// 401 for the re-auth exits.
+  Object failure = const DietFetchFailure('boom');
+
   @override
   Future<DayMealsLog> getDayMeals(String idToken, String day) async {
     // `async`, matching the parent — a synchronous throw would land the
@@ -256,7 +262,7 @@ class _FailAfterFirstDaysMealRepository extends _FakeMealRepository {
     // failure never produces.
     if (failFromNowOn) {
       receivedDays.add(day);
-      throw const DietFetchFailure('boom');
+      throw failure;
     }
     return super.getDayMeals(idToken, day);
   }
@@ -1008,6 +1014,12 @@ class _FakeSocialRepository implements SocialRepository {
   WeightGoalController weightGoal,
   TrendController trend,
   HealthCalendarController healthCalendar,
+
+  /// The batch reader `App` is wired with, answering every section from the
+  /// same fakes the controllers above hold — so a shell load still makes
+  /// exactly one read per section, and a test counting them counts what it
+  /// always counted.
+  RepositoryBackedScreenBatchRepository screenBatch,
 }) testHealthControllers({
   MealRepository? mealRepository,
   FoodDictionaryRepository? foodDictionaryRepository,
@@ -1017,6 +1029,10 @@ class _FakeSocialRepository implements SocialRepository {
   BowelRepository? bowelRepository,
   ExerciseRepository? exerciseRepository,
   MenstrualRepository? menstrualRepository,
+  CareTodayRepository? careTodayRepository,
+  CareHistoryRepository? careHistoryRepository,
+  FinanceRepository? financeRepository,
+  SplitRepository? splitRepository,
   /// Threaded into [HealthCalendarController] so a test asserting on the month
   /// it opens on pins it, rather than reading the real `DateTime.now()`.
   DateTime Function() clock = DateTime.now,
@@ -1029,7 +1045,12 @@ class _FakeSocialRepository implements SocialRepository {
   vitalsRepository ??= _FakeVitalsRepository();
   exerciseRepository ??= _FakeExerciseRepository();
   menstrualRepository ??= _FakeMenstrualRepository();
+  careTodayRepository ??= _FakeCareTodayRepository();
+  careHistoryRepository ??= _FakeCareHistoryRepository();
+  financeRepository ??= _FakeFinanceRepository();
+  splitRepository ??= FakeSplitRepository();
   final bodyProfileRepository = _FakeBodyProfileRepository();
+  final healthCalendarRepository = _FakeHealthCalendarRepository();
   return (
     today: TodayController(
       GetDayMeals(mealRepository),
@@ -1088,8 +1109,24 @@ class _FakeSocialRepository implements SocialRepository {
     ),
     trend: TrendController(GetVitalsTrends(vitalsRepository)),
     healthCalendar: HealthCalendarController(
-      GetHealthCalendar(_FakeHealthCalendarRepository()),
+      GetHealthCalendar(healthCalendarRepository),
       clock: clock,
+    ),
+    screenBatch: RepositoryBackedScreenBatchRepository(
+      bodyProfile: bodyProfileRepository,
+      vitals: vitalsRepository,
+      healthCalendar: healthCalendarRepository,
+      meals: mealRepository,
+      dailyTarget: dailyTargetRepository,
+      foodDictionary: foodDictionaryRepository,
+      water: waterRepository,
+      bowel: bowelRepository,
+      exercise: exerciseRepository,
+      menstrual: menstrualRepository,
+      careToday: careTodayRepository,
+      careHistory: careHistoryRepository,
+      finance: financeRepository,
+      split: splitRepository,
     ),
   );
 }
@@ -1100,10 +1137,29 @@ class _FakeSocialRepository implements SocialRepository {
 /// [bodyProfileRepository] to count one arm of the batch.
 HomeDashboardController testHomeDashboardController({
   BodyProfileRepository? bodyProfileRepository,
+  ScreenBatchRepository? screenBatchRepository,
 }) {
   final finance = _FakeFinanceRepository();
+  final bodyProfile = bodyProfileRepository ?? _FakeBodyProfileRepository();
   return HomeDashboardController(
-    GetWeightGoal(bodyProfileRepository ?? _FakeBodyProfileRepository()),
+    screenBatchRepository ??
+        RepositoryBackedScreenBatchRepository(
+          bodyProfile: bodyProfile,
+          vitals: _FakeVitalsRepository(),
+          healthCalendar: _FakeHealthCalendarRepository(),
+          meals: _FakeMealRepository(),
+          dailyTarget: _FakeDailyTargetRepository(),
+          foodDictionary: _FakeFoodDictionaryRepository(),
+          water: _FakeWaterRepository(),
+          bowel: _FakeBowelRepository(),
+          exercise: _FakeExerciseRepository(),
+          menstrual: _FakeMenstrualRepository(),
+          careToday: _FakeCareTodayRepository(),
+          careHistory: _FakeCareHistoryRepository(),
+          finance: finance,
+          split: FakeSplitRepository(),
+        ),
+    GetWeightGoal(bodyProfile),
     GetVitalsTrends(_FakeVitalsRepository()),
     GetMenstrualOverview(_FakeMenstrualRepository()),
     ListFinanceBudgets(finance),
@@ -1246,6 +1302,7 @@ final _maskedValue = lookupAppLocalizations(const Locale('en')).homeMaskedValue;
 HomeDashboardController _dashboardControllerFor(
   FakeDashboardRepositories repos,
 ) => HomeDashboardController(
+  HomeSummaryFromRepositories.combined(repos),
   GetWeightGoal(repos),
   GetVitalsTrends(repos),
   GetMenstrualOverview(repos),
@@ -1314,6 +1371,12 @@ Future<LocaleController> pumpApp(
   /// a reference to assert on it.
   void Function(HealthCalendarController)? onHealthCalendarController,
 
+  /// Hands back the two diet controllers [App] was wired with — built
+  /// internally by [testHealthControllers], so this is how a test observes
+  /// what the health shell's stand-down did or did not write onto them.
+  void Function(TodayController)? onTodayController,
+  void Function(DailyTargetController)? onDailyTargetController,
+
   /// Shared, mirroring main.dart, between the import controller (which
   /// bumps it), the health shell (which listens to it), and both
   /// [CareHistoryController] instances (which are injected with it, so an
@@ -1342,6 +1405,20 @@ Future<LocaleController> pumpApp(
 
   /// Pins (and lets a test advance) the "today" the day-keyed routes resolve.
   DateTime Function()? clock,
+
+  /// Reads a whole screen in one request. Defaults to one answering every
+  /// section from the same fakes the health controllers hold, so the shell's
+  /// single round still reads each repository exactly once.
+  ScreenBatchRepository? screenBatchRepository,
+
+  /// Back the batch's `care_today` / `care_range` sections with these instead
+  /// of the inert defaults. A caller that supplies its own
+  /// [careTodayController] / [careAdherenceController] must supply the
+  /// repository behind it here too, or the shell's round would answer those
+  /// two cards from a different (empty) source than the controller's own
+  /// loads.
+  CareTodayRepository? careTodayRepository,
+  CareHistoryRepository? careHistoryRepository,
 }) async {
   final resolvedLocaleController =
       localeController ?? await testLocaleController();
@@ -1408,9 +1485,13 @@ Future<LocaleController> pumpApp(
     bowelRepository: bowelRepository,
     exerciseRepository: exerciseRepository,
     menstrualRepository: menstrualRepository,
+    careTodayRepository: careTodayRepository,
+    careHistoryRepository: careHistoryRepository,
     clock: clock ?? DateTime.now,
   );
   onHealthCalendarController?.call(health.healthCalendar);
+  onTodayController?.call(health.today);
+  onDailyTargetController?.call(health.dailyTarget);
   final resolvedDataRevision = dataRevision ?? DataRevision();
   final resolvedSocialRepository = socialRepository ?? _FakeSocialRepository();
   final resolvedSplitRepository = splitRepository ?? FakeSplitRepository();
@@ -1486,6 +1567,7 @@ Future<LocaleController> pumpApp(
   await tester.pumpWidget(
     App(
       authRepository: authRepository,
+      screenBatchRepository: screenBatchRepository ?? health.screenBatch,
       sendPasswordReset: SendPasswordReset(authRepository),
       financeRepository: _FakeFinanceRepository(),
       loginController: loginController,
@@ -1891,8 +1973,55 @@ void main() {
             GetProfile(profileRepository),
             SignOut(authRepository),
           ),
-          mealRepository: _FakeMealRepository(
-            fetchError: const DietReauthenticationRequired(),
+          // A 401 is a REQUEST-level answer now: the batch endpoint rejects
+          // the whole read rather than one section, and the shell applies
+          // re-auth to every controller. A single repository throwing it is
+          // no longer a state any screen can reach.
+          screenBatchRepository: FailingScreenBatchRepository.reauth(),
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('health-tile'))),
+        );
+        router.go('/health/diet/dictionary');
+        await tester.pumpAndSettle();
+
+        // The search screen's own exit, not the URL wrapper's: a 401 is
+        // request-level, so it reaches `DictionaryController` too and the
+        // screen on top answers for itself. What the guard is about is
+        // unchanged — a 401 here must be an exit, never a stuck spinner.
+        expect(
+          find.byKey(const Key('food-search-dictionary-sign-in-again-button')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'a granular meals 401 on the diet day still offers the URL-driven '
+      'dictionary\'s own sign-in-again exit',
+      (tester) async {
+        // The batch's 401 is request-level and reaches every controller, so
+        // the search screen on top answers for it (the test above). This
+        // wrapper's OWN exit is reached the other way: a granular meals fetch
+        // — the one the wrapper itself issues to pull the shared controller
+        // back to today — coming back 401 while the dictionary load is fine.
+        final mealRepository = _FailAfterFirstDaysMealRepository()
+          ..failure = const DietReauthenticationRequired();
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          mealRepository: mealRepository,
+          foodDictionaryRepository: _FakeFoodDictionaryRepository(
+            foods: [_riceItem()],
           ),
         );
         await tester.pumpAndSettle();
@@ -1900,6 +2029,14 @@ void main() {
         final router = GoRouter.of(
           tester.element(find.byKey(const Key('health-tile'))),
         );
+        // Park the shared controller on yesterday, so the dictionary below
+        // has a day to pull back from — that pull is the granular fetch.
+        router.go('/health/diet');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('day-nav-previous')));
+        await tester.pumpAndSettle();
+
+        mealRepository.failFromNowOn = true;
         router.go('/health/diet/dictionary');
         await tester.pumpAndSettle();
 
@@ -2849,6 +2986,10 @@ void main() {
           ),
           careHistoryController: careController(7),
           careAdherenceController: careController(30),
+          // The batch's `care_range` section has to come from the SAME
+          // repository the two controllers load from, or the shell's round
+          // would answer the adherence card from an empty source.
+          careHistoryRepository: careHistoryRepository,
           dataRevision: dataRevision,
         );
         await tester.pumpAndSettle();
