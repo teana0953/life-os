@@ -279,12 +279,13 @@ void main() {
         // `findsOneWidget` above cannot see that; only the count can.
         expect(
           meals.reads.length,
-          1,
+          2,
           reason:
               'the diet day below already fetches this day — the portion tool '
-              'must not fetch it again. This was 2 until issue #171: the shell '
-              'fetched the same day as well, and now stands down for the diet '
-              'day mounted in its own stack (see '
+              'must not fetch it again, so 2 rather than 3. The second read '
+              'is the shell\'s ONE batch request computing its `meals` '
+              'section, which the issue-#171 stand-down then refuses to write '
+              'onto the controller (see '
               '`app_diet_day_duplicate_fetch_test.dart`).',
         );
       },

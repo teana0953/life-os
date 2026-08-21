@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/data_revision.dart';
+import '../../../shared/screen_batch/health_overview_batch.dart';
+import '../../../shared/screen_batch/screen_batch_exceptions.dart';
+import '../../../shared/screen_batch/screen_batch_repository.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../auth/application/sign_out.dart';
@@ -33,6 +36,12 @@ import 'daily_target_controller.dart';
 import 'dictionary_controller.dart';
 import 'today_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
+import '../../../shared/date/day_format.dart';
+
+/// The `care_days` a round sends when the care card's period has no day
+/// count to send — the endpoint's own default, chosen so the request stays
+/// valid; the section it comes back with is not applied.
+const int _defaultCareDays = 30;
 
 String _todayString(DateTime time) =>
     '${time.year.toString().padLeft(4, '0')}-'
@@ -49,6 +58,11 @@ String _todayString(DateTime time) =>
 class HealthScaffold extends StatefulWidget {
   final AuthRepository authRepository;
   final SignOut signOut;
+
+  /// Reads the whole screen in one request. Every card below is fanned out
+  /// from that one response; the granular repositories the controllers hold
+  /// stay in use for writes, per-card retries and per-card window changes.
+  final ScreenBatchRepository screenBatchRepository;
 
   // Overview / trends.
   final WeightGoalController weightGoalController;
@@ -118,6 +132,7 @@ class HealthScaffold extends StatefulWidget {
     required this.pushHealthController,
     required this.authRepository,
     required this.signOut,
+    required this.screenBatchRepository,
     required this.weightGoalController,
     required this.trendController,
     required this.healthCalendarController,
@@ -237,7 +252,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       _reloadPending = true;
       return completer.future;
     }
-    _loading = true;
+    _setLoading(true);
     // Clear the flag on failure too: a load that throws would otherwise leave
     // `_loading` set forever and silently drop every later refresh for the
     // rest of the session. The controllers surface their own load errors, so
@@ -249,7 +264,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     // is therefore belt-and-braces now rather than a live path — kept because
     // it costs nothing and the next await added here might throw.
     _load().then((_) {}, onError: (_) {}).whenComplete(() {
-      _loading = false;
+      _setLoading(false);
       final pending = _reloadPending;
       _reloadPending = false;
       if (pending && mounted) {
@@ -265,6 +280,26 @@ class _HealthScaffoldState extends State<HealthScaffold> {
       }
     });
     return completer.future;
+  }
+
+  /// Assigns [_loading] and rebuilds, so the cards can show that the round is
+  /// reloading them: during a round no controller runs its own `load()`, so
+  /// none of their statuses reports the reload and every card's
+  /// [StaleNotice] would otherwise sit idle through it.
+  ///
+  /// The `_bootstrapped` conjunct only ever excludes the FIRST round, which
+  /// starts from the synchronous `_scheduleLoad()` in [initState]. It is not
+  /// load-bearing, and the comment that used to be here claiming `setState`
+  /// there would throw was wrong: measured both ways — a `setState` inside
+  /// `initState` raises nothing, and dropping the conjunct leaves the whole
+  /// suite green. Kept because it says at the call site that the first round's
+  /// flip needs no rebuild of its own (the build that immediately follows
+  /// [initState] reads `_loading` anyway), not because removing it breaks
+  /// anything. Do not re-derive a stronger claim from it.
+  void _setLoading(bool value) {
+    if (_loading == value) return;
+    _loading = value;
+    if (mounted && _bootstrapped) setState(() {});
   }
 
   /// A fresh id token per request (see [IdTokenProvider]); the shape
@@ -456,22 +491,116 @@ class _HealthScaffoldState extends State<HealthScaffold> {
         ),
       );
     }
-    // Independent loads run concurrently so the landing (overview) cards and the
-    // trackers all populate without waiting on a serial chain.
+    // ONE request for the whole screen (issue #114): fourteen sections in
+    // place of the fifteen independent GETs this used to fan out, each of
+    // which was its own draw from the deployed Worker's ~478ms-plus-tail
+    // per-request cost.
+    //
+    // The window parameters come from the cards that own them, never from a
+    // server default — the two endpoints' defaults differ on purpose (30 vs
+    // 366), which is exactly the asymmetry a silent default gets wrong.
+    // Clamped here, not only inside the repository: the same value has to be
+    // the one the apply-gates below compare against, so a span the endpoint
+    // could not have been asked for (outside `1..366`) is a section the card
+    // refuses rather than one it accepts under the wrong window (D6).
+    final trendDays = clampWindowDays(widget.trendController.spanDays);
+    final careSpan = widget.careAdherenceController.spanDays;
+    final careSpanDays = careSpan == null ? null : clampWindowDays(careSpan);
+    final requestedMonth = parseDayString(day);
+    // Claimed synchronously, BEFORE the request goes out, exactly as
+    // `loadMonth` sets its own month: it is what lets the apply below tell a
+    // response for the month this card is on from one for a month it has
+    // since left — including the `reset()` (sign-out) case, whose whole point
+    // is that every response in flight across it is stale.
+    widget.healthCalendarController.claimBatchMonth(
+      requestedMonth.year,
+      requestedMonth.month,
+    );
+    // Same claim-before-the-request pattern for the six day-keyed trackers:
+    // each records that IT, not a comparison against whatever day it already
+    // holds, decided this round is authoritative — so the apply below is
+    // dropped only when an explicit navigation has happened since (see
+    // `WaterController._claimedGeneration`), not whenever the round's day
+    // simply differs from the day already held.
+    widget.todayController.claimBatchRound();
+    widget.dailyTargetController.claimBatchRound();
+    widget.waterController.claimBatchRound();
+    widget.bowelController.claimBatchRound();
+    widget.vitalsController.claimBatchRound();
+    widget.exerciseController.claimBatchRound();
+
+    HealthOverviewBatch batch;
+    try {
+      batch = await widget.screenBatchRepository.getHealthOverview(
+        token,
+        day: day,
+        trendDays: trendDays,
+        // `null` for a custom date range, which no `care_days` count can
+        // describe. The request still goes out — thirteen other sections
+        // depend on it — carrying the endpoint's own default, and the care
+        // card simply refuses the section below and loads its own range.
+        careDays: careSpanDays ?? _defaultCareDays,
+      );
+    } on ScreenBatchReauthRequired {
+      batch = HealthOverviewBatch.requestFailed(reauth: true);
+    } catch (_) {
+      // Every other request-level fault — transport, timeout, 4xx, 5xx, an
+      // undecodable body — is one fetch failure per card, never a re-auth
+      // exit and never a whole-screen error (design D5). Deliberately not
+      // `on ScreenBatchFetchFailure`: a fault this screen failed to
+      // anticipate must still leave every card in a settled state rather
+      // than on `loading` forever.
+      batch = HealthOverviewBatch.requestFailed(reauth: false);
+    }
+    if (!mounted) return;
+
+    // One apply path, whether the response was a 200 or a thrown failure.
+    widget.weightGoalController.applyBatchSection(batch.weightGoal);
+    final trendApplied = widget.trendController.applyBatchSection(
+      batch.vitalsTrend,
+      requestedSpanDays: trendDays,
+    );
+    final calendarApplied = widget.healthCalendarController.applyBatchSection(
+      batch.healthCalendar,
+      requestedYear: requestedMonth.year,
+      requestedMonth: requestedMonth.month,
+    );
+    // The stand-down is now a decision about APPLYING these two sections, not
+    // about issuing their requests (design D8): the batch goes out either
+    // way, so all that is left of it is refusing to overwrite the diet day's
+    // own fetch of the same day.
+    if (!skipMeals) {
+      widget.todayController.applyBatchSection(
+        meals: batch.meals,
+        dailyTarget: batch.dailyTarget,
+      );
+    }
+    widget.dictionaryController.applyBatchSection(batch.favoriteFoodItems);
+    if (!skipTarget) {
+      widget.dailyTargetController.applyBatchSection(batch.dailyTarget);
+    }
+    widget.waterController.applyBatchSection(batch.water);
+    widget.bowelController.applyBatchSection(batch.bowel);
+    widget.vitalsController.applyBatchSection(batch.vitals);
+    widget.exerciseController.applyBatchSection(
+      activities: batch.exerciseActivities,
+      exercise: batch.exercise,
+    );
+    widget.menstrualController.applyBatchSection(batch.menstrual);
+    widget.careTodayController.applyBatchSection(batch.careToday);
+    final careApplied = widget.careAdherenceController.applyBatchSection(
+      batch.careRange,
+      requestedSpanDays: careSpanDays ?? _defaultCareDays,
+    );
+
+    // The one or two cards whose window the batch could not describe — a
+    // custom care period, a calendar paged to another month, a span switched
+    // while the request was in flight — load themselves. The other twelve are
+    // already applied, so this costs 1+1 requests instead of 15.
     await Future.wait([
-      widget.weightGoalController.load(token),
-      widget.trendController.load(token),
-      widget.healthCalendarController.load(token),
-      if (!skipMeals) widget.todayController.load(token, day),
-      widget.dictionaryController.load(),
-      if (!skipTarget) widget.dailyTargetController.load(token, day),
-      widget.waterController.load(token, day),
-      widget.bowelController.load(token, day),
-      widget.vitalsController.load(token, day),
-      widget.exerciseController.load(token, day),
-      widget.menstrualController.load(token),
-      widget.careTodayController.load(token),
-      widget.careAdherenceController.load(token),
+      if (!trendApplied) widget.trendController.load(token),
+      if (!calendarApplied) widget.healthCalendarController.load(token),
+      if (!careApplied) widget.careAdherenceController.load(token),
     ]);
     if (!mounted) return;
     // Stamp the batch's last-loaded time only when at least one overview/trend
@@ -567,6 +696,7 @@ class _HealthScaffoldState extends State<HealthScaffold> {
         index: _index,
         children: [
           _OverviewBody(
+            refreshing: _loading,
             pushHealthController: widget.pushHealthController,
             weightGoalController: widget.weightGoalController,
             healthCalendarController: widget.healthCalendarController,
@@ -633,6 +763,11 @@ class _OverviewBody extends StatelessWidget {
   final MenstrualController menstrualController;
   final IdTokenProvider idToken;
 
+  /// Whether a whole-screen round is in flight. Handed to every card that
+  /// carries a [StaleNotice], which is the only in-flight feedback a
+  /// [DataRevision] bump has (a pull-to-refresh also has its own spinner).
+  final bool refreshing;
+
   /// Pull-to-refresh handler — the scaffold's batched reload; its future
   /// settles when the reload finishes so the spinner stays until then.
   final Future<void> Function() onRefresh;
@@ -642,6 +777,7 @@ class _OverviewBody extends StatelessWidget {
   final DateTime? lastLoadedAt;
 
   const _OverviewBody({
+    required this.refreshing,
     required this.pushHealthController,
     required this.weightGoalController,
     required this.healthCalendarController,
@@ -676,10 +812,15 @@ class _OverviewBody extends StatelessWidget {
                 CareTodaySummaryCard(
                   controller: careTodayController,
                   idToken: idToken,
+                  refreshing: refreshing,
                   onManage: () => context.push('/care-items'),
                   onSetup: () => context.push('/care-items'),
                 ),
-                GoalCard(controller: weightGoalController, idToken: idToken),
+                GoalCard(
+                  controller: weightGoalController,
+                  idToken: idToken,
+                  refreshing: refreshing,
+                ),
                 const SizedBox(height: 16),
                 // Above the calendar card, not after it: the calendar is a whole
                 // month grid plus three rings, so anything below it is off the
@@ -688,12 +829,14 @@ class _OverviewBody extends StatelessWidget {
                 NextPeriodCard(
                   controller: menstrualController,
                   idToken: idToken,
+                  refreshing: refreshing,
                   onOpen: () => context.push('/health/menstrual'),
                 ),
                 const SizedBox(height: 16),
                 HealthCalendarCard(
                   controller: healthCalendarController,
                   idToken: idToken,
+                  refreshing: refreshing,
                   weightAchievementRate:
                       weightGoalController.goal?.achievementRate,
                 ),

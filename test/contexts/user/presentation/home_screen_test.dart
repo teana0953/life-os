@@ -41,6 +41,7 @@ import 'package:life_os/shared/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/l10n_test_app.dart';
+import '../../../support/repository_backed_screen_batch.dart';
 import 'dashboard_repositories_fake.dart';
 
 class FakeProfileRepository implements ProfileRepository {
@@ -1121,6 +1122,7 @@ void main() {
 
     HomeDashboardController dashboardFor(FakeDashboardRepositories repos) =>
         HomeDashboardController(
+          HomeSummaryFromRepositories.combined(repos),
           GetWeightGoal(repos),
           GetVitalsTrends(repos),
           GetMenstrualOverview(repos),
@@ -1714,6 +1716,7 @@ void main() {
 
     HomeDashboardController dashboardFor(FakeDashboardRepositories repos) =>
         HomeDashboardController(
+          HomeSummaryFromRepositories.combined(repos),
           GetWeightGoal(repos),
           GetVitalsTrends(repos),
           GetMenstrualOverview(repos),
@@ -2164,11 +2167,12 @@ const testDailyTarget = DailyTargetWithRemaining(
 /// tiles actually print — so a tile that renders is distinguishable from the
 /// 無資料 placeholder wearing the same key.
 ///
-/// Assigned rather than loaded: `load` is a seven-request fan-out and none of
-/// those seven requests is what these tests are about.
+/// Assigned rather than loaded: `load` issues the batch request and none of
+/// what it reads is what these tests are about.
 HomeDashboardController loadedDashboardFixture() {
   final unused = _UnusedRepositories();
   return HomeDashboardController(
+      HomeSummaryFromRepositories.combined(unused),
       GetWeightGoal(unused),
       GetVitalsTrends(unused),
       GetMenstrualOverview(unused),

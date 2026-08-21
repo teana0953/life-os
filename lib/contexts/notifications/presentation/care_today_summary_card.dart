@@ -48,12 +48,20 @@ class CareTodaySummaryCard extends StatefulWidget {
   /// Opens care reminders management from the no-schedule setup prompt.
   final VoidCallback onSetup;
 
+  /// A whole-screen batch round is in flight, so this card is being reloaded
+  /// by somebody else — no `load()` of its own runs during a round, so its
+  /// controller's status cannot report it. Folded into the reload the
+  /// [StaleNotice] is told about, which is what stops a card that failed in
+  /// the previous round offering a retry for data already on its way.
+  final bool refreshing;
+
   const CareTodaySummaryCard({
     super.key,
     required this.controller,
     required this.idToken,
     required this.onManage,
     required this.onSetup,
+    this.refreshing = false,
   });
 
   @override
@@ -154,7 +162,8 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
       return const SizedBox.shrink();
     }
     final failed = controller.status == CareTodayLoadStatus.error;
-    final reloading = controller.status == CareTodayLoadStatus.loading;
+    final reloading =
+        controller.status == CareTodayLoadStatus.loading || widget.refreshing;
     void staleRetry() async => controller.load(await widget.idToken());
     final slots = controller.slots;
     if (slots.isEmpty) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/change_meal_time.dart';
 import 'package:life_os/contexts/health/application/delete_meal.dart';
@@ -167,16 +168,185 @@ TodayController _controller(
 }
 
 void main() {
+  group('TodayController.applyBatchSection', () {
+    TodayController fresh() => _controller(
+      FakeMealRepository()..logToReturn = _dayLog(),
+      FakeDailyTargetRepository()..targetToReturn = _target(),
+    );
+
+    test(
+      'ok lands the identical state load() lands for the same payload',
+      () async {
+        final viaLoad = fresh();
+        await viaLoad.load('token-123', '2026-07-18');
+
+        final viaBatch = fresh();
+        viaBatch.claimBatchRound();
+        viaBatch.applyBatchSection(
+          meals: SectionOk(_dayLog()),
+          dailyTarget: SectionOk(_target()),
+        );
+
+        expect(viaBatch.status, viaLoad.status);
+        expect(viaBatch.error, viaLoad.error);
+        expect(
+          viaBatch.dayMealsLog!.meals.map((m) => m.meal),
+          viaLoad.dayMealsLog!.meals.map((m) => m.meal),
+        );
+        expect(
+          viaBatch.dayMealsLog!.totals.staple,
+          viaLoad.dayMealsLog!.totals.staple,
+        );
+        expect(
+          viaBatch.target!.effective.staple,
+          viaLoad.target!.effective.staple,
+        );
+      },
+    );
+
+    test('an unavailable meals section reaches the fetch-failed state', () {
+      final controller = fresh();
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        meals: const SectionUnavailable<DayMealsLog>(),
+        dailyTarget: SectionOk(_target()),
+      );
+
+      expect(controller.status, TodayStatus.error);
+      expect(controller.error, TodayError.fetchFailed);
+      expect(controller.dayMealsLog, isNull);
+    });
+
+    // load() assigns dayMealsLog BEFORE fetching the target, so a run whose
+    // target read failed ends on error WITH the log already held. The batch
+    // path has to reproduce that, not tidy it up.
+    test('meals ok + target unavailable keeps the log and still errors', () {
+      final controller = fresh();
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        meals: SectionOk(_dayLog()),
+        dailyTarget: const SectionUnavailable<DailyTargetWithRemaining>(),
+      );
+
+      expect(controller.status, TodayStatus.error);
+      expect(controller.error, TodayError.fetchFailed);
+      expect(controller.dayMealsLog, isNotNull);
+      expect(controller.target, isNull);
+    });
+
+    test('reauth on either section reaches needsReauth', () {
+      final controller = fresh();
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        meals: SectionOk(_dayLog()),
+        dailyTarget: const SectionReauth<DailyTargetWithRemaining>(),
+      );
+
+      expect(controller.status, TodayStatus.needsReauth);
+    });
+
+    // A section with no claim at all (nobody called `claimBatchRound`) must
+    // never apply by accident.
+    test('a section nobody claimed a round for is dropped', () {
+      final controller = fresh();
+
+      controller.applyBatchSection(
+        meals: SectionOk(_dayLog()),
+        dailyTarget: SectionOk(_target()),
+      );
+
+      expect(controller.dayMealsLog, isNull);
+    });
+
+    // The diet day's own navigation moved this shared controller to another
+    // day while the batch was out; writing the round's day now would show one
+    // day's meals under another day's header.
+    test(
+      'a section is dropped when a load starts after the round was claimed',
+      () async {
+        final controller = fresh();
+        controller.claimBatchRound();
+        // Started but NOT awaited: `load` bumps the generation synchronously,
+        // before its first await, so the claim is stale at exactly the moment
+        // the batch response would land. Awaiting anything here would let the
+        // fake settle and close the window this guard is about.
+        final other = controller.load('token-123', '2026-07-19');
+
+        controller.applyBatchSection(
+          meals: SectionOk(_dayLog()),
+          dailyTarget: SectionOk(_target()),
+        );
+        expect(controller.status, TodayStatus.loading);
+        expect(controller.target, isNull);
+
+        await other;
+        expect(controller.dayMealsLog!.day, '2026-07-18');
+      },
+    );
+
+    // Same shape, but the diet day's load has already COMPLETED by the time
+    // the stale batch section arrives.
+    test(
+      'a section is dropped when a load already landed after the round was claimed',
+      () async {
+        final controller = fresh();
+        controller.claimBatchRound();
+        await controller.load('token-123', '2026-07-19');
+        final heldStatus = controller.status;
+        final heldLog = controller.dayMealsLog;
+
+        controller.applyBatchSection(
+          meals: SectionOk(_dayLog()),
+          dailyTarget: const SectionUnavailable<DailyTargetWithRemaining>(),
+        );
+
+        expect(controller.status, heldStatus);
+        expect(controller.dayMealsLog, heldLog);
+      },
+    );
+
+    // The over-correction a day comparison would cause: a round whose day
+    // simply differs from whatever day the controller already holds must
+    // still apply, as long as nothing navigated since the round was claimed
+    // (e.g. the round catching a stale controller up to a fresher day once
+    // the diet day screen showing it is gone).
+    test(
+      'a section applies even when its day differs from the day already held, '
+      'as long as nothing navigated since the round was claimed',
+      () async {
+        final controller = fresh();
+        await controller.load('token-123', '2026-07-17');
+        expect(controller.dayMealsLog, isNotNull);
+
+        controller.claimBatchRound();
+        controller.applyBatchSection(
+          meals: SectionOk(_dayLog()),
+          dailyTarget: SectionOk(_target()),
+        );
+
+        expect(controller.status, TodayStatus.loaded);
+        expect(controller.dayMealsLog!.day, '2026-07-18');
+      },
+    );
+  });
+
   group('TodayController.load', () {
     test('loads the day meals log and target', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.load('token-123', '2026-07-18');
 
       expect(controller.status, TodayStatus.loaded);
-      expect(controller.dayMealsLog!.meals.map((m) => m.meal), ['breakfast', 'lunch']);
+      expect(controller.dayMealsLog!.meals.map((m) => m.meal), [
+        'breakfast',
+        'lunch',
+      ]);
       expect(controller.dayMealsLog!.totals.staple, 9);
       expect(controller.target!.effective.staple, 12);
       expect(mealRepository.receivedDay, '2026-07-18');
@@ -185,7 +355,8 @@ void main() {
     test('sets error status on DietFetchFailure', () async {
       final mealRepository = FakeMealRepository()
         ..errorToThrow = const DietFetchFailure('server error');
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.load('token-123', '2026-07-18');
@@ -197,7 +368,8 @@ void main() {
     test('sets needsReauth status on DietReauthenticationRequired', () async {
       final mealRepository = FakeMealRepository()
         ..errorToThrow = const DietReauthenticationRequired();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.load('token-123', '2026-07-18');
@@ -209,10 +381,16 @@ void main() {
   group('TodayController mutations', () {
     test('editItem sends quantity and reloads the day', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
-      await controller.editItem('token-123', '2026-07-18', 'item-1', quantity: 2);
+      await controller.editItem(
+        'token-123',
+        '2026-07-18',
+        'item-1',
+        quantity: 2,
+      );
 
       expect(mealRepository.patchedItemId, 'item-1');
       expect(mealRepository.patchedQuantity, 2);
@@ -223,10 +401,16 @@ void main() {
 
     test('editItem sends measure (no quantity)', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
-      await controller.editItem('token-123', '2026-07-18', 'item-1', measure: 80);
+      await controller.editItem(
+        'token-123',
+        '2026-07-18',
+        'item-1',
+        measure: 80,
+      );
 
       expect(mealRepository.patchedMeasure, 80);
       expect(mealRepository.patchedQuantity, isNull);
@@ -234,18 +418,25 @@ void main() {
 
     test('editItem sends portions', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
       const portions = Portions(staple: 3, meat: 1, fruit: 0, veg: 0);
 
-      await controller.editItem('token-123', '2026-07-18', 'item-1', portions: portions);
+      await controller.editItem(
+        'token-123',
+        '2026-07-18',
+        'item-1',
+        portions: portions,
+      );
 
       expect(mealRepository.patchedPortions, portions);
     });
 
     test('deleteItem deletes and reloads the day', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.deleteItem('token-123', '2026-07-18', 'item-1');
@@ -256,11 +447,17 @@ void main() {
 
     test('changeMealTime patches the meal\'s time and reloads', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
       final time = DateTime.utc(2026, 7, 18, 9);
 
-      await controller.changeMealTime('token-123', '2026-07-18', 'meal-lunch', time);
+      await controller.changeMealTime(
+        'token-123',
+        '2026-07-18',
+        'meal-lunch',
+        time,
+      );
 
       expect(mealRepository.patchedMealId, 'meal-lunch');
       expect(mealRepository.patchedTime, time);
@@ -269,7 +466,8 @@ void main() {
 
     test('deleteMeal deletes and reloads the day', () async {
       final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.deleteMeal('token-123', '2026-07-18', 'meal-lunch');
@@ -282,7 +480,8 @@ void main() {
       final mealRepository = FakeMealRepository()
         ..logToReturn = _dayLog()
         ..mutationErrorToThrow = const DietReauthenticationRequired();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final targetRepository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = _controller(mealRepository, targetRepository);
 
       await controller.deleteItem('token-123', '2026-07-18', 'item-1');
@@ -290,31 +489,39 @@ void main() {
       expect(controller.status, TodayStatus.needsReauth);
     });
 
-    test('a not-found failure sets an error status with TodayError.notFound', () async {
-      final mealRepository = FakeMealRepository()
-        ..logToReturn = _dayLog()
-        ..mutationErrorToThrow = const DietNotFound();
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
-      final controller = _controller(mealRepository, targetRepository);
+    test(
+      'a not-found failure sets an error status with TodayError.notFound',
+      () async {
+        final mealRepository = FakeMealRepository()
+          ..logToReturn = _dayLog()
+          ..mutationErrorToThrow = const DietNotFound();
+        final targetRepository = FakeDailyTargetRepository()
+          ..targetToReturn = _target();
+        final controller = _controller(mealRepository, targetRepository);
 
-      await controller.deleteItem('token-123', '2026-07-18', 'not-mine');
+        await controller.deleteItem('token-123', '2026-07-18', 'not-mine');
 
-      expect(controller.status, TodayStatus.error);
-      expect(controller.error, TodayError.notFound);
-    });
+        expect(controller.status, TodayStatus.error);
+        expect(controller.error, TodayError.notFound);
+      },
+    );
 
-    test('a fetch failure sets an error status with TodayError.fetchFailed', () async {
-      final mealRepository = FakeMealRepository()
-        ..logToReturn = _dayLog()
-        ..mutationErrorToThrow = const DietFetchFailure('boom');
-      final targetRepository = FakeDailyTargetRepository()..targetToReturn = _target();
-      final controller = _controller(mealRepository, targetRepository);
+    test(
+      'a fetch failure sets an error status with TodayError.fetchFailed',
+      () async {
+        final mealRepository = FakeMealRepository()
+          ..logToReturn = _dayLog()
+          ..mutationErrorToThrow = const DietFetchFailure('boom');
+        final targetRepository = FakeDailyTargetRepository()
+          ..targetToReturn = _target();
+        final controller = _controller(mealRepository, targetRepository);
 
-      await controller.deleteMeal('token-123', '2026-07-18', 'meal-lunch');
+        await controller.deleteMeal('token-123', '2026-07-18', 'meal-lunch');
 
-      expect(controller.status, TodayStatus.error);
-      expect(controller.error, TodayError.fetchFailed);
-    });
+        expect(controller.status, TodayStatus.error);
+        expect(controller.error, TodayError.fetchFailed);
+      },
+    );
   });
 
   group('TodayController: the in-flight claim registry', () {
@@ -395,34 +602,37 @@ void main() {
       expect(controller.holdsDay('2026-07-18'), isTrue);
     });
 
-    test('a FAILED load does not make holdsDay claim the day it asked for', () async {
-      final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
-      final targetRepository = FakeDailyTargetRepository()
-        ..targetToReturn = _target();
-      final controller = _controller(mealRepository, targetRepository);
+    test(
+      'a FAILED load does not make holdsDay claim the day it asked for',
+      () async {
+        final mealRepository = FakeMealRepository()..logToReturn = _dayLog();
+        final targetRepository = FakeDailyTargetRepository()
+          ..targetToReturn = _target();
+        final controller = _controller(mealRepository, targetRepository);
 
-      await controller.load('token', '2026-07-18');
-      // The MEALS read itself is what fails here, so `load` never reaches the
-      // assignment and the previous day's log stays in place — the controller
-      // still holds the 18th. Note this is the only failure shape with that
-      // property: `dayMealsLog` is assigned BEFORE the target read, so a run
-      // whose meals landed and whose TARGET read failed ends on
-      // `TodayStatus.error` already holding the new day. That is why
-      // `health_scaffold.dart` pairs `holdsDay` with `status == loaded`
-      // instead of trusting `holdsDay` alone.
-      mealRepository.errorToThrow = const DietFetchFailure('boom');
-      await controller.load('token', '2026-07-19');
+        await controller.load('token', '2026-07-18');
+        // The MEALS read itself is what fails here, so `load` never reaches the
+        // assignment and the previous day's log stays in place — the controller
+        // still holds the 18th. Note this is the only failure shape with that
+        // property: `dayMealsLog` is assigned BEFORE the target read, so a run
+        // whose meals landed and whose TARGET read failed ends on
+        // `TodayStatus.error` already holding the new day. That is why
+        // `health_scaffold.dart` pairs `holdsDay` with `status == loaded`
+        // instead of trusting `holdsDay` alone.
+        mealRepository.errorToThrow = const DietFetchFailure('boom');
+        await controller.load('token', '2026-07-19');
 
-      expect(controller.status, TodayStatus.error);
-      expect(
-        controller.holdsDay('2026-07-19'),
-        isFalse,
-        reason:
-            'nothing was fetched — claiming the 19th would make the shell '
-            'stand down and leave the 18th on screen under the 19th\'s header',
-      );
-      expect(controller.holdsDay('2026-07-18'), isTrue);
-    });
+        expect(controller.status, TodayStatus.error);
+        expect(
+          controller.holdsDay('2026-07-19'),
+          isFalse,
+          reason:
+              'nothing was fetched — claiming the 19th would make the shell '
+              'stand down and leave the 18th on screen under the 19th\'s header',
+        );
+        expect(controller.holdsDay('2026-07-18'), isTrue);
+      },
+    );
   });
 }
 

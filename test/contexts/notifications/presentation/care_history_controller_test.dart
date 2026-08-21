@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/application/get_care_history.dart';
@@ -105,6 +106,97 @@ CareTodaySlot _rehabSlot() => CareTodaySlot(
 );
 
 void main() {
+
+  group('CareHistoryController.applyBatchSection', () {
+    List<CareHistoryDay> days() => [
+      CareHistoryDay(date: '2026-07-22', slots: [_slot()]),
+    ];
+
+    test('ok lands the identical state load() lands for the same payload', () async {
+      final viaLoad = _controller(
+        repository: _FakeCareHistoryRepository(days: days()),
+        spanDays: 30,
+      );
+      await viaLoad.load('token');
+
+      final viaBatch = _controller(spanDays: 30);
+      final applied = viaBatch.applyBatchSection(
+        SectionOk(days()),
+        requestedSpanDays: 30,
+      );
+
+      expect(applied, isTrue);
+      expect(viaBatch.status, viaLoad.status);
+      expect(viaBatch.error, viaLoad.error);
+      expect(viaBatch.firstLoadSettled, viaLoad.firstLoadSettled);
+      expect(viaBatch.daysPeriod, viaLoad.daysPeriod);
+      expect(
+        viaBatch.days.map((d) => d.date),
+        viaLoad.days.map((d) => d.date),
+      );
+    });
+
+    // The heatmap draws an empty grid for a period with no records, so a
+    // failed section must reach `error`, not "nothing was due".
+    test('unavailable reaches the fetch-failed state, not an empty range', () {
+      final controller = _controller(spanDays: 30);
+
+      controller.applyBatchSection(
+        const SectionUnavailable<List<CareHistoryDay>>(),
+        requestedSpanDays: 30,
+      );
+
+      expect(controller.status, CareHistoryLoadStatus.error);
+      expect(controller.error, isNotNull);
+      expect(controller.days, isEmpty);
+      expect(controller.firstLoadSettled, isTrue);
+    });
+
+    test('reauth reaches the re-auth state', () {
+      final controller = _controller(spanDays: 30);
+
+      controller.applyBatchSection(
+        const SectionReauth<List<CareHistoryDay>>(),
+        requestedSpanDays: 30,
+      );
+
+      expect(controller.status, CareHistoryLoadStatus.reauth);
+    });
+
+    test('a section for a span the card has left is refused, not applied', () {
+      final controller = _controller(spanDays: 90);
+
+      final applied = controller.applyBatchSection(
+        SectionOk(days()),
+        requestedSpanDays: 30,
+      );
+
+      expect(applied, isFalse);
+      expect(controller.days, isEmpty);
+      expect(controller.status, CareHistoryLoadStatus.loading);
+    });
+
+    // `care_days` is an int; a custom date range has no day count to send, so
+    // the section describes a window this card is not showing whatever the
+    // round asked for.
+    test('a custom date range refuses the section outright', () async {
+      final controller = _controller(spanDays: 30);
+      await controller.setPeriod(
+        'token',
+        const CareHistoryPeriod.custom('2026-07-01', '2026-07-10'),
+      );
+
+      final applied = controller.applyBatchSection(
+        SectionOk(days()),
+        requestedSpanDays: 30,
+      );
+
+      expect(applied, isFalse);
+      expect(controller.days, isEmpty);
+    });
+  });
+
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('CareHistoryController.load', () {

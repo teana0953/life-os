@@ -6,6 +6,14 @@ import '../domain/exercise_day.dart';
 import '../domain/exercise_exceptions.dart';
 import '../domain/exercise_repository.dart';
 
+/// Decodes the `{activities:[...]}` envelope of `/api/exercise/activities`.
+/// Public and top-level so the screen-batch decoder shares this one
+/// definition with the granular repository below.
+List<ExerciseActivity> exerciseActivitiesFromJson(Map<String, dynamic> json) => [
+  for (final a in (json['activities'] as List))
+    ExerciseActivity.fromJson(a as Map<String, dynamic>),
+];
+
 class HttpExerciseRepository implements ExerciseRepository {
   final String baseUrl;
   final http.Client client;
@@ -40,11 +48,9 @@ class HttpExerciseRepository implements ExerciseRepository {
     );
     if (response.statusCode != 200) throw const ExerciseFetchFailure();
     try {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return [
-        for (final a in (json['activities'] as List))
-          ExerciseActivity.fromJson(a as Map<String, dynamic>),
-      ];
+      return exerciseActivitiesFromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     } catch (_) {
       throw const ExerciseFetchFailure();
     }

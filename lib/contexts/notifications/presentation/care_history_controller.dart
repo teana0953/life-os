@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/data_revision.dart';
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/edit_care_slot.dart';
 import '../application/get_care_history.dart';
 import '../domain/care_history.dart';
@@ -201,6 +202,41 @@ class CareHistoryController extends ChangeNotifier {
     // above return early otherwise), i.e. one that actually settled.
     firstLoadSettled = true;
     notifyListeners();
+  }
+
+  /// Applies the batched `care_range` section, but only when it describes the
+  /// span this card is showing *now* — returns whether it did.
+  ///
+  /// Two windows cannot be described by a `care_days` count and so are never
+  /// applied: a custom date range ([spanDays] is `null`), and a span the
+  /// round did not request because it changed while the request was in
+  /// flight. The caller loads this one card granularly in either case.
+  ///
+  /// Takes a generation ticket like a load does (see [_loadGeneration]): the
+  /// card's own period switch can still be in flight, and without the ticket
+  /// its older response would land on top of this and leave [days] and
+  /// [period] describing different periods.
+  bool applyBatchSection(
+    SectionOutcome<List<CareHistoryDay>> section, {
+    required int requestedSpanDays,
+  }) {
+    if (spanDays == null || spanDays != requestedSpanDays) return false;
+    ++_loadGeneration;
+    switch (section) {
+      case SectionOk<List<CareHistoryDay>>(:final value):
+        days = value;
+        _daysPeriod = period;
+        error = null;
+        status = CareHistoryLoadStatus.loaded;
+      case SectionUnavailable<List<CareHistoryDay>>():
+        error = const CareRequestFailed();
+        status = CareHistoryLoadStatus.error;
+      case SectionReauth<List<CareHistoryDay>>():
+        status = CareHistoryLoadStatus.reauth;
+    }
+    firstLoadSettled = true;
+    notifyListeners();
+    return true;
   }
 
   /// Switches the period and reloads, persisting the choice when this

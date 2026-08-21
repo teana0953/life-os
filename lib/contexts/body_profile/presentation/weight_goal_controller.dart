@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/get_body_profile.dart';
 import '../application/get_weight_goal.dart';
 import '../application/set_body_profile.dart';
@@ -59,6 +60,35 @@ class WeightGoalController extends ChangeNotifier {
     } catch (_) {
       status = WeightGoalStatus.error;
       error = WeightGoalError.unknown;
+    }
+    notifyListeners();
+  }
+
+  /// Applies the health screen's batched `weight_goal` section, leaving this
+  /// controller in the same state [load] would have left it in for the same
+  /// payload.
+  ///
+  /// [profile] is derived from the goal rather than fetched: `/api/weight-goal`
+  /// carries the same `height_cm`/`target_weight_kg` the separate
+  /// `/api/body-profile` read returns, and those two fields are all
+  /// [BodyProfile] holds — so the edit pre-fill is identical without the
+  /// second request.
+  void applyBatchSection(SectionOutcome<WeightGoal> section) {
+    error = null;
+    lastFailureWasSave = false;
+    switch (section) {
+      case SectionOk<WeightGoal>(:final value):
+        goal = value;
+        profile = BodyProfile(
+          heightCm: value.heightCm,
+          targetWeightKg: value.targetWeightKg,
+        );
+        status = WeightGoalStatus.loaded;
+      case SectionUnavailable<WeightGoal>():
+        status = WeightGoalStatus.error;
+        error = WeightGoalError.fetchFailed;
+      case SectionReauth<WeightGoal>():
+        status = WeightGoalStatus.needsReauth;
     }
     notifyListeners();
   }

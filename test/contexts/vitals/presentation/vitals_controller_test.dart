@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/vitals/application/get_vitals_day.dart';
 import 'package:life_os/contexts/vitals/application/save_vitals_day.dart';
@@ -68,6 +69,150 @@ VitalsController _controller(
 );
 
 void main() {
+  group('VitalsController.applyBatchSection', () {
+    VitalsDay record() => const VitalsDay(
+      day: '2026-07-18',
+      weightKg: 68.4,
+      bodyFatPct: 22,
+      waistCm: 80,
+      bpReadings: [
+        BpReading(systolic: 124, diastolic: 81, pulse: 66, time: '21:30'),
+      ],
+      glucoseReadings: [],
+      spo2Readings: [],
+    );
+
+    test(
+      'ok lands the identical state load() lands for the same payload',
+      () async {
+        final at = DateTime(2026, 7, 18, 9, 30);
+        final repository = FakeVitalsRepository()..dayToReturn = record();
+        final viaLoad = VitalsController(
+          GetVitalsDay(repository),
+          SaveVitalsDay(repository),
+          loadClock: () => at,
+        );
+        await viaLoad.load('token', '2026-07-18');
+
+        final viaBatch = VitalsController(
+          GetVitalsDay(FakeVitalsRepository()),
+          SaveVitalsDay(FakeVitalsRepository()),
+          loadClock: () => at,
+        );
+        viaBatch.claimBatchRound();
+        viaBatch.applyBatchSection(SectionOk(record()));
+
+        expect(viaBatch.status, viaLoad.status);
+        expect(viaBatch.error, viaLoad.error);
+        expect(viaBatch.lastLoadedAt, viaLoad.lastLoadedAt);
+        expect(viaBatch.day!.day, viaLoad.day!.day);
+        // The editable draft too — load() resets it, so a batch apply that did
+        // not would leave the form on the previous day's numbers.
+        expect(viaBatch.weightKg, viaLoad.weightKg);
+        expect(viaBatch.waistCm, viaLoad.waistCm);
+        expect(viaBatch.bpReadings, viaLoad.bpReadings);
+        expect(viaBatch.hasUnsavedChanges, viaLoad.hasUnsavedChanges);
+      },
+    );
+
+    test('unavailable reaches the fetch-failed state', () {
+      final controller = _controller(FakeVitalsRepository());
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(const SectionUnavailable<VitalsDay>());
+
+      expect(controller.status, VitalsStatus.error);
+      expect(controller.error, VitalsError.fetchFailed);
+      expect(controller.day, isNull);
+    });
+
+    test('reauth reaches needsReauth', () {
+      final controller = _controller(FakeVitalsRepository());
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(const SectionReauth<VitalsDay>());
+
+      expect(controller.status, VitalsStatus.needsReauth);
+    });
+
+    // A section with no claim at all (nobody called `claimBatchRound`) must
+    // never apply by accident.
+    test('a section nobody claimed a round for is dropped', () {
+      final controller = _controller(FakeVitalsRepository());
+
+      controller.applyBatchSection(SectionOk(record()));
+
+      expect(controller.day, isNull);
+    });
+
+    test(
+      'a section is dropped when a load starts after the round was claimed',
+      () async {
+        final controller = _controller(FakeVitalsRepository());
+        controller.claimBatchRound();
+        final other = controller.load('token', '2026-07-19');
+
+        controller.applyBatchSection(SectionOk(record()));
+        expect(controller.day, isNull);
+
+        await other;
+      },
+    );
+
+    test(
+      'a section is dropped when a load already landed after the round was claimed',
+      () async {
+        final repository = FakeVitalsRepository()
+          ..dayToReturn = const VitalsDay(
+            day: '2026-07-19',
+            weightKg: null,
+            bodyFatPct: null,
+            waistCm: null,
+            bpReadings: [],
+            glucoseReadings: [],
+            spo2Readings: [],
+          );
+        final controller = _controller(repository);
+        controller.claimBatchRound();
+        await controller.load('token', '2026-07-19');
+        expect(controller.day!.day, '2026-07-19');
+
+        controller.applyBatchSection(SectionOk(record()));
+
+        expect(controller.day!.day, '2026-07-19');
+      },
+    );
+
+    // The over-correction a day comparison would cause: a round whose day
+    // simply differs from whatever day the controller already holds must
+    // still apply, as long as nothing navigated since the round was claimed.
+    test(
+      'a section applies even when its day differs from the day already held, '
+      'as long as nothing navigated since the round was claimed',
+      () async {
+        final repository = FakeVitalsRepository()
+          ..dayToReturn = const VitalsDay(
+            day: '2026-07-17',
+            weightKg: null,
+            bodyFatPct: null,
+            waistCm: null,
+            bpReadings: [],
+            glucoseReadings: [],
+            spo2Readings: [],
+          );
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-17');
+        expect(controller.day!.day, '2026-07-17');
+
+        controller.claimBatchRound();
+        controller.applyBatchSection(SectionOk(record()));
+
+        expect(controller.day!.day, record().day);
+        expect(controller.weightKg, record().weightKg);
+      },
+    );
+  });
+
   group('VitalsController.load', () {
     test('loads a day and populates the editable draft', () async {
       final repository = FakeVitalsRepository()
@@ -80,7 +225,12 @@ void main() {
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
           ],
           glucoseReadings: [
-            GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
+            GlucoseReading(
+              label: '餐前',
+              value: 95,
+              mealContext: null,
+              time: '07:45',
+            ),
           ],
           spo2Readings: [Spo2Reading(spo2: 98, pulse: null, time: '10:00')],
         );
@@ -155,19 +305,21 @@ void main() {
   });
 
   group('VitalsController draft mutations', () {
-    test('setWeight/setBodyFat accept null (unrecorded), without saving',
-        () async {
-      final repository = FakeVitalsRepository();
-      final controller = _controller(repository);
-      await controller.load('token', '2026-07-18');
+    test(
+      'setWeight/setBodyFat accept null (unrecorded), without saving',
+      () async {
+        final repository = FakeVitalsRepository();
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
 
-      controller.setWeight(65.5);
-      controller.setBodyFat(null);
+        controller.setWeight(65.5);
+        controller.setBodyFat(null);
 
-      expect(controller.weightKg, 65.5);
-      expect(controller.bodyFatPct, isNull);
-      expect(repository.savedDay, isNull);
-    });
+        expect(controller.weightKg, 65.5);
+        expect(controller.bodyFatPct, isNull);
+        expect(repository.savedDay, isNull);
+      },
+    );
 
     test('add / update a field / remove a reading in each list', () async {
       final controller = _controller(FakeVitalsRepository());
@@ -197,22 +349,24 @@ void main() {
       expect(controller.spo2Readings.single.spo2, 98);
     });
 
-    test('a newly added reading defaults its time to now (HH:mm, zero-padded)',
-        () async {
-      final controller = _controller(
-        FakeVitalsRepository(),
-        clock: () => const TimeOfDay(hour: 9, minute: 5),
-      );
-      await controller.load('token', '2026-07-18');
+    test(
+      'a newly added reading defaults its time to now (HH:mm, zero-padded)',
+      () async {
+        final controller = _controller(
+          FakeVitalsRepository(),
+          clock: () => const TimeOfDay(hour: 9, minute: 5),
+        );
+        await controller.load('token', '2026-07-18');
 
-      controller.addBpReading();
-      controller.addGlucoseReading();
-      controller.addSpo2Reading();
+        controller.addBpReading();
+        controller.addGlucoseReading();
+        controller.addSpo2Reading();
 
-      expect(controller.bpReadings.single.time, '09:05');
-      expect(controller.glucoseReadings.single.time, '09:05');
-      expect(controller.spo2Readings.single.time, '09:05');
-    });
+        expect(controller.bpReadings.single.time, '09:05');
+        expect(controller.glucoseReadings.single.time, '09:05');
+        expect(controller.spo2Readings.single.time, '09:05');
+      },
+    );
   });
 
   group('VitalsController.save', () {
@@ -235,7 +389,12 @@ void main() {
       controller.addGlucoseReading();
       controller.updateGlucoseReading(
         0,
-        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
+        const GlucoseReading(
+          label: '餐前',
+          value: 95,
+          mealContext: null,
+          time: '07:45',
+        ),
       );
       await controller.save('token', '2026-07-18');
 
@@ -273,7 +432,9 @@ void main() {
           bpReadings: [
             BpReading(systolic: 120, diastolic: 80, pulse: 70, time: ''),
           ],
-          glucoseReadings: [GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '')],
+          glucoseReadings: [
+            GlucoseReading(label: '餐前', value: 95, mealContext: null, time: ''),
+          ],
           spo2Readings: [Spo2Reading(spo2: 98, pulse: 70, time: '')],
         );
       final controller = _controller(
@@ -300,85 +461,99 @@ void main() {
       expect(controller.status, VitalsStatus.needsReauth);
     });
 
-    test('drops untouched empty rows from the save payload but keeps real ones',
-        () async {
-      final repository = FakeVitalsRepository();
-      final controller = _controller(repository);
-      await controller.load('token', '2026-07-18');
+    test(
+      'drops untouched empty rows from the save payload but keeps real ones',
+      () async {
+        final repository = FakeVitalsRepository();
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
 
-      // A real BP reading plus an untouched (all-zero) one appended after.
-      controller.addBpReading();
-      controller.updateBpReading(
-        0,
-        const BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
-      );
-      controller.addBpReading();
+        // A real BP reading plus an untouched (all-zero) one appended after.
+        controller.addBpReading();
+        controller.updateBpReading(
+          0,
+          const BpReading(
+            systolic: 120,
+            diastolic: 80,
+            pulse: 70,
+            time: '08:30',
+          ),
+        );
+        controller.addBpReading();
 
-      // A real glucose reading plus an untouched (0 / blank) one.
-      controller.addGlucoseReading();
-      controller.updateGlucoseReading(
-        0,
-        const GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45'),
-      );
-      controller.addGlucoseReading();
+        // A real glucose reading plus an untouched (0 / blank) one.
+        controller.addGlucoseReading();
+        controller.updateGlucoseReading(
+          0,
+          const GlucoseReading(
+            label: '餐前',
+            value: 95,
+            mealContext: null,
+            time: '07:45',
+          ),
+        );
+        controller.addGlucoseReading();
 
-      // A real SpO2 reading plus an untouched (0 / null pulse) one.
-      controller.addSpo2Reading();
-      controller.updateSpo2Reading(
-        0,
-        const Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),
-      );
-      controller.addSpo2Reading();
+        // A real SpO2 reading plus an untouched (0 / null pulse) one.
+        controller.addSpo2Reading();
+        controller.updateSpo2Reading(
+          0,
+          const Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),
+        );
+        controller.addSpo2Reading();
 
-      await controller.save('token', '2026-07-18');
+        await controller.save('token', '2026-07-18');
 
-      // Only the non-empty readings reach the repository.
-      expect(
-        repository.savedDay!.bpReadings,
-        const [
+        // Only the non-empty readings reach the repository.
+        expect(repository.savedDay!.bpReadings, const [
           BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
-        ],
-      );
-      expect(
-        repository.savedDay!.glucoseReadings,
-        const [GlucoseReading(label: '餐前', value: 95, mealContext: null, time: '07:45')],
-      );
-      expect(
-        repository.savedDay!.spo2Readings,
-        const [Spo2Reading(spo2: 98, pulse: 70, time: '10:00')],
-      );
-    });
+        ]);
+        expect(repository.savedDay!.glucoseReadings, const [
+          GlucoseReading(
+            label: '餐前',
+            value: 95,
+            mealContext: null,
+            time: '07:45',
+          ),
+        ]);
+        expect(repository.savedDay!.spo2Readings, const [
+          Spo2Reading(spo2: 98, pulse: 70, time: '10:00'),
+        ]);
+      },
+    );
   });
 
   group('VitalsController.hasUnsavedChanges', () {
-    test('is false after a load and flips true after add/edit/remove',
-        () async {
-      final repository = FakeVitalsRepository()
-        ..dayToReturn = const VitalsDay(
-          day: '2026-07-18',
-          weightKg: 65,
-          bodyFatPct: null,
-          waistCm: null,
-          bpReadings: [
-            BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
-          ],
-          glucoseReadings: [],
-          spo2Readings: [],
+    test(
+      'is false after a load and flips true after add/edit/remove',
+      () async {
+        final repository = FakeVitalsRepository()
+          ..dayToReturn = const VitalsDay(
+            day: '2026-07-18',
+            weightKg: 65,
+            bodyFatPct: null,
+            waistCm: null,
+            bpReadings: [
+              BpReading(systolic: 120, diastolic: 80, pulse: 70, time: '08:30'),
+            ],
+            glucoseReadings: [],
+            spo2Readings: [],
+          );
+        final controller = _controller(repository);
+        await controller.load('token', '2026-07-18');
+
+        // A freshly loaded day has no unsaved changes even though the draft
+        // reading list is a different instance from the loaded day's list
+        // (compared element-wise by value, not identity).
+        expect(controller.hasUnsavedChanges, isFalse);
+
+        controller.updateBpReading(
+          0,
+          controller.bpReadings[0].copyWith(systolic: 121),
         );
-      final controller = _controller(repository);
-      await controller.load('token', '2026-07-18');
-
-      // A freshly loaded day has no unsaved changes even though the draft
-      // reading list is a different instance from the loaded day's list
-      // (compared element-wise by value, not identity).
-      expect(controller.hasUnsavedChanges, isFalse);
-
-      controller.updateBpReading(
-        0,
-        controller.bpReadings[0].copyWith(systolic: 121),
-      );
-      expect(controller.hasUnsavedChanges, isTrue);
-    });
+        expect(controller.hasUnsavedChanges, isTrue);
+      },
+    );
 
     test('editing a reading\'s time flips it true', () async {
       final repository = FakeVitalsRepository()

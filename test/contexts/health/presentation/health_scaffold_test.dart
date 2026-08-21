@@ -100,7 +100,14 @@ import 'package:life_os/shared/data_revision.dart';
 import 'package:life_os/shared/widgets/last_loaded_label.dart';
 import 'package:life_os/shared/widgets/stale_notice.dart';
 
+import 'package:life_os/shared/date/day_format.dart';
+import 'package:life_os/shared/screen_batch/health_overview_batch.dart';
+import 'package:life_os/shared/screen_batch/home_summary_batch.dart';
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
+import 'package:life_os/shared/screen_batch/screen_batch_repository.dart';
+
 import '../../../support/l10n_test_app.dart';
+import '../../../support/repository_backed_screen_batch.dart';
 import '../../../support/push_health.dart';
 
 class _FakeAuthRepository implements AuthRepository {
@@ -440,9 +447,6 @@ class _FakeExerciseRepository implements ExerciseRepository {
 }
 
 class _FakeMenstrualRepository implements MenstrualRepository {
-  /// Thrown instead of returning an overview, for the 401 test.
-  final Object? getOverviewError;
-
   int calls = 0;
 
   /// Once set, every call *after* the first throws it — lets a test drive the
@@ -453,12 +457,9 @@ class _FakeMenstrualRepository implements MenstrualRepository {
   /// retry in flight and look at the card while it runs.
   Completer<void>? gate;
 
-  _FakeMenstrualRepository({this.getOverviewError});
-
   @override
   Future<MenstrualOverview> getOverview(String idToken) async {
     calls++;
-    if (getOverviewError != null) throw getOverviewError!;
     if (calls > 1 && errorAfterFirstLoad != null) throw errorAfterFirstLoad!;
     if (gate != null) await gate!.future;
     return const MenstrualOverview(periods: [], stats: MenstrualStats());
@@ -588,6 +589,7 @@ Widget _buildScaffold({
   VoidCallback? onOpenCareItems,
   PushHealthController? pushHealthController,
   DateTime Function()? clock,
+  ScreenBatchRepository? screenBatchRepository,
 }) {
   final resolvedBodyProfileRepository =
       bodyProfileRepository ?? _FakeBodyProfileRepository();
@@ -604,8 +606,17 @@ Widget _buildScaffold({
     GetVitalsDay(resolvedVitalsRepository),
     SaveVitalsDay(resolvedVitalsRepository),
   );
+  final resolvedHealthCalendarRepository =
+      healthCalendarRepository ?? _FakeHealthCalendarRepository();
+  final resolvedClock = clock ?? () => DateTime(2026, 7, 24);
   final healthCalendarController = HealthCalendarController(
-    GetHealthCalendar(healthCalendarRepository ?? _FakeHealthCalendarRepository()),
+    GetHealthCalendar(resolvedHealthCalendarRepository),
+    // The same clock the scaffold resolves its `day` from: the batch's
+    // calendar section is always the round's month, and a card whose own
+    // clock says a different month refuses it and loads granularly — one
+    // extra request that nothing in production would make, since both clocks
+    // are `DateTime.now` there.
+    clock: resolvedClock,
   );
   final mealRepository = _FakeMealRepository();
   final dailyTargetRepository = _FakeDailyTargetRepository();
@@ -631,14 +642,16 @@ Widget _buildScaffold({
   );
   final createMealController = CreateMealController(CreateMeal(mealRepository));
   final getLoggedDays = GetLoggedDays(mealRepository);
+  final waterRepository = _FakeWaterRepository();
   final waterController = WaterController(
-    GetWaterDay(_FakeWaterRepository()),
-    AddWater(_FakeWaterRepository()),
-    SetWaterTarget(_FakeWaterRepository()),
+    GetWaterDay(waterRepository),
+    AddWater(waterRepository),
+    SetWaterTarget(waterRepository),
   );
+  final bowelRepository = _FakeBowelRepository();
   final bowelController = BowelController(
-    GetBowelDay(_FakeBowelRepository()),
-    SaveBowelDay(_FakeBowelRepository()),
+    GetBowelDay(bowelRepository),
+    SaveBowelDay(bowelRepository),
   );
   final exerciseRepository = _FakeExerciseRepository();
   final exerciseController = ExerciseController(
@@ -682,6 +695,25 @@ Widget _buildScaffold({
   );
 
   return HealthScaffold(
+    // Answers every section from the same fakes the controllers hold, so a
+    // whole-screen round still reads each repository exactly once — which is
+    // what the load-count assertions below are counting.
+    screenBatchRepository:
+        screenBatchRepository ??
+        RepositoryBackedScreenBatchRepository(
+          bodyProfile: resolvedBodyProfileRepository,
+          vitals: resolvedVitalsRepository,
+          healthCalendar: resolvedHealthCalendarRepository,
+          meals: mealRepository,
+          dailyTarget: dailyTargetRepository,
+          foodDictionary: dictionaryRepository,
+          water: waterRepository,
+          bowel: bowelRepository,
+          exercise: exerciseRepository,
+          menstrual: resolvedMenstrualRepository,
+          careToday: resolvedCareTodayRepository,
+          careHistory: resolvedCareHistoryRepository,
+        ),
     pushHealthController:
         pushHealthController ?? testPushHealthController(PushHealth.ok),
     authRepository: resolvedAuthRepository,
@@ -708,7 +740,7 @@ Widget _buildScaffold({
     onOpenCareToday: () {},
     onOpenCareHistory: onOpenCareHistory ?? () {},
     dataRevision: resolvedDataRevision,
-    clock: clock ?? () => DateTime(2026, 7, 24),
+    clock: resolvedClock,
   );
 }
 
@@ -727,6 +759,113 @@ CareTodaySlot _slot({
   status: status,
   doseQuantity: 1,
 );
+
+
+/// Serves an all-succeeding health overview with one section rewritten — for
+/// the guards about a single card's outcome, which the granular repositories
+/// can no longer express now that a section failure and a request failure are
+/// different things.
+class _StubScreenBatchRepository implements ScreenBatchRepository {
+  final HealthOverviewBatch Function(HealthOverviewBatch) rewrite;
+
+  _StubScreenBatchRepository(this.rewrite);
+
+  @override
+  Future<HealthOverviewBatch> getHealthOverview(
+    String idToken, {
+    required String day,
+    required int trendDays,
+    required int careDays,
+  }) async => rewrite(_allOkHealthOverview(day, trendDays, careDays));
+
+  @override
+  Future<HomeSummaryBatch> getHomeSummary(
+    String idToken, {
+    required String day,
+    required int trendDays,
+  }) => throw UnsupportedError('health-only stub');
+}
+
+HealthOverviewBatch _allOkHealthOverview(
+  String day,
+  int trendDays,
+  int careDays,
+) {
+  final to = parseDayString(day);
+  final from = to.subtract(Duration(days: trendDays - 1));
+  return HealthOverviewBatch(
+    weightGoal: const SectionOk(WeightGoal(targetWeightKg: 51)),
+    vitalsTrend: SectionOk(
+      VitalsRange(
+        from: from,
+        to: to,
+        series: const VitalsSeries(
+          weight: [],
+          bodyFat: [],
+          waist: [],
+          systolic: [],
+          diastolic: [],
+          pulse: [],
+          glucose: [],
+          spo2: [],
+        ),
+      ),
+    ),
+    healthCalendar: SectionOk(
+      HealthCalendar(
+        year: to.year,
+        month: to.month,
+        loggedDays: const {},
+        daysElapsed: 0,
+        loggingRate: null,
+        dietAdherenceRate: null,
+      ),
+    ),
+    meals: SectionOk(
+      DayMealsLog.fromJson({
+        'day': day,
+        'meals': const <dynamic>[],
+        'totals': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      }),
+    ),
+    dailyTarget: SectionOk(_stubTarget(day)),
+    favoriteFoodItems: const SectionOk<List<FoodItem>>([]),
+    water: SectionOk(
+      WaterDay(day: day, totalMl: 0, targetMl: 2000, remainingMl: 2000),
+    ),
+    bowel: SectionOk(BowelDay(day: day, count: 0, isNormal: null, note: '')),
+    vitals: SectionOk(
+      VitalsDay(
+        day: day,
+        weightKg: null,
+        bodyFatPct: null,
+        waistCm: null,
+        bpReadings: const [],
+        glucoseReadings: const [],
+        spo2Readings: const [],
+      ),
+    ),
+    exerciseActivities: const SectionOk<List<ExerciseActivity>>([]),
+    exercise: SectionOk(
+      ExerciseDay(day: day, entries: const [], totalMinutes: 0),
+    ),
+    menstrual: const SectionOk(
+      MenstrualOverview(periods: [], stats: MenstrualStats()),
+    ),
+    careToday: SectionOk(CareToday(date: day, slots: const [])),
+    careRange: const SectionOk<List<CareHistoryDay>>([]),
+  );
+}
+
+DailyTargetWithRemaining _stubTarget(String day) =>
+    DailyTargetWithRemaining.fromJson({
+      'day': day,
+      'base': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'bonus': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'effective': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'logged': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'remaining': const {'staple': 0, 'meat': 0, 'fruit': 0, 'veg': 0},
+    });
 
 void main() {
   group('HealthScaffold overview ordering', () {
@@ -1077,15 +1216,34 @@ void main() {
     );
 
     testWidgets(
-      'a 401 from the menstrual load alone surfaces the re-authenticate exit '
-      '— the next-period card has nothing to act on, so without menstrual in '
-      '_overviewNeedsReauth its 401 would be a dead end',
+      'a re-auth on the menstrual section alone surfaces the re-authenticate '
+      'exit — the next-period card has nothing to act on, so without '
+      'menstrual in _overviewNeedsReauth it would be a dead end',
       (tester) async {
+        // One section, not the whole response: this pins that MENSTRUAL is
+        // what surfaces the exit. With every section in re-auth, five other
+        // controllers would raise it and this test would pass with menstrual
+        // deleted from `_overviewNeedsReauth`.
         await tester.pumpWidget(
           l10nRouterTestApp(
             home: _buildScaffold(
-              menstrualRepository: _FakeMenstrualRepository(
-                getOverviewError: const MenstrualReauthenticationRequired(),
+              screenBatchRepository: _StubScreenBatchRepository(
+                (batch) => HealthOverviewBatch(
+                  weightGoal: batch.weightGoal,
+                  vitalsTrend: batch.vitalsTrend,
+                  healthCalendar: batch.healthCalendar,
+                  meals: batch.meals,
+                  dailyTarget: batch.dailyTarget,
+                  favoriteFoodItems: batch.favoriteFoodItems,
+                  water: batch.water,
+                  bowel: batch.bowel,
+                  vitals: batch.vitals,
+                  exerciseActivities: batch.exerciseActivities,
+                  exercise: batch.exercise,
+                  menstrual: const SectionReauth<MenstrualOverview>(),
+                  careToday: batch.careToday,
+                  careRange: batch.careRange,
+                ),
               ),
             ),
           ),

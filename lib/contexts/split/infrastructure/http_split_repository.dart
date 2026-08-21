@@ -12,6 +12,14 @@ import '../domain/split_group.dart';
 import '../domain/split_input.dart';
 import '../domain/split_repository.dart';
 
+/// Decodes the `{balances:[...]}` envelope of `/api/split/balances`. Public
+/// and top-level so the screen-batch decoder shares this one definition with
+/// the granular repository below.
+List<Balance> balancesFromJson(Map<String, dynamic> json) =>
+    (json['balances'] as List)
+        .map((e) => Balance.fromJson(e as Map<String, dynamic>))
+        .toList();
+
 /// [SplitRepository] driven adapter backed by the `/api/split/*` HTTP
 /// endpoints (contract frozen in design.md, backend PR #65/#66).
 ///
@@ -352,11 +360,7 @@ class HttpSplitRepository implements SplitRepository {
       () => client.get(Uri.parse('$baseUrl/api/split/balances'), headers: _headers(idToken)),
     );
     if (response.statusCode != 200) _throwForSplitError(response);
-    return _decode(
-      response,
-      (json) =>
-          (json['balances'] as List).map((e) => Balance.fromJson(e as Map<String, dynamic>)).toList(),
-    );
+    return _decode(response, balancesFromJson);
   }
 
   @override

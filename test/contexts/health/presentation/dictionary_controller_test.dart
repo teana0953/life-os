@@ -1,3 +1,4 @@
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/favorite_food.dart';
 import 'package:life_os/contexts/health/application/list_favorites.dart';
@@ -107,6 +108,65 @@ DictionaryController _controller(
 }
 
 void main() {
+
+  group('DictionaryController.applyBatchSection', () {
+    final favorite = FoodItem.fromJson({
+      'id': 'food-1',
+      'owner_user_id': null,
+      'name': 'Rice',
+      'carb_g': 40.0,
+      'protein_g': 4.0,
+      'fat_g': 0.5,
+      'sugar_g': 0.0,
+      'fiber_g': 1.0,
+      'kcal': 180.0,
+      'staple': 1.0,
+      'meat': 0.0,
+      'fruit': 0.0,
+      'veg': 0.0,
+    });
+
+    DictionaryController controllerOver(FakeFoodDictionaryRepository repo) =>
+        DictionaryController(
+          SearchDictionary(repo),
+          ListFavorites(repo),
+          FavoriteFood(repo),
+          UnfavoriteFood(repo),
+          idToken: () async => 'token',
+        );
+
+    test('ok lands the identical state load() lands for the same payload', () async {
+      final repo = FakeFoodDictionaryRepository()..favoritesToReturn = [favorite];
+      final viaLoad = controllerOver(repo);
+      await viaLoad.load();
+
+      final viaBatch = controllerOver(FakeFoodDictionaryRepository());
+      viaBatch.applyBatchSection(SectionOk([favorite]));
+
+      expect(viaBatch.status, viaLoad.status);
+      expect(viaBatch.error, viaLoad.error);
+      expect(viaBatch.favorites.map((f) => f.id), viaLoad.favorites.map((f) => f.id));
+    });
+
+    test('unavailable reaches the fetch-failed state', () {
+      final controller = controllerOver(FakeFoodDictionaryRepository());
+
+      controller.applyBatchSection(const SectionUnavailable<List<FoodItem>>());
+
+      expect(controller.status, DictionaryStatus.error);
+      expect(controller.error, DictionaryError.fetchFailed);
+    });
+
+    test('reauth reaches needsReauth', () {
+      final controller = controllerOver(FakeFoodDictionaryRepository());
+
+      controller.applyBatchSection(const SectionReauth<List<FoodItem>>());
+
+      expect(controller.status, DictionaryStatus.needsReauth);
+    });
+  });
+
+
   // This controller is the one deliberate exception to "only presentation
   // holds the provider" (design D2): `search`/`toggleFavorite` take no token,
   // so before this change they reused whatever `load` had captured — a

@@ -48,6 +48,18 @@ jobs:
 
       - run: flutter analyze
 
+      # GitHub runners are UTC, so this run is the UTC direction on its own.
       - run: flutter test
+
+      # ...and this is the other one. Guards over "which day is it here"
+      # (the health screen's batch reads one day and every card must agree on
+      # it) can only go red where the local date differs from the UTC date, so
+      # a UTC-only CI would have stayed green through a day-locality
+      # regression — e.g. computing today from `clock().toUtc()` instead of
+      # local time, measured red only at UTC+8. Asia/Taipei is the developer
+      # machine's zone, which is where those guards were written and verified.
+      # The suite runs in well under a minute, so running it twice is cheap;
+      # note the hang caveat on `timeout-minutes` above applies to both runs.
+      - run: TZ=Asia/Taipei flutter test
 
       - run: flutter build web

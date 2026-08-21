@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/get_vitals_day.dart';
 import '../application/save_vitals_day.dart';
 import '../domain/vitals_day.dart';
@@ -81,7 +82,36 @@ class VitalsController extends ChangeNotifier {
           !listEquals(glucoseReadings, day!.glucoseReadings) ||
           !listEquals(spo2Readings, day!.spo2Readings));
 
+  /// Bumped by every [load] call, synchronously before its first `await` —
+  /// an explicit-navigation generation counter [applyBatchSection] checks
+  /// against [_claimedGeneration], not against the day itself.
+  ///
+  /// A day comparison (`this.day.day == day`) is what this replaced, and it
+  /// over-corrected: comparing days strands the controller on whatever day
+  /// it already happens to hold whenever a round's day differs from it —
+  /// including the ordinary cases where nothing has navigated at all, e.g.
+  /// the day rolling over at midnight, or a round catching a browsed-away
+  /// tracker back up to today once the screen showing it is gone. The
+  /// generation only moves on an explicit [load], so a round claimed after
+  /// the last one is authoritative for whatever day it computed, whatever
+  /// this controller currently holds — and a round claimed BEFORE a [load]
+  /// that has since started or already landed is correctly refused, which is
+  /// the case [applyBatchSection]'s tests guard.
+  int _generation = 0;
+
+  /// The generation a whole-screen batch round has claimed, via
+  /// [claimBatchRound]. `null` (no round has claimed one yet) reads as "not
+  /// claimed" in [applyBatchSection], so an unclaimed section is refused
+  /// rather than accepted by accident.
+  int? _claimedGeneration;
+
+  /// Records the generation a whole-screen batch round is about to fetch
+  /// for. Call synchronously, before the round's request goes out — mirrors
+  /// [HealthCalendarController.claimBatchMonth].
+  void claimBatchRound() => _claimedGeneration = _generation;
+
   Future<void> load(String idToken, String day) async {
+    _generation++;
     status = VitalsStatus.loading;
     error = null;
     notifyListeners();
@@ -98,6 +128,26 @@ class VitalsController extends ChangeNotifier {
     } catch (_) {
       status = VitalsStatus.error;
       error = VitalsError.unknown;
+    }
+    notifyListeners();
+  }
+
+  /// Applies the health screen's batched `vitals` section, leaving this
+  /// controller in the state [load] would have left it in for the same
+  /// payload — including resetting the editable draft to the fetched record.
+  void applyBatchSection(SectionOutcome<VitalsDay> section) {
+    if (_claimedGeneration != _generation) return;
+    error = null;
+    switch (section) {
+      case SectionOk<VitalsDay>(:final value):
+        _applyRecord(value);
+        status = VitalsStatus.loaded;
+        lastLoadedAt = _loadClock();
+      case SectionUnavailable<VitalsDay>():
+        status = VitalsStatus.error;
+        error = VitalsError.fetchFailed;
+      case SectionReauth<VitalsDay>():
+        status = VitalsStatus.needsReauth;
     }
     notifyListeners();
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health/application/get_daily_target_with_remaining.dart';
 import 'package:life_os/contexts/health/application/set_daily_target.dart';
@@ -48,22 +49,151 @@ class FakeDailyTargetRepository implements DailyTargetRepository {
   }
 }
 
-DailyTargetWithRemaining _target({double baseStaple = 0, double loggedStaple = 9}) =>
-    DailyTargetWithRemaining.fromJson({
-      'day': '2026-07-18',
-      'base': {'staple': baseStaple, 'meat': 6, 'fruit': 4, 'veg': 3},
-      'bonus': {'staple': 1, 'meat': 0, 'fruit': 0, 'veg': 0},
-      'effective': {'staple': baseStaple + 1, 'meat': 6, 'fruit': 4, 'veg': 3},
-      'logged': {'staple': loggedStaple, 'meat': 3, 'fruit': 1, 'veg': 0},
-      'remaining': {
-        'staple': baseStaple + 1 - loggedStaple,
-        'meat': 3,
-        'fruit': 3,
-        'veg': 3,
-      },
-    });
+DailyTargetWithRemaining _target({
+  double baseStaple = 0,
+  double loggedStaple = 9,
+}) => DailyTargetWithRemaining.fromJson({
+  'day': '2026-07-18',
+  'base': {'staple': baseStaple, 'meat': 6, 'fruit': 4, 'veg': 3},
+  'bonus': {'staple': 1, 'meat': 0, 'fruit': 0, 'veg': 0},
+  'effective': {'staple': baseStaple + 1, 'meat': 6, 'fruit': 4, 'veg': 3},
+  'logged': {'staple': loggedStaple, 'meat': 3, 'fruit': 1, 'veg': 0},
+  'remaining': {
+    'staple': baseStaple + 1 - loggedStaple,
+    'meat': 3,
+    'fruit': 3,
+    'veg': 3,
+  },
+});
 
 void main() {
+  group('DailyTargetController.applyBatchSection', () {
+    DailyTargetWithRemaining target() => DailyTargetWithRemaining.fromJson({
+      'day': '2026-07-18',
+      'base': {'staple': 12, 'meat': 6, 'fruit': 4, 'veg': 3},
+      'bonus': {'staple': 1, 'meat': 0, 'fruit': 0, 'veg': 0},
+      'effective': {'staple': 13, 'meat': 6, 'fruit': 4, 'veg': 3},
+      'logged': {'staple': 9, 'meat': 3, 'fruit': 1, 'veg': 0},
+      'remaining': {'staple': 4, 'meat': 3, 'fruit': 3, 'veg': 3},
+    });
+
+    DailyTargetController fresh() {
+      final repository = FakeDailyTargetRepository()..targetToReturn = target();
+      return DailyTargetController(
+        GetDailyTargetWithRemaining(repository),
+        SetDailyTarget(repository),
+      );
+    }
+
+    test(
+      'ok lands the identical state load() lands for the same payload',
+      () async {
+        final viaLoad = fresh();
+        await viaLoad.load('token-123', '2026-07-18');
+
+        final viaBatch = fresh();
+        viaBatch.claimBatchRound();
+        viaBatch.applyBatchSection(SectionOk(target()));
+
+        expect(viaBatch.status, viaLoad.status);
+        expect(viaBatch.error, viaLoad.error);
+        expect(
+          viaBatch.target!.effective.staple,
+          viaLoad.target!.effective.staple,
+        );
+        expect(viaBatch.draftBaseStaple, viaLoad.draftBaseStaple);
+        expect(viaBatch.draftBaseMeat, viaLoad.draftBaseMeat);
+        expect(viaBatch.draftBaseFruit, viaLoad.draftBaseFruit);
+        expect(viaBatch.draftBaseVeg, viaLoad.draftBaseVeg);
+      },
+    );
+
+    test('unavailable reaches the fetch-failed state', () {
+      final controller = fresh();
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        const SectionUnavailable<DailyTargetWithRemaining>(),
+      );
+
+      expect(controller.status, DailyTargetStatus.error);
+      expect(controller.error, DailyTargetError.fetchFailed);
+    });
+
+    test('reauth reaches needsReauth', () {
+      final controller = fresh();
+
+      controller.claimBatchRound();
+      controller.applyBatchSection(
+        const SectionReauth<DailyTargetWithRemaining>(),
+      );
+
+      expect(controller.status, DailyTargetStatus.needsReauth);
+    });
+
+    // A section with no claim at all (nobody called `claimBatchRound`) must
+    // never apply by accident.
+    test('a section nobody claimed a round for is dropped', () {
+      final controller = fresh();
+
+      controller.applyBatchSection(SectionOk(target()));
+
+      expect(controller.target, isNull);
+    });
+
+    test(
+      'a section is dropped when a load starts after the round was claimed',
+      () async {
+        final controller = fresh();
+        controller.claimBatchRound();
+        // Started but NOT awaited — see the twin guard in
+        // `today_controller_test.dart` for why the window closes otherwise.
+        final other = controller.load('token-123', '2026-07-19');
+
+        controller.applyBatchSection(SectionOk(target()));
+        expect(controller.target, isNull);
+
+        await other;
+      },
+    );
+
+    test(
+      'a section is dropped when a load already landed after the round was claimed',
+      () async {
+        final controller = fresh();
+        controller.claimBatchRound();
+        await controller.load('token-123', '2026-07-19');
+        final heldTarget = controller.target;
+
+        controller.applyBatchSection(
+          const SectionUnavailable<DailyTargetWithRemaining>(),
+        );
+
+        expect(controller.target, heldTarget);
+        expect(controller.status, DailyTargetStatus.loaded);
+      },
+    );
+
+    // The over-correction a day comparison would cause: a round whose day
+    // simply differs from whatever day the controller already holds must
+    // still apply, as long as nothing navigated since the round was claimed.
+    test(
+      'a section applies even when its day differs from the day already held, '
+      'as long as nothing navigated since the round was claimed',
+      () async {
+        final controller = fresh();
+        await controller.load('token-123', '2026-07-17');
+        expect(controller.target, isNotNull);
+
+        controller.claimBatchRound();
+        controller.applyBatchSection(SectionOk(target()));
+
+        expect(controller.status, DailyTargetStatus.loaded);
+        expect(controller.target!.effective.staple, target().effective.staple);
+      },
+    );
+  });
+
   group('DailyTargetController.load', () {
     test('loads the target and seeds draft base values', () async {
       final repository = FakeDailyTargetRepository()
@@ -160,7 +290,8 @@ void main() {
       // implementation that remembered the day it last asked for would pass a
       // test where the two always match, and would tell the shell "I hold the
       // 19th" while the 18th's numbers are on screen.
-      final repository = FakeDailyTargetRepository()..targetToReturn = _target();
+      final repository = FakeDailyTargetRepository()
+        ..targetToReturn = _target();
       final controller = DailyTargetController(
         GetDailyTargetWithRemaining(repository),
         SetDailyTarget(repository),
@@ -173,27 +304,30 @@ void main() {
       expect(controller.holdsDay('2026-07-18'), isTrue);
     });
 
-    test('a FAILED load does not make holdsDay claim the day it asked for', () async {
-      final repository = _FailingOnDayDailyTargetRepository('2026-07-19')
-        ..targetToReturn = _target();
-      final controller = DailyTargetController(
-        GetDailyTargetWithRemaining(repository),
-        SetDailyTarget(repository),
-      );
+    test(
+      'a FAILED load does not make holdsDay claim the day it asked for',
+      () async {
+        final repository = _FailingOnDayDailyTargetRepository('2026-07-19')
+          ..targetToReturn = _target();
+        final controller = DailyTargetController(
+          GetDailyTargetWithRemaining(repository),
+          SetDailyTarget(repository),
+        );
 
-      await controller.load('token', '2026-07-18');
-      await controller.load('token', '2026-07-19');
+        await controller.load('token', '2026-07-18');
+        await controller.load('token', '2026-07-19');
 
-      expect(controller.status, DailyTargetStatus.error);
-      expect(
-        controller.holdsDay('2026-07-19'),
-        isFalse,
-        reason:
-            'nothing was fetched — claiming the 19th would make the shell '
-            'stand down over the 18th\'s numbers',
-      );
-      expect(controller.holdsDay('2026-07-18'), isTrue);
-    });
+        expect(controller.status, DailyTargetStatus.error);
+        expect(
+          controller.holdsDay('2026-07-19'),
+          isFalse,
+          reason:
+              'nothing was fetched — claiming the 19th would make the shell '
+              'stand down over the 18th\'s numbers',
+        );
+        expect(controller.holdsDay('2026-07-18'), isTrue);
+      },
+    );
   });
 }
 

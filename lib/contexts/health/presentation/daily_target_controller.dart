@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/get_daily_target_with_remaining.dart';
 import '../application/set_daily_target.dart';
 import '../domain/daily_target.dart';
@@ -40,6 +41,18 @@ class DailyTargetController extends ChangeNotifier {
   /// Whether the controller currently HOLDS [day]'s target.
   bool holdsDay(String day) => target?.day == day;
 
+  /// The generation a whole-screen batch round has claimed, via
+  /// [claimBatchRound]. Compared against [_nextRequestId] (already bumped
+  /// synchronously by every [load], before its first `await`) in
+  /// [applyBatchSection] instead of comparing days — see
+  /// [TodayController._claimedGeneration] for why.
+  int? _claimedGeneration;
+
+  /// Records the generation a whole-screen batch round is about to fetch
+  /// for. Call synchronously, before the round's request goes out — mirrors
+  /// [HealthCalendarController.claimBatchMonth].
+  void claimBatchRound() => _claimedGeneration = _nextRequestId;
+
   double draftBaseStaple = 0;
   double draftBaseMeat = 0;
   double draftBaseFruit = 0;
@@ -71,6 +84,33 @@ class DailyTargetController extends ChangeNotifier {
       // Only this call's own claim — removing anyone else's is exactly the
       // early-clear a single field suffers from.
       _pendingDays.remove(requestId);
+    }
+    notifyListeners();
+  }
+
+  /// Applies the batched `daily_target` section for [day] — the same section
+  /// instance [TodayController] gets, which is what removes the second
+  /// per-load request for the day's target.
+  ///
+  /// Dropped when a [load] has started — or already landed — since the round
+  /// that produced this section was claimed via [claimBatchRound] (see
+  /// [TodayController.applyBatchSection]).
+  void applyBatchSection(SectionOutcome<DailyTargetWithRemaining> section) {
+    if (_claimedGeneration != _nextRequestId) return;
+    error = null;
+    switch (section) {
+      case SectionOk<DailyTargetWithRemaining>(:final value):
+        target = value;
+        draftBaseStaple = value.base.staple;
+        draftBaseMeat = value.base.meat;
+        draftBaseFruit = value.base.fruit;
+        draftBaseVeg = value.base.veg;
+        status = DailyTargetStatus.loaded;
+      case SectionUnavailable<DailyTargetWithRemaining>():
+        status = DailyTargetStatus.error;
+        error = DailyTargetError.fetchFailed;
+      case SectionReauth<DailyTargetWithRemaining>():
+        status = DailyTargetStatus.needsReauth;
     }
     notifyListeners();
   }

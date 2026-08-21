@@ -30,7 +30,19 @@ class GoalCard extends StatefulWidget {
   final WeightGoalController controller;
   final IdTokenProvider idToken;
 
-  const GoalCard({super.key, required this.controller, required this.idToken});
+  /// A whole-screen batch round is in flight, so this card is being reloaded
+  /// by somebody else — no `load()` of its own runs during a round, so its
+  /// controller's status cannot report it. Folded into the reload the
+  /// [StaleNotice] is told about, which is what stops a card that failed in
+  /// the previous round offering a retry for data already on its way.
+  final bool refreshing;
+
+  const GoalCard({
+    super.key,
+    required this.controller,
+    required this.idToken,
+    this.refreshing = false,
+  });
 
   @override
   State<GoalCard> createState() => _GoalCardState();
@@ -115,7 +127,8 @@ class _GoalCardState extends State<GoalCard> {
     }
 
     final failed = controller.status == WeightGoalStatus.error;
-    final reloading = controller.status == WeightGoalStatus.loading;
+    final reloading =
+        controller.status == WeightGoalStatus.loading || widget.refreshing;
     void onRetry() async => controller.load(await widget.idToken());
     if (goal == null || !goal.isProfileSet) {
       return _UnsetGoalCard(

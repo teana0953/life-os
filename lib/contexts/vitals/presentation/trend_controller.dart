@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/screen_batch/section_outcome.dart';
 import '../application/get_vitals_trends.dart';
 import '../domain/vitals_exceptions.dart';
 import '../domain/vitals_series.dart';
@@ -56,6 +57,34 @@ class TrendController extends ChangeNotifier {
       error = TrendError.unknown;
     }
     notifyListeners();
+  }
+
+  /// Applies the batched `vitals_trend` section, but only when it describes
+  /// the span this card is showing *now* — returns whether it did.
+  ///
+  /// [requestedSpanDays] is the `trend_days` the round went out with. A span
+  /// switched while the request was in flight makes the response describe a
+  /// window the card no longer shows, and painting it would leave the
+  /// selector saying one thing and the chart another; the caller loads this
+  /// one card granularly instead.
+  bool applyBatchSection(
+    SectionOutcome<VitalsRange> section, {
+    required int requestedSpanDays,
+  }) {
+    if (requestedSpanDays != spanDays) return false;
+    error = null;
+    switch (section) {
+      case SectionOk<VitalsRange>(:final value):
+        range = value;
+        status = TrendStatus.loaded;
+      case SectionUnavailable<VitalsRange>():
+        status = TrendStatus.error;
+        error = TrendError.fetchFailed;
+      case SectionReauth<VitalsRange>():
+        status = TrendStatus.needsReauth;
+    }
+    notifyListeners();
+    return true;
   }
 
   /// Switches the span (7 / 30 / 90) and reloads.

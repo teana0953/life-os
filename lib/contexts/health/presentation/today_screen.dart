@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/pick_time_24h.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/numeric_amount_field.dart';
 import '../../auth/application/sign_out.dart';
 import '../domain/meal_entry.dart';
@@ -217,18 +218,29 @@ class _TodayScreenState extends State<TodayScreen> {
           TodayError.notFound => loc.errorDietItemNotFound,
           _ => loc.errorSomethingWentWrong,
         };
+        // A retry, like every overview card's error state — signing out is
+        // not a reasonable only-option for a transient network error. It
+        // reloads the day on screen through the granular repositories, which
+        // is what this screen is for; the whole-screen batch is the shell's.
+        // The dead end mattered less when only `/api/meals` or
+        // `/api/daily-target` failing on their own reached here; now every
+        // request-level failure of the batch does (design D5).
         return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                message,
-                key: const Key('today-error-message'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: theme.colorScheme.error),
+              CardErrorRetry(
+                message: message,
+                messageKey: const Key('today-error-message'),
+                retryKey: const Key('today-retry-button'),
+                onRetry: () async =>
+                    controller.load(await widget.idToken(), widget.day),
               ),
               const SizedBox(height: 16),
-              FilledButton(
+              // Outlined, not filled: this is a transient network error, and
+              // signing out must not read as the emphasised way out of one —
+              // that emphasis belongs to Retry above.
+              OutlinedButton(
                 key: const Key('today-sign-out-button'),
                 onPressed: widget.signOut.call,
                 child: Text(loc.signOut),

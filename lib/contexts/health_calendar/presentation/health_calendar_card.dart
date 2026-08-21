@@ -25,11 +25,19 @@ class HealthCalendarCard extends StatefulWidget {
   /// when the goal isn't set / not yet computable.
   final int? weightAchievementRate;
 
+  /// A whole-screen batch round is in flight, so this card is being reloaded
+  /// by somebody else — no `load()` of its own runs during a round, so its
+  /// controller's status cannot report it. Folded into the reload the
+  /// [StaleNotice] is told about, which is what stops a card that failed in
+  /// the previous round offering a retry for data already on its way.
+  final bool refreshing;
+
   const HealthCalendarCard({
     super.key,
     required this.controller,
     required this.idToken,
     required this.weightAchievementRate,
+    this.refreshing = false,
   });
 
   @override
@@ -125,7 +133,8 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
     final calendar = controller.calendar!;
     final month = DateTime(calendar.year, calendar.month);
     final stale = controller.status == HealthCalendarStatus.error;
-    final reloading = controller.status == HealthCalendarStatus.loading;
+    final reloading =
+        controller.status == HealthCalendarStatus.loading || widget.refreshing;
 
     // The card's padding sits on its content rather than on the [LedgeCard],
     // so the [StaleNotice] below — which brings its own, matching the other

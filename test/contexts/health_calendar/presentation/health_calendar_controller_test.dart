@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/contexts/health_calendar/application/get_health_calendar.dart';
 import 'package:life_os/contexts/health_calendar/domain/health_calendar.dart';
@@ -42,6 +43,137 @@ HealthCalendarController _controller(_FakeRepository repo) =>
     );
 
 void main() {
+
+  group('HealthCalendarController.applyBatchSection', () {
+    const summary = HealthCalendar(
+      year: 2026,
+      month: 7,
+      loggedDays: {'2026-07-03'},
+      daysElapsed: 5,
+      loggingRate: 20,
+      dietAdherenceRate: 0,
+    );
+
+    test('ok lands the identical state load() lands for the same payload', () async {
+      final viaLoad = _controller(_FakeRepository());
+      await viaLoad.load('token');
+
+      final viaBatch = _controller(_FakeRepository());
+      viaBatch.claimBatchMonth(2026, 7);
+      final applied = viaBatch.applyBatchSection(
+        const SectionOk(summary),
+        requestedYear: 2026,
+        requestedMonth: 7,
+      );
+
+      expect(applied, isTrue);
+      expect(viaBatch.status, viaLoad.status);
+      expect(viaBatch.selectedMonth, viaLoad.selectedMonth);
+      expect(viaBatch.calendar!.loggedDays, viaLoad.calendar!.loggedDays);
+      expect(viaBatch.calendar!.loggingRate, viaLoad.calendar!.loggingRate);
+    });
+
+    test('unavailable reaches the fetch-failed state', () {
+      final controller = _controller(_FakeRepository())
+        ..claimBatchMonth(2026, 7);
+
+      controller.applyBatchSection(
+        const SectionUnavailable<HealthCalendar>(),
+        requestedYear: 2026,
+        requestedMonth: 7,
+      );
+
+      expect(controller.status, HealthCalendarStatus.error);
+    });
+
+    test('reauth reaches needsReauth', () {
+      final controller = _controller(_FakeRepository())
+        ..claimBatchMonth(2026, 7);
+
+      controller.applyBatchSection(
+        const SectionReauth<HealthCalendar>(),
+        requestedYear: 2026,
+        requestedMonth: 7,
+      );
+
+      expect(controller.status, HealthCalendarStatus.needsReauth);
+    });
+
+    // The section is always the round's own month. A card the user paged to
+    // June must not be repainted with July's grid under June's header.
+    test('a section for a month the card has left is refused, not applied', () async {
+      final repo = _FakeRepository();
+      final controller = _controller(repo);
+      controller.claimBatchMonth(2026, 7);
+      await controller.loadMonth('token', 2026, 6);
+
+      final applied = controller.applyBatchSection(
+        const SectionOk(summary),
+        requestedYear: 2026,
+        requestedMonth: 7,
+      );
+
+      expect(applied, isFalse);
+      expect(controller.selectedMonth, DateTime(2026, 6));
+      expect(controller.calendar!.month, 6);
+    });
+
+    // The mirror of the test above: a round claimed July, but by the time its
+    // response lands the user has since paged BACK to August — the same
+    // month the round's response happens to be a July-shaped… no: this
+    // asserts the response is compared against the CLAIM, not only against
+    // `selectedMonth`. A card could coincidentally page to the very month a
+    // stale, already-superseded claim named; that must still be refused,
+    // because it is not the round this particular claim belongs to.
+    test(
+      'a section matching selectedMonth but not the round that claimed it is refused',
+      () async {
+        final repo = _FakeRepository();
+        final controller = _controller(repo);
+        controller.claimBatchMonth(2026, 7);
+        await controller.loadMonth('token', 2026, 8);
+        // Page back to the exact month this stale claim named — the response
+        // must still be refused, because it is not this round's claim.
+        controller.claimBatchMonth(2026, 9);
+
+        // loadMonth's own granular fetch already populated `calendar` for
+        // August — capture it so the assertion below can tell "still that
+        // granular fetch's data" from "overwritten by the stale claim".
+        final fromLoadMonth = controller.calendar;
+
+        final applied = controller.applyBatchSection(
+          const SectionOk(summary),
+          requestedYear: 2026,
+          requestedMonth: 8,
+        );
+
+        expect(applied, isFalse);
+        expect(controller.calendar, same(fromLoadMonth));
+      },
+    );
+
+    // A sign-out between the round's request and its response. `reset` clears
+    // the claim, so the previous user's section is stale — comparing against
+    // `selectedMonth` instead would match its clock fallback (the current
+    // month, which is exactly the month a round asks for) and land the signed
+    // out user's figures in the next user's card.
+    test('a section claimed before a reset is refused after it', () {
+      final controller = _controller(_FakeRepository());
+      controller.claimBatchMonth(2026, 7);
+
+      controller.reset();
+      final applied = controller.applyBatchSection(
+        const SectionOk(summary),
+        requestedYear: 2026,
+        requestedMonth: 7,
+      );
+
+      expect(applied, isFalse);
+      expect(controller.calendar, isNull);
+    });
+  });
+
+
   test('load requests the current local month + today and loads the summary',
       () async {
     final repo = _FakeRepository();

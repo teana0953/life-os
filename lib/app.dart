@@ -80,6 +80,7 @@ import 'shared/routing/app_locations.dart';
 import 'shared/routing/auth_router_notifier.dart';
 import 'shared/routing/finance_tab.dart';
 import 'shared/data_revision.dart';
+import 'shared/screen_batch/screen_batch_repository.dart';
 import 'shared/privacy/privacy_mask_controller.dart';
 import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pending_deep_link_controller.dart';
@@ -191,6 +192,12 @@ AuthRedirect resolveAuthRedirect({
 /// [AuthRepository.authStateChanges].
 class App extends StatefulWidget {
   final AuthRepository authRepository;
+
+  /// Reads a whole screen in one request — the health scaffold's fourteen
+  /// sections and the home dashboard's seven. Composed here rather than
+  /// inside either context because "what this screen renders" is a
+  /// presentation grouping that spans thirteen of them (design D1).
+  final ScreenBatchRepository screenBatchRepository;
 
   /// Only for the instalment-plan screens (see `FinanceScaffold`): a plan is
   /// not month-shaped, so it does not go through `financeController`.
@@ -304,6 +311,7 @@ class App extends StatefulWidget {
   const App({
     super.key,
     required this.authRepository,
+    required this.screenBatchRepository,
     required this.financeRepository,
     required this.loginController,
     required this.homeController,
@@ -951,6 +959,7 @@ class _AppState extends State<App> {
             GoRoute(
               path: 'health',
               builder: (context, state) => HealthScaffold(
+                screenBatchRepository: widget.screenBatchRepository,
                 pushHealthController: widget.pushHealthController,
                 authRepository: widget.authRepository,
                 signOut: widget.signOut,

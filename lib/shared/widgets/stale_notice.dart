@@ -91,7 +91,18 @@ class _StaleNoticeState extends State<StaleNotice> {
 
   @override
   Widget build(BuildContext context) {
-    final retrying = _retried && widget.loading;
+    // A reload in flight over a card that is *already failed* takes the
+    // button away whoever started it — this row, or the whole-screen batch
+    // round the card is now told about. Pressing it there fires a second,
+    // redundant request for data the round is already fetching, and the row
+    // has no way to tell the user that. Not `_retried && loading`: no card's
+    // own `load()` runs during a batch round, so this row would otherwise
+    // stay pressable for the whole (up to 15s) round.
+    //
+    // Still gated on `failed || _retried`, so a plain reload of a card that
+    // is fine renders nothing at all, exactly as before — this row must not
+    // start appearing on healthy cards.
+    final retrying = widget.loading && (widget.failed || _retried);
     if (!widget.failed && !retrying) return const SizedBox.shrink();
 
     final theme = Theme.of(context);

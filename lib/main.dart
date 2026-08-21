@@ -135,6 +135,7 @@ import 'shared/privacy/privacy_mask_controller.dart';
 import 'shared/pwa/pending_deep_link.dart';
 import 'shared/pwa/pwa_update.dart';
 import 'shared/pwa/pwa_update_controller.dart';
+import 'shared/screen_batch/screen_batch_repository.dart';
 import 'shared/theme/theme_controller.dart';
 
 Future<void> main() async {
@@ -418,8 +419,16 @@ Future<void> main() async {
     baseUrl: apiBaseUrl,
     client: httpClient,
   );
+  // The ordinary 15s client, not the long-running one (design D10): the
+  // backend fuses each section at 8s, so a pathological batch response is
+  // bounded server-side well inside this deadline.
+  final screenBatchRepository = HttpScreenBatchRepository(
+    baseUrl: apiBaseUrl,
+    client: httpClient,
+  );
   final splitGetBalances = GetBalances(splitRepository);
   final homeDashboardController = HomeDashboardController(
+    screenBatchRepository,
     GetWeightGoal(bodyProfileRepository),
     GetVitalsTrends(vitalsRepository),
     GetMenstrualOverview(menstrualRepository),
@@ -447,6 +456,7 @@ Future<void> main() async {
   runApp(
     App(
       authRepository: authRepository,
+      screenBatchRepository: screenBatchRepository,
       financeRepository: financeRepository,
       loginController: loginController,
       homeController: homeController,
