@@ -106,7 +106,10 @@ import 'package:life_os/shared/screen_batch/home_summary_batch.dart';
 import 'package:life_os/shared/screen_batch/section_outcome.dart';
 import 'package:life_os/shared/screen_batch/screen_batch_repository.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../support/l10n_test_app.dart';
+import '../../../support/layout_guard.dart';
 import '../../../support/repository_backed_screen_batch.dart';
 import '../../../support/push_health.dart';
 
@@ -2120,5 +2123,335 @@ void main() {
         expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
       },
     );
+  });
+
+  _assistantEntryTests();
+}
+
+/// Records every whole-screen round the shell issues, so the "reloads on
+/// return" guard can count them — and serves an all-succeeding overview so
+/// nothing else on screen changes between rounds.
+class _CountingScreenBatchRepository implements ScreenBatchRepository {
+  final List<String> healthDays = [];
+
+  @override
+  Future<HealthOverviewBatch> getHealthOverview(
+    String idToken, {
+    required String day,
+    required int trendDays,
+    required int careDays,
+  }) async {
+    healthDays.add(day);
+    return _allOkHealthOverview(day, trendDays, careDays);
+  }
+
+  @override
+  Future<HomeSummaryBatch> getHomeSummary(
+    String idToken, {
+    required String day,
+    required int trendDays,
+  }) => throw UnsupportedError('health-only stub');
+}
+
+class _AssistantEntryHarness {
+  final GoRouter router;
+  final List<String> pushedAssistantUris;
+  final _CountingScreenBatchRepository batch;
+
+  _AssistantEntryHarness(this.router, this.pushedAssistantUris, this.batch);
+}
+
+/// A real router: `/health` is the shell, `/assistant` records the **full URI
+/// it was pushed with** (query included) and shows a stub the test can pop —
+/// which is what lets these guards see the URL and the return.
+///
+/// `l10nRouterTestApp` cannot serve here: its catch-all route renders
+/// `state.matchedLocation`, which drops the query string this whole entry is
+/// about.
+Future<_AssistantEntryHarness> _pumpForAssistantEntry(
+  WidgetTester tester, {
+  DateTime Function()? clock,
+}) async {
+  final batch = _CountingScreenBatchRepository();
+  // Built ONCE, outside the route builder: anything that re-runs that builder
+  // (a push and a pop back) would otherwise hand the route a brand-new shell
+  // with fresh controllers, and the reload counts below would be counting a
+  // different object's entry load.
+  final scaffold = _buildScaffold(
+    clock: clock ?? () => DateTime(2026, 8, 22, 9, 0),
+    screenBatchRepository: batch,
+  );
+  final pushed = <String>[];
+  final router = GoRouter(
+    initialLocation: '/health',
+    routes: [
+      GoRoute(path: '/health', builder: (_, __) => scaffold),
+      GoRoute(
+        path: '/assistant',
+        builder: (_, state) {
+          pushed.add(state.uri.toString());
+          return const Scaffold(body: Text('assistant-stub'));
+        },
+      ),
+    ],
+  );
+  await tester.pumpWidget(
+    MaterialApp.router(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: testSupportedLocales,
+      routerConfig: router,
+    ),
+  );
+  await tester.pumpAndSettle();
+  return _AssistantEntryHarness(router, pushed, batch);
+}
+
+void _assistantEntryTests() {
+  group('HealthScaffold assistant entry', () {
+    testWidgets('the entry is labelled, not a bare icon — and the label is '
+        'painted, not just a tooltip', (tester) async {
+      await _pumpForAssistantEntry(tester);
+
+      // `find.text` reads painted `Text` only: an `IconButton` whose tooltip
+      // said the same words fails here, which is the whole point. A tooltip
+      // needs hover or long-press, and this app is used on a phone/PWA.
+      // Spelled out rather than `loc.assistantOpenButton` — an expectation
+      // read from the same ARB the widget reads can never go red.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('health-assistant-button')),
+          matching: find.text('Ask AI'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the button is present and enabled on all four tabs', (
+      tester,
+    ) async {
+      await _pumpForAssistantEntry(tester);
+      for (final icon in const [
+        null,
+        Icons.edit_note,
+        Icons.show_chart,
+        Icons.more_horiz,
+      ]) {
+        if (icon != null) {
+          await tester.tap(find.byIcon(icon));
+          await tester.pumpAndSettle();
+        }
+        final button = tester.widget<TextButton>(
+          find.byKey(const Key('health-assistant-button')),
+        );
+        expect(button.onPressed, isNotNull);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('health-assistant-button')),
+            matching: find.text('Ask AI'),
+          ),
+          findsOneWidget,
+        );
+      }
+    });
+
+    testWidgets('總覽 sends ctx + tab + the shell\'s own day', (tester) async {
+      // The clock's day (2026-08-22) is deliberately not the real today, so
+      // an implementation that sent `DateTime.now()` instead of the injected
+      // clock comes out different and this guard can go red.
+      final harness = await _pumpForAssistantEntry(tester);
+
+      await tester.tap(find.byKey(const Key('health-assistant-button')));
+      await tester.pumpAndSettle();
+
+      expect(harness.pushedAssistantUris, hasLength(1));
+      final uri = Uri.parse(harness.pushedAssistantUris.single);
+      expect(uri.path, '/assistant');
+      expect(uri.queryParameters['ctx'], 'health');
+      expect(uri.queryParameters['tab'], 'overview');
+      expect(uri.queryParameters['day'], '2026-08-22');
+      expect(
+        uri.queryParameters.length,
+        3,
+        reason: 'the URL must carry exactly ctx + tab + day',
+      );
+    });
+
+    testWidgets('記錄, 趨勢 and 更多 send NO day — none of them is day-keyed', (
+      tester,
+    ) async {
+      // 記錄 is here, not with 總覽: its body is a hub of buttons with no
+      // date anywhere on it, so a day on the URL would put a view there that
+      // no screen ever rendered.
+      for (final (icon, slug) in const [
+        (Icons.edit_note, 'record'),
+        (Icons.show_chart, 'trends'),
+        (Icons.more_horiz, 'more'),
+      ]) {
+        final harness = await _pumpForAssistantEntry(tester);
+
+        await tester.tap(find.byIcon(icon));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('health-assistant-button')));
+        await tester.pumpAndSettle();
+
+        final uri = Uri.parse(harness.pushedAssistantUris.single);
+        expect(uri.queryParameters['tab'], slug);
+        expect(
+          uri.queryParameters.containsKey('day'),
+          isFalse,
+          reason: '$slug shows no day — sending one would put a view on the '
+              'URL that no screen ever rendered',
+        );
+        expect(uri.queryParameters.length, 2, reason: 'ctx + tab only');
+      }
+    });
+
+    testWidgets('the day follows the injected clock, not the calendar', (
+      tester,
+    ) async {
+      // A second, different clock: the assertion above alone would still pass
+      // if the day were hard-coded to that one fixture.
+      final harness = await _pumpForAssistantEntry(
+        tester,
+        clock: () => DateTime(2031, 3, 5, 23, 59),
+      );
+
+      await tester.tap(find.byKey(const Key('health-assistant-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        Uri.parse(harness.pushedAssistantUris.single).queryParameters['day'],
+        '2031-03-05',
+        reason: 'zero-padded, and the shell\'s LOCAL day — not UTC, and not '
+            'the machine\'s real today',
+      );
+    });
+
+    testWidgets(
+      'returning from the assistant reloads the screen — and only on return',
+      (tester) async {
+        final harness = await _pumpForAssistantEntry(tester);
+        expect(harness.batch.healthDays, hasLength(1)); // entry load
+
+        await tester.tap(find.byKey(const Key('health-assistant-button')));
+        await tester.pumpAndSettle();
+        // Still 1: a fire-and-forget push whose reload runs immediately —
+        // while the user is still *in* the assistant — trips this.
+        expect(
+          harness.batch.healthDays,
+          hasLength(1),
+          reason: 'the reload must wait for the user to come back',
+        );
+
+        harness.router.pop();
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.batch.healthDays,
+          hasLength(2),
+          reason: 'coming back must refetch — the assistant may have recorded '
+              'a meal the screen on display does not show yet',
+        );
+      },
+    );
+
+    testWidgets(
+      'a shell disposed before the return attempts no reload',
+      (tester) async {
+        final harness = await _pumpForAssistantEntry(tester);
+        expect(harness.batch.healthDays, hasLength(1));
+
+        await tester.tap(find.byKey(const Key('health-assistant-button')));
+        await tester.pumpAndSettle();
+
+        // Replace the whole app: the shell (and the `await context.push`
+        // still suspended inside it) is disposed while the assistant is on
+        // screen.
+        //
+        // Measured, this does NOT prove the `if (!mounted) return;` in
+        // `_openAssistant`: deleting that line leaves this test green,
+        // because tearing down the Navigator means the push future never
+        // resolves and the line after it never runs at all. What this does
+        // hold is the spec's outcome — a shell that went away issues no
+        // further round — so it is kept as that, not as a guard on the
+        // mounted check.
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.batch.healthDays,
+          hasLength(1),
+          reason: 'a disposed shell must not reload',
+        );
+      },
+    );
+
+    testWidgets('320dp × textScale 2.0: the label is capped, the tab name '
+        'keeps the larger share of the bar, and the entry still opens', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(() => tester.platformDispatcher.clearAllTestValues());
+
+      late _AssistantEntryHarness harness;
+      late double labelWidth;
+      late double titleWidth;
+      final errors = await collectLayoutErrors(() async {
+        harness = await _pumpForAssistantEntry(tester);
+        // Measured before the tap — the tap replaces this route with the
+        // assistant stub and the button stops existing.
+        labelWidth = tester
+            .getSize(
+              find.descendant(
+                of: find.byKey(const Key('health-assistant-button')),
+                matching: find.text('Ask AI'),
+              ),
+            )
+            .width;
+        titleWidth = tester
+            .getSize(
+              find.descendant(
+                of: find.byType(AppBar),
+                matching: find.text('Overview'),
+              ),
+            )
+            .width;
+        await tester.tap(find.byKey(const Key('health-assistant-button')));
+        await tester.pumpAndSettle();
+      });
+
+      // Not `expectNoLayoutErrors`: the care-today summary card's own `Row`
+      // overflows this width at 2.0 and did so before this entry existed, so
+      // a blanket guard here would be red for something this change cannot
+      // fix. Anything reported from anywhere ELSE is new and is this
+      // change's — the app bar included.
+      for (final error in errors) {
+        expect(
+          error.toString(),
+          contains('care_today_summary_card.dart'),
+          reason: 'a layout error outside the pre-existing care card is new',
+        );
+      }
+
+      // Reachability, not mere presence: a tap that lands on nothing only
+      // warns, so the push is what proves the button is still hittable here.
+      expect(harness.pushedAssistantUris, hasLength(1));
+      expect(labelWidth, lessThanOrEqualTo(96.0));
+      // Measured: 162dp of title against the label's capped 96dp. Delete the
+      // `maxWidth: 96` and the label takes its natural width at this scale
+      // instead, leaving the title the smaller share — which is exactly the
+      // swallowing the cap exists to prevent. Neither `Text` can paint in
+      // full at 320dp × 2.0, so "which one gives way" is the assertable
+      // question here, not "does it fit".
+      expect(
+        titleWidth,
+        greaterThan(labelWidth),
+        reason: 'the assistant label, not the tab name, must absorb the '
+            'width pressure',
+      );
+    });
   });
 }

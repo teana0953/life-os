@@ -37,6 +37,7 @@ import 'dictionary_controller.dart';
 import 'today_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
 import '../../../shared/date/day_format.dart';
+import '../../../shared/routing/health_tab.dart';
 
 /// The `care_days` a round sends when the care card's period has no day
 /// count to send — the endpoint's own default, chosen so the request stays
@@ -648,6 +649,38 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     if (context.canPop()) context.pop();
   }
 
+  /// Opens the assistant carrying what this shell is showing right now — the
+  /// active tab and, for the one day-keyed tab, the day — as `/assistant`
+  /// query parameters, so the context survives a web refresh
+  /// (`AssistantChatContext.fromQuery` rebuilds it from the URL).
+  ///
+  /// The day is the shell's own today (from the injected [HealthScaffold.clock],
+  /// which is what makes it assertable in a test): 總覽 pre-loads the
+  /// day-keyed trackers for today, and the diet screen's day selector belongs
+  /// to a *pushed* screen that is not what this app bar is showing. 記錄, 趨勢
+  /// and 更多 send no day at all — 記錄's body is a hub of buttons with no
+  /// date on it and neither of the other two is day-keyed, so a day on any of
+  /// them would put a view on the URL that no screen ever rendered.
+  ///
+  /// Awaited, then reloaded (the finance shell's shape): the assistant can
+  /// record food and health entries, so the screen behind it is stale the
+  /// moment the user returns.
+  Future<void> _openAssistant() async {
+    final tab = HealthTab.values[_index];
+    final showsDay = tab == HealthTab.overview;
+    final uri = Uri(
+      path: '/assistant',
+      queryParameters: {
+        'ctx': 'health',
+        'tab': tab.slug,
+        if (showsDay) 'day': _todayString(widget.clock()),
+      },
+    );
+    await context.push(uri.toString());
+    if (!mounted) return;
+    await _scheduleLoad();
+  }
+
   String _title(AppLocalizations loc) => switch (_index) {
     0 => loc.dashboardTitle,
     1 => loc.healthTabRecord,
@@ -691,7 +724,31 @@ class _HealthScaffoldState extends State<HealthScaffold> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_title(loc))),
+      appBar: AppBar(
+        title: Text(_title(loc)),
+        actions: [
+          // Labelled, not an icon-only `IconButton`: only a tooltip would
+          // name it, and a tooltip needs a hover or a long-press — on the
+          // phone/PWA this app is used on, that leaves a bare robot glyph in
+          // the app bar's utility corner meaning nothing.
+          TextButton.icon(
+            key: const Key('health-assistant-button'),
+            icon: const Icon(Icons.smart_toy_outlined),
+            // The app bar's title ellipsizes to make room for actions, so a
+            // long translation at a large text scale would eat the tab name
+            // whole before it ever overflowed. Capped and ellipsized here so
+            // the pressure stops at this label instead.
+            label: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(
+                loc.assistantOpenButton,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            onPressed: () => unawaited(_openAssistant()),
+          ),
+        ],
+      ),
       body: IndexedStack(
         index: _index,
         children: [

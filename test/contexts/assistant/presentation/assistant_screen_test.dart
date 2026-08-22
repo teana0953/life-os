@@ -9,6 +9,7 @@ import 'package:life_os/contexts/assistant/application/send_assistant_message.da
 import 'package:life_os/contexts/assistant/domain/assistant_failure.dart';
 import 'package:life_os/contexts/assistant/domain/assistant_message.dart';
 import 'package:life_os/contexts/assistant/domain/transaction_draft.dart';
+import 'package:life_os/contexts/assistant/presentation/assistant_chat_context.dart';
 import 'package:life_os/contexts/assistant/presentation/assistant_controller.dart';
 import 'package:life_os/contexts/assistant/presentation/assistant_screen.dart';
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
@@ -52,10 +53,15 @@ class _Harness {
 Future<_Harness> _pumpScreen(
   WidgetTester tester, {
   bool withKey = true,
+  bool healthEnabled = false,
+  AssistantChatContext? chatContext,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final keyController = GeminiKeyController(await SharedPreferences.getInstance());
   if (withKey) await keyController.setKey(_canaryKey);
+  // Defaults to false, matching the controller's own default and a
+  // freshly-signed-in user: health access is opt-in and sign-out clears it.
+  if (healthEnabled) await keyController.setHealthEnabled(true);
   final assistantRepository = RecordingAssistantRepository();
   final financeRepository = GatedFinanceRepository();
   final controller = AssistantController(
@@ -74,6 +80,7 @@ Future<_Harness> _pumpScreen(
         geminiKeyController: keyController,
         idToken: () async => 'token-1',
         onSignInAgain: () => harness.signOutCalls++,
+        chatContext: chatContext,
       ),
     ),
   );
@@ -661,6 +668,304 @@ void main() {
       );
       expect(editable.controller.text, _loc.assistantExampleOwe);
     });
+
+    testWidgets('a health entry offers the three health examples — and none '
+        'of the finance ones', (tester) async {
+      await _pumpScreen(
+        tester,
+        // Health access ON: with it off the empty state offers the way to
+        // turn it on instead of three questions it could not answer.
+        healthEnabled: true,
+        chatContext: AssistantChatContext.fromQuery(const {
+          'ctx': 'health',
+          'tab': 'record',
+          'day': '2026-08-22',
+        }),
+      );
+
+      // Spelled out one by one, never `_loc.<key>`: an expectation read from
+      // the same ARB the widget reads compares a string with itself and can
+      // never go red. Each of the three is asserted separately so a single
+      // mutation to any one ARB value fails on its own line — a set-shaped
+      // guard would follow only the first chip.
+      expect(
+        find.text("What can I still eat with today's remaining portions?"),
+        findsOneWidget,
+      );
+      expect(
+        find.text('What did I usually eat for lunch this week?'),
+        findsOneWidget,
+      );
+      expect(find.text('How has my weight changed this month?'), findsOneWidget);
+
+      for (final financeText in const [
+        'How much did I spend this month?',
+        'Log: lunch 120',
+        'Who do I owe?',
+      ]) {
+        expect(
+          find.text(financeText),
+          findsNothing,
+          reason: 'a health entry must not be offered "$financeText"',
+        );
+      }
+      for (final financeKey in const [
+        'assistant-example-spend',
+        'assistant-example-log',
+        'assistant-example-owe',
+      ]) {
+        expect(find.byKey(Key(financeKey)), findsNothing);
+      }
+    });
+
+    testWidgets('a finance entry, and no entry at all, keep the finance '
+        'examples', (tester) async {
+      for (final chatContext in <AssistantChatContext?>[
+        AssistantChatContext.fromQuery(const {
+          'ctx': 'finance',
+          'tab': 'transactions',
+          'month': '2025-11',
+        }),
+        null,
+      ]) {
+        await _pumpScreen(tester, chatContext: chatContext);
+        expect(find.text('How much did I spend this month?'), findsOneWidget);
+        expect(find.text('Log: lunch 120'), findsOneWidget);
+        expect(find.text('Who do I owe?'), findsOneWidget);
+        for (final healthKey in const [
+          'assistant-example-remaining-portions',
+          'assistant-example-recent-lunches',
+          'assistant-example-weight-trend',
+        ]) {
+          expect(find.byKey(Key(healthKey)), findsNothing);
+        }
+      }
+    });
+
+    testWidgets('tapping a health example fills the composer, focuses it and '
+        'sends nothing', (tester) async {
+      final harness = await _pumpScreen(
+        tester,
+        healthEnabled: true,
+        chatContext: AssistantChatContext.fromQuery(const {
+          'ctx': 'health',
+          'tab': 'overview',
+          'day': '2026-08-22',
+        }),
+      );
+
+      await tester.tap(
+        find.byKey(const Key('assistant-example-remaining-portions')),
+      );
+      await tester.pumpAndSettle();
+
+      // Read off the live EditableText, not the chip's label: a chip that
+      // painted the right words but wrote a different string into the field
+      // would otherwise pass.
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('assistant-composer-field')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      const expected = "What can I still eat with today's remaining portions?";
+      expect(editable.controller.text, expected);
+      // Caret at the end — a `TextEditingController(text: …)` assignment
+      // leaves it at 0, so the user's next keystroke would prepend.
+      expect(editable.controller.selection.baseOffset, expected.length);
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      // Filling is not sending: a stray tap that sent would spend a request
+      // out of the user's own Gemini quota.
+      expect(harness.assistantRepository.calls, isEmpty);
+      expect(find.byKey(const Key('assistant-sending-indicator')), findsNothing);
+    });
+  });
+
+  group('AssistantScreen health access off', () {
+    // The most-walked first-time path: 健康 → 問助手 → tap 「今天剩下的份量還
+    // 可以吃什麼?」. `healthEnabled` defaults to false and sign-out clears it,
+    // so without this the user asks a question the assistant cannot answer,
+    // with nothing on screen saying why and nowhere to go.
+    AssistantChatContext? healthContext() =>
+        AssistantChatContext.fromQuery(const {
+          'ctx': 'health',
+          'tab': 'overview',
+          'day': '2026-08-22',
+        });
+
+    testWidgets('a health entry with health access OFF says so and offers the '
+        'way to turn it on, in place of the three health examples', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, chatContext: healthContext());
+
+      // The literal, never `_loc.assistantHealthAccessOff`: an expectation
+      // read from the same ARB entry the widget reads is a string compared
+      // with itself and can never go red.
+      expect(
+        find.text(
+          "I can't read your health or diet records yet — health access is "
+          'off. Turn it on in settings, then come back.',
+        ),
+        findsOneWidget,
+      );
+
+      // The "Ask about your health records" hint must not sit above a
+      // notice saying the assistant cannot read them — that contradiction
+      // shipped on this screen's first-run path until this guard was added.
+      expect(find.text('Ask about your health and diet records.'), findsNothing);
+      expect(find.byKey(const Key('assistant-empty-hint')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('assistant-health-access-off')),
+          matching: find.text('Go to settings'),
+        ),
+        findsOneWidget,
+      );
+
+      // The three chips are gone: every one of them asks for health data,
+      // so leaving them tappable is three dead ends beside the way out.
+      for (final healthKey in const [
+        'assistant-example-remaining-portions',
+        'assistant-example-recent-lunches',
+        'assistant-example-weight-trend',
+      ]) {
+        expect(find.byKey(Key(healthKey)), findsNothing);
+      }
+    });
+
+    testWidgets('its button goes to /settings', (tester) async {
+      await _pumpScreen(tester, chatContext: healthContext());
+
+      await tester.tap(
+        find.byKey(const Key('assistant-health-access-off-settings-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('/settings'), findsOneWidget);
+    });
+
+    testWidgets('with health access ON the notice is gone and the three '
+        'examples are back', (tester) async {
+      await _pumpScreen(
+        tester,
+        healthEnabled: true,
+        chatContext: healthContext(),
+      );
+
+      expect(find.byKey(const Key('assistant-health-access-off')), findsNothing);
+      expect(
+        find.textContaining('health access is off'),
+        findsNothing,
+        reason: 'the notice must follow the flag, not merely be keyed off it',
+      );
+      expect(
+        find.byKey(const Key('assistant-example-remaining-portions')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a FINANCE entry with health access off shows no such notice', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        chatContext: AssistantChatContext.fromQuery(const {
+          'ctx': 'finance',
+          'tab': 'transactions',
+          'month': '2025-11',
+        }),
+      );
+
+      expect(find.byKey(const Key('assistant-health-access-off')), findsNothing);
+      expect(find.text('How much did I spend this month?'), findsOneWidget);
+    });
+
+    testWidgets('its copy is set in the same type as the setup block\'s', (
+      tester,
+    ) async {
+      // Two "you are stuck, here is the way out" paragraphs on one screen.
+      // They shipped in two different ramps (setup: bodySmall/onSurface,
+      // this one: bodyMedium/onSurface), which reads as two unrelated
+      // notices. Compared against each other rather than against a literal
+      // size, so the pair cannot drift apart again whichever one is edited.
+      await _pumpScreen(tester, chatContext: healthContext());
+      final noticeStyle = tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('assistant-health-access-off')),
+              matching: find.textContaining('health access is off'),
+            ),
+          )
+          .style;
+
+      await _pumpScreen(tester, withKey: false);
+      final setupStyle = tester
+          .widget<Text>(
+            find.byKey(const Key('assistant-setup-sign-out-notice')),
+          )
+          .style;
+
+      expect(noticeStyle?.fontSize, isNotNull);
+      expect(noticeStyle?.fontSize, setupStyle?.fontSize);
+      expect(noticeStyle?.color, isNotNull);
+      expect(noticeStyle?.color, setupStyle?.color);
+      expect(
+        noticeStyle?.color,
+        isNot(lightTheme.colorScheme.onSurface),
+        reason: 'secondary copy, not body ink: both sit beside the primary text',
+      );
+    });
+
+    testWidgets('its notice is announced when it appears in place', (
+      tester,
+    ) async {
+      // It appears and disappears on the SAME mounted screen as the user
+      // toggles the switch in settings and comes back (the guard below pins
+      // the no-remount half). Nothing else changes focus, so without
+      // `liveRegion` a screen-reader user gets no signal at all that the
+      // three chips they were about to tap are gone and why (WCAG 4.1.3).
+      final semantics = tester.ensureSemantics();
+
+      await _pumpScreen(tester, chatContext: healthContext());
+
+      // Read off the rendered node, not the widget: a `Semantics` wrapping
+      // something with no size is dropped before it reaches the tree.
+      expect(
+        tester
+            .getSemantics(
+              find.descendant(
+                of: find.byKey(const Key('assistant-health-access-off')),
+                matching: find.textContaining('health access is off'),
+              ),
+            )
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+
+      // Inline, not `addTearDown`: the framework's own "SemanticsHandle was
+      // active" check runs before tear-downs do.
+      semantics.dispose();
+    });
+
+    testWidgets('turning the switch on elsewhere flips this screen without a '
+        'remount', (tester) async {
+      final harness = await _pumpScreen(tester, chatContext: healthContext());
+      expect(find.byKey(const Key('assistant-health-access-off')), findsOneWidget);
+
+      // The user goes to settings, turns it on, comes back to the SAME
+      // mounted screen — a build-time capture of the flag stays dead here.
+      await harness.keyController.setHealthEnabled(true);
+      await tester.pump();
+
+      expect(find.byKey(const Key('assistant-health-access-off')), findsNothing);
+      expect(
+        find.byKey(const Key('assistant-example-remaining-portions')),
+        findsOneWidget,
+      );
+    });
   });
 
   group('AssistantScreen narrow layout', () {
@@ -761,6 +1066,78 @@ void main() {
         expect(find.text('鍵盤彈出時還打得了字'), findsOneWidget);
       }, reason: '320dp × textScale 2.0 must not overflow');
     });
+
+    // The health empty state is the tall one, and neither of its two shapes
+    // was pumped narrow before: three health chips whose labels are long
+    // enough to wrap, or — access off — a wrapping paragraph plus a
+    // `FilledButton`. This repo has shipped "the screen grew, the tap no
+    // longer lands, every guard stayed green" more than once, so each case
+    // taps its LAST item (the one the growth pushes off the bottom) and
+    // asserts the effect, never `findsOneWidget`.
+    for (final healthEnabled in const [true, false]) {
+      testWidgets(
+        '320dp × textScale 2.0: the health empty state with access '
+        '${healthEnabled ? 'ON' : 'OFF'} lays out and its last item is still '
+        'reachable',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(320, 640));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+          addTearDown(() => tester.platformDispatcher.clearAllTestValues());
+
+          await expectNoLayoutErrors(() async {
+            await _pumpScreen(
+              tester,
+              healthEnabled: healthEnabled,
+              chatContext: AssistantChatContext.fromQuery(const {
+                'ctx': 'health',
+                'tab': 'overview',
+                'day': '2026-08-22',
+              }),
+            );
+
+            final last = find.byKey(
+              Key(
+                healthEnabled
+                    ? 'assistant-example-weight-trend'
+                    : 'assistant-health-access-off-settings-button',
+              ),
+            );
+            // Scrolled to like a real finger would — the empty state is
+            // taller than 640dp at this scale, so the last item starts below
+            // the fold. `ensureVisible` fails outright if nothing scrollable
+            // can bring it up, which is the other half of "reachable".
+            await tester.ensureVisible(last);
+            await tester.pumpAndSettle();
+            await tester.tap(last);
+            await tester.pumpAndSettle();
+
+            if (healthEnabled) {
+              // The effect, not the widget: `tap` on something unreachable
+              // only warns, so `findsOneWidget` here would stay green with
+              // the chip buried under the composer.
+              final editable = tester.widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const Key('assistant-composer-field')),
+                  matching: find.byType(EditableText),
+                ),
+              );
+              expect(
+                editable.controller.text,
+                'How has my weight changed this month?',
+                reason: 'the tap did not land on the last health example',
+              );
+            } else {
+              expect(
+                find.text('/settings'),
+                findsOneWidget,
+                reason: 'the tap did not land on the access-off settings button',
+              );
+            }
+          }, reason: '320dp × textScale 2.0 must not overflow');
+        },
+      );
+    }
   });
 
   group('the composer on a hardware keyboard', () {

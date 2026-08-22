@@ -46,6 +46,10 @@ Future<_Harness> _pumpScreen(
     await SharedPreferences.getInstance(),
   );
   await keyController.setKey('test-key');
+  // These tests are about the hint/chip *selection* logic, not the health
+  // access-off notice (that has its own tests) — access is on so the hint
+  // this file asserts on is actually reachable in a health context.
+  await keyController.setHealthEnabled(true);
   final assistantRepository = RecordingAssistantRepository();
   final financeRepository = GatedFinanceRepository();
   final controller = AssistantController(
@@ -256,6 +260,115 @@ void main() {
           loc.assistantEmptyHintNoContext,
           reason: 'split has no month, so it needs the same nudge the home '
               'entry gets',
+        );
+      },
+    );
+
+    testWidgets(
+      'the empty-state hint follows the entered MODULE, and its '
+      'ask-for-a-period half follows whether any period is on screen',
+      (tester) async {
+        // Every expectation below is the literal copy, not `_loc.<key>`: an
+        // assertion built from the same ARB entry the widget reads compares
+        // a string with itself and can never go red. Each of the four hints
+        // is asserted on its own so a single ARB mutation fails one line.
+        const healthHint = 'Ask about your health and diet records.';
+        const healthHintNoDay =
+            "Ask about your health and diet records. I don't know which day "
+            "you were looking at, so name the period you mean.";
+        const financeHint =
+            'Ask about your spending, budgets or split balances — or tell me '
+            'a transaction to log.';
+        const financeHintNoContext =
+            "Ask about your spending, budgets or split balances — or tell me "
+            "a transaction to log. I don't know what you were looking at, so "
+            "name a month if it matters.";
+
+        String hint() => tester
+            .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
+            .data!;
+
+        // Health with a day: health copy, no ask-for-a-period sentence.
+        await _pumpScreen(
+          tester,
+          chatContext: AssistantChatContext.fromQuery(const {
+            'ctx': 'health',
+            'tab': 'overview',
+            'day': '2026-08-22',
+          }),
+        );
+        expect(hint(), healthHint);
+        // Stated separately from the equality above: the equality would still
+        // pass if BOTH ARB entries were written with the finance wording.
+        expect(hint(), isNot(contains('spending')));
+        expect(hint(), isNot(contains('budgets')));
+        expect(hint(), isNot(contains('split balances')));
+
+        // 記錄/趨勢 carry a tab but never a day (`fromQuery` drops it), so
+        // the question has nothing to anchor to — health copy, WITH the
+        // nudge.
+        for (final tab in const ['record', 'trends']) {
+          await _pumpScreen(
+            tester,
+            chatContext: AssistantChatContext.fromQuery({
+              'ctx': 'health',
+              'tab': tab,
+              'day': '2026-08-22',
+            }),
+          );
+          expect(hint(), healthHintNoDay, reason: '$tab shows no day');
+        }
+
+        await _pumpScreen(
+          tester,
+          chatContext: AssistantChatContext.fromQuery(const {
+            'ctx': 'finance',
+            'tab': 'transactions',
+            'month': '2025-11',
+          }),
+        );
+        expect(hint(), financeHint);
+
+        await _pumpScreen(
+          tester,
+          chatContext: AssistantChatContext.fromQuery(const {
+            'ctx': 'finance',
+            'tab': 'split',
+          }),
+        );
+        expect(hint(), financeHintNoContext);
+
+        await _pumpScreen(tester);
+        expect(hint(), financeHintNoContext);
+      },
+    );
+
+    testWidgets(
+      'a health context row states the health view, and the first message '
+      'carries that same line character for character',
+      (tester) async {
+        final harness = await _pumpScreen(
+          tester,
+          chatContext: AssistantChatContext.fromQuery(const {
+            'ctx': 'health',
+            'tab': 'overview',
+            'day': '2026-08-22',
+          }),
+        );
+
+        final painted = tester
+            .widget<Text>(find.byKey(const Key('assistant-context-row-text')))
+            .data!;
+        expect(painted, 'Started from: Health Overview Aug 22, 2026');
+
+        await _sendText(tester, 'what can I still eat?');
+
+        final first = harness.assistantRepository.calls.single.single;
+        // Exact equality, not `contains`: a prefix duplicated or glued on
+        // with no separator still `contains` the painted string.
+        expect(
+          first.content,
+          'Started from: Health Overview Aug 22, 2026\nwhat can I still eat?',
         );
       },
     );

@@ -2961,6 +2961,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantExampleOwe => 'Who do I owe?';
 
   @override
+  String get assistantEmptyHintHealth => '問我你的健康與飲食紀錄。';
+
+  @override
+  String get assistantEmptyHintHealthNoDay =>
+      '問我你的健康與飲食紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
+
+  @override
+  String get assistantExampleRemainingPortions => '今天剩下的份量還可以吃什麼?';
+
+  @override
+  String get assistantExampleRecentLunches => '我這禮拜午餐通常吃什麼?';
+
+  @override
+  String get assistantExampleWeightTrend => '我這個月的體重變化如何?';
+
+  @override
+  String get assistantHealthAccessOff =>
+      '我現在還看不到你的健康與飲食紀錄——健康存取還沒開啟。到設定開啟後再回來。';
+
+  @override
   String get assistantSetupIntro =>
       'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
 
@@ -6032,6 +6052,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get assistantExampleOwe => '我欠誰錢?';
+
+  @override
+  String get assistantEmptyHintHealth => '問我你的健康與飲食紀錄。';
+
+  @override
+  String get assistantEmptyHintHealthNoDay =>
+      '問我你的健康與飲食紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
+
+  @override
+  String get assistantExampleRemainingPortions => '今天剩下的份量還可以吃什麼?';
+
+  @override
+  String get assistantExampleRecentLunches => '我這禮拜午餐通常吃什麼?';
+
+  @override
+  String get assistantExampleWeightTrend => '我這個月的體重變化如何?';
+
+  @override
+  String get assistantHealthAccessOff =>
+      '我現在還看不到你的健康與飲食紀錄——健康存取還沒開啟。到設定開啟後再回來。';
 
   @override
   String get assistantSetupIntro =>
