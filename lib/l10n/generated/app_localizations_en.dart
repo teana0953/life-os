@@ -2383,11 +2383,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAssistantTrainingNotice =>
-      'On the Gemini free tier, Google may use what you send to improve its models. Don\'t paste sensitive personal information into conversations.';
+      'On the Gemini free tier, Google may use what you send to improve its models.';
 
   @override
   String get settingsAssistantDeviceNotice =>
-      'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it, and you\'ll need to paste it again.';
+      'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it and turns the health-access switch back off — you\'ll need to paste the key and turn the switch back on again.';
+
+  @override
+  String get settingsAssistantHealthLabel =>
+      'Let the assistant read my health and diet records';
+
+  @override
+  String get settingsAssistantHealthDisclosure =>
+      'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.';
+
+  @override
+  String get settingsAssistantHealthNoKeyNotice =>
+      'With no key saved, the assistant sends nothing anywhere — this setting takes effect once you add one.';
 
   @override
   String get financeTabSplit => 'Split';

@@ -4313,17 +4313,35 @@ abstract class AppLocalizations {
   /// **'Key set (****{last4})'**
   String settingsAssistantKeySet(String last4);
 
-  /// Always-visible disclosure in the assistant settings section that free-tier Gemini content may be used for model training.
+  /// Always-visible disclosure in the assistant settings section that free-tier Gemini content, including anything sent via the health-access switch above, may be used for model training. Stated once for the whole section, not repeated per feature.
   ///
   /// In en, this message translates to:
-  /// **'On the Gemini free tier, Google may use what you send to improve its models. Don\'t paste sensitive personal information into conversations.'**
+  /// **'On the Gemini free tier, Google may use what you send to improve its models.'**
   String get settingsAssistantTrainingNotice;
 
-  /// Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive signing out, a PWA reinstall, or cleared browser data.
+  /// Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive signing out, a PWA reinstall, or cleared browser data — and that the same event also resets the health-access switch above, since consent is stored alongside the key. Stated once for the whole section, not repeated per feature.
   ///
   /// In en, this message translates to:
-  /// **'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it, and you\'ll need to paste it again.'**
+  /// **'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it and turns the health-access switch back off — you\'ll need to paste the key and turn the switch back on again.'**
   String get settingsAssistantDeviceNotice;
+
+  /// Label of the switch in the assistant settings section that grants the assistant read access to the user's health and diet records. Off by default.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the assistant read my health and diet records'**
+  String get settingsAssistantHealthLabel;
+
+  /// Always-visible disclosure beside the health-access switch, naming the record types (menstrual cycles, blood glucose, vital signs) and the destination (Google's Gemini). Phrased as a standing rule about how the feature works, not as a notice that something has happened. The free-tier training use is stated once, in settingsAssistantTrainingNotice below, rather than repeated here.
+  ///
+  /// In en, this message translates to:
+  /// **'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.'**
+  String get settingsAssistantHealthDisclosure;
+
+  /// Notice shown in the assistant settings section when no Gemini API key is stored: the health-access switch can still be set, but no request is made at all until a key exists.
+  ///
+  /// In en, this message translates to:
+  /// **'With no key saved, the assistant sends nothing anywhere — this setting takes effect once you add one.'**
+  String get settingsAssistantHealthNoKeyNotice;
 
   /// Label of the finance shell's fourth bottom-nav destination and app bar title, for the split-expenses tab.
   ///

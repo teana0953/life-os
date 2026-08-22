@@ -57,8 +57,8 @@ void main() {
         ..reply = const AssistantReply(text: '共 3,600 元。', proposals: []);
       final controller = _controller(repo, GatedFinanceRepository());
 
-      await controller.send('tok', 'key', '這個月吃飯花多少?');
-      await controller.send('tok', 'key', '那交通呢?');
+      await controller.send('tok', 'key', '這個月吃飯花多少?', healthEnabled: false);
+      await controller.send('tok', 'key', '那交通呢?', healthEnabled: false);
 
       final second = repo.calls[1];
       expect(second.map((m) => m.role).toList(), ['user', 'assistant', 'user']);
@@ -75,9 +75,9 @@ void main() {
         ..reply = AssistantReply(text: '', proposals: [_foodProposal()]);
       final controller = _controller(repo, GatedFinanceRepository());
 
-      await controller.send('tok', 'key', '幫我記 1234 元餐飲');
+      await controller.send('tok', 'key', '幫我記 1234 元餐飲', healthEnabled: false);
       repo.reply = const AssistantReply(text: 'ok', proposals: []);
-      await controller.send('tok', 'key', '好');
+      await controller.send('tok', 'key', '好', healthEnabled: false);
 
       final second = repo.calls[1];
       // Not [user, assistant(''), user]: the empty-text turn is dropped.
@@ -95,7 +95,7 @@ void main() {
         ..failure = const AssistantSendFailure(AssistantFailure.quotaExhausted);
       final controller = _controller(repo, GatedFinanceRepository());
 
-      await controller.send('tok', 'key', 'hello');
+      await controller.send('tok', 'key', 'hello', healthEnabled: false);
 
       expect(controller.lastError, AssistantFailure.quotaExhausted);
       expect(controller.entries.single.role, 'user');
@@ -108,10 +108,10 @@ void main() {
             const AssistantSendFailure(AssistantFailure.serviceUnavailable);
       final controller = _controller(repo, GatedFinanceRepository());
 
-      await controller.send('tok', 'key', 'hello');
+      await controller.send('tok', 'key', 'hello', healthEnabled: false);
       expect(controller.lastError, AssistantFailure.serviceUnavailable);
 
-      await controller.retryLast('tok', 'key');
+      await controller.retryLast('tok', 'key', healthEnabled: false);
 
       expect(controller.entries.where((e) => e.role == 'user').length, 1);
       expect(repo.calls, hasLength(2));
@@ -122,12 +122,41 @@ void main() {
       expect(controller.lastError, isNull);
     });
 
+    test('the health consent handed to send reaches the repository', () async {
+      final repo = RecordingAssistantRepository();
+      final controller = _controller(repo, GatedFinanceRepository());
+
+      await controller.send('tok', 'key', 'hi', healthEnabled: true);
+
+      expect(repo.healthFlags, [true]);
+    });
+
+    test(
+      'a retry carries the consent in force AT RETRY TIME, not the one the '
+      'original send went out with',
+      () async {
+        final repo = RecordingAssistantRepository()
+          ..failure =
+              const AssistantSendFailure(AssistantFailure.serviceUnavailable);
+        final controller = _controller(repo, GatedFinanceRepository());
+
+        await controller.send('tok', 'key', 'hello', healthEnabled: true);
+        // Between the two calls the user goes to settings and revokes it.
+        await controller.retryLast('tok', 'key', healthEnabled: false);
+
+        // Both entries checked, not just the second: a controller that
+        // ignored the argument and always sent `false` would satisfy
+        // `healthFlags.last == false` on its own.
+        expect(repo.healthFlags, [true, false]);
+      },
+    );
+
     test('401 flips needsReauth instead of an error row', () async {
       final repo = RecordingAssistantRepository()
         ..failure = const AssistantReauthRequired();
       final controller = _controller(repo, GatedFinanceRepository());
 
-      await controller.send('tok', 'key', 'hello');
+      await controller.send('tok', 'key', 'hello', healthEnabled: false);
 
       expect(controller.needsReauth, isTrue);
       expect(controller.lastError, isNull);
@@ -137,8 +166,8 @@ void main() {
       final repo = RecordingAssistantRepository()..gate = Completer<void>();
       final controller = _controller(repo, GatedFinanceRepository());
 
-      final first = controller.send('tok', 'key', 'first');
-      final second = controller.send('tok', 'key', 'second');
+      final first = controller.send('tok', 'key', 'first', healthEnabled: false);
+      final second = controller.send('tok', 'key', 'second', healthEnabled: false);
       repo.gate!.complete();
       await first;
       await second;
@@ -155,7 +184,7 @@ void main() {
     ) async {
       repo.reply = AssistantReply(text: '要記下這筆嗎?', proposals: [_foodProposal()]);
       final controller = _controller(repo, finance);
-      await controller.send('tok', 'key', '幫我記帳');
+      await controller.send('tok', 'key', '幫我記帳', healthEnabled: false);
       return controller;
     }
 
@@ -199,7 +228,7 @@ void main() {
           ],
         );
       final controller = _controller(repo, finance);
-      await controller.send('tok', 'key', 'hi');
+      await controller.send('tok', 'key', 'hi', healthEnabled: false);
 
       await controller.accept('tok', 1, 0);
 
@@ -221,7 +250,7 @@ void main() {
           ],
         );
       final controller = _controller(repo, finance);
-      await controller.send('tok', 'key', 'hi');
+      await controller.send('tok', 'key', 'hi', healthEnabled: false);
 
       await controller.accept('tok', 1, 0);
 
@@ -329,7 +358,7 @@ void main() {
           ],
         );
       final controller = _controller(repo, finance);
-      await controller.send('tok', 'key', 'hi');
+      await controller.send('tok', 'key', 'hi', healthEnabled: false);
       expect(controller.entries[1].proposals.single.draft, isNull);
 
       await controller.accept('tok', 1, 0);
@@ -347,9 +376,9 @@ void main() {
       final repo = RecordingAssistantRepository()
         ..reply = AssistantReply(text: 'secret answer', proposals: [_foodProposal()]);
       final controller = _controller(repo, GatedFinanceRepository());
-      await controller.send('tok', 'key', 'my finances?');
+      await controller.send('tok', 'key', 'my finances?', healthEnabled: false);
       repo.failure = const AssistantSendFailure(AssistantFailure.keyRejected);
-      await controller.send('tok', 'key', 'again');
+      await controller.send('tok', 'key', 'again', healthEnabled: false);
       expect(controller.entries, isNotEmpty);
       expect(controller.lastError, isNotNull);
 
@@ -373,6 +402,7 @@ void main() {
         'tok',
         'key',
         'hello',
+        healthEnabled: false,
         contextPrefix: contextPrefix,
       );
 
@@ -402,11 +432,12 @@ void main() {
         'tok',
         'key',
         'first',
+        healthEnabled: false,
         contextPrefix: contextPrefix,
       );
 
       repo.reply = const AssistantReply(text: 'ok 2', proposals: []);
-      await controller.send('tok', 'key', 'second');
+      await controller.send('tok', 'key', 'second', healthEnabled: false);
 
       // The second message's wireContent should not have the context prefix.
       final calls = repo.calls;

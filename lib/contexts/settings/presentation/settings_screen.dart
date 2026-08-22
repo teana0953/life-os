@@ -384,9 +384,13 @@ class _SettingsSection extends StatelessWidget {
 /// The full key exists in memory only while it sits in the input field; once
 /// saved, the UI only ever shows the last four characters (via
 /// [GeminiKeyController.last4]) and the field is cleared. Both states carry
-/// the same two always-visible notices: the key lives in device-local storage
+/// the same always-visible notices: the key lives in device-local storage
 /// (a PWA reinstall or cleared browser data removes it), and free-tier Gemini
 /// content may be used by Google for model training.
+///
+/// The section also carries the health-access switch and its disclosure —
+/// also in both states, because consent to send health records and having a
+/// key are separate decisions.
 class _AssistantKeySection extends StatefulWidget {
   final GeminiKeyController controller;
 
@@ -451,6 +455,24 @@ class _AssistantKeySectionState extends State<_AssistantKeySection> {
     // later clears the stored key, the field must come back empty, not
     // pre-filled with the secret.
     _keyFieldController.clear();
+  }
+
+  Future<void> _setHealthEnabled(bool enabled) async {
+    try {
+      await widget.controller.setHealthEnabled(enabled);
+    } catch (_) {
+      // Same failure mode as _save() above (private browsing, blocked quota,
+      // cleared site data): without this, the switch silently snaps back
+      // with no feedback at all on a consent control.
+      if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          key: const Key('assistant-health-save-failed'),
+          content: Text(loc.settingsAssistantSaveFailed),
+        ),
+      );
+    }
   }
 
   @override
@@ -525,6 +547,27 @@ class _AssistantKeySectionState extends State<_AssistantKeySection> {
                     onPressed: value.text.trim().isEmpty ? null : _save,
                     child: Text(loc.settingsAssistantSaveKeyButton),
                   ),
+                ),
+              ],
+              // Outside both branches on purpose: consent and credential are
+              // two decisions, and a switch that only appeared once a key
+              // existed would make the first one unreachable (design D5).
+              SwitchListTile(
+                key: const Key('assistant-health-switch'),
+                contentPadding: EdgeInsets.zero,
+                value: widget.controller.healthEnabled,
+                onChanged: _setHealthEnabled,
+                title: Text(loc.settingsAssistantHealthLabel),
+              ),
+              Text(
+                loc.settingsAssistantHealthDisclosure,
+                style: theme.textTheme.bodySmall,
+              ),
+              if (!widget.controller.hasKey) ...[
+                const SizedBox(height: 8),
+                Text(
+                  loc.settingsAssistantHealthNoKeyNotice,
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
               const SizedBox(height: 12),

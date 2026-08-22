@@ -11,8 +11,14 @@ class SendAssistantMessage {
   Future<AssistantReply> call(
     String idToken, {
     required String geminiKey,
+    required bool healthEnabled,
     required List<AssistantMessage> messages,
   }) {
-    return _repository.send(idToken, geminiKey: geminiKey, messages: messages);
+    return _repository.send(
+      idToken,
+      geminiKey: geminiKey,
+      healthEnabled: healthEnabled,
+      messages: messages,
+    );
   }
 }

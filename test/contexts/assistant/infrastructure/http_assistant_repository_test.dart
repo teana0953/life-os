@@ -14,6 +14,25 @@ const _canaryKey = 'SK-WIRE-CANARY-4406';
 HttpAssistantRepository _repository(MockClient client) =>
     HttpAssistantRepository(baseUrl: 'https://example.test', client: client);
 
+/// Sends one message and hands back the request the adapter actually built.
+/// The assertions read this object, never the `MockClient`'s defaults — a
+/// fake that never records headers passes a "the header is absent" guard
+/// forever.
+Future<http.Request> _captureSend({required bool healthEnabled}) async {
+  http.Request? captured;
+  final client = MockClient((request) async {
+    captured = request;
+    return http.Response(jsonEncode({'text': 'ok', 'proposals': []}), 200);
+  });
+  await _repository(client).send(
+    'token-123',
+    geminiKey: _canaryKey,
+    healthEnabled: healthEnabled,
+    messages: _messages,
+  );
+  return captured!;
+}
+
 const _messages = [
   AssistantMessage(role: 'user', content: '這個月吃飯花多少?'),
   AssistantMessage(role: 'assistant', content: '共 3,600 元。'),
@@ -44,6 +63,7 @@ void main() {
       final reply = await _repository(client).send(
         'token-123',
         geminiKey: _canaryKey,
+        healthEnabled: false,
         messages: _messages,
       );
 
@@ -74,6 +94,7 @@ void main() {
       await _repository(client).send(
         'token-123',
         geminiKey: _canaryKey,
+        healthEnabled: false,
         messages: _messages,
       );
 
@@ -91,6 +112,35 @@ void main() {
       );
       expect(elsewhere, isEmpty, reason: 'the key was copied into another header');
     });
+
+    test('health access enabled: the header is EXACTLY "on"', () async {
+      final captured = await _captureSend(healthEnabled: true);
+
+      // Read out of the captured request's own header map, keyed
+      // case-insensitively by `http`. Exact equality, not `contains` and not
+      // a case-insensitive compare: the backend does not trim and does not
+      // casefold, so `'On'` or `'on '` would silently deny the tools the
+      // user just granted.
+      expect(captured.headers['x-assistant-health'], 'on');
+    });
+
+    test(
+      'LINCHPIN health access disabled: the request carries NO '
+      'X-Assistant-Health header at all',
+      () async {
+        final captured = await _captureSend(healthEnabled: false);
+
+        // The whole header map, not a single lookup: "not present" has to
+        // survive a mutation that sends `off`, or an empty string, as much
+        // as one that sends `on`. Mutation-verified in both directions —
+        // inverting `if (healthEnabled)` and deleting the condition
+        // altogether each turn this red (design D4).
+        final names = captured.headers.keys.map((n) => n.toLowerCase());
+        expect(names, isNot(contains('x-assistant-health')));
+        // …and the paired enabled guard above proves the header can appear
+        // at all, so this one is not green because nothing ever sets it.
+      },
+    );
 
     test('classifies the five backend failures by BODY error code, apart', () async {
       // The two 400s are the point: a status-only classification cannot tell
@@ -112,6 +162,7 @@ void main() {
           await _repository(client).send(
             'token-123',
             geminiKey: _canaryKey,
+            healthEnabled: false,
             messages: _messages,
           );
           fail('($status, $code) should have thrown');
@@ -132,6 +183,7 @@ void main() {
         _repository(client).send(
           'token-expired',
           geminiKey: _canaryKey,
+          healthEnabled: false,
           messages: _messages,
         ),
         throwsA(isA<AssistantReauthRequired>()),
@@ -146,6 +198,7 @@ void main() {
         _repository(client).send(
           'token-123',
           geminiKey: _canaryKey,
+          healthEnabled: false,
           messages: _messages,
         ),
         throwsA(
@@ -166,6 +219,7 @@ void main() {
         _repository(client).send(
           'token-123',
           geminiKey: _canaryKey,
+          healthEnabled: false,
           messages: _messages,
         ),
         throwsA(
@@ -186,6 +240,7 @@ void main() {
         _repository(client).send(
           'token-123',
           geminiKey: _canaryKey,
+          healthEnabled: false,
           messages: _messages,
         ),
         throwsA(

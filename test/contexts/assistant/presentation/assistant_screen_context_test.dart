@@ -109,7 +109,7 @@ Future<_Harness> _pumpScreenWithHistory(
     text: 'old reply',
     proposals: [],
   );
-  await controller.send('token-1', 'test-key', 'old message');
+  await controller.send('token-1', 'test-key', 'old message', healthEnabled: false);
   await tester.pumpWidget(
     l10nTestApp(
       theme: lightTheme,

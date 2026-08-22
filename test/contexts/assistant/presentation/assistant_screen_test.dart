@@ -303,6 +303,30 @@ void main() {
       expect(find.byKey(const Key('assistant-error-text')), findsNothing);
     });
 
+    testWidgets(
+      'LINCHPIN the screen reads the health consent AT SEND TIME: a retry '
+      'after revoking it in settings does not replay the old consent',
+      (tester) async {
+        final harness = await _pumpScreen(tester);
+        await harness.keyController.setHealthEnabled(true);
+        harness.assistantRepository.failure =
+            const AssistantSendFailure(AssistantFailure.serviceUnavailable);
+        await _sendText(tester, 'how is my glucose?');
+        await tester.pumpAndSettle();
+
+        // The user goes to settings and turns it off between the failed send
+        // and the retry.
+        await harness.keyController.setHealthEnabled(false);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('assistant-retry-button')));
+        await tester.pumpAndSettle();
+
+        // Both entries, not just the last: a screen that ignored the setting
+        // and always passed `false` would pass a `.last == false` check.
+        expect(harness.assistantRepository.healthFlags, [true, false]);
+      },
+    );
+
     testWidgets('the reply is rendered as Markdown, the user\'s own line is '
         'not', (tester) async {
       final harness = await _pumpScreen(tester);
