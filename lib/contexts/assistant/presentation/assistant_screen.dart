@@ -127,6 +127,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
     // never stored on this State.
     final key = widget.geminiKeyController.key;
     if (key == null) return;
+    // Read on the line next to the key, off the same controller, so the two
+    // can never come from different points in time — a consent revoked in
+    // settings a moment ago must not ride out on this request.
+    final healthEnabled = widget.geminiKeyController.healthEnabled;
     // The exact string the context row paints — same function, same output
     // (see [AssistantChatContext.label]). Resolved before the awaits below,
     // while the context is still safely usable.
@@ -143,6 +147,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       await widget.idToken(),
       key,
       text,
+      healthEnabled: healthEnabled,
       contextPrefix: contextPrefix,
     );
   }
@@ -150,7 +155,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _retry() async {
     final key = widget.geminiKeyController.key;
     if (key == null) return;
-    await widget.controller.retryLast(await widget.idToken(), key);
+    // Re-read, not carried over from the failed send: the retry reflects the
+    // setting in force now.
+    await widget.controller.retryLast(
+      await widget.idToken(),
+      key,
+      healthEnabled: widget.geminiKeyController.healthEnabled,
+    );
   }
 
   Future<void> _accept(int entryIndex, int proposalIndex) async {

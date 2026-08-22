@@ -2304,6 +2304,18 @@ class AppLocalizationsZh extends AppLocalizations {
       '金鑰只儲存在這個裝置。重新安裝 App 或清除瀏覽器資料會一併清掉,需要重新貼上。';
 
   @override
+  String get settingsAssistantHealthLabel =>
+      'Let the assistant read my health and diet records';
+
+  @override
+  String get settingsAssistantHealthDisclosure =>
+      'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.';
+
+  @override
+  String get settingsAssistantHealthNoKeyNotice =>
+      'With no key saved, the assistant sends nothing anywhere — this setting takes effect once you add one.';
+
+  @override
   String get financeTabSplit => '分帳';
 
   @override
@@ -5363,11 +5375,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsAssistantTrainingNotice =>
-      '使用 Gemini 免費額度時,送出的內容可能被 Google 用於改進模型;請勿在對話中貼入敏感個資。';
+      '使用 Gemini 免費額度時,送出的內容可能被 Google 用於改進模型。';
 
   @override
   String get settingsAssistantDeviceNotice =>
-      '金鑰只儲存在這個裝置。登出、重新安裝 App 或清除瀏覽器資料都會一併清掉,需要重新貼上。';
+      '金鑰只儲存在這個裝置。登出、重新安裝 App 或清除瀏覽器資料都會一併清掉,也會把健康資料存取的開關關回去,需要重新貼上金鑰並再次開啟開關。';
+
+  @override
+  String get settingsAssistantHealthLabel => '讓助理讀取我的健康與飲食記錄';
+
+  @override
+  String get settingsAssistantHealthDisclosure =>
+      '開啟後,助理可以讀取你的健康與飲食記錄——包含生理期、血糖與生命徵象——並把它們送到 Google 的 Gemini。';
+
+  @override
+  String get settingsAssistantHealthNoKeyNotice =>
+      '沒有儲存金鑰時,助理不會送出任何東西——這個設定要等你加入金鑰後才會生效。';
 
   @override
   String get financeTabSplit => '分帳';

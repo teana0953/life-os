@@ -114,30 +114,45 @@ class AssistantController extends ChangeNotifier {
     String idToken,
     String geminiKey,
     String text, {
+    required bool healthEnabled,
     String? contextPrefix,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _status == AssistantStatus.sending) return;
     _entries.add(AssistantEntry.user(trimmed, contextPrefix: contextPrefix));
     _lastError = null;
-    await _dispatch(idToken, geminiKey);
+    await _dispatch(idToken, geminiKey, healthEnabled);
   }
 
   /// Re-sends the history exactly as it stands after a failed send — no new
   /// user entry is appended, so retrying can never duplicate the message.
-  Future<void> retryLast(String idToken, String geminiKey) async {
+  ///
+  /// [healthEnabled] is the caller's *current* consent, not the one the
+  /// failed send carried: the user may have gone to settings in between, and
+  /// a retry replaying a revoked consent would send health records they have
+  /// since taken back.
+  Future<void> retryLast(
+    String idToken,
+    String geminiKey, {
+    required bool healthEnabled,
+  }) async {
     if (_status == AssistantStatus.sending || _lastError == null) return;
     _lastError = null;
-    await _dispatch(idToken, geminiKey);
+    await _dispatch(idToken, geminiKey, healthEnabled);
   }
 
-  Future<void> _dispatch(String idToken, String geminiKey) async {
+  Future<void> _dispatch(
+    String idToken,
+    String geminiKey,
+    bool healthEnabled,
+  ) async {
     _status = AssistantStatus.sending;
     notifyListeners();
     try {
       final reply = await _sendMessage(
         idToken,
         geminiKey: geminiKey,
+        healthEnabled: healthEnabled,
         messages: _messages(),
       );
       // The fallback day is resolved when the reply *arrives* — this is the

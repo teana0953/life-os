@@ -23,6 +23,7 @@ class HttpAssistantRepository implements AssistantRepository {
   Future<AssistantReply> send(
     String idToken, {
     required String geminiKey,
+    required bool healthEnabled,
     required List<AssistantMessage> messages,
   }) async {
     final http.Response response;
@@ -33,6 +34,13 @@ class HttpAssistantRepository implements AssistantRepository {
           'Authorization': 'Bearer $idToken',
           'Content-Type': 'application/json',
           'X-Gemini-Api-Key': geminiKey,
+          // Exactly `on`, lower case, no surrounding whitespace — the
+          // backend compares the value literally and denies the health tools
+          // on anything else. And when the user has not granted it the
+          // header is absent entirely rather than `off`: sending a value
+          // would make the denial depend on that string comparison, one typo
+          // (`'On'`, `'on '`) away from granting what nobody granted.
+          if (healthEnabled) 'X-Assistant-Health': 'on',
         },
         body: jsonEncode({
           'messages': [

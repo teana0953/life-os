@@ -10,6 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// must introduce a new key and migrate deliberately.
 const _geminiKeyPrefsKey = 'gemini_api_key';
 
+/// Key used to persist whether the assistant may read the user's health and
+/// diet records.
+///
+/// Its own slot, not packed into [_geminiKeyPrefsKey]: clearing one must not
+/// be able to half-clear the other. Not provider-named either — unlike the
+/// API key, consent to read health records is about *this app's* data and
+/// survives a provider switch unchanged.
+const _healthEnabledPrefsKey = 'assistant_health_enabled';
+
 /// Holds the user's Gemini API key, persisted on-device via
 /// [SharedPreferences] (device-local only — reinstalling the PWA or clearing
 /// browser data removes it). Mirrors [LocaleController]/[ThemeController].
@@ -20,12 +29,28 @@ const _geminiKeyPrefsKey = 'gemini_api_key';
 /// default `Object.toString()` never touches fields at all, so a test
 /// asserting "toString doesn't contain the key" against the default
 /// implementation can never fail and proves nothing.
+///
+/// It also holds [healthEnabled] — the user's consent for the assistant to
+/// read their health and diet records — which is a permission, not a
+/// credential, and so sits oddly next to the key. It lives here anyway:
+/// `app.dart`'s sign-out reset is a hand-written list of controllers to
+/// clear, so per-user state that is not on a controller it was handed is
+/// state nobody clears. That is exactly how #156 shipped a key that survived
+/// sign-out. Splitting this flag into its own controller would rebuild that
+/// bug unless the split also reaches the sign-out list.
 class GeminiKeyController extends ChangeNotifier {
   final SharedPreferences _prefs;
 
-  GeminiKeyController(this._prefs) : _key = _prefs.getString(_geminiKeyPrefsKey);
+  GeminiKeyController(this._prefs)
+    : _key = _prefs.getString(_geminiKeyPrefsKey),
+      // Absent or unreadable reads as denied. `getBool` returns null on a
+      // fresh install, in private browsing, and after cleared site data —
+      // none of which is the user granting anything.
+      _healthEnabled = _prefs.getBool(_healthEnabledPrefsKey) ?? false;
 
   String? _key;
+
+  bool _healthEnabled;
 
   /// Whether a key is stored.
   bool get hasKey => _key != null;
@@ -63,13 +88,30 @@ class GeminiKeyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Removes the stored key entirely — `remove`, not `setString('')`, so no
-  /// empty husk of the entry survives in prefs.
+  /// Whether the user has allowed the assistant to read their health and
+  /// diet records. Off unless explicitly granted.
+  bool get healthEnabled => _healthEnabled;
+
+  Future<void> setHealthEnabled(bool enabled) async {
+    // Write first, same reason as [setKey]: a switch that repaints as "on"
+    // over a preference that never reached storage is a consent the user
+    // believes they granted and the next launch will not honour — and a
+    // switch that repaints as "off" over a consent still on disk is worse.
+    await _prefs.setBool(_healthEnabledPrefsKey, enabled);
+    _healthEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// Removes the stored key and the health consent entirely — `remove`, not
+  /// `setString('')`/`setBool(false)`, so no empty husk of either entry
+  /// survives in prefs.
   Future<void> clear() async {
     // Same ordering, same reason: a clear that appears to work while the key
     // is still on disk is worse than one that visibly failed.
     await _prefs.remove(_geminiKeyPrefsKey);
+    await _prefs.remove(_healthEnabledPrefsKey);
     _key = null;
+    _healthEnabled = false;
     notifyListeners();
   }
 

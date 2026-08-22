@@ -25,6 +25,16 @@ import '../../../support/l10n_test_app.dart';
 // something.
 const _fakeKey = 'AIzaSyFAKE-TEST-KEY-1234wxyz';
 
+const _zhHant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
+
+final _healthSwitch = find.byKey(const Key('assistant-health-switch'));
+
+/// The health control sits near the bottom of an already-long settings list.
+/// `ListView(children:)` builds lazily, so a row past the viewport plus cache
+/// extent is neither findable nor tappable — the tests below would pass or
+/// fail on scroll position rather than on behaviour.
+const _tallSettings = Size(800, 2800);
+
 class _FakePwaInstall implements PwaInstall {
   @override
   final bool canInstall;
@@ -429,6 +439,221 @@ void main() {
         // Both warnings are visible before the user commits to anything.
         expect(find.text(en.settingsAssistantDeviceNotice), findsOneWidget);
         expect(find.text(en.settingsAssistantTrainingNotice), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'health access starts OFF, and the whole disclosure is on screen '
+      'before the user can grant anything',
+      (tester) async {
+        final harness = await _pumpSettingsScreen(
+          tester,
+          initialPrefs: const {'gemini_api_key': _fakeKey},
+          size: _tallSettings,
+        );
+        final en = lookupAppLocalizations(const Locale('en'));
+
+        final switchTile = tester.widget<SwitchListTile>(_healthSwitch);
+        expect(switchTile.value, isFalse);
+        expect(harness.geminiKeyController.healthEnabled, isFalse);
+
+        // Asserted by CONTENT, each string separately (#208): a guard that
+        // only checked the switch's key would stay green with every one of
+        // these sentences replaced by a sentinel.
+        expect(find.text(en.settingsAssistantHealthLabel), findsOneWidget);
+        expect(find.text(en.settingsAssistantHealthDisclosure), findsOneWidget);
+        // The disclosure names the record types outright rather than
+        // summarizing them as "health data" — that is the point of the
+        // sentence, and a rewrite that generalizes it must go red.
+        for (final named in [
+          'menstrual cycles',
+          'blood glucose',
+          'vital signs',
+          "Google's Gemini",
+        ]) {
+          expect(
+            en.settingsAssistantHealthDisclosure,
+            contains(named),
+            reason: 'the disclosure stopped naming "$named"',
+          );
+        }
+      },
+    );
+
+    test(
+      'the card names training-use once and sign-out-clears once, and '
+      'never tells the user not to send what the switch sends (U1)',
+      () {
+        // Regression guard for U1: settingsAssistantTrainingNotice used to
+        // carry both the training-use fact AND a "don't paste sensitive
+        // personal information" warning that directly contradicted the
+        // health-access switch above it. A rewrite that reintroduces either
+        // the contradiction or a second training/sign-out mention must fail
+        // here — `find.text` equality checks against `en.<key>` can't catch
+        // this, since they compare the rendered string to itself.
+        final en = lookupAppLocalizations(const Locale('en'));
+
+        expect(
+          en.settingsAssistantTrainingNotice,
+          contains('improve its models'),
+          reason: 'training notice must still state the training-use fact',
+        );
+        expect(
+          en.settingsAssistantTrainingNotice,
+          isNot(contains('sensitive')),
+          reason:
+              'training notice still tells the user not to send sensitive '
+              'data, contradicting the health-access switch',
+        );
+        expect(
+          en.settingsAssistantHealthDisclosure,
+          isNot(contains('improve its models')),
+          reason: 'training-use is now stated once, in the training notice',
+        );
+        expect(
+          en.settingsAssistantDeviceNotice,
+          contains('health-access switch'),
+          reason:
+              'the single sign-out-clears statement must cover the switch, '
+              'not just the key',
+        );
+        expect(
+          en.settingsAssistantHealthDisclosure,
+          isNot(contains('signing out')),
+          reason: 'sign-out-clears is now stated once, in the device notice',
+        );
+      },
+    );
+
+    testWidgets('turning the switch on writes through to memory AND prefs', (
+      tester,
+    ) async {
+      final harness = await _pumpSettingsScreen(
+        tester,
+        initialPrefs: const {'gemini_api_key': _fakeKey},
+        size: _tallSettings,
+      );
+
+      await tester.tap(_healthSwitch);
+      await tester.pumpAndSettle();
+
+      expect(harness.geminiKeyController.healthEnabled, isTrue);
+      // The prefs half is what the next launch reads back; a setter that only
+      // moved the field would leave this null.
+      expect(harness.prefs.getBool('assistant_health_enabled'), isTrue);
+      expect(tester.widget<SwitchListTile>(_healthSwitch).value, isTrue);
+
+      await tester.tap(_healthSwitch);
+      await tester.pumpAndSettle();
+
+      expect(harness.geminiKeyController.healthEnabled, isFalse);
+      expect(harness.prefs.getBool('assistant_health_enabled'), isFalse);
+    });
+
+    testWidgets(
+      'a previously-stored consent shows the switch already ON when the '
+      'settings page is opened',
+      (tester) async {
+        // The other half of "reflects and changes the stored consent"
+        // (spec.md): a switch hard-coded to start false would satisfy every
+        // other test above, since none of them seed a pre-existing true.
+        final harness = await _pumpSettingsScreen(
+          tester,
+          initialPrefs: const {
+            'gemini_api_key': _fakeKey,
+            'assistant_health_enabled': true,
+          },
+          size: _tallSettings,
+        );
+
+        expect(harness.geminiKeyController.healthEnabled, isTrue);
+        expect(tester.widget<SwitchListTile>(_healthSwitch).value, isTrue);
+      },
+    );
+
+    testWidgets(
+      'with NO key stored the switch is still operable, and the section says '
+      'nothing is sent until a key exists',
+      (tester) async {
+        final harness = await _pumpSettingsScreen(
+          tester,
+          size: _tallSettings,
+        );
+        final en = lookupAppLocalizations(const Locale('en'));
+
+        // Not merely present: a disabled switch in a section that already
+        // shows a key field reads as "this feature is broken" (design D5).
+        expect(tester.widget<SwitchListTile>(_healthSwitch).onChanged, isNotNull);
+        expect(find.text(en.settingsAssistantHealthNoKeyNotice), findsOneWidget);
+
+        await tester.tap(_healthSwitch);
+        await tester.pumpAndSettle();
+
+        expect(harness.geminiKeyController.healthEnabled, isTrue);
+        expect(harness.prefs.getBool('assistant_health_enabled'), isTrue);
+      },
+    );
+
+    testWidgets('the no-key note is gone once a key IS stored', (tester) async {
+      // The paired negative half of the test above: without it, a note
+      // rendered unconditionally would satisfy both and the "when no key is
+      // stored" condition would be untested.
+      await _pumpSettingsScreen(
+        tester,
+        initialPrefs: const {'gemini_api_key': _fakeKey},
+        size: _tallSettings,
+      );
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(en.settingsAssistantHealthNoKeyNotice), findsNothing);
+    });
+
+    testWidgets('every health string is translated, not English on a zh screen', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        locale: _zhHant,
+        initialPrefs: const {'gemini_api_key': _fakeKey},
+        size: _tallSettings,
+      );
+      final zh = lookupAppLocalizations(_zhHant);
+      final en = lookupAppLocalizations(const Locale('en'));
+
+      for (final (zhText, enText) in [
+        (zh.settingsAssistantHealthLabel, en.settingsAssistantHealthLabel),
+        (
+          zh.settingsAssistantHealthDisclosure,
+          en.settingsAssistantHealthDisclosure,
+        ),
+        (
+          zh.settingsAssistantDeviceNotice,
+          en.settingsAssistantDeviceNotice,
+        ),
+      ]) {
+        expect(find.text(zhText), findsOneWidget);
+        // A key missing from app_zh_Hant.arb falls back to the English
+        // template silently — this is what makes that surface as a failure.
+        expect(zhText, isNot(enText));
+      }
+    });
+
+    testWidgets(
+      'the no-key notice is translated too, not English on a zh screen',
+      (tester) async {
+        // The no-key notice only renders in the !hasKey branch, so the
+        // "every health string is translated" test above (which seeds a
+        // key) never exercises it — a missing app_zh_Hant.arb entry for
+        // this key would fall back to English silently and stay undetected.
+        await _pumpSettingsScreen(tester, locale: _zhHant, size: _tallSettings);
+        final zh = lookupAppLocalizations(_zhHant);
+        final en = lookupAppLocalizations(const Locale('en'));
+
+        expect(find.text(zh.settingsAssistantHealthNoKeyNotice), findsOneWidget);
+        expect(
+          zh.settingsAssistantHealthNoKeyNotice,
+          isNot(en.settingsAssistantHealthNoKeyNotice),
+        );
       },
     );
 

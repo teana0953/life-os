@@ -541,6 +541,7 @@ class _InertAssistantRepository implements AssistantRepository {
   Future<AssistantReply> send(
     String idToken, {
     required String geminiKey,
+    required bool healthEnabled,
     required List<AssistantMessage> messages,
   }) async => const AssistantReply(text: '', proposals: []);
 }
@@ -1730,7 +1731,7 @@ void main() {
         // otherwise the sign-out button sits far enough below the fold that
         // even `ensureVisible`'s finder (skipOffstage: true by default)
         // can't locate it to scroll it into view.
-        await tester.binding.setSurfaceSize(const Size(800, 1600));
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await pumpApp(
           tester,
@@ -3412,7 +3413,7 @@ void main() {
           AddTransaction(financeRepository),
           ListFinanceCategories(financeRepository),
         );
-        await assistantController.send('tok', 'key', '我上個月花了多少?');
+        await assistantController.send('tok', 'key', '我上個月花了多少?', healthEnabled: false);
         expect(assistantController.entries, isNotEmpty);
 
         await pumpApp(
@@ -3510,6 +3511,44 @@ void main() {
         // key to the next account after one reload.
         expect(geminiKeyController.hasKey, isFalse);
         expect(prefs.getString('gemini_api_key'), isNull);
+      },
+    );
+
+    testWidgets(
+      'signing out revokes health access with the key, so the next account '
+      "on this device does not inherit consent to read health records",
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        SharedPreferences.setMockInitialValues({
+          'gemini_api_key': 'AIzaSy-first-user-secret',
+          'assistant_health_enabled': true,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final geminiKeyController = GeminiKeyController(prefs);
+        expect(geminiKeyController.healthEnabled, isTrue);
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(FakeProfileRepository(_testProfile)),
+            SignOut(authRepository),
+          ),
+          geminiKeyController: geminiKeyController,
+        );
+        await tester.pumpAndSettle();
+
+        await authRepository.signOut();
+        await tester.pumpAndSettle();
+
+        // This is the whole premise of putting the flag on an already-reset
+        // controller (#156, design D1): `app.dart`'s sign-out reset is a
+        // hand-written list of objects, and it clears this one without
+        // knowing the flag exists. Both halves — in memory for the rest of
+        // this session, and in prefs for the next launch.
+        expect(geminiKeyController.healthEnabled, isFalse);
+        expect(prefs.containsKey('assistant_health_enabled'), isFalse);
       },
     );
 

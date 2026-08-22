@@ -87,6 +87,74 @@ void main() {
       expect(notified, 2);
     });
 
+    test('health access is off when prefs hold no preference', () async {
+      // Absent must never read as granted: a fresh install, private
+      // browsing, and cleared site data all land here, and this is consent
+      // to send menstrual/glucose/vitals records off the device.
+      expect(GeminiKeyController(await _emptyPrefs()).healthEnabled, isFalse);
+    });
+
+    test('setHealthEnabled persists and a rebuilt controller reads it back', () async {
+      final prefs = await _emptyPrefs();
+      await GeminiKeyController(prefs).setHealthEnabled(true);
+
+      expect(prefs.getBool('assistant_health_enabled'), isTrue);
+      // The restart path — the flag survives without the user re-granting it.
+      expect(GeminiKeyController(prefs).healthEnabled, isTrue);
+    });
+
+    test('turning health access back off persists too', () async {
+      final prefs = await _emptyPrefs();
+      final controller = GeminiKeyController(prefs);
+      await controller.setHealthEnabled(true);
+
+      await controller.setHealthEnabled(false);
+
+      expect(controller.healthEnabled, isFalse);
+      expect(prefs.getBool('assistant_health_enabled'), isFalse);
+      expect(GeminiKeyController(prefs).healthEnabled, isFalse);
+    });
+
+    test('the health flag has its own prefs slot, separate from the key', () async {
+      // Packed into the key's entry, clearing one could half-clear the other.
+      final prefs = await _emptyPrefs();
+      final controller = GeminiKeyController(prefs);
+
+      await controller.setHealthEnabled(true);
+
+      expect(prefs.getString('gemini_api_key'), isNull);
+      expect(controller.hasKey, isFalse);
+    });
+
+    test('clear removes the health flag from memory AND from prefs', () async {
+      final prefs = await _emptyPrefs();
+      final controller = GeminiKeyController(prefs);
+      await controller.setKey(_fakeKey);
+      await controller.setHealthEnabled(true);
+
+      await controller.clear();
+
+      expect(controller.healthEnabled, isFalse);
+      // The prefs half is the one that matters on the *next* launch, and it
+      // is the half a `clear()` that only reset the in-memory field would
+      // leave behind. Mutation: drop the `remove` and keep
+      // `_healthEnabled = false` → only this line goes red.
+      expect(prefs.containsKey('assistant_health_enabled'), isFalse);
+      expect(GeminiKeyController(prefs).healthEnabled, isFalse);
+      expect(controller.hasKey, isFalse);
+    });
+
+    test('notifies listeners on setHealthEnabled', () async {
+      final controller = GeminiKeyController(await _emptyPrefs());
+      var notified = 0;
+      controller.addListener(() => notified++);
+
+      await controller.setHealthEnabled(true);
+
+      expect(notified, 1);
+      expect(controller.healthEnabled, isTrue);
+    });
+
     test('toString reports hasKey but never the key itself', () async {
       final prefs = await _emptyPrefs();
       final controller = GeminiKeyController(prefs);
@@ -133,6 +201,23 @@ void main() {
       // zero notifications is what keeps a listener from repainting the
       // success card before the failure surfaces.
       expect(controller.hasKey, isFalse);
+      expect(notifications, 0);
+    });
+
+    test('leaves health access off, instead of painting a consent that never stored', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+      final controller = GeminiKeyController(prefs);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await expectLater(
+        controller.setHealthEnabled(true),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(controller.healthEnabled, isFalse);
       expect(notifications, 0);
     });
   });

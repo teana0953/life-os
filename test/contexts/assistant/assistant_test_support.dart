@@ -13,6 +13,12 @@ import '../finance/finance_test_support.dart';
 /// observe the in-flight state.
 class RecordingAssistantRepository implements AssistantRepository {
   final List<List<AssistantMessage>> calls = [];
+
+  /// The health consent each send carried, one entry per call and in the same
+  /// order as [calls] — so a retry's value can be told apart from the
+  /// original send's.
+  final List<bool> healthFlags = [];
+
   AssistantReply reply = const AssistantReply(text: 'ok', proposals: []);
   Object? failure;
   Completer<void>? gate;
@@ -21,9 +27,11 @@ class RecordingAssistantRepository implements AssistantRepository {
   Future<AssistantReply> send(
     String idToken, {
     required String geminiKey,
+    required bool healthEnabled,
     required List<AssistantMessage> messages,
   }) async {
     calls.add(List.of(messages));
+    healthFlags.add(healthEnabled);
     final held = gate;
     if (held != null) await held.future;
     final thrown = failure;
