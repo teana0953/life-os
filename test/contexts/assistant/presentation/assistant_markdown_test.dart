@@ -139,13 +139,112 @@ void main() {
 
     test('leaves syntax it does not know as literal text', () {
       // The deliberate limit: an unsupported mark is shown, never swallowed.
-      final blocks = parseAssistantMarkdown('## 標題\n| a | b |\n`code`');
+      // `## 標題` used to be listed here; headings became supported on purpose
+      // (openspec change assistant-markdown-headings), so this test now names
+      // marks that are still genuinely unsupported. Deleting it instead would
+      // erase the record that the behaviour changed deliberately.
+      final blocks = parseAssistantMarkdown('| a | b |\n`code`\n##### 太深');
 
       expect(blocks.map((b) => b.spans.single.text).toList(), const [
-        '## 標題',
         '| a | b |',
         '`code`',
+        '##### 太深',
       ]);
+    });
+  });
+
+  group('headings and thematic breaks', () {
+    test('reads a third-level heading, hashes removed', () {
+      final blocks = parseAssistantMarkdown('### 本月支出');
+
+      expect(blocks.single.kind, MdBlockKind.heading);
+      expect(blocks.single.headingLevel, 3);
+      expect(blocks.single.spans, const [MdSpan('本月支出')]);
+      // The list-nesting field must stay untouched, or the layout indents the
+      // heading by its own level (design D1).
+      expect(blocks.single.level, 0);
+      expect(blocks.single.marker, isNull);
+    });
+
+    test('recognises every supported level', () {
+      final blocks = parseAssistantMarkdown('# 一\n## 二\n### 三\n#### 四');
+
+      expect(blocks.map((b) => b.headingLevel).toList(), [1, 2, 3, 4]);
+      expect(blocks.every((b) => b.kind == MdBlockKind.heading), isTrue);
+    });
+
+    test('runs a heading through the inline pass', () {
+      final blocks = parseAssistantMarkdown('### 本月**總計**');
+
+      expect(blocks.single.spans, const [
+        MdSpan('本月'),
+        MdSpan('總計', bold: true),
+      ]);
+    });
+
+    test('leaves a fifth-level heading literal', () {
+      // `#{1,4}` consumes four hashes, then demands whitespace and finds a
+      // fifth `#` — the line falls through to paragraph with no extra guard.
+      final blocks = parseAssistantMarkdown('##### 太深');
+
+      expect(blocks.single.kind, MdBlockKind.paragraph);
+      expect(blocks.single.spans, const [MdSpan('##### 太深')]);
+    });
+
+    test('leaves a hash with no space literal', () {
+      final blocks = parseAssistantMarkdown('#tag');
+
+      expect(blocks.single.kind, MdBlockKind.paragraph);
+      expect(blocks.single.spans, const [MdSpan('#tag')]);
+    });
+
+    test('leaves a hash run with no words literal', () {
+      final blocks = parseAssistantMarkdown('###');
+
+      expect(blocks.single.kind, MdBlockKind.paragraph);
+      expect(blocks.single.spans, const [MdSpan('###')]);
+    });
+
+    test('reads three dashes as a thematic break carrying no text', () {
+      final blocks = parseAssistantMarkdown('第一段\n---\n第二段');
+
+      expect(blocks.map((b) => b.kind).toList(), const [
+        MdBlockKind.paragraph,
+        MdBlockKind.thematicBreak,
+        MdBlockKind.paragraph,
+      ]);
+      expect(blocks[1].spans, isEmpty);
+      expect(blocks[1].marker, isNull);
+    });
+
+    test('reads a longer dash run as one break, not several', () {
+      final blocks = parseAssistantMarkdown('-----');
+
+      expect(blocks.single.kind, MdBlockKind.thematicBreak);
+    });
+
+    test('leaves a dash run shorter than three as literal text', () {
+      // This is the guard that `-{3,}` → `-{1,}` has to break. `- 醫療` does
+      // not: the break rule is anchored at `\s*$`, so a dash with words after
+      // it never matches however few dashes the rule accepts — that mutation
+      // survives against the bullet test alone.
+      final blocks = parseAssistantMarkdown('-\n--');
+
+      expect(blocks.map((b) => b.kind).toList(), const [
+        MdBlockKind.paragraph,
+        MdBlockKind.paragraph,
+      ]);
+      expect(blocks.map((b) => b.spans.single.text).toList(), const ['-', '--']);
+    });
+
+    test('keeps a dash followed by text a bullet, not a break', () {
+      // The break rule runs before the bullet rule (design D2); this is the
+      // pair that pins the precedence — relaxing `-{3,}` to `-{1,}` turns
+      // this bullet into a divider.
+      final blocks = parseAssistantMarkdown('- 醫療');
+
+      expect(blocks.single.kind, MdBlockKind.bullet);
+      expect(blocks.single.marker, '•');
     });
   });
 
@@ -448,6 +547,350 @@ void main() {
         '請先確認金額：\n1. 開啟設定\n2. 貼上金鑰\n醫療：NT\$ 21,200\n－ 掛號 100',
       );
       handle.dispose();
+    });
+
+    // The style a rendered line is actually painted with, found by the line's
+    // own plain text. Read off the widget tree rather than re-derived from the
+    // factors under test, so the assertions compare against hard-coded
+    // literals and orderings (design D8).
+    TextStyle lineStyle(WidgetTester tester, String plainText) {
+      final finder = find.byWidgetPredicate(
+        (w) => w is Text && w.textSpan is TextSpan && (w.textSpan! as TextSpan).toPlainText() == plainText,
+      );
+      return tester.widget<Text>(finder).style!;
+    }
+
+    testWidgets('renders the four heading levels at strictly decreasing sizes, none below body text', (tester) async {
+      await pump(tester, '# 一\n## 二\n### 三\n#### 四\n本文');
+
+      final h1 = lineStyle(tester, '一').fontSize!;
+      final h2 = lineStyle(tester, '二').fontSize!;
+      final h3 = lineStyle(tester, '三').fontSize!;
+      final h4 = lineStyle(tester, '四').fontSize!;
+      final body = lineStyle(tester, '本文').fontSize!;
+
+      // Ordering plus the floor, as two separate claims: equalising two
+      // factors breaks the first, and a factor below 1.0 breaks the second.
+      expect(h1, greaterThan(h2));
+      expect(h2, greaterThan(h3));
+      expect(h3, greaterThan(h4));
+      expect(h4, greaterThanOrEqualTo(body));
+      expect(body, 14.0);
+    });
+
+    testWidgets('renders a heading bold even though its source has no stars', (tester) async {
+      await pump(tester, '### 本月支出\n這是一段內文');
+
+      expect(lineStyle(tester, '本月支出').fontWeight, FontWeight.w700);
+      // Not just "the heading is heavy" — a renderer that bolds every line
+      // would pass the assertion above on its own.
+      expect(lineStyle(tester, '這是一段內文').fontWeight, isNot(FontWeight.w700));
+      expect(find.textContaining('#'), findsNothing);
+    });
+
+    testWidgets('renders bold inside a heading heavier than the heading itself', (tester) async {
+      await pump(tester, '### 本月**總計**');
+
+      final rich = tester.widget<Text>(find.byWidgetPredicate(
+        (w) => w is Text && w.textSpan is TextSpan && (w.textSpan! as TextSpan).toPlainText() == '本月總計',
+      ));
+      final children = (rich.textSpan! as TextSpan).children!.cast<TextSpan>();
+      final plain = children.firstWhere((s) => s.text == '本月');
+      final bold = children.firstWhere((s) => s.text == '總計');
+
+      expect(plain.style!.fontWeight, FontWeight.w700);
+      expect(bold.style!.fontWeight!.index, greaterThan(plain.style!.fontWeight!.index));
+    });
+
+    testWidgets('draws a thematic break as a rule that fills a tight width but only spans the widest line under a loose one', (tester) async {
+      const maxWidth = 300.0;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: maxWidth,
+                child: AssistantMarkdown(
+                  text: '第一段\n---\n第二段',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF000000)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final rule = find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(ColoredBox),
+      );
+      expect(rule, findsOneWidget);
+      // A rule that spans nothing is invisible and no "is it drawn" assertion
+      // can see the difference — the width is the guard.
+      //
+      // This width comes from the tight `SizedBox` forwarding its own
+      // constraint through `IntrinsicWidth`, not from the rule choosing to
+      // fill the available space — under the real bubble's loose
+      // constraints (below), the same markup produces a rule far narrower
+      // than 300, matching its widest sibling line instead.
+      expect(tester.getSize(rule).width, maxWidth);
+      expect(tester.getSize(rule).height, 1.0);
+      expect(find.textContaining('-'), findsNothing);
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: const AssistantMarkdown(
+                  text: '第一段內容比較長\n---\n第二段',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF000000)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final looseRule = find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(ColoredBox),
+      );
+      final looseRuleWidth = tester.getSize(looseRule).width;
+
+      // Measured from a *separate*, rule-free pump of the same first line —
+      // not from the `第一段` Text still on screen above. Inside the
+      // `hasRule` column, `CrossAxisAlignment.stretch` tightens every
+      // child's width to the column's own (the rule's) width, so reading
+      // `第一段`'s size there would just read the rule's width back at
+      // itself and pass even if the rule stopped tracking content
+      // entirely. The fixture's widest line is also well past the 48px
+      // floor, so a floor bug can't masquerade as this passing either.
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: const AssistantMarkdown(
+                  text: '第一段內容比較長\n第二段',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF000000)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final firstLineWidth = tester.getSize(find.text('第一段內容比較長')).width;
+
+      expect(looseRuleWidth, firstLineWidth);
+    });
+
+    testWidgets('gives a thematic break a floor width when the reply has no other block', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      // Pumped under the same loose constraints the real bubble gives
+      // (Align + a wide ConstrainedBox, not a tight Directionality) — under
+      // tight constraints IntrinsicWidth's own constraints.tighten clamps
+      // the column to the ambient width regardless of ruleMinWidth, so a
+      // floor of 0 would pass here just as easily as 48.
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: const AssistantMarkdown(
+                  text: '---',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF000000)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final rule = find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(ColoredBox),
+      );
+      expect(rule, findsOneWidget);
+      // With no other block to follow, the rule (and the whole bubble)
+      // used to collapse to zero width and render nothing. Asserted against
+      // the actual floor, not just "some positive width", so a mutation to
+      // the floor's value (e.g. shrinking or inflating it) turns this red.
+      expect(tester.getSize(rule).width, 48.0);
+
+      // ...and the announcement fell silent along with it — no block
+      // survives the "drop the rule" filter, so the label must fall back to
+      // the raw text instead of joining to an empty string.
+      final node = tester.getSemantics(
+        find.descendant(of: find.byType(AssistantMarkdown), matching: find.byType(Semantics)),
+      );
+      expect(node.label, '---');
+      handle.dispose();
+    });
+
+    testWidgets('draws the rule at an alpha that clears the 3:1 non-text-contrast floor', (tester) async {
+      await tester.pumpWidget(
+        const MediaQuery(
+          data: MediaQueryData(),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: AssistantMarkdown(
+              text: '第一段\n---\n第二段',
+              style: TextStyle(fontSize: 14, color: Color(0xFF000000)),
+            ),
+          ),
+        ),
+      );
+
+      final rule = tester.widget<ColoredBox>(find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(ColoredBox),
+      ));
+      // At 0.24 (the originally-shipped value) this measures ~1.5:1 against
+      // the app's cream surface — an effectively invisible hairline. 0.6 is
+      // the alpha that clears the WCAG 3:1 non-text-contrast floor.
+      expect(rule.color.a, closeTo(0.6, 0.001));
+    });
+
+    testWidgets('scales the rule thickness with the ambient text scale', (tester) async {
+      await pump(tester, '第一段\n---\n第二段');
+      final ruleFinder = find.descendant(
+        of: find.byType(AssistantMarkdown),
+        matching: find.byType(ColoredBox),
+      );
+      final thicknessAt1 = tester.getSize(ruleFinder).height;
+
+      await pump(tester, '第一段\n---\n第二段', textScale: 2.0);
+      final thicknessAt2 = tester.getSize(ruleFinder).height;
+
+      expect(thicknessAt2, greaterThan(thicknessAt1));
+    });
+
+    testWidgets('gives a thematic break more room above and below it than a paragraph break', (tester) async {
+      await pump(tester, '第一句\n第二句\n\n第三句');
+      // Bottom-to-top, matching how the rule's own gaps are measured below —
+      // top-to-top would fold the "第二句" line's own height into the number
+      // and compare it against a gap that doesn't have one.
+      final blankGap = tester.getTopLeft(find.text('第三句')).dy -
+          tester.getBottomLeft(find.text('第二句')).dy;
+
+      await pump(tester, '第一句\n---\n第二句');
+      final aboveRule = tester.getTopLeft(find.byType(ColoredBox)).dy -
+          tester.getBottomLeft(find.text('第一句')).dy;
+      final belowRule = tester.getTopLeft(find.text('第二句')).dy -
+          tester.getBottomLeft(find.byType(ColoredBox)).dy;
+
+      expect(aboveRule, greaterThan(blankGap));
+      expect(belowRule, greaterThan(blankGap));
+    });
+
+    testWidgets('gives a heading more room above it than a paragraph break or a wrapped line', (tester) async {
+      // All four measured gaps sit below a body-sized line, so the differences
+      // are the _gapAbove values alone and not mixed line heights.
+      await pump(tester, '第一句\n### 標題\n第二句\n\n第三句\n第四句');
+
+      final headingGap = tester.getTopLeft(find.text('標題')).dy -
+          tester.getTopLeft(find.text('第一句')).dy;
+      final blankGap = tester.getTopLeft(find.text('第三句')).dy -
+          tester.getTopLeft(find.text('第二句')).dy;
+      final wrappedGap = tester.getTopLeft(find.text('第四句')).dy -
+          tester.getTopLeft(find.text('第三句')).dy;
+
+      expect(headingGap, greaterThan(blankGap));
+      expect(blankGap, greaterThan(wrappedGap));
+    });
+
+    testWidgets('gives the line below a heading more room than a wrapped line', (tester) async {
+      await pump(tester, '### 標題\n第一句\n第二句');
+      final belowHeadingGap = tester.getTopLeft(find.text('第一句')).dy -
+          tester.getBottomLeft(find.text('標題')).dy;
+      final wrappedGap = tester.getTopLeft(find.text('第二句')).dy -
+          tester.getBottomLeft(find.text('第一句')).dy;
+
+      // Pins _gapAbove's "previous block is a heading" branch (design D5's 6):
+      // collapsing it to the wrapped-line value must turn this red.
+      expect(belowHeadingGap, greaterThan(wrappedGap));
+    });
+
+    testWidgets('speaks the heading and stays silent about the rule, in one label', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await pump(tester, '總覽如下：\n### 本月支出\n---\n* 醫療：21,200');
+
+      final node = tester.getSemantics(
+        find.descendant(of: find.byType(AssistantMarkdown), matching: find.byType(Semantics)),
+      );
+      // Hard-coded expectation, not a re-derivation: the break must be
+      // dropped from the joined lines, not joined as `''` — an empty line in
+      // the announcement is a pause some screen readers speak (design D7).
+      expect(node.label, '總覽如下：\n本月支出\n醫療：21,200');
+      handle.dispose();
+    });
+
+    testWidgets('leaves the bullet gutter and the leading edge alone around a heading', (tester) async {
+      await pump(tester, '* 醫療\n### 小計\n* 其他');
+      final withHeading = tester.getTopLeft(find.text('醫療')).dx;
+      final headingLeft = tester.getTopLeft(find.text('小計')).dx;
+      final afterHeading = tester.getTopLeft(find.text('其他')).dx;
+
+      await pump(tester, '* 醫療\n* 其他');
+      final withoutHeading = tester.getTopLeft(find.text('醫療')).dx;
+
+      expect(afterHeading, withHeading);
+      // Comparing the two replies is what catches a `_markerWidth` that
+      // measures heading text: the two bullet groups above stay aligned with
+      // each other even when the gutter widens for both.
+      expect(withHeading, withoutHeading);
+      expect(headingLeft, lessThan(withHeading));
+    });
+
+    testWidgets('does not indent a heading that follows a nested bullet', (tester) async {
+      await pump(tester, '* 醫療\n    * 掛號 100\n### 小計');
+
+      final topLevel = tester.getTopLeft(find.text('•').first).dx;
+      final nested = tester.getTopLeft(find.text('掛號 100')).dx;
+      final heading = tester.getTopLeft(find.text('小計')).dx;
+
+      // The nested item proves the indent is live at all; without it, storing
+      // headingLevel into `level` could be invisible.
+      expect(nested, greaterThan(topLevel));
+      expect(heading, topLevel);
+    });
+
+    testWidgets('scales heading sizes with the ambient text scale exactly once', (tester) async {
+      await pump(tester, '# 一\n本文');
+      final h1At1 = tester.getSize(find.text('一')).height;
+      final bodyAt1 = tester.getSize(find.text('本文')).height;
+
+      await pump(tester, '# 一\n本文', textScale: 2.0);
+      final h1At2 = tester.getSize(find.text('一')).height;
+      final bodyAt2 = tester.getSize(find.text('本文')).height;
+
+      expect(h1At2, greaterThan(h1At1));
+      expect(h1At2, greaterThanOrEqualTo(bodyAt2));
+      expect(bodyAt2, greaterThan(bodyAt1));
+      // Text applies the ambient TextScaler to fontSize itself (design D3);
+      // a `scaler.scale(...)` around the heading's fontSize scales it twice
+      // and lands at ~4x, not ~2x. This upper bound is the only assertion
+      // that can tell double-scaling from correct scaling — the lower bounds
+      // above stay green under it.
+      expect(h1At2, lessThan(h1At1 * 3));
     });
   });
 }
