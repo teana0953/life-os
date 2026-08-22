@@ -3054,6 +3054,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.';
 
   @override
+  String get assistantEmptyHintNoContextMixed =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.';
+
+  @override
+  String get assistantEmptyHintNoContextMixedConsentOff =>
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.';
+
+  @override
   String get assistantSendingLabel => 'Sending your message';
 
   @override
@@ -3102,6 +3110,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantGoToSettings => 'Go to settings';
+
+  @override
+  String get assistantEnableHealthAccess => 'Turn on health access';
 
   @override
   String get assistantComposerHint => 'Message the assistant…';

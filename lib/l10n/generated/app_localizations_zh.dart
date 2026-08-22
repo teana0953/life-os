@@ -2946,6 +2946,14 @@ class AppLocalizationsZh extends AppLocalizations {
       'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.';
 
   @override
+  String get assistantEmptyHintNoContextMixed =>
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+
+  @override
+  String get assistantEmptyHintNoContextMixedConsentOff =>
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+
+  @override
   String get assistantSendingLabel => 'Sending your message';
 
   @override
@@ -2990,6 +2998,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assistantGoToSettings => 'Go to settings';
+
+  @override
+  String get assistantEnableHealthAccess => '開啟健康存取';
 
   @override
   String get assistantComposerHint => 'Message the assistant…';
@@ -6039,6 +6050,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '問我花費、預算或分帳,也可以直接說一筆要記的帳。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」)。';
 
   @override
+  String get assistantEmptyHintNoContextMixed =>
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+
+  @override
+  String get assistantEmptyHintNoContextMixedConsentOff =>
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+
+  @override
   String get assistantSendingLabel => '正在傳送你的訊息';
 
   @override
@@ -6083,6 +6102,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get assistantGoToSettings => '前往設定';
+
+  @override
+  String get assistantEnableHealthAccess => '開啟健康存取';
 
   @override
   String get assistantComposerHint => '輸入訊息…';
