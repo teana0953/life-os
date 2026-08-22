@@ -65,9 +65,16 @@ void main() {
   /// signal the controller uses to decide it must reload that screen.
   late Set<String> alreadyShowing;
 
+  /// How many times the composition root's "the app was brought forward"
+  /// effect ran — the frame demand of issue #226. Counted rather than
+  /// flagged: the point of the fix is that it runs on EVERY foreground
+  /// signal, not once.
+  late int foregrounded;
+
   PendingDeepLinkController buildController() => PendingDeepLinkController(
     store,
     now: () => fixedNow,
+    onForegrounded: () => foregrounded++,
     canNavigate: () => canNavigateValue,
     currentPath: () => currentPathValue,
     recognizes: (path) => recognized.contains(path),
@@ -86,6 +93,7 @@ void main() {
     refreshes = [];
     recognized = {'/care-today', '/care-history', '/'};
     alreadyShowing = {};
+    foregrounded = 0;
   });
 
   group('check', () {
@@ -273,6 +281,7 @@ void main() {
             return alreadyShowing.contains(path);
           },
           refresh: (path) async => refreshes.add(path),
+          onForegrounded: () => foregrounded++,
         );
 
         // The first tap's read is swallowed by blocked Cache Storage.
@@ -332,6 +341,7 @@ void main() {
             return alreadyShowing.contains(path);
           },
           refresh: (path) async => refreshes.add(path),
+          onForegrounded: () => foregrounded++,
         );
         store.enqueue(PendingDeepLink(path: malformed, savedAt: fixedNow));
 
@@ -461,5 +471,136 @@ void main() {
       },
     );
 
+  });
+
+  /// Issue #226: a window brought forward by a notification tap stays painted
+  /// but dead until it is backgrounded and returned to. Every foreground
+  /// signal the app has was being spent asking "is there a destination
+  /// pending?", so each of the gates below ended the code path with nothing
+  /// ever asking the engine to paint. The effect must therefore be produced
+  /// BEFORE any gate, on every signal, whatever the hand-over turns out to
+  /// be.
+  group('foregrounding', () {
+    test('start() alone is not a foregrounding', () async {
+      final controller = buildController();
+      controller.start();
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(foregrounded, 0);
+      expect(store.takeCallCount, 1);
+    });
+
+    test('a foreground signal with an empty store still foregrounds', () async {
+      final controller = buildController();
+      controller.start();
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+
+      store.emitSignal();
+      await Future<void>.delayed(Duration.zero);
+      store.emitSignal();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(foregrounded, 2);
+      expect(navigated, isEmpty);
+    });
+
+    test('a foreground signal with an expired entry still foregrounds', () async {
+      final controller = buildController();
+      controller.start();
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+
+      store.enqueue(
+        PendingDeepLink(
+          path: '/care-today',
+          savedAt: fixedNow.subtract(const Duration(minutes: 6)),
+        ),
+      );
+      store.emitSignal();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(foregrounded, 1);
+      expect(navigated, isEmpty);
+    });
+
+    test(
+      'a foreground signal carrying a path this app version cannot match '
+      'still foregrounds',
+      () async {
+        final controller = buildController();
+        controller.start();
+        addTearDown(controller.dispose);
+        await Future<void>.delayed(Duration.zero);
+
+        store.enqueue(
+          PendingDeepLink(path: '/no-such-route', savedAt: fixedNow),
+        );
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(foregrounded, 1);
+        expect(navigated, isEmpty);
+      },
+    );
+
+    test(
+      'a foreground signal still foregrounds while the gates are shut — auth '
+      'unresolved, and the app on a transition screen (the earliest gates, '
+      'the ones that return before the store is even read)',
+      () async {
+        canNavigateValue = false;
+        final controller = buildController();
+        controller.start();
+        addTearDown(controller.dispose);
+        await Future<void>.delayed(Duration.zero);
+
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+        expect(foregrounded, 1);
+        expect(store.takeCallCount, 0);
+
+        canNavigateValue = true;
+        currentPathValue = '';
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+        expect(foregrounded, 2);
+        expect(store.takeCallCount, 0);
+      },
+    );
+
+    test(
+      'a store read that never settles does not swallow the NEXT signal\'s '
+      'foregrounding (the single-flight guard collapses the check, not the '
+      'frame demand)',
+      () async {
+        store.neverSettles = true;
+        final controller = buildController();
+        controller.start();
+        addTearDown(controller.dispose);
+        await Future<void>.delayed(Duration.zero);
+
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(foregrounded, 2);
+      },
+    );
+
+    test('didChangeAppLifecycleState(resumed) foregrounds too', () async {
+      final controller = buildController();
+      addTearDown(controller.dispose);
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await Future<void>.delayed(Duration.zero);
+      expect(foregrounded, 0);
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(foregrounded, 1);
+    });
   });
 }

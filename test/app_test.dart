@@ -1388,6 +1388,11 @@ Future<LocaleController> pumpApp(
   DataRevision? dataRevision,
   PendingDeepLinkStore? pendingDeepLinkStore,
 
+  /// Observes the composition root's "the app was brought to the foreground"
+  /// effect (issue #226's frame demand). Defaults to `App`'s own, which asks
+  /// the engine to paint.
+  void Function()? onForegrounded,
+
   /// Back the health controllers with these fakes instead of the inert
   /// defaults — for tests that need the diet module to actually have a food
   /// to pick, or to observe what a meal save sent.
@@ -1637,6 +1642,7 @@ Future<LocaleController> pumpApp(
       dataRevision: resolvedDataRevision,
       pendingDeepLinkStore:
           pendingDeepLinkStore ?? const PendingDeepLinkStoreImpl(),
+      onForegrounded: onForegrounded,
       clock: clock ?? DateTime.now,
     ),
   );

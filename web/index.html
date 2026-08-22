@@ -258,14 +258,38 @@
             watch(registration.installing);
           });
 
-          // Proactively check for a fresh deploy: on load, when the tab
-          // becomes visible again, and on a periodic timer.
+          // Proactively check for a fresh deploy: on load, a while after the
+          // tab becomes visible again, and on a periodic timer.
           function checkForUpdate() {
             registration.update().catch(function () { /* ignore */ });
           }
           checkForUpdate();
+          // NOT from the visibility transition itself (issue #226). A
+          // notification tap brings this window forward with the very
+          // `visibilitychange` this listener runs on, and right after a
+          // deploy `registration.update()` is a full worker install —
+          // download plus cache write — started at the exact instant the
+          // user is trying to use the app. The check still happens, just
+          // never as part of the app becoming interactive. One pending timer
+          // at a time, so repeated foregrounding cannot pile them up.
+          var deferredCheck = null;
           document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState === 'visible') checkForUpdate();
+            if (document.visibilityState !== 'visible') {
+              // Backgrounding can freeze this timer mid-flight rather than
+              // cancel it; left armed, it would fire on the next resume —
+              // landing the update check on exactly the foreground moment
+              // this deferral exists to keep clear of.
+              if (deferredCheck !== null) {
+                clearTimeout(deferredCheck);
+                deferredCheck = null;
+              }
+              return;
+            }
+            if (deferredCheck !== null) return;
+            deferredCheck = setTimeout(function () {
+              deferredCheck = null;
+              checkForUpdate();
+            }, 10 * 1000);
           });
           setInterval(checkForUpdate, 30 * 60 * 1000);
         }).catch(function () { /* ignore */ });

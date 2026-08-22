@@ -263,6 +263,62 @@ Future<void> _pumpFrames(
   }
 }
 
+/// A popup route that DECLINES to be dismissed: returning `false` from
+/// `didPop` is how a Flutter route refuses a pop, and the route stays on the
+/// stack (`_RouteEntry.handlePop` puts it straight back to `idle`).
+///
+/// Deliberately not a `PopScope(canPop: false)` fixture: `_popTo` pops the
+/// popup layer with `maybePop` (see `lib/app.dart`), which does consult
+/// `PopScope`, so that would work too — but it would only exercise
+/// `maybePop`'s own `popDisposition` check, not the loops' own
+/// stack-stopped-changing bound, which is what these tests exist to prove.
+/// Overriding `didPop` refuses regardless of which pop method is used,
+/// isolating the bound itself as the thing under test.
+class _RefusingRoute extends PopupRoute<void> {
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  bool get barrierDismissible => false;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  // Deliberately does not call super: `Route.didPop` completes the route and
+  // returns true, which is the opposite of the refusal this fixture is.
+  @override
+  // ignore: must_call_super
+  bool didPop(void result) => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => const Center(child: Text('submitting'));
+}
+
+/// A route that refuses to be dismissed via `PopScope(canPop: false)` — the
+/// mechanism a real screen uses (`shared_food_item_sheet.dart:401`), unlike
+/// `_RefusingRoute` above which overrides `didPop` and so refuses no matter
+/// which pop method is called. `PopScope`'s refusal is only consulted by
+/// `NavigatorState.maybePop` (and the system back gesture) — `.pop()` (which
+/// is what `GoRouter.pop()` resolves to) ignores it outright. So this
+/// fixture is what actually distinguishes `_popTo` popping with `maybePop`
+/// from popping with `pop`/`GoRouter.pop()`.
+class _PopScopeRefusingRoute extends MaterialPageRoute<void> {
+  _PopScopeRefusingRoute()
+      : super(
+          builder: (_) => const PopScope(
+            canPop: false,
+            child: Center(child: Text('submitting')),
+          ),
+        );
+}
+
 final _testProfile = UserProfile(
   id: 'user-1',
   firebaseUid: 'firebase-abc',
@@ -591,6 +647,372 @@ void main() {
           greaterThan(1),
           reason: 'the destination was already showing, so this must be a '
               'reload, not a no-op',
+        );
+      },
+    );
+
+    testWidgets(
+      'a foreground signal with nothing pending still runs the foreground '
+      'effect, and the screen stays tappable (issue #226: the signal used to '
+      'die in the hand-over gates, leaving nothing asking the engine to '
+      'paint)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        // Empty: `take()` answers null, so every gate after the store read is
+        // reached with nothing to act on — the reported case exactly.
+        final store = _RepeatingFakeStore([]);
+        var foregrounded = 0;
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+          onForegrounded: () => foregrounded++,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
+        expect(
+          foregrounded,
+          0,
+          reason: 'start()-time is not a foregrounding',
+        );
+
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(0));
+        expect(foregrounded, 1);
+
+        // `foregrounded == 1` above is the actual regression guard for
+        // issue #226 — it proves the seam that demands a frame was reached.
+        // This tap cannot independently catch a real frame-stall regression:
+        // `flutter_test`'s binding always services a frame on `pump`/`tap`
+        // regardless of whether `demandForegroundFrame()` ran, since the
+        // stall this change fixes only exists against a real, possibly
+        // frozen, browser tab. It stays as a smoke check that navigation
+        // still works after the hand-over path runs, not as a repaint guard.
+        await tester.tap(find.byKey(const Key('health-tile')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('health-tile')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a hand-over arriving under a screen that refuses to be dismissed '
+      'leaves the app usable instead of spinning forever on the UI thread '
+      '(issue #226 H1)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final careRepository = _ChangingCareTodayRepository();
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          careTodayController: CareTodayController(
+            GetCareToday(careRepository),
+            MarkCareDone(careRepository),
+            MarkCareSkipped(careRepository),
+            EditCareSlot(_FakeCareHistoryRepository()),
+          ),
+          careTodayRepository: careRepository,
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // A route that refuses to be dismissed. Before the fix this test does
+        // not fail — it HANGS, because both of `_popTo`'s loops assume every
+        // pop removes a route, and a spinning loop on the UI thread never
+        // yields to the test's own timeout.
+        final context = tester.element(find.byType(CareTodayScreen));
+        unawaited(
+          Navigator.of(context, rootNavigator: true).push(_RefusingRoute()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('submitting'), findsOneWidget);
+
+        final getCountBeforeHandover = careRepository.getCount;
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(1));
+        expect(
+          find.text('submitting'),
+          findsOneWidget,
+          reason: 'a screen that declines to be dismissed costs the user an '
+              'unchanged screen, never a frozen app',
+        );
+        expect(
+          careRepository.getCount,
+          getCountBeforeHandover,
+          reason: 'the destination is still covered by the refusing route, '
+              'so it was never uncovered — reloading a screen the user '
+              'cannot see is silent wasted work at best (Finding A)',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a hand-over destination is still bound even when a refusing route '
+      'sits above it rather than directly on top of it (issue #226 H1: the '
+      'matches.length loop, not just the popup loop, needs its own '
+      'no-progress bound)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        // Two entries: the first is what `start()` consumes to land on
+        // 今日照護 in the first place (`_RepeatingFakeStore` only serves each
+        // entry once — despite the name — so without a second one here the
+        // later `fireHandover()` below would find nothing pending and never
+        // call `_navigateToHandover` at all).
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // Destination is `/care-today` (index 1), but `CareItemsScreen`
+        // (index 2) is what's on top — the destination is two matches deep,
+        // not the topmost one, so the `matches.length` loop (not the popup
+        // loop) is what has to unwind it. (Default care-today fake data is
+        // empty, which is what puts the manage button on screen.)
+        await tester.tap(
+          find.byKey(const Key('care-today-empty-manage-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareItemsScreen), findsOneWidget);
+
+        // A refusing route above that: the popup loop's own attempt to
+        // clear it fails and breaks after one try, leaving it on top when
+        // the `matches.length` loop runs. Before its `movedNothing` break
+        // existed, that loop called `_router.pop()` in a cycle nothing ever
+        // interrupts — the popup route refuses every time, so neither the
+        // depth nor the top route ever changes.
+        final context = tester.element(find.byType(CareItemsScreen));
+        unawaited(
+          Navigator.of(context, rootNavigator: true).push(_RefusingRoute()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('submitting'), findsOneWidget);
+
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(1));
+        expect(
+          find.text('submitting'),
+          findsOneWidget,
+          reason: 'a route that refuses to be dismissed, sitting above (not '
+              'on) the destination, must still leave the app usable rather '
+              'than spinning forever trying to reach a destination it '
+              'cannot uncover',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a hand-over whose destination is not in the stack at all still does '
+      'not stack a fresh copy of it on top of a route that refuses to be '
+      'dismissed (Finding A applies even when _popTo would otherwise '
+      'return null, not just false)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        // Starts empty so the app settles on home with no hand-over yet —
+        // `_lastHandoverPush` stays null, isolating `_popTo`'s own `index <
+        // 0` branch from the separate `previous`-branch fix in
+        // `_navigateToHandover`, which would otherwise mask this bug (a
+        // refused pop of `previous` already returns `false` there).
+        final entries = <PendingDeepLink>[];
+        final store = _RepeatingFakeStore(entries);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
+        );
+
+        // A route that refuses to be dismissed, directly on top of home.
+        final context = tester.element(
+          find.byKey(const Key('health-dashboard-section')),
+        );
+        unawaited(
+          Navigator.of(context, rootNavigator: true).push(_RefusingRoute()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('submitting'), findsOneWidget);
+
+        // Only now does a hand-over arrive, for a destination that was never
+        // in the stack — so `_popTo` hits `index < 0`, not a blocked pop of
+        // a match it found.
+        entries.add(
+          PendingDeepLink(path: '/care-history', savedAt: DateTime.now()),
+        );
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(0));
+        expect(
+          find.byType(CareHistoryScreen),
+          findsNothing,
+          reason: 'the destination must not be pushed on top of a route '
+              'that is still refusing to close, even though that '
+              'destination was never in the stack to begin with',
+        );
+        expect(
+          find.text('submitting'),
+          findsOneWidget,
+          reason: 'the refusing route must still be the one on top — '
+              'nothing was pushed over it',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a hand-over does not force-close a PopScope(canPop: false) route '
+      'sitting above a destination that is not the top of the stack (the '
+      'matches.length loop must pop with maybePop, not GoRouter.pop, or it '
+      'silently defeats the guard instead of terminating)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        // Destination is `/care-today` (index 1); `CareItemsScreen` is on
+        // top of it — so unwinding to the destination is the
+        // `matches.length` loop's job, not the popup loop's (which only
+        // ever looks at what's directly on top before that loop starts).
+        await tester.tap(
+          find.byKey(const Key('care-today-empty-manage-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareItemsScreen), findsOneWidget);
+
+        // A route that refuses via `PopScope`, not `didPop` — the only
+        // fixture that can tell `maybePop` apart from `GoRouter.pop()`.
+        final context = tester.element(find.byType(CareItemsScreen));
+        unawaited(
+          Navigator.of(
+            context,
+            rootNavigator: true,
+          ).push(_PopScopeRefusingRoute()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('submitting'), findsOneWidget);
+
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(1));
+        expect(
+          find.text('submitting'),
+          findsOneWidget,
+          reason: 'GoRouter.pop() resolves to NavigatorState.pop(), which '
+              'ignores PopScope.canPop outright — using it here would force '
+              'the route closed instead of stopping at its refusal, losing '
+              'exactly the in-flight state the guard exists to protect',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a hand-over destination two screens down is still unwound to (the '
+      'bound stops when the stack stops changing, not after one pop)',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(_testProfile);
+        final store = _RepeatingFakeStore([
+          PendingDeepLink(path: '/care-today', savedAt: DateTime.now()),
+          // Home itself: the only destination this app has with TWO ordinary
+          // dismissible screens above it, which is what tells a real bound
+          // apart from one that stops after a single pop.
+          PendingDeepLink(path: '/', savedAt: DateTime.now()),
+        ]);
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          pendingDeepLinkStore: store,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareTodayScreen), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const Key('care-today-empty-manage-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CareItemsScreen), findsOneWidget);
+
+        store.fireHandover();
+        await tester.pumpAndSettle();
+
+        expect(store.takes, greaterThan(1));
+        expect(find.byType(CareItemsScreen), findsNothing);
+        expect(find.byType(CareTodayScreen), findsNothing);
+        expect(
+          find.byKey(const Key('health-dashboard-section')),
+          findsOneWidget,
         );
       },
     );

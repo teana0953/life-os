@@ -34,7 +34,9 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     required bool Function(String path) recognizes,
     required Future<bool> Function(String path) navigate,
     required Future<void> Function(String path) refresh,
-  }) : _ttl = ttl,
+    required void Function() onForegrounded,
+  }) : _onForegrounded = onForegrounded,
+       _ttl = ttl,
        _storeTimeout = storeTimeout,
        _now = now,
        _canNavigate = canNavigate,
@@ -80,6 +82,13 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   /// handed over, and only the one arrived at may be reloaded. Awaited, so
   /// the reload it runs stays inside this check's in-flight window.
   final Future<void> Function(String path) _refresh;
+
+  /// What being brought to the foreground does on its own, independently of
+  /// any hand-over: the composition root asks the engine for a frame
+  /// (issue #226). Injected rather than called directly so it is observable
+  /// off the browser — the store that carries these signals on web is an
+  /// untested adapter.
+  final void Function() _onForegrounded;
 
   bool _checking = false;
 
@@ -150,6 +159,7 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     if (!_recognizes(pending.path)) return;
 
     final alreadyShowing = await _navigate(pending.path);
+    if (_disposed) return;
     if (!alreadyShowing) return;
     try {
       await _refresh(pending.path);
@@ -160,9 +170,19 @@ class PendingDeepLinkController with WidgetsBindingObserver {
     }
   }
 
+  /// The app is in front of the user again. The foreground effect runs FIRST
+  /// and unconditionally — before every gate in [check] — because those gates
+  /// are what swallowed the signal in issue #226: a tap that finds nothing
+  /// pending (the common case) ended the code path having never asked the
+  /// engine to paint, leaving the user in front of a painted, dead screen.
+  void _foregrounded() {
+    _onForegrounded();
+    check();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) check();
+    if (state == AppLifecycleState.resumed) _foregrounded();
   }
 
   /// Begins lifecycle observation and worker-signal subscription, and runs
@@ -170,7 +190,7 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   void start() {
     if (_signalSubscription != null) return;
     WidgetsBinding.instance.addObserver(this);
-    _signalSubscription = _store.handoverSignals.listen((_) => check());
+    _signalSubscription = _store.handoverSignals.listen((_) => _foregrounded());
     check();
   }
 
