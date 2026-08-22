@@ -3,16 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 /// The slice of Markdown the assistant actually emits — bold, bullet and
-/// numbered lists, paragraph breaks — and nothing else.
+/// numbered lists, ATX headings, thematic breaks, paragraph breaks — and
+/// nothing else.
 ///
 /// The model writes Markdown whether or not anyone asked it to, and a bubble
 /// that renders none of it shows `**NT$ 23,847**` to the user (issue #152).
 /// The answer here is a parser for the handful of marks that show up in real
 /// replies rather than a Markdown package: everything outside this list —
-/// headings, tables, links, code fences — stays **literal text**, which is a
-/// deliberate limit, not an oversight. A mark this parser does not know is
-/// shown as the user typed it, never swallowed.
-enum MdBlockKind { paragraph, bullet, numbered }
+/// tables, links, code fences, headings deeper than level 4 — stays
+/// **literal text**, which is a deliberate limit, not an oversight. A mark
+/// this parser does not know is shown as the user typed it, never swallowed.
+enum MdBlockKind { paragraph, bullet, numbered, heading, thematicBreak }
 
 /// A run of text inside one line, bold or not.
 @immutable
@@ -42,6 +43,7 @@ class MdBlock {
     this.marker,
     this.blankBefore = false,
     this.level = 0,
+    this.headingLevel,
   });
 
   final MdBlockKind kind;
@@ -60,6 +62,11 @@ class MdBlock {
   /// must not read as another top-level item.
   final int level;
 
+  /// 1–4 for a heading, null otherwise. Deliberately not folded into [level]:
+  /// that one is multiplied by the per-level indent in the layout, so a
+  /// `### 標題` stored there would be indented three steps.
+  final int? headingLevel;
+
   @override
   bool operator ==(Object other) =>
       other is MdBlock &&
@@ -67,15 +74,16 @@ class MdBlock {
       other.marker == marker &&
       other.blankBefore == blankBefore &&
       other.level == level &&
+      other.headingLevel == headingLevel &&
       _sameSpans(other.spans, spans);
 
   @override
-  int get hashCode =>
-      Object.hash(kind, marker, blankBefore, level, Object.hashAll(spans));
+  int get hashCode => Object.hash(
+      kind, marker, blankBefore, level, headingLevel, Object.hashAll(spans));
 
   @override
   String toString() =>
-      'MdBlock($kind, marker: $marker, blankBefore: $blankBefore, level: $level, $spans)';
+      'MdBlock($kind, marker: $marker, blankBefore: $blankBefore, level: $level, headingLevel: $headingLevel, $spans)';
 }
 
 bool _sameSpans(List<MdSpan> a, List<MdSpan> b) {
@@ -86,6 +94,11 @@ bool _sameSpans(List<MdSpan> a, List<MdSpan> b) {
   return true;
 }
 
+final _thematicBreak = RegExp(r'^\s*-{3,}\s*$');
+// `[ \t]+`, not `\s+`: `\s` would also mean `\n`, which cannot occur in a
+// single line and only invites a wrong reading. `(\S.*)` keeps a bare `###`
+// literal — a heading with no words is not structure.
+final _heading = RegExp(r'^\s*(#{1,4})[ \t]+(\S.*)$');
 final _bullet = RegExp(r'^(\s*)[*-]\s+(.*)$');
 final _numbered = RegExp(r'^(\s*)(\d+)[.)]\s+(.*)$');
 
@@ -112,6 +125,34 @@ List<MdBlock> parseAssistantMarkdown(String source) {
       // Leading blanks must not push the first block down — the bubble's own
       // padding is the gap above it.
       if (!first) blankBefore = true;
+      continue;
+    }
+
+    // Tried before the bullet rule. `---` does not match `^(\s*)[*-]\s+`
+    // today (that rule needs whitespace after the dash), but a later edit
+    // relaxing the bullet rule would silently turn every divider into a
+    // bullet; the order is what makes the precedence testable.
+    if (_thematicBreak.hasMatch(line)) {
+      blocks.add(MdBlock(
+        MdBlockKind.thematicBreak,
+        const [],
+        blankBefore: blankBefore,
+      ));
+      blankBefore = false;
+      first = false;
+      continue;
+    }
+
+    final heading = _heading.firstMatch(line);
+    if (heading != null) {
+      blocks.add(MdBlock(
+        MdBlockKind.heading,
+        parseInlineMarkdown(heading.group(2)!),
+        blankBefore: blankBefore,
+        headingLevel: heading.group(1)!.length,
+      ));
+      blankBefore = false;
+      first = false;
       continue;
     }
 
@@ -201,6 +242,19 @@ List<MdSpan> parseInlineMarkdown(String line) {
   return spans;
 }
 
+const _headingSizeFactors = {1: 1.5, 2: 1.3, 3: 1.15, 4: 1.05};
+
+/// Strictly decreasing across levels and never below body size, so a reader
+/// can tell a section from a sub-section without reading the words.
+///
+/// The size is a multiple of [base]'s own size and is **not** passed through
+/// `TextScaler.scale`: `Text` applies the ambient scaler to `fontSize`
+/// itself, so scaling here too would double-scale the heading.
+TextStyle _headingStyle(TextStyle base, int level) => base.copyWith(
+      fontWeight: FontWeight.w700,
+      fontSize: (base.fontSize ?? 14) * _headingSizeFactors[level]!,
+    );
+
 /// Renders [text] as the assistant's Markdown slice, in [style].
 ///
 /// Used for the assistant's bubbles only. The user's own message is shown as
@@ -242,7 +296,11 @@ class AssistantMarkdown extends StatelessWidget {
     // as before this widget existed — not one swipe per block plus a
     // announced "•" for every bullet. The rendered tree stays excluded; this
     // label is the only thing assistive tech sees.
-    final semanticLabel = blocks
+    final spokenBlocks = blocks
+        // A rule speaks nothing, and must be dropped rather than joined as
+        // `''` — an empty line in the announcement is a pause some screen
+        // readers speak aloud.
+        .where((b) => b.kind != MdBlockKind.thematicBreak)
         .map((b) {
           // The bullet glyph itself is decoration, not content — reading it
           // aloud ("bullet") on every item is noise. A numbered marker is
@@ -257,6 +315,36 @@ class AssistantMarkdown extends StatelessWidget {
           return levelPrefix + marker + b.spans.map((s) => s.text).join();
         })
         .join('\n');
+    // A reply that is nothing but `---` (or several) leaves no block behind
+    // once rules are dropped, and an empty label reads to a screen reader as
+    // a bubble with nothing in it — falling back to the raw text is better
+    // than silence.
+    final semanticLabel = spokenBlocks.isEmpty ? text : spokenBlocks;
+
+    // A divider is a graphic, not text, so unlike the heading font size it is
+    // on the manual-scaling side. Its colour comes from the text colour
+    // rather than the theme's divider colour, which was picked against the
+    // scaffold background rather than the assistant bubble's own. 0.6, not a
+    // lighter alpha: on the app's cream `surfaceLight` the ink-on-cream blend
+    // only clears the 3:1 non-text-contrast floor at 0.6 (measures ~3.0:1
+    // light / ~5.4:1 dark) — a lower alpha here measures under 1.5:1, an
+    // effectively invisible 1px hairline no on-device check would catch.
+    final ruleThickness = scaler.scale(1);
+    final ruleColor =
+        (effectiveStyle.color ?? const Color(0xFF000000)).withValues(alpha: 0.6);
+    // The rule normally spans the other blocks (see the `IntrinsicWidth`
+    // note below), but a reply that is nothing but `---` has no other block
+    // to follow — without a floor the rule, and the whole bubble, collapses
+    // to zero width. Scaled like the rest of the geometry so it stays a
+    // legible hairline rather than a sliver at large text scales. Applied
+    // only in that all-rule case: once there is a non-rule block, `stretch`
+    // already sizes the rule to it, and a floor here would inflate a short
+    // reply's bubble past its own content just to satisfy a divider.
+    final hasRule = blocks.any((b) => b.kind == MdBlockKind.thematicBreak);
+    final ruleMinWidth =
+        blocks.every((b) => b.kind == MdBlockKind.thematicBreak)
+            ? scaler.scale(48)
+            : 0.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -276,23 +364,54 @@ class AssistantMarkdown extends StatelessWidget {
             : double.infinity;
         final perLevelIndent = math.min(indentUnit, maxTotalIndent / 3);
 
+        final children = [
+          for (var i = 0; i < blocks.length; i++)
+            Padding(
+              padding: EdgeInsets.only(
+                top: i == 0 ? 0 : _gapAbove(blocks[i], blocks[i - 1], scaler),
+                left: blocks[i].level * perLevelIndent,
+              ),
+              child: _blockRow(
+                blocks[i],
+                effectiveStyle,
+                effectiveBold,
+                markerWidth,
+                markerGap,
+                ruleThickness,
+                ruleColor,
+                ruleMinWidth,
+              ),
+            ),
+        ];
+
         return Semantics(
           label: semanticLabel,
           child: ExcludeSemantics(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < blocks.length; i++)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: i == 0 ? 0 : _gapAbove(blocks[i], scaler),
-                      left: blocks[i].level * perLevelIndent,
+            // The bubble around this widget shrink-wraps to its content
+            // (assistant_screen.dart's Container has no width of its own), so
+            // a rule that just took `constraints.maxWidth` dictated the
+            // bubble's width instead of following it — a two-line reply
+            // containing `---` rendered as a mostly-empty full-width card.
+            // `IntrinsicWidth` + `stretch` size the column to the widest
+            // rendered line among the *other* blocks and stretch the rule to
+            // match, so the rule spans the content without inflating it.
+            // Only worth paying for when there is a rule to stretch —
+            // `IntrinsicWidth` runs an extra unconstrained layout pass, and
+            // every other reply already hugs its content with a plain
+            // `start`-aligned column.
+            child: hasRule
+                ? IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: children,
                     ),
-                    child: _blockRow(blocks[i], effectiveStyle, effectiveBold, markerWidth, markerGap),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: children,
                   ),
-              ],
-            ),
           ),
         );
       },
@@ -326,7 +445,18 @@ class AssistantMarkdown extends StatelessWidget {
   // 200% a paragraph break and a wrapped line would otherwise collapse
   // toward the same gap once the (unscaled) text around them has doubled in
   // height.
-  double _gapAbove(MdBlock block, TextScaler scaler) {
+  //
+  // The previous block is needed because a `Column` child only has a top
+  // padding: the room *below* a heading or a rule is the room above whatever
+  // follows it. Two `Padding`s per pair would make the total unreadable from
+  // one place.
+  double _gapAbove(MdBlock block, MdBlock previous, TextScaler scaler) {
+    // A section boundary is a bigger break than a paragraph one, so this is
+    // deliberately above the blankBefore gap below.
+    if (block.kind == MdBlockKind.heading) return scaler.scale(14);
+    if (block.kind == MdBlockKind.thematicBreak) return scaler.scale(12);
+    if (previous.kind == MdBlockKind.heading) return scaler.scale(6);
+    if (previous.kind == MdBlockKind.thematicBreak) return scaler.scale(12);
     if (block.blankBefore) return scaler.scale(10);
     return scaler.scale(block.kind == MdBlockKind.paragraph ? 4 : 2);
   }
@@ -337,15 +467,39 @@ class AssistantMarkdown extends StatelessWidget {
     TextStyle bold,
     double markerWidth,
     double markerGap,
+    double ruleThickness,
+    Color ruleColor,
+    double ruleMinWidth,
   ) {
+    if (block.kind == MdBlockKind.thematicBreak) {
+      // No explicit width otherwise: the enclosing `Column`'s `stretch` gives
+      // this its width (the `IntrinsicWidth` ancestor's computed content
+      // width), so it spans the other blocks without itself contributing to
+      // that width. `minWidth` is the exception — it's this child's own
+      // floor for when there are no other blocks to follow (a reply that is
+      // only `---`), so `IntrinsicWidth` still has something to measure.
+      return ConstrainedBox(
+        constraints: BoxConstraints(minWidth: ruleMinWidth),
+        child: SizedBox(
+          height: ruleThickness,
+          child: ColoredBox(color: ruleColor),
+        ),
+      );
+    }
+    // A heading is already bold, so `**` inside one has to go heavier still
+    // or the emphasis the model wrote disappears.
+    final isHeading = block.kind == MdBlockKind.heading;
+    final baseStyle = isHeading ? _headingStyle(style, block.headingLevel!) : style;
+    final boldStyle =
+        isHeading ? baseStyle.copyWith(fontWeight: FontWeight.w900) : bold;
     final body = Text.rich(
       TextSpan(
         children: [
           for (final span in block.spans)
-            TextSpan(text: span.text, style: span.bold ? bold : style),
+            TextSpan(text: span.text, style: span.bold ? boldStyle : baseStyle),
         ],
       ),
-      style: style,
+      style: baseStyle,
     );
     if (block.marker == null) return body;
     return Row(

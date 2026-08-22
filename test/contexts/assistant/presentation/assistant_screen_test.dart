@@ -1330,5 +1330,49 @@ void main() {
       // under it, not the exact cap.
       expect(bubbleWidth, lessThan(560 / 2));
     });
+
+    testWidgets('a short reply with a thematic break hugs its content too', (tester) async {
+      // A rule that just took the layout's full available width dictated the
+      // bubble's own width instead of following it — a two-line reply
+      // containing `---` rendered as a mostly-empty full-width card. The
+      // fix sizes the rule to the widest of the *other* lines in the bubble,
+      // so adding the rule to a reply must not widen its bubble at all
+      // compared to the same reply without one — a loose upper bound (e.g.
+      // "under half the cap") would still pass an implementation that
+      // widens the bubble by a fixed, smaller amount.
+      final harness = await _pumpScreen(tester);
+
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '好的\n完成',
+        proposals: [],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+      final baselineWidth = tester
+          .getSize(find.ancestor(
+            of: find.text('好的'),
+            matching: find.byType(Container),
+          ).first)
+          .width;
+
+      harness.assistantRepository.reply = const AssistantReply(
+        text: '好的\n---\n完成',
+        proposals: [],
+      );
+      await _sendText(tester, '記一筆');
+      await tester.pumpAndSettle();
+      // The transcript ListView is reversed (newest message painted first
+      // in tree order), so the newest bubble — the one with the rule — is
+      // `.first`, not `.last`; `.last` would find the older, rule-free
+      // bubble from the baseline send above and compare it with itself.
+      final bubbleWidth = tester
+          .getSize(find.ancestor(
+            of: find.text('好的').first,
+            matching: find.byType(Container),
+          ).first)
+          .width;
+
+      expect(bubbleWidth, baselineWidth);
+    });
   });
 }
