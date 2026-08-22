@@ -40,6 +40,7 @@ class _Harness {
 Future<_Harness> _pumpScreen(
   WidgetTester tester, {
   AssistantChatContext? chatContext,
+  bool healthEnabled = true,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final keyController = GeminiKeyController(
@@ -47,9 +48,9 @@ Future<_Harness> _pumpScreen(
   );
   await keyController.setKey('test-key');
   // These tests are about the hint/chip *selection* logic, not the health
-  // access-off notice (that has its own tests) — access is on so the hint
-  // this file asserts on is actually reachable in a health context.
-  await keyController.setHealthEnabled(true);
+  // access-off notice (that has its own tests) — access defaults to on so the
+  // hint this file asserts on is actually reachable in a health context.
+  if (healthEnabled) await keyController.setHealthEnabled(true);
   final assistantRepository = RecordingAssistantRepository();
   final financeRepository = GatedFinanceRepository();
   final controller = AssistantController(
@@ -214,25 +215,31 @@ void main() {
       'without one, the model has no month/tab to anchor a vague question '
       'to, so the hint must say so',
       (tester) async {
-        final loc = lookupAppLocalizations(const Locale('en'));
-        // Asserting each branch only against `loc.assistantEmptyHint*`
-        // (below) can't by itself catch the two ARB entries being written
-        // with identical copy — both sides would still match whatever the
-        // (equal) strings say. This inequality is the guard against that.
-        expect(
-          loc.assistantEmptyHintNoContext,
-          isNot(loc.assistantEmptyHint),
-          reason: 'the no-context hint must say something the WITH-context '
-              'one does not (nudging the user to state a time range)',
-        );
+        // Literals, never `loc.assistantEmptyHint*`: an expectation read from
+        // the same ARB entry the widget reads compares a string with itself
+        // and can never go red — which also makes two ARB entries written
+        // with identical copy visible here, since each line pins its own.
+        const homeHint =
+            'Ask about your spending, budgets or split balances — or tell me '
+            'a transaction to log. You can also ask about your health and '
+            "diet records. I don't know what you were looking at, so name the "
+            'period you mean.';
+        const financeHint =
+            'Ask about your spending, budgets or split balances — or tell me '
+            'a transaction to log.';
+        const financeHintNoContext =
+            "Ask about your spending, budgets or split balances — or tell me "
+            "a transaction to log. I don't know what you were looking at, so "
+            "name a month if it matters.";
 
-        // No context (e.g. opened from the home screen).
+        // No context (e.g. opened from the home screen) — neither module, so
+        // the hint names both halves.
         await _pumpScreen(tester);
         expect(
           tester
               .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
               .data,
-          loc.assistantEmptyHintNoContext,
+          homeHint,
         );
 
         // With a context (e.g. opened from the finance tabs).
@@ -241,7 +248,7 @@ void main() {
           tester
               .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
               .data,
-          loc.assistantEmptyHint,
+          financeHint,
         );
 
         // The split tab carries a tab but never a month (`fromQuery` drops
@@ -257,9 +264,10 @@ void main() {
           tester
               .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
               .data,
-          loc.assistantEmptyHintNoContext,
+          financeHintNoContext,
           reason: 'split has no month, so it needs the same nudge the home '
-              'entry gets',
+              'entry gets — in the finance-only wording, since split IS a '
+              'finance entry',
         );
       },
     );
@@ -283,6 +291,16 @@ void main() {
             "Ask about your spending, budgets or split balances — or tell me "
             "a transaction to log. I don't know what you were looking at, so "
             "name a month if it matters.";
+        const homeHint =
+            'Ask about your spending, budgets or split balances — or tell me '
+            'a transaction to log. You can also ask about your health and '
+            "diet records. I don't know what you were looking at, so name the "
+            'period you mean.';
+        const homeHintConsentOff =
+            'Ask about your spending, budgets or split balances — or tell me '
+            'a transaction to log. Turn on health access in settings and you '
+            "can also ask about your health and diet records. I don't know "
+            'what you were looking at, so name the period you mean.';
 
         String hint() => tester
             .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
@@ -338,8 +356,15 @@ void main() {
         );
         expect(hint(), financeHintNoContext);
 
-        await _pumpScreen(tester);
-        expect(hint(), financeHintNoContext);
+        // The home entry is neither module, so it gets neither module's
+        // hint: both halves named, and the same nudge. The health half is a
+        // flat promise once the consent is on and an invitation while it is
+        // off — the two fixtures differ in nothing else.
+        await _pumpScreen(tester, healthEnabled: true);
+        expect(hint(), homeHint);
+
+        await _pumpScreen(tester, healthEnabled: false);
+        expect(hint(), homeHintConsentOff);
       },
     );
 

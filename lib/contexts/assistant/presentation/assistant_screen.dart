@@ -53,6 +53,8 @@ class AssistantScreen extends StatefulWidget {
 /// proposal cards so the two never drift apart on a wide window.
 const double _bubbleMaxWidth = 560;
 
+enum _EmptyStateEntry { health, finance, home }
+
 class _AssistantScreenState extends State<AssistantScreen> {
   final TextEditingController _composer = TextEditingController();
 
@@ -307,11 +309,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
-  /// Whether the user arrived from the health shell — the one switch that
-  /// picks both the example chips and the hint, so a health entry can never
-  /// end up with health chips under a hint about split balances.
-  bool get _isHealthEntry =>
-      widget.chatContext?.space == AssistantContextSpace.health;
+  /// Which entry the empty state speaks for — the one switch that picks both
+  /// the example chips and the hint, so a health entry can never end up with
+  /// health chips under a hint about split balances. Three states, not a
+  /// health/not-health boolean: the home entry belongs to neither module, and
+  /// folding it into the finance arm is exactly what presented the assistant
+  /// as finance-only (#231).
+  _EmptyStateEntry get _entry {
+    final chatContext = widget.chatContext;
+    if (chatContext == null) return _EmptyStateEntry.home;
+    return chatContext.space == AssistantContextSpace.health
+        ? _EmptyStateEntry.health
+        : _EmptyStateEntry.finance;
+  }
 
   /// Whether the entered view carried a period the model can anchor to. Both
   /// fields, not just the month: a health entry's period is a day.
@@ -322,128 +332,204 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final theme = Theme.of(context);
     final entries = widget.controller.entries;
     if (entries.isEmpty && widget.controller.status == AssistantStatus.idle) {
+      final entry = _entry;
+      final healthEnabled = widget.geminiKeyController.healthEnabled;
+      final healthAccessOff =
+          entry == _EmptyStateEntry.health && !healthEnabled;
+      // Everything below the home entry's hint changes when the user grants
+      // health access in settings and comes back: the screen is not remounted
+      // (`_onKeyChanged` only calls `setState`), so without a live region a
+      // screen reader is never told the wording and the third example swapped
+      // (WCAG 4.1.3) — the same reason the health entry's access-off notice
+      // carries one.
+      Widget liveOnHome(Widget child) => entry == _EmptyStateEntry.home
+          ? Semantics(container: true, liveRegion: true, child: child)
+          : child;
       final hint = Center(
         // Scrollable, not a plain Column: hint plus three example chips at a
         // large text scale is taller than a short phone's transcript area,
         // and this sits inside an `Expanded` that would clip it.
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Suppressed, not just skipped past, when health access is
-                // off: this hint invites the very question the notice below
-                // says the assistant cannot answer ("Ask about your health
-                // records" atop "I can't read your health records yet" was
-                // a live contradiction on the first-run path).
-                if (!(_isHealthEntry && !widget.geminiKeyController.healthEnabled)) ...[
-                  Text(
-                    // Module first, then anchoring. Keyed on "no period at
-                    // all", not on the month alone: what the ask-for-a-period
-                    // half is for is a vague "how much did I spend/eat" having
-                    // nothing to attach to. The home screen sends no context,
-                    // the split tab sends a tab but never a month and 趨勢/更多
-                    // send a tab but never a day (`fromQuery` drops both — no
-                    // such screen shows one), so all three leave the question
-                    // unanchored and all three need the nudge.
-                    _isHealthEntry
-                        ? (_hasPeriod
+          child: liveOnHome(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Suppressed, not just skipped past, when health access is
+                  // off: this hint invites the very question the notice below
+                  // says the assistant cannot answer ("Ask about your health
+                  // records" atop "I can't read your health records yet" was
+                  // a live contradiction on the first-run path).
+                  if (!healthAccessOff) ...[
+                    Text(
+                      // Module first, then anchoring. Keyed on "no period at
+                      // all", not on the month alone: what the ask-for-a-period
+                      // half is for is a vague "how much did I spend/eat" having
+                      // nothing to attach to. The home screen sends no context,
+                      // the split tab sends a tab but never a month and 趨勢/更多
+                      // send a tab but never a day (`fromQuery` drops both — no
+                      // such screen shows one), so all three leave the question
+                      // unanchored and all three need the nudge.
+                      //
+                      // The home line names the health half either way, but as a
+                      // conditional ("turn health access on and you can also…")
+                      // while the consent is off — which is the default state,
+                      // so the flat promise was the copy nearly every home
+                      // visitor met. Dropping the half instead would leave them
+                      // no way to learn it exists, which is #231 all over again.
+                      switch (entry) {
+                        _EmptyStateEntry.health =>
+                          _hasPeriod
                               ? loc.assistantEmptyHintHealth
-                              : loc.assistantEmptyHintHealthNoDay)
-                        : (_hasPeriod
+                              : loc.assistantEmptyHintHealthNoDay,
+                        _EmptyStateEntry.finance =>
+                          _hasPeriod
                               ? loc.assistantEmptyHint
-                              : loc.assistantEmptyHintNoContext),
-                    key: const Key('assistant-empty-hint'),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                              : loc.assistantEmptyHintNoContext,
+                        _EmptyStateEntry.home =>
+                          healthEnabled
+                              ? loc.assistantEmptyHintNoContextMixed
+                              : loc.assistantEmptyHintNoContextMixedConsentOff,
+                      },
+                      key: const Key('assistant-empty-hint'),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (_isHealthEntry && !widget.geminiKeyController.healthEnabled)
-                  // The three health chips would every one of them be a dead
-                  // end here — `healthEnabled` is off by default and
-                  // sign-out clears it, so the most-walked first-time path
-                  // (健康 → 問助手 → 「今天剩下的份量還可以吃什麼?」) reaches
-                  // an assistant that is sent no health data at all. The exit
-                  // takes their place rather than sitting above them: the
-                  // existing `assistant-setup` block is the only other place
-                  // that points at settings, and it serves the no-key state
-                  // only.
-                  Column(
-                    key: const Key('assistant-health-access-off'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // `liveRegion`: this block appears in place when the
-                      // user comes back from settings (the screen is not
-                      // remounted, and a guard here pins that), so a screen
-                      // reader has nothing to re-read and would otherwise
-                      // announce nothing at all — the user is left tapping
-                      // chips that are no longer there (WCAG 4.1.3).
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          loc.assistantHealthAccessOff,
-                          textAlign: TextAlign.center,
-                          // Same size and colour as the hint above and as the
-                          // setup block's copy: both are a "you are stuck,
-                          // here is the way out" paragraph on this one screen,
-                          // and two different type ramps read as two
-                          // unrelated notices.
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 16),
+                  ],
+                  if (healthAccessOff)
+                    // The three health chips would every one of them be a dead
+                    // end here — `healthEnabled` is off by default and
+                    // sign-out clears it, so the most-walked first-time path
+                    // (健康 → 問助手 → 「今天剩下的份量還可以吃什麼?」) reaches
+                    // an assistant that is sent no health data at all. The exit
+                    // takes their place rather than sitting above them: the
+                    // existing `assistant-setup` block is the only other place
+                    // that points at settings, and it serves the no-key state
+                    // only.
+                    Column(
+                      key: const Key('assistant-health-access-off'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // `liveRegion`: this block appears in place when the
+                        // user comes back from settings (the screen is not
+                        // remounted, and a guard here pins that), so a screen
+                        // reader has nothing to re-read and would otherwise
+                        // announce nothing at all — the user is left tapping
+                        // chips that are no longer there (WCAG 4.1.3).
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            loc.assistantHealthAccessOff,
+                            textAlign: TextAlign.center,
+                            // Same size and colour as the hint above and as the
+                            // setup block's copy: both are a "you are stuck,
+                            // here is the way out" paragraph on this one screen,
+                            // and two different type ramps read as two
+                            // unrelated notices.
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        key: const Key(
-                          'assistant-health-access-off-settings-button',
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          key: const Key(
+                            'assistant-health-access-off-settings-button',
+                          ),
+                          onPressed: () => context.push('/settings'),
+                          child: Text(loc.assistantGoToSettings),
                         ),
-                        onPressed: () => context.push('/settings'),
-                        child: Text(loc.assistantGoToSettings),
-                      ),
-                    ],
-                  )
-                else
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _isHealthEntry
-                        ? [
-                            _exampleChip(
-                              'assistant-example-remaining-portions',
-                              loc.assistantExampleRemainingPortions,
-                            ),
-                            _exampleChip(
-                              'assistant-example-recent-lunches',
-                              loc.assistantExampleRecentLunches,
-                            ),
-                            _exampleChip(
-                              'assistant-example-weight-trend',
-                              loc.assistantExampleWeightTrend,
-                            ),
-                          ]
-                        : [
-                            _exampleChip(
-                              'assistant-example-spend',
-                              loc.assistantExampleSpend,
-                            ),
-                            _exampleChip(
-                              'assistant-example-log',
-                              loc.assistantExampleLog,
-                            ),
-                            _exampleChip(
-                              'assistant-example-owe',
-                              loc.assistantExampleOwe,
-                            ),
-                          ],
-                  ),
-              ],
+                      ],
+                    )
+                  else
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      // Three everywhere: the box is 420 wide and was sized for
+                      // three. At home the third one follows the consent — a
+                      // chip whose answer is "I can't see your health records"
+                      // is a dead end — and 「我欠誰錢?」 is the one that steps
+                      // aside, being the narrowest of the finance three and
+                      // still offered on the finance entry it comes from.
+                      children: switch (entry) {
+                        _EmptyStateEntry.health => [
+                          _exampleChip(
+                            'assistant-example-remaining-portions',
+                            loc.assistantExampleRemainingPortions,
+                          ),
+                          _exampleChip(
+                            'assistant-example-recent-lunches',
+                            loc.assistantExampleRecentLunches,
+                          ),
+                          _exampleChip(
+                            'assistant-example-weight-trend',
+                            loc.assistantExampleWeightTrend,
+                          ),
+                        ],
+                        _EmptyStateEntry.finance => [
+                          _exampleChip(
+                            'assistant-example-spend',
+                            loc.assistantExampleSpend,
+                          ),
+                          _exampleChip(
+                            'assistant-example-log',
+                            loc.assistantExampleLog,
+                          ),
+                          _exampleChip(
+                            'assistant-example-owe',
+                            loc.assistantExampleOwe,
+                          ),
+                        ],
+                        _EmptyStateEntry.home => [
+                          _exampleChip(
+                            'assistant-example-spend',
+                            loc.assistantExampleSpend,
+                          ),
+                          _exampleChip(
+                            'assistant-example-log',
+                            loc.assistantExampleLog,
+                          ),
+                          healthEnabled
+                              ? _exampleChip(
+                                  'assistant-example-remaining-portions',
+                                  loc.assistantExampleRemainingPortions,
+                                )
+                              : _exampleChip(
+                                  'assistant-example-owe',
+                                  loc.assistantExampleOwe,
+                                ),
+                        ],
+                      },
+                    ),
+                  // The way out for the conditional half of the home hint. A
+                  // text button, not the health entry's filled one inside the
+                  // access-off notice: a home visitor asked for nothing in
+                  // particular, so this offers the switch without turning the
+                  // empty state into a consent prompt. That notice itself stays
+                  // off the home path — it belongs to someone who just asked
+                  // for health and hit a dead end.
+                  if (entry == _EmptyStateEntry.home && !healthEnabled) ...[
+                    const SizedBox(height: 8),
+                    TextButton(
+                      key: const Key('home-assistant-enable-health-button'),
+                      onPressed: () => context.push('/settings'),
+                      // Names the purpose, not the destination: three chips
+                      // stand between it and the sentence it answers, and a
+                      // screen reader reaches it as its own node long after
+                      // that sentence (WCAG 2.4.6). The health entry's button
+                      // sits directly under its own explanation and keeps
+                      // `assistantGoToSettings`.
+                      child: Text(loc.assistantEnableHealthAccess),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

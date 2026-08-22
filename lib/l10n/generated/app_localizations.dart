@@ -5367,6 +5367,18 @@ abstract class AppLocalizations {
   /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.'**
   String get assistantEmptyHintNoContext;
 
+  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened with NO module at all (the home entry, which belongs to neither finance nor health) AND health access is already on. It must name both halves — finance (spending, budgets, split balances, logging a transaction) and health/diet records — or the home entry presents the assistant as finance-only. When health access is off, assistantEmptyHintNoContextMixedConsentOff is used instead: this wording promises a capability that is not switched on. Ends with the same ask-for-a-period nudge as assistantEmptyHintNoContext, since a home visit carries no month or day to anchor a vague question to.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.'**
+  String get assistantEmptyHintNoContextMixed;
+
+  /// Placeholder shown in the empty transcript before the first message, used ONLY on the home entry (no module at all) while health access is off — the default state, since health access is opt-in and sign-out clears it. Same as assistantEmptyHintNoContextMixed except the health half is conditional: it says what turning the consent on would unlock instead of promising a capability the assistant does not currently have. A low-emphasis text button pointing at settings sits under the example prompts so the sentence has somewhere to lead; the health entry's fuller access-off notice stays out of the home path.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.'**
+  String get assistantEmptyHintNoContextMixedConsentOff;
+
   /// Screen-reader announcement while an assistant reply is in flight. The spinner is animation only, so without this a screen-reader user gets no signal that anything is happening (WCAG 4.1.3).
   ///
   /// In en, this message translates to:
@@ -5445,11 +5457,17 @@ abstract class AppLocalizations {
   /// **'Your key is stored only on this device and is cleared when you sign out, so it has to be pasted again after each sign-in.'**
   String get assistantSetupSignOutNotice;
 
-  /// Button that opens the settings page, shown in the assistant's setup state and on key-related errors.
+  /// Button that opens the settings page, shown in the assistant's setup state, on key-related errors, and in the health entry's health-access-off notice (where the sentence right above it already says what settings is for). The home empty state's consent exit does NOT use it — it sits under three finance examples, far from the sentence that explains it, so it names its own purpose with assistantEnableHealthAccess instead.
   ///
   /// In en, this message translates to:
   /// **'Go to settings'**
   String get assistantGoToSettings;
+
+  /// Low-emphasis button under the home empty state's example prompts, shown only while health access is off; it opens the settings page where the consent lives. Says what it is for rather than where it goes: it is read out on its own by a screen reader, several nodes after the hint sentence whose conditional half it answers (WCAG 2.4.6).
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on health access'**
+  String get assistantEnableHealthAccess;
 
   /// Hint text of the assistant conversation's message input field.
   ///

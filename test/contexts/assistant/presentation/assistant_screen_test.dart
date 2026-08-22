@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:life_os/contexts/finance/domain/finance_category.dart';
 import 'package:life_os/contexts/finance/domain/finance_type.dart';
@@ -635,7 +636,8 @@ void main() {
     });
 
     testWidgets('320dp × textScale 2.0: hint and all three examples lay out '
-        'without errors and every chip is reachable', (tester) async {
+        'without errors, and every chip and the consent exit below them is '
+        'reachable', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       tester.platformDispatcher.textScaleFactorTestValue = 2.0;
@@ -667,6 +669,25 @@ void main() {
         ),
       );
       expect(editable.controller.text, _loc.assistantExampleOwe);
+
+      // The consent exit is the LAST thing in this state, below all three
+      // chips: a column that fits the chips can still put it out of reach.
+      // Checked after the chips because tapping it navigates away.
+      await expectNoLayoutErrors(() async {
+        await tester.ensureVisible(
+          find.byKey(const Key('home-assistant-enable-health-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('home-assistant-enable-health-button')),
+        );
+        await tester.pumpAndSettle();
+      });
+      expect(
+        find.text('/settings'),
+        findsOneWidget,
+        reason: 'the tap on the consent exit missed',
+      );
     });
 
     testWidgets('a health entry offers the three health examples — and none '
@@ -718,27 +739,29 @@ void main() {
       }
     });
 
-    testWidgets('a finance entry, and no entry at all, keep the finance '
-        'examples', (tester) async {
-      for (final chatContext in <AssistantChatContext?>[
-        AssistantChatContext.fromQuery(const {
+    testWidgets('a finance entry keeps the finance examples', (tester) async {
+      // The home entry (`chatContext == null`) is deliberately NOT folded in
+      // here any more: its three follow the health consent, and asserting it
+      // alongside finance would pin whichever consent this harness happens to
+      // default to. It has its own pair below.
+      await _pumpScreen(
+        tester,
+        healthEnabled: true,
+        chatContext: AssistantChatContext.fromQuery(const {
           'ctx': 'finance',
           'tab': 'transactions',
           'month': '2025-11',
         }),
-        null,
+      );
+      expect(find.text('How much did I spend this month?'), findsOneWidget);
+      expect(find.text('Log: lunch 120'), findsOneWidget);
+      expect(find.text('Who do I owe?'), findsOneWidget);
+      for (final healthKey in const [
+        'assistant-example-remaining-portions',
+        'assistant-example-recent-lunches',
+        'assistant-example-weight-trend',
       ]) {
-        await _pumpScreen(tester, chatContext: chatContext);
-        expect(find.text('How much did I spend this month?'), findsOneWidget);
-        expect(find.text('Log: lunch 120'), findsOneWidget);
-        expect(find.text('Who do I owe?'), findsOneWidget);
-        for (final healthKey in const [
-          'assistant-example-remaining-portions',
-          'assistant-example-recent-lunches',
-          'assistant-example-weight-trend',
-        ]) {
-          expect(find.byKey(Key(healthKey)), findsNothing);
-        }
+        expect(find.byKey(Key(healthKey)), findsNothing);
       }
     });
 
@@ -779,6 +802,175 @@ void main() {
       // out of the user's own Gemini quota.
       expect(harness.assistantRepository.calls, isEmpty);
       expect(find.byKey(const Key('assistant-sending-indicator')), findsNothing);
+    });
+  });
+
+  group('AssistantScreen home entry (no module at all)', () {
+    // Literals, never `_loc.<key>`: an expectation read from the same ARB
+    // entry the widget reads compares a string with itself and can never go
+    // red. Each string is asserted on its own line so one ARB mutation fails
+    // on its own — a set-shaped guard follows only the first chip.
+    const spend = 'How much did I spend this month?';
+    const log = 'Log: lunch 120';
+    const owe = 'Who do I owe?';
+    const remainingPortions =
+        "What can I still eat with today's remaining portions?";
+    const homeHintConsentOn =
+        'Ask about your spending, budgets or split balances — or tell me a '
+        'transaction to log. You can also ask about your health and diet '
+        "records. I don't know what you were looking at, so name the period "
+        'you mean.';
+    const homeHintConsentOff =
+        'Ask about your spending, budgets or split balances — or tell me a '
+        'transaction to log. Turn on health access in settings and you can '
+        "also ask about your health and diet records. I don't know what you "
+        'were looking at, so name the period you mean.';
+
+    String hint(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
+        .data!;
+
+    // The two cases below are a deliberate pair: the fixture differs in
+    // `healthEnabled` and nothing else, so a screen that ignored the consent
+    // fails one of them. Each asserts what is present AND what is absent —
+    // without the absences, deleting a branch outright still passes.
+    testWidgets('with health access ON promises the health half outright, '
+        'offers the remaining-portions example and no settings exit', (
+      tester,
+    ) async {
+      await _pumpScreen(tester, healthEnabled: true);
+
+      expect(hint(tester), homeHintConsentOn);
+
+      expect(find.text(spend), findsOneWidget);
+      expect(find.text(log), findsOneWidget);
+      expect(find.text(remainingPortions), findsOneWidget);
+      expect(
+        find.byKey(const Key('assistant-example-remaining-portions')),
+        findsOneWidget,
+      );
+
+      expect(find.text(owe), findsNothing);
+      expect(
+        find.text('What did I usually eat for lunch this week?'),
+        findsNothing,
+      );
+      expect(find.text('How has my weight changed this month?'), findsNothing);
+      expect(
+        find.byKey(const Key('home-assistant-enable-health-button')),
+        findsNothing,
+        reason: 'nothing to turn on — the consent is already granted',
+      );
+      expect(find.text('Turn on health access'), findsNothing);
+    });
+
+    testWidgets('with health access OFF makes the health half conditional, '
+        'keeps the three finance examples and offers a settings exit', (
+      tester,
+    ) async {
+      // The default state: health access is opt-in and sign-out clears it, so
+      // this is the copy nearly every home visitor meets. The flat promise
+      // must not appear here — it names a capability that is switched off.
+      await _pumpScreen(tester);
+
+      expect(hint(tester), homeHintConsentOff);
+      expect(hint(tester), isNot(homeHintConsentOn));
+
+      expect(find.text(spend), findsOneWidget);
+      expect(find.text(log), findsOneWidget);
+      expect(find.text(owe), findsOneWidget);
+
+      expect(find.text(remainingPortions), findsNothing);
+      expect(
+        find.byKey(const Key('assistant-example-remaining-portions')),
+        findsNothing,
+      );
+
+      expect(
+        find.byKey(const Key('home-assistant-enable-health-button')),
+        findsOneWidget,
+      );
+      // It says what it does, not where it goes: it is several semantics
+      // nodes below the sentence whose conditional half it answers, and a
+      // screen reader reaches it on its own (WCAG 2.4.6).
+      expect(find.text('Turn on health access'), findsOneWidget);
+      expect(find.text('Go to settings'), findsNothing);
+      // Low-emphasis on purpose: a home visitor asked for nothing in
+      // particular, so the way out is offered, not pressed — the health
+      // entry's dead end is what earns a `FilledButton`.
+      expect(
+        tester.widget(
+          find.byKey(const Key('home-assistant-enable-health-button')),
+        ),
+        isA<TextButton>(),
+      );
+
+      // The health entry's fuller notice stays off the home path — it belongs
+      // to someone who just asked for health and hit a dead end.
+      expect(find.byKey(const Key('assistant-health-access-off')), findsNothing);
+      expect(
+        find.byKey(const Key('assistant-health-access-off-settings-button')),
+        findsNothing,
+      );
+      expect(find.textContaining('health access is off'), findsNothing);
+    });
+
+    testWidgets('its settings button goes to /settings', (tester) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(
+        find.byKey(const Key('home-assistant-enable-health-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('/settings'), findsOneWidget);
+    });
+
+    testWidgets('the consent-dependent block is a live region carrying the '
+        'wording, and it rewords when the consent is granted', (tester) async {
+      // The user grants health access in settings and comes back to the SAME
+      // mounted screen (`_onKeyChanged` only calls `setState`), so the hint
+      // rewords and the third example swaps with nothing for a screen reader
+      // to re-read (WCAG 4.1.3). The only test that flips the consent on a
+      // live screen rather than pumping a fixture.
+      final handle = tester.ensureSemantics();
+      final harness = await _pumpScreen(tester);
+
+      // The LIVE tree, not `find.byType(Semantics)` and not `getSemantics`:
+      // the widget-tree walk proves only that the flag was written, and the
+      // label is what makes the announcement — web's `LiveRegion.update`
+      // announces nothing at all for a live region with an empty label, which
+      // is exactly what wrapping the hint in its own semantics boundary (or a
+      // Merge/ExcludeSemantics between them) would produce.
+      // Deprecated in favour of `rootPipelineOwner`, which is NOT a
+      // substitute: its own `semanticsOwner` is null.
+      // ignore: deprecated_member_use
+      final owner = tester.binding.pipelineOwner.semanticsOwner!;
+      String liveRegionLabel() {
+        final nodes = _liveRegionNodes(owner.rootSemanticsNode!);
+        expect(
+          nodes,
+          hasLength(1),
+          reason: 'expected exactly one live region in the home empty state',
+        );
+        return nodes.single.label;
+      }
+
+      expect(liveRegionLabel(), homeHintConsentOff);
+
+      await harness.keyController.setHealthEnabled(true);
+      await tester.pumpAndSettle();
+
+      expect(hint(tester), homeHintConsentOn);
+      expect(find.text(remainingPortions), findsOneWidget);
+      expect(find.text(owe), findsNothing);
+      expect(
+        find.byKey(const Key('home-assistant-enable-health-button')),
+        findsNothing,
+      );
+      expect(liveRegionLabel(), homeHintConsentOn);
+
+      handle.dispose();
     });
   });
 
@@ -1375,4 +1567,18 @@ void main() {
       expect(bubbleWidth, baselineWidth);
     });
   });
+}
+
+List<SemanticsNode> _liveRegionNodes(SemanticsNode root) {
+  final found = <SemanticsNode>[];
+  void visit(SemanticsNode node) {
+    if (node.getSemanticsData().flagsCollection.isLiveRegion) found.add(node);
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  visit(root);
+  return found;
 }
