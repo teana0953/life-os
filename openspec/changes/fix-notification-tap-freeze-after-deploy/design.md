@@ -70,7 +70,7 @@ so the next person does not re-walk them.
 
 | # | Hypothesis | Verdict | Evidence |
 |---|---|---|---|
-| H1 | `_popTo`'s `while` loop / the `popUntil` above it spin forever on the UI thread | **Real bug, NOT this one** | Both loops assume every pop removes a route. `Navigator.pop` is a no-op under `PopScope(canPop: false)` — one exists at `shared_food_item_sheet.dart:401` (`canPop: !submitting`), the only such site in `lib/` (`grep -rn "canPop: " lib/` → 1 hit). A widget test can drive it. Eliminated as *the* report by fact 3: a spinning UI isolate never yields, so no amount of backgrounding recovers it. |
+| H1 | `_popTo`'s `while` loop / the `popUntil` above it spin forever on the UI thread | **Real bug, NOT this one** | Both loops assume every pop removes a route. Measured (not assumed): `NavigatorState.pop` ignores `PopScope`/`popDisposition` entirely — only `maybePop` and the system back gesture consult it — so a naive `pop()` loop sails straight through the `canPop: !submitting` guard at `shared_food_item_sheet.dart:401` (the only such site in `lib/`, `grep -rn "canPop: " lib/` → 1 hit) without spinning *or* respecting the guard. D4's fix therefore drives the popup-route loop with `maybePop`, which both makes the refusal terminate the loop (no spin) and makes the guard actually block dismissal while a submit is in flight, as the sheet's own comment requires. A widget test can drive it. Eliminated as *the* report by fact 3: a spinning UI isolate never yields, so no amount of backgrounding recovers it. |
 | H2 | The boot splash (`#lifeos-splash`, `position:fixed; inset:0; z-index:2147483647`) is left covering the page and swallows every tap | **Eliminated** | It is opaque (`background-color: var(--lifeos-cream)`), so the symptom would be a cream screen, contradicting fact 2. It is also removed by a 600 ms `setTimeout` fallback independent of `transitionend`, and only ever exists before the first frame. |
 | H3 | The offline bar (`#lifeos-offline`) covers the app | **Eliminated** | Geometry: it is a top strip (`top/left/right`, no `bottom`), `display:none` unless `navigator.onLine` is false. It cannot cover the content the user reports seeing. |
 | H4 | `applyUpdate()` ran, unregistered the Flutter worker, and the page is a zombie waiting on `location.reload()` | **Eliminated for this report** | `pwaUpdate.apply()` has exactly one path to it: the banner's button (`pwa_update_banner.dart:51` → `PwaUpdateController.applyUpdate` → `PwaUpdateImpl.applyUpdate`). Fact 1 says the banner is not necessarily even visible. Nothing calls it automatically. |
@@ -103,6 +103,11 @@ first; keep the existing on-load and periodic checks unchanged. This addresses H
 weakening the update path, and it is independently correct regardless of which hypothesis
 wins: the first thing a reminder tap triggers should not be a worker install.
 
+Deliberate exception: a cold start (no window already open, so the tap runs `openWindow`)
+still runs the on-load check first — the on-load call is the load path, and moving it too
+would leave a freshly-opened window with no update check at all until the next 30-minute
+tick. Scoped this way, the guarantee only covers a tap landing on an already-open window.
+
 ### D4 — Bound the pops instead of special-casing the sheet
 
 `_popTo` must terminate. The rule is structural, not per-screen: stop when a pop does not
@@ -110,6 +115,17 @@ change the stack. Reading the stack depth before and after each pop and stopping
 not shrink covers both loops' assumption and both refusal modes (a `PopScope` that declines,
 and a route that is not a `GoRoute` and so never shrinks `matches`) without naming any screen.
 The user-visible consequence, per the spec, is "left on a usable screen" — never a freeze.
+
+Both loops drive their pop with `NavigatorState.maybePop`, not `GoRouter.pop`/`.pop` — per H1's
+evidence, `.pop` does not consult `PopScope.canPop`, so using it would both risk the spin D4
+exists to prevent *and* silently defeat `shared_food_item_sheet.dart`'s in-flight-submit guard.
+The `matches.length` loop needs this as much as the popup loop: a refusing route is not
+necessarily the popup loop's problem to catch (it only ever looks at what is directly on top
+*before* that loop starts) — it can sit deeper, above the destination but below other pushed
+pages, and only the length-based loop passes through it. `maybePop`'s boolean is not itself
+the check: it returns `true` even for a refused pop (`RoutePopDisposition.doNotPop`), so a
+refusal is caught the same way any other no-progress pop is — by comparing the top route
+before and after (`identical(_topRoute(...), top)`) and stopping when it hasn't changed.
 
 Alternative considered — a fixed iteration cap: rejected. A magic number is a guess about
 stack depth that goes wrong quietly in both directions; "the stack stopped changing" is the

@@ -58,10 +58,20 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
     JSFunction? listener;
     JSFunction? visibilityListener;
     JSFunction? focusListener;
+    // Every one of the three signals below means "the app is in front of the
+    // user again", so each demands a frame BEFORE it is turned into a
+    // hand-over signal (issue #226, design.md D2). Ordering is the whole
+    // point: the gates behind this stream are what swallowed the signal
+    // whenever nothing was pending, which is most taps.
+    void signal() {
+      demandForegroundFrame();
+      controller.add(null);
+    }
+
     controller = StreamController<void>.broadcast(
       onListen: () {
         final serviceWorker = web.window.navigator.serviceWorker;
-        listener = ((web.Event _) => controller.add(null)).toJS;
+        listener = ((web.Event _) => signal()).toJS;
         serviceWorker.addEventListener('message', listener);
         // ServiceWorkerContainer's client message queue is disabled by
         // default — a plain addEventListener alone silently queues messages
@@ -82,11 +92,11 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
         visibilityListener =
             ((web.Event _) {
               if (web.document.visibilityState == 'visible') {
-                controller.add(null);
+                signal();
               }
             }).toJS;
         web.document.addEventListener('visibilitychange', visibilityListener);
-        focusListener = ((web.Event _) => controller.add(null)).toJS;
+        focusListener = ((web.Event _) => signal()).toJS;
         web.window.addEventListener('focus', focusListener);
       },
       onCancel: () {

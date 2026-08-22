@@ -78,6 +78,51 @@ void main() {
       expect(fake.applyCalled, isTrue);
     });
 
+    testWidgets(
+      'nothing but that button ever applies an update — showing the banner, '
+      'polling, resuming and dismissing never reload the app (issue #226 H4: '
+      'a page mid-`applyUpdate` is painted but dead, so the elimination has '
+      'to be a committed assertion, not prose)',
+      (tester) async {
+        final fake = _FakePwaUpdate();
+        final controller = PwaUpdateController(
+          fake,
+          pollInterval: const Duration(milliseconds: 10),
+        );
+        await _pumpBanner(tester, controller);
+
+        fake.available = true;
+        controller.start();
+        // Several poll intervals plus a foreground transition: every
+        // automatic path this controller has, exercised with an update
+        // sitting ready.
+        await tester.pump(const Duration(milliseconds: 50));
+        controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.byKey(const Key('pwa-update-button')), findsOneWidget);
+        expect(fake.applyCalled, isFalse);
+
+        await tester.tap(find.byKey(const Key('pwa-update-dismiss')));
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(fake.applyCalled, isFalse);
+
+        fake.available = false;
+        controller.checkForUpdate();
+        fake.available = true;
+        controller.checkForUpdate();
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('pwa-update-button')));
+        await tester.pump();
+
+        expect(fake.applyCalled, isTrue);
+
+        // Not `addTearDown`: `start()`'s periodic timer has to be cancelled
+        // inside the test body, before the binding checks for pending timers.
+        controller.dispose();
+      },
+    );
+
     testWidgets('tapping dismiss hides the banner for this session', (
       tester,
     ) async {

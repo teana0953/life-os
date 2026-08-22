@@ -5,9 +5,12 @@
   with a guard that `applyUpdate` is only ever reached from the banner's own action — verify by
   mutating the banner to call `applyUpdate` from `initState` and confirming the guard turns red.
 - [ ] 1.2 Prove H1 is a real freeze: add a widget test in `test/app_pending_deep_link_test.dart`
-  that puts a `PopScope(canPop: false)` popup route above a handed-over destination and drives the
+  that puts a popup route refusing `didPop` above a handed-over destination and drives the
   hand-over. Verify by watching the test hang (or trip its own timeout) **before** task 3.1 lands,
-  and pass after it.
+  and pass after it. Separately, add a `PopScope(canPop: false)` fixture (a route that refuses
+  only when popped via `maybePop`, not `didPop`) above a destination that the `matches.length`
+  loop — not the popup loop — has to unwind past; verify it survives the hand-over instead of
+  being force-closed by `GoRouter.pop()`/`NavigatorState.pop()`, which ignores `PopScope`.
 - [ ] 1.3 Write the H5 static findings into `design.md`'s table if `grep -rn "deferred as" lib/`
   ever returns a hit — verify by re-running that grep and confirming it is still 0.
 
@@ -25,9 +28,12 @@
   store, with an **expired** entry, and with an **unrecognized** path each still produce the
   foreground effect.
 - [ ] 2.3 Wire the seam in `lib/app.dart` / `lib/main.dart` composition so it is active in the
-  real app. Verify with a widget test in `test/app_pending_deep_link_test.dart` that a foreground
-  signal on a running app with no pending destination leaves the visible screen tappable (drive a
-  tap and assert its effect), and mutate the wiring away to confirm the test goes red.
+  real app. Verify with a widget test in `test/app_pending_deep_link_test.dart` that asserts the
+  injected `onForegrounded` seam is called once per foreground signal — not that a driven tap
+  fails, which a widget test cannot make happen regardless of whether the seam is wired (the
+  binding always services a frame on `pump`/`tap`) — and mutate the wiring away to confirm the
+  seam-call assertion goes red. `demandForegroundFrame()`'s own body (the two `scheduleFrame`
+  calls) has no VM-side guard; it is verifiable only on-device, by steps 5.1/5.4.
 - [ ] 2.4 `TZ=UTC flutter test test/shared/pwa/pending_deep_link_controller_test.dart` — the TTL
   and `savedAt` comparisons in these tests are date/time-carrying and this repo is UTC+8 locally,
   UTC in CI. Verify both `flutter test` and the `TZ=UTC` run report `All tests passed!`.

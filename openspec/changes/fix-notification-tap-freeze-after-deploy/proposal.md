@@ -35,10 +35,14 @@ starts by falsifying hypotheses rather than by patching the most suspicious-look
   `registration.update()` from the same `visibilitychange` that a notification tap produces,
   which is precisely the deploy-shaped moment in fact 1. That check SHALL be moved off the
   foregrounding path so downloading a new version is never the first thing that happens when
-  the user taps a reminder.
+  the user taps a reminder into an *already-open* window. A cold start — no window open, so
+  the tap runs `openWindow` — still hits the page's on-load check first; that exception is
+  unchanged and is recorded in design.md D3.
 - **`_popTo` can no longer spin forever.** Its `while` loop and the `popUntil` above it both
-  assume every pop removes a route; a route that declines to pop (`PopScope(canPop: false)` —
-  `shared_food_item_sheet.dart` has one) makes both loops non-terminating on the UI thread.
+  assume every pop removes a route; a route that declines to pop (`didPop` returning `false` —
+  a non-`GoRoute` pageless route not shrinking `matches`, or a `PopScope(canPop: false)` route
+  popped via `maybePop` — `shared_food_item_sheet.dart` has one) makes both loops
+  non-terminating on the UI thread.
   This is **not** the reported bug (fact 3 rules it out — a pegged isolate does not recover on
   resume) but it is a real freeze with the same on-screen shape, reachable from the same code
   path, and it is cheap to bound.

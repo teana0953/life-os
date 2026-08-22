@@ -304,6 +304,15 @@ class App extends StatefulWidget {
   /// via the conditional export in `pending_deep_link.dart`.
   final PendingDeepLinkStore pendingDeepLinkStore;
 
+  /// What happens whenever the app is brought to the foreground, before any
+  /// hand-over judgement runs: defaults (resolved in [_AppState], not here —
+  /// so the fallback is exercised by every test that doesn't override this)
+  /// to [demandForegroundFrame], which asks the engine for a frame so a
+  /// window pulled forward by a notification tap paints and accepts input
+  /// again (issue #226, design.md D2). Injectable so a widget test can see
+  /// that this composition root really wires it.
+  final void Function()? onForegrounded;
+
   /// Resolves "today" for the day-keyed routes. Defaults to [DateTime.now];
   /// a test pins it — and can advance it — to reach the midnight rollover.
   final DateTime Function() clock;
@@ -374,6 +383,7 @@ class App extends StatefulWidget {
     required this.careAdherenceController,
     required this.dataRevision,
     this.pendingDeepLinkStore = const PendingDeepLinkStoreImpl(),
+    this.onForegrounded,
     this.clock = DateTime.now,
   });
 
@@ -418,6 +428,7 @@ class _AppState extends State<App> {
         recognizes: (path) =>
             !_router.configuration.findMatch(Uri.parse(path)).isError,
         navigate: _navigateToHandover,
+        onForegrounded: widget.onForegrounded ?? demandForegroundFrame,
         // Nothing was built because the app was already showing the
         // destination, but the checklist it shows was loaded when the screen
         // opened — so a reminder tapped from 今日照護 itself would otherwise
@@ -450,48 +461,136 @@ class _AppState extends State<App> {
 
   /// Navigates to a handed-over destination, returning whether the app was
   /// already showing it (design.md D4) — in which case nothing was built and
-  /// the caller reloads it instead.
+  /// the caller reloads it instead. When [_popTo] reports the destination
+  /// exists but a route above it refused to be dismissed, this leaves the
+  /// user's screen untouched rather than stacking a second copy of the
+  /// destination on top of whatever is refusing to close.
   Future<bool> _navigateToHandover(String path) async {
-    if (_popTo(path)) return true;
+    final popped = await _popTo(path);
+    if (!mounted) return false;
+    if (popped != null) return popped;
     final previous = _lastHandoverPush;
-    _lastHandoverPush = path;
-    if (previous != null && previous != path && _popTo(previous)) {
-      _router.pushReplacement(path);
-      return false;
+    if (previous != null && previous != path) {
+      final poppedPrevious = await _popTo(previous);
+      if (!mounted) return false;
+      // A route above `previous` refused to close: leave the screen alone,
+      // the same as a refusal against `path` itself above. Falling through
+      // to push `path` here would bury the refusing route under a second
+      // screen while `previous` stays in the stack underneath both — the
+      // opposite of the "single replaceable layer" `_lastHandoverPush`
+      // exists to maintain (issue #193).
+      if (poppedPrevious == false) return false;
+      if (poppedPrevious == true) {
+        _lastHandoverPush = path;
+        _router.pushReplacement(path);
+        return false;
+      }
     }
+    _lastHandoverPush = path;
     _router.push(path);
     return false;
   }
 
-  /// Pops back to [location] when it is anywhere in the current stack,
-  /// reporting whether it was found (already on top counts, and pops
-  /// nothing). Everything opened above it goes — which is the point: the user
-  /// tapped a notification to get *there*.
-  bool _popTo(String location) {
-    final matches = _router.routerDelegate.currentConfiguration.matches;
-    final index = matches.lastIndexWhere((m) => m.matchedLocation == location);
-    if (index < 0) return false;
+  /// Pops back to [location] when it is anywhere in the current stack.
+  /// Returns `null` when [location] is not in the stack at all (the caller
+  /// should push it), `true` when it was reached — already on top counts,
+  /// and pops nothing — or `false` when it is in the stack but a route above
+  /// it refused to be dismissed, so it could not be uncovered.
+  Future<bool?> _popTo(String location) async {
+    // Both loops below stop on the same rule, and it is a structural one, not
+    // a count: **when a pop does not change the stack, stop** (design.md D4).
+    // A route may decline to be popped — `Route.didPop` returning false puts
+    // it straight back on the stack — and a loop that assumes every pop
+    // removes something then spins forever on the UI thread (issue #226). A
+    // fixed iteration cap was rejected: it is a guess about stack depth that
+    // goes wrong quietly in both directions.
+    final navigator = _router.routerDelegate.navigatorKey.currentState;
     // A dialog/bottom sheet (`PopupRoute`) sits on top of whichever GoRoute
     // page was showing when it opened without adding to `matches` — so when
     // the destination is *already* the topmost page, the length-based loop
     // below would never run and the modal would be left covering it. Closing
     // popup routes first, before comparing depths, handles that case too.
-    _router.routerDelegate.navigatorKey.currentState?.popUntil(
-      (route) => route is! PopupRoute,
-    );
-    // `GoRouter.pop()` pops whatever the platform Navigator has on top —
-    // if that is a dialog/bottom sheet rather than a GoRoute, the matched
-    // route count does not shrink. Re-reading `matches.length` after every
-    // pop (rather than counting down a fixed number of iterations) means a
-    // modal above the destination costs an extra pop rather than one being
-    // left un-popped or the loop stopping short of the destination.
-    final targetDepth = index + 1;
-    while (_router.routerDelegate.currentConfiguration.matches.length >
-            targetDepth &&
-        _router.canPop()) {
-      _router.pop();
+    //
+    // `maybePop` (not `pop`) is deliberate here: `NavigatorState.pop`
+    // ignores `PopScope.canPop`/`popDisposition` entirely (only `maybePop`
+    // and the system back gesture consult it) — using `pop` would force
+    // closed a sheet like `shared_food_item_sheet.dart`'s in-flight-submit
+    // guard (design.md H1). `maybePop`'s boolean does not reliably say so —
+    // it returns true even for a refused pop (`RoutePopDisposition.doNotPop`)
+    // — so the refusal is caught the same way any other no-progress pop is:
+    // by `identical(_topRoute(navigator), top)` staying true.
+    // Tracks a popup route that refused to close: it still covers whatever
+    // page is on top, so even a destination the length-based loop below
+    // finds already on top is not actually uncovered (Finding A).
+    var popupBlocked = false;
+    while (navigator != null) {
+      final top = _topRoute(navigator);
+      if (top is! PopupRoute) break;
+      final popped = await navigator.maybePop();
+      if (!mounted) return false;
+      if (!popped || identical(_topRoute(navigator), top)) {
+        popupBlocked = true;
+        break;
+      }
     }
-    return true;
+    // `matches`/`index` are read only now, after the popup loop above, not
+    // before it: `maybePop` awaits `Route.willPop()`, a genuine suspension
+    // point, and a redirect or another push landing during that suspension
+    // would make an earlier snapshot stale.
+    var matches = _router.routerDelegate.currentConfiguration.matches;
+    var index = matches.lastIndexWhere((m) => m.matchedLocation == location);
+    // A popup that refused to close wins outright even when `location` isn't
+    // in the stack at all: it is still covering whatever page is on top, so
+    // the caller must not push a fresh destination over it (Finding A).
+    if (index < 0) return popupBlocked ? false : null;
+    // This loop pops the same way: `navigator.maybePop()`, not
+    // `GoRouter.pop()`/`NavigatorState.pop()`. `GoRouter.pop()` resolves to
+    // `NavigatorState.pop()` under the hood, which — like the popup loop
+    // above — ignores `PopScope.canPop`, so a refusing route sitting above
+    // the target (not just directly on top, as the popup loop above already
+    // handles, but anywhere the length-based unwinding still has to pass
+    // through) would otherwise get force-closed here instead. Re-reading
+    // `matches.length` after every pop (rather than counting down a fixed
+    // number of iterations) means a modal above the destination costs an
+    // extra pop rather than one being left un-popped or the loop stopping
+    // short of the destination — so "nothing shrank" alone is not the stop
+    // condition here: the top route has to be unchanged too, or that extra
+    // pop would end the unwinding short of the destination. `matches`/`index`
+    // are re-read after every pop too, for the same staleness reason as
+    // above.
+    while (matches.length > index + 1 && _router.canPop()) {
+      final depthBefore = matches.length;
+      final topBefore = navigator == null ? null : _topRoute(navigator);
+      final popped = navigator == null ? true : await navigator.maybePop();
+      if (!mounted) return false;
+      if (navigator == null) _router.pop();
+      matches = _router.routerDelegate.currentConfiguration.matches;
+      index = matches.lastIndexWhere((m) => m.matchedLocation == location);
+      final movedNothing =
+          matches.length == depthBefore &&
+          (navigator == null || identical(_topRoute(navigator), topBefore));
+      if (!popped || movedNothing || index < 0) break;
+    }
+    // Not `return true` unconditionally (Finding A): the loop above can
+    // exit early — a refusing route mid-stack, or the destination vanishing
+    // out of `matches` — leaving it un-uncovered even though it was once
+    // found. A popup that refused to close overrides this outright: it is
+    // still on top regardless of what `matches` now says.
+    if (popupBlocked) return false;
+    return index >= 0 && matches.length <= index + 1;
+  }
+
+  /// The route currently on top of [navigator]. `popUntil` with an
+  /// always-true predicate pops nothing — it is the only public way to read
+  /// the topmost route, and reading it is what tells a pop that did nothing
+  /// (a route declining to be dismissed) from one that did.
+  Route<dynamic>? _topRoute(NavigatorState navigator) {
+    Route<dynamic>? top;
+    navigator.popUntil((route) {
+      top = route;
+      return true;
+    });
+    return top;
   }
 
   @override

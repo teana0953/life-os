@@ -6,8 +6,31 @@
 /// tests inject a fake instead.
 library;
 
+import 'package:flutter/widgets.dart';
+
 export 'pending_deep_link_stub.dart'
     if (dart.library.js_interop) 'pending_deep_link_web.dart';
+
+/// Asks the engine for a frame because the app has just been brought to the
+/// foreground (issue #226, design.md D2).
+///
+/// A window that `client.focus()` pulls to the front does not always get a
+/// genuine `hidden → visible` transition, and without one Flutter never
+/// schedules another frame: the last frame stays on screen and taps
+/// hit-test and mutate state, but nothing repaints — so the app looks dead
+/// until the user backgrounds it and comes back, which is the only reason
+/// that workaround works.
+///
+/// Both calls are deliberate. `SchedulerBinding.scheduleFrame` returns
+/// without doing anything while the binding believes a frame is already on
+/// its way — which is exactly the stalled state, since the frame it is
+/// waiting for is the one that never arrives — so the demand is repeated
+/// straight to the engine, where it is idempotent.
+void demandForegroundFrame() {
+  final binding = WidgetsBinding.instance;
+  binding.scheduleFrame();
+  binding.platformDispatcher.scheduleFrame();
+}
 
 /// TRANSITIONAL (design D1), and the Dart half of a two-language constant:
 /// until the backend sends an explicit `path` on every push, `web/push_sw.js`
