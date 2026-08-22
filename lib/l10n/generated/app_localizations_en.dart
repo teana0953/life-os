@@ -3069,6 +3069,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assistantExampleOwe => 'Who do I owe?';
 
   @override
+  String get assistantEmptyHintHealth =>
+      'Ask about your health and diet records.';
+
+  @override
+  String get assistantEmptyHintHealthNoDay =>
+      'Ask about your health and diet records. I don\'t know which day you were looking at, so name the period you mean.';
+
+  @override
+  String get assistantExampleRemainingPortions =>
+      'What can I still eat with today\'s remaining portions?';
+
+  @override
+  String get assistantExampleRecentLunches =>
+      'What did I usually eat for lunch this week?';
+
+  @override
+  String get assistantExampleWeightTrend =>
+      'How has my weight changed this month?';
+
+  @override
+  String get assistantHealthAccessOff =>
+      'I can\'t read your health or diet records yet — health access is off. Turn it on in settings, then come back.';
+
+  @override
   String get assistantSetupIntro =>
       'The assistant needs your own Gemini API key. Add one in Settings — it\'s free to create, and on the free tier your conversations may be used to improve the provider\'s products.';
 

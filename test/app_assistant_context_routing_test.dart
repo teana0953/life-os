@@ -135,5 +135,76 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      '/assistant?ctx=health&tab=overview&day=… renders the health context row '
+      'and prefixes the first message with that same line',
+      (tester) async {
+        final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
+        final profileRepository = FakeProfileRepository(
+          UserProfile(
+            id: 'user-1',
+            firebaseUid: 'firebase-abc',
+            email: 'user@example.com',
+            displayName: 'Test User',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            isAdmin: false,
+          ),
+        );
+        SharedPreferences.setMockInitialValues({});
+        final geminiKeyController = GeminiKeyController(
+          await SharedPreferences.getInstance(),
+        );
+        await geminiKeyController.setKey('test-key');
+        final assistantRepository = RecordingAssistantRepository();
+        final financeRepository = FakeFinanceRepository();
+        final assistantController = AssistantController(
+          SendAssistantMessage(assistantRepository),
+          AddTransaction(financeRepository),
+          ListFinanceCategories(financeRepository),
+        );
+
+        await pumpApp(
+          tester,
+          authRepository: authRepository,
+          loginController: LoginController(SignIn(authRepository)),
+          homeController: HomeController(
+            GetProfile(profileRepository),
+            SignOut(authRepository),
+          ),
+          assistantController: assistantController,
+          geminiKeyController: geminiKeyController,
+        );
+        await tester.pumpAndSettle();
+
+        final router = GoRouter.of(
+          tester.element(find.byKey(const Key('settings-icon-button'))),
+        );
+        router.go('/assistant?ctx=health&tab=overview&day=2026-08-22');
+        await tester.pumpAndSettle();
+
+        // The literal, not `context.label(...)`: reading the expectation out
+        // of the same code path the screen used would compare the app with
+        // itself. `app.dart` handing `fromQuery` an unparsed `ctx=health`
+        // shows no row at all and fails here.
+        final painted = tester
+            .widget<Text>(find.byKey(const Key('assistant-context-row-text')))
+            .data!;
+        expect(painted, 'Started from: Health Overview Aug 22, 2026');
+
+        await tester.enterText(
+          find.byKey(const Key('assistant-composer-field')),
+          'what can I still eat?',
+        );
+        await tester.tap(find.byKey(const Key('assistant-send-button')));
+        await tester.pumpAndSettle();
+
+        expect(assistantRepository.calls, hasLength(1));
+        expect(
+          assistantRepository.calls.single.single.content,
+          'Started from: Health Overview Aug 22, 2026\nwhat can I still eat?',
+        );
+      },
+    );
   });
 }

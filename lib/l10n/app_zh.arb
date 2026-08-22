@@ -809,5 +809,11 @@
   "careHistoryPeriodCustomLabel": "{from} – {to}",
   "careHistoryErrorForCustomRange": "無法載入 {from} – {to} 的紀錄,請再試一次。",
   "routeNotFound": "這個頁面不存在。",
-  "routeNotFoundGoHome": "回到首頁"
+  "routeNotFoundGoHome": "回到首頁",
+  "assistantEmptyHintHealth": "問我你的健康與飲食紀錄。",
+  "assistantEmptyHintHealthNoDay": "問我你的健康與飲食紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。",
+  "assistantExampleRemainingPortions": "今天剩下的份量還可以吃什麼?",
+  "assistantExampleRecentLunches": "我這禮拜午餐通常吃什麼?",
+  "assistantExampleWeightTrend": "我這個月的體重變化如何?",
+  "assistantHealthAccessOff": "我現在還看不到你的健康與飲食紀錄——健康存取還沒開啟。到設定開啟後再回來。"
 }

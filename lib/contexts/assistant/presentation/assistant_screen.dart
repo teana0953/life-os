@@ -207,6 +207,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
     // state, with the way forward. The entry point never hides or greys out.
     if (!widget.geminiKeyController.hasKey ||
         controller.lastError == AssistantFailure.missingKey) {
+      // Shared with the health-access-off block below: both are the same kind
+      // of "you are stuck, here is the way out" copy on this one screen, and
+      // two different type ramps read as two unrelated notices.
+      final setupCopy = Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      );
       return Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -216,7 +222,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
               key: const Key('assistant-setup'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(loc.assistantSetupIntro, textAlign: TextAlign.center),
+                Text(
+                  loc.assistantSetupIntro,
+                  textAlign: TextAlign.center,
+                  style: setupCopy,
+                ),
                 const SizedBox(height: 8),
                 // Why a key they already pasted is gone: sign-out clears it
                 // (app.dart's sign-out reset). Worded as a standing rule, not
@@ -227,7 +237,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                   loc.assistantSetupSignOutNotice,
                   key: const Key('assistant-setup-sign-out-notice'),
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: setupCopy,
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
@@ -278,9 +288,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   /// One tappable example prompt. It **fills the composer and stops there**
-  /// rather than sending: two of the three examples ("log: lunch 120") are
-  /// templates the user is meant to edit, and a stray tap that sent would
-  /// spend a request out of their own Gemini quota.
+  /// rather than sending: some examples ("log: lunch 120") are templates the
+  /// user is meant to edit, and a stray tap that sent would spend a request
+  /// out of their own Gemini quota.
   Widget _exampleChip(String key, String text) {
     return ActionChip(
       key: Key(key),
@@ -297,6 +307,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
+  /// Whether the user arrived from the health shell — the one switch that
+  /// picks both the example chips and the hint, so a health entry can never
+  /// end up with health chips under a hint about split balances.
+  bool get _isHealthEntry =>
+      widget.chatContext?.space == AssistantContextSpace.health;
+
+  /// Whether the entered view carried a period the model can anchor to. Both
+  /// fields, not just the month: a health entry's period is a day.
+  bool get _hasPeriod =>
+      widget.chatContext?.month != null || widget.chatContext?.day != null;
+
   Widget _transcript(BuildContext context, AppLocalizations loc) {
     final theme = Theme.of(context);
     final entries = widget.controller.entries;
@@ -312,33 +333,116 @@ class _AssistantScreenState extends State<AssistantScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  // Keyed on the *month*, not on having a context at all: what
-                  // this hint is for is a vague "how much did I spend" having
-                  // nothing to anchor to. The home screen sends no context, and
-                  // the split tab sends a tab but never a month (`fromQuery`
-                  // drops it — split has no month to show), so both leave the
-                  // question unanchored and both need the nudge.
-                  widget.chatContext?.month == null
-                      ? loc.assistantEmptyHintNoContext
-                      : loc.assistantEmptyHint,
-                  key: const Key('assistant-empty-hint'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                // Suppressed, not just skipped past, when health access is
+                // off: this hint invites the very question the notice below
+                // says the assistant cannot answer ("Ask about your health
+                // records" atop "I can't read your health records yet" was
+                // a live contradiction on the first-run path).
+                if (!(_isHealthEntry && !widget.geminiKeyController.healthEnabled)) ...[
+                  Text(
+                    // Module first, then anchoring. Keyed on "no period at
+                    // all", not on the month alone: what the ask-for-a-period
+                    // half is for is a vague "how much did I spend/eat" having
+                    // nothing to attach to. The home screen sends no context,
+                    // the split tab sends a tab but never a month and 趨勢/更多
+                    // send a tab but never a day (`fromQuery` drops both — no
+                    // such screen shows one), so all three leave the question
+                    // unanchored and all three need the nudge.
+                    _isHealthEntry
+                        ? (_hasPeriod
+                              ? loc.assistantEmptyHintHealth
+                              : loc.assistantEmptyHintHealthNoDay)
+                        : (_hasPeriod
+                              ? loc.assistantEmptyHint
+                              : loc.assistantEmptyHintNoContext),
+                    key: const Key('assistant-empty-hint'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _exampleChip('assistant-example-spend', loc.assistantExampleSpend),
-                    _exampleChip('assistant-example-log', loc.assistantExampleLog),
-                    _exampleChip('assistant-example-owe', loc.assistantExampleOwe),
-                  ],
-                ),
+                  const SizedBox(height: 16),
+                ],
+                if (_isHealthEntry && !widget.geminiKeyController.healthEnabled)
+                  // The three health chips would every one of them be a dead
+                  // end here — `healthEnabled` is off by default and
+                  // sign-out clears it, so the most-walked first-time path
+                  // (健康 → 問助手 → 「今天剩下的份量還可以吃什麼?」) reaches
+                  // an assistant that is sent no health data at all. The exit
+                  // takes their place rather than sitting above them: the
+                  // existing `assistant-setup` block is the only other place
+                  // that points at settings, and it serves the no-key state
+                  // only.
+                  Column(
+                    key: const Key('assistant-health-access-off'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // `liveRegion`: this block appears in place when the
+                      // user comes back from settings (the screen is not
+                      // remounted, and a guard here pins that), so a screen
+                      // reader has nothing to re-read and would otherwise
+                      // announce nothing at all — the user is left tapping
+                      // chips that are no longer there (WCAG 4.1.3).
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          loc.assistantHealthAccessOff,
+                          textAlign: TextAlign.center,
+                          // Same size and colour as the hint above and as the
+                          // setup block's copy: both are a "you are stuck,
+                          // here is the way out" paragraph on this one screen,
+                          // and two different type ramps read as two
+                          // unrelated notices.
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        key: const Key(
+                          'assistant-health-access-off-settings-button',
+                        ),
+                        onPressed: () => context.push('/settings'),
+                        child: Text(loc.assistantGoToSettings),
+                      ),
+                    ],
+                  )
+                else
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _isHealthEntry
+                        ? [
+                            _exampleChip(
+                              'assistant-example-remaining-portions',
+                              loc.assistantExampleRemainingPortions,
+                            ),
+                            _exampleChip(
+                              'assistant-example-recent-lunches',
+                              loc.assistantExampleRecentLunches,
+                            ),
+                            _exampleChip(
+                              'assistant-example-weight-trend',
+                              loc.assistantExampleWeightTrend,
+                            ),
+                          ]
+                        : [
+                            _exampleChip(
+                              'assistant-example-spend',
+                              loc.assistantExampleSpend,
+                            ),
+                            _exampleChip(
+                              'assistant-example-log',
+                              loc.assistantExampleLog,
+                            ),
+                            _exampleChip(
+                              'assistant-example-owe',
+                              loc.assistantExampleOwe,
+                            ),
+                          ],
+                  ),
               ],
             ),
           ),

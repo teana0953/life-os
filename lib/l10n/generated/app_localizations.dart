@@ -5373,7 +5373,7 @@ abstract class AppLocalizations {
   /// **'Sending your message'**
   String get assistantSendingLabel;
 
-  /// Label of the button that opens the assistant from a screen's app bar (finance). Spelled out rather than icon-only: a tooltip never appears on a touch device, so an unlabelled robot icon says nothing there.
+  /// Label of the button that opens the assistant from a screen's app bar (finance and health). Spelled out rather than icon-only: a tooltip never appears on a touch device, so an unlabelled robot icon says nothing there.
   ///
   /// In en, this message translates to:
   /// **'Ask AI'**
@@ -5396,6 +5396,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Who do I owe?'**
   String get assistantExampleOwe;
+
+  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (總覽 only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your health and diet records.'**
+  String get assistantEmptyHintHealth;
+
+  /// As assistantEmptyHintHealth, but used when the health entry carried no day (記錄 / 趨勢 / 更多 are not day-keyed) — nudges the user to state the period themselves, since the assistant has no day to anchor a question like "how much did I eat" to.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about your health and diet records. I don\'t know which day you were looking at, so name the period you mean.'**
+  String get assistantEmptyHintHealthNoDay;
+
+  /// Tappable example prompt in the assistant's HEALTH empty state, pointing at the day's remaining portion allowance. Tapping fills the composer (it does not send).
+  ///
+  /// In en, this message translates to:
+  /// **'What can I still eat with today\'s remaining portions?'**
+  String get assistantExampleRemainingPortions;
+
+  /// Tappable example prompt in the assistant's HEALTH empty state, pointing at recent/favorite foods (the shipped read-only tools). Tapping fills the composer (it does not send).
+  ///
+  /// In en, this message translates to:
+  /// **'What did I usually eat for lunch this week?'**
+  String get assistantExampleRecentLunches;
+
+  /// Tappable example prompt in the assistant's HEALTH empty state, pointing at the weight trend. Tapping fills the composer (it does not send).
+  ///
+  /// In en, this message translates to:
+  /// **'How has my weight changed this month?'**
+  String get assistantExampleWeightTrend;
+
+  /// Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why.
+  ///
+  /// In en, this message translates to:
+  /// **'I can\'t read your health or diet records yet — health access is off. Turn it on in settings, then come back.'**
+  String get assistantHealthAccessOff;
 
   /// Body text of the assistant screen's setup state, shown when no Gemini API key is stored yet; includes the free-tier data-use disclosure echoing the settings page.
   ///

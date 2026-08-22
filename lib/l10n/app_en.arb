@@ -4159,7 +4159,7 @@
   },
   "assistantOpenButton": "Ask AI",
   "@assistantOpenButton": {
-    "description": "Label of the button that opens the assistant from a screen's app bar (finance). Spelled out rather than icon-only: a tooltip never appears on a touch device, so an unlabelled robot icon says nothing there."
+    "description": "Label of the button that opens the assistant from a screen's app bar (finance and health). Spelled out rather than icon-only: a tooltip never appears on a touch device, so an unlabelled robot icon says nothing there."
   },
   "assistantExampleSpend": "How much did I spend this month?",
   "@assistantExampleSpend": {
@@ -4172,6 +4172,30 @@
   "assistantExampleOwe": "Who do I owe?",
   "@assistantExampleOwe": {
     "description": "Tappable example prompt in the assistant's empty state, pointing at split balances. Tapping fills the composer (it does not send)."
+  },
+  "assistantEmptyHintHealth": "Ask about your health and diet records.",
+  "@assistantEmptyHintHealth": {
+    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (\u7e3d\u89bd only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only."
+  },
+  "assistantEmptyHintHealthNoDay": "Ask about your health and diet records. I don't know which day you were looking at, so name the period you mean.",
+  "@assistantEmptyHintHealthNoDay": {
+    "description": "As assistantEmptyHintHealth, but used when the health entry carried no day (\u8a18\u9304 / \u8da8\u52e2 / \u66f4\u591a are not day-keyed) \u2014 nudges the user to state the period themselves, since the assistant has no day to anchor a question like \"how much did I eat\" to."
+  },
+  "assistantExampleRemainingPortions": "What can I still eat with today's remaining portions?",
+  "@assistantExampleRemainingPortions": {
+    "description": "Tappable example prompt in the assistant's HEALTH empty state, pointing at the day's remaining portion allowance. Tapping fills the composer (it does not send)."
+  },
+  "assistantExampleRecentLunches": "What did I usually eat for lunch this week?",
+  "@assistantExampleRecentLunches": {
+    "description": "Tappable example prompt in the assistant's HEALTH empty state, pointing at recent/favorite foods (the shipped read-only tools). Tapping fills the composer (it does not send)."
+  },
+  "assistantExampleWeightTrend": "How has my weight changed this month?",
+  "@assistantExampleWeightTrend": {
+    "description": "Tappable example prompt in the assistant's HEALTH empty state, pointing at the weight trend. Tapping fills the composer (it does not send)."
+  },
+  "assistantHealthAccessOff": "I can't read your health or diet records yet — health access is off. Turn it on in settings, then come back.",
+  "@assistantHealthAccessOff": {
+    "description": "Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why."
   },
   "assistantSetupIntro": "The assistant needs your own Gemini API key. Add one in Settings — it's free to create, and on the free tier your conversations may be used to improve the provider's products.",
   "@assistantSetupIntro": {
