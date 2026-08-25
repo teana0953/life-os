@@ -2391,11 +2391,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAssistantHealthLabel =>
-      'Let the assistant read my health and diet records';
+      'Let the assistant read my health, diet and care records';
 
   @override
   String get settingsAssistantHealthDisclosure =>
-      'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.';
+      'With this on, the assistant can read your health, diet and care records — including menstrual cycles, blood glucose, vital signs and care records such as medication and rehabilitation — and sends them to Google\'s Gemini.';
 
   @override
   String get settingsAssistantHealthNoKeyNotice =>
@@ -3055,11 +3055,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantEmptyHintNoContextMixed =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health, diet and care records. I don\'t know what you were looking at, so name the period you mean.';
 
   @override
   String get assistantEmptyHintNoContextMixedConsentOff =>
-      'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.';
+      'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health, diet and care records. I don\'t know what you were looking at, so name the period you mean.';
 
   @override
   String get assistantSendingLabel => 'Sending your message';
@@ -3078,11 +3078,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantEmptyHintHealth =>
-      'Ask about your health and diet records.';
+      'Ask about your health, diet and care records.';
 
   @override
   String get assistantEmptyHintHealthNoDay =>
-      'Ask about your health and diet records. I don\'t know which day you were looking at, so name the period you mean.';
+      'Ask about your health, diet and care records. I don\'t know which day you were looking at, so name the period you mean.';
 
   @override
   String get assistantExampleRemainingPortions =>
@@ -3098,7 +3098,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantHealthAccessOff =>
-      'I can\'t read your health or diet records yet — health access is off. Turn it on in settings, then come back.';
+      'I can\'t read your health, diet or care records yet — health access is off. Turn it on in settings, then come back.';
 
   @override
   String get assistantSetupIntro =>

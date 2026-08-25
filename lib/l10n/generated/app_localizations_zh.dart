@@ -2305,11 +2305,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAssistantHealthLabel =>
-      'Let the assistant read my health and diet records';
+      'Let the assistant read my health, diet and care records';
 
   @override
   String get settingsAssistantHealthDisclosure =>
-      'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.';
+      'With this on, the assistant can read your health, diet and care records — including menstrual cycles, blood glucose, vital signs and care records such as medication and rehabilitation — and sends them to Google\'s Gemini.';
 
   @override
   String get settingsAssistantHealthNoKeyNotice =>
@@ -2947,11 +2947,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assistantEmptyHintNoContextMixed =>
-      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
 
   @override
   String get assistantEmptyHintNoContextMixedConsentOff =>
-      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
 
   @override
   String get assistantSendingLabel => 'Sending your message';
@@ -2969,11 +2969,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantExampleOwe => 'Who do I owe?';
 
   @override
-  String get assistantEmptyHintHealth => '問我你的健康與飲食紀錄。';
+  String get assistantEmptyHintHealth => '問我你的健康、飲食與照護紀錄。';
 
   @override
   String get assistantEmptyHintHealthNoDay =>
-      '問我你的健康與飲食紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
+      '問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
 
   @override
   String get assistantExampleRemainingPortions => '今天剩下的份量還可以吃什麼?';
@@ -2986,7 +2986,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get assistantHealthAccessOff =>
-      '我現在還看不到你的健康與飲食紀錄——健康存取還沒開啟。到設定開啟後再回來。';
+      '我現在還看不到你的健康、飲食與照護紀錄——健康存取還沒開啟。到設定開啟後再回來。';
 
   @override
   String get assistantSetupIntro =>
@@ -5413,11 +5413,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '金鑰只儲存在這個裝置。登出、重新安裝 App 或清除瀏覽器資料都會一併清掉,也會把健康資料存取的開關關回去,需要重新貼上金鑰並再次開啟開關。';
 
   @override
-  String get settingsAssistantHealthLabel => '讓助理讀取我的健康與飲食記錄';
+  String get settingsAssistantHealthLabel => '讓助理讀取我的健康、飲食與照護紀錄';
 
   @override
   String get settingsAssistantHealthDisclosure =>
-      '開啟後,助理可以讀取你的健康與飲食記錄——包含生理期、血糖與生命徵象——並把它們送到 Google 的 Gemini。';
+      '開啟後,助理可以讀取你的健康、飲食與照護紀錄——包含生理期、血糖、生命徵象,以及用藥、復健等照護紀錄——並把它們送到 Google 的 Gemini。';
 
   @override
   String get settingsAssistantHealthNoKeyNotice =>
@@ -6051,11 +6051,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get assistantEmptyHintNoContextMixed =>
-      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。也可以問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
 
   @override
   String get assistantEmptyHintNoContextMixedConsentOff =>
-      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康與飲食紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
+      '問我花費、預算或分帳,也可以直接說一筆要記的帳。到設定開啟健康存取後,也可以問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪裡,牽涉時間範圍請自己講清楚(例如「這個月」或「今天」)。';
 
   @override
   String get assistantSendingLabel => '正在傳送你的訊息';
@@ -6073,11 +6073,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantExampleOwe => '我欠誰錢?';
 
   @override
-  String get assistantEmptyHintHealth => '問我你的健康與飲食紀錄。';
+  String get assistantEmptyHintHealth => '問我你的健康、飲食與照護紀錄。';
 
   @override
   String get assistantEmptyHintHealthNoDay =>
-      '問我你的健康與飲食紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
+      '問我你的健康、飲食與照護紀錄。我不知道你剛才在看哪一天,牽涉時間範圍請自己講清楚(例如「今天」)。';
 
   @override
   String get assistantExampleRemainingPortions => '今天剩下的份量還可以吃什麼?';
@@ -6090,7 +6090,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get assistantHealthAccessOff =>
-      '我現在還看不到你的健康與飲食紀錄——健康存取還沒開啟。到設定開啟後再回來。';
+      '我現在還看不到你的健康、飲食與照護紀錄——健康存取還沒開啟。到設定開啟後再回來。';
 
   @override
   String get assistantSetupIntro =>
