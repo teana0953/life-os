@@ -4325,16 +4325,16 @@ abstract class AppLocalizations {
   /// **'The key is stored only on this device. Signing out, reinstalling the app, or clearing browser data removes it and turns the health-access switch back off — you\'ll need to paste the key and turn the switch back on again.'**
   String get settingsAssistantDeviceNotice;
 
-  /// Label of the switch in the assistant settings section that grants the assistant read access to the user's health and diet records. Off by default.
+  /// Label of the switch in the assistant settings section that grants the assistant read access to the user's health, diet and care records. Off by default. Care records ride this same single opt-in — there is no separate care switch — so the label names the same scope the disclosure beside it does.
   ///
   /// In en, this message translates to:
-  /// **'Let the assistant read my health and diet records'**
+  /// **'Let the assistant read my health, diet and care records'**
   String get settingsAssistantHealthLabel;
 
-  /// Always-visible disclosure beside the health-access switch, naming the record types (menstrual cycles, blood glucose, vital signs) and the destination (Google's Gemini). Phrased as a standing rule about how the feature works, not as a notice that something has happened. The free-tier training use is stated once, in settingsAssistantTrainingNotice below, rather than repeated here.
+  /// Always-visible disclosure beside the health-access switch, naming the record types (menstrual cycles, blood glucose, vital signs, and care records such as medication and rehabilitation — the app's own care categories) and the destination (Google's Gemini). Phrased as a standing rule about how the feature works, not as a notice that something has happened. The free-tier training use is stated once, in settingsAssistantTrainingNotice below, rather than repeated here.
   ///
   /// In en, this message translates to:
-  /// **'With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google\'s Gemini.'**
+  /// **'With this on, the assistant can read your health, diet and care records — including menstrual cycles, blood glucose, vital signs and care records such as medication and rehabilitation — and sends them to Google\'s Gemini.'**
   String get settingsAssistantHealthDisclosure;
 
   /// Notice shown in the assistant settings section when no Gemini API key is stored: the health-access switch can still be set, but no request is made at all until a key exists.
@@ -5367,16 +5367,16 @@ abstract class AppLocalizations {
   /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. I don\'t know what you were looking at, so name a month if it matters.'**
   String get assistantEmptyHintNoContext;
 
-  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened with NO module at all (the home entry, which belongs to neither finance nor health) AND health access is already on. It must name both halves — finance (spending, budgets, split balances, logging a transaction) and health/diet records — or the home entry presents the assistant as finance-only. When health access is off, assistantEmptyHintNoContextMixedConsentOff is used instead: this wording promises a capability that is not switched on. Ends with the same ask-for-a-period nudge as assistantEmptyHintNoContext, since a home visit carries no month or day to anchor a vague question to.
+  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened with NO module at all (the home entry, which belongs to neither finance nor health) AND health access is already on. It must name both halves — finance (spending, budgets, split balances, logging a transaction) and health/diet/care records — or the home entry presents the assistant as finance-only. When health access is off, assistantEmptyHintNoContextMixedConsentOff is used instead: this wording promises a capability that is not switched on. Ends with the same ask-for-a-period nudge as assistantEmptyHintNoContext, since a home visit carries no month or day to anchor a vague question to.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.'**
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health, diet and care records. I don\'t know what you were looking at, so name the period you mean.'**
   String get assistantEmptyHintNoContextMixed;
 
-  /// Placeholder shown in the empty transcript before the first message, used ONLY on the home entry (no module at all) while health access is off — the default state, since health access is opt-in and sign-out clears it. Same as assistantEmptyHintNoContextMixed except the health half is conditional: it says what turning the consent on would unlock instead of promising a capability the assistant does not currently have. A low-emphasis text button pointing at settings sits under the example prompts so the sentence has somewhere to lead; the health entry's fuller access-off notice stays out of the home path.
+  /// Placeholder shown in the empty transcript before the first message, used ONLY on the home entry (no module at all) while health access is off — the default state, since health access is opt-in and sign-out clears it. Same as assistantEmptyHintNoContextMixed except the health/diet/care half is conditional: it says what turning the consent on would unlock instead of promising a capability the assistant does not currently have. A low-emphasis text button pointing at settings sits under the example prompts so the sentence has somewhere to lead; the health entry's fuller access-off notice stays out of the home path.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health and diet records. I don\'t know what you were looking at, so name the period you mean.'**
+  /// **'Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health, diet and care records. I don\'t know what you were looking at, so name the period you mean.'**
   String get assistantEmptyHintNoContextMixedConsentOff;
 
   /// Screen-reader announcement while an assistant reply is in flight. The spinner is animation only, so without this a screen-reader user gets no signal that anything is happening (WCAG 4.1.3).
@@ -5409,16 +5409,16 @@ abstract class AppLocalizations {
   /// **'Who do I owe?'**
   String get assistantExampleOwe;
 
-  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (總覽 only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only.
+  /// Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (總覽 only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only, and so are the care tools (get_care_today/get_care_range/list_care_items) — the hint must not offer to log, complete or change a care entry either.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your health and diet records.'**
+  /// **'Ask about your health, diet and care records.'**
   String get assistantEmptyHintHealth;
 
-  /// As assistantEmptyHintHealth, but used when the health entry carried no day (記錄 / 趨勢 / 更多 are not day-keyed) — nudges the user to state the period themselves, since the assistant has no day to anchor a question like "how much did I eat" to.
+  /// As assistantEmptyHintHealth (same health, diet and care scope), but used when the health entry carried no day (記錄 / 趨勢 / 更多 are not day-keyed) — nudges the user to state the period themselves, since the assistant has no day to anchor a question like "how much did I eat" to.
   ///
   /// In en, this message translates to:
-  /// **'Ask about your health and diet records. I don\'t know which day you were looking at, so name the period you mean.'**
+  /// **'Ask about your health, diet and care records. I don\'t know which day you were looking at, so name the period you mean.'**
   String get assistantEmptyHintHealthNoDay;
 
   /// Tappable example prompt in the assistant's HEALTH empty state, pointing at the day's remaining portion allowance. Tapping fills the composer (it does not send).
@@ -5439,10 +5439,10 @@ abstract class AppLocalizations {
   /// **'How has my weight changed this month?'**
   String get assistantExampleWeightTrend;
 
-  /// Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why.
+  /// Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Names health, diet and care records — the same ground the settings disclosure covers — joined with "or" to match the negative phrasing, and names no reminder or push records, which the consent does not cover. Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why.
   ///
   /// In en, this message translates to:
-  /// **'I can\'t read your health or diet records yet — health access is off. Turn it on in settings, then come back.'**
+  /// **'I can\'t read your health, diet or care records yet — health access is off. Turn it on in settings, then come back.'**
   String get assistantHealthAccessOff;
 
   /// Body text of the assistant screen's setup state, shown when no Gemini API key is stored yet; includes the free-tier data-use disclosure echoing the settings page.

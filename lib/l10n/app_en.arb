@@ -3093,13 +3093,13 @@
   "@settingsAssistantDeviceNotice": {
     "description": "Always-visible notice in the assistant settings section that the key lives in device-local storage and does not survive signing out, a PWA reinstall, or cleared browser data — and that the same event also resets the health-access switch above, since consent is stored alongside the key. Stated once for the whole section, not repeated per feature."
   },
-  "settingsAssistantHealthLabel": "Let the assistant read my health and diet records",
+  "settingsAssistantHealthLabel": "Let the assistant read my health, diet and care records",
   "@settingsAssistantHealthLabel": {
-    "description": "Label of the switch in the assistant settings section that grants the assistant read access to the user's health and diet records. Off by default."
+    "description": "Label of the switch in the assistant settings section that grants the assistant read access to the user's health, diet and care records. Off by default. Care records ride this same single opt-in — there is no separate care switch — so the label names the same scope the disclosure beside it does."
   },
-  "settingsAssistantHealthDisclosure": "With this on, the assistant can read your health and diet records — including menstrual cycles, blood glucose and vital signs — and sends them to Google's Gemini.",
+  "settingsAssistantHealthDisclosure": "With this on, the assistant can read your health, diet and care records — including menstrual cycles, blood glucose, vital signs and care records such as medication and rehabilitation — and sends them to Google's Gemini.",
   "@settingsAssistantHealthDisclosure": {
-    "description": "Always-visible disclosure beside the health-access switch, naming the record types (menstrual cycles, blood glucose, vital signs) and the destination (Google's Gemini). Phrased as a standing rule about how the feature works, not as a notice that something has happened. The free-tier training use is stated once, in settingsAssistantTrainingNotice below, rather than repeated here."
+    "description": "Always-visible disclosure beside the health-access switch, naming the record types (menstrual cycles, blood glucose, vital signs, and care records such as medication and rehabilitation — the app's own care categories) and the destination (Google's Gemini). Phrased as a standing rule about how the feature works, not as a notice that something has happened. The free-tier training use is stated once, in settingsAssistantTrainingNotice below, rather than repeated here."
   },
   "settingsAssistantHealthNoKeyNotice": "With no key saved, the assistant sends nothing anywhere — this setting takes effect once you add one.",
   "@settingsAssistantHealthNoKeyNotice": {
@@ -4150,13 +4150,13 @@
     "description": "Placeholder shown in the empty transcript before the first message, telling the user what the assistant can do — used when the assistant was opened WITH a chat context (e.g. from the finance tabs), which gives the model a month/tab to anchor a vague question to. Kept to one line: it sits above the tappable example prompts, which are what actually teach the capability."
   },
   "assistantEmptyHintNoContext": "Ask about your spending, budgets or split balances — or tell me a transaction to log. I don't know what you were looking at, so name a month if it matters.",
-  "assistantEmptyHintNoContextMixed": "Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health and diet records. I don't know what you were looking at, so name the period you mean.",
+  "assistantEmptyHintNoContextMixed": "Ask about your spending, budgets or split balances — or tell me a transaction to log. You can also ask about your health, diet and care records. I don't know what you were looking at, so name the period you mean.",
   "@assistantEmptyHintNoContextMixed": {
-    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened with NO module at all (the home entry, which belongs to neither finance nor health) AND health access is already on. It must name both halves — finance (spending, budgets, split balances, logging a transaction) and health/diet records — or the home entry presents the assistant as finance-only. When health access is off, assistantEmptyHintNoContextMixedConsentOff is used instead: this wording promises a capability that is not switched on. Ends with the same ask-for-a-period nudge as assistantEmptyHintNoContext, since a home visit carries no month or day to anchor a vague question to."
+    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened with NO module at all (the home entry, which belongs to neither finance nor health) AND health access is already on. It must name both halves — finance (spending, budgets, split balances, logging a transaction) and health/diet/care records — or the home entry presents the assistant as finance-only. When health access is off, assistantEmptyHintNoContextMixedConsentOff is used instead: this wording promises a capability that is not switched on. Ends with the same ask-for-a-period nudge as assistantEmptyHintNoContext, since a home visit carries no month or day to anchor a vague question to."
   },
-  "assistantEmptyHintNoContextMixedConsentOff": "Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health and diet records. I don't know what you were looking at, so name the period you mean.",
+  "assistantEmptyHintNoContextMixedConsentOff": "Ask about your spending, budgets or split balances — or tell me a transaction to log. Turn on health access in settings and you can also ask about your health, diet and care records. I don't know what you were looking at, so name the period you mean.",
   "@assistantEmptyHintNoContextMixedConsentOff": {
-    "description": "Placeholder shown in the empty transcript before the first message, used ONLY on the home entry (no module at all) while health access is off — the default state, since health access is opt-in and sign-out clears it. Same as assistantEmptyHintNoContextMixed except the health half is conditional: it says what turning the consent on would unlock instead of promising a capability the assistant does not currently have. A low-emphasis text button pointing at settings sits under the example prompts so the sentence has somewhere to lead; the health entry's fuller access-off notice stays out of the home path."
+    "description": "Placeholder shown in the empty transcript before the first message, used ONLY on the home entry (no module at all) while health access is off — the default state, since health access is opt-in and sign-out clears it. Same as assistantEmptyHintNoContextMixed except the health/diet/care half is conditional: it says what turning the consent on would unlock instead of promising a capability the assistant does not currently have. A low-emphasis text button pointing at settings sits under the example prompts so the sentence has somewhere to lead; the health entry's fuller access-off notice stays out of the home path."
   },
   "assistantSendingLabel": "Sending your message",
   "@assistantSendingLabel": {
@@ -4181,13 +4181,13 @@
   "@assistantExampleOwe": {
     "description": "Tappable example prompt in the assistant's empty state, pointing at split balances. Tapping fills the composer (it does not send)."
   },
-  "assistantEmptyHintHealth": "Ask about your health and diet records.",
+  "assistantEmptyHintHealth": "Ask about your health, diet and care records.",
   "@assistantEmptyHintHealth": {
-    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (\u7e3d\u89bd only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only."
+    "description": "Placeholder shown in the empty transcript before the first message, used when the assistant was opened from the HEALTH module on a tab that shows a day (\u7e3d\u89bd only). The finance wording (spending, budgets, split balances) would be about a module the user did not come from. Unlike the finance hint, this does not offer to log an entry: the shipped health tools (list_favorite_foods/list_recent_foods/search_foods) are read-only, and so are the care tools (get_care_today/get_care_range/list_care_items) — the hint must not offer to log, complete or change a care entry either."
   },
-  "assistantEmptyHintHealthNoDay": "Ask about your health and diet records. I don't know which day you were looking at, so name the period you mean.",
+  "assistantEmptyHintHealthNoDay": "Ask about your health, diet and care records. I don't know which day you were looking at, so name the period you mean.",
   "@assistantEmptyHintHealthNoDay": {
-    "description": "As assistantEmptyHintHealth, but used when the health entry carried no day (\u8a18\u9304 / \u8da8\u52e2 / \u66f4\u591a are not day-keyed) \u2014 nudges the user to state the period themselves, since the assistant has no day to anchor a question like \"how much did I eat\" to."
+    "description": "As assistantEmptyHintHealth (same health, diet and care scope), but used when the health entry carried no day (\u8a18\u9304 / \u8da8\u52e2 / \u66f4\u591a are not day-keyed) \u2014 nudges the user to state the period themselves, since the assistant has no day to anchor a question like \"how much did I eat\" to."
   },
   "assistantExampleRemainingPortions": "What can I still eat with today's remaining portions?",
   "@assistantExampleRemainingPortions": {
@@ -4201,9 +4201,9 @@
   "@assistantExampleWeightTrend": {
     "description": "Tappable example prompt in the assistant's HEALTH empty state, pointing at the weight trend. Tapping fills the composer (it does not send)."
   },
-  "assistantHealthAccessOff": "I can't read your health or diet records yet — health access is off. Turn it on in settings, then come back.",
+  "assistantHealthAccessOff": "I can't read your health, diet or care records yet — health access is off. Turn it on in settings, then come back.",
   "@assistantHealthAccessOff": {
-    "description": "Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why."
+    "description": "Shown in the assistant's empty state INSTEAD of the health example prompts, when the assistant was opened from the health module while the health-access consent is off (it is opt-in and sign-out clears it). Names health, diet and care records — the same ground the settings disclosure covers — joined with \"or\" to match the negative phrasing, and names no reminder or push records, which the consent does not cover. Without it the most common first-time path — 健康 → 問助手 → tap the remaining-portions example — asks an assistant that can see no health data, with nothing on screen saying why."
   },
   "assistantSetupIntro": "The assistant needs your own Gemini API key. Add one in Settings — it's free to create, and on the free tier your conversations may be used to improve the provider's products.",
   "@assistantSetupIntro": {

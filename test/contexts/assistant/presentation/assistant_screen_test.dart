@@ -817,14 +817,14 @@ void main() {
         "What can I still eat with today's remaining portions?";
     const homeHintConsentOn =
         'Ask about your spending, budgets or split balances — or tell me a '
-        'transaction to log. You can also ask about your health and diet '
-        "records. I don't know what you were looking at, so name the period "
-        'you mean.';
+        'transaction to log. You can also ask about your health, diet and '
+        "care records. I don't know what you were looking at, so name the "
+        'period you mean.';
     const homeHintConsentOff =
         'Ask about your spending, budgets or split balances — or tell me a '
         'transaction to log. Turn on health access in settings and you can '
-        "also ask about your health and diet records. I don't know what you "
-        'were looking at, so name the period you mean.';
+        "also ask about your health, diet and care records. I don't know "
+        'what you were looking at, so name the period you mean.';
 
     String hint(WidgetTester tester) => tester
         .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
@@ -997,8 +997,8 @@ void main() {
       // with itself and can never go red.
       expect(
         find.text(
-          "I can't read your health or diet records yet — health access is "
-          'off. Turn it on in settings, then come back.',
+          "I can't read your health, diet or care records yet — health access "
+          'is off. Turn it on in settings, then come back.',
         ),
         findsOneWidget,
       );
@@ -1006,7 +1006,10 @@ void main() {
       // The "Ask about your health records" hint must not sit above a
       // notice saying the assistant cannot read them — that contradiction
       // shipped on this screen's first-run path until this guard was added.
-      expect(find.text('Ask about your health and diet records.'), findsNothing);
+      expect(
+        find.text('Ask about your health, diet and care records.'),
+        findsNothing,
+      );
       expect(find.byKey(const Key('assistant-empty-hint')), findsNothing);
       expect(
         find.descendant(

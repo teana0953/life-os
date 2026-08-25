@@ -462,6 +462,11 @@ void main() {
         // these sentences replaced by a sentinel.
         expect(find.text(en.settingsAssistantHealthLabel), findsOneWidget);
         expect(find.text(en.settingsAssistantHealthDisclosure), findsOneWidget);
+        expect(
+          en.settingsAssistantHealthLabel,
+          contains('care records'),
+          reason: 'the switch label stopped covering care too',
+        );
         // The disclosure names the record types outright rather than
         // summarizing them as "health data" — that is the point of the
         // sentence, and a rewrite that generalizes it must go red.
@@ -469,6 +474,9 @@ void main() {
           'menstrual cycles',
           'blood glucose',
           'vital signs',
+          'care records',
+          'medication',
+          'rehabilitation',
           "Google's Gemini",
         ]) {
           expect(
@@ -635,6 +643,15 @@ void main() {
         // A key missing from app_zh_Hant.arb falls back to the English
         // template silently — this is what makes that surface as a failure.
         expect(zhText, isNot(enText));
+      }
+
+      // The consent scope is stated per language, so the English content
+      // guard above is not enough on its own: a zh rewrite that drops care
+      // leaves the two strings translated and different from English, and
+      // every other zh assertion here still passes.
+      expect(zh.settingsAssistantHealthLabel, contains('照護'));
+      for (final named in ['照護', '用藥', '復健']) {
+        expect(zh.settingsAssistantHealthDisclosure, contains(named));
       }
     });
 

@@ -221,9 +221,9 @@ void main() {
         // with identical copy visible here, since each line pins its own.
         const homeHint =
             'Ask about your spending, budgets or split balances — or tell me '
-            'a transaction to log. You can also ask about your health and '
-            "diet records. I don't know what you were looking at, so name the "
-            'period you mean.';
+            'a transaction to log. You can also ask about your health, diet '
+            "and care records. I don't know what you were looking at, so name "
+            'the period you mean.';
         const financeHint =
             'Ask about your spending, budgets or split balances — or tell me '
             'a transaction to log.';
@@ -280,10 +280,10 @@ void main() {
         // assertion built from the same ARB entry the widget reads compares
         // a string with itself and can never go red. Each of the four hints
         // is asserted on its own so a single ARB mutation fails one line.
-        const healthHint = 'Ask about your health and diet records.';
+        const healthHint = 'Ask about your health, diet and care records.';
         const healthHintNoDay =
-            "Ask about your health and diet records. I don't know which day "
-            "you were looking at, so name the period you mean.";
+            "Ask about your health, diet and care records. I don't know "
+            "which day you were looking at, so name the period you mean.";
         const financeHint =
             'Ask about your spending, budgets or split balances — or tell me '
             'a transaction to log.';
@@ -293,14 +293,14 @@ void main() {
             "name a month if it matters.";
         const homeHint =
             'Ask about your spending, budgets or split balances — or tell me '
-            'a transaction to log. You can also ask about your health and '
-            "diet records. I don't know what you were looking at, so name the "
-            'period you mean.';
+            'a transaction to log. You can also ask about your health, diet '
+            "and care records. I don't know what you were looking at, so name "
+            'the period you mean.';
         const homeHintConsentOff =
             'Ask about your spending, budgets or split balances — or tell me '
             'a transaction to log. Turn on health access in settings and you '
-            "can also ask about your health and diet records. I don't know "
-            'what you were looking at, so name the period you mean.';
+            "can also ask about your health, diet and care records. I don't "
+            'know what you were looking at, so name the period you mean.';
 
         String hint() => tester
             .widget<Text>(find.byKey(const Key('assistant-empty-hint')))
