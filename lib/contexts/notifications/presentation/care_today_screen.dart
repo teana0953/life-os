@@ -15,6 +15,7 @@ import '../../../shared/widgets/mascot.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
+import 'care_dose_label.dart';
 import 'care_today_controller.dart';
 import 'push_health_controller.dart';
 import 'push_off_banner.dart';
@@ -167,6 +168,42 @@ String _doneRowSubtitle(
     default:
       return slot.timeOfDay;
   }
+}
+
+/// [_doneRowSubtitle] plus, for a medication, the dose below it in a quieter
+/// style so it doesn't compete with the row's title.
+Widget _doneRowSubtitleContent(
+  AppLocalizations loc,
+  ThemeData theme,
+  CareTodaySlot slot,
+  DateTime Function(DateTime) toLocalTime,
+) {
+  final statusLine = _doneRowSubtitle(loc, slot, toLocalTime);
+  final doseLabel = careDoseLabel(
+    loc,
+    slot.category,
+    slot.doseQuantity,
+    slot.dose,
+  );
+  if (doseLabel.isEmpty) return Text(statusLine);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(statusLine),
+      Semantics(
+        label: loc.careDoseSemanticLabel(doseLabel),
+        child: ExcludeSemantics(
+          child: Text(
+            doseLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// The Today care checklist: a focus card for the most-urgent slot (earliest
@@ -549,6 +586,12 @@ class _FocusCard extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isOverdue = slot.status == CareTodayStatus.overdue;
+    final doseLabel = careDoseLabel(
+      loc,
+      slot.category,
+      slot.doseQuantity,
+      slot.dose,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: LedgeCard(
@@ -586,10 +629,13 @@ class _FocusCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(slot.note!),
               ),
-            if (slot.dose != null && slot.dose!.isNotEmpty)
+            if (doseLabel.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(slot.dose!),
+                child: Semantics(
+                  label: loc.careDoseSemanticLabel(doseLabel),
+                  child: ExcludeSemantics(child: Text(doseLabel)),
+                ),
               ),
             const SizedBox(height: 16),
             // OverflowBar, not a plain Row (FIX 9) — stacks the two buttons
@@ -785,6 +831,12 @@ class _SlotRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final doseLabel = careDoseLabel(
+      loc,
+      slot.category,
+      slot.doseQuantity,
+      slot.dose,
+    );
     return LedgeCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -810,6 +862,21 @@ class _SlotRow extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    // Deliberately quieter than the focus card's dose: the
+                    // queue row's job is to be scanned, so the dose has to
+                    // be readable without competing with the title.
+                    if (doseLabel.isNotEmpty)
+                      Semantics(
+                        label: loc.careDoseSemanticLabel(doseLabel),
+                        child: ExcludeSemantics(
+                          child: Text(
+                            doseLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -930,8 +997,11 @@ class _DoneGroupState extends State<_DoneGroup> {
                               decoration: TextDecoration.lineThrough,
                             ),
                     ),
-                    subtitle: Text(
-                      _doneRowSubtitle(loc, slot, widget.toLocalTime),
+                    subtitle: _doneRowSubtitleContent(
+                      loc,
+                      theme,
+                      slot,
+                      widget.toLocalTime,
                     ),
                     // Greyed out (and untappable) whenever anything is in
                     // flight, not just this row — see [_DoneGroup.marking].

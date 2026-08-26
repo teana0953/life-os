@@ -7,6 +7,7 @@ import '../../../shared/widgets/mascot.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/care_item.dart';
 import '../domain/care_today.dart';
+import 'care_dose_label.dart';
 import 'care_today_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
 
@@ -505,6 +506,12 @@ class _FocusRow extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final marking = markingAction != null;
+    final doseLabel = careDoseLabel(
+      loc,
+      focus.category,
+      focus.doseQuantity,
+      focus.dose,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -535,10 +542,13 @@ class _FocusRow extends StatelessWidget {
                 : theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        if (focus.dose != null && focus.dose!.isNotEmpty)
+        if (doseLabel.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(focus.dose!),
+            child: Semantics(
+              label: loc.careDoseSemanticLabel(doseLabel),
+              child: ExcludeSemantics(child: Text(doseLabel)),
+            ),
           ),
         const SizedBox(height: 12),
         OverflowBar(

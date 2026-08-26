@@ -402,6 +402,8 @@
   "careScheduleUntil": "至 {date}",
   "careScheduleFrom": "{date} 起",
   "careStockLabel": "庫存:{n}",
+  "careDoseQuantityValue": "×{quantity}",
+  "careDoseSemanticLabel": "劑量:{label}",
   "careDeleteConfirmTitle": "刪除這筆提醒?",
   "careDeleteConfirmMessage": "刪除後將不再提醒。",
   "careDeleteConfirmButton": "刪除",

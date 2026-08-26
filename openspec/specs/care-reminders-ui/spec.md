@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-care-reminders-ui. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Reach care reminders from the health module
 
 The health 更多 (More) tab SHALL present a care-reminders entry that navigates to the care
@@ -19,6 +21,13 @@ radiotherapy care, custom), each showing its title, a schedule summary, and — 
 its stock; when there are none it SHALL show an empty-state guide, not a blank page. Each
 schedule's summary SHALL include its start date regardless of the schedule's every-N-weeks
 interval, so a start date the user set in the form is visible in the list they set it from.
+For a medication reminder's schedule, the summary SHALL also include the dose quantity that
+schedule takes per firing, expressed as a multiplier (`×N`) because the stored quantity carries
+no unit; a whole-number quantity SHALL render without a trailing decimal. A non-medication
+reminder's schedule summary SHALL NOT include a quantity, because its quantity field is not
+user-editable and only ever carries the backend's default value. For a medication reminder that
+has a free-text dose, that dose SHALL be shown on its own line under the schedules, so it is not
+mistaken for belonging to a single schedule.
 
 #### Scenario: Reminders are listed by category
 - **WHEN** the user has care reminders in more than one category
@@ -32,6 +41,23 @@ interval, so a start date the user set in the form is visible in the list they s
 - **WHEN** a listed reminder has a schedule whose every-N-weeks interval is 1
 - **THEN** that schedule's summary includes its start date, and still omits the
   every-N-weeks suffix
+
+#### Scenario: The summary shows each medication schedule's dose quantity
+- **WHEN** a listed medication reminder has a schedule whose dose quantity is 2
+- **THEN** that schedule's summary shows the quantity as `×2`, with no invented unit word
+
+#### Scenario: A whole-number quantity has no trailing decimal
+- **WHEN** a listed medication schedule's dose quantity is a whole number
+- **THEN** it is shown as an integer (for example `×2`, never `×2.0`)
+
+#### Scenario: A medication's free-text dose is its own line
+- **WHEN** a listed medication reminder has a free-text dose
+- **THEN** that dose is shown on a separate line from the schedule summaries
+
+#### Scenario: A non-medication reminder shows no dose at all
+- **WHEN** a listed reminder is not a medication
+- **THEN** no free-text dose line is shown for it, and its schedule summaries show no dose
+  quantity either
 
 ### Requirement: Create and edit a care reminder, with medication-only fields
 
@@ -135,4 +161,3 @@ screen explains that case, and "notifications are off" would be false there.
 #### Scenario: The prompt does not disrupt the reminders list
 - **WHEN** the prompt is shown
 - **THEN** the care reminders list, its add action, and editing remain fully usable below it
-

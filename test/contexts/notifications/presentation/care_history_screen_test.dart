@@ -11,6 +11,7 @@ import 'package:life_os/contexts/notifications/domain/care_history_filter.dart';
 import 'package:life_os/contexts/notifications/domain/care_history_period.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/presentation/care_dose_label.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_history_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -156,6 +157,8 @@ CareTodaySlot _slot({
   CareTodayStatus status = CareTodayStatus.done,
   String timeOfDay = '08:00',
   String localDate = '2026-07-22',
+  String? dose,
+  double doseQuantity = 1,
 }) => CareTodaySlot(
   careItemId: careItemId,
   careScheduleId: careScheduleId,
@@ -164,7 +167,8 @@ CareTodaySlot _slot({
   timeOfDay: timeOfDay,
   localDate: localDate,
   status: status,
-  doseQuantity: 1,
+  dose: dose,
+  doseQuantity: doseQuantity,
 );
 
 /// A two-item, two-category range: Metformin (medication) done on both days,
@@ -390,7 +394,14 @@ void main() {
         );
         expect(find.text('Yesterday dose'), findsOneWidget);
         expect(find.text('Today dose'), findsOneWidget);
-        expect(find.text('08:00 · ${loc.careHistoryStatusPending}'), findsOneWidget);
+        expect(
+          find.text('08:00 · ${loc.careHistoryStatusPending}'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(loc.careDoseQuantityValue('1')),
+          findsWidgets,
+        );
 
         // Newest day rendered above the older day.
         final todayHeaderY = tester
@@ -613,7 +624,11 @@ void main() {
 
         expect(repository.lastEditStatus, CareLogStatus.done);
         expect(repository.lastEditCareScheduleId, 'sch-1');
-        expect(find.text('08:00 · ${loc.careHistoryStatusDone}'), findsOneWidget);
+        expect(
+          find.text('08:00 · ${loc.careHistoryStatusDone}'),
+          findsOneWidget,
+        );
+        expect(find.text(loc.careDoseQuantityValue('1')), findsOneWidget);
       },
     );
 
@@ -1741,6 +1756,137 @@ void main() {
         );
       },
     );
+  });
+
+  group('slot dose', () {
+    testWidgets('a slot row shows its quantity and free-text dose', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [_slot(doseQuantity: 2, dose: '5mg')],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final tileKey = find.byKey(
+        const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+      );
+      expect(
+        find.descendant(
+          of: tileKey,
+          matching: find.text('08:00 · ${loc.careHistoryStatusDone}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: tileKey,
+          matching: find.text(
+            careDoseLabel(loc, CareCategory.medication, 2, '5mg'),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    // A slot with only a quantity must still show it, with no dangling
+    // separator where the free-text dose would have been.
+    testWidgets('a slot row with no free-text dose shows the quantity alone', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(
+          days: _sevenDayRange(onJul22: [_slot(doseQuantity: 2)]),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+          ),
+          matching: find.text(loc.careDoseQuantityValue('2')),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    // Regression guard for the medication-only gate: the backend still sends
+    // a default doseQuantity of 1 for every category, but the form never
+    // lets a non-medication item set it, so no dose line should render.
+    testWidgets('a non-medication slot row shows no dose line', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(
+                category: CareCategory.rehab,
+                doseQuantity: 1,
+                dose: null,
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+          ),
+          matching: find.text(loc.careDoseQuantityValue('1')),
+        ),
+        findsNothing,
+      );
+    });
+  });
+
+  // The dose line is wrapped in Semantics + ExcludeSemantics, which *removes*
+  // the visible text from the semantics tree: dropping the wrapper would
+  // silence the dose for screen readers while every find.text assertion above
+  // stays green. This is the only guard that would fail.
+  group('slot dose semantics', () {
+    // The dose sits in a ListTile subtitle, so its Semantics node merges into
+    // the tile's node — find.bySemanticsLabel cannot see it and the label has
+    // to be read off the tile instead.
+    testWidgets('a slot row announces its dose as a dose', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [_slot(doseQuantity: 2, dose: '5mg')],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(
+                const Key('care-history-slot-sch-1-2026-07-22-08:00'),
+              ),
+            )
+            .label,
+        contains(
+          loc.careDoseSemanticLabel(
+            careDoseLabel(loc, CareCategory.medication, 2, '5mg'),
+          ),
+        ),
+      );
+      handle.dispose();
+    });
   });
 
   // Narrow screen (task 4). **Re-derived after the change, not before it**:

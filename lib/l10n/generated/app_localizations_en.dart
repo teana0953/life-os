@@ -1395,6 +1395,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String careDoseQuantityValue(String quantity) {
+    return '×$quantity';
+  }
+
+  @override
+  String careDoseSemanticLabel(String label) {
+    return 'Dose: $label';
+  }
+
+  @override
   String get careDeleteConfirmTitle => 'Delete this reminder?';
 
   @override
