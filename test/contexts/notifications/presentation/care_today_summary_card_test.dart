@@ -7,6 +7,7 @@ import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/presentation/care_dose_label.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_summary_card.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -91,17 +92,19 @@ CareTodaySlot _slot({
   CareTodayStatus status = CareTodayStatus.pending,
   String timeOfDay = '08:00',
   String? dose = '500mg',
+  double doseQuantity = 1,
+  CareCategory category = CareCategory.medication,
 }) => CareTodaySlot(
   careItemId: 'care-1',
   careScheduleId: careScheduleId,
-  category: CareCategory.medication,
+  category: category,
   title: title,
   note: null,
   dose: dose,
   timeOfDay: timeOfDay,
   localDate: '2026-07-24',
   status: status,
-  doseQuantity: 1,
+  doseQuantity: doseQuantity,
 );
 
 class _FakeCareHistoryRepository implements CareHistoryRepository {
@@ -718,6 +721,89 @@ void main() {
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.byKey(const Key('care-today-summary-card')), findsOneWidget);
       expect(find.text('Metformin'), findsOneWidget);
+    });
+  });
+
+  group('CareTodaySummaryCard focus dose', () {
+    testWidgets('shows the quantity and the free-text dose together', (
+      tester,
+    ) async {
+      final controller = _controllerFor([
+        _slot(doseQuantity: 2, dose: '500mg'),
+      ]);
+      await controller.load('token-123');
+      await _pumpCard(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.text(careDoseLabel(loc, CareCategory.medication, 2, '500mg')),
+        findsOneWidget,
+      );
+    });
+
+    // Regression guard for the dropped "hide when dose is empty" branch —
+    // pairs with the same case on CareTodayScreen.
+    testWidgets('a slot with only a quantity still shows a dose line', (
+      tester,
+    ) async {
+      final controller = _controllerFor([
+        _slot(doseQuantity: 2, dose: null),
+      ]);
+      await controller.load('token-123');
+      await _pumpCard(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careDoseQuantityValue('2')), findsOneWidget);
+    });
+
+    // Regression guard for the medication-only gate: the backend still sends
+    // a default doseQuantity of 1 for every category, but the form never
+    // lets a non-medication item set it, so nothing should render.
+    testWidgets('a non-medication slot shows no dose line', (tester) async {
+      final controller = _controllerFor([
+        _slot(category: CareCategory.rehab, doseQuantity: 1, dose: null),
+      ]);
+      await controller.load('token-123');
+      await _pumpCard(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careDoseQuantityValue('1')), findsNothing);
+    });
+  });
+
+  // The dose line is wrapped in Semantics + ExcludeSemantics, which *removes*
+  // the visible text from the semantics tree: dropping the wrapper would
+  // silence the dose for screen readers while every find.text assertion above
+  // stays green. This is the only guard that would fail.
+  //
+  //
+  // The whole card is one tappable node, so the dose label is a line inside a
+  // multi-line label rather than a node of its own — hence the RegExp form of
+  // find.bySemanticsLabel, which substring-matches, instead of the String
+  // form, which compares the label whole.
+  group('CareTodaySummaryCard dose semantics', () {
+    testWidgets('the focus row announces its dose as a dose', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = _controllerFor([
+        _slot(doseQuantity: 2, dose: '500mg'),
+      ]);
+      await controller.load('token-123');
+      await _pumpCard(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.bySemanticsLabel(
+          RegExp(
+            RegExp.escape(
+              loc.careDoseSemanticLabel(
+                careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+              ),
+            ),
+          ),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
     });
   });
 }

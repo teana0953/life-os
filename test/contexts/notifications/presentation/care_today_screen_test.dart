@@ -8,6 +8,7 @@ import 'package:life_os/contexts/notifications/application/edit_care_slot.dart';
 import 'package:life_os/contexts/notifications/domain/care_history.dart';
 import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
+import 'package:life_os/contexts/notifications/presentation/care_dose_label.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_controller.dart';
 import 'package:life_os/contexts/notifications/presentation/care_today_screen.dart';
 import 'package:life_os/contexts/notifications/presentation/push_health_controller.dart';
@@ -140,18 +141,21 @@ CareTodaySlot _slot({
   CareTodayStatus status = CareTodayStatus.pending,
   String timeOfDay = '08:00',
   String? doneTime,
+  String? dose = '500mg',
+  double doseQuantity = 1,
+  CareCategory category = CareCategory.medication,
 }) => CareTodaySlot(
   careItemId: 'care-1',
   careScheduleId: careScheduleId,
-  category: CareCategory.medication,
+  category: category,
   title: title,
   note: 'take with food',
-  dose: '500mg',
+  dose: dose,
   timeOfDay: timeOfDay,
   localDate: '2026-07-22',
   status: status,
   doneTime: doneTime,
-  doseQuantity: 1,
+  doseQuantity: doseQuantity,
 );
 
 class _FakeCareHistoryRepository implements CareHistoryRepository {
@@ -2366,5 +2370,320 @@ void main() {
         expect(find.byKey(const Key('push-off-banner')), findsOneWidget);
       },
     );
+  });
+
+  group('CareTodayScreen focus card dose', () {
+    testWidgets('shows the quantity and the free-text dose together', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [_slot(doseQuantity: 2, dose: '500mg')],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.text(careDoseLabel(loc, CareCategory.medication, 2, '500mg')),
+        findsOneWidget,
+      );
+    });
+
+    // Regression guard for the dropped "hide when dose is empty" branch: the
+    // quantity is always present, so a slot without free-text dose is no
+    // longer a slot without a dose line.
+    testWidgets('a slot with only a quantity still shows a dose line', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [_slot(doseQuantity: 2, dose: null)],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careDoseQuantityValue('2')), findsOneWidget);
+    });
+
+    // Regression guard for the medication-only gate: the backend still sends
+    // a default doseQuantity of 1 for every category, but the form never
+    // lets a non-medication item set it, so nothing should render.
+    testWidgets('a non-medication slot shows no dose line', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                category: CareCategory.rehab,
+                doseQuantity: 1,
+                dose: null,
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careDoseQuantityValue('1')), findsNothing);
+    });
+  });
+
+  group('CareTodayScreen queue and done row dose', () {
+    testWidgets('a queue row shows its dose below the time', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                careScheduleId: 'sch-focus',
+                status: CareTodayStatus.overdue,
+                timeOfDay: '07:00',
+                dose: null,
+              ),
+              _slot(
+                careScheduleId: 'sch-later',
+                title: 'Later dose',
+                timeOfDay: '18:00',
+                doseQuantity: 2,
+                dose: '500mg',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('care-today-row-sch-later')),
+          matching: find.text(
+            careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    // The medication-only gate has to hold on the queue row too, not just on
+    // the focus card: the backend sends a default doseQuantity of 1 for
+    // every category.
+    testWidgets('a non-medication queue row shows no dose line', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                careScheduleId: 'sch-focus',
+                status: CareTodayStatus.overdue,
+                timeOfDay: '07:00',
+                dose: null,
+              ),
+              _slot(
+                careScheduleId: 'sch-later',
+                title: 'Later stretch',
+                category: CareCategory.rehab,
+                timeOfDay: '18:00',
+                doseQuantity: 1,
+                dose: null,
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('care-today-row-sch-later')),
+          matching: find.text(loc.careDoseQuantityValue('1')),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a done row shows its dose below the status line', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                careScheduleId: 'sch-focus',
+                status: CareTodayStatus.overdue,
+                timeOfDay: '07:00',
+                dose: null,
+              ),
+              _slot(
+                careScheduleId: 'sch-done',
+                title: 'Done dose',
+                status: CareTodayStatus.done,
+                timeOfDay: '06:00',
+                doseQuantity: 2,
+                dose: '500mg',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+      await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const Key('care-today-row-sch-done-2026-07-22-06:00'),
+          ),
+          matching: find.text(
+            careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  // Every dose line is wrapped in Semantics + ExcludeSemantics, so the
+  // visible text is *removed* from the semantics tree: if someone drops the
+  // wrapper, the dose silently becomes unannounced while every find.text
+  // assertion above stays green. These are the only guards that would fail.
+  //
+  // Asserted with getSemantics rather than find.bySemanticsLabel: each card
+  // and row merges its descendants into one node, so the dose label never
+  // exists as a node of its own to match against.
+  group('CareTodayScreen dose semantics', () {
+    testWidgets('the focus card announces its dose as a dose', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [_slot(doseQuantity: 2, dose: '500mg')],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        tester
+            .getSemantics(find.byKey(const Key('care-today-focus-card')))
+            .label,
+        contains(
+          loc.careDoseSemanticLabel(
+            careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+          ),
+        ),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('a queue row announces its dose as a dose', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                careScheduleId: 'sch-focus',
+                status: CareTodayStatus.overdue,
+                timeOfDay: '07:00',
+                dose: null,
+              ),
+              _slot(
+                careScheduleId: 'sch-later',
+                title: 'Later dose',
+                timeOfDay: '18:00',
+                doseQuantity: 2,
+                dose: '500mg',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        tester
+            .getSemantics(find.byKey(const Key('care-today-row-sch-later')))
+            .label,
+        contains(
+          loc.careDoseSemanticLabel(
+            careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+          ),
+        ),
+      );
+      handle.dispose();
+    });
+
+    // Same merge as above, one level tighter: the done row is a ListTile, so
+    // its subtitle's Semantics node folds into the tile's own node.
+    testWidgets('a done row announces its dose as a dose', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = _controller(
+        repository: _FakeCareTodayRepository(
+          today: CareToday(
+            date: '2026-07-22',
+            slots: [
+              _slot(
+                careScheduleId: 'sch-focus',
+                status: CareTodayStatus.overdue,
+                timeOfDay: '07:00',
+                dose: null,
+              ),
+              _slot(
+                careScheduleId: 'sch-done',
+                title: 'Done dose',
+                status: CareTodayStatus.done,
+                timeOfDay: '06:00',
+                doseQuantity: 2,
+                dose: '500mg',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScreen(tester, controller);
+      await tester.tap(find.byKey(const Key('care-today-done-toggle')));
+      await tester.pumpAndSettle();
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(
+                const Key('care-today-row-sch-done-2026-07-22-06:00'),
+              ),
+            )
+            .label,
+        contains(
+          loc.careDoseSemanticLabel(
+            careDoseLabel(loc, CareCategory.medication, 2, '500mg'),
+          ),
+        ),
+      );
+      handle.dispose();
+    });
   });
 }

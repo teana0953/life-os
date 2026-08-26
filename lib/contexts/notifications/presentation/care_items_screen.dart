@@ -10,6 +10,7 @@ import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../auth/domain/auth_repository.dart';
 import '../domain/care_item.dart';
+import 'care_dose_label.dart';
 import 'care_item_form.dart';
 import 'care_items_controller.dart';
 import 'push_health_controller.dart';
@@ -55,7 +56,9 @@ String _weekdaysLabel(AppLocalizations loc, List<int> days) {
 }
 
 /// A single schedule's one-line summary: time · weekdays[empty=每天] ·
-/// every-N-weeks (only above 1) · start date · optional end date.
+/// every-N-weeks (only above 1) · start date · optional end date. The dose
+/// quantity is appended by [_scheduleLine], which needs the two halves
+/// separately to build the screen-reader label.
 String _scheduleSummary(
   BuildContext context,
   AppLocalizations loc,
@@ -82,6 +85,39 @@ String _scheduleSummary(
     );
   }
   return buffer.toString();
+}
+
+/// One schedule line, with its dose quantity appended.
+///
+/// The quantity is per schedule, not per item: a reminder's schedules may
+/// each take a different quantity, while the free-text dose belongs to the
+/// item. Omitted for non-medication categories — the form never lets those
+/// set a quantity, so the backend's default would read as data the user
+/// chose.
+///
+/// The screen-reader label repeats the whole line rather than the dose
+/// segment alone, because `ExcludeSemantics` drops the visible text from the
+/// tree: labelling only the dose would silence the time and repeat rule with
+/// it. `×2` on its own announces as a bare multiplication sign, hence
+/// `careDoseSemanticLabel`.
+Widget _scheduleLine(
+  BuildContext context,
+  AppLocalizations loc,
+  CareItem item,
+  CareSchedule schedule,
+) {
+  final summary = _scheduleSummary(context, loc, schedule);
+  final doseLabel = careDoseLabel(
+    loc,
+    item.category,
+    schedule.doseQuantity,
+    null,
+  );
+  if (doseLabel.isEmpty) return Text(summary);
+  return Semantics(
+    label: '$summary · ${loc.careDoseSemanticLabel(doseLabel)}',
+    child: ExcludeSemantics(child: Text('$summary · $doseLabel')),
+  );
 }
 
 String _formatStock(double value) =>
@@ -337,7 +373,25 @@ class _CategoryGroup extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       for (final schedule in item.schedules)
-                        Text(_scheduleSummary(context, loc, schedule)),
+                        _scheduleLine(context, loc, item, schedule),
+                      // Its own row rather than appended to each schedule
+                      // line: an item has one free-text dose but many
+                      // schedules, and repeating it per line would read as
+                      // if it varied between them.
+                      if (item.category == CareCategory.medication &&
+                          item.dose != null &&
+                          item.dose!.isNotEmpty)
+                        Semantics(
+                          label: loc.careDoseSemanticLabel(item.dose!),
+                          child: ExcludeSemantics(
+                            child: Text(
+                              item.dose!,
+                              key: Key('care-item-dose-${item.id}'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
                       if (item.category == CareCategory.medication &&
                           item.stock != null)
                         Text(loc.careStockLabel(_formatStock(item.stock!))),

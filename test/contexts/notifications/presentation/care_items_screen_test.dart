@@ -160,6 +160,21 @@ final _rehabItem = CareItem(
   ],
 );
 
+CareSchedule _schedule({
+  required String id,
+  required String timeOfDay,
+  required double doseQuantity,
+}) => CareSchedule(
+  id: id,
+  timeOfDay: timeOfDay,
+  repeatDays: const [],
+  weekInterval: 1,
+  startDate: DateTime(2026, 7, 20),
+  doseQuantity: doseQuantity,
+  nagIntervalMinutes: 0,
+  enabled: true,
+);
+
 CareItemsController _controller({CareItemRepository? repository}) {
   final repo = repository ?? _FakeCareItemRepository();
   return CareItemsController(
@@ -540,5 +555,163 @@ void main() {
         expect(find.byKey(const Key('care-item-row-care-1')), findsOneWidget);
       },
     );
+  });
+
+  group('dose', () {
+    // Each schedule carries its own quantity, so the quantity has to sit on
+    // the schedule line rather than once per item.
+    testWidgets('each schedule line shows its own dose quantity', (
+      tester,
+    ) async {
+      final item = CareItem(
+        id: 'care-9',
+        category: CareCategory.medication,
+        title: 'Metformin',
+        schedules: [
+          _schedule(id: 'sch-a', timeOfDay: '08:00', doseQuantity: 2),
+          _schedule(id: 'sch-b', timeOfDay: '20:00', doseQuantity: 0.5),
+        ],
+      );
+      final controller = _controller(
+        repository: _FakeCareItemRepository(items: [item]),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final lines = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byKey(const Key('care-item-row-care-9')),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((text) => text.data ?? '')
+          .toList();
+      final morning = lines.singleWhere((l) => l.startsWith('08:00'));
+      final evening = lines.singleWhere((l) => l.startsWith('20:00'));
+      expect(morning, endsWith(loc.careDoseQuantityValue('2')));
+      expect(evening, endsWith(loc.careDoseQuantityValue('0.5')));
+    });
+
+    testWidgets("a medication's free-text dose is on its own line", (
+      tester,
+    ) async {
+      final item = CareItem(
+        id: 'care-9',
+        category: CareCategory.medication,
+        title: 'Metformin',
+        dose: '5mg',
+        schedules: [
+          _schedule(id: 'sch-a', timeOfDay: '08:00', doseQuantity: 2),
+        ],
+      );
+      final controller = _controller(
+        repository: _FakeCareItemRepository(items: [item]),
+      );
+      await _pumpScreen(tester, controller);
+
+      final doseRow = find.byKey(const Key('care-item-dose-care-9'));
+      expect(doseRow, findsOneWidget);
+      expect(tester.widget<Text>(doseRow).data, '5mg');
+    });
+
+    // A free-text dose is user-entered and unbounded; without a line cap it
+    // grows the tile instead of being truncated, the way the note above it
+    // already is.
+    testWidgets('a long free-text dose is capped to one ellipsized line', (
+      tester,
+    ) async {
+      final item = CareItem(
+        id: 'care-9',
+        category: CareCategory.medication,
+        title: 'Metformin',
+        dose: 'half a tablet in the morning and a whole one after dinner, '
+            'with a full glass of water',
+        schedules: [
+          _schedule(id: 'sch-a', timeOfDay: '08:00', doseQuantity: 2),
+        ],
+      );
+      final controller = _controller(
+        repository: _FakeCareItemRepository(items: [item]),
+      );
+      await _pumpScreen(tester, controller);
+
+      final dose = tester.widget<Text>(
+        find.byKey(const Key('care-item-dose-care-9')),
+      );
+      expect(dose.maxLines, 1);
+      expect(dose.overflow, TextOverflow.ellipsis);
+    });
+
+    testWidgets('a non-medication reminder shows no free-text dose line', (
+      tester,
+    ) async {
+      final item = CareItem(
+        id: 'care-9',
+        category: CareCategory.rehab,
+        title: 'Stretching',
+        dose: '5mg',
+        schedules: [
+          _schedule(id: 'sch-a', timeOfDay: '18:00', doseQuantity: 2),
+        ],
+      );
+      final controller = _controller(
+        repository: _FakeCareItemRepository(items: [item]),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.byKey(const Key('care-item-dose-care-9')), findsNothing);
+      expect(find.text('5mg'), findsNothing);
+      // The dose-quantity field is medication-only (the form never lets a
+      // rehab/radiotherapy/custom schedule set it), so its schedule line
+      // must not show the backend's default quantity either.
+      expect(
+        find.textContaining(loc.careDoseQuantityValue('2')),
+        findsNothing,
+      );
+    });
+  });
+
+  // Both dose spots are wrapped in Semantics + ExcludeSemantics, which
+  // *removes* the visible text from the semantics tree: dropping either
+  // wrapper would silence that dose for screen readers while every find.text
+  // assertion above stays green. These are the only guards that would fail.
+  group('dose semantics', () {
+    // Both labels sit in a ListTile subtitle, so their Semantics nodes merge
+    // into the tile's node — find.bySemanticsLabel cannot see them and the
+    // label has to be read off the tile instead.
+    testWidgets('the schedule line and the free-text dose are both announced '
+        'as doses', (tester) async {
+      final handle = tester.ensureSemantics();
+      final item = CareItem(
+        id: 'care-9',
+        category: CareCategory.medication,
+        title: 'Metformin',
+        dose: '5mg',
+        schedules: [
+          _schedule(id: 'sch-a', timeOfDay: '08:00', doseQuantity: 2),
+        ],
+      );
+      final controller = _controller(
+        repository: _FakeCareItemRepository(items: [item]),
+      );
+      await _pumpScreen(tester, controller);
+
+      final loc = lookupAppLocalizations(const Locale('en'));
+      final label = tester
+          .getSemantics(find.byKey(const Key('care-item-row-care-9')))
+          .label;
+      expect(
+        label,
+        contains(loc.careDoseSemanticLabel(loc.careDoseQuantityValue('2'))),
+      );
+      expect(label, contains(loc.careDoseSemanticLabel('5mg')));
+      // The schedule line's own content has to survive its ExcludeSemantics:
+      // labelling only the dose segment would silence the time and the
+      // repeat rule along with the visible text.
+      expect(label, contains('08:00'));
+      handle.dispose();
+    });
   });
 }

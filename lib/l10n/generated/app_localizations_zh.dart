@@ -1347,6 +1347,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String careDoseQuantityValue(String quantity) {
+    return '×$quantity';
+  }
+
+  @override
+  String careDoseSemanticLabel(String label) {
+    return 'Dose: $label';
+  }
+
+  @override
   String get careDeleteConfirmTitle => '刪除這筆提醒?';
 
   @override
@@ -4453,6 +4463,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String careStockLabel(String n) {
     return '庫存:$n';
+  }
+
+  @override
+  String careDoseQuantityValue(String quantity) {
+    return '×$quantity';
+  }
+
+  @override
+  String careDoseSemanticLabel(String label) {
+    return '劑量:$label';
   }
 
   @override

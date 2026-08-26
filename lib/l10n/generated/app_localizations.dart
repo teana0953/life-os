@@ -2537,6 +2537,18 @@ abstract class AppLocalizations {
   /// **'Stock: {n}'**
   String careStockLabel(String n);
 
+  /// A care dose quantity shown as a unit-less multiplier, e.g. ×2. The stored quantity carries no unit, so no unit word is added. The number is pre-formatted in Dart (a whole number drops its trailing .0), hence the String placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'×{quantity}'**
+  String careDoseQuantityValue(String quantity);
+
+  /// Screen-reader label for a care slot's dose text (visually shown as e.g. '×2 · 5mg'), so assistive tech announces it as a dose rather than a bare symbol/number.
+  ///
+  /// In en, this message translates to:
+  /// **'Dose: {label}'**
+  String careDoseSemanticLabel(String label);
+
   /// Title of the confirmation dialog shown before deleting a reminder.
   ///
   /// In en, this message translates to:

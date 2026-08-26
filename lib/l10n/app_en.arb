@@ -1761,6 +1761,24 @@
       }
     }
   },
+  "careDoseQuantityValue": "×{quantity}",
+  "@careDoseQuantityValue": {
+    "description": "A care dose quantity shown as a unit-less multiplier, e.g. ×2. The stored quantity carries no unit, so no unit word is added. The number is pre-formatted in Dart (a whole number drops its trailing .0), hence the String placeholder.",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      }
+    }
+  },
+  "careDoseSemanticLabel": "Dose: {label}",
+  "@careDoseSemanticLabel": {
+    "description": "Screen-reader label for a care slot's dose text (visually shown as e.g. '×2 · 5mg'), so assistive tech announces it as a dose rather than a bare symbol/number.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "careDeleteConfirmTitle": "Delete this reminder?",
   "@careDeleteConfirmTitle": {
     "description": "Title of the confirmation dialog shown before deleting a reminder."

@@ -14,6 +14,7 @@ import '../domain/care_history.dart';
 import '../domain/care_history_filter.dart';
 import '../domain/care_history_period.dart';
 import '../domain/care_today.dart';
+import 'care_dose_label.dart';
 import 'care_history_controller.dart';
 import 'care_history_filter_bar.dart';
 import '../../../shared/auth/id_token_provider.dart';
@@ -981,6 +982,13 @@ class _SlotTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final doseLabel = careDoseLabel(
+      loc,
+      slot.category,
+      slot.doseQuantity,
+      slot.dose,
+    );
+    final statusLine = '${slot.timeOfDay} · ${_statusLabel(loc, slot.status)}';
     return ListTile(
       key: Key(
         'care-history-slot-${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}',
@@ -991,7 +999,19 @@ class _SlotTile extends StatelessWidget {
         color: _statusColor(theme.colorScheme, slot.status),
       ),
       title: Text(slot.title),
-      subtitle: Text('${slot.timeOfDay} · ${_statusLabel(loc, slot.status)}'),
+      subtitle: doseLabel.isEmpty
+          ? Text(statusLine)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(statusLine),
+                Semantics(
+                  label: loc.careDoseSemanticLabel(doseLabel),
+                  child: ExcludeSemantics(child: Text(doseLabel)),
+                ),
+              ],
+            ),
       trailing: !editable
           ? null
           : isEditing
