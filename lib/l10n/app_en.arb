@@ -1123,12 +1123,15 @@
   "@menstrualNextMonth": {
     "description": "Tooltip for the control that moves the menstrual mini-calendar to the next month."
   },
-  "menstrualDaySemanticPeriod": "{date}, period day",
+  "menstrualDaySemanticPeriod": "{date}, period day {cycleDay}",
   "@menstrualDaySemanticPeriod": {
-    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.",
+    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date; {cycleDay} is which day of that period it is, counting the start date as day 1 and never capped.",
     "placeholders": {
       "date": {
         "type": "String"
+      },
+      "cycleDay": {
+        "type": "int"
       }
     }
   },
@@ -1157,6 +1160,10 @@
   "menstrualLegendPredicted": "Predicted next",
   "@menstrualLegendPredicted": {
     "description": "Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start."
+  },
+  "menstrualLegendCycleDay": "Small number = day of period",
+  "@menstrualLegendCycleDay": {
+    "description": "Legend label under the menstrual calendar explaining that the smaller second number inside a filled day marker is which day of that period the day is."
   },
   "menstrualEmptyHint": "No periods recorded yet. Tap a day on the calendar or 'Log period' to start tracking.",
   "@menstrualEmptyHint": {

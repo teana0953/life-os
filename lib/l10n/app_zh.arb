@@ -252,7 +252,7 @@
   "menstrualSaveFailed": "儲存失敗,請再試一次",
   "menstrualPrevMonth": "上個月",
   "menstrualNextMonth": "下個月",
-  "menstrualDaySemanticPeriod": "{date},經期",
+  "menstrualDaySemanticPeriod": "{date},經期第 {cycleDay} 天",
   "menstrualDaySemanticPredicted": "{date},預測下次",
   "menstrualDaySemanticToday": "{date},今天",
   "menstrualLegendPeriod": "經期",

@@ -1752,11 +1752,11 @@ abstract class AppLocalizations {
   /// **'Next month'**
   String get menstrualNextMonth;
 
-  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.
+  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date; {cycleDay} is which day of that period it is, counting the start date as day 1 and never capped.
   ///
   /// In en, this message translates to:
-  /// **'{date}, period day'**
-  String menstrualDaySemanticPeriod(String date);
+  /// **'{date}, period day {cycleDay}'**
+  String menstrualDaySemanticPeriod(String date, int cycleDay);
 
   /// Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.
   ///
@@ -1781,6 +1781,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Predicted next'**
   String get menstrualLegendPredicted;
+
+  /// Legend label under the menstrual calendar explaining that the smaller second number inside a filled day marker is which day of that period the day is.
+  ///
+  /// In en, this message translates to:
+  /// **'Small number = day of period'**
+  String get menstrualLegendCycleDay;
 
   /// First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken.
   ///

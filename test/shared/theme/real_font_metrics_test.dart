@@ -12,7 +12,9 @@ import 'package:life_os/contexts/auth/presentation/login_screen.dart';
 import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/next_period_status.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_calendar.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -300,6 +302,50 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  // The menstrual calendar's period-day marker stacks two lines of digits
+  // inside a fixed 32x32 circle. Every ordinary widget test of it is blind to
+  // the font: `flutter_test` paints one fontSize-square per glyph, so a
+  // two-line column measures 12+11=23dp there whatever the real ascender and
+  // descender do. Only the real .ttf can say whether it actually fits.
+  group('menstrual day marker, real font metrics', () {
+    // 1.3 is the marker's own `MediaQuery.withClampedTextScaling` cap, so
+    // pumping at 2.0 exercises the clamped ceiling; 1.0 is the floor.
+    for (final entry in {1.0: 1.0, 2.0: 1.3}.entries) {
+      testWidgets(
+        'two-line marker fits the 32dp circle at textScale ${entry.key} '
+        '(clamped to ${entry.value})',
+        (tester) async {
+          final errors = await collectLayoutErrors(
+            () => _pumpMenstrualCalendar(tester, textScale: entry.key),
+          );
+          expect(
+            errors.map((e) => e.exception.toString().split('\n').first).toList(),
+            isEmpty,
+          );
+
+          final marker = find.byKey(const Key('menstrual-day-marker-2026-07-12'));
+          final content = tester.getSize(
+            find.descendant(of: marker, matching: find.byType(Column)),
+          );
+          expect(
+            content.height,
+            lessThanOrEqualTo(_markerDiameter),
+            reason:
+                'the stacked date + cycle-day lines must stay inside the '
+                '32dp circle at an effective scale of ${entry.value}',
+          );
+          // Not the full 32: the circle's usable chord narrows away from its
+          // vertical middle, and the two lines straddle it.
+          expect(
+            content.width,
+            lessThanOrEqualTo(_markerChord),
+            reason: 'the widest of the two lines must stay inside the chord',
+          );
+        },
+      );
+    }
   });
 
   // Same instrument, same limits as the dashboard case above: verified to
@@ -601,6 +647,48 @@ Future<void> _pumpLogin(
           controller: LoginController(SignIn(repository)),
           localeController: await testLocaleController(),
           signUp: SignUp(repository),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+/// The menstrual day marker's fixed circle diameter, and the usable chord
+/// across it — a circle is not a square, so content wider than the chord
+/// spills past the fill even when it is narrower than the diameter.
+const _markerDiameter = 32.0;
+const _markerChord = 28.0;
+
+/// Pumps a [MenstrualCalendar] on a 320dp phone — the narrowest supported
+/// width, where the seven `Expanded` cells are tightest — showing July 2026
+/// with a period running the 10th to the 14th, so 2026-07-12 is a two-digit
+/// date over a single-digit cycle day.
+Future<void> _pumpMenstrualCalendar(
+  WidgetTester tester, {
+  required double textScale,
+}) async {
+  await _sizeSurface(tester, const Size(320, 900));
+  await tester.pumpWidget(
+    MediaQuery(
+      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      child: l10nTestApp(
+        theme: lightTheme,
+        home: Scaffold(
+          body: MenstrualCalendar(
+            overview: MenstrualOverview(
+              periods: [
+                MenstrualPeriod(
+                  id: 'p1',
+                  startDate: DateTime(2026, 7, 10),
+                  endDate: DateTime(2026, 7, 14),
+                ),
+              ],
+              stats: const MenstrualStats(),
+            ),
+            clock: () => DateTime(2026, 7, 22),
+            onDayTap: (_) {},
+          ),
         ),
       ),
     ),

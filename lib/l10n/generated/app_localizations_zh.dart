@@ -910,8 +910,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menstrualNextMonth => '下個月';
 
   @override
-  String menstrualDaySemanticPeriod(String date) {
-    return '$date,經期';
+  String menstrualDaySemanticPeriod(String date, int cycleDay) {
+    return '$date,經期第 $cycleDay 天';
   }
 
   @override
@@ -929,6 +929,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get menstrualLegendPredicted => '預測下次';
+
+  @override
+  String get menstrualLegendCycleDay => 'Small number = day of period';
 
   @override
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
@@ -4029,8 +4032,8 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get menstrualNextMonth => '下個月';
 
   @override
-  String menstrualDaySemanticPeriod(String date) {
-    return '$date,經期';
+  String menstrualDaySemanticPeriod(String date, int cycleDay) {
+    return '$date,經期第 $cycleDay 天';
   }
 
   @override
@@ -4048,6 +4051,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get menstrualLegendPredicted => '預測下次';
+
+  @override
+  String get menstrualLegendCycleDay => '小數字＝經期第幾天';
 
   @override
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';

@@ -927,8 +927,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menstrualNextMonth => 'Next month';
 
   @override
-  String menstrualDaySemanticPeriod(String date) {
-    return '$date, period day';
+  String menstrualDaySemanticPeriod(String date, int cycleDay) {
+    return '$date, period day $cycleDay';
   }
 
   @override
@@ -946,6 +946,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get menstrualLegendPredicted => 'Predicted next';
+
+  @override
+  String get menstrualLegendCycleDay => 'Small number = day of period';
 
   @override
   String get menstrualEmptyHint =>
