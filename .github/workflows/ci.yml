@@ -19,13 +19,12 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
-    # The suite runs in well under a minute. A cap matters because the failure
-    # mode we actually hit — a synchronous notify re-entering its own listener —
-    # HANGS rather than fails: it never yields, so `flutter test`'s own
-    # (timer-based) per-test timeout never fires. Without this, such a
-    # regression burns the GitHub default of 360 minutes before going red.
+    # Same reason as `test-tz`'s cap: an uncapped wedged job burns GitHub's
+    # 360-minute default. analyze/build web aren't the hang scenario described
+    # there, but the old single job covered them under one cap and this keeps
+    # that.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -35,31 +34,89 @@ jobs:
           flutter-version: 3.35.4
           channel: stable
 
-      # `test/shared/pwa/push_sw_ack_contract_test.dart` executes the real
+      - run: flutter pub get
+
+      - run: flutter analyze
+
+      - run: flutter build web
+
+  # The two timezone runs are the slow half of CI (~306s UTC, ~286s
+  # Asia/Taipei measured), and they don't depend on each other — running them
+  # as parallel legs rather than back-to-back in one job is what keeps the
+  # wall clock near the cost of a single run.
+  #
+  # NOTE: this job is deliberately NOT named `test`. The `main-protect`
+  # ruleset requires a status check literally named `test`, and a matrix job
+  # publishes its checks as `<job> (<leg>)` — never the bare job name. The
+  # bare name is supplied by the aggregating `test` job below.
+  test-tz:
+    runs-on: ubuntu-latest
+    # The two timezone runs take roughly five minutes each. A cap matters
+    # because the failure mode we actually hit — a synchronous notify
+    # re-entering its own listener — HANGS rather than fails: it never
+    # yields, so `flutter test`'s own (timer-based) per-test timeout never
+    # fires. Without this, such a regression burns the GitHub default of 360
+    # minutes before going red.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # UTC: GitHub runners are already UTC, so this leg is the runner's own
+        # direction, made explicit so both legs read the same way.
+        #
+        # Asia/Taipei: guards over "which day is it here" (the health screen's
+        # batch reads one day and every card must agree on it) can only go red
+        # where the local date differs from the UTC date, so a UTC-only CI
+        # would have stayed green through a day-locality regression — e.g.
+        # computing today from `clock().toUtc()` instead of local time,
+        # measured red only at UTC+8. Asia/Taipei is the developer machine's
+        # zone, which is where those guards were written and verified.
+        tz: [UTC, Asia/Taipei]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.4
+          channel: stable
+
+      # `test/shared/pwa/push_sw_ack_contract_test.dart` and
+      # `push_sw_handover_contract_test.dart` execute the real
       # `web/push_sw.js` under `node`. ubuntu-latest ships one already, but
       # pinning it means the guard's runtime is reproducible rather than
       # whatever the runner image happens to carry. The test FAILS (never
-      # skips) if node is missing, so this step is load-bearing.
+      # skips) if node is missing, so this step is load-bearing. Only the
+      # test legs need it; the `checks` job never runs that guard.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - run: flutter pub get
 
-      - run: flutter analyze
-
-      # GitHub runners are UTC, so this run is the UTC direction on its own.
+      # TZ goes through `env:` rather than inline `TZ=${{ … }} flutter test`:
+      # these values are workflow literals so either is safe here, but the
+      # inline form is the one that becomes a shell injection the moment it is
+      # copied somewhere the value isn't.
       - run: flutter test
+        env:
+          TZ: ${{ matrix.tz }}
 
-      # ...and this is the other one. Guards over "which day is it here"
-      # (the health screen's batch reads one day and every card must agree on
-      # it) can only go red where the local date differs from the UTC date, so
-      # a UTC-only CI would have stayed green through a day-locality
-      # regression — e.g. computing today from `clock().toUtc()` instead of
-      # local time, measured red only at UTC+8. Asia/Taipei is the developer
-      # machine's zone, which is where those guards were written and verified.
-      # The suite runs in well under a minute, so running it twice is cheap;
-      # note the hang caveat on `timeout-minutes` above applies to both runs.
-      - run: TZ=Asia/Taipei flutter test
-
-      - run: flutter build web
+  # Aggregating gate. `main-protect`'s required_status_checks names `test`
+  # literally, so a check with exactly that name has to exist and has to fail
+  # when anything upstream fails. `needs:` alone is not enough: when a needed
+  # job fails, this job is SKIPPED, and a skipped required check can read as
+  # "not completed" or as passing rather than as a failure. So it runs with
+  # `if: always()` and asserts the upstream results itself.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [checks, test-tz]
+    if: always()
+    steps:
+      - name: Verify upstream jobs succeeded
+        run: |
+          echo "checks:  ${{ needs.checks.result }}"
+          echo "test-tz: ${{ needs.test-tz.result }}"
+          if [ "${{ needs.checks.result }}" != "success" ] || [ "${{ needs.test-tz.result }}" != "success" ]; then
+            exit 1
+          fi
