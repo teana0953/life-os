@@ -94,14 +94,21 @@ String? cycleBadgeLabel(AppLocalizations loc, NextPeriodStatus status) {
 /// inverting it cannot disagree with its source, and a domain type would be
 /// widened for one screen's formatting need. One helper, not one per surface,
 /// so the tile and the card cannot compute a different date.
+///
+/// Anchored in UTC before subtracting, for the same reason
+/// `menstrualCycleDay` in `menstrual_calendar.dart` is: `today` carries a
+/// local time-of-day, and `Duration(days: N)` is a fixed N×24h offset, not a
+/// calendar-day one — subtracting it from a local `DateTime` across a DST
+/// transition can land on the wrong calendar day. Without this anchor, this
+/// function could disagree with `menstrualCycleDay` about the same day,
+/// which is exactly the disagreement this pair of functions exists to rule
+/// out.
 DateTime? ongoingPeriodStart(NextPeriodStatus status, DateTime today) {
   final days = status.days;
   if (status.state != NextPeriodState.ongoing || days == null) return null;
-  return DateTime(
-    today.year,
-    today.month,
-    today.day,
-  ).subtract(Duration(days: days - 1));
+  final todayUtc = DateTime.utc(today.year, today.month, today.day);
+  final startUtc = todayUtc.subtract(Duration(days: days - 1));
+  return DateTime(startUtc.year, startUtc.month, startUtc.day);
 }
 
 /// The one sentence a screen reader hears for a badged state: the state, the

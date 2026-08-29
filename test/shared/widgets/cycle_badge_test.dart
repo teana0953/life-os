@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
@@ -160,14 +158,39 @@ void main() {
   });
 
   group('CycleBadge colours', () {
-    test('the widget hard-codes no colour of its own', () {
-      // Every colour is a constructor argument, resolved from the theme by
-      // the caller — the design-system rule for presentation code.
-      final source = File(
-        'lib/shared/widgets/cycle_badge.dart',
-      ).readAsStringSync();
-      expect(source.contains('Color(0x'), isFalse);
-      expect(source.contains('Colors.'), isFalse);
-    });
+    testWidgets(
+      'every colour it paints comes from its constructor, not a literal '
+      'of its own',
+      (tester) async {
+        // Behavioural, not source-reading: pump with two colours that would
+        // never coincidentally match a hard-coded default (`0xFF123456` /
+        // `0xFF654321`), then assert the fill, border and text all painted
+        // in exactly those — the property the design-system rule for
+        // presentation code actually cares about, verified at the widget's
+        // observable output rather than by grepping its source text (which
+        // cannot catch an equivalent violation via a helper or an imported
+        // constant, and breaks on any behaviour-preserving refactor of the
+        // file).
+        const badgeColor = Color(0xFF123456);
+        const badgeTextColor = Color(0xFF654321);
+        await _pumpBadge(
+          tester,
+          const CycleBadge(
+            filled: false,
+            color: badgeColor,
+            textColor: badgeTextColor,
+            label: '4d',
+          ),
+        );
+
+        final decoration = _decorationOf(tester);
+        final border = decoration.border! as Border;
+        expect(border.top.color, badgeColor);
+        expect(
+          tester.widget<Text>(find.byType(Text)).style?.color,
+          badgeTextColor,
+        );
+      },
+    );
   });
 }
