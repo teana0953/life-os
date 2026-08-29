@@ -229,6 +229,11 @@
     "description": "Cycle snapshot when the predicted date has passed.",
     "placeholders": { "days": { "type": "int" } }
   },
+  "homeMenstrualOngoingStart": "Started {date}",
+  "@homeMenstrualOngoingStart": {
+    "description": "Second line of the cycle snapshot while a period is ongoing: the date that period started, derived from today and the day count. Without it the tile says 'day 4' without saying which day the period began.",
+    "placeholders": { "date": { "type": "String" } }
+  },
   "homeBudget": "Monthly budget",
   "@homeBudget": { "description": "Label for the overall monthly-budget home snapshot." },
   "homeBudgetRemaining": "{amount} remaining",
@@ -1123,12 +1128,15 @@
   "@menstrualNextMonth": {
     "description": "Tooltip for the control that moves the menstrual mini-calendar to the next month."
   },
-  "menstrualDaySemanticPeriod": "{date}, period day",
+  "menstrualDaySemanticPeriod": "{date}, period day {cycleDay}",
   "@menstrualDaySemanticPeriod": {
-    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.",
+    "description": "Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date; {cycleDay} is which day of that period it is, counting the start date as day 1 and never capped.",
     "placeholders": {
       "date": {
         "type": "String"
+      },
+      "cycleDay": {
+        "type": "int"
       }
     }
   },
@@ -1158,6 +1166,10 @@
   "@menstrualLegendPredicted": {
     "description": "Legend label under the menstrual calendar for the outlined marker meaning the predicted next period start."
   },
+  "menstrualLegendCycleDay": "Small number = day of period",
+  "@menstrualLegendCycleDay": {
+    "description": "Legend label under the menstrual calendar explaining that the smaller second number inside a filled day marker is which day of that period the day is."
+  },
   "menstrualEmptyHint": "No periods recorded yet. Tap a day on the calendar or 'Log period' to start tracking.",
   "@menstrualEmptyHint": {
     "description": "First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken."
@@ -1166,13 +1178,10 @@
   "@nextPeriodTitle": {
     "description": "Title of the health overview's next-period card, which opens the menstrual tracker."
   },
-  "nextPeriodUpcoming": "{date} · in {days, plural, =1{1 day} other{{days} days}}",
-  "@nextPeriodUpcoming": {
-    "description": "The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is. Pluralized — being one day away happens every cycle.",
+  "nextPeriodUpcomingDays": "In {days, plural, =1{1 day} other{{days} days}}",
+  "@nextPeriodUpcomingDays": {
+    "description": "Main line of the overview's next-period card when the predicted next start is still ahead: how many days away it is. The predicted date itself is the sub-line (nextPeriodOngoingNext), so this line no longer carries it. Pluralized — being one day away happens every cycle.",
     "placeholders": {
-      "date": {
-        "type": "String"
-      },
       "days": {
         "type": "int"
       }
@@ -1205,11 +1214,68 @@
   },
   "nextPeriodOngoingNext": "Next expected {date}",
   "@nextPeriodOngoingNext": {
-    "description": "Secondary line on the overview's next-period card while a period is ongoing, showing the predicted next start. Omitted entirely when there is no prediction.",
+    "description": "Secondary line on the overview's next-period card showing the predicted next start — while a period is ongoing (omitted entirely when there is no prediction), and under the main line of the upcoming state.",
     "placeholders": {
       "date": {
         "type": "String"
       }
+    }
+  },
+  "nextPeriodOverduePassed": "Passed the predicted date by {days, plural, =1{1 day} other{{days} days}}",
+  "@nextPeriodOverduePassed": {
+    "description": "Explanation line under the overview's next-period card in the overdue state, restating in words what the warning-coloured badge shows, so the overdue state never relies on colour alone. Pluralized.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cycleBadgeOngoing": "{days}d",
+  "@cycleBadgeOngoing": {
+    "description": "Short label inside the circular cycle badge while a period is ongoing: which day of it today is. Must stay short enough to fit a 32dp circle — a space in it is rendered as a line break inside the badge.",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "cycleBadgeUpcoming": "{days}d",
+  "@cycleBadgeUpcoming": {
+    "description": "Short label inside the circular cycle badge when the predicted next start is still ahead: how many days away it is. Must stay short enough to fit a 32dp circle — a space in it is rendered as a line break inside the badge.",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "cycleBadgeOverdue": "{days}d late",
+  "@cycleBadgeOverdue": {
+    "description": "Short label inside the circular cycle badge when the predicted next start has passed: how many days ago. The space is rendered as a line break inside the 32dp circle, so both halves have to be short on their own.",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "cycleBadgeToday": "Today",
+  "@cycleBadgeToday": {
+    "description": "Short label inside the circular cycle badge when the predicted next start is today. No day count — a zero-day countdown is what this state exists to avoid saying."
+  },
+  "cycleStatusOngoingA11y": "Cycle: period day {days}, started {date}",
+  "@cycleStatusOngoingA11y": {
+    "description": "The whole sentence a screen reader hears for the ongoing state on the home tile and the next-period card. The badge itself is excluded from semantics, so this is the only place the day count is announced.",
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
+    }
+  },
+  "cycleStatusUpcomingA11y": "Cycle: {days, plural, =1{1 day} other{{days} days}} to go, expected {date}",
+  "@cycleStatusUpcomingA11y": {
+    "description": "The whole sentence a screen reader hears for the upcoming state on the home tile and the next-period card. days is how many days away the prediction is; date is the predicted next start.",
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
+    }
+  },
+  "cycleStatusTodayA11y": "Cycle: expected today, {date}",
+  "@cycleStatusTodayA11y": {
+    "description": "The whole sentence a screen reader hears when the predicted next start is today. It carries no day count because this state has none — date is the predicted next start, which is today.",
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "cycleStatusOverdueA11y": "Cycle: overdue, {days, plural, =1{1 day} other{{days} days}} past the predicted {date}",
+  "@cycleStatusOverdueA11y": {
+    "description": "The whole sentence a screen reader hears for the overdue state. days is how many days have passed since the prediction; date is the predicted next start, never rolled forward.",
+    "placeholders": {
+      "days": { "type": "int" },
+      "date": { "type": "String" }
     }
   },
   "nextPeriodNoRecords": "No periods recorded yet",

@@ -444,6 +444,12 @@ abstract class AppLocalizations {
   /// **'Prediction passed {days} days ago'**
   String homeMenstrualOverdue(int days);
 
+  /// Second line of the cycle snapshot while a period is ongoing: the date that period started, derived from today and the day count. Without it the tile says 'day 4' without saying which day the period began.
+  ///
+  /// In en, this message translates to:
+  /// **'Started {date}'**
+  String homeMenstrualOngoingStart(String date);
+
   /// Label for the overall monthly-budget home snapshot.
   ///
   /// In en, this message translates to:
@@ -1752,11 +1758,11 @@ abstract class AppLocalizations {
   /// **'Next month'**
   String get menstrualNextMonth;
 
-  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date.
+  /// Screen-reader label for a menstrual calendar day cell that falls within a recorded period. {date} is the localized date; {cycleDay} is which day of that period it is, counting the start date as day 1 and never capped.
   ///
   /// In en, this message translates to:
-  /// **'{date}, period day'**
-  String menstrualDaySemanticPeriod(String date);
+  /// **'{date}, period day {cycleDay}'**
+  String menstrualDaySemanticPeriod(String date, int cycleDay);
 
   /// Screen-reader label for a menstrual calendar day cell that is the predicted next period start. {date} is the localized date.
   ///
@@ -1782,6 +1788,12 @@ abstract class AppLocalizations {
   /// **'Predicted next'**
   String get menstrualLegendPredicted;
 
+  /// Legend label under the menstrual calendar explaining that the smaller second number inside a filled day marker is which day of that period the day is.
+  ///
+  /// In en, this message translates to:
+  /// **'Small number = day of period'**
+  String get menstrualLegendCycleDay;
+
   /// First-run guidance shown on the menstrual screen when there are no recorded periods yet, so the empty statistics don't look broken.
   ///
   /// In en, this message translates to:
@@ -1794,11 +1806,11 @@ abstract class AppLocalizations {
   /// **'Next period'**
   String get nextPeriodTitle;
 
-  /// The overview's next-period card when the predicted next start is still ahead: the predicted date and how many days away it is. Pluralized — being one day away happens every cycle.
+  /// Main line of the overview's next-period card when the predicted next start is still ahead: how many days away it is. The predicted date itself is the sub-line (nextPeriodOngoingNext), so this line no longer carries it. Pluralized — being one day away happens every cycle.
   ///
   /// In en, this message translates to:
-  /// **'{date} · in {days, plural, =1{1 day} other{{days} days}}'**
-  String nextPeriodUpcoming(String date, int days);
+  /// **'In {days, plural, =1{1 day} other{{days} days}}'**
+  String nextPeriodUpcomingDays(int days);
 
   /// The overview's next-period card when the predicted next start is today — said outright rather than as a zero-day countdown.
   ///
@@ -1818,11 +1830,65 @@ abstract class AppLocalizations {
   /// **'Ongoing · day {day}'**
   String nextPeriodOngoing(int day);
 
-  /// Secondary line on the overview's next-period card while a period is ongoing, showing the predicted next start. Omitted entirely when there is no prediction.
+  /// Secondary line on the overview's next-period card showing the predicted next start — while a period is ongoing (omitted entirely when there is no prediction), and under the main line of the upcoming state.
   ///
   /// In en, this message translates to:
   /// **'Next expected {date}'**
   String nextPeriodOngoingNext(String date);
+
+  /// Explanation line under the overview's next-period card in the overdue state, restating in words what the warning-coloured badge shows, so the overdue state never relies on colour alone. Pluralized.
+  ///
+  /// In en, this message translates to:
+  /// **'Passed the predicted date by {days, plural, =1{1 day} other{{days} days}}'**
+  String nextPeriodOverduePassed(int days);
+
+  /// Short label inside the circular cycle badge while a period is ongoing: which day of it today is. Must stay short enough to fit a 32dp circle — a space in it is rendered as a line break inside the badge.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d'**
+  String cycleBadgeOngoing(int days);
+
+  /// Short label inside the circular cycle badge when the predicted next start is still ahead: how many days away it is. Must stay short enough to fit a 32dp circle — a space in it is rendered as a line break inside the badge.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d'**
+  String cycleBadgeUpcoming(int days);
+
+  /// Short label inside the circular cycle badge when the predicted next start has passed: how many days ago. The space is rendered as a line break inside the 32dp circle, so both halves have to be short on their own.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d late'**
+  String cycleBadgeOverdue(int days);
+
+  /// Short label inside the circular cycle badge when the predicted next start is today. No day count — a zero-day countdown is what this state exists to avoid saying.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get cycleBadgeToday;
+
+  /// The whole sentence a screen reader hears for the ongoing state on the home tile and the next-period card. The badge itself is excluded from semantics, so this is the only place the day count is announced.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle: period day {days}, started {date}'**
+  String cycleStatusOngoingA11y(int days, String date);
+
+  /// The whole sentence a screen reader hears for the upcoming state on the home tile and the next-period card. days is how many days away the prediction is; date is the predicted next start.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle: {days, plural, =1{1 day} other{{days} days}} to go, expected {date}'**
+  String cycleStatusUpcomingA11y(int days, String date);
+
+  /// The whole sentence a screen reader hears when the predicted next start is today. It carries no day count because this state has none — date is the predicted next start, which is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle: expected today, {date}'**
+  String cycleStatusTodayA11y(String date);
+
+  /// The whole sentence a screen reader hears for the overdue state. days is how many days have passed since the prediction; date is the predicted next start, never rolled forward.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle: overdue, {days, plural, =1{1 day} other{{days} days}} past the predicted {date}'**
+  String cycleStatusOverdueA11y(int days, String date);
 
   /// The overview's next-period card when nothing has been recorded at all — deliberately not promising that one more recording enables a prediction, which it would not.
   ///

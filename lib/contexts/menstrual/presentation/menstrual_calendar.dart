@@ -18,25 +18,51 @@ String _dayString(DateTime date) {
   return '$y-$m-$d';
 }
 
-/// Whether [day] falls within any of [periods]' inclusive ranges. A closed
-/// period covers `[startDate, endDate]`; an open period (no end date) covers
+/// Which day of its period [day] is — the period's `startDate` is day 1 — or
+/// null when no period covers it. A closed period covers
+/// `[startDate, endDate]`; an open period (no end date) covers
 /// `[startDate, today]`.
-bool isMenstrualPeriodDay(
+///
+/// Where several periods cover [day], the count comes from the one with the
+/// largest `startDate`, the same tie-break `computeNextPeriodStatus` applies
+/// for the overview card — the two must never disagree about a day. The rule
+/// is duplicated rather than shared because the domain function answers only
+/// about today and returns a card state, not a per-date number.
+///
+/// Uncapped on purpose: an open period reading "41" is the signal that it was
+/// never closed.
+int? menstrualCycleDay(
   DateTime day,
   List<MenstrualPeriod> periods,
   DateTime today,
 ) {
   final d = menstrualDateOnly(day);
   final todayOnly = menstrualDateOnly(today);
+  DateTime? covering;
   for (final period in periods) {
     final start = menstrualDateOnly(period.startDate);
     final end = period.endDate == null
         ? todayOnly
         : menstrualDateOnly(period.endDate!);
-    if (!d.isBefore(start) && !d.isAfter(end)) return true;
+    if (d.isBefore(start) || d.isAfter(end)) continue;
+    if (covering == null || start.isAfter(covering)) covering = start;
   }
-  return false;
+  if (covering == null) return null;
+  // Anchored in UTC before subtracting so a DST transition inside the range
+  // cannot shave the count by a day.
+  return DateTime.utc(d.year, d.month, d.day)
+          .difference(DateTime.utc(covering.year, covering.month, covering.day))
+          .inDays +
+      1;
 }
+
+/// Whether [day] falls within any of [periods]' inclusive ranges, with the
+/// same range rules as [menstrualCycleDay].
+bool isMenstrualPeriodDay(
+  DateTime day,
+  List<MenstrualPeriod> periods,
+  DateTime today,
+) => menstrualCycleDay(day, periods, today) != null;
 
 /// Whether [day] is the predicted next start date in [stats].
 bool isPredictedNextStart(DateTime day, MenstrualStats stats) {
@@ -191,7 +217,7 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
                             day,
                           ),
                           today: today,
-                          isPeriod: isMenstrualPeriodDay(
+                          cycleDay: menstrualCycleDay(
                             DateTime(
                               _visibleMonth.year,
                               _visibleMonth.month,
@@ -214,7 +240,7 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
             ],
           ),
         const SizedBox(height: 8),
-        // A `Wrap`, not a `Row`: the two entries together are wider than a
+        // A `Wrap`, not a `Row`: the entries together are wider than a
         // 320dp phone in English, and wider still at a large text scale —
         // where a single entry alone no longer fits on one line, hence the
         // shrinkable label inside `_LegendItem` as well.
@@ -226,6 +252,11 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
           children: [
             _LegendItem(filled: true, label: loc.menstrualLegendPeriod),
             _LegendItem(filled: false, label: loc.menstrualLegendPredicted),
+            _LegendItem(
+              filled: true,
+              markerLabel: '1',
+              label: loc.menstrualLegendCycleDay,
+            ),
           ],
         ),
       ],
@@ -238,9 +269,18 @@ class _MenstrualCalendarState extends State<MenstrualCalendar> {
 /// next start) followed by its [label]. Colors come from [Theme.of(context)].
 class _LegendItem extends StatelessWidget {
   final bool filled;
+
+  /// Digits drawn inside the marker, for the entry that explains the cycle-day
+  /// number. Null for the entries whose marker is the whole point.
+  final String? markerLabel;
+
   final String label;
 
-  const _LegendItem({required this.filled, required this.label});
+  const _LegendItem({
+    required this.filled,
+    required this.label,
+    this.markerLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +291,7 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 16,
           height: 16,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: filled ? theme.colorScheme.primary : null,
@@ -258,6 +299,16 @@ class _LegendItem extends StatelessWidget {
                 ? null
                 : Border.all(color: theme.colorScheme.primary, width: 2),
           ),
+          child: markerLabel == null
+              ? null
+              : Text(
+                  markerLabel!,
+                  textScaler: TextScaler.noScaling,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    height: 1,
+                    color: theme.colorScheme.onPrimary,
+                  ),
+                ),
         ),
         const SizedBox(width: 6),
         // Wraps onto a second line rather than pushing the row past the
@@ -288,14 +339,18 @@ class _LegendItem extends StatelessWidget {
 class _MenstrualDayCell extends StatelessWidget {
   final DateTime date;
   final DateTime today;
-  final bool isPeriod;
+
+  /// Which day of its period this is (start date = day 1), or null when the
+  /// day belongs to no period — which is also what makes it a period day.
+  final int? cycleDay;
+
   final bool isPredicted;
   final void Function(DateTime day)? onTap;
 
   const _MenstrualDayCell({
     required this.date,
     required this.today,
-    required this.isPeriod,
+    required this.cycleDay,
     required this.isPredicted,
     required this.onTap,
   });
@@ -309,8 +364,8 @@ class _MenstrualDayCell extends StatelessWidget {
     final dateLabel = mediumDateLabel(context, date);
 
     final String semanticLabel;
-    if (isPeriod) {
-      semanticLabel = loc.menstrualDaySemanticPeriod(dateLabel);
+    if (cycleDay != null) {
+      semanticLabel = loc.menstrualDaySemanticPeriod(dateLabel, cycleDay!);
     } else if (isPredicted) {
       semanticLabel = loc.menstrualDaySemanticPredicted(dateLabel);
     } else if (isToday) {
@@ -319,12 +374,9 @@ class _MenstrualDayCell extends StatelessWidget {
       semanticLabel = dateLabel;
     }
 
-    final Color textColor;
-    if (isPeriod) {
-      textColor = theme.colorScheme.onPrimary;
-    } else {
-      textColor = theme.colorScheme.onSurface;
-    }
+    final textColor = cycleDay != null
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onSurface;
 
     return InkWell(
       key: Key('menstrual-day-$dayString'),
@@ -337,26 +389,58 @@ class _MenstrualDayCell extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Center(
-              child: Container(
-                key: Key('menstrual-day-marker-$dayString'),
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isPeriod ? theme.colorScheme.primary : null,
-                  border: isPredicted
-                      ? Border.all(color: theme.colorScheme.primary, width: 2)
-                      : (isToday
-                            ? Border.all(
-                                color: theme.colorScheme.outline,
-                                width: 1,
-                              )
-                            : null),
-                ),
-                child: Text(
-                  '${date.day}',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+              // Two stacked lines total ~23dp at scale 1.0 and pass the 32dp
+              // circle just past 1.3x, so the marker — and only the marker,
+              // not the legend or the statistics — caps the scale there
+              // rather than overflowing or growing the circle and breaking
+              // the 44dp row rhythm every calendar in the app shares. The
+              // uncapped number stays available through the semantic label
+              // above.
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: Container(
+                  key: Key('menstrual-day-marker-$dayString'),
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cycleDay != null ? theme.colorScheme.primary : null,
+                    border: isPredicted
+                        ? Border.all(color: theme.colorScheme.primary, width: 2)
+                        : (isToday
+                              ? Border.all(
+                                  color: theme.colorScheme.outline,
+                                  width: 1,
+                                )
+                              : null),
+                  ),
+                  child: cycleDay == null
+                      ? Text(
+                          '${date.day}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: textColor,
+                          ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${date.day}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                height: 1,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              '$cycleDay',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                height: 1,
+                                color: textColor.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ),

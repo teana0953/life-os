@@ -12,7 +12,9 @@ import 'package:life_os/contexts/auth/presentation/login_screen.dart';
 import 'package:life_os/contexts/body_profile/domain/weight_goal.dart';
 import 'package:life_os/contexts/finance/domain/finance_budget.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/next_period_status.dart';
+import 'package:life_os/contexts/menstrual/presentation/menstrual_calendar.dart';
 import 'package:life_os/contexts/user/application/get_profile.dart';
 import 'package:life_os/contexts/user/domain/profile_repository.dart';
 import 'package:life_os/contexts/user/domain/user_profile.dart';
@@ -21,6 +23,7 @@ import 'package:life_os/contexts/user/presentation/home_dashboard_controller.dar
 import 'package:life_os/contexts/user/presentation/home_screen.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
+import 'package:life_os/shared/widgets/cycle_badge.dart';
 
 import '../../contexts/user/presentation/home_screen_test.dart'
     show loadedDashboardFixture, testDailyTarget, testPrivacyMaskController;
@@ -300,6 +303,192 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  // The menstrual calendar's period-day marker stacks two lines of digits
+  // inside a fixed 32x32 circle. Every ordinary widget test of it is blind to
+  // the font: `flutter_test` paints one fontSize-square per glyph, so a
+  // two-line column measures 12+11=23dp there whatever the real ascender and
+  // descender do. Only the real .ttf can say whether it actually fits.
+  group('menstrual day marker, real font metrics', () {
+    // 1.3 is the marker's own `MediaQuery.withClampedTextScaling` cap, so
+    // pumping at 2.0 exercises the clamped ceiling; 1.0 is the floor.
+    for (final entry in {1.0: 1.0, 2.0: 1.3}.entries) {
+      testWidgets(
+        'two-line marker fits the 32dp circle at textScale ${entry.key} '
+        '(clamped to ${entry.value})',
+        (tester) async {
+          final errors = await collectLayoutErrors(
+            () => _pumpMenstrualCalendar(tester, textScale: entry.key),
+          );
+          expect(
+            errors.map((e) => e.exception.toString().split('\n').first).toList(),
+            isEmpty,
+          );
+
+          final marker = find.byKey(const Key('menstrual-day-marker-2026-07-12'));
+          final content = tester.getSize(
+            find.descendant(of: marker, matching: find.byType(Column)),
+          );
+          expect(
+            content.height,
+            lessThanOrEqualTo(_markerDiameter),
+            reason:
+                'the stacked date + cycle-day lines must stay inside the '
+                '32dp circle at an effective scale of ${entry.value}',
+          );
+          // Not the full 32: the circle's usable chord narrows away from its
+          // vertical middle, and the two lines straddle it.
+          expect(
+            content.width,
+            lessThanOrEqualTo(_markerChord),
+            reason: 'the widest of the two lines must stay inside the chord',
+          );
+        },
+      );
+    }
+  });
+
+  // Same instrument as the menstrual day marker above, for the home tile's
+  // and next-period card's shared `CycleBadge`: "3d late" (overdue's English
+  // label) is the widest of the four badged labels ("Xd" for
+  // ongoing/upcoming, "Today" for today) — the placeholder font would draw
+  // all three as fontSize squares and could not tell "3d late" apart from a
+  // one-character label. **Not** asserted here for zh-Hant ("逾3天"): the
+  // bundled Noto Sans subset carries no CJK glyphs at all (see
+  // `menstrual-status-badges/design.md`'s risks), so a CJK assertion in this
+  // file would measure the platform fallback font, not the shipped one —
+  // fit at that width was instead confirmed manually in a browser (noted on
+  // the PR), which this test cannot substitute for or duplicate.
+  group('CycleBadge, real font metrics', () {
+    for (final entry in {1.0: 1.0, 2.0: 1.3}.entries) {
+      testWidgets(
+        '"3d late" fits the 32dp circle at textScale ${entry.key} '
+        '(clamped to ${entry.value})',
+        (tester) async {
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(entry.key)),
+              child: l10nTestApp(
+                theme: lightTheme,
+                home: const Scaffold(
+                  body: Center(
+                    child: CycleBadge(
+                      key: Key('badge-under-test'),
+                      filled: false,
+                      color: Colors.orange,
+                      textColor: Colors.orange,
+                      label: '3d late',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          final badge = find.byKey(const Key('badge-under-test'));
+          expect(
+            tester.getSize(badge),
+            const Size(_markerDiameter, _markerDiameter),
+            reason:
+                'the badge circle itself must not grow past its fixed 32dp '
+                'size — the FittedBox inside it is what absorbs the label, '
+                'not the circle',
+          );
+
+          final content = tester.getSize(
+            find.descendant(of: badge, matching: find.byType(FittedBox)),
+          );
+          expect(
+            content.width,
+            lessThanOrEqualTo(_markerDiameter),
+            reason: '"3d late" must not force the badge wider than 32dp',
+          );
+          expect(
+            content.height,
+            lessThanOrEqualTo(_markerDiameter),
+            reason: '"3d late" must not force the badge taller than 32dp',
+          );
+        },
+      );
+    }
+  });
+
+  // Task 6.2 of `menstrual-status-badges`: settle the home tile's
+  // `minHeight` against the real font rather than shipping design.md's
+  // ~132dp estimate unverified. `overdue` is the tallest of the six
+  // menstrual states — it is the only one with both a badge (line 1) and a
+  // date line (line 2) stacked under the label row. Measured: at 320dp with
+  // the real font this pump's error list is empty (the known 0.257px
+  // section-header overflow that `home_screen_responsive_test.dart` allows
+  // for is a `flutter_test` placeholder-font artifact and does not reproduce
+  // here), so a bare "no errors" assertion is not vacuous.
+  group('home dashboard menstrual tile, real font metrics', () {
+    testWidgets(
+      'the tallest menstrual state (overdue) fits the shipped minHeight '
+      'at 320dp zh-Hant',
+      (tester) async {
+        final overdue = HomeDashboardData.allLoaded(
+          weightGoal: WeightGoal(currentWeightKg: 62.5),
+          bloodPressure: null,
+          menstrualStatus: NextPeriodStatus(
+            state: NextPeriodState.overdue,
+            days: 3,
+            predictedNextStart: DateTime(2026, 7, 25),
+          ),
+          overallBudget: FinanceBudget(
+            id: 'b1',
+            categoryId: null,
+            amount: 900,
+            spent: 100,
+            remaining: 800,
+            percent: 11,
+          ),
+          netWorth: MonthlyNetWorth(
+            month: '2026-01',
+            accounts: [],
+            totalAsset: 900,
+            totalLiability: 700,
+            netWorth: 200,
+            prevNetWorth: null,
+            growthRate: null,
+          ),
+          splitBalances: [],
+          dailyTarget: testDailyTarget,
+        );
+        final dashboard = loadedDashboardFixture()..data = overdue;
+
+        final errors = await collectLayoutErrors(
+          () => _pumpHome(
+            tester,
+            const Size(320, 900),
+            locale: _zhHant,
+            dashboard: dashboard,
+          ),
+        );
+        expect(
+          errors.map((e) => e.exception.toString().split('\n').first).toList(),
+          isEmpty,
+          reason:
+              'the menstrual tile in its tallest (overdue) state must not '
+              'overflow at 320dp with the real font',
+        );
+
+        final tile = tester.getSize(
+          find.byKey(const Key('home-menstrual-prediction')),
+        );
+        expect(
+          tile.height,
+          lessThanOrEqualTo(140.0),
+          reason:
+              'the tile must not have silently grown past its intended '
+              '~132dp — a large real-font overshoot here would still pass '
+              'the overflow check above (the tile just gets taller) without '
+              'this explicit ceiling',
+        );
+      },
+    );
   });
 
   // Same instrument, same limits as the dashboard case above: verified to
@@ -601,6 +790,48 @@ Future<void> _pumpLogin(
           controller: LoginController(SignIn(repository)),
           localeController: await testLocaleController(),
           signUp: SignUp(repository),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+/// The menstrual day marker's fixed circle diameter, and the usable chord
+/// across it — a circle is not a square, so content wider than the chord
+/// spills past the fill even when it is narrower than the diameter.
+const _markerDiameter = 32.0;
+const _markerChord = 28.0;
+
+/// Pumps a [MenstrualCalendar] on a 320dp phone — the narrowest supported
+/// width, where the seven `Expanded` cells are tightest — showing July 2026
+/// with a period running the 10th to the 14th, so 2026-07-12 is a two-digit
+/// date over a single-digit cycle day.
+Future<void> _pumpMenstrualCalendar(
+  WidgetTester tester, {
+  required double textScale,
+}) async {
+  await _sizeSurface(tester, const Size(320, 900));
+  await tester.pumpWidget(
+    MediaQuery(
+      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      child: l10nTestApp(
+        theme: lightTheme,
+        home: Scaffold(
+          body: MenstrualCalendar(
+            overview: MenstrualOverview(
+              periods: [
+                MenstrualPeriod(
+                  id: 'p1',
+                  startDate: DateTime(2026, 7, 10),
+                  endDate: DateTime(2026, 7, 14),
+                ),
+              ],
+              stats: const MenstrualStats(),
+            ),
+            clock: () => DateTime(2026, 7, 22),
+            onDayTap: (_) {},
+          ),
         ),
       ),
     ),

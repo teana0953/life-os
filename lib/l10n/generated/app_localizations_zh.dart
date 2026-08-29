@@ -215,6 +215,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String homeMenstrualOngoingStart(String date) {
+    return 'Started $date';
+  }
+
+  @override
   String get homeBudget => '本月預算';
 
   @override
@@ -910,8 +915,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menstrualNextMonth => '下個月';
 
   @override
-  String menstrualDaySemanticPeriod(String date) {
-    return '$date,經期';
+  String menstrualDaySemanticPeriod(String date, int cycleDay) {
+    return '$date,經期第 $cycleDay 天';
   }
 
   @override
@@ -931,14 +936,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get menstrualLegendPredicted => '預測下次';
 
   @override
+  String get menstrualLegendCycleDay => 'Small number = day of period';
+
+  @override
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
 
   @override
   String get nextPeriodTitle => '下次生理期';
 
   @override
-  String nextPeriodUpcoming(String date, int days) {
-    return '$date・還有 $days 天';
+  String nextPeriodUpcomingDays(int days) {
+    return '還有 $days 天';
   }
 
   @override
@@ -957,6 +965,67 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String nextPeriodOngoingNext(String date) {
     return '下次預計 $date';
+  }
+
+  @override
+  String nextPeriodOverduePassed(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Passed the predicted date by $_temp0';
+  }
+
+  @override
+  String cycleBadgeOngoing(int days) {
+    return '${days}d';
+  }
+
+  @override
+  String cycleBadgeUpcoming(int days) {
+    return '${days}d';
+  }
+
+  @override
+  String cycleBadgeOverdue(int days) {
+    return '${days}d late';
+  }
+
+  @override
+  String get cycleBadgeToday => 'Today';
+
+  @override
+  String cycleStatusOngoingA11y(int days, String date) {
+    return 'Cycle: period day $days, started $date';
+  }
+
+  @override
+  String cycleStatusUpcomingA11y(int days, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Cycle: $_temp0 to go, expected $date';
+  }
+
+  @override
+  String cycleStatusTodayA11y(String date) {
+    return 'Cycle: expected today, $date';
+  }
+
+  @override
+  String cycleStatusOverdueA11y(int days, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Cycle: overdue, $_temp0 past the predicted $date';
   }
 
   @override
@@ -3334,6 +3403,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String homeMenstrualOngoingStart(String date) {
+    return '$date 開始';
+  }
+
+  @override
   String get homeBudget => '本月預算';
 
   @override
@@ -4029,8 +4103,8 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get menstrualNextMonth => '下個月';
 
   @override
-  String menstrualDaySemanticPeriod(String date) {
-    return '$date,經期';
+  String menstrualDaySemanticPeriod(String date, int cycleDay) {
+    return '$date,經期第 $cycleDay 天';
   }
 
   @override
@@ -4050,14 +4124,17 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get menstrualLegendPredicted => '預測下次';
 
   @override
+  String get menstrualLegendCycleDay => '小數字＝經期第幾天';
+
+  @override
   String get menstrualEmptyHint => '還沒有生理期紀錄,點日曆上的日期或「新增週期」開始記錄。';
 
   @override
   String get nextPeriodTitle => '下次生理期';
 
   @override
-  String nextPeriodUpcoming(String date, int days) {
-    return '$date・還有 $days 天';
+  String nextPeriodUpcomingDays(int days) {
+    return '還有 $days 天';
   }
 
   @override
@@ -4076,6 +4153,49 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String nextPeriodOngoingNext(String date) {
     return '下次預計 $date';
+  }
+
+  @override
+  String nextPeriodOverduePassed(int days) {
+    return '已超過預測日 $days 天';
+  }
+
+  @override
+  String cycleBadgeOngoing(int days) {
+    return '$days天';
+  }
+
+  @override
+  String cycleBadgeUpcoming(int days) {
+    return '$days天';
+  }
+
+  @override
+  String cycleBadgeOverdue(int days) {
+    return '逾$days天';
+  }
+
+  @override
+  String get cycleBadgeToday => '今天';
+
+  @override
+  String cycleStatusOngoingA11y(int days, String date) {
+    return '生理週期預測:生理期第 $days 天,$date 開始';
+  }
+
+  @override
+  String cycleStatusUpcomingA11y(int days, String date) {
+    return '生理週期預測:還有 $days 天,預計 $date';
+  }
+
+  @override
+  String cycleStatusTodayA11y(String date) {
+    return '生理週期預測:預計今天,$date';
+  }
+
+  @override
+  String cycleStatusOverdueA11y(int days, String date) {
+    return '生理週期預測:已逾期,已超過預測日 $days 天,預計 $date';
   }
 
   @override
