@@ -1,0 +1,50 @@
+version: 1
+name: edit-in-place-light
+budget: 200k
+defaults:
+  tier: standard
+
+# run: /graphflow:graphflow run edit-in-place-light --flow light \
+#        --input goal="..." --input verify="flutter analyze && TZ=UTC flutter test <path>"
+#
+# 給「單一檔案、就地改、不能開 worktree」的小改動用(工作區已有未 commit 的
+# 相關改動時,foreach + isolation: worktree 會看不到它們)。
+inputs: [goal, verify]
+
+nodes:
+  implement:
+    kind: task
+    role: implementer
+    prompt: |
+      在**目前的工作樹就地**完成以下改動,不要新開 worktree、不要 stash 或
+      丟棄工作區既有的未 commit 改動,也不要 commit:
+
+      {{ inputs.goal }}
+
+      完成後自己跑 `{{ inputs.verify }}`,回報實際輸出結尾,不要宣稱沒跑過的結果。
+
+  verify:
+    kind: script
+    after: [implement]
+    run: "{{ inputs.verify }}"
+
+  code-review:
+    kind: check
+    role: code-reviewer
+    tier: heavy
+    after: [implement]
+
+  fix:
+    kind: task
+    role: fixer
+    tier: light
+    after: [verify, code-review]
+    when: any-fail
+    goto: [verify, code-review]
+    max_iterations: 3
+
+  ship:
+    kind: gate
+    after: [verify, code-review]
+    when: all-pass
+    show: "{{ nodes.code-review.output }}"
