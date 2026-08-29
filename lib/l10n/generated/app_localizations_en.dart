@@ -217,6 +217,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String homeMenstrualOngoingStart(String date) {
+    return 'Started $date';
+  }
+
+  @override
   String get homeBudget => 'Monthly budget';
 
   @override
@@ -958,14 +963,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextPeriodTitle => 'Next period';
 
   @override
-  String nextPeriodUpcoming(String date, int days) {
+  String nextPeriodUpcomingDays(int days) {
     String _temp0 = intl.Intl.pluralLogic(
       days,
       locale: localeName,
       other: '$days days',
       one: '1 day',
     );
-    return '$date · in $_temp0';
+    return 'In $_temp0';
   }
 
   @override
@@ -990,6 +995,67 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String nextPeriodOngoingNext(String date) {
     return 'Next expected $date';
+  }
+
+  @override
+  String nextPeriodOverduePassed(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Passed the predicted date by $_temp0';
+  }
+
+  @override
+  String cycleBadgeOngoing(int days) {
+    return '${days}d';
+  }
+
+  @override
+  String cycleBadgeUpcoming(int days) {
+    return '${days}d';
+  }
+
+  @override
+  String cycleBadgeOverdue(int days) {
+    return '${days}d late';
+  }
+
+  @override
+  String get cycleBadgeToday => 'Today';
+
+  @override
+  String cycleStatusOngoingA11y(int days, String date) {
+    return 'Cycle: period day $days, started $date';
+  }
+
+  @override
+  String cycleStatusUpcomingA11y(int days, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Cycle: $_temp0 to go, expected $date';
+  }
+
+  @override
+  String cycleStatusTodayA11y(String date) {
+    return 'Cycle: expected today, $date';
+  }
+
+  @override
+  String cycleStatusOverdueA11y(int days, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Cycle: overdue, $_temp0 past the predicted $date';
   }
 
   @override

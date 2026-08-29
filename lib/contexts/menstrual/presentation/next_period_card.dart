@@ -4,9 +4,11 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/widgets/card_error_retry.dart';
 import '../../../shared/widgets/card_loading.dart';
+import '../../../shared/widgets/cycle_badge.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
 import '../domain/next_period_status.dart';
+import 'cycle_badge_style.dart';
 import 'menstrual_controller.dart';
 import '../../../shared/auth/id_token_provider.dart';
 
@@ -62,6 +64,13 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
 
   void _onControllerChanged() => setState(() {});
 
+  /// One sentence for the whole state instead of the three or four separate
+  /// nodes its lines would otherwise be — [label] is null in the states that
+  /// have nothing extra to say, and then the painted text speaks for itself.
+  Widget _semantic(String? label, Widget child) => label == null
+      ? child
+      : Semantics(label: label, child: ExcludeSemantics(child: child));
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -111,8 +120,8 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
     // degradation for any state whose data didn't come with it.
     final primary = switch ((status.state, predicted, days)) {
       (NextPeriodState.ongoing, _, final int day) => loc.nextPeriodOngoing(day),
-      (NextPeriodState.upcoming, final DateTime date, final int n) =>
-        loc.nextPeriodUpcoming(mediumDateLabel(context, date), n),
+      (NextPeriodState.upcoming, _, final int n) =>
+        loc.nextPeriodUpcomingDays(n),
       (NextPeriodState.overdue, final DateTime date, final int n) =>
         loc.nextPeriodOverdue(mediumDateLabel(context, date), n),
       (NextPeriodState.today, _, _) => loc.nextPeriodToday,
@@ -133,9 +142,36 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
         status.state == NextPeriodState.ongoing &&
         predicted != null &&
         daysBetween(now, predicted) > 0;
-    final secondary = showsPrediction
-        ? loc.nextPeriodOngoingNext(mediumDateLabel(context, predicted))
+    // `upcoming` shares that sub-line: its main line is now the day count
+    // alone, so the predicted date it used to carry inline moved down here
+    // rather than being dropped.
+    final secondary = showsPrediction || status.state == NextPeriodState.upcoming
+        ? (predicted == null
+              ? null
+              : loc.nextPeriodOngoingNext(mediumDateLabel(context, predicted)))
         : null;
+
+    // The overdue state's warning colour never carries information on its
+    // own: the badge spells the overage out, and this line restates it in a
+    // whole phrase.
+    final overdueExplanation =
+        status.state == NextPeriodState.overdue && days != null
+        ? loc.nextPeriodOverduePassed(days)
+        : null;
+
+    final badgeStyle = cycleBadgeStyleFor(status.state, theme.colorScheme);
+    final badgeLabel = cycleBadgeLabel(loc, status);
+    // The date the sentence names: the derived start date while a period is
+    // ongoing, the prediction otherwise — the same helper the home tile uses,
+    // so the two surfaces cannot disagree about what a state means.
+    final semanticDate =
+        ongoingPeriodStart(status, now) ??
+        (status.state == NextPeriodState.ongoing ? null : predicted);
+    final semanticLabel = cycleStatusSemanticLabel(
+      loc,
+      status,
+      semanticDate == null ? null : mediumDateLabel(context, semanticDate),
+    );
 
     // The marking goes inside the card but outside the [InkWell] — inside it,
     // tapping retry would open the tracker instead.
@@ -151,32 +187,55 @@ class _NextPeriodCardState extends State<NextPeriodCard> {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
+                  if (badgeStyle != null && badgeLabel != null) ...[
+                    CycleBadge(
+                      key: const Key('next-period-badge'),
+                      filled: badgeStyle.filled,
+                      color: badgeStyle.color,
+                      textColor: badgeStyle.textColor,
+                      label: badgeLabel,
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          loc.nextPeriodTitle,
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          primary,
-                          key: const Key('next-period-primary'),
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        if (secondary != null) ...[
-                          const SizedBox(height: 4),
+                    child: _semantic(
+                      semanticLabel,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            secondary,
-                            key: const Key('next-period-secondary'),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                            loc.nextPeriodTitle,
+                            style: theme.textTheme.titleLarge,
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            primary,
+                            key: const Key('next-period-primary'),
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          if (secondary != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              secondary,
+                              key: const Key('next-period-secondary'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (overdueExplanation != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              overdueExplanation,
+                              key: const Key('next-period-overdue-explanation'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   // A hint that tapping the card opens the tracker.

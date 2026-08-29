@@ -10,6 +10,8 @@ import '../../../shared/build_info.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/privacy/privacy_mask_controller.dart';
 import '../../../shared/routing/finance_tab.dart';
+import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/cycle_badge.dart';
 import '../../../shared/widgets/last_loaded_label.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../../../shared/widgets/stale_notice.dart';
@@ -17,6 +19,7 @@ import '../../finance/domain/finance_money.dart';
 import '../../health/domain/daily_target.dart';
 import '../../health/domain/portions.dart';
 import '../../menstrual/domain/next_period_status.dart';
+import '../../menstrual/presentation/cycle_badge_style.dart';
 import '../../split/domain/balance.dart';
 import 'home_controller.dart';
 import 'home_dashboard_controller.dart';
@@ -556,6 +559,9 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
     String? shorterValue,
     String? valueSemanticLabel,
+    Widget? badge,
+    String? secondLine,
+    Color? outlineColor,
     Key? actionIconKey,
     IconData? actionIcon,
     String? actionIconTooltip,
@@ -569,6 +575,9 @@ class _HomeScreenState extends State<HomeScreen> {
       value: value,
       shorterValue: shorterValue,
       valueSemanticLabel: valueSemanticLabel,
+      badge: badge,
+      secondLine: secondLine,
+      outlineColor: outlineColor,
       actionIconKey: actionIconKey,
       actionIcon: actionIcon,
       actionIconTooltip: actionIconTooltip,
@@ -692,6 +701,78 @@ class _HomeScreenState extends State<HomeScreen> {
     return _dashboardTiles(loc, data);
   }
 
+  /// The 生理週期預測 tile: the one tile whose figure is a *state*, so it is
+  /// the one that leads with a badge and names the date that state is about.
+  ///
+  /// The date is what makes it a snapshot rather than a riddle: "day 4"
+  /// without a start date, or "3 days late" without the date it is late for,
+  /// sends the user into the tracker to recover a date the client already
+  /// holds. The badge appearance, the label and the ongoing start date all
+  /// come from the menstrual presentation helpers the overview card uses, so
+  /// the two surfaces cannot depict one state differently.
+  Widget _menstrualTile(AppLocalizations loc, ArmSlot<NextPeriodStatus> slot) {
+    final status = slot.value;
+    final scheme = Theme.of(context).colorScheme;
+    final badgeStyle = status == null
+        ? null
+        : cycleBadgeStyleFor(status.state, scheme);
+    final badgeLabel = status == null ? null : cycleBadgeLabel(loc, status);
+    final now = widget.clock();
+    final start = status == null ? null : ongoingPeriodStart(status, now);
+    final predicted = status?.predictedNextStart;
+    // The date the state is about — the derived start date while a period is
+    // ongoing, the prediction otherwise. `upcoming` is absent on purpose: its
+    // value line already *is* the predicted date, and repeating it underneath
+    // would print the same date twice.
+    final dateLine = switch (status?.state) {
+      NextPeriodState.ongoing when start != null =>
+        loc.homeMenstrualOngoingStart(shortYearDateLabel(context, start)),
+      NextPeriodState.overdue when predicted != null =>
+        loc.homeMenstrualExpected(shortYearDateLabel(context, predicted)),
+      // No "= today" suffix: the value line above already says it is today.
+      NextPeriodState.today when predicted != null =>
+        shortYearDateLabel(context, predicted),
+      _ => null,
+    };
+    final semanticDate = start ?? predicted;
+    return _snapshotTile(
+      tileId: 'home-menstrual-prediction',
+      loc: loc,
+      arm: DashboardArm.menstrual,
+      slot: slot,
+      label: loc.homeMenstrualPrediction,
+      value: status == null
+          ? loc.homeNoData
+          : _menstrualValue(context, loc, status),
+      valueSemanticLabel: status == null
+          ? null
+          : cycleStatusSemanticLabel(
+              loc,
+              status,
+              semanticDate == null
+                  ? null
+                  : shortYearDateLabel(context, semanticDate),
+            ),
+      badge: badgeStyle == null || badgeLabel == null
+          ? null
+          : CycleBadge(
+              key: const Key('home-menstrual-badge'),
+              filled: badgeStyle.filled,
+              color: badgeStyle.color,
+              textColor: badgeStyle.textColor,
+              label: badgeLabel,
+            ),
+      secondLine: dateLine,
+      // The only tile that ever changes its outline colour, and only in the
+      // one state where something is wrong. Colour is never the only signal:
+      // the badge and the value both spell the overage out in words.
+      outlineColor: status?.state == NextPeriodState.overdue
+          ? financeBudgetWarningColor(scheme)
+          : null,
+      onTap: _openMenstrual,
+    );
+  }
+
   /// The eight tiles, for any [data] — including the all-loading placeholder.
   ///
   /// Each tile is handed the slot of the arm that feeds it, so "this figure"
@@ -710,7 +791,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _dashboardTiles(AppLocalizations loc, HomeDashboardData data) {
     final weightKg = data.weightGoal.value?.currentWeightKg;
     final bloodPressure = data.bloodPressure.value;
-    final menstrualStatus = data.menstrualStatus.value;
     final overallBudget = data.overallBudget.value;
     final netWorth = data.netWorth.value;
     final splitBalances = data.splitBalances.value;
@@ -749,17 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '${_compactNumber(bloodPressure.diastolic)}',
               onTap: _openVitals,
             ),
-            _snapshotTile(
-              tileId: 'home-menstrual-prediction',
-              loc: loc,
-              arm: DashboardArm.menstrual,
-              slot: data.menstrualStatus,
-              label: loc.homeMenstrualPrediction,
-              value: menstrualStatus == null
-                  ? loc.homeNoData
-                  : _menstrualValue(context, loc, menstrualStatus),
-              onTap: _openMenstrual,
-            ),
+            _menstrualTile(loc, data.menstrualStatus),
           ],
         ),
         const SizedBox(height: 14),
@@ -1075,6 +1145,19 @@ class _SnapshotTile extends StatelessWidget {
   /// for itself, which is right for every tile whose value has one rendering.
   final String? valueSemanticLabel;
 
+  /// A leading status badge (currently only the menstrual tile's
+  /// [CycleBadge]) painted beside the value. `null` on every other tile.
+  final Widget? badge;
+
+  /// An optional second line under the value — the date a state names (e.g.
+  /// "7月2日 開始"). `null` on every tile that has nothing to add.
+  final String? secondLine;
+
+  /// Overrides the tile's outline colour (currently only the menstrual
+  /// tile's `overdue` state, via `financeBudgetWarningColor`). `null` keeps
+  /// the default `colorScheme.outline`.
+  final Color? outlineColor;
+
   final VoidCallback onTap;
 
   /// An optional action button on the label row (today: the portion-guide
@@ -1126,6 +1209,9 @@ class _SnapshotTile extends StatelessWidget {
     this.value,
     this.shorterValue,
     this.valueSemanticLabel,
+    this.badge,
+    this.secondLine,
+    this.outlineColor,
     this.actionIconKey,
     this.actionIcon,
     this.actionIconTooltip,
@@ -1159,10 +1245,10 @@ class _SnapshotTile extends StatelessWidget {
         // 110, not the original 92: the eye grows the title row from ~16 to a
         // 44pt tap target, and `Wrap` does not stretch a short tile to match a
         // tall one — leaving the eyeless tiles visibly shorter beside them.
-        constraints: const BoxConstraints(minHeight: 110),
+        constraints: const BoxConstraints(minHeight: 132),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outline),
+          border: Border.all(color: outlineColor ?? theme.colorScheme.outline),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -1246,8 +1332,15 @@ class _SnapshotTile extends StatelessWidget {
   Widget _valueArea(BuildContext context, ThemeData theme) {
     final showFigure = armStatus == ArmStatus.loaded || hasValue;
     final marker = showFigure ? _valueMarker(context, theme) : null;
-    return Row(
+    final row = Row(
       children: [
+        // Only drawn once the figure itself is — a badge beside a loading
+        // or cold-failure status line would claim a state the request
+        // hasn't actually returned yet.
+        if (badge != null && showFigure) ...[
+          badge!,
+          const SizedBox(width: 8),
+        ],
         ExcludeSemantics(child: Text('', style: theme.textTheme.titleMedium)),
         Flexible(
           child: showFigure
@@ -1261,6 +1354,26 @@ class _SnapshotTile extends StatelessWidget {
                 ),
         ),
         if (marker != null) marker,
+      ],
+    );
+    // Second line reserves its row even when there's nothing to print for
+    // this state (needsOneMore / noRecords), so the tile's height doesn't
+    // change between menstrual states — see R3 in
+    // home_screen_responsive_test.dart.
+    final line = secondLine;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        row,
+        const SizedBox(height: 4),
+        Text(
+          showFigure ? (line ?? '') : '',
+          key: line == null ? null : const Key('home-menstrual-date'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

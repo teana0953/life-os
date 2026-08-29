@@ -173,12 +173,14 @@ HomeDashboardController _longestRealisticFixture() =>
 /// four tiles of a section sit at the tile minimum height. That is exactly
 /// where an eye-induced height difference shows: a value long enough to wrap
 /// sets its own tile's height and hides the effect.
-HomeDashboardController _evenValuesFixture() =>
+HomeDashboardController _evenValuesFixture({NextPeriodStatus? menstrualStatus}) =>
     loadedDashboardFixture()
       ..data = HomeDashboardData.allLoaded(
         weightGoal: WeightGoal(currentWeightKg: 62.5),
         bloodPressure: null,
-        menstrualStatus: NextPeriodStatus(state: NextPeriodState.noRecords),
+        menstrualStatus:
+            menstrualStatus ??
+            NextPeriodStatus(state: NextPeriodState.noRecords),
         overallBudget: FinanceBudget(
           id: 'b1',
           categoryId: null,
@@ -735,13 +737,11 @@ void main() {
       // Deliberately NOT `strict: true`, and measured rather than assumed:
       // 320dp is the one width that reproduces the pre-existing
       // section-header overflow (`_knownSectionHeaderOverflow`, 0.257px), so
-      // `strict` here fails on that alone — with the tile floor at 110 *and*
-      // at 128, i.e. it would be a red that says nothing about this tile.
-      // The `expectKnown` path this takes instead still fails on any
-      // *additional* overflow. What actually pins the tile floor is the
-      // finance-tile tap in `home_screen_test.dart`: raising the floor to 128
-      // pushes that tile off the 800×600 viewport and the tap finds nothing
-      // (measured: `Found 0 widgets with text "FINANCE-ROUTE"`).
+      // `strict` here fails on that alone regardless of the tile floor,
+      // i.e. it would be a red that says nothing about this tile. The
+      // `expectKnown` path this takes instead still fails on any
+      // *additional* overflow. What pins the tile floor itself is R2 LINCHPIN
+      // below (`greaterThanOrEqualTo(132)`).
       await _pumpAt(tester, _narrow, dashboardController: loadedDashboardFixture());
 
       expect(_isTwoColumns(tester, _healthTiles), isFalse);
@@ -849,29 +849,104 @@ void main() {
         );
 
         // Equality alone does not pin the floor: every tile shrinking to 60
-        // together would satisfy it. `_SnapshotTile`'s `minHeight: 110` is
-        // the number that makes an eyed tile's 44pt tap target fit without
-        // growing the row, so assert it as a LOWER bound, here, where a
-        // failure reads as a height.
+        // together would satisfy it. `_SnapshotTile`'s `minHeight: 132`
+        // (raised from 110 by issue #236, to make room for the menstrual
+        // tile's second date line) is the number that makes an eyed tile's
+        // 44pt tap target fit without growing the row, so assert it as a
+        // LOWER bound, here, where a failure reads as a height.
         //
-        // The only other reading of 110 in the suite is the finance tap in
-        // `home_screen_test.dart`, and it is an *upper* bound with zero
-        // margin (111 already pushes the tile below the fold) that fails with
-        // a navigation message. That one is incidental; this is the property.
+        // The finance tap in `home_screen_test.dart` used to double as an
+        // incidental *upper*-bound reading of this same floor; #236's
+        // increase intentionally breaks that margin, so that test now calls
+        // `ensureVisible` instead of relying on the tile staying on-screen.
+        // This is the one guard left for the floor itself.
         //
         // Verified falsifiable on its own, not merely shadowed by the
         // equality above it: `minHeight: 92` reds the equality first
-        // (`Set:[108.0, 92.0]` — the eyed tile grows, the eyeless one does
-        // not), so the discriminating mutation is `minHeight: 108`, where
-        // every tile is still equal and only this line goes red:
-        // `Expected: a value greater than or equal to <110> / Actual: <108.0>`.
+        // (the eyed tile grows, the eyeless one does not), so the
+        // discriminating mutation is one just under 132, where every tile is
+        // still equal and only this line goes red.
         expect(
           finance.toSet().single,
-          greaterThanOrEqualTo(110),
+          greaterThanOrEqualTo(132),
           reason:
-              'the snapshot tile minHeight floor (110) must hold — a 44pt eye '
+              'the snapshot tile minHeight floor (132) must hold — a 44pt eye '
               'has to fit without making its tile taller than its neighbours. '
               'Finance tile heights: $finance',
+        );
+      },
+    );
+
+    testWidgets(
+      'R2b: all six menstrual tile states share the finance tiles\' height',
+      (tester) async {
+        // Issue #236: the menstrual tile grew a badge and a second date line
+        // in four of its six states — this is the guard that none of the
+        // six ends up taller (or shorter) than the plain tiles beside it.
+        // `_evenValuesFixture`'s other tiles already sit at the shared
+        // minimum (see R2 above), so any state that painted at a different
+        // height would show up here as a second value in the set.
+        final states = <NextPeriodStatus>[
+          NextPeriodStatus(
+            state: NextPeriodState.ongoing,
+            days: 4,
+          ),
+          NextPeriodStatus(
+            state: NextPeriodState.upcoming,
+            days: 6,
+            predictedNextStart: DateTime(2026, 7, 28),
+          ),
+          NextPeriodStatus(
+            state: NextPeriodState.today,
+            predictedNextStart: DateTime(2026, 7, 28),
+          ),
+          NextPeriodStatus(
+            state: NextPeriodState.overdue,
+            days: 3,
+            predictedNextStart: DateTime(2026, 7, 25),
+          ),
+          const NextPeriodStatus(state: NextPeriodState.needsOneMore),
+          const NextPeriodStatus(state: NextPeriodState.noRecords),
+        ];
+
+        final heights = <double>{};
+        for (final status in states) {
+          // `guard: false` + a manual `collectLayoutErrors`, rather than
+          // `_pumpAt`'s default `expectKnown: true`: the known 320dp
+          // section-header overflow only reproduces on a test's very first
+          // pump (`_expectOnlyKnownOverflow`'s own doc above), so the second
+          // through sixth iterations of this loop would see zero known
+          // overflows and fail that exact-count check — a false alarm this
+          // test isn't about. What this loop still must not swallow is a
+          // *different*, badge/date-line-induced overflow, so every pump is
+          // still checked for exactly that.
+          final errors = await collectLayoutErrors(
+            () => _pumpAt(
+              tester,
+              _narrow,
+              dashboardController: _evenValuesFixture(menstrualStatus: status),
+              guard: false,
+            ),
+          );
+          _expectOnlyKnownOverflow(errors);
+          heights.add(
+            tester.getSize(find.byKey(const Key('home-menstrual-prediction'))).height,
+          );
+        }
+
+        expect(
+          heights,
+          hasLength(1),
+          reason:
+              'the menstrual tile must render at the same height in every '
+              'state (ongoing/upcoming/today/overdue add a badge and date '
+              'line; needsOneMore/noRecords reserve the same space without '
+              'drawing either) — measured heights: $heights',
+        );
+        expect(
+          heights.single,
+          greaterThanOrEqualTo(132),
+          reason: 'must also hold the same floor R2 pins for the other tiles',
         );
       },
     );

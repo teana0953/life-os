@@ -283,22 +283,20 @@ void main() {
 
       expect(find.text('FINANCE-ROUTE'), findsNothing);
 
-      // No `ensureVisible` on purpose: this tap is a second, incidental
-      // reading of `_SnapshotTile`'s `minHeight` — and it is an **upper**
-      // bound, not the floor. Measured: 110 passes and 111 already fails, so
-      // there is zero margin, and *any* layout growth above the finance tile
-      // (a taller header, an extra row, a bigger value font) pushes it below
-      // the fold and turns this red with `Found 0 widgets with text
-      // "FINANCE-ROUTE"` — a message that points at navigation when the
-      // cause was layout. Read a failure here as "something above the finance
-      // tile got taller", not as "minHeight is wrong".
-      //
-      // The floor's own reason for existing — a 44pt eye fitting without
-      // making its tile taller than its neighbours — is guarded directly, as
-      // an equality *and* a `>= 110` lower bound with a height-shaped failure
-      // message, by `home_screen_responsive_test.dart`'s `R2 LINCHPIN`.
-      // Scrolling first here would make this test stop noticing the
-      // regression at all.
+      // `ensureVisible` IS needed now, deliberately: `_SnapshotTile`'s
+      // `minHeight` grew from 110 to 132 so the menstrual tile's second date
+      // line (issue #236) has room, and every tile shares that height
+      // (design.md's equal-height contract) — so the whole dashboard is
+      // taller and the finance section sits lower in an 800×600 viewport.
+      // This test used to double as an incidental, zero-margin guard against
+      // that exact kind of growth; it no longer can, now that the growth is
+      // itself the intended change. The floor's real reason for existing — a
+      // 44pt eye fitting without making its tile taller than its
+      // neighbours — is guarded directly, as an equality *and* a `>= 132`
+      // lower bound with a height-shaped failure message, by
+      // `home_screen_responsive_test.dart`'s `R2 LINCHPIN`; that is the guard
+      // to extend if `minHeight` regresses, not this one.
+      await tester.ensureVisible(find.byKey(const Key('finance-tile')));
       await tester.tap(find.byKey(const Key('finance-tile')));
       await tester.pumpAndSettle();
 

@@ -135,8 +135,12 @@ void main() {
       );
 
       expect(find.text(_loc.nextPeriodTitle), findsOneWidget);
+      // Main line and sub-line, asserted separately: the day count and the
+      // date are two lines now, and a single combined assertion would pass
+      // with either of them missing.
+      expect(find.text(_loc.nextPeriodUpcomingDays(5)), findsOneWidget);
       expect(
-        find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+        find.text(_loc.nextPeriodOngoingNext(_dateLabel(DateTime(2026, 8, 2)))),
         findsOneWidget,
       );
     });
@@ -353,7 +357,7 @@ void main() {
 
       expect(find.byKey(const Key('next-period-loading')), findsNothing);
       expect(
-        find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+        find.text(_loc.nextPeriodUpcomingDays(5)),
         findsOneWidget,
       );
       // A refresh in flight is not a failure, so nothing is marked. Asserted
@@ -402,7 +406,7 @@ void main() {
 
         expect(find.text(_loc.errorMenstrualLoadFailed), findsNothing);
         expect(
-          find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+          find.text(_loc.nextPeriodUpcomingDays(5)),
           findsOneWidget,
         );
         expect(find.byType(StaleNotice), findsOneWidget);
@@ -424,7 +428,7 @@ void main() {
         );
 
         expect(
-          find.text(_loc.nextPeriodUpcoming(_dateLabel(DateTime(2026, 8, 2)), 5)),
+          find.text(_loc.nextPeriodUpcomingDays(5)),
           findsOneWidget,
         );
         // "Couldn't refresh, retry" would send the user round a loop that
@@ -454,6 +458,192 @@ void main() {
       expect(controller.lastLoadToken, 'token-1');
       expect(find.byType(StaleNotice), findsNothing);
       expect(find.byKey(const Key('next-period-card')), findsOneWidget);
+    });
+  });
+
+  group('NextPeriodCard badge', () {
+    // Fixtures posed against a fixed 2026-07-28 clock, one per state.
+    final badged = <String, MenstrualOverview>{
+      'ongoing': _overview(
+        periods: [
+          _period(DateTime(2026, 6, 1), DateTime(2026, 6, 5)),
+          _period(DateTime(2026, 7, 25)),
+        ],
+        predictedNextStart: DateTime(2026, 8, 20),
+      ),
+      'upcoming': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 8, 3),
+      ),
+      'today': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 7, 28),
+      ),
+      'overdue': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        predictedNextStart: DateTime(2026, 7, 25),
+      ),
+    };
+
+    final unbadged = <String, MenstrualOverview>{
+      'needsOneMore': _overview(
+        periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+      ),
+      'noRecords': _overview(),
+    };
+
+    testWidgets('every badged state leads with one', (tester) async {
+      for (final entry in badged.entries) {
+        await _pumpCard(
+          tester,
+          status: MenstrualStatus.loaded,
+          overview: entry.value,
+          clock: DateTime(2026, 7, 28),
+        );
+
+        expect(
+          find.byKey(const Key('next-period-badge')),
+          findsOneWidget,
+          reason: '${entry.key} lost its badge',
+        );
+      }
+    });
+
+    testWidgets('a state with nothing to predict carries none', (tester) async {
+      // An empty circle would read as a count of zero.
+      for (final entry in unbadged.entries) {
+        await _pumpCard(
+          tester,
+          status: MenstrualStatus.loaded,
+          overview: entry.value,
+          clock: DateTime(2026, 7, 28),
+        );
+
+        expect(
+          find.byKey(const Key('next-period-badge')),
+          findsNothing,
+          reason: '${entry.key} drew a badge',
+        );
+      }
+    });
+
+    testWidgets('the badge sits 16dp left of the text column', (tester) async {
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: badged['upcoming'],
+        clock: DateTime(2026, 7, 28),
+      );
+
+      final badge = tester.getRect(find.byKey(const Key('next-period-badge')));
+      final title = tester.getRect(find.text(_loc.nextPeriodTitle));
+      expect(title.left - badge.right, 16);
+    });
+  });
+
+  group('NextPeriodCard overdue explanation', () {
+    testWidgets('states the overage in words, not only in colour', (
+      tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(
+          periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+          predictedNextStart: DateTime(2026, 7, 25),
+        ),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(find.text(_loc.nextPeriodOverduePassed(3)), findsOneWidget);
+      expect(
+        find.byKey(const Key('next-period-overdue-explanation')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('is absent in every other state', (tester) async {
+      final others = <String, MenstrualOverview>{
+        'upcoming': _overview(
+          periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+          predictedNextStart: DateTime(2026, 8, 3),
+        ),
+        'today': _overview(
+          periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+          predictedNextStart: DateTime(2026, 7, 28),
+        ),
+        'ongoing': _overview(periods: [_period(DateTime(2026, 7, 25))]),
+        'needsOneMore': _overview(
+          periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+        ),
+        'noRecords': _overview(),
+      };
+
+      for (final entry in others.entries) {
+        await _pumpCard(
+          tester,
+          status: MenstrualStatus.loaded,
+          overview: entry.value,
+          clock: DateTime(2026, 7, 28),
+        );
+
+        expect(
+          find.byKey(const Key('next-period-overdue-explanation')),
+          findsNothing,
+          reason: '${entry.key} explained an overage it does not have',
+        );
+      }
+    });
+  });
+
+  group('NextPeriodCard semantics', () {
+    testWidgets('announces one whole sentence per badged state, never a bare '
+        'number', (tester) async {
+      final handle = tester.ensureSemantics();
+
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(
+          periods: [_period(DateTime(2026, 6, 1), DateTime(2026, 6, 5))],
+          predictedNextStart: DateTime(2026, 7, 25),
+        ),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(
+        find.bySemanticsLabel(
+          _loc.cycleStatusOverdueA11y(3, _dateLabel(DateTime(2026, 7, 25))),
+        ),
+        findsOneWidget,
+      );
+      // The badge's own text is excluded, so "3d late" is never a node of its
+      // own beside the sentence that explains it.
+      expect(find.bySemanticsLabel(_loc.cycleBadgeOverdue(3)), findsNothing);
+
+      handle.dispose();
+    });
+
+    testWidgets('the ongoing sentence names the derived start date', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await _pumpCard(
+        tester,
+        status: MenstrualStatus.loaded,
+        overview: _overview(periods: [_period(DateTime(2026, 7, 25))]),
+        clock: DateTime(2026, 7, 28),
+      );
+
+      expect(
+        find.bySemanticsLabel(
+          _loc.cycleStatusOngoingA11y(4, _dateLabel(DateTime(2026, 7, 25))),
+        ),
+        findsOneWidget,
+      );
+
+      handle.dispose();
     });
   });
 
