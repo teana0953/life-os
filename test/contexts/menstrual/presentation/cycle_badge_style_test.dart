@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:life_os/contexts/menstrual/domain/menstrual_period.dart';
 import 'package:life_os/contexts/menstrual/domain/next_period_status.dart';
 import 'package:life_os/contexts/menstrual/presentation/cycle_badge_style.dart';
-import 'package:life_os/contexts/menstrual/presentation/menstrual_calendar.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
 import 'package:life_os/shared/theme/app_theme.dart';
 
@@ -164,34 +162,10 @@ void main() {
       }
     });
 
-    test(
-      'agrees with menstrualCycleDay across a spring-forward DST transition',
-      () {
-        // Both functions invert the same `days = daysBetween(start, today) +
-        // 1` formula for the same day; if either used a local, non-UTC
-        // subtraction, a DST transition inside the span could shift one of
-        // them by a day relative to the other — exactly the disagreement
-        // the doc comments on both functions say must never happen. US
-        // spring-forward 2026 falls on 2026-03-08; a 10-day ongoing period
-        // spans it in both directions.
-        final today = DateTime(2026, 3, 15);
-        const days = 10;
-        final start = ongoingPeriodStart(
-          const NextPeriodStatus(state: NextPeriodState.ongoing, days: days),
-          today,
-        )!;
-
-        final period = MenstrualPeriod(id: 'p1', startDate: start);
-        expect(
-          menstrualCycleDay(today, [period], today),
-          days,
-          reason:
-              'menstrualCycleDay must count the same number of days from '
-              'the start ongoingPeriodStart derived, even across a DST '
-              'transition inside the span',
-        );
-      },
-    );
+    // 沒有寫 DST 換日的回歸測試:UTC 與 Asia/Taipei 都不換日光節約時間,所以不論本機或 CI,
+    // 跨 2026-03-08 的斷言在有沒有 ongoingPeriodStart 的 UTC 錨定(cycle_badge_style.dart
+    // 的 DateTime.utc)下都一樣綠,是一條不可能失敗的守門(第一次嘗試時已被 review 抓到)。
+    // 正確性改由 menstrualCycleDay 共用同一個 UTC 錨定,加上同一個 group 前面的天數單元測試來保證。
   });
 
   group('cycleStatusSemanticLabel', () {
