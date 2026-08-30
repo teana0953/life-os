@@ -307,10 +307,13 @@ class App extends StatefulWidget {
   /// What happens whenever the app is brought to the foreground, before any
   /// hand-over judgement runs: defaults (resolved in [_AppState], not here —
   /// so the fallback is exercised by every test that doesn't override this)
-  /// to [demandForegroundFrame], which asks the engine for a frame so a
-  /// window pulled forward by a notification tap paints and accepts input
-  /// again (issue #226, design.md D2). Injectable so a widget test can see
-  /// that this composition root really wires it.
+  /// to `restoreForegroundLifecycle`, which puts Flutter web's engine back
+  /// into a `resumed` lifecycle state so a window pulled forward by a
+  /// notification tap keeps drawing and accepting input for the rest of the
+  /// session (issue #226). Injectable so a widget test can see that this
+  /// composition root really wires it — but *which* function the default is
+  /// is a compile-time fact no test that injects a fake can observe, and off
+  /// the web it resolves to a no-op stub.
   final void Function()? onForegrounded;
 
   /// Resolves "today" for the day-keyed routes. Defaults to [DateTime.now];
@@ -428,7 +431,7 @@ class _AppState extends State<App> {
         recognizes: (path) =>
             !_router.configuration.findMatch(Uri.parse(path)).isError,
         navigate: _navigateToHandover,
-        onForegrounded: widget.onForegrounded ?? demandForegroundFrame,
+        onForegrounded: widget.onForegrounded ?? restoreForegroundLifecycle,
         // Nothing was built because the app was already showing the
         // destination, but the checklist it shows was loaded when the screen
         // opened — so a reminder tapped from 今日照護 itself would otherwise

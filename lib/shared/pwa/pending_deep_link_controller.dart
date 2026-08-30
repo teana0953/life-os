@@ -84,10 +84,11 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   final Future<void> Function(String path) _refresh;
 
   /// What being brought to the foreground does on its own, independently of
-  /// any hand-over: the composition root asks the engine for a frame
-  /// (issue #226). Injected rather than called directly so it is observable
-  /// off the browser — the store that carries these signals on web is an
-  /// untested adapter.
+  /// any hand-over: the composition root restores the engine's foreground
+  /// lifecycle, without which a window pulled forward by a notification tap
+  /// never draws again (issue #226). Injected rather than called directly so
+  /// it is observable off the browser — the store that carries these signals
+  /// on web is an untested adapter, and the effect itself is web-only.
   final void Function() _onForegrounded;
 
   bool _checking = false;
@@ -173,8 +174,8 @@ class PendingDeepLinkController with WidgetsBindingObserver {
   /// The app is in front of the user again. The foreground effect runs FIRST
   /// and unconditionally — before every gate in [check] — because those gates
   /// are what swallowed the signal in issue #226: a tap that finds nothing
-  /// pending (the common case) ended the code path having never asked the
-  /// engine to paint, leaving the user in front of a painted, dead screen.
+  /// pending (the common case) ended the code path having never restored the
+  /// engine's lifecycle, leaving the user in front of a painted, dead screen.
   void _foregrounded() {
     _onForegrounded();
     check();

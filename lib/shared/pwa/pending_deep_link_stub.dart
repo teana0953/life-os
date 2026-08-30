@@ -12,3 +12,9 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
   @override
   Stream<void> get handoverSignals => const Stream.empty();
 }
+
+/// Non-web no-op: nothing to restore. The lifecycle that gets stuck at
+/// `hidden` is Flutter web's engine-side one, driven by DOM events that do not
+/// exist here (design.md D3); every other platform reports foregrounding
+/// through the framework's own lifecycle channel.
+void restoreForegroundLifecycle() {}
