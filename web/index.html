@@ -264,9 +264,13 @@
             registration.update().catch(function () { /* ignore */ });
           }
           checkForUpdate();
-          // NOT from the visibility transition itself (issue #226). A
-          // notification tap brings this window forward with the very
-          // `visibilitychange` this listener runs on, and right after a
+          // NOT from the visibility transition itself (issue #226). On an
+          // installed Android WebAPK a notification tap was measured
+          // dispatching no `visibilitychange` at all — but the app now
+          // dispatches a synthetic one on arrival to unstick the engine's
+          // lifecycle (`restoreForegroundLifecycle()` in
+          // `lib/shared/pwa/pending_deep_link_web.dart`), so this listener
+          // does run on a notification tap after all. Right after a
           // deploy `registration.update()` is a full worker install —
           // download plus cache write — started at the exact instant the
           // user is trying to use the app. The check still happens, just

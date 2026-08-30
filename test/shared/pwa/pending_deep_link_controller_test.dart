@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:life_os/shared/routing/app_locations.dart';
 import 'package:life_os/shared/pwa/pending_deep_link.dart';
 import 'package:life_os/shared/pwa/pending_deep_link_controller.dart';
 
@@ -66,9 +67,15 @@ void main() {
   late Set<String> alreadyShowing;
 
   /// How many times the composition root's "the app was brought forward"
-  /// effect ran — the frame demand of issue #226. Counted rather than
-  /// flagged: the point of the fix is that it runs on EVERY foreground
-  /// signal, not once.
+  /// effect ran — the engine lifecycle restoration of issue #226. Counted
+  /// rather than flagged: the point of the fix is that it runs on EVERY
+  /// foreground signal, not once.
+  ///
+  /// What the effect *is* cannot be checked here. The real one dispatches DOM
+  /// events and lives in `pending_deep_link_web.dart`, behind a
+  /// `dart.library.js_interop` conditional import, so the VM compiles the
+  /// stub and no test in this file executes a line of it (design D6). These
+  /// tests own one half only: that the injected seam is reached.
   late int foregrounded;
 
   PendingDeepLinkController buildController() => PendingDeepLinkController(
@@ -477,9 +484,9 @@ void main() {
   /// but dead until it is backgrounded and returned to. Every foreground
   /// signal the app has was being spent asking "is there a destination
   /// pending?", so each of the gates below ended the code path with nothing
-  /// ever asking the engine to paint. The effect must therefore be produced
-  /// BEFORE any gate, on every signal, whatever the hand-over turns out to
-  /// be.
+  /// ever restoring the engine's foreground lifecycle. The effect must
+  /// therefore be produced BEFORE any gate, on every signal, whatever the
+  /// hand-over turns out to be.
   group('foregrounding', () {
     test('start() alone is not a foregrounding', () async {
       final controller = buildController();
@@ -573,7 +580,7 @@ void main() {
     test(
       'a store read that never settles does not swallow the NEXT signal\'s '
       'foregrounding (the single-flight guard collapses the check, not the '
-      'frame demand)',
+      'lifecycle restoration)',
       () async {
         store.neverSettles = true;
         final controller = buildController();
@@ -602,5 +609,155 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(foregrounded, 1);
     });
+
+    // Every exit point of `_runCheck`, deepest last, crossed with both ways
+    // a foregrounding can arrive. The gate cases are the ones that produced
+    // issue #226; the last case (a hand-over that passes every gate) is here
+    // so the table is not all on the shut side of the gates — a fixture set
+    // that only ever exits early cannot tell "runs before every gate" apart
+    // from "runs only when a gate refuses".
+    //
+    // `expectedTakes` is the count AFTER `start()`'s own initial check, which
+    // always reads the empty store once. What it proves differs by value, and
+    // the weaker half is why the malformed fixture below has to arrange more
+    // than the others: `expectedTakes: 1` pins the row to a gate that returns
+    // *before* the store is read, so it does separate the two pre-read gates
+    // from every deeper one; `expectedTakes: 2` only proves the store WAS
+    // read, and says nothing about which of the post-read gates stopped the
+    // run. Telling those apart is each row's own job — its fixture has to be
+    // the one thing standing between it and a navigation, so that removing
+    // the named gate changes `navigated`.
+    final gateOutcomes = <String, ({void Function() arrange, List<String> navigated, int expectedTakes})>{
+      'auth is unresolved': (
+        arrange: () => canNavigateValue = false,
+        navigated: [],
+        expectedTakes: 1,
+      ),
+      // Deliberately a real transition location rather than the empty path:
+      // `_isTransitionScreen` accepts both, and the empty-path half is
+      // already covered above, so this fixture sits on the other side of
+      // that `||`.
+      'the app is on a transition screen': (
+        arrange: () => currentPathValue = splashLocation,
+        navigated: [],
+        expectedTakes: 1,
+      ),
+      'nothing is pending': (arrange: () {}, navigated: [], expectedTakes: 2),
+      'the entry is past its TTL': (
+        arrange: () => store.enqueue(
+          PendingDeepLink(
+            path: '/care-today',
+            savedAt: fixedNow.subtract(const Duration(minutes: 6)),
+          ),
+        ),
+        navigated: [],
+        expectedTakes: 2,
+      ),
+      // The relative path is added to `recognized` on purpose: without it the
+      // row would also fail the recognizes gate one line later and observe
+      // exactly the same thing, so deleting the malformed-path check would
+      // leave it green (mutation survivor found in review). Recognized, it is
+      // the malformed gate alone that stops the navigation.
+      'the path is malformed': (
+        arrange: () {
+          recognized.add('care-today');
+          store.enqueue(PendingDeepLink(path: 'care-today', savedAt: fixedNow));
+        },
+        navigated: [],
+        expectedTakes: 2,
+      ),
+      'this app version has no screen for the path': (
+        arrange: () => store.enqueue(
+          PendingDeepLink(path: '/no-such-route', savedAt: fixedNow),
+        ),
+        navigated: [],
+        expectedTakes: 2,
+      ),
+      'the hand-over passes every gate and is navigated': (
+        arrange: () => store.enqueue(
+          PendingDeepLink(path: '/care-today', savedAt: fixedNow),
+        ),
+        navigated: ['/care-today'],
+        expectedTakes: 2,
+      ),
+    };
+
+    for (final entry in gateOutcomes.entries) {
+      final outcome = entry.value;
+      for (final path in ['worker signal', 'lifecycle resumed']) {
+        test(
+          'a foregrounding delivered by $path runs the effect exactly once '
+          'when ${entry.key}',
+          () async {
+            final controller = buildController();
+            controller.start();
+            addTearDown(controller.dispose);
+            await Future<void>.delayed(Duration.zero);
+            expect(foregrounded, 0, reason: 'start() is not a foregrounding');
+
+            outcome.arrange();
+            if (path == 'worker signal') {
+              store.emitSignal();
+            } else {
+              controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+            }
+            await Future<void>.delayed(Duration.zero);
+
+            expect(foregrounded, 1);
+            expect(navigated, outcome.navigated);
+            expect(store.takeCallCount, outcome.expectedTakes);
+          },
+        );
+      }
+    }
+
+    test(
+      'one signal that fans out into two store reads still foregrounds once '
+      '(the effect belongs to the signal, not to each run of the check)',
+      () async {
+        // Set before start(): `take()` reads `holdUntil` synchronously, so a
+        // completer installed afterwards would never be seen and the check
+        // would already be finished by the time the signal arrives.
+        store.holdUntil = Completer<void>();
+        final controller = buildController();
+        controller.start();
+        addTearDown(controller.dispose);
+        // start()'s own check is held open, so the signal below lands while a
+        // check is in flight: the single-flight guard queues a re-check, and
+        // `_runCheck` therefore runs twice for this one signal.
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+        store.holdUntil!.complete();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(store.takeCallCount, 2, reason: 'the re-check must have run');
+        expect(foregrounded, 1);
+      },
+    );
+
+    // Mutation note: `_runCheck`'s `_disposed` early return is NOT what makes
+    // this pass — deleting it turns only "a re-run queued before dispose does
+    // not read the store afterwards" red, never this test. What this test
+    // guards is `dispose()` cancelling `_signalSubscription`; deleting that
+    // one line is the mutation that turns it red, and nothing else in the
+    // file. The distinction matters because after `removeObserver` the
+    // lifecycle path cannot deliver either, so the subscription is the last
+    // door left open.
+    test(
+      'no foregrounding after dispose(): cancelling the signal subscription '
+      'is what closes the only way in',
+      () async {
+        final controller = buildController();
+        controller.start();
+        await Future<void>.delayed(Duration.zero);
+
+        controller.dispose();
+        store.emitSignal();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(foregrounded, 0);
+      },
+    );
   });
 }

@@ -654,8 +654,8 @@ void main() {
     testWidgets(
       'a foreground signal with nothing pending still runs the foreground '
       'effect, and the screen stays tappable (issue #226: the signal used to '
-      'die in the hand-over gates, leaving nothing asking the engine to '
-      'paint)',
+      'die in the hand-over gates, leaving nothing to restore the engine\'s '
+      'foreground lifecycle)',
       (tester) async {
         final authRepository = FakeAuthRepository(initiallyAuthenticated: true);
         final profileRepository = FakeProfileRepository(_testProfile);
@@ -692,14 +692,30 @@ void main() {
         expect(store.takes, greaterThan(0));
         expect(foregrounded, 1);
 
-        // `foregrounded == 1` above is the actual regression guard for
-        // issue #226 — it proves the seam that demands a frame was reached.
-        // This tap cannot independently catch a real frame-stall regression:
-        // `flutter_test`'s binding always services a frame on `pump`/`tap`
-        // regardless of whether `demandForegroundFrame()` ran, since the
-        // stall this change fixes only exists against a real, possibly
-        // frozen, browser tab. It stays as a smoke check that navigation
-        // still works after the hand-over path runs, not as a repaint guard.
+        // What `foregrounded == 1` above proves, and all it proves: the
+        // composition root wires the foreground seam and a worker signal
+        // reaches it. It says nothing about the freeze itself.
+        //
+        // The real effect is `restoreForegroundLifecycle()`, which dispatches
+        // a synthetic `visibilitychange` on `document` and `focus` on
+        // `window` so Flutter web's `_BrowserAppLifecycleState` leaves
+        // `hidden`. It lives in `pending_deep_link_web.dart` behind a
+        // `dart.library.js_interop` conditional import, so this VM test
+        // compiles the stub instead and executes no line of it — not the
+        // dispatch, not the `isTrusted` guard, not the `visibilityState ==
+        // 'visible'` precondition (design D6). A test here that claimed
+        // otherwise could not fail.
+        //
+        // The tap below is likewise not a repaint guard, for a second and
+        // independent reason: `flutter_test`'s binding services a frame on
+        // every `pump`/`tap` whether or not any lifecycle state was restored,
+        // so it stays green against a completely frozen engine. It is a smoke
+        // check that navigation still works after the hand-over path runs.
+        //
+        // A green run of this file therefore means "the seam is wired", never
+        // "the freeze is fixed". Only tasks.md section 4 — a reinstalled
+        // WebAPK, a real push, and three further interactions after the tap —
+        // can say the latter.
         await tester.tap(find.byKey(const Key('health-tile')));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('health-tile')), findsNothing);

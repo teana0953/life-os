@@ -58,13 +58,13 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
     JSFunction? listener;
     JSFunction? visibilityListener;
     JSFunction? focusListener;
-    // Every one of the three signals below means "the app is in front of the
-    // user again", so each demands a frame BEFORE it is turned into a
-    // hand-over signal (issue #226, design.md D2). Ordering is the whole
-    // point: the gates behind this stream are what swallowed the signal
-    // whenever nothing was pending, which is most taps.
+    // Each of the three signals below means "the app is in front of the user
+    // again", and carries no destination. The foreground effect is
+    // deliberately NOT run here: its single call site is the controller's
+    // injected `onForegrounded` seam, which runs it before every gate
+    // (design.md D5). Two call sites would be two explanations for any future
+    // partial recovery, and only the seam is observable off the browser.
     void signal() {
-      demandForegroundFrame();
       controller.add(null);
     }
 
@@ -85,18 +85,35 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
         // the front without reloading it or firing a foreground lifecycle
         // transition — leaving the user in front of the app on whatever page
         // was already open, which is the "unexpected page" half of issue
-        // #193. Becoming visible is the signal that always happens.
+        // #193. Becoming visible is the broadest of the three signals — but
+        // not a universal one: on an installed WebAPK the notification path
+        // was measured dispatching neither `visibilitychange` nor `focus`
+        // (issue #226), which is why the worker's message matters and why the
+        // engine's lifecycle has to be restored explicitly.
         //
         // Extra signals are harmless: they carry no destination, so a check
         // they trigger reads the store, finds nothing, and stops.
+        //
+        // `restoreForegroundLifecycle()` dispatches exactly these two events,
+        // and it runs on every signal this stream produces, so an untrusted
+        // event must stop here or the fix is a loop: signal -> dispatch
+        // 'focus' -> this adapter's own 'focus' listener -> signal -> ...
+        // The engine survives it (it ignores an unchanged lifecycle state);
+        // this adapter has no such dedupe (design.md D4). Only the browser can
+        // produce a trusted event — every synthetic one is ours.
         visibilityListener =
-            ((web.Event _) {
+            ((web.Event event) {
+              if (!event.isTrusted) return;
               if (web.document.visibilityState == 'visible') {
                 signal();
               }
             }).toJS;
         web.document.addEventListener('visibilitychange', visibilityListener);
-        focusListener = ((web.Event _) => signal()).toJS;
+        focusListener =
+            ((web.Event event) {
+              if (!event.isTrusted) return;
+              signal();
+            }).toJS;
         web.window.addEventListener('focus', focusListener);
       },
       onCancel: () {
@@ -116,4 +133,47 @@ class PendingDeepLinkStoreImpl implements PendingDeepLinkStore {
     );
     return controller.stream;
   }
+}
+
+/// Puts Flutter web's engine back into a `resumed` lifecycle state after the
+/// app has been brought to the foreground without the browser reporting it
+/// (issue #226, design.md D1/D3).
+///
+/// The engine's ONLY lifecycle input is `_BrowserAppLifecycleState` in
+/// `flutter/bin/cache/flutter_web_sdk/lib/_engine/engine/platform_dispatcher/app_lifecycle_state.dart`
+/// (read in Flutter 3.35.4, the version this was measured against): window
+/// `focus`/`blur` and document `visibilitychange`, with no polling and no
+/// other source. It never re-reads `document.visibilityState` outside that one
+/// listener, so a WebAPK that becomes visible without dispatching an event
+/// leaves it stuck at `hidden` and frames disabled. There is no API to correct
+/// that from Dart, which is why this dispatches synthetic events: typing these
+/// two dispatches into the console of a frozen installed WebAPK revived it
+/// immediately, and that measurement is the whole evidence for this fix.
+///
+/// Both events, because the pair is what was measured. The engine maps either
+/// one to `resumed`, so one is very likely enough — but "very likely enough"
+/// is what produced the three previous attempts at this bug: **reducing this
+/// to a single event requires a new on-device measurement, not reasoning**
+/// (design.md D3). `visibilitychange` goes first because its listener re-reads
+/// `visibilityState` and so can only report what is actually true.
+///
+/// Only while genuinely visible: a synthetic `focus` asserts `resumed`
+/// unconditionally, and enabling frames for a hidden page would put the engine
+/// at odds with reality — the same class of desync as the bug being fixed.
+///
+/// If a Flutter upgrade breaks this, the symptom is issue #226 verbatim
+/// (painted, dead screen after a notification tap). Check those engine
+/// listeners first, then re-measure on a real installed WebAPK; design.md D2
+/// names the documented next approach and the evidence it needs.
+///
+/// Side effect worth knowing about: the synthetic `visibilitychange` also
+/// reaches `web/index.html`'s listener, which defers a `registration.update()`
+/// by 10 seconds — so every notification tap now schedules one extra service
+/// worker update check. That deferral exists precisely to keep the check off
+/// the moment the user starts using the app, and the call is idempotent, so
+/// this is accepted rather than filtered.
+void restoreForegroundLifecycle() {
+  if (web.document.visibilityState != 'visible') return;
+  web.document.dispatchEvent(web.Event('visibilitychange'));
+  web.window.dispatchEvent(web.Event('focus'));
 }

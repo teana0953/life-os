@@ -6,31 +6,27 @@
 /// tests inject a fake instead.
 library;
 
-import 'package:flutter/widgets.dart';
-
+// The same conditional export also resolves `restoreForegroundLifecycle()`,
+// the effect that runs whenever the app is brought to the foreground (issue
+// #226, design.md D1/D3).
+//
+// A window that `client.focus()` pulls to the front does not always get a
+// genuine `hidden -> visible` transition; on an installed Android WebAPK
+// returning from a notification tap the browser dispatches no
+// `visibilitychange` and no `focus` at all (measured). Flutter web's engine
+// has no other lifecycle input and no polling, so it stays at
+// `AppLifecycleState.hidden`, `framesEnabled` stays false, and nothing
+// repaints: taps hit-test and mutate state while the last frame stays on
+// screen, until the user backgrounds the app and comes back — which is the
+// only reason that workaround works.
+//
+// So the remedy is to restore the lifecycle, not to ask for a frame: while the
+// scheduler is disabled `scheduleFrame()` returns at its own guard and a frame
+// pushed straight to the engine yields at most one (design.md D1/D5). The web
+// implementation puts the engine back into `resumed`, which enables frames for
+// the rest of the session; off the web there is no such state to repair.
 export 'pending_deep_link_stub.dart'
     if (dart.library.js_interop) 'pending_deep_link_web.dart';
-
-/// Asks the engine for a frame because the app has just been brought to the
-/// foreground (issue #226, design.md D2).
-///
-/// A window that `client.focus()` pulls to the front does not always get a
-/// genuine `hidden → visible` transition, and without one Flutter never
-/// schedules another frame: the last frame stays on screen and taps
-/// hit-test and mutate state, but nothing repaints — so the app looks dead
-/// until the user backgrounds it and comes back, which is the only reason
-/// that workaround works.
-///
-/// Both calls are deliberate. `SchedulerBinding.scheduleFrame` returns
-/// without doing anything while the binding believes a frame is already on
-/// its way — which is exactly the stalled state, since the frame it is
-/// waiting for is the one that never arrives — so the demand is repeated
-/// straight to the engine, where it is idempotent.
-void demandForegroundFrame() {
-  final binding = WidgetsBinding.instance;
-  binding.scheduleFrame();
-  binding.platformDispatcher.scheduleFrame();
-}
 
 /// TRANSITIONAL (design D1), and the Dart half of a two-language constant:
 /// until the backend sends an explicit `path` on every push, `web/push_sw.js`
