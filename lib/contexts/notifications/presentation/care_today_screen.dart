@@ -303,7 +303,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
   ) async {
     await action(
       await _idToken(),
-      careScheduleId: slot.careScheduleId,
+      careScheduleId: slot.careScheduleId!,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
     );
@@ -382,7 +382,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
     }
     final outcome = await widget.controller.edit(
       await _idToken(),
-      careScheduleId: slot.careScheduleId,
+      careScheduleId: slot.careScheduleId!,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
       status: status,
@@ -503,9 +503,7 @@ class _CareTodayScreenState extends State<CareTodayScreen> {
                     // carry no banner, and an empty list means there is no
                     // reminder to miss in the first place.
                     if (controller.slots.isNotEmpty)
-                      PushOffBanner(
-                        health: widget.pushHealthController.health,
-                      ),
+                      PushOffBanner(health: widget.pushHealthController.health),
                     if (controller.slots.isEmpty)
                       _EmptyState(onAdd: widget.onOpenCareItems)
                     else ...[
@@ -1188,65 +1186,65 @@ class _EditSheetState extends State<_EditSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Text(
-              loc.careTodayEditSheetTitle,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Text(
+                loc.careTodayEditSheetTitle,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-          ListTile(
-            title: Text(
-              slot.title,
-              key: const Key('care-today-edit-sheet-title'),
-            ),
-            subtitle: Text(
-              '$dateLabel · ${slot.timeOfDay} · ${_editSheetStatusLabel(loc, slot.status)}',
-              key: const Key('care-today-edit-sheet-subtitle'),
-            ),
-          ),
-          // The two outcome choices, built like `settings_screen.dart`'s
-          // `_OptionRow`: `selected:` is what puts the choice in the
-          // semantics tree (`Semantics(selected: true)`), where the previous
-          // bare trailing `Icon(Icons.check)` was invisible to a screen
-          // reader — it heard two identical tappable rows and no way to tell
-          // which one was about to be submitted. The leading circle also
-          // replaces the old `check_circle_outline`/`remove_circle_outline`
-          // pair, which came from the *status* icon set and so left the Done
-          // row permanently wearing a tick that fought the selection tick.
-          _StatusOptionRow(
-            rowKey: const Key('care-today-edit-status-done'),
-            label: loc.careTodayMarkDoneButton,
-            selected: !skipped,
-            onSelected: () => setState(() => _status = CareLogStatus.done),
-          ),
-          _StatusOptionRow(
-            rowKey: const Key('care-today-edit-status-skipped'),
-            label: loc.careTodaySkipButton,
-            selected: skipped,
-            onSelected: () => setState(() => _status = CareLogStatus.skipped),
-          ),
-          ListTile(
-            key: const Key('care-today-edit-time'),
-            enabled: !skipped && _dateKnown,
-            leading: const Icon(Icons.schedule),
-            title: Text(loc.careTodayEditTimeLabel),
-            subtitle: Text(timeLabel),
-            onTap: skipped || !_dateKnown ? null : _pickTime,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                key: const Key('care-today-edit-submit'),
-                onPressed: _submit,
-                child: Text(loc.careTodayEditSubmitButton),
+            ListTile(
+              title: Text(
+                slot.title,
+                key: const Key('care-today-edit-sheet-title'),
+              ),
+              subtitle: Text(
+                '$dateLabel · ${slot.timeOfDay} · ${_editSheetStatusLabel(loc, slot.status)}',
+                key: const Key('care-today-edit-sheet-subtitle'),
               ),
             ),
-          ),
+            // The two outcome choices, built like `settings_screen.dart`'s
+            // `_OptionRow`: `selected:` is what puts the choice in the
+            // semantics tree (`Semantics(selected: true)`), where the previous
+            // bare trailing `Icon(Icons.check)` was invisible to a screen
+            // reader — it heard two identical tappable rows and no way to tell
+            // which one was about to be submitted. The leading circle also
+            // replaces the old `check_circle_outline`/`remove_circle_outline`
+            // pair, which came from the *status* icon set and so left the Done
+            // row permanently wearing a tick that fought the selection tick.
+            _StatusOptionRow(
+              rowKey: const Key('care-today-edit-status-done'),
+              label: loc.careTodayMarkDoneButton,
+              selected: !skipped,
+              onSelected: () => setState(() => _status = CareLogStatus.done),
+            ),
+            _StatusOptionRow(
+              rowKey: const Key('care-today-edit-status-skipped'),
+              label: loc.careTodaySkipButton,
+              selected: skipped,
+              onSelected: () => setState(() => _status = CareLogStatus.skipped),
+            ),
+            ListTile(
+              key: const Key('care-today-edit-time'),
+              enabled: !skipped && _dateKnown,
+              leading: const Icon(Icons.schedule),
+              title: Text(loc.careTodayEditTimeLabel),
+              subtitle: Text(timeLabel),
+              onTap: skipped || !_dateKnown ? null : _pickTime,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  key: const Key('care-today-edit-submit'),
+                  onPressed: _submit,
+                  child: Text(loc.careTodayEditSubmitButton),
+                ),
+              ),
+            ),
           ],
         ),
       ),

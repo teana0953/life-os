@@ -5691,6 +5691,12 @@ abstract class AppLocalizations {
   /// **'This period has records, but none of them match the current filters.'**
   String get careHistoryFilteredEmptyBody;
 
+  /// Marker beside a care-history record's snapshot title when the care item itself has been deleted. It is driven only by item_deleted, not by either nullable id.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get careHistoryDeletedItemLabel;
+
   /// Label of the care history time-range control (and of its picker's rolling-span options) for a rolling span: 'Last 7 days'. Deliberately not the bare trendRange7/30/90 strings ('7 days'), which read as a fragment on a standalone control that has to say what the number means on its own.
   ///
   /// In en, this message translates to:

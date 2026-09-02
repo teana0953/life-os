@@ -5,7 +5,7 @@ import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 
 CareTodaySlot _slot({
-  String careItemId = 'care-1',
+  String? careItemId = 'care-1',
   String title = 'Metformin',
   CareCategory category = CareCategory.medication,
   CareTodayStatus status = CareTodayStatus.done,
@@ -13,7 +13,7 @@ CareTodaySlot _slot({
   String localDate = '2026-07-22',
 }) => CareTodaySlot(
   careItemId: careItemId,
-  careScheduleId: '$careItemId-$timeOfDay',
+  careScheduleId: careItemId == null ? null : '$careItemId-$timeOfDay',
   category: category,
   title: title,
   timeOfDay: timeOfDay,
@@ -112,7 +112,10 @@ void main() {
 
     test('an empty filter returns the very same list', () {
       expect(
-        identical(applyCareHistoryFilter(days, const CareHistoryFilter()), days),
+        identical(
+          applyCareHistoryFilter(days, const CareHistoryFilter()),
+          days,
+        ),
         isTrue,
       );
     });
@@ -122,10 +125,9 @@ void main() {
         days,
         const CareHistoryFilter(categories: {CareCategory.rehab}),
       );
-      expect(
-        filtered.expand((d) => d.slots).map((s) => s.careItemId).toSet(),
-        {'care-2'},
-      );
+      expect(filtered.expand((d) => d.slots).map((s) => s.careItemId).toSet(), {
+        'care-2',
+      });
     });
 
     test('filters by status, several statuses meaning either', () {
@@ -141,10 +143,9 @@ void main() {
         days,
         const CareHistoryFilter(statuses: {CareTodayStatus.missed}),
       );
-      expect(
-        missedOnly.expand((d) => d.slots).map((s) => s.status).toSet(),
-        {CareTodayStatus.missed},
-      );
+      expect(missedOnly.expand((d) => d.slots).map((s) => s.status).toSet(), {
+        CareTodayStatus.missed,
+      });
       expect(missedOnly.expand((d) => d.slots).length, 2);
     });
 
@@ -154,10 +155,9 @@ void main() {
         const CareHistoryFilter(careItemId: 'care-1'),
       );
       expect(filtered.expand((d) => d.slots).length, 2);
-      expect(
-        filtered.expand((d) => d.slots).map((s) => s.careItemId).toSet(),
-        {'care-1'},
-      );
+      expect(filtered.expand((d) => d.slots).map((s) => s.careItemId).toSet(), {
+        'care-1',
+      });
     });
 
     // The three dimensions narrow together (AND), not widen (OR) — an OR
@@ -233,14 +233,11 @@ void main() {
           ],
         ),
       ]);
-      expect(
-        options,
-        [
-          (id: 'care-3', title: 'Aspirin'),
-          (id: 'care-1', title: 'Metformin'),
-          (id: 'care-2', title: 'Walk'),
-        ],
-      );
+      expect(options, [
+        (id: 'care-3', title: 'Aspirin'),
+        (id: 'care-1', title: 'Metformin'),
+        (id: 'care-2', title: 'Walk'),
+      ]);
     });
 
     test('is empty for a range with no slots', () {
@@ -249,6 +246,22 @@ void main() {
           const CareHistoryDay(date: '2026-07-22', slots: []),
         ]),
         isEmpty,
+      );
+    });
+
+    test('omits orphan item ids without dropping their history records', () {
+      final orphan = _slot(careItemId: null, title: 'Deleted snapshot');
+      final days = [
+        CareHistoryDay(date: '2026-07-22', slots: [orphan]),
+      ];
+
+      expect(careHistoryItemOptions(days), isEmpty);
+      expect(
+        applyCareHistoryFilter(
+          days,
+          const CareHistoryFilter(),
+        ).single.slots.single,
+        same(orphan),
       );
     });
   });

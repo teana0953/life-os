@@ -4421,6 +4421,10 @@
   "@careHistoryFilteredEmptyBody": {
     "description": "Body copy paired with careHistoryFilteredEmptyTitle. It does not suggest widening the period: the records are filtered out, not out of range, so a longer period would not bring them back."
   },
+  "careHistoryDeletedItemLabel": "Deleted",
+  "@careHistoryDeletedItemLabel": {
+    "description": "Marker beside a care-history record's snapshot title when the care item itself has been deleted. It is driven only by item_deleted, not by either nullable id."
+  },
   "careHistoryPeriodSpanLabel": "Last {days} days",
   "@careHistoryPeriodSpanLabel": {
     "description": "Label of the care history time-range control (and of its picker's rolling-span options) for a rolling span: 'Last 7 days'. Deliberately not the bare trendRange7/30/90 strings ('7 days'), which read as a fragment on a standalone control that has to say what the number means on its own.",

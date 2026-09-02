@@ -42,17 +42,15 @@ Map<String, dynamic> vitalsRangePayload({
   },
 };
 
-Map<String, dynamic> healthCalendarPayload({
-  int year = 2026,
-  int month = 8,
-}) => {
-  'year': year,
-  'month': month,
-  'logged_days': ['$year-${month.toString().padLeft(2, '0')}-19'],
-  'days_elapsed': 20,
-  'logging_rate': 55,
-  'diet_adherence_rate': 30,
-};
+Map<String, dynamic> healthCalendarPayload({int year = 2026, int month = 8}) =>
+    {
+      'year': year,
+      'month': month,
+      'logged_days': ['$year-${month.toString().padLeft(2, '0')}-19'],
+      'days_elapsed': 20,
+      'logging_rate': 55,
+      'diet_adherence_rate': 30,
+    };
 
 Map<String, dynamic> mealsPayload(String day) => {
   'day': day,
@@ -163,6 +161,7 @@ Map<String, dynamic> careSlotPayload({
 }) => {
   'care_item_id': 'item-1',
   'care_schedule_id': 'sched-1',
+  'item_deleted': false,
   'category': 'medication',
   'title': 'Vitamin D',
   'note': null,

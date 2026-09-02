@@ -102,7 +102,8 @@ List<({String id, String title})> careHistoryItemOptions(
   final titles = <String, String>{};
   for (final day in days) {
     for (final slot in day.slots) {
-      titles.putIfAbsent(slot.careItemId, () => slot.title);
+      final itemId = slot.careItemId;
+      if (itemId != null) titles.putIfAbsent(itemId, () => slot.title);
     }
   }
   final options = [

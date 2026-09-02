@@ -8,8 +8,9 @@ import 'package:life_os/contexts/notifications/domain/care_today.dart';
 import 'package:life_os/contexts/notifications/infrastructure/http_care_today_repository.dart';
 
 Map<String, dynamic> _slotJson({
-  String careItemId = 'care-1',
-  String careScheduleId = 'sch-1',
+  String? careItemId = 'care-1',
+  String? careScheduleId = 'sch-1',
+  bool itemDeleted = false,
   String category = 'medication',
   String title = 'Metformin',
   String? note = 'take with food',
@@ -22,6 +23,7 @@ Map<String, dynamic> _slotJson({
 }) => {
   'care_item_id': careItemId,
   'care_schedule_id': careScheduleId,
+  'item_deleted': itemDeleted,
   'category': category,
   'title': title,
   'note': note,
@@ -69,6 +71,7 @@ void main() {
         final slot = today.slots.single;
         expect(slot.careItemId, 'care-1');
         expect(slot.careScheduleId, 'sch-1');
+        expect(slot.itemDeleted, isFalse);
         expect(slot.category, CareCategory.medication);
         expect(slot.title, 'Metformin');
         expect(slot.note, 'take with food');
@@ -81,36 +84,55 @@ void main() {
       },
     );
 
-    test('parses every status value and nullable note/dose/done_time', () async {
-      final client = MockClient((request) async {
-        return http.Response(
-          jsonEncode({
-            'date': '2026-07-22',
-            'items': [
-              _slotJson(
-                careScheduleId: 'sch-2',
-                status: 'done',
-                note: null,
-                dose: null,
-                doneTime: '08:05',
-              ),
-            ],
-          }),
-          200,
+    test(
+      'parses every status value and nullable note/dose/done_time',
+      () async {
+        final client = MockClient((request) async {
+          return http.Response(
+            jsonEncode({
+              'date': '2026-07-22',
+              'items': [
+                _slotJson(
+                  careScheduleId: 'sch-2',
+                  status: 'done',
+                  note: null,
+                  dose: null,
+                  doneTime: '08:05',
+                ),
+              ],
+            }),
+            200,
+          );
+        });
+        final repository = HttpCareTodayRepository(
+          baseUrl: 'https://example.test',
+          client: client,
         );
-      });
+
+        final today = await repository.getToday('token-123');
+
+        final slot = today.slots.single;
+        expect(slot.status, CareTodayStatus.done);
+        expect(slot.note, isNull);
+        expect(slot.dose, isNull);
+        expect(slot.doneTime, '08:05');
+      },
+    );
+
+    test('defaults item_deleted to false during a staged rollout', () async {
+      final legacySlot = _slotJson()..remove('item_deleted');
+      final client = MockClient((request) async => http.Response(
+        jsonEncode({'date': '2026-07-22', 'items': [legacySlot]}),
+        200,
+      ));
       final repository = HttpCareTodayRepository(
         baseUrl: 'https://example.test',
         client: client,
       );
 
-      final today = await repository.getToday('token-123');
+      final slot = (await repository.getToday('token-123')).slots.single;
 
-      final slot = today.slots.single;
-      expect(slot.status, CareTodayStatus.done);
-      expect(slot.note, isNull);
-      expect(slot.dose, isNull);
-      expect(slot.doneTime, '08:05');
+      expect(slot.itemDeleted, isFalse);
     });
   });
 
