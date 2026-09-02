@@ -51,7 +51,7 @@ int _compareTimeOfDay(CareTodaySlot a, CareTodaySlot b) =>
 typedef _SlotId = ({String careScheduleId, String localDate, String timeOfDay});
 
 _SlotId _idOf(CareTodaySlot slot) => (
-  careScheduleId: slot.careScheduleId,
+  careScheduleId: slot.careScheduleId!,
   localDate: slot.localDate,
   timeOfDay: slot.timeOfDay,
 );
@@ -61,11 +61,13 @@ _SlotId _idOf(CareTodaySlot slot) => (
 /// slot; `null` when neither exists (the all-done celebration). A pure
 /// function of [slots] — unit-tested independent of the controller.
 CareTodaySlot? deriveFocusSlot(List<CareTodaySlot> slots) {
-  final overdue = slots.where((s) => s.status == CareTodayStatus.overdue).toList()
-    ..sort(_compareTimeOfDay);
+  final overdue =
+      slots.where((s) => s.status == CareTodayStatus.overdue).toList()
+        ..sort(_compareTimeOfDay);
   if (overdue.isNotEmpty) return overdue.first;
-  final pending = slots.where((s) => s.status == CareTodayStatus.pending).toList()
-    ..sort(_compareTimeOfDay);
+  final pending =
+      slots.where((s) => s.status == CareTodayStatus.pending).toList()
+        ..sort(_compareTimeOfDay);
   if (pending.isNotEmpty) return pending.first;
   return null;
 }

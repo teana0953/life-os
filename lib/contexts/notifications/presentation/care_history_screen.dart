@@ -36,11 +36,13 @@ IconData _statusIcon(CareTodayStatus status) => switch (status) {
   CareTodayStatus.pending => Icons.schedule_outlined,
 };
 
-Color _statusColor(ColorScheme scheme, CareTodayStatus status) => switch (status) {
-  CareTodayStatus.done => scheme.primary,
-  CareTodayStatus.missed || CareTodayStatus.overdue => scheme.error,
-  CareTodayStatus.skipped || CareTodayStatus.pending => scheme.onSurfaceVariant,
-};
+Color _statusColor(ColorScheme scheme, CareTodayStatus status) =>
+    switch (status) {
+      CareTodayStatus.done => scheme.primary,
+      CareTodayStatus.missed || CareTodayStatus.overdue => scheme.error,
+      CareTodayStatus.skipped ||
+      CareTodayStatus.pending => scheme.onSurfaceVariant,
+    };
 
 /// The composite identity of a slot within a history range — matches the
 /// fields used to build a [_SlotTile]'s [Key] — used to tell which slot (if
@@ -233,9 +235,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
       Widget selectionIcon(bool selected) => Icon(
         selected ? Icons.check_circle : Icons.circle_outlined,
         key: selected ? const Key('care-history-period-option-selected') : null,
-        color: selected
-            ? theme.colorScheme.primary
-            : theme.colorScheme.outline,
+        color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
       );
       return SafeArea(
         top: false,
@@ -298,6 +298,12 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
   );
 
   Future<void> _openEditSheet(CareTodaySlot slot) async {
+    // Historical logs can outlive their schedule. They remain useful records,
+    // but the edit endpoint identifies a row by schedule id, so an orphaned
+    // slot must stay read-only. The tile normally prevents this call; keeping
+    // the guard here also makes the boundary safe if another caller is added.
+    final careScheduleId = slot.careScheduleId;
+    if (careScheduleId == null) return;
     // Guards against opening a second sheet while an edit is already in
     // flight. This alone isn't enough for a fast double-tap (see the
     // re-check after the sheet's await below), but it still avoids
@@ -382,7 +388,7 @@ class _CareHistoryScreenState extends State<CareHistoryScreen> {
     // *failed* PUT as saved. The returned value is this call's own snapshot.
     final outcome = await widget.controller.edit(
       await _idToken(),
-      careScheduleId: slot.careScheduleId,
+      careScheduleId: careScheduleId,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
       status: chosen,
@@ -931,7 +937,9 @@ class _DayCard extends StatelessWidget {
               isEditing: inFlightSlotKey == _slotCompositeKey(slot),
               // Only today's slots are editable (design §D) — corrections
               // for earlier days belong on the Today care checklist instead.
-              editable: isToday,
+              // A historical log whose schedule was removed still renders,
+              // but cannot be sent to the edit endpoint without its id.
+              editable: isToday && slot.careScheduleId != null,
             ),
           // Says *why* an earlier day's rows have no edit icon and do
           // nothing when tapped. Without it the restriction is only
@@ -998,7 +1006,28 @@ class _SlotTile extends StatelessWidget {
         _statusIcon(slot.status),
         color: _statusColor(theme.colorScheme, slot.status),
       ),
-      title: Text(slot.title),
+      // Keep the backend's snapshot title even after the live item is gone.
+      // Deletion is an additional marker, and is driven exclusively by the
+      // explicit wire flag: a null schedule id can also mean only that one
+      // time was removed from an otherwise-live item.
+      title: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(slot.title),
+          if (slot.itemDeleted)
+            Text(
+              loc.careHistoryDeletedItemLabel,
+              key: Key(
+                'care-history-slot-deleted-${slot.careScheduleId}-${slot.localDate}-${slot.timeOfDay}',
+              ),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
+      ),
       subtitle: doseLabel.isEmpty
           ? Text(statusLine)
           : Column(

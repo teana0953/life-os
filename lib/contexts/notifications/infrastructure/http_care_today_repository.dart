@@ -11,8 +11,9 @@ import '../domain/care_today.dart';
 /// repository below: the batch section's `data` IS this body, and two
 /// decoders that agree today are two decoders that can drift.
 CareTodaySlot careTodaySlotFromJson(Map<String, dynamic> json) => CareTodaySlot(
-  careItemId: json['care_item_id'] as String,
-  careScheduleId: json['care_schedule_id'] as String,
+  careItemId: json['care_item_id'] as String?,
+  careScheduleId: json['care_schedule_id'] as String?,
+  itemDeleted: json['item_deleted'] as bool? ?? false,
   category: careCategoryFromWire(json['category'] as String),
   title: json['title'] as String,
   note: json['note'] as String?,

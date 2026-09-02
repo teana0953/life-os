@@ -37,8 +37,9 @@ extension CareLogStatusWire on CareLogStatus {
 /// always sent (mirrors [CareSchedule.doseQuantity] — required regardless of
 /// category).
 class CareTodaySlot {
-  final String careItemId;
-  final String careScheduleId;
+  final String? careItemId;
+  final String? careScheduleId;
+  final bool itemDeleted;
   final CareCategory category;
   final String title;
   final String? note;
@@ -57,6 +58,7 @@ class CareTodaySlot {
   const CareTodaySlot({
     required this.careItemId,
     required this.careScheduleId,
+    this.itemDeleted = false,
     required this.category,
     required this.title,
     this.note,
@@ -73,6 +75,7 @@ class CareTodaySlot {
       other is CareTodaySlot &&
       other.careItemId == careItemId &&
       other.careScheduleId == careScheduleId &&
+      other.itemDeleted == itemDeleted &&
       other.category == category &&
       other.title == title &&
       other.note == note &&
@@ -87,6 +90,7 @@ class CareTodaySlot {
   int get hashCode => Object.hash(
     careItemId,
     careScheduleId,
+    itemDeleted,
     category,
     title,
     note,

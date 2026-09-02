@@ -113,7 +113,7 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
   ) async {
     await action(
       await widget.idToken(),
-      careScheduleId: slot.careScheduleId,
+      careScheduleId: slot.careScheduleId!,
       localDate: slot.localDate,
       timeOfDay: slot.timeOfDay,
     );
@@ -158,7 +158,9 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
       // to say so, because a missing top card reads as "you have no care
       // today" — no message, no retry, no way to tell.
       if (controller.status == CareTodayLoadStatus.error) {
-        return _ErrorCard(onRetry: () async => controller.load(await widget.idToken()));
+        return _ErrorCard(
+          onRetry: () async => controller.load(await widget.idToken()),
+        );
       }
       return const SizedBox.shrink();
     }
@@ -238,8 +240,11 @@ class _CareTodaySummaryCardState extends State<CareTodaySummaryCard> {
                           onDone: () =>
                               _mark(context, focus, controller.markDone),
                           onSkip: isOverdue
-                              ? () =>
-                                    _mark(context, focus, controller.markSkipped)
+                              ? () => _mark(
+                                  context,
+                                  focus,
+                                  controller.markSkipped,
+                                )
                               : null,
                         ),
                       const SizedBox(height: 8),
@@ -404,7 +409,11 @@ class _ProgressPill extends StatelessWidget {
   final int done;
   final int total;
 
-  const _ProgressPill({required this.loc, required this.done, required this.total});
+  const _ProgressPill({
+    required this.loc,
+    required this.done,
+    required this.total,
+  });
 
   @override
   Widget build(BuildContext context) {

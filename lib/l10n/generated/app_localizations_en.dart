@@ -3280,6 +3280,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'This period has records, but none of them match the current filters.';
 
   @override
+  String get careHistoryDeletedItemLabel => 'Deleted';
+
+  @override
   String careHistoryPeriodSpanLabel(int days) {
     return 'Last $days days';
   }

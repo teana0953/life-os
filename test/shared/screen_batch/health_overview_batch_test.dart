@@ -232,4 +232,27 @@ void main() {
     expect(section.single.slots.single.status, granular.single.slots.single.status);
     expect(section.single.slots.single.title, granular.single.slots.single.title);
   });
+
+  test('care_range preserves orphan records through the shared decoder', () {
+    final orphanBody = healthOverviewBody();
+    final section = orphanBody['care_range'] as Map<String, dynamic>;
+    final data = section['data'] as Map<String, dynamic>;
+    final days = data['days'] as List<dynamic>;
+    final day = days.single as Map<String, dynamic>;
+    final items = day['items'] as List<dynamic>;
+    final item = items.single as Map<String, dynamic>;
+    item['care_item_id'] = null;
+    item['care_schedule_id'] = null;
+    item['item_deleted'] = true;
+    item['title'] = 'Deleted snapshot';
+
+    final slot = okValue(
+      HealthOverviewBatch.fromJson(orphanBody).careRange,
+    ).single.slots.single;
+
+    expect(slot.careItemId, isNull);
+    expect(slot.careScheduleId, isNull);
+    expect(slot.itemDeleted, isTrue);
+    expect(slot.title, 'Deleted snapshot');
+  });
 }

@@ -3,14 +3,17 @@ import 'package:life_os/contexts/notifications/domain/care_item.dart';
 import 'package:life_os/contexts/notifications/domain/care_today.dart';
 
 CareTodaySlot _slot({
-  String careScheduleId = 'sch-1',
+  String? careItemId = 'care-1',
+  String? careScheduleId = 'sch-1',
+  bool itemDeleted = false,
   CareTodayStatus status = CareTodayStatus.pending,
   String timeOfDay = '08:00',
   String? doneTime,
   double doseQuantity = 1,
 }) => CareTodaySlot(
-  careItemId: 'care-1',
+  careItemId: careItemId,
   careScheduleId: careScheduleId,
+  itemDeleted: itemDeleted,
   category: CareCategory.medication,
   title: 'Metformin',
   note: 'take with food',
@@ -63,10 +66,15 @@ void main() {
     });
 
     test('a different doneTime makes them unequal', () {
+      expect(_slot(doneTime: null), isNot(_slot(doneTime: '09:05')));
+    });
+
+    test('nullable ids and itemDeleted participate in value equality', () {
       expect(
-        _slot(doneTime: null),
-        isNot(_slot(doneTime: '09:05')),
+        _slot(careItemId: null, careScheduleId: null, itemDeleted: true),
+        _slot(careItemId: null, careScheduleId: null, itemDeleted: true),
       );
+      expect(_slot(), isNot(_slot(itemDeleted: true)));
     });
   });
 }

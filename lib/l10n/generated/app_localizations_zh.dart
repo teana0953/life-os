@@ -3167,6 +3167,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get careHistoryFilteredEmptyBody => '這段期間有紀錄,但沒有符合目前篩選條件的。';
 
   @override
+  String get careHistoryDeletedItemLabel => '已刪除';
+
+  @override
   String careHistoryPeriodSpanLabel(int days) {
     return '近 $days 天';
   }
@@ -6325,6 +6328,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get careHistoryFilteredEmptyBody => '這段期間有紀錄,但沒有符合目前篩選條件的。';
+
+  @override
+  String get careHistoryDeletedItemLabel => '已刪除';
 
   @override
   String careHistoryPeriodSpanLabel(int days) {

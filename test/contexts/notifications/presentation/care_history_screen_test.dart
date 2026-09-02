@@ -61,6 +61,7 @@ CareTodaySlot _withStatus(CareTodaySlot slot, CareTodayStatus status) =>
     CareTodaySlot(
       careItemId: slot.careItemId,
       careScheduleId: slot.careScheduleId,
+      itemDeleted: slot.itemDeleted,
       category: slot.category,
       title: slot.title,
       note: slot.note,
@@ -150,8 +151,9 @@ class _FakeCareHistoryRepository implements CareHistoryRepository {
 }
 
 CareTodaySlot _slot({
-  String careItemId = 'care-1',
-  String careScheduleId = 'sch-1',
+  String? careItemId = 'care-1',
+  String? careScheduleId = 'sch-1',
+  bool itemDeleted = false,
   String title = 'Metformin',
   CareCategory category = CareCategory.medication,
   CareTodayStatus status = CareTodayStatus.done,
@@ -162,6 +164,7 @@ CareTodaySlot _slot({
 }) => CareTodaySlot(
   careItemId: careItemId,
   careScheduleId: careScheduleId,
+  itemDeleted: itemDeleted,
   category: category,
   title: title,
   timeOfDay: timeOfDay,
@@ -324,31 +327,30 @@ void main() {
     // This screen used to fetch one token in `_load` and cache it in a field,
     // reusing it for every period switch and every edit. Asserts on the token
     // the repository RECEIVED, not on the provider having been called.
-    testWidgets(
-      'a period switch after a token renewal carries the new token',
-      (tester) async {
-        final repository = _FakeCareHistoryRepository(
-          days: _sevenDayRange(
-            onJul22: [_slot(title: 'Today dose', status: CareTodayStatus.done)],
-          ),
-        );
-        final auth = _FakeAuthRepository(token: 'token-1');
-        await _pumpScreen(
-          tester,
-          _controller(repository: repository),
-          authRepository: auth,
-        );
+    testWidgets('a period switch after a token renewal carries the new token', (
+      tester,
+    ) async {
+      final repository = _FakeCareHistoryRepository(
+        days: _sevenDayRange(
+          onJul22: [_slot(title: 'Today dose', status: CareTodayStatus.done)],
+        ),
+      );
+      final auth = _FakeAuthRepository(token: 'token-1');
+      await _pumpScreen(
+        tester,
+        _controller(repository: repository),
+        authRepository: auth,
+      );
 
-        expect(repository.getRangeTokens, ['token-1']);
+      expect(repository.getRangeTokens, ['token-1']);
 
-        // Firebase renewed the token while the history stayed open.
-        auth.token = 'token-2';
+      // Firebase renewed the token while the history stayed open.
+      auth.token = 'token-2';
 
-        await selectSpan(tester, 90);
+      await selectSpan(tester, 90);
 
-        expect(repository.getRangeTokens, ['token-1', 'token-2']);
-      },
-    );
+      expect(repository.getRangeTokens, ['token-1', 'token-2']);
+    });
 
     testWidgets(
       'list mode groups slots by day, newest first, skipping days with no '
@@ -398,17 +400,18 @@ void main() {
           find.text('08:00 · ${loc.careHistoryStatusPending}'),
           findsOneWidget,
         );
-        expect(
-          find.text(loc.careDoseQuantityValue('1')),
-          findsWidgets,
-        );
+        expect(find.text(loc.careDoseQuantityValue('1')), findsWidgets);
 
         // Newest day rendered above the older day.
         final todayHeaderY = tester
-            .getTopLeft(find.byKey(const Key('care-history-day-header-2026-07-22')))
+            .getTopLeft(
+              find.byKey(const Key('care-history-day-header-2026-07-22')),
+            )
             .dy;
         final yesterdayHeaderY = tester
-            .getTopLeft(find.byKey(const Key('care-history-day-header-2026-07-21')))
+            .getTopLeft(
+              find.byKey(const Key('care-history-day-header-2026-07-21')),
+            )
             .dy;
         expect(todayHeaderY, lessThan(yesterdayHeaderY));
       },
@@ -497,21 +500,105 @@ void main() {
     );
 
     testWidgets(
+      'orphan records keep their snapshot and deletion flag semantics while '
+      'only rows with a schedule id remain editable',
+      (tester) async {
+        final repository = _FakeCareHistoryRepository(
+          days: _sevenDayRange(
+            onJul22: [
+              _slot(
+                careItemId: null,
+                careScheduleId: null,
+                itemDeleted: true,
+                title: 'Deleted snapshot',
+                status: CareTodayStatus.done,
+                timeOfDay: '07:00',
+              ),
+              _slot(
+                careScheduleId: null,
+                title: 'Live item, removed schedule',
+                status: CareTodayStatus.done,
+                timeOfDay: '09:00',
+              ),
+              _slot(
+                careScheduleId: null,
+                title: 'Re-added dose',
+                status: CareTodayStatus.done,
+                timeOfDay: '10:00',
+              ),
+              _slot(
+                careScheduleId: 'sch-new',
+                title: 'Re-added dose',
+                status: CareTodayStatus.missed,
+                timeOfDay: '10:00',
+              ),
+            ],
+          ),
+        );
+        await _pumpScreen(tester, _controller(repository: repository));
+
+        final loc = lookupAppLocalizations(const Locale('en'));
+        expect(find.text('Deleted snapshot'), findsOneWidget);
+        expect(find.text(loc.careHistoryDeletedItemLabel), findsOneWidget);
+        expect(find.text('Live item, removed schedule'), findsOneWidget);
+        expect(find.text('Re-added dose'), findsNWidgets(2));
+        expect(
+          find.text('10:00 · ${loc.careHistoryStatusDone}'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('10:00 · ${loc.careTodayStatusMissed}'),
+          findsOneWidget,
+        );
+
+        final deletedTile = find.byKey(
+          const Key('care-history-slot-null-2026-07-22-07:00'),
+        );
+        final removedScheduleTile = find.byKey(
+          const Key('care-history-slot-null-2026-07-22-09:00'),
+        );
+        final readdedTile = find.byKey(
+          const Key('care-history-slot-sch-new-2026-07-22-10:00'),
+        );
+        expect(
+          find.descendant(
+            of: deletedTile,
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: removedScheduleTile,
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: readdedTile,
+            matching: find.byIcon(Icons.edit_outlined),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(removedScheduleTile);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('care-history-edit-done')), findsNothing);
+      },
+    );
+
+    testWidgets(
       'has no list/chart mode toggle and no heatmap/legend/headline — the '
       'chart moved to the health module\'s trends tab (CareAdherenceCard)',
       (tester) async {
         final repository = _FakeCareHistoryRepository(
-          days: _sevenDayRange(
-            onJul22: [_slot(status: CareTodayStatus.done)],
-          ),
+          days: _sevenDayRange(onJul22: [_slot(status: CareTodayStatus.done)]),
         );
         final controller = _controller(repository: repository);
         await _pumpScreen(tester, controller);
 
-        expect(
-          find.byKey(const Key('care-history-mode-toggle')),
-          findsNothing,
-        );
+        expect(find.byKey(const Key('care-history-mode-toggle')), findsNothing);
         expect(find.byKey(const Key('care-history-heatmap')), findsNothing);
         expect(find.byKey(const Key('care-history-legend')), findsNothing);
         expect(
@@ -541,7 +628,9 @@ void main() {
         final controller = _controller(repository: repository);
         await _pumpScreen(tester, controller);
 
-        expect(repository.getRangeCalls, [(from: '2026-07-16', to: '2026-07-22')]);
+        expect(repository.getRangeCalls, [
+          (from: '2026-07-16', to: '2026-07-22'),
+        ]);
 
         // Hold the 30-day reload in flight to assert the mid-reload state.
         final completer = Completer<void>();
@@ -552,19 +641,16 @@ void main() {
         // Mid-reload: previous content ("Today dose") is still visible, and
         // a thin progress indicator is shown instead of a full-page spinner.
         expect(find.text('Today dose'), findsOneWidget);
-        expect(
-          find.byKey(const Key('care-history-reloading')),
-          findsOneWidget,
-        );
+        expect(find.byKey(const Key('care-history-reloading')), findsOneWidget);
 
         completer.complete();
         await tester.pumpAndSettle();
 
-        expect(repository.getRangeCalls.last, (from: '2026-06-23', to: '2026-07-22'));
-        expect(
-          find.byKey(const Key('care-history-reloading')),
-          findsNothing,
-        );
+        expect(repository.getRangeCalls.last, (
+          from: '2026-06-23',
+          to: '2026-07-22',
+        ));
+        expect(find.byKey(const Key('care-history-reloading')), findsNothing);
       },
     );
 
@@ -640,7 +726,9 @@ void main() {
       (tester) async {
         final repository = _FakeCareHistoryRepository(
           days: _sevenDayRange(
-            onJul22: [_slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed)],
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
           ),
         );
         final controller = _controller(repository: repository);
@@ -667,7 +755,9 @@ void main() {
       (tester) async {
         final repository = _FakeCareHistoryRepository(
           days: _sevenDayRange(
-            onJul22: [_slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed)],
+            onJul22: [
+              _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+            ],
           ),
         );
         final controller = _controller(repository: repository);
@@ -879,7 +969,10 @@ void main() {
         // one just visually obscured), so two 'Done' tiles are found; only
         // the top one (`.last`, painted last — sch-2's, pushed second) is
         // actually hit-testable. Choose Done there first.
-        expect(find.byKey(const Key('care-history-edit-done')), findsNWidgets(2));
+        expect(
+          find.byKey(const Key('care-history-edit-done')),
+          findsNWidgets(2),
+        );
         await tester.tap(find.byKey(const Key('care-history-edit-done')).last);
         // Don't settle — the edit is now held in flight by the completer.
         await tester.pump();
@@ -943,7 +1036,9 @@ void main() {
     ) async {
       final repository = _FakeCareHistoryRepository(
         days: _sevenDayRange(
-          onJul22: [_slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed)],
+          onJul22: [
+            _slot(careScheduleId: 'sch-1', status: CareTodayStatus.missed),
+          ],
         ),
       )..editError = const CareRequestFailed();
       final controller = _controller(repository: repository);
@@ -1008,7 +1103,11 @@ void main() {
 
         // The concurrent load: it clears editError on the controller.
         await selectSpan(tester, 90, settle: false);
-        expect(controller.editError, isNull, reason: 'load clears it by design');
+        expect(
+          controller.editError,
+          isNull,
+          reason: 'load clears it by design',
+        );
 
         repair.complete();
         switching.complete();
@@ -1216,10 +1315,10 @@ void main() {
         await selectSpan(tester, 7);
 
         expect(controller.spanDays, 7);
-        expect(
-          repository.getRangeCalls.last,
-          (from: '2026-07-16', to: '2026-07-22'),
-        );
+        expect(repository.getRangeCalls.last, (
+          from: '2026-07-16',
+          to: '2026-07-22',
+        ));
         expect(find.byKey(const Key('care-history-load-error')), findsNothing);
         expect(find.text('Today dose'), findsOneWidget);
       },
@@ -1257,10 +1356,7 @@ void main() {
           find.byKey(const Key('care-history-period-button')),
           findsOneWidget,
         );
-        expect(
-          find.byKey(const Key('care-history-reloading')),
-          findsOneWidget,
-        );
+        expect(find.byKey(const Key('care-history-reloading')), findsOneWidget);
 
         completer.complete();
         await tester.pumpAndSettle();
@@ -1340,8 +1436,14 @@ void main() {
           find.byWidgetPredicate((w) => w is PopupMenuItem && !w.enabled),
           findsNothing,
         );
-        expect(find.byKey(const Key('care-history-menu-today')), findsOneWidget);
-        expect(find.byKey(const Key('care-history-menu-items')), findsOneWidget);
+        expect(
+          find.byKey(const Key('care-history-menu-today')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('care-history-menu-items')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -1408,7 +1510,10 @@ void main() {
         );
         await _pumpScreen(tester, controller);
 
-        expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+        expect(
+          find.byKey(const Key('care-history-empty-state')),
+          findsOneWidget,
+        );
         expect(
           find.byKey(const Key('care-history-widen-button')),
           findsNothing,
@@ -1426,23 +1531,22 @@ void main() {
     // task 4.1: at the 90-day (longest) period the wording changes — the
     // likeliest cause of an empty *longest* window is having no care items
     // configured at all, not too narrow a date range.
-    testWidgets(
-      'the 90-day empty state uses "no care items" wording, not the '
-      '"nothing scheduled in this period" wording used at shorter periods',
-      (tester) async {
-        final controller = _controller(
-          repository: _FakeCareHistoryRepository(days: const []),
-          spanDays: 90,
-        );
-        await _pumpScreen(tester, controller);
+    testWidgets('the 90-day empty state uses "no care items" wording, not the '
+        '"nothing scheduled in this period" wording used at shorter periods', (
+      tester,
+    ) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: const []),
+        spanDays: 90,
+      );
+      await _pumpScreen(tester, controller);
 
-        final loc = lookupAppLocalizations(const Locale('en'));
-        expect(find.text(loc.careHistoryNoCareItemsTitle), findsOneWidget);
-        expect(find.text(loc.careHistoryNoCareItemsBody), findsOneWidget);
-        expect(find.text(loc.careHistoryEmptyTitle), findsNothing);
-        expect(find.text(loc.careHistoryEmptyBody), findsNothing);
-      },
-    );
+      final loc = lookupAppLocalizations(const Locale('en'));
+      expect(find.text(loc.careHistoryNoCareItemsTitle), findsOneWidget);
+      expect(find.text(loc.careHistoryNoCareItemsBody), findsOneWidget);
+      expect(find.text(loc.careHistoryEmptyTitle), findsNothing);
+      expect(find.text(loc.careHistoryEmptyBody), findsNothing);
+    });
 
     // task 4.1: the widen button must disable itself for the duration of the
     // reload it triggered — otherwise a fast double-tap could fire two
@@ -1477,10 +1581,7 @@ void main() {
 
         // Only the one widen went through: 7 -> 30, not 7 -> 90.
         expect(controller.spanDays, 30);
-        expect(
-          tester.widget<FilledButton>(widenButton).onPressed,
-          isNotNull,
-        );
+        expect(tester.widget<FilledButton>(widenButton).onPressed, isNotNull);
       },
     );
 
@@ -1536,81 +1637,75 @@ void main() {
     // — before *this* instance's own `_load()` has resolved `_idToken`
     // (still `''`). Tapping either control at that point would send an
     // unauthenticated GET and drop the user into a spurious 401 reauth exit.
-    testWidgets(
-      'the period selector and widen action stay disabled until the '
-      "sign-in token resolves, even though the controller's already-loaded "
-      'content renders immediately',
-      (tester) async {
-        final repository = _FakeCareHistoryRepository(days: const []);
-        final controller = _controller(repository: repository, spanDays: 7);
-        // Simulate an earlier screen instance already having loaded once —
-        // `firstLoadSettled` is now true on this (singleton) controller.
-        await controller.load('token-123');
-        expect(repository.getRangeCalls, hasLength(1));
+    testWidgets('the period selector and widen action stay disabled until the '
+        "sign-in token resolves, even though the controller's already-loaded "
+        'content renders immediately', (tester) async {
+      final repository = _FakeCareHistoryRepository(days: const []);
+      final controller = _controller(repository: repository, spanDays: 7);
+      // Simulate an earlier screen instance already having loaded once —
+      // `firstLoadSettled` is now true on this (singleton) controller.
+      await controller.load('token-123');
+      expect(repository.getRangeCalls, hasLength(1));
 
-        final authRepository = _FakeAuthRepository();
-        final tokenCompleter = Completer<String?>();
-        authRepository.idTokenCompleter = tokenCompleter;
+      final authRepository = _FakeAuthRepository();
+      final tokenCompleter = Completer<String?>();
+      authRepository.idTokenCompleter = tokenCompleter;
 
-        await tester.binding.setSurfaceSize(const Size(800, 1600));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-        await tester.pumpWidget(
-          l10nRouterTestApp(
-            home: CareHistoryScreen(
-              controller: controller,
-              authRepository: authRepository,
-              clock: () => DateTime(2026, 7, 22),
-            ),
+      await tester.binding.setSurfaceSize(const Size(800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        l10nRouterTestApp(
+          home: CareHistoryScreen(
+            controller: controller,
+            authRepository: authRepository,
+            clock: () => DateTime(2026, 7, 22),
           ),
-        );
-        await tester.pump();
+        ),
+      );
+      await tester.pump();
 
-        // The stale content renders immediately (no spinner) — but the
-        // controls it would drive must not be interactive yet.
-        expect(
-          find.byKey(const Key('care-history-empty-state')),
-          findsOneWidget,
-        );
-        expect(
-          tester
-              .widget<OutlinedButton>(
-                find.byKey(const Key('care-history-period-button')),
-              )
-              .onPressed,
-          isNull,
-        );
-        expect(
-          tester
-              .widget<FilledButton>(
-                find.byKey(const Key('care-history-widen-button')),
-              )
-              .onPressed,
-          isNull,
-        );
-        // No second (unauthenticated) request has gone out.
-        expect(repository.getRangeCalls, hasLength(1));
+      // The stale content renders immediately (no spinner) — but the
+      // controls it would drive must not be interactive yet.
+      expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const Key('care-history-period-button')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('care-history-widen-button')),
+            )
+            .onPressed,
+        isNull,
+      );
+      // No second (unauthenticated) request has gone out.
+      expect(repository.getRangeCalls, hasLength(1));
 
-        tokenCompleter.complete('token-123');
-        await tester.pumpAndSettle();
+      tokenCompleter.complete('token-123');
+      await tester.pumpAndSettle();
 
-        expect(
-          tester
-              .widget<OutlinedButton>(
-                find.byKey(const Key('care-history-period-button')),
-              )
-              .onPressed,
-          isNotNull,
-        );
-        expect(
-          tester
-              .widget<FilledButton>(
-                find.byKey(const Key('care-history-widen-button')),
-              )
-              .onPressed,
-          isNotNull,
-        );
-      },
-    );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const Key('care-history-period-button')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('care-history-widen-button')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
 
     // task 4.7, second half: `idToken()` resolving to `null` (signed out
     // between mounting and the token round-trip) leaves `_idToken` as the
@@ -1764,9 +1859,7 @@ void main() {
     ) async {
       final controller = _controller(
         repository: _FakeCareHistoryRepository(
-          days: _sevenDayRange(
-            onJul22: [_slot(doseQuantity: 2, dose: '5mg')],
-          ),
+          days: _sevenDayRange(onJul22: [_slot(doseQuantity: 2, dose: '5mg')]),
         ),
       );
       await _pumpScreen(tester, controller);
@@ -1808,9 +1901,7 @@ void main() {
       final loc = lookupAppLocalizations(const Locale('en'));
       expect(
         find.descendant(
-          of: find.byKey(
-            const Key('care-history-slot-sch-1-2026-07-22-08:00'),
-          ),
+          of: find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
           matching: find.text(loc.careDoseQuantityValue('2')),
         ),
         findsOneWidget,
@@ -1820,18 +1911,12 @@ void main() {
     // Regression guard for the medication-only gate: the backend still sends
     // a default doseQuantity of 1 for every category, but the form never
     // lets a non-medication item set it, so no dose line should render.
-    testWidgets('a non-medication slot row shows no dose line', (
-      tester,
-    ) async {
+    testWidgets('a non-medication slot row shows no dose line', (tester) async {
       final controller = _controller(
         repository: _FakeCareHistoryRepository(
           days: _sevenDayRange(
             onJul22: [
-              _slot(
-                category: CareCategory.rehab,
-                doseQuantity: 1,
-                dose: null,
-              ),
+              _slot(category: CareCategory.rehab, doseQuantity: 1, dose: null),
             ],
           ),
         ),
@@ -1841,9 +1926,7 @@ void main() {
       final loc = lookupAppLocalizations(const Locale('en'));
       expect(
         find.descendant(
-          of: find.byKey(
-            const Key('care-history-slot-sch-1-2026-07-22-08:00'),
-          ),
+          of: find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
           matching: find.text(loc.careDoseQuantityValue('1')),
         ),
         findsNothing,
@@ -1863,9 +1946,7 @@ void main() {
       final handle = tester.ensureSemantics();
       final controller = _controller(
         repository: _FakeCareHistoryRepository(
-          days: _sevenDayRange(
-            onJul22: [_slot(doseQuantity: 2, dose: '5mg')],
-          ),
+          days: _sevenDayRange(onJul22: [_slot(doseQuantity: 2, dose: '5mg')]),
         ),
       );
       await _pumpScreen(tester, controller);
@@ -1874,9 +1955,7 @@ void main() {
       expect(
         tester
             .getSemantics(
-              find.byKey(
-                const Key('care-history-slot-sch-1-2026-07-22-08:00'),
-              ),
+              find.byKey(const Key('care-history-slot-sch-1-2026-07-22-08:00')),
             )
             .label,
         contains(
@@ -1910,14 +1989,20 @@ void main() {
           );
 
           final loc = lookupAppLocalizations(locale);
-          expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
+          expect(
+            find.byKey(const Key('care-history-empty-state')),
+            findsOneWidget,
+          );
 
           // Not clipped: every glyph of both lines was painted. Measured, not
           // read off `didExceedMaxLines` — that flag is only ever true when
           // `maxLines` is set, and the guide's texts set neither `maxLines`
           // nor `overflow`, so reading it here was an assertion that could
           // not fail.
-          for (final text in [loc.careHistoryEmptyTitle, loc.careHistoryEmptyBody]) {
+          for (final text in [
+            loc.careHistoryEmptyTitle,
+            loc.careHistoryEmptyBody,
+          ]) {
             final finder = find.text(text);
             expect(finder, findsOneWidget, reason: '"$text" is missing');
             expectPaintedInFull(
@@ -1958,7 +2043,10 @@ void main() {
             // passed.
             expectPaintedInFull(
               tester,
-              find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
+              find.descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(Text),
+              ),
               reason: "$key's label was cut off at 320dp × 2.0",
             );
           }
@@ -1995,8 +2083,9 @@ void main() {
     // LINCHPIN. The list, the headline numbers and the empty state all read
     // one filtered value; a summary computed from the unfiltered days would
     // keep reporting the whole period under a list showing a slice of it.
-    testWidgets('the list and the summary describe the same filtered records',
-        (tester) async {
+    testWidgets('the list and the summary describe the same filtered records', (
+      tester,
+    ) async {
       final controller = _controller(
         repository: _FakeCareHistoryRepository(days: _twoItemRange()),
       );
@@ -2028,15 +2117,23 @@ void main() {
         repository: _FakeCareHistoryRepository(days: _twoItemRange()),
       );
       await _pumpScreen(tester, controller);
-      expect(find.byKey(const Key('care-history-applied-filters')), findsNothing);
+      expect(
+        find.byKey(const Key('care-history-applied-filters')),
+        findsNothing,
+      );
 
       await openFilterSheet(tester);
-      await tester.tap(find.byKey(const Key('care-history-filter-item-care-2')));
+      await tester.tap(
+        find.byKey(const Key('care-history-filter-item-care-2')),
+      );
       await tester.pumpAndSettle();
       await closeSheet(tester);
 
       expect(find.text('Metformin'), findsNothing);
-      expect(find.byKey(const Key('care-history-applied-item')), findsOneWidget);
+      expect(
+        find.byKey(const Key('care-history-applied-item')),
+        findsOneWidget,
+      );
 
       await tester.tap(
         find.descendant(
@@ -2047,12 +2144,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Metformin'), findsNWidgets(2));
-      expect(find.byKey(const Key('care-history-applied-filters')), findsNothing);
+      expect(
+        find.byKey(const Key('care-history-applied-filters')),
+        findsNothing,
+      );
     });
 
     testWidgets('a filter that matches nothing shows the filtered-empty state '
-        '(never the widen-the-period one), and clearing it restores the list',
-        (tester) async {
+        '(never the widen-the-period one), and clearing it restores the list', (
+      tester,
+    ) async {
       final controller = _controller(
         repository: _FakeCareHistoryRepository(days: _twoItemRange()),
       );
@@ -2088,27 +2189,32 @@ void main() {
 
     // A period with no records at all keeps its own empty state — the two
     // are different situations with different ways out.
-    testWidgets('an empty period still shows the widen-the-period empty state',
-        (tester) async {
-      final controller = _controller(
-        repository: _FakeCareHistoryRepository(days: _sevenDayRange()),
-      );
-      await _pumpScreen(tester, controller);
+    testWidgets(
+      'an empty period still shows the widen-the-period empty state',
+      (tester) async {
+        final controller = _controller(
+          repository: _FakeCareHistoryRepository(days: _sevenDayRange()),
+        );
+        await _pumpScreen(tester, controller);
 
-      expect(find.byKey(const Key('care-history-empty-state')), findsOneWidget);
-      expect(
-        find.byKey(const Key('care-history-filtered-empty-state')),
-        findsNothing,
-      );
-      expect(
-        tester
-            .widget<IconButton>(
-              find.byKey(const Key('care-history-filter-button')),
-            )
-            .onPressed,
-        isNull,
-      );
-    });
+        expect(
+          find.byKey(const Key('care-history-empty-state')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('care-history-filtered-empty-state')),
+          findsNothing,
+        );
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const Key('care-history-filter-button')),
+              )
+              .onPressed,
+          isNull,
+        );
+      },
+    );
 
     testWidgets('changing the filter issues no request', (tester) async {
       final repository = _FakeCareHistoryRepository(days: _twoItemRange());
@@ -2144,10 +2250,10 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      expect(
-        repository.getRangeCalls.last,
-        (from: '2026-07-10', to: '2026-07-15'),
-      );
+      expect(repository.getRangeCalls.last, (
+        from: '2026-07-10',
+        to: '2026-07-15',
+      ));
     });
 
     testWidgets('the selector shows the picked dates instead of the word '
@@ -2180,8 +2286,9 @@ void main() {
       );
     });
 
-    testWidgets('a failed custom-range load names the dates, not a day count',
-        (tester) async {
+    testWidgets('a failed custom-range load names the dates, not a day count', (
+      tester,
+    ) async {
       final repository = _FakeCareHistoryRepository(days: _twoItemRange());
       final controller = _controller(repository: repository);
       await _pumpScreen(tester, controller);
@@ -2207,25 +2314,22 @@ void main() {
     // so the already-selected segment cannot be re-pressed — and the custom
     // row is the only way to adjust an already-picked range. Tapping it
     // while custom is already active must still reopen the date picker.
-    testWidgets(
-      'tapping the custom row again while custom is already active '
-      'reopens the picker',
-      (tester) async {
-        final controller = _controller(
-          repository: _FakeCareHistoryRepository(days: _twoItemRange()),
-        );
-        await _pumpScreen(tester, controller);
-        await controller.setPeriod(
-          'token-123',
-          const CareHistoryPeriod.custom('2026-07-10', '2026-07-15'),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('tapping the custom row again while custom is already active '
+        'reopens the picker', (tester) async {
+      final controller = _controller(
+        repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+      );
+      await _pumpScreen(tester, controller);
+      await controller.setPeriod(
+        'token-123',
+        const CareHistoryPeriod.custom('2026-07-10', '2026-07-15'),
+      );
+      await tester.pumpAndSettle();
 
-        await openCustomPicker(tester);
+      await openCustomPicker(tester);
 
-        expect(find.text('Save'), findsOneWidget);
-      },
-    );
+      expect(find.text('Save'), findsOneWidget);
+    });
 
     // The period on screen can be a *persisted* custom range from a
     // previous day (`CareHistoryFilterStore` only validates its length, not
@@ -2264,8 +2368,9 @@ void main() {
   // rows tall.
   group('the filter row and summary at 320dp, textScale 2.0', () {
     for (final locale in testSupportedLocales) {
-      testWidgets('stay laid out with the list still visible, locale=$locale',
-          (tester) async {
+      testWidgets('stay laid out with the list still visible, locale=$locale', (
+        tester,
+      ) async {
         final controller = _controller(
           repository: _FakeCareHistoryRepository(days: _twoItemRange()),
         );
@@ -2321,7 +2426,8 @@ void main() {
             textRect.top >= rowRect.top - 0.5 &&
                 textRect.bottom <= rowRect.bottom + 0.5,
             isTrue,
-            reason: '$key\'s label ($textRect) was clipped by the '
+            reason:
+                '$key\'s label ($textRect) was clipped by the '
                 'applied-filters row ($rowRect) at 320dp × 2.0',
           );
         }
@@ -2330,12 +2436,13 @@ void main() {
           'care-history-summary-days-with-dose',
           'care-history-summary-missed-count',
         ]) {
-          for (final text in find
-              .descendant(
-                of: find.byKey(Key(key)),
-                matching: find.byType(Text),
-              )
-              .evaluate()) {
+          for (final text
+              in find
+                  .descendant(
+                    of: find.byKey(Key(key)),
+                    matching: find.byType(Text),
+                  )
+                  .evaluate()) {
             expectPaintedInFull(
               tester,
               find.byWidget(text.widget),
@@ -2376,7 +2483,9 @@ void main() {
             () => _pumpNarrow(tester, controller, locale),
           );
           expect(
-            errors.map((e) => e.exception.toString().split('\n').first).toList(),
+            errors
+                .map((e) => e.exception.toString().split('\n').first)
+                .toList(),
             isEmpty,
           );
 
@@ -2401,18 +2510,27 @@ void main() {
           // without failing this check).
           final loc = lookupAppLocalizations(locale);
           final fullLabel = loc.careHistoryPeriodCustomLabel(
-            monthDayLabel(tester.element(find.byKey(key)), DateTime(2026, 3, 1)),
-            monthDayLabel(tester.element(find.byKey(key)), DateTime(2026, 5, 20)),
+            monthDayLabel(
+              tester.element(find.byKey(key)),
+              DateTime(2026, 3, 1),
+            ),
+            monthDayLabel(
+              tester.element(find.byKey(key)),
+              DateTime(2026, 5, 20),
+            ),
           );
           expect(
-            tester.widget<Tooltip>(
-              find.ancestor(
-                of: find.byKey(key),
-                matching: find.byType(Tooltip),
-              ),
-            ).message,
+            tester
+                .widget<Tooltip>(
+                  find.ancestor(
+                    of: find.byKey(key),
+                    matching: find.byType(Tooltip),
+                  ),
+                )
+                .message,
             fullLabel,
-            reason: 'the full custom range must survive somewhere even when '
+            reason:
+                'the full custom range must survive somewhere even when '
                 "the button's own label is too narrow to show it in full",
           );
         },
@@ -2425,11 +2543,10 @@ void main() {
   // cost and what the single control must keep doing at the narrowest
   // supported width.
   group('the period control at 320dp, textScale 2.0', () {
-    Finder periodButton() => find.byKey(const Key('care-history-period-button'));
-    Finder periodLabel() => find.descendant(
-      of: periodButton(),
-      matching: find.byType(Text),
-    );
+    Finder periodButton() =>
+        find.byKey(const Key('care-history-period-button'));
+    Finder periodLabel() =>
+        find.descendant(of: periodButton(), matching: find.byType(Text));
 
     for (final locale in testSupportedLocales) {
       for (final days in [7, 30, 90]) {
@@ -2445,7 +2562,9 @@ void main() {
               () => _pumpNarrow(tester, controller, locale),
             );
             expect(
-              errors.map((e) => e.exception.toString().split('\n').first).toList(),
+              errors
+                  .map((e) => e.exception.toString().split('\n').first)
+                  .toList(),
               isEmpty,
             );
 
@@ -2485,35 +2604,35 @@ void main() {
               labelRect.left >= buttonRect.left - 0.5 &&
                   labelRect.right <= buttonRect.right + 0.5,
               isTrue,
-              reason: 'the period label ($labelRect) spilled out of its '
+              reason:
+                  'the period label ($labelRect) spilled out of its '
                   'button ($buttonRect)',
             );
           },
         );
       }
 
-      testWidgets(
-        'is hit-testable on the very first frame, locale=$locale',
-        (tester) async {
-          await _pumpNarrow(
-            tester,
-            _controller(
-              repository: _FakeCareHistoryRepository(days: _twoItemRange()),
-            ),
-            locale,
-          );
+      testWidgets('is hit-testable on the very first frame, locale=$locale', (
+        tester,
+      ) async {
+        await _pumpNarrow(
+          tester,
+          _controller(
+            repository: _FakeCareHistoryRepository(days: _twoItemRange()),
+          ),
+          locale,
+        );
 
-          // Deliberately *not* scrolled into view first: nothing on this
-          // screen may put the only period control inside a scrollable the
-          // user has no affordance to discover — the shape this control
-          // replaced did exactly that to its 7/30/90 segments.
-          expect(
-            periodButton().hitTestable(),
-            findsOneWidget,
-            reason: 'the period control could not be hit-tested at 320dp × 2.0',
-          );
-        },
-      );
+        // Deliberately *not* scrolled into view first: nothing on this
+        // screen may put the only period control inside a scrollable the
+        // user has no affordance to discover — the shape this control
+        // replaced did exactly that to its 7/30/90 segments.
+        expect(
+          periodButton().hitTestable(),
+          findsOneWidget,
+          reason: 'the period control could not be hit-tested at 320dp × 2.0',
+        );
+      });
 
       testWidgets(
         'the picker checks exactly one row, and it is the row for the period '
@@ -2590,7 +2709,9 @@ void main() {
             containsSemantics(isSelected: false),
           );
 
-          await tester.tap(find.byKey(const Key('care-history-period-option-30')));
+          await tester.tap(
+            find.byKey(const Key('care-history-period-option-30')),
+          );
           await tester.pumpAndSettle();
           // Set directly rather than through the custom row: at 320dp ×
           // 2.0 `showDateRangePicker`'s own dialog overflows, which would
@@ -2688,7 +2809,8 @@ void main() {
             expect(
               value.fontSize!,
               greaterThanOrEqualTo(label.fontSize! * 1.25),
-              reason: '$key: the number must read as the headline, not as '
+              reason:
+                  '$key: the number must read as the headline, not as '
                   'another word in the sentence',
             );
             expect(
@@ -2733,7 +2855,8 @@ void main() {
           expect(
             tester.getSize(find.byKey(const Key('care-history-list'))).height,
             greaterThanOrEqualTo(before[locale.toString()]!),
-            reason: 'the header grew: the record list is now smaller than it '
+            reason:
+                'the header grew: the record list is now smaller than it '
                 'was before the period control and summary were reworked',
           );
         },
@@ -2779,10 +2902,10 @@ void main() {
         findsNothing,
         reason: 'the sheet closes on any row, including the current one',
       );
-      expect(
-        repository.getRangeCalls.last,
-        (from: '2026-07-16', to: '2026-07-22'),
-      );
+      expect(repository.getRangeCalls.last, (
+        from: '2026-07-16',
+        to: '2026-07-22',
+      ));
     });
   });
 }
