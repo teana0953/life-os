@@ -11,6 +11,7 @@ import '../domain/finance_type.dart';
 import '../domain/installment_plan.dart';
 import '../domain/monthly_summary.dart';
 import '../domain/networth_account.dart';
+import '../domain/networth_exposure.dart';
 import '../domain/networth_snapshot.dart';
 import '../domain/split_spending.dart';
 
@@ -328,6 +329,7 @@ class HttpFinanceRepository implements FinanceRepository {
     String? name,
     int? sortOrder,
     bool? archived,
+    ({ExposureFactor? value})? exposure,
   }) async {
     final response = await _send(
       () => client.put(
@@ -337,11 +339,20 @@ class HttpFinanceRepository implements FinanceRepository {
           if (name != null) 'name': name,
           if (sortOrder != null) 'sort_order': sortOrder,
           if (archived != null) 'archived': archived,
+          if (exposure != null) 'exposure_factor': exposure.value?.multiplier,
         }),
       ),
     );
     if (response.statusCode != 200) _throwForStatus(response.statusCode);
-    return _decode(response, NetWorthAccount.fromJson);
+    return _decode(response, (json) {
+      final account = NetWorthAccount.fromJson(json);
+      if (exposure != null &&
+          (!json.containsKey('exposure_factor') ||
+              account.exposureFactor != exposure.value)) {
+        throw const FormatException('Exposure update was not acknowledged');
+      }
+      return account;
+    });
   }
 
   @override

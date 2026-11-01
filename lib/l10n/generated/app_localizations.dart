@@ -99,6 +99,150 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
+  /// Title for net-worth exposure calculation.
+  ///
+  /// In en, this message translates to:
+  /// **'Exposure and leverage'**
+  String get exposureTitle;
+
+  /// Sum of asset market values multiplied by exposure factors.
+  ///
+  /// In en, this message translates to:
+  /// **'Total exposure'**
+  String get exposureTotal;
+
+  /// Total exposure divided by net worth.
+  ///
+  /// In en, this message translates to:
+  /// **'Leverage'**
+  String get exposureLeverage;
+
+  /// Exposure to net-worth ratio.
+  ///
+  /// In en, this message translates to:
+  /// **'{ratio}×'**
+  String exposureRatio(String ratio);
+
+  /// Opens per-asset exposure settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Set exposure factors'**
+  String get exposureSettings;
+
+  /// Account sync via refresh and current factors applying across all months.
+  ///
+  /// In en, this message translates to:
+  /// **'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.'**
+  String get exposureSyncCaveat;
+
+  /// Formula with explicit liability treatment.
+  ///
+  /// In en, this message translates to:
+  /// **'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.'**
+  String get exposureFormula;
+
+  /// Worked source examples using full property market value and separate debt.
+  ///
+  /// In en, this message translates to:
+  /// **'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.'**
+  String get exposureExamples;
+
+  /// Attribution for exposure method.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference: 大仁, 股票跟房地產的槓桿比例如何計算？ (2022-08-24), letf.com.tw'**
+  String get exposureSource;
+
+  /// Classification guide and mixed-account limitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose explicitly: 0× for cash, 1× for unleveraged assets such as ordinary stocks or full property market value, 2× or 3× for corresponding leveraged holdings. Split accounts containing cash and investments or different multipliers into separate holdings. No factor is guessed from the account name. Select a factor to save it.'**
+  String get exposureFactorGuide;
+
+  /// No confirmed factor, not equivalent to cash.
+  ///
+  /// In en, this message translates to:
+  /// **'Unclassified'**
+  String get exposureUnknown;
+
+  /// Explicit zero exposure for cash.
+  ///
+  /// In en, this message translates to:
+  /// **'0× Cash'**
+  String get exposureCash;
+
+  /// Empty month is not confirmed zero.
+  ///
+  /// In en, this message translates to:
+  /// **'No monthly balances recorded. Record asset market values and debt amounts before calculating exposure.'**
+  String get exposureEmpty;
+
+  /// Missing active asset or liability balances block results.
+  ///
+  /// In en, this message translates to:
+  /// **'Incomplete balances. Missing snapshots are not zero. Record all active assets and liabilities for this month to calculate exposure and leverage.'**
+  String get exposureUnrecorded;
+
+  /// Names of active accounts missing snapshots.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded this month: {names}'**
+  String exposureMissingAccounts(String names);
+
+  /// Positive assets missing factors.
+  ///
+  /// In en, this message translates to:
+  /// **'Classify these assets before calculating: {names}'**
+  String exposureUnknownAccounts(String names);
+
+  /// No ratio for nonpositive net worth.
+  ///
+  /// In en, this message translates to:
+  /// **'Leverage is undefined when net worth is zero or negative.'**
+  String get exposureNoRatio;
+
+  /// Pending settings read.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading exposure settings…'**
+  String get exposureReading;
+
+  /// Account settings read failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read exposure settings. Retry before calculating or changing factors.'**
+  String get exposureReadFailed;
+
+  /// Save failure without optimistic publication.
+  ///
+  /// In en, this message translates to:
+  /// **'Factor was not saved. The previous saved factor is still selected. Try again.'**
+  String get exposureSaveFailed;
+
+  /// Pending factor save.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving factor…'**
+  String get exposureSaving;
+
+  /// Settings require a bound user and storage.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in again to use exposure settings.'**
+  String get exposureUnavailable;
+
+  /// Close editor action.
+  ///
+  /// In en, this message translates to:
+  /// **'Close exposure settings'**
+  String get exposureClose;
+
+  /// Editor has no asset IDs.
+  ///
+  /// In en, this message translates to:
+  /// **'No asset accounts to classify. Add an asset account first.'**
+  String get exposureNoAssets;
+
   /// Product name shown in the top app bar.
   ///
   /// In en, this message translates to:

@@ -5,6 +5,7 @@ import 'finance_type.dart';
 import 'installment_plan.dart';
 import 'monthly_summary.dart';
 import 'networth_account.dart';
+import 'networth_exposure.dart';
 import 'networth_snapshot.dart';
 import 'split_spending.dart';
 
@@ -68,13 +69,14 @@ abstract class FinanceRepository {
     int? sortOrder,
   });
 
-  /// Partial update — only the non-null fields are sent.
+  /// Omitted exposure leaves the factor unchanged; `(value: null)` clears it.
   Future<NetWorthAccount> updateNetWorthAccount(
     String idToken,
     String id, {
     String? name,
     int? sortOrder,
     bool? archived,
+    ({ExposureFactor? value})? exposure,
   });
 
   /// Rewrites the whole `kind` group's order in one server-side atomic write:

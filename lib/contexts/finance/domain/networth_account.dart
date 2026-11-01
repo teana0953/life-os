@@ -1,3 +1,5 @@
+import 'networth_exposure.dart';
+
 /// A net worth account's fixed macro-class. Immutable after creation (the
 /// backend rejects a `kind` change).
 enum NetWorthKind { asset, liability }
@@ -17,6 +19,7 @@ class NetWorthAccount {
   final String name;
   final int sortOrder;
   final bool archived;
+  final ExposureFactor? exposureFactor;
 
   const NetWorthAccount({
     required this.id,
@@ -24,15 +27,22 @@ class NetWorthAccount {
     required this.name,
     required this.sortOrder,
     required this.archived,
+    this.exposureFactor,
   });
 
   factory NetWorthAccount.fromJson(Map<String, dynamic> json) {
+    final rawExposure = json['exposure_factor'];
+    final exposure = ExposureFactor.fromStored(rawExposure);
+    if (rawExposure != null && exposure == null) {
+      throw const FormatException('Invalid exposure_factor');
+    }
     return NetWorthAccount(
       id: json['id'] as String,
       kind: netWorthKindFromJson(json['kind'] as String),
       name: json['name'] as String,
       sortOrder: (json['sort_order'] as num).toInt(),
       archived: json['archived'] as bool,
+      exposureFactor: exposure,
     );
   }
 }

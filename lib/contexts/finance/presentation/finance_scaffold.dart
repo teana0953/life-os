@@ -323,14 +323,24 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
   Future<void> _loadNetWorth() async {
     if (_netWorthLoaded) return;
     _netWorthLoaded = true;
+    final session = widget.netWorthController.exposureSession;
+    final token = await _idToken();
+    if (!mounted || session != widget.netWorthController.exposureSession) {
+      return;
+    }
     final month = widget.netWorthController.selectedMonth.isEmpty
         ? monthOf(_todayDate)
         : widget.netWorthController.selectedMonth;
-    await widget.netWorthController.load(await _idToken(), month);
+    await widget.netWorthController.load(token, month);
   }
 
   Future<void> _switchNetWorthMonth(String month) async {
-    await widget.netWorthController.load(await _idToken(), month, notifyOnStart: true);
+    final session = widget.netWorthController.exposureSession;
+    final token = await _idToken();
+    if (!mounted || session != widget.netWorthController.exposureSession) {
+      return;
+    }
+    await widget.netWorthController.load(token, month, notifyOnStart: true);
   }
 
   /// Loads the 分帳 tab the first time it's opened *in this scaffold*,
@@ -800,6 +810,7 @@ class _FinanceScaffoldState extends State<FinanceScaffold> {
           if (_netWorthOpened)
             NetWorthTab(
               controller: widget.netWorthController,
+              idToken: _idToken,
               onSwitchMonth: _switchNetWorthMonth,
               onEditAccountValue: _openSnapshotSheet,
               onManageAccounts: _openAccountManageSheet,

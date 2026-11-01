@@ -9,6 +9,95 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get exposureTitle => 'Exposure and leverage';
+
+  @override
+  String get exposureTotal => 'Total exposure';
+
+  @override
+  String get exposureLeverage => 'Leverage';
+
+  @override
+  String exposureRatio(String ratio) {
+    return '$ratio×';
+  }
+
+  @override
+  String get exposureSettings => 'Set exposure factors';
+
+  @override
+  String get exposureSyncCaveat =>
+      'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.';
+
+  @override
+  String get exposureFormula =>
+      'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
+
+  @override
+  String get exposureExamples =>
+      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.';
+
+  @override
+  String get exposureSource =>
+      'Reference: 大仁, 股票跟房地產的槓桿比例如何計算？ (2022-08-24), letf.com.tw';
+
+  @override
+  String get exposureFactorGuide =>
+      'Choose explicitly: 0× for cash, 1× for unleveraged assets such as ordinary stocks or full property market value, 2× or 3× for corresponding leveraged holdings. Split accounts containing cash and investments or different multipliers into separate holdings. No factor is guessed from the account name. Select a factor to save it.';
+
+  @override
+  String get exposureUnknown => 'Unclassified';
+
+  @override
+  String get exposureCash => '0× Cash';
+
+  @override
+  String get exposureEmpty =>
+      'No monthly balances recorded. Record asset market values and debt amounts before calculating exposure.';
+
+  @override
+  String get exposureUnrecorded =>
+      'Incomplete balances. Missing snapshots are not zero. Record all active assets and liabilities for this month to calculate exposure and leverage.';
+
+  @override
+  String exposureMissingAccounts(String names) {
+    return 'Not recorded this month: $names';
+  }
+
+  @override
+  String exposureUnknownAccounts(String names) {
+    return 'Classify these assets before calculating: $names';
+  }
+
+  @override
+  String get exposureNoRatio =>
+      'Leverage is undefined when net worth is zero or negative.';
+
+  @override
+  String get exposureReading => 'Reading exposure settings…';
+
+  @override
+  String get exposureReadFailed =>
+      'Could not read exposure settings. Retry before calculating or changing factors.';
+
+  @override
+  String get exposureSaveFailed =>
+      'Factor was not saved. The previous saved factor is still selected. Try again.';
+
+  @override
+  String get exposureSaving => 'Saving factor…';
+
+  @override
+  String get exposureUnavailable => 'Sign in again to use exposure settings.';
+
+  @override
+  String get exposureClose => 'Close exposure settings';
+
+  @override
+  String get exposureNoAssets =>
+      'No asset accounts to classify. Add an asset account first.';
+
+  @override
   String get appTitle => 'Life OS';
 
   @override
@@ -3200,6 +3289,90 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
   AppLocalizationsZhHant() : super('zh_Hant');
+
+  @override
+  String get exposureTitle => '曝險與槓桿';
+
+  @override
+  String get exposureTotal => '總曝險金額';
+
+  @override
+  String get exposureLeverage => '槓桿倍數';
+
+  @override
+  String exposureRatio(String ratio) {
+    return '$ratio 倍';
+  }
+
+  @override
+  String get exposureSettings => '設定曝險倍數';
+
+  @override
+  String get exposureSyncCaveat =>
+      '倍數會透過帳號跨裝置同步。重新整理淨值即可讀取其他裝置的變更。現行倍數會重算所有月份（包含歷史月份），不是當時的設定紀錄。';
+
+  @override
+  String get exposureFormula =>
+      '曝險金額＝各資產市值 × 倍數的總和。槓桿倍數＝曝險金額 ÷ 淨值。負債僅減少淨值，不再從曝險金額扣除。';
+
+  @override
+  String get exposureExamples =>
+      '參考大仁的算法：300 萬的 2 倍 ETF 加上 300 萬現金，曝險為 600 萬、槓桿為 1 倍。若將現金換成完整市值 1,500 萬的房產，並另外記錄 1,200 萬負債，曝險為 2,100 萬、淨值為 600 萬、槓桿為 3.5 倍。房產請填完整市值，不要填扣除房貸後的權益。';
+
+  @override
+  String get exposureSource =>
+      '參考來源：大仁〈股票跟房地產的槓桿比例如何計算？〉（2022-08-24），letf.com.tw';
+
+  @override
+  String get exposureFactorGuide =>
+      '請明確分類：現金為 0 倍；一般股票、房產完整市值等未槓桿資產為 1 倍；對應的槓桿商品為 2 或 3 倍。若同一科目混有現金與投資，或不同倍數的資產，請拆成獨立科目。不會依科目名稱自動猜測。點選倍數即儲存。';
+
+  @override
+  String get exposureUnknown => '未分類';
+
+  @override
+  String get exposureCash => '0 倍 現金';
+
+  @override
+  String get exposureEmpty => '本月尚未記錄餘額。請先記錄資產市值與負債金額，再計算曝險。';
+
+  @override
+  String get exposureUnrecorded =>
+      '餘額不完整，未記錄不代表零。請補齊本月所有使用中資產與負債科目的餘額，才能計算曝險與槓桿。';
+
+  @override
+  String exposureMissingAccounts(String names) {
+    return '本月未記錄：$names';
+  }
+
+  @override
+  String exposureUnknownAccounts(String names) {
+    return '請先分類這些資產：$names';
+  }
+
+  @override
+  String get exposureNoRatio => '淨值為零或負數時，無法定義槓桿倍數。';
+
+  @override
+  String get exposureReading => '正在讀取曝險設定…';
+
+  @override
+  String get exposureReadFailed => '無法讀取曝險設定。請重試後再計算或修改倍數。';
+
+  @override
+  String get exposureSaveFailed => '倍數未儲存，仍選取先前儲存的倍數。請重試。';
+
+  @override
+  String get exposureSaving => '正在儲存倍數…';
+
+  @override
+  String get exposureUnavailable => '請重新登入以使用曝險設定。';
+
+  @override
+  String get exposureClose => '關閉曝險設定';
+
+  @override
+  String get exposureNoAssets => '沒有可分類的資產科目。請先新增資產科目。';
 
   @override
   String get appTitle => 'Life OS';

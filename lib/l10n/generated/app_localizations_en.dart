@@ -9,6 +9,95 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get exposureTitle => 'Exposure and leverage';
+
+  @override
+  String get exposureTotal => 'Total exposure';
+
+  @override
+  String get exposureLeverage => 'Leverage';
+
+  @override
+  String exposureRatio(String ratio) {
+    return '$ratio×';
+  }
+
+  @override
+  String get exposureSettings => 'Set exposure factors';
+
+  @override
+  String get exposureSyncCaveat =>
+      'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.';
+
+  @override
+  String get exposureFormula =>
+      'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
+
+  @override
+  String get exposureExamples =>
+      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.';
+
+  @override
+  String get exposureSource =>
+      'Reference: 大仁, 股票跟房地產的槓桿比例如何計算？ (2022-08-24), letf.com.tw';
+
+  @override
+  String get exposureFactorGuide =>
+      'Choose explicitly: 0× for cash, 1× for unleveraged assets such as ordinary stocks or full property market value, 2× or 3× for corresponding leveraged holdings. Split accounts containing cash and investments or different multipliers into separate holdings. No factor is guessed from the account name. Select a factor to save it.';
+
+  @override
+  String get exposureUnknown => 'Unclassified';
+
+  @override
+  String get exposureCash => '0× Cash';
+
+  @override
+  String get exposureEmpty =>
+      'No monthly balances recorded. Record asset market values and debt amounts before calculating exposure.';
+
+  @override
+  String get exposureUnrecorded =>
+      'Incomplete balances. Missing snapshots are not zero. Record all active assets and liabilities for this month to calculate exposure and leverage.';
+
+  @override
+  String exposureMissingAccounts(String names) {
+    return 'Not recorded this month: $names';
+  }
+
+  @override
+  String exposureUnknownAccounts(String names) {
+    return 'Classify these assets before calculating: $names';
+  }
+
+  @override
+  String get exposureNoRatio =>
+      'Leverage is undefined when net worth is zero or negative.';
+
+  @override
+  String get exposureReading => 'Reading exposure settings…';
+
+  @override
+  String get exposureReadFailed =>
+      'Could not read exposure settings. Retry before calculating or changing factors.';
+
+  @override
+  String get exposureSaveFailed =>
+      'Factor was not saved. The previous saved factor is still selected. Try again.';
+
+  @override
+  String get exposureSaving => 'Saving factor…';
+
+  @override
+  String get exposureUnavailable => 'Sign in again to use exposure settings.';
+
+  @override
+  String get exposureClose => 'Close exposure settings';
+
+  @override
+  String get exposureNoAssets =>
+      'No asset accounts to classify. Add an asset account first.';
+
+  @override
   String get appTitle => 'Life OS';
 
   @override

@@ -49,6 +49,7 @@ Future<NetWorthController> _pumpTab(
           animation: controller,
           builder: (context, _) => NetWorthTab(
             controller: controller,
+            idToken: () async => 'token',
             onSwitchMonth: (m) => controller.load('token', m),
             onEditAccountValue: (a) => tapped?.add(a),
             onManageAccounts: () {},
@@ -335,6 +336,7 @@ void main() {
                 animation: controller,
                 builder: (context, _) => NetWorthTab(
                   controller: controller,
+                  idToken: () async => 'token',
                   onSwitchMonth: (m) => controller.load('token', m),
                   onEditAccountValue: (_) {},
                   onManageAccounts: () => managed = true,
@@ -434,6 +436,7 @@ void main() {
               animation: controller,
               builder: (context, _) => NetWorthTab(
                 controller: controller,
+                idToken: () async => 'token',
                 onSwitchMonth: (m) => controller.load('token', m),
                 onEditAccountValue: (_) {},
                 onManageAccounts: () {},
@@ -521,6 +524,7 @@ void main() {
                 home: Scaffold(
                   body: NetWorthTab(
                     controller: controller,
+                    idToken: () async => 'token',
                     onSwitchMonth: (m) async {},
                     onEditAccountValue: (a) {},
                     onManageAccounts: () {},
@@ -583,6 +587,7 @@ void main() {
                     home: Scaffold(
                       body: NetWorthTab(
                         controller: controller,
+                        idToken: () async => 'token',
                         onSwitchMonth: (m) async {},
                         onEditAccountValue: (a) {},
                         onManageAccounts: () {},
@@ -591,6 +596,12 @@ void main() {
                       ),
                     ),
                   ),
+                );
+                await tester.pumpAndSettle();
+                await tester.scrollUntilVisible(
+                  find.byKey(const Key('account-row-acc-cash')),
+                  300,
+                  scrollable: find.byType(Scrollable).first,
                 );
                 await tester.pumpAndSettle();
               });
@@ -648,6 +659,7 @@ void main() {
             home: Scaffold(
               body: NetWorthTab(
                 controller: controller,
+                idToken: () async => 'token',
                 onSwitchMonth: (m) async {},
                 onEditAccountValue: (a) {},
                 onManageAccounts: () {},
@@ -748,6 +760,7 @@ void main() {
           home: Scaffold(
             body: NetWorthTab(
               controller: controller,
+              idToken: () async => 'token',
               onSwitchMonth: (m) async {},
               onEditAccountValue: (a) {},
               onManageAccounts: () {},
@@ -839,6 +852,7 @@ void main() {
             home: Scaffold(
               body: NetWorthTab(
                 controller: controller,
+                idToken: () async => 'token',
                 onSwitchMonth: (m) async {},
                 onEditAccountValue: (a) {},
                 onManageAccounts: () {},

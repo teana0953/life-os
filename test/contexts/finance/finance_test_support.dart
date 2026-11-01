@@ -17,6 +17,7 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/networth_exposure.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
@@ -459,6 +460,7 @@ class FakeFinanceRepository implements FinanceRepository {
     String? name,
     int? sortOrder,
     bool? archived,
+    ({ExposureFactor? value})? exposure,
   }) async {
     networthCalls.add(
       'update:$id:'
@@ -480,6 +482,9 @@ class FakeFinanceRepository implements FinanceRepository {
       name: name ?? current.name,
       sortOrder: sortOrder ?? current.sortOrder,
       archived: archived ?? current.archived,
+      exposureFactor: exposure == null
+          ? current.exposureFactor
+          : exposure.value,
     );
     accounts = [...accounts]..[index] = updated;
     return updated;
@@ -511,6 +516,7 @@ class FakeFinanceRepository implements FinanceRepository {
         name: current.name,
         sortOrder: i,
         archived: current.archived,
+        exposureFactor: current.exposureFactor,
       );
     }
     accounts = next;
@@ -761,18 +767,18 @@ class FakeFinanceRepository implements FinanceRepository {
 }
 
 NetWorthController testNetWorthController(
-  FakeFinanceRepository repo, {
+  FinanceRepository repo, {
   DateTime Function()? clock,
 }) => NetWorthController(
-      ListNetWorthAccounts(repo),
-      CreateNetWorthAccount(repo),
-      UpdateNetWorthAccount(repo),
-      ReorderNetWorthAccounts(repo),
-      UpsertSnapshot(repo),
-      GetMonthlyNetWorth(repo),
-      GetNetWorthTrend(repo),
-      clock: clock ?? DateTime.now,
-    );
+  ListNetWorthAccounts(repo),
+  CreateNetWorthAccount(repo),
+  UpdateNetWorthAccount(repo),
+  ReorderNetWorthAccounts(repo),
+  UpsertSnapshot(repo),
+  GetMonthlyNetWorth(repo),
+  GetNetWorthTrend(repo),
+  clock: clock ?? DateTime.now,
+);
 
 FinanceController testFinanceController(
   FakeFinanceRepository repo, {

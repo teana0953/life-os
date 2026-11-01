@@ -140,6 +140,12 @@ void main() {
       // directly gives a blank `SizedBox`; opening the gate without the load
       // gives a spinner that never ends.
       expect(find.byType(NetWorthTab), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('account-row-acc-cash')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('account-row-acc-cash')), findsOneWidget);
       expect(harness.finance.trendCalls, hasLength(1));
 

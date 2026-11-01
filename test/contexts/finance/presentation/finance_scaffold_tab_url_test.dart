@@ -341,6 +341,12 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(_selectedIndex(tester), FinanceTab.networth.index);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('account-row-acc-cash')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('account-row-acc-cash')), findsOneWidget);
     });
   });

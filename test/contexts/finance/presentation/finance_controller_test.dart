@@ -17,6 +17,7 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/domain/monthly_summary.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
+import 'package:life_os/contexts/finance/domain/networth_exposure.dart';
 import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
 import 'package:life_os/contexts/finance/domain/split_spending.dart';
 import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
@@ -308,6 +309,7 @@ class FakeFinanceRepository implements FinanceRepository {
     String? name,
     int? sortOrder,
     bool? archived,
+    ({ExposureFactor? value})? exposure,
   }) => throw UnimplementedError();
 
   @override
