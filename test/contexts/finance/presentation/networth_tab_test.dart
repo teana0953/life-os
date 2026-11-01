@@ -593,6 +593,12 @@ void main() {
                   ),
                 );
                 await tester.pumpAndSettle();
+                await tester.scrollUntilVisible(
+                  find.byKey(const Key('account-row-acc-cash')),
+                  300,
+                  scrollable: find.byType(Scrollable).first,
+                );
+                await tester.pumpAndSettle();
               });
 
               // The account rows must also stay *queryable*: when a

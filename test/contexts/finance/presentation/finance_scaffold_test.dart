@@ -11,6 +11,7 @@ import 'package:life_os/contexts/finance/domain/finance_type.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/installment_plan.dart';
 import 'package:life_os/contexts/finance/presentation/finance_scaffold.dart';
+import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
 import 'package:life_os/contexts/social/application/friend_use_cases.dart';
 import 'package:life_os/contexts/social/domain/friend.dart';
 import 'package:life_os/contexts/split/application/activity_use_cases.dart';
@@ -34,6 +35,16 @@ import '../../split/support/fake_split_repository.dart';
 import '../../split/support/split_presentation_fakes.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
+
+Future<void> _revealNetWorthControl(WidgetTester tester, Finder control) async {
+  await tester.scrollUntilVisible(
+    control,
+    300,
+    scrollable: find.descendant(of: find.byType(NetWorthTab), matching: find.byType(Scrollable)).first,
+    maxScrolls: 60,
+  );
+  await tester.pumpAndSettle();
+}
 
 SplitTabDependencies _splitDeps(
   FakeSplitRepository repo, {
@@ -735,6 +746,7 @@ void main() {
       await tester.tap(find.byKey(const Key('networth-tab')));
       await tester.pumpAndSettle();
 
+      await _revealNetWorthControl(tester, find.byKey(const Key('account-row-acc-cash')));
       await tester.tap(find.byKey(const Key('account-row-acc-cash')));
       await tester.pumpAndSettle();
 
@@ -762,6 +774,7 @@ void main() {
       await tester.tap(find.byKey(const Key('networth-tab')));
       await tester.pumpAndSettle();
 
+      await _revealNetWorthControl(tester, find.byKey(const Key('account-manage-button')));
       await tester.tap(find.byKey(const Key('account-manage-button')));
       await tester.pumpAndSettle();
 
@@ -819,6 +832,7 @@ void main() {
 
         await tester.tap(find.byKey(const Key('networth-tab')));
         await tester.pumpAndSettle();
+        await _revealNetWorthControl(tester, find.byKey(const Key('account-row-acc-cash')));
         await tester.tap(find.byKey(const Key('account-row-acc-cash')));
         await tester.pumpAndSettle();
 
@@ -831,6 +845,7 @@ void main() {
 
         await tester.tap(find.byKey(const Key('networth-tab')));
         await tester.pumpAndSettle();
+        await _revealNetWorthControl(tester, find.byKey(const Key('account-manage-button')));
         await tester.tap(find.byKey(const Key('account-manage-button')));
         await tester.pumpAndSettle();
 
@@ -871,6 +886,7 @@ void main() {
         await pumpScaffold(tester, tallAccountsRepo());
         await tester.tap(find.byKey(const Key('networth-tab')));
         await tester.pumpAndSettle();
+        await _revealNetWorthControl(tester, find.byKey(const Key('account-manage-button')));
         await tester.tap(find.byKey(const Key('account-manage-button')));
         await tester.pumpAndSettle();
 

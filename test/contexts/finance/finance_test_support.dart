@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:life_os/contexts/finance/application/add_transaction.dart';
+import 'package:life_os/contexts/finance/application/exposure_settings.dart';
 import 'package:life_os/contexts/finance/application/delete_budget.dart';
 import 'package:life_os/contexts/finance/application/delete_transaction.dart';
 import 'package:life_os/contexts/finance/application/get_finance_month.dart';
@@ -763,6 +764,7 @@ class FakeFinanceRepository implements FinanceRepository {
 NetWorthController testNetWorthController(
   FakeFinanceRepository repo, {
   DateTime Function()? clock,
+  ExposureSettings? exposureSettings,
 }) => NetWorthController(
       ListNetWorthAccounts(repo),
       CreateNetWorthAccount(repo),
@@ -772,6 +774,7 @@ NetWorthController testNetWorthController(
       GetMonthlyNetWorth(repo),
       GetNetWorthTrend(repo),
       clock: clock ?? DateTime.now,
+      exposureSettings: exposureSettings,
     );
 
 FinanceController testFinanceController(

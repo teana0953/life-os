@@ -638,6 +638,11 @@ class _AppState extends State<App> {
         currentUidOf(widget.authRepository),
       );
     }
+    if (signedIn) {
+      unawaited(widget.netWorthController.loadForUser(
+        currentUidOf(widget.authRepository),
+      ));
+    }
     if (_wasSignedIn && !signedIn) {
       widget.homeController.reset();
       widget.homeDashboardController?.reset();

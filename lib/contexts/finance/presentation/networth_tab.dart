@@ -18,6 +18,7 @@ import '../domain/networth_account.dart';
 import '../domain/networth_snapshot.dart';
 import 'finance_controller.dart';
 import 'networth_controller.dart';
+import 'networth_exposure_card.dart';
 
 /// 淨值: the month switcher, the net worth headline with its month-over-month
 /// growth, asset/liability accounts with the month's values, and the recent
@@ -156,6 +157,8 @@ class NetWorthTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _NetWorthCard(monthly: monthly),
+                          const SizedBox(height: 16),
+                          NetWorthExposureCard(controller: controller),
                           const SizedBox(height: 16),
                           Row(
                             children: [
