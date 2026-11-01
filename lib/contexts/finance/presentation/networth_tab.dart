@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../../../shared/date/day_format.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/async_state_scaffold.dart';
@@ -27,6 +28,7 @@ import 'networth_exposure_card.dart';
 /// `FinanceOverviewTab`.
 class NetWorthTab extends StatelessWidget {
   final NetWorthController controller;
+  final IdTokenProvider idToken;
   final Future<void> Function(String month) onSwitchMonth;
   final void Function(NetWorthAccount account) onEditAccountValue;
   final VoidCallback onManageAccounts;
@@ -42,6 +44,7 @@ class NetWorthTab extends StatelessWidget {
   const NetWorthTab({
     super.key,
     required this.controller,
+    required this.idToken,
     required this.onSwitchMonth,
     required this.onEditAccountValue,
     required this.onManageAccounts,
@@ -158,7 +161,10 @@ class NetWorthTab extends StatelessWidget {
                           const SizedBox(height: 16),
                           _NetWorthCard(monthly: monthly),
                           const SizedBox(height: 16),
-                          NetWorthExposureCard(controller: controller),
+                          NetWorthExposureCard(
+                            controller: controller,
+                            idToken: idToken,
+                          ),
                           const SizedBox(height: 16),
                           Row(
                             children: [

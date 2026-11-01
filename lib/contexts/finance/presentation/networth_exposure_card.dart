@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/finance_money.dart';
 import '../domain/networth_exposure.dart';
@@ -9,7 +10,12 @@ import 'networth_exposure_settings.dart';
 
 class NetWorthExposureCard extends StatelessWidget {
   final NetWorthController controller;
-  const NetWorthExposureCard({super.key, required this.controller});
+  final IdTokenProvider idToken;
+  const NetWorthExposureCard({
+    super.key,
+    required this.controller,
+    required this.idToken,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +56,11 @@ class NetWorthExposureCard extends StatelessWidget {
               style: TextStyle(color: theme.colorScheme.error),
             ),
             OutlinedButton(
-              onPressed: controller.reloadExposureSettings,
+              onPressed: () => controller.reloadExposureSettings(
+                idToken,
+                session: controller.exposureSession,
+                isActive: () => context.mounted,
+              ),
               child: Text(loc.retry),
             ),
           ] else if (settingsStatus == ExposureSettingsStatus.unavailable)
@@ -94,11 +104,11 @@ class NetWorthExposureCard extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(
             key: const Key('exposure-settings-button'),
-            onPressed: () => showExposureSettings(context, controller),
+            onPressed: () => showExposureSettings(context, controller, idToken),
             child: Text(loc.exposureSettings, textAlign: TextAlign.center),
           ),
           const SizedBox(height: 8),
-          Text(loc.exposureLocalCaveat, style: theme.textTheme.bodySmall),
+          Text(loc.exposureSyncCaveat, style: theme.textTheme.bodySmall),
         ],
       ),
     );

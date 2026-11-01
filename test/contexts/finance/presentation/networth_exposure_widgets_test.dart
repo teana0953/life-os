@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:life_os/contexts/finance/application/exposure_settings.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
 import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_exposure.dart';
+import 'package:life_os/contexts/finance/domain/networth_snapshot.dart';
+import 'package:life_os/contexts/finance/presentation/finance_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_controller.dart';
 import 'package:life_os/contexts/finance/presentation/networth_tab.dart';
 import 'package:life_os/l10n/generated/app_localizations.dart';
@@ -13,12 +17,13 @@ import '../../../support/layout_guard.dart';
 import '../exposure_test_support.dart';
 import '../finance_test_support.dart';
 
-FakeFinanceRepository _repo({
+ExposureTestRepository _repo({
+  ExposureTestRepository? repository,
   bool missingDebt = false,
   bool empty = false,
   int debt = 12000000,
 }) {
-  final repo = FakeFinanceRepository()..accounts.clear();
+  final repo = (repository ?? ExposureTestRepository())..accounts.clear();
   for (final (id, kind, archived) in [
     ('etf', NetWorthKind.asset, false),
     ('property', NetWorthKind.asset, true),
@@ -31,6 +36,11 @@ FakeFinanceRepository _repo({
         kind: kind,
         archived: archived,
         sortOrder: 0,
+        exposureFactor: id == 'etf'
+            ? ExposureFactor.leveraged2
+            : id == 'property'
+            ? ExposureFactor.unleveraged
+            : null,
       ),
     );
   }
@@ -42,26 +52,16 @@ FakeFinanceRepository _repo({
   return repo;
 }
 
-FakeExposureSettingsRepository _store() => FakeExposureSettingsRepository()
-  ..values['a'] = {
-    'etf': ExposureFactor.leveraged2,
-    'property': ExposureFactor.unleveraged,
-  };
-
 Future<NetWorthController> _pump(
   WidgetTester tester, {
   FakeFinanceRepository? repo,
-  FakeExposureSettingsRepository? store,
   Locale locale = const Locale('en'),
   bool dark = false,
   double scale = 1,
 }) async {
   await tester.binding.setSurfaceSize(const Size(320, 800));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final controller = testNetWorthController(
-    repo ?? _repo(),
-    exposureSettings: ExposureSettings(store ?? _store()),
-  );
+  final controller = testNetWorthController(repo ?? _repo());
   addTearDown(controller.dispose);
   await controller.loadForUser('a');
   await controller.load('token', '2026-07');
@@ -84,6 +84,7 @@ Future<NetWorthController> _pump(
           animation: controller,
           builder: (_, _) => NetWorthTab(
             controller: controller,
+            idToken: () async => 'token',
             onSwitchMonth: (m) => controller.load('token', m),
             onEditAccountValue: (_) {},
             onManageAccounts: () {},
@@ -153,8 +154,8 @@ void main() {
   testWidgets(
     'empty is not zero and unknown assets are not guessed from names',
     (tester) async {
-      final store = _store()..values['a']!.remove('etf');
-      final controller = await _pump(tester, store: store);
+      final repo = _repo()..setFactor('etf', null);
+      final controller = await _pump(tester, repo: repo);
       expect(find.text(loc.exposureUnknownAccounts('etf')), findsOneWidget);
       expect(find.byKey(const Key('exposure-total')), findsNothing);
       await controller.load('token', '2026-08');
@@ -176,8 +177,8 @@ void main() {
   testWidgets('archived monthly-only ID can be classified and unclassified', (
     tester,
   ) async {
-    final store = _store()..values['a']!.remove('property');
-    final controller = await _pump(tester, store: store);
+    final repo = _repo()..setFactor('property', null);
+    final controller = await _pump(tester, repo: repo);
     controller.accounts = controller.accounts
         .where((a) => a.id != 'property')
         .toList();
@@ -198,8 +199,8 @@ void main() {
   testWidgets(
     'failed saves retain selection, show error, and retry successfully',
     (tester) async {
-      final store = _store()..failWrite = true;
-      await _pump(tester, store: store);
+      final repo = _repo()..failWrite = true;
+      await _pump(tester, repo: repo);
       await _open(tester);
       final factor = find.byKey(const Key('exposure-factor-etf-3'));
       await _sheetScrollTo(tester, factor);
@@ -213,7 +214,7 @@ void main() {
       );
       expect(tester.widget<ChoiceChip>(factor).selected, isFalse);
       expect(find.byKey(const Key('exposure-save-error')), findsOneWidget);
-      store.failWrite = false;
+      repo.failWrite = false;
       await _sheetScrollTo(tester, factor);
       await tester.tap(factor);
       await tester.pumpAndSettle();
@@ -225,12 +226,15 @@ void main() {
   testWidgets(
     'read error blocks calculation until retry and sign-out clears open editor',
     (tester) async {
-      final store = _store()..failRead = true;
-      final controller = await _pump(tester, store: store);
+      final repo = _repo();
+      final controller = await _pump(tester, repo: repo);
+      repo.failRead = true;
+      await controller.load('token', '2026-07');
+      await tester.pumpAndSettle();
       expect(find.text(loc.exposureReadFailed), findsOneWidget);
       expect(find.byKey(const Key('exposure-total')), findsNothing);
       await _open(tester);
-      store.failRead = false;
+      repo.failRead = false;
       final retry = find.byKey(const Key('exposure-read-retry'));
       await tester.tap(retry);
       await tester.pumpAndSettle();
@@ -241,6 +245,79 @@ void main() {
       expect(find.byKey(const Key('exposure-account-etf')), findsNothing);
     },
   );
+
+  for (final (failure, status, error) in [
+    (
+      const FinanceValidationFailure(),
+      FinanceStatus.error,
+      FinanceError.validation,
+    ),
+    (
+      const FinanceFetchFailure('offline'),
+      FinanceStatus.error,
+      FinanceError.fetchFailed,
+    ),
+    (const FinanceReauthenticationRequired(), FinanceStatus.needsReauth, null),
+  ]) {
+    for (final refreshFinishesFirst in [false, true]) {
+      testWidgets(
+        'snapshot error $failure leaves usable exposure recovery, refresh first=$refreshFinishesFirst',
+        (tester) async {
+          final repo = _SnapshotRaceRepository();
+          _repo(repository: repo);
+          final controller = await _pump(tester, repo: repo);
+          await _open(tester);
+          final chip = find.byKey(const Key('exposure-factor-etf-3'));
+          await _sheetScrollTo(tester, chip);
+          repo.snapshotGate = Completer<void>();
+          repo.snapshotFailure = failure;
+          final save = controller.saveSnapshot(
+            'token',
+            accountId: 'etf',
+            value: 4000000,
+          );
+          final readGate = Completer<void>();
+          repo.nextReadGate = readGate;
+          final refresh = controller.load(
+            'token',
+            '2026-07',
+            notifyOnStart: true,
+          );
+          await tester.pump();
+          expect(tester.widget<ChoiceChip>(chip).onSelected, isNull);
+          if (refreshFinishesFirst) {
+            readGate.complete();
+            await refresh;
+          }
+          repo.snapshotGate!.complete();
+          await save;
+          if (!refreshFinishesFirst) {
+            readGate.complete();
+            await refresh;
+          }
+          await tester.pumpAndSettle();
+          expect(controller.status, status);
+          expect(controller.error, error);
+          expect(find.text(loc.exposureReading), findsNothing);
+          expect(controller.exposureFactors['etf'], ExposureFactor.leveraged2);
+          if (controller.exposureSettingsStatus ==
+              ExposureSettingsStatus.readFailed) {
+            expect(
+              find.byKey(const Key('exposure-read-retry')),
+              findsOneWidget,
+            );
+            await tester.tap(find.byKey(const Key('exposure-read-retry')));
+            await tester.pumpAndSettle();
+          }
+          await _sheetScrollTo(tester, chip);
+          expect(tester.widget<ChoiceChip>(chip).onSelected, isNotNull);
+          await tester.tap(chip);
+          await tester.pumpAndSettle();
+          expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+        },
+      );
+    }
+  }
 
   for (final locale in testSupportedLocales) {
     for (final dark in [false, true]) {
@@ -269,5 +346,40 @@ void main() {
         });
       });
     }
+  }
+}
+
+class _SnapshotRaceRepository extends ExposureTestRepository {
+  Completer<void>? snapshotGate;
+  Completer<void>? nextReadGate;
+  Object? snapshotFailure;
+
+  @override
+  Future<MonthlyNetWorth> getMonthlyNetWorth(
+    String idToken,
+    String month,
+  ) async {
+    final gate = nextReadGate;
+    nextReadGate = null;
+    final result = await super.getMonthlyNetWorth(idToken, month);
+    await gate?.future;
+    return result;
+  }
+
+  @override
+  Future<NetWorthSnapshot> upsertNetWorthSnapshot(
+    String idToken, {
+    required String accountId,
+    required String month,
+    required int value,
+  }) async {
+    await snapshotGate?.future;
+    if (snapshotFailure case final failure?) throw failure;
+    return super.upsertNetWorthSnapshot(
+      idToken,
+      accountId: accountId,
+      month: month,
+      value: value,
+    );
   }
 }

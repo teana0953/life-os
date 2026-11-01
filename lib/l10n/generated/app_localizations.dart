@@ -129,11 +129,11 @@ abstract class AppLocalizations {
   /// **'Set exposure factors'**
   String get exposureSettings;
 
-  /// Storage scope and factors applying across all months.
+  /// Account sync via refresh and current factors applying across all months.
   ///
   /// In en, this message translates to:
-  /// **'Factors are saved only on this device for this user and account. Current factors recalculate every month, including history; they are not historical records.'**
-  String get exposureLocalCaveat;
+  /// **'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.'**
+  String get exposureSyncCaveat;
 
   /// Formula with explicit liability treatment.
   ///
@@ -207,7 +207,7 @@ abstract class AppLocalizations {
   /// **'Reading exposure settings…'**
   String get exposureReading;
 
-  /// Local settings read failure.
+  /// Account settings read failure.
   ///
   /// In en, this message translates to:
   /// **'Could not read exposure settings. Retry before calculating or changing factors.'**

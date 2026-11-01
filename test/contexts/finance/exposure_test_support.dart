@@ -1,46 +1,71 @@
 import 'dart:async';
 
-import 'package:life_os/contexts/finance/domain/exposure_settings_repository.dart';
+import 'package:life_os/contexts/finance/domain/finance_exceptions.dart';
+import 'package:life_os/contexts/finance/domain/networth_account.dart';
 import 'package:life_os/contexts/finance/domain/networth_exposure.dart';
 
-class FakeExposureSettingsRepository implements ExposureSettingsRepository {
-  final Map<String, Map<String, ExposureFactor>> values = {};
+import 'finance_test_support.dart';
+
+class ExposureTestRepository extends FakeFinanceRepository {
   final Map<String, Completer<void>> readGates = {};
-  Completer<void>? writeGate;
+  Completer<void>? factorWriteGate;
   bool failRead = false;
   bool failWrite = false;
-  final List<String> writes = [];
+  Object? writeFailure;
+  final List<String> factorWrites = [];
   int concurrentWrites = 0;
   int maxConcurrentWrites = 0;
 
-  @override
-  Future<Map<String, ExposureFactor>> read(String uid) async {
-    final snapshot = Map<String, ExposureFactor>.of(values[uid] ?? {});
-    await readGates[uid]?.future;
-    if (failRead) throw const ExposureSettingsFailure();
-    return snapshot;
+  void setFactor(String id, ExposureFactor? factor) {
+    accounts = [
+      for (final account in accounts)
+        NetWorthAccount(
+          id: account.id,
+          kind: account.kind,
+          name: account.name,
+          sortOrder: account.sortOrder,
+          archived: account.archived,
+          exposureFactor: account.id == id ? factor : account.exposureFactor,
+        ),
+    ];
   }
 
   @override
-  Future<void> write(
-    String uid,
-    String accountId,
-    ExposureFactor? factor,
-  ) async {
-    writes.add('$uid:$accountId:${factor?.multiplier}');
+  Future<List<NetWorthAccount>> listNetWorthAccounts(String idToken) async {
+    final result = await super.listNetWorthAccounts(idToken);
+    await readGates[idToken]?.future;
+    if (failRead) throw const FinanceFetchFailure('offline');
+    return result;
+  }
+
+  @override
+  Future<NetWorthAccount> updateNetWorthAccount(
+    String idToken,
+    String id, {
+    String? name,
+    int? sortOrder,
+    bool? archived,
+    ({ExposureFactor? value})? exposure,
+  }) async {
+    if (exposure == null) {
+      return super.updateNetWorthAccount(
+        idToken,
+        id,
+        name: name,
+        sortOrder: sortOrder,
+        archived: archived,
+      );
+    }
+    factorWrites.add('$idToken:$id:${exposure.value?.multiplier}');
     concurrentWrites++;
     if (concurrentWrites > maxConcurrentWrites) {
       maxConcurrentWrites = concurrentWrites;
     }
     try {
-      await writeGate?.future;
-      if (failWrite) throw const ExposureSettingsFailure();
-      final factors = values.putIfAbsent(uid, () => {});
-      if (factor == null) {
-        factors.remove(accountId);
-      } else {
-        factors[accountId] = factor;
-      }
+      await factorWriteGate?.future;
+      if (writeFailure case final failure?) throw failure;
+      if (failWrite) throw const FinanceFetchFailure('offline');
+      return await super.updateNetWorthAccount(idToken, id, exposure: exposure);
     } finally {
       concurrentWrites--;
     }

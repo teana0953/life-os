@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../application/networth_use_cases.dart';
-import '../application/exposure_settings.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../domain/finance_exceptions.dart';
 import '../domain/finance_month.dart';
 import '../domain/networth_account.dart';
@@ -35,7 +35,6 @@ class NetWorthController extends ChangeNotifier {
   final UpsertSnapshot _upsertSnapshot;
   final GetMonthlyNetWorth _getMonthlyNetWorth;
   final GetNetWorthTrend _getTrend;
-  final ExposureSettings? _exposureSettings;
 
   /// Injectable clock used to stamp [lastLoadedAt] on a successful load —
   /// the tracker controllers' convention, so tests can pin the stamp.
@@ -50,16 +49,15 @@ class NetWorthController extends ChangeNotifier {
     this._getMonthlyNetWorth,
     this._getTrend, {
     DateTime Function() clock = DateTime.now,
-    ExposureSettings? exposureSettings,
-  }) : _clock = clock,
-       _exposureSettings = exposureSettings;
+  }) : _clock = clock;
 
   String? _uid;
   int _session = 0;
   int _loadRequest = 0;
-  int _settingsRequest = 0;
   Future<void> _settingsWrites = Future.value();
-  Map<String, ExposureFactor> _exposureFactors = {};
+  int _exposureRevision = 0;
+  final Map<String, ({int revision, ExposureFactor? value})>
+  _acknowledgedExposures = {};
   int _pendingSettingsWrites = 0;
   ExposureSettingsStatus exposureSettingsStatus =
       ExposureSettingsStatus.unavailable;
@@ -67,50 +65,45 @@ class NetWorthController extends ChangeNotifier {
 
   int get exposureSession => _session;
   bool get exposureSaving => _pendingSettingsWrites > 0;
-  Map<String, ExposureFactor> get exposureFactors =>
-      Map.unmodifiable(_exposureFactors);
+  Map<String, ExposureFactor> get exposureFactors => Map.unmodifiable({
+    for (final account in accounts)
+      if (account.exposureFactor case final factor?) account.id: factor,
+  });
   NetWorthExposure? get exposure => monthly == null
       ? null
-      : NetWorthExposure.calculate(monthly!, accounts, _exposureFactors);
+      : NetWorthExposure.calculate(monthly!, accounts, exposureFactors);
 
   Future<void> loadForUser(String? uid) async {
     if (_uid == uid && uid != null) return;
     reset();
     _uid = uid;
-    await reloadExposureSettings();
   }
 
-  Future<void> reloadExposureSettings() async {
-    final uid = _uid;
-    final settings = _exposureSettings;
-    if (uid == null || settings == null) return;
-    final session = _session;
-    final request = ++_settingsRequest;
-    exposureSettingsStatus = ExposureSettingsStatus.loading;
-    notifyListeners();
-    try {
-      await _settingsWrites;
-      if (session != _session || request != _settingsRequest) return;
-      final factors = await settings.read(uid);
-      if (session != _session || request != _settingsRequest) return;
-      _exposureFactors = Map.of(factors);
-      exposureSettingsStatus = ExposureSettingsStatus.ready;
-      exposureSaveFailed = false;
-    } catch (_) {
-      if (session != _session || request != _settingsRequest) return;
-      _exposureFactors = {};
+  Future<void> reloadExposureSettings(
+    IdTokenProvider idToken, {
+    required int session,
+    bool Function()? isActive,
+  }) async {
+    if (session != _session || isActive?.call() == false) return;
+    final token = await idToken();
+    if (session != _session || isActive?.call() == false) return;
+    if (token.isEmpty) {
+      _loadRequest++;
+      status = FinanceStatus.needsReauth;
       exposureSettingsStatus = ExposureSettingsStatus.readFailed;
+      notifyListeners();
+      return;
     }
-    notifyListeners();
+    await load(token, selectedMonth, notifyOnStart: true);
   }
 
   Future<bool> saveExposureFactor(
     String accountId,
     ExposureFactor? factor, {
     required int session,
+    required IdTokenProvider idToken,
+    bool Function()? isActive,
   }) async {
-    final uid = _uid;
-    final settings = _exposureSettings;
     final assetIds = {
       for (final account in accounts)
         if (account.kind == NetWorthKind.asset) account.id,
@@ -118,8 +111,6 @@ class NetWorthController extends ChangeNotifier {
         if (row.kind == NetWorthKind.asset) row.accountId,
     };
     if (session != _session ||
-        uid == null ||
-        settings == null ||
         exposureSettingsStatus != ExposureSettingsStatus.ready ||
         !assetIds.contains(accountId)) {
       return false;
@@ -128,17 +119,49 @@ class NetWorthController extends ChangeNotifier {
     notifyListeners();
     var saved = false;
     final write = _settingsWrites.then((_) async {
-      if (session != _session) return;
-      try {
-        await settings.save(uid, accountId, factor);
-        if (session != _session) return;
-        if (factor == null) {
-          _exposureFactors.remove(accountId);
-        } else {
-          _exposureFactors[accountId] = factor;
+      if (session != _session || isActive?.call() == false) {
+        if (session == _session) {
+          _pendingSettingsWrites--;
+          notifyListeners();
         }
+        return;
+      }
+      try {
+        final token = await idToken();
+        if (session != _session || isActive?.call() == false) {
+          if (session == _session) {
+            _pendingSettingsWrites--;
+            notifyListeners();
+          }
+          return;
+        }
+        if (token.isEmpty) throw const FinanceReauthenticationRequired();
+        final updated = await _updateAccount(
+          token,
+          accountId,
+          exposure: (value: factor),
+        );
+        if (session != _session) return;
+        _acknowledgedExposures[accountId] = (
+          revision: ++_exposureRevision,
+          value: updated.exposureFactor,
+        );
+        accounts = [
+          for (final account in accounts)
+            if (account.id == accountId)
+              _withExposure(account, updated.exposureFactor)
+            else
+              account,
+          if (!accounts.any((account) => account.id == accountId)) updated,
+        ];
         exposureSaveFailed = false;
         saved = true;
+      } on FinanceReauthenticationRequired {
+        if (session != _session) return;
+        _loadRequest++;
+        status = FinanceStatus.needsReauth;
+        exposureSettingsStatus = ExposureSettingsStatus.readFailed;
+        exposureSaveFailed = true;
       } catch (_) {
         if (session != _session) return;
         exposureSaveFailed = true;
@@ -179,9 +202,9 @@ class NetWorthController extends ChangeNotifier {
   void reset() {
     _session++;
     _loadRequest++;
-    _settingsRequest++;
     _uid = null;
-    _exposureFactors = {};
+    _acknowledgedExposures.clear();
+    _exposureRevision = 0;
     _pendingSettingsWrites = 0;
     exposureSettingsStatus = ExposureSettingsStatus.unavailable;
     exposureSaveFailed = false;
@@ -214,10 +237,12 @@ class NetWorthController extends ChangeNotifier {
   }) async {
     final session = _session;
     final request = ++_loadRequest;
+    final exposureRevision = _exposureRevision;
     bool isCurrent() => session == _session && request == _loadRequest;
     final isMonthChange = month != selectedMonth;
     selectedMonth = month;
     status = FinanceStatus.loading;
+    exposureSettingsStatus = ExposureSettingsStatus.loading;
     error = null;
     if (isMonthChange) {
       monthly = null;
@@ -232,7 +257,15 @@ class NetWorthController extends ChangeNotifier {
         _getTrend(idToken, from: _trendStart(month), to: month),
       ]);
       if (!isCurrent()) return;
-      accounts = results[0] as List<NetWorthAccount>;
+      accounts = [
+        for (final account in results[0] as List<NetWorthAccount>)
+          if (_acknowledgedExposures[account.id] case final saved?
+              when saved.revision > exposureRevision)
+            _withExposure(account, saved.value)
+          else
+            account,
+      ];
+      exposureSettingsStatus = ExposureSettingsStatus.ready;
       monthly = results[1] as MonthlyNetWorth;
       trend = results[2] as List<NetWorthTrendPoint>;
       status = FinanceStatus.loaded;
@@ -241,16 +274,19 @@ class NetWorthController extends ChangeNotifier {
     } on FinanceReauthenticationRequired {
       if (!isCurrent()) return;
       status = FinanceStatus.needsReauth;
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
     } on FinanceFetchFailure {
       if (!isCurrent()) return;
       status = FinanceStatus.error;
       error = FinanceError.fetchFailed;
       reloadFailed = true;
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
     } catch (_) {
       if (!isCurrent()) return;
       status = FinanceStatus.error;
       error = FinanceError.unknown;
       reloadFailed = true;
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
     }
     notifyListeners();
   }
@@ -334,6 +370,7 @@ class NetWorthController extends ChangeNotifier {
       if (!isCurrent()) return false;
       _loadRequest++;
       status = FinanceStatus.needsReauth;
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
       notifyListeners();
       return false;
     } catch (_) {
@@ -356,6 +393,7 @@ class NetWorthController extends ChangeNotifier {
                 name: account.name,
                 sortOrder: position[account.id]!,
                 archived: account.archived,
+                exposureFactor: account.exposureFactor,
               )
             : account,
     ];
@@ -378,6 +416,7 @@ class NetWorthController extends ChangeNotifier {
     } on FinanceReauthenticationRequired {
       if (!isCurrent()) return;
       status = FinanceStatus.needsReauth;
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
     } on FinanceValidationFailure {
       if (!isCurrent()) return;
       status = FinanceStatus.error;
@@ -397,6 +436,9 @@ class NetWorthController extends ChangeNotifier {
     }
     // A read started before this failure must not erase the write error.
     _loadRequest++;
+    if (exposureSettingsStatus == ExposureSettingsStatus.loading) {
+      exposureSettingsStatus = ExposureSettingsStatus.readFailed;
+    }
     notifyListeners();
   }
 
@@ -408,6 +450,18 @@ class NetWorthController extends ChangeNotifier {
     }
     return start;
   }
+
+  static NetWorthAccount _withExposure(
+    NetWorthAccount account,
+    ExposureFactor? factor,
+  ) => NetWorthAccount(
+    id: account.id,
+    kind: account.kind,
+    name: account.name,
+    sortOrder: account.sortOrder,
+    archived: account.archived,
+    exposureFactor: factor,
+  );
 
   @override
   void dispose() {

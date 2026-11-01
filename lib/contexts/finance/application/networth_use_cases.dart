@@ -1,5 +1,6 @@
 import '../domain/finance_repository.dart';
 import '../domain/networth_account.dart';
+import '../domain/networth_exposure.dart';
 import '../domain/networth_snapshot.dart';
 
 /// Use case: list every net worth account (archived included); the first
@@ -44,12 +45,14 @@ class UpdateNetWorthAccount {
     String? name,
     int? sortOrder,
     bool? archived,
+    ({ExposureFactor? value})? exposure,
   }) => _repository.updateNetWorthAccount(
     idToken,
     id,
     name: name,
     sortOrder: sortOrder,
     archived: archived,
+    exposure: exposure,
   );
 }
 

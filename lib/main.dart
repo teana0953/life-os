@@ -37,8 +37,6 @@ import 'contexts/finance/application/list_finance_budgets.dart';
 import 'contexts/finance/application/get_split_spending.dart';
 import 'contexts/finance/application/list_finance_categories.dart';
 import 'contexts/finance/application/networth_use_cases.dart';
-import 'contexts/finance/application/exposure_settings.dart';
-import 'contexts/finance/infrastructure/shared_preferences_exposure_settings_repository.dart';
 import 'contexts/finance/application/update_transaction.dart';
 import 'contexts/finance/application/upsert_budget.dart';
 import 'contexts/finance/infrastructure/http_finance_repository.dart';
@@ -282,9 +280,6 @@ Future<void> main() async {
     UpsertSnapshot(financeRepository),
     GetMonthlyNetWorth(financeRepository),
     GetNetWorthTrend(financeRepository),
-    exposureSettings: ExposureSettings(
-      SharedPreferencesExposureSettingsRepository(prefs),
-    ),
   );
   // The assistant reuses the finance context's use cases for accepting a
   // proposal card (cross-context via the application layer, the split

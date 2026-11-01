@@ -26,8 +26,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exposureSettings => 'Set exposure factors';
 
   @override
-  String get exposureLocalCaveat =>
-      'Factors are saved only on this device for this user and account. Current factors recalculate every month, including history; they are not historical records.';
+  String get exposureSyncCaveat =>
+      'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.';
 
   @override
   String get exposureFormula =>

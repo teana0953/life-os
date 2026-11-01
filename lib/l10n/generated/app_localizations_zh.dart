@@ -26,8 +26,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exposureSettings => 'Set exposure factors';
 
   @override
-  String get exposureLocalCaveat =>
-      'Factors are saved only on this device for this user and account. Current factors recalculate every month, including history; they are not historical records.';
+  String get exposureSyncCaveat =>
+      'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.';
 
   @override
   String get exposureFormula =>
@@ -3308,8 +3308,8 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get exposureSettings => '設定曝險倍數';
 
   @override
-  String get exposureLocalCaveat =>
-      '倍數依使用者與科目儲存於此裝置。現行倍數會重算所有月份（包含歷史月份），不是當時的設定紀錄。';
+  String get exposureSyncCaveat =>
+      '倍數會透過帳號跨裝置同步。重新整理淨值即可讀取其他裝置的變更。現行倍數會重算所有月份（包含歷史月份），不是當時的設定紀錄。';
 
   @override
   String get exposureFormula =>

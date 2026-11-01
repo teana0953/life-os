@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/auth/id_token_provider.dart';
 import '../../../shared/widgets/ledge_card.dart';
 import '../domain/finance_money.dart';
 import '../domain/networth_account.dart';
@@ -10,23 +11,33 @@ import 'networth_controller.dart';
 Future<void> showExposureSettings(
   BuildContext context,
   NetWorthController controller,
-) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  builder: (_) => FractionallySizedBox(
-    heightFactor: 0.9,
-    child: _ExposureSettings(
-      controller: controller,
-      session: controller.exposureSession,
+  IdTokenProvider idToken,
+) {
+  final session = controller.exposureSession;
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => FractionallySizedBox(
+      heightFactor: 0.9,
+      child: _ExposureSettings(
+        controller: controller,
+        session: session,
+        idToken: idToken,
+      ),
     ),
-  ),
-);
+  );
+}
 
 class _ExposureSettings extends StatelessWidget {
   final NetWorthController controller;
   final int session;
-  const _ExposureSettings({required this.controller, required this.session});
+  final IdTokenProvider idToken;
+  const _ExposureSettings({
+    required this.controller,
+    required this.session,
+    required this.idToken,
+  });
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -96,7 +107,11 @@ class _ExposureSettings extends StatelessWidget {
                       ),
                       OutlinedButton(
                         key: const Key('exposure-read-retry'),
-                        onPressed: controller.reloadExposureSettings,
+                        onPressed: () => controller.reloadExposureSettings(
+                          idToken,
+                          session: session,
+                          isActive: () => context.mounted,
+                        ),
                         child: Text(loc.retry),
                       ),
                     ],
@@ -120,7 +135,7 @@ class _ExposureSettings extends StatelessWidget {
                   if (!current || status == ExposureSettingsStatus.unavailable)
                     Text(loc.exposureUnavailable)
                   else ...[
-                    Text(loc.exposureLocalCaveat),
+                    Text(loc.exposureSyncCaveat),
                     const SizedBox(height: 12),
                     Text(loc.exposureFactorGuide),
                     const SizedBox(height: 12),
@@ -178,6 +193,8 @@ class _ExposureSettings extends StatelessWidget {
                                             entry.key,
                                             factor,
                                             session: session,
+                                            idToken: idToken,
+                                            isActive: () => context.mounted,
                                           ),
                                   ),
                               ],

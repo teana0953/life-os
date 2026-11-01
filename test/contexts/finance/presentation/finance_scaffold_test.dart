@@ -35,6 +35,7 @@ import '../../split/support/fake_split_repository.dart';
 import '../../split/support/split_presentation_fakes.dart';
 import '../../../support/month_label.dart';
 import '../finance_test_support.dart';
+import '../exposure_test_support.dart';
 
 Future<void> _revealNetWorthControl(WidgetTester tester, Finder control) async {
   await tester.scrollUntilVisible(
@@ -112,6 +113,62 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 void main() {
+  for (final abort in ['none', 'signout', 'close']) {
+    testWidgets('exposure sheet resolves the current auth token and rejects stale action $abort', (tester) async {
+      final repo = ExposureTestRepository()..seedSnapshot('acc-cash', '2026-07', 100);
+      final auth = _FakeAuthRepository(token: 'initial-token');
+      final controller = testNetWorthController(repo);
+      await tester.pumpWidget(l10nTestApp(home: FinanceScaffold(
+        authRepository: auth,
+        controller: testFinanceController(repo),
+        netWorthController: controller,
+        financeRepository: repo,
+        split: _splitDeps(FakeSplitRepository()),
+        clock: () => DateTime(2026, 7, 15),
+      )));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('networth-tab')));
+      await tester.pumpAndSettle();
+      final settings = find.byKey(const Key('exposure-settings-button'));
+      await _revealNetWorthControl(tester, settings);
+      final reads = repo.networthCalls.length;
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+      expect(repo.networthCalls.length, reads);
+      final chip = find.byKey(const Key('exposure-factor-acc-cash-2'));
+      await tester.scrollUntilVisible(chip, 250, scrollable: find.descendant(
+        of: find.byKey(const Key('exposure-settings-list')), matching: find.byType(Scrollable)), maxScrolls: 30);
+      final gate = Completer<void>();
+      auth.gates[auth.idTokenCalls + 1] = gate;
+      await tester.tap(chip);
+      await tester.pump();
+      expect(repo.factorWrites, isEmpty);
+      auth.token = 'renewed-token';
+      if (abort == 'signout') {
+        controller.reset();
+        await controller.loadForUser('different-user');
+        auth.token = 'different-user-token';
+      } else if (abort == 'close') {
+        await tester.tap(find.byTooltip(lookupAppLocalizations(const Locale('en')).exposureClose));
+        await tester.pumpAndSettle();
+      }
+      gate.complete();
+      if (abort == 'signout') {
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      } else {
+        await tester.pumpAndSettle();
+      }
+      expect(repo.factorWrites, abort == 'none' ? ['renewed-token:acc-cash:2'] : isEmpty);
+      expect(controller.exposureSaving, isFalse);
+      if (abort == 'none') {
+        auth.token = 'renewed-again-token';
+        await tester.tap(find.byKey(const Key('exposure-factor-acc-cash-3')));
+        await tester.pumpAndSettle();
+        expect(repo.factorWrites.last, 'renewed-again-token:acc-cash:3');
+      }
+    });
+  }
   group('FinanceScaffold', () {
     group('pull to refresh (#198)', () {
       Future<void> pump(
