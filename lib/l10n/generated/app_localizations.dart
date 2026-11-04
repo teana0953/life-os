@@ -111,6 +111,18 @@ abstract class AppLocalizations {
   /// **'Total exposure'**
   String get exposureTotal;
 
+  /// Label for total exposure divided by net worth, expressed as a percentage.
+  ///
+  /// In en, this message translates to:
+  /// **'Exposure percentage'**
+  String get exposurePercentageLabel;
+
+  /// Exposure to net-worth ratio multiplied by 100 before rounding to two decimal places. Can exceed 100%.
+  ///
+  /// In en, this message translates to:
+  /// **'{percentage}%'**
+  String exposurePercentage(String percentage);
+
   /// Total exposure divided by net worth.
   ///
   /// In en, this message translates to:
@@ -135,16 +147,16 @@ abstract class AppLocalizations {
   /// **'Factors sync with your account across devices. Refresh net worth to see changes from another device. Current factors recalculate every month, including history; they are not historical records.'**
   String get exposureSyncCaveat;
 
-  /// Formula with explicit liability treatment.
+  /// Exposure amount, percentage and leverage formulas with explicit liability treatment.
   ///
   /// In en, this message translates to:
-  /// **'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.'**
+  /// **'Exposure = sum of asset market value × factor. Exposure percentage = exposure ÷ net worth × 100%. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.'**
   String get exposureFormula;
 
-  /// Worked source examples using full property market value and separate debt.
+  /// Worked source examples showing exposure percentage and leverage using full property market value and separate debt.
   ///
   /// In en, this message translates to:
-  /// **'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.'**
+  /// **'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure, 100% exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, exposure percentage 350%, leverage 3.5×. Do not enter property equity as its market value.'**
   String get exposureExamples;
 
   /// Attribution for exposure method.
@@ -195,10 +207,10 @@ abstract class AppLocalizations {
   /// **'Classify these assets before calculating: {names}'**
   String exposureUnknownAccounts(String names);
 
-  /// No ratio for nonpositive net worth.
+  /// Neither exposure percentage nor leverage is defined for nonpositive net worth.
   ///
   /// In en, this message translates to:
-  /// **'Leverage is undefined when net worth is zero or negative.'**
+  /// **'Exposure percentage and leverage are undefined when net worth is zero or negative.'**
   String get exposureNoRatio;
 
   /// Pending settings read.

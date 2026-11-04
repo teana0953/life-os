@@ -129,17 +129,57 @@ Future<void> _sheetScrollTo(WidgetTester tester, Finder target) async {
 void main() {
   final loc = lookupAppLocalizations(const Locale('en'));
 
-  testWidgets('complete property example publishes total and ratio', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.byKey(const Key('exposure-total')), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(const Key('exposure-total'))).data,
-      '21,000,000',
-    );
-    expect(find.text(loc.exposureRatio('3.50')), findsOneWidget);
-  });
+  testWidgets(
+    'complete property example publishes total, percentage and ratio',
+    (tester) async {
+      await _pump(tester);
+      expect(find.byKey(const Key('exposure-total')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('exposure-total'))).data,
+        '21,000,000',
+      );
+      expect(find.text(loc.exposureRatio('3.50')), findsOneWidget);
+      final percentage = find.byKey(const Key('exposure-percentage'));
+      expect(
+        tester.widget<Text>(percentage).data,
+        loc.exposurePercentage('350.00'),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('exposure-total'))).dy,
+        lessThan(tester.getTopLeft(percentage).dy),
+      );
+      expect(
+        tester.getTopLeft(percentage).dy,
+        lessThan(tester.getTopLeft(find.byKey(const Key('exposure-ratio'))).dy),
+      );
+    },
+  );
+
+  for (final (investment, cash, factor, percentage, ratio) in [
+    (3000000, 3000000, ExposureFactor.leveraged2, '100.00', '1.00'),
+    (3000000, 3000000, ExposureFactor.unleveraged, '50.00', '0.50'),
+    (3000000, 3000000, ExposureFactor.cash, '0.00', '0.00'),
+    (1000000, 2000000, ExposureFactor.unleveraged, '33.33', '0.33'),
+  ]) {
+    testWidgets('exposure is $percentage% with $ratio leverage', (
+      tester,
+    ) async {
+      final repo = _repo(debt: 0)
+        ..setFactor('etf', factor)
+        ..setFactor('property', ExposureFactor.cash)
+        ..seedSnapshot('etf', '2026-07', investment)
+        ..seedSnapshot('property', '2026-07', cash);
+      await _pump(tester, repo: repo);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('exposure-percentage'))).data,
+        loc.exposurePercentage(percentage),
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('exposure-ratio'))).data,
+        loc.exposureRatio(ratio),
+      );
+    });
+  }
 
   testWidgets('missing active liability explicitly blocks the headline', (
     tester,
@@ -149,6 +189,7 @@ void main() {
     expect(find.text(loc.exposureMissingAccounts('debt')), findsOneWidget);
     expect(find.byKey(const Key('exposure-total')), findsNothing);
     expect(find.byKey(const Key('exposure-ratio')), findsNothing);
+    expect(find.byKey(const Key('exposure-percentage')), findsNothing);
   });
 
   testWidgets(
@@ -158,21 +199,24 @@ void main() {
       final controller = await _pump(tester, repo: repo);
       expect(find.text(loc.exposureUnknownAccounts('etf')), findsOneWidget);
       expect(find.byKey(const Key('exposure-total')), findsNothing);
+      expect(find.byKey(const Key('exposure-percentage')), findsNothing);
       await controller.load('token', '2026-08');
       await tester.pumpAndSettle();
       expect(find.text(loc.exposureEmpty), findsOneWidget);
       expect(find.byKey(const Key('exposure-ratio')), findsNothing);
+      expect(find.byKey(const Key('exposure-percentage')), findsNothing);
     },
   );
 
-  testWidgets('nonpositive net worth shows exposure but no ratio', (
-    tester,
-  ) async {
-    await _pump(tester, repo: _repo(debt: 20000000));
-    expect(find.byKey(const Key('exposure-total')), findsOneWidget);
-    expect(find.text(loc.exposureNoRatio), findsOneWidget);
-    expect(find.byKey(const Key('exposure-ratio')), findsNothing);
-  });
+  for (final debt in [18000000, 20000000]) {
+    testWidgets('debt $debt leaves no percentage or leverage', (tester) async {
+      await _pump(tester, repo: _repo(debt: debt));
+      expect(find.byKey(const Key('exposure-total')), findsOneWidget);
+      expect(find.text(loc.exposureNoRatio), findsOneWidget);
+      expect(find.byKey(const Key('exposure-ratio')), findsNothing);
+      expect(find.byKey(const Key('exposure-percentage')), findsNothing);
+    });
+  }
 
   testWidgets('archived monthly-only ID can be classified and unclassified', (
     tester,
@@ -233,6 +277,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(loc.exposureReadFailed), findsOneWidget);
       expect(find.byKey(const Key('exposure-total')), findsNothing);
+      expect(find.byKey(const Key('exposure-percentage')), findsNothing);
       await _open(tester);
       repo.failRead = false;
       final retry = find.byKey(const Key('exposure-read-retry'));
@@ -243,6 +288,7 @@ void main() {
       await tester.pump();
       expect(find.text(loc.exposureUnavailable), findsOneWidget);
       expect(find.byKey(const Key('exposure-account-etf')), findsNothing);
+      expect(find.byKey(const Key('exposure-percentage')), findsNothing);
     },
   );
 
@@ -326,6 +372,21 @@ void main() {
       ) async {
         await expectNoLayoutErrors(() async {
           await _pump(tester, locale: locale, dark: dark, scale: 2);
+          final localized = lookupAppLocalizations(locale);
+          final percentage = find.byKey(const Key('exposure-percentage'));
+          await tester.scrollUntilVisible(
+            percentage,
+            250,
+            scrollable: find.byType(Scrollable).first,
+            maxScrolls: 60,
+          );
+          expect(find.text(localized.exposurePercentageLabel), findsOneWidget);
+          expect(
+            tester.widget<Text>(percentage).data,
+            localized.exposurePercentage('350.00'),
+          );
+          expect(find.text(localized.exposureRatio('3.50')), findsOneWidget);
+          expect(tester.getRect(percentage).width, lessThanOrEqualTo(320));
           await _open(tester);
           for (final id in ['etf', 'property']) {
             final chip = find.byKey(Key('exposure-factor-$id-3'));

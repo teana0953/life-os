@@ -15,6 +15,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exposureTotal => 'Total exposure';
 
   @override
+  String get exposurePercentageLabel => 'Exposure percentage';
+
+  @override
+  String exposurePercentage(String percentage) {
+    return '$percentage%';
+  }
+
+  @override
   String get exposureLeverage => 'Leverage';
 
   @override
@@ -31,11 +39,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exposureFormula =>
-      'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
+      'Exposure = sum of asset market value × factor. Exposure percentage = exposure ÷ net worth × 100%. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
 
   @override
   String get exposureExamples =>
-      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.';
+      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure, 100% exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, exposure percentage 350%, leverage 3.5×. Do not enter property equity as its market value.';
 
   @override
   String get exposureSource =>
@@ -71,7 +79,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exposureNoRatio =>
-      'Leverage is undefined when net worth is zero or negative.';
+      'Exposure percentage and leverage are undefined when net worth is zero or negative.';
 
   @override
   String get exposureReading => 'Reading exposure settings…';
@@ -3297,6 +3305,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get exposureTotal => '總曝險金額';
 
   @override
+  String get exposurePercentageLabel => '曝險比例';
+
+  @override
+  String exposurePercentage(String percentage) {
+    return '$percentage%';
+  }
+
+  @override
   String get exposureLeverage => '槓桿倍數';
 
   @override
@@ -3313,11 +3329,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get exposureFormula =>
-      '曝險金額＝各資產市值 × 倍數的總和。槓桿倍數＝曝險金額 ÷ 淨值。負債僅減少淨值，不再從曝險金額扣除。';
+      '曝險金額＝各資產市值 × 倍數的總和。曝險比例＝曝險金額 ÷ 淨值 × 100%。槓桿倍數＝曝險金額 ÷ 淨值。負債僅減少淨值，不再從曝險金額扣除。';
 
   @override
   String get exposureExamples =>
-      '參考大仁的算法：300 萬的 2 倍 ETF 加上 300 萬現金，曝險為 600 萬、槓桿為 1 倍。若將現金換成完整市值 1,500 萬的房產，並另外記錄 1,200 萬負債，曝險為 2,100 萬、淨值為 600 萬、槓桿為 3.5 倍。房產請填完整市值，不要填扣除房貸後的權益。';
+      '參考大仁的算法：300 萬的 2 倍 ETF 加上 300 萬現金，曝險為 600 萬、曝險比例為 100%、槓桿為 1 倍。若將現金換成完整市值 1,500 萬的房產，並另外記錄 1,200 萬負債，曝險為 2,100 萬、淨值為 600 萬、曝險比例為 350%、槓桿為 3.5 倍。房產請填完整市值，不要填扣除房貸後的權益。';
 
   @override
   String get exposureSource =>
@@ -3351,7 +3367,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get exposureNoRatio => '淨值為零或負數時，無法定義槓桿倍數。';
+  String get exposureNoRatio => '淨值為零或負數時，無法定義曝險比例與槓桿倍數。';
 
   @override
   String get exposureReading => '正在讀取曝險設定…';
