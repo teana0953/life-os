@@ -85,14 +85,24 @@ class NetWorthExposureCard extends StatelessWidget {
                 style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
-              Text(loc.exposureLeverage, style: theme.textTheme.titleMedium),
-              if (result.leverage case final ratio?)
+              if (result.leverage case final ratio?) ...[
+                Text(
+                  loc.exposurePercentageLabel,
+                  style: theme.textTheme.titleMedium,
+                ),
+                Text(
+                  loc.exposurePercentage((ratio * 100).toStringAsFixed(2)),
+                  key: const Key('exposure-percentage'),
+                  style: theme.textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(loc.exposureLeverage, style: theme.textTheme.titleMedium),
                 Text(
                   loc.exposureRatio(ratio.toStringAsFixed(2)),
                   key: const Key('exposure-ratio'),
                   style: theme.textTheme.headlineSmall,
-                )
-              else
+                ),
+              ] else
                 Text(loc.exposureNoRatio, key: const Key('exposure-no-ratio')),
             ],
           ],

@@ -15,6 +15,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exposureTotal => 'Total exposure';
 
   @override
+  String get exposurePercentageLabel => 'Exposure percentage';
+
+  @override
+  String exposurePercentage(String percentage) {
+    return '$percentage%';
+  }
+
+  @override
   String get exposureLeverage => 'Leverage';
 
   @override
@@ -31,11 +39,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exposureFormula =>
-      'Exposure = sum of asset market value × factor. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
+      'Exposure = sum of asset market value × factor. Exposure percentage = exposure ÷ net worth × 100%. Leverage = exposure ÷ net worth. Debt reduces net worth only; it is not subtracted from exposure.';
 
   @override
   String get exposureExamples =>
-      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, leverage 3.5×. Do not enter property equity as its market value.';
+      'Following 大仁\'s method: 3,000,000 in a 2× ETF plus 3,000,000 cash gives 6,000,000 exposure, 100% exposure and 1× leverage. Replace cash with property at its full 15,000,000 market value and enter 12,000,000 debt separately: exposure is 21,000,000, net worth 6,000,000, exposure percentage 350%, leverage 3.5×. Do not enter property equity as its market value.';
 
   @override
   String get exposureSource =>
@@ -71,7 +79,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exposureNoRatio =>
-      'Leverage is undefined when net worth is zero or negative.';
+      'Exposure percentage and leverage are undefined when net worth is zero or negative.';
 
   @override
   String get exposureReading => 'Reading exposure settings…';
